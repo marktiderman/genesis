@@ -83,26 +83,15 @@ describe("update with a version rule", () => {
   });
 
   it("without an expected version, updates unchecked as before", async () => {
-    queue.push(ok([{ id: "t1", version: 4 }]), ok([{ id: "t1", title: "New", version: 4 }]));
+    queue.push(ok([{ id: "t1", title: "New", version: 4 }]));
     await provider().update("tasks", { id: "t1", data: { title: "New" } });
-    // The update filters by id only; the second eq is the read-back of the record by id.
-    expect(calls.filter((c) => c.method === "eq")).toEqual([
-      { method: "eq", args: ["id", "t1"] },
-      { method: "eq", args: ["id", "t1"] },
-    ]);
-    // The update asks for the key and the version only.
-    expect(calls.filter((c) => c.method === "select")[0]).toEqual({ method: "select", args: ["id,version"] });
+    expect(calls.filter((c) => c.method === "eq")).toEqual([{ method: "eq", args: ["id", "t1"] }]);
   });
 
   it("a resource without a version rule ignores expectedVersion", async () => {
-    queue.push(ok([{ id: "n1" }]), ok([{ id: "n1", body: "x", version: 9 }]));
+    queue.push(ok([{ id: "n1", body: "x", version: 9 }]));
     const res = await provider().update("notes", { id: "n1", data: { body: "x", version: 9 }, expectedVersion: "1" });
-    // No version filter: the update's eq and the read-back's eq are both by id.
-    expect(calls.filter((c) => c.method === "eq")).toEqual([
-      { method: "eq", args: ["id", "n1"] },
-      { method: "eq", args: ["id", "n1"] },
-    ]);
-    expect(calls.filter((c) => c.method === "select")[0]).toEqual({ method: "select", args: ["id"] });
+    expect(calls.filter((c) => c.method === "eq")).toEqual([{ method: "eq", args: ["id", "n1"] }]);
     // Nothing is dropped from the row for a resource without a rule.
     expect(calls).toContainEqual({ method: "update", args: [{ body: "x", version: 9 }] });
     expect(res.version).toBeUndefined();

@@ -9,13 +9,11 @@
  *   - A table write in app code (`.from("t").insert/update/upsert/delete(…)`): writes go through
  *     a named database function, which holds the access rule. A write that must stay on the table
  *     is recorded as an exception: an `allow` entry for this rule, with its reason.
- * - `data/access-rule-tests`: a database function a resource declares (`writes`, `actions`, a
- *   `source: { rpc }`) with no access-rule test: no `accessRules` call in a test file given
- *   `fn: "<name>"`, written in the call or in a spec it names (directly, spread, or through a
- *   `for (… of specs)` loop over a list set in the same file). The function holds who may call
- *   it, so a test proves who is allowed and who is refused. Resources are read from files that
- *   configure the Supabase provider (they name `createSupabaseProvider`, `SupabaseResourceConfig`
- *   or `SupabaseProviderOptions`), so another `actions: {…}` (a labels object) is not taken for one.
+ * - `data/access-rule-tests`: the app configures the Supabase provider and no test file calls
+ *   `expectAccessRulesCover` (`@marktiderman/genesis-core/testing`). That test reads the
+ *   provider's own options and fails for each declared function (`writes`, `actions`, a
+ *   `source: { rpc }`) without an `accessRules` test, so which functions are covered is decided
+ *   at run time from the configuration, never guessed from the source text here.
  *
  * A provider's options are read where the call writes them, or from an object set in the same
  * file that the call names (`createSupabaseProvider(client, options)`), unless the file sets it
@@ -42,9 +40,6 @@ const TABLE_WRITE = /\.from\(\s*(["'`])([\w.]+)\1\s*\)\s*\.\s*(insert|update|ups
 /** `.from(` right after Supabase Storage (`supabase.storage.from("bucket")`): a bucket, not a table. */
 const STORAGE_BEFORE = /\bstorage\s*\??\.?\s*$/;
 
-/** A file that configures the Supabase provider's resources. */
-const PROVIDER_CONFIG = /\b(createSupabaseProvider|SupabaseResourceConfig|SupabaseProviderOptions)\b/;
-
 /** The text of the balanced `{…}` or `(…)` that opens at `start`, or "" when it doesn't close. */
 export function balanced(code: string, start: number): string {
   const open = code[start];
@@ -61,222 +56,6 @@ export function balanced(code: string, start: number): string {
     }
   }
   return "";
-}
-
-/** A declared database function: its name and where it's declared. */
-export interface DeclaredFunction {
-  readonly fn: string;
-  readonly file: string;
-  readonly line: number;
-}
-
-/**
- * The function names a block of a resource's config declares: a `keys: "name"` pair directly in
- * the block (`create: "x"`, an action's `archive: "x"`, `rpc: "x"`), and `fn: "x"` one level down
- * (`create: { fn: "x", args }`). Strings deeper in (an `args` object's values) are arguments, not
- * function names.
- */
-function namesIn(block: string, keys: RegExp): { name: string; at: number }[] {
-  const out: { name: string; at: number }[] = [];
-  const blank = blankStrings(block);
-  const depthAt = (index: number) => {
-    let depth = 0;
-    for (let i = 0; i < index; i++) {
-      const ch = blank[i];
-      if (ch === "{" || ch === "(" || ch === "[") depth++;
-      else if (ch === "}" || ch === ")" || ch === "]") depth--;
-    }
-    return depth;
-  };
-  const pair = /(?:^|[\s{,])([A-Za-z_$][\w$]*)\s*:\s*(["'`])([A-Za-z_][\w.]*)\2/g;
-  for (const m of block.matchAll(pair)) {
-    const at = m.index ?? 0;
-    if (blank[at + m[0].indexOf(m[1]!)] === " ") continue;
-    const depth = depthAt(at + m[0].indexOf(m[1]!));
-    const key = m[1]!;
-    const direct = depth === 1 && new RegExp(`^(?:${keys.source})$`).test(key);
-    const nested = depth === 2 && key === "fn";
-    if (direct || nested) out.push({ name: m[3]!, at });
-  }
-  return out;
-}
-
-/**
- * The opening brace of each object literal the file gives the type `type`:
- * - annotated: `const x: Type = {…}` (or `Record<string, Type>`, any type naming it);
- * - checked: `const x = {…} satisfies …Type…`, and `export default {…} satisfies …Type…`;
- * - returned by a function annotated to return it (`Promise<Type>` too): `(): Type => ({…})`,
- *   `(): Type => { return {…} }`, or `function f(): Type { … return {…} }`. Only the function's
- *   own `return`s count, not one in a function nested in it (a `.map` callback, say).
- */
-function typedObjects(code: string, blank: string, type: string): number[] {
-  const out: number[] = [];
-  const t = `\\b${type}\\b`;
-  for (const m of blank.matchAll(new RegExp(`${t}[^=;{()]*=\\s*\\{`, "g"))) out.push((m.index ?? 0) + m[0].length - 1);
-  for (const m of blank.matchAll(/(?:\b(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*=|\bexport\s+default)\s*\{/g)) {
-    const open = (m.index ?? 0) + m[0].length - 1;
-    const block = balanced(code, open);
-    if (block && new RegExp(`^\\s*satisfies\\b[^;]*${t}`).test(blank.slice(open + block.length))) out.push(open);
-  }
-  // The return type: anything up to the body that names the type and has no `=`, `;`, `{` or
-  // parenthesis (so `Promise<Type>` and `Record<string, Type>` count), then `=> ({`, `=> {` or `{`.
-  const returns = `\\)\\s*:\\s*[^=;{()]*${t}[^=;{()]*`;
-  for (const m of blank.matchAll(new RegExp(`${returns}=>\\s*\\(\\s*\\{`, "g"))) out.push((m.index ?? 0) + m[0].length - 1);
-  for (const m of blank.matchAll(new RegExp(`${returns}(?:=>\\s*)?\\{`, "g"))) {
-    const bodyOpen = (m.index ?? 0) + m[0].length - 1;
-    for (const at of ownReturns(code, bodyOpen)) out.push(at);
-  }
-  return out;
-}
-
-/**
- * The opening brace of each `return {…}` a function body (its `{` at `bodyOpen`) makes itself: in
- * its own blocks (`if (…) { return {…} }`), not in a function nested in it (an arrow, a
- * `function`, a method) or inside a call's parentheses.
- */
-function ownReturns(code: string, bodyOpen: number): number[] {
-  const body = balanced(code, bodyOpen);
-  const blank = blankStrings(body);
-  const out: number[] = [];
-  // Per open bracket: whether it is a nested function's body, or a ( or [ (an expression).
-  const stack: ("block" | "nested")[] = [];
-  const BLOCK_KEYWORDS = /\b(?:if|for|while|switch|catch|with)\s*$/;
-  for (let i = 0; i < blank.length; i++) {
-    const ch = blank[i]!;
-    if (ch === "{") {
-      if (i === 0) {
-        stack.push("block");
-        continue;
-      }
-      const before = blank.slice(0, i).trimEnd();
-      // A nested function's body: after `=>`, or after a return type (`function f(): Label {`,
-      // `m(): Label {`); an `if (…)` condition is never followed by `:`.
-      let nested = stack.includes("nested") || before.endsWith("=>") || /\)\s*:\s*[^=;{()]*$/.test(before);
-      if (!nested && before.endsWith(")")) {
-        // The `(` that closes here: a block statement's condition, or a function's parameters.
-        let depth = 0;
-        let j = before.length - 1;
-        for (; j >= 0; j--) {
-          if (blank[j] === ")") depth++;
-          else if (blank[j] === "(" && --depth === 0) break;
-        }
-        nested = !BLOCK_KEYWORDS.test(blank.slice(0, j));
-      }
-      stack.push(nested ? "nested" : "block");
-    } else if (ch === "(" || ch === "[") stack.push("nested");
-    else if (ch === "}" || ch === ")" || ch === "]") stack.pop();
-    else if (ch === "r" && !stack.includes("nested") && /^return\s*\{/.test(blank.slice(i)) && !/[\w$]/.test(blank[i - 1] ?? " ")) {
-      const r = /^return\s*\{/.exec(blank.slice(i))!;
-      out.push(bodyOpen + i + r[0].length - 1);
-    }
-  }
-  return out;
-}
-
-/**
- * The provider's options objects in the file (each one's opening brace): written in a
- * `createSupabaseProvider(…)` call, set to a name the call passes, or typed `SupabaseProviderOptions`
- * (annotated, or with `satisfies`).
- */
-function providerOptions(code: string, blank: string): number[] {
-  const out: number[] = [];
-  for (const m of blank.matchAll(/\bcreateSupabaseProvider\s*\(/g)) {
-    const open = (m.index ?? 0) + m[0].length - 1;
-    const call = balanced(code, open);
-    const callBlank = blankStrings(call);
-    let depth = 0;
-    for (let i = 0; i < callBlank.length; i++) {
-      const ch = callBlank[i];
-      if (ch === "{" && depth === 1) out.push(open + i);
-      if (ch === "{" || ch === "(" || ch === "[") depth++;
-      else if (ch === "}" || ch === ")" || ch === "]") depth--;
-    }
-    for (const [, name] of callBlank.slice(1, -1).matchAll(/(?:^|,)\s*([A-Za-z_$][\w$]*)\s*(?=,|$)/g)) {
-      const found = initializer(code, blank, name!);
-      if (found?.text.startsWith("{")) out.push(found.open);
-    }
-  }
-  out.push(...typedObjects(code, blank, "SupabaseProviderOptions"));
-  return out;
-}
-
-/**
- * Where the file configures resources:
- * - the `resources` of a provider options object (`providerOptions`): written there, or the object
- *   set in the same file that `resources: name` or a shorthand `{ resources }` names;
- * - each object typed `SupabaseResourceConfig` (one resource, or a map of them), annotated
- *   (`const r: Record<string, SupabaseResourceConfig> = {…}`) or with `satisfies`.
- * Any other `resources` or `actions` object (labels, say) is not resource configuration.
- */
-function resourceConfigRanges(code: string, blank: string): [number, number][] {
-  const out: [number, number][] = [];
-  const add = (open: number) => {
-    const block = balanced(code, open);
-    if (block) out.push([open, open + block.length]);
-  };
-  for (const open of providerOptions(code, blank)) {
-    const object = balanced(code, open);
-    const objectBlank = blankStrings(object);
-    let depth = 0;
-    for (let i = 0; i < objectBlank.length; i++) {
-      const ch = objectBlank[i];
-      if (depth === 1 && /[\s{,]/.test(objectBlank[i - 1] ?? " ") && objectBlank.startsWith("resources", i)) {
-        const rest = objectBlank.slice(i + "resources".length);
-        const literal = /^\s*:\s*\{/.exec(rest);
-        const named = /^\s*:\s*([A-Za-z_$][\w$]*)\s*[,}]/.exec(rest);
-        if (literal) add(open + i + "resources".length + literal[0].length - 1);
-        else {
-          const name = named ? named[1]! : /^\s*[,}]/.test(rest) ? "resources" : null;
-          const found = name ? initializer(code, blank, name) : null;
-          if (found?.text.startsWith("{")) add(found.open);
-        }
-      }
-      if (ch === "{" || ch === "(" || ch === "[") depth++;
-      else if (ch === "}" || ch === ")" || ch === "]") depth--;
-    }
-  }
-  for (const open of typedObjects(code, blank, "SupabaseResourceConfig")) add(open);
-  return out;
-}
-
-/** The bracket depth at `to`, counting from `from` (the opening brace of a block: depth 1 inside it). */
-function depthBetween(blank: string, from: number, to: number): number {
-  let depth = 0;
-  for (let i = from; i < to; i++) {
-    const ch = blank[i];
-    if (ch === "{" || ch === "(" || ch === "[") depth++;
-    else if (ch === "}" || ch === ")" || ch === "]") depth--;
-  }
-  return depth;
-}
-
-/**
- * Every database function the app's resources declare: the names under `writes: {…}` and
- * `actions: {…}`, and a `source: { rpc: "…" }`.
- */
-export function declaredFunctions(files: DoctorContext["files"]): DeclaredFunction[] {
-  const out: DeclaredFunction[] = [];
-  for (const file of files) {
-    if (!SCRIPT_EXTS.has(file.ext)) continue;
-    const blank = blankStrings(file.code);
-    if (!PROVIDER_CONFIG.test(blank)) continue;
-    const configs = resourceConfigRanges(file.code, blank);
-    for (const m of blank.matchAll(/\b(writes|actions|source)\s*:\s*\{/g)) {
-      const open = (m.index ?? 0) + m[0].length - 1;
-      // Only a resource's own key: in a resource configuration (a labels object beside the provider
-      // isn't one), one level in for a single resource or two for a map of them, never deeper (an
-      // `actions` object a write function's `args` returns is an argument).
-      const key = m.index ?? 0;
-      if (!configs.some(([from, to]) => key > from && key < to && [1, 2].includes(depthBetween(blank, from, key)))) continue;
-      const block = balanced(file.code, open);
-      if (!block) continue;
-      const keys = m[1] === "writes" ? /create|update|delete/ : m[1] === "source" ? /rpc/ : /[A-Za-z_$][\w$]*/;
-      for (const { name, at } of namesIn(block, keys)) {
-        out.push({ fn: name, file: file.path, line: lineAt(file.code, open + at) });
-      }
-    }
-  }
-  return out;
 }
 
 /** The test files under the app (the doctor's own scan leaves tests out). */
@@ -303,31 +82,6 @@ function testFiles(root: string): string[] {
   return out;
 }
 
-/** The functions some test file gives an access-rule test: each `accessRules({ fn: "…" })`. */
-export function testedFunctions(root: string): Set<string> {
-  const out = new Set<string>();
-  for (const abs of testFiles(root)) {
-    let code: string;
-    try {
-      // Comments blanked, `//` ones included (every test file read here is a script, .mts and .cts
-      // too): a name in a comment is not a test.
-      code = stripBlockComments(readFileSync(abs, "utf8"), true);
-    } catch {
-      continue;
-    }
-    if (!code.includes("accessRules")) continue;
-    const blank = blankStrings(code);
-    for (const m of blank.matchAll(/\baccessRules\s*(?:<[^>]*>)?\s*\(/g)) {
-      const call = balanced(code, (m.index ?? 0) + m[0].length - 1);
-      // The `fn` the call is given: written in it, or in a spec it names, directly or through a
-      // loop over a list of specs (`for (const s of specs) accessRules({ ...s, as })`).
-      for (const name of fnNames(call)) out.add(name);
-      for (const name of specsNamedIn(code, blank, call, m.index ?? 0)) for (const fn of fnNames(name)) out.add(fn);
-    }
-  }
-  return out;
-}
-
 /**
  * The string values of `key: "…"` written at bracket depth `depth` in `text` (1 is directly inside
  * the outer `{…}`, `(…)` or `[…]`), so a key in an object nested deeper is not one.
@@ -350,14 +104,6 @@ function valuesAt(text: string, key: string, depth: number): string[] {
   return out;
 }
 
-/**
- * The function names a spec gives: its own top-level `fn`, not one in its `args`. `text` is the
- * call `(…)` (the spec at depth 2), an object `{…}` (depth 1) or a list of specs `[…]` (depth 2).
- */
-function fnNames(text: string): string[] {
-  return valuesAt(text, "fn", text.startsWith("{") ? 1 : 2);
-}
-
 /** The `[…]` or `{…}` a `const`/`let`/`var` named `name` is set to in the file, or "". */
 function initializer(code: string, blank: string, name: string): { text: string; keyword: string; at: number; open: number } | null {
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -366,77 +112,6 @@ function initializer(code: string, blank: string, name: string): { text: string;
   const open = decl.index + decl[0].length - 1;
   const text = balanced(code, open);
   return text ? { text, keyword: decl[1]!, at: decl.index, open } : null;
-}
-
-/**
- * The spec objects or lists an `accessRules(…)` call names: an identifier in it set in this file to
- * an object or list, or the list a `for (… of list)` loop takes that identifier from.
- */
-function specsNamedIn(code: string, blank: string, call: string, callAt: number): string[] {
-  const out: string[] = [];
-  // The spec itself (`accessRules(spec)`) and what the spec object spreads at its top level
-  // (`accessRules({ ...spec, as })`); a name elsewhere (in `args`, say) is not a spec.
-  const callBlank = blankStrings(call);
-  const names = new Set<string>();
-  const direct = /^\(\s*([A-Za-z_$][\w$]*)\s*[,)]/.exec(callBlank);
-  if (direct) names.add(direct[1]!);
-  let depth = 0;
-  for (let i = 0; i < callBlank.length; i++) {
-    const ch = callBlank[i];
-    if (depth === 2 && callBlank.startsWith("...", i)) {
-      const spread = /^\.\.\.\s*([A-Za-z_$][\w$]*)/.exec(callBlank.slice(i));
-      if (spread) names.add(spread[1]!);
-    }
-    if (ch === "{" || ch === "(" || ch === "[") depth++;
-    else if (ch === "}" || ch === ")" || ch === "]") depth--;
-  }
-  for (const name of names) {
-    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    // A `for (const name of list)` loop feeds the call only when the call is inside it.
-    let fed = false;
-    for (const loop of blank.matchAll(new RegExp(`\\bfor\\s*\\(\\s*(?:const|let|var)\\s+${escaped}\\s+of\\s+([A-Za-z_$][\\w$]*)\\s*\\)`, "g"))) {
-      const start = loop.index ?? 0;
-      if (callAt <= start || callAt >= loopEnd(blank, start + loop[0].length)) continue;
-      fed = true;
-      const list = initializer(code, blank, loop[1]!);
-      if (list) out.push(list.text);
-    }
-    // Otherwise the name is the spec set in the file.
-    if (!fed) {
-      const own = initializer(code, blank, name);
-      if (own) out.push(own.text);
-    }
-  }
-  return out;
-}
-
-/**
- * Where a loop's body ends, from just past its `for (…)`: the `{…}` block, or the one statement it
- * runs: a nested `for`/`if`/`while (…)` runs on to its own body, anything else ends at the `;` or
- * line end outside brackets.
- */
-function loopEnd(blank: string, from: number): number {
-  let i = from;
-  while (/\s/.test(blank[i] ?? "")) i++;
-  const header = /^(?:for|if|while)\s*\(/.exec(blank.slice(i));
-  if (header) {
-    let depth = 0;
-    for (let j = i + header[0].length - 1; j < blank.length; j++) {
-      if (blank[j] === "(") depth++;
-      else if (blank[j] === ")" && --depth === 0) return loopEnd(blank, j + 1);
-    }
-    return blank.length;
-  }
-  let depth = 0;
-  for (; i < blank.length; i++) {
-    const ch = blank[i];
-    if (ch === "{" || ch === "(" || ch === "[") depth++;
-    else if (ch === "}" || ch === ")" || ch === "]") {
-      if (depth === 0) return i;
-      if (--depth === 0 && ch === "}" && blank[from + (blank.slice(from).search(/\S/))] === "{") return i + 1;
-    } else if (depth === 0 && (ch === ";" || ch === "\n")) return i;
-  }
-  return blank.length;
 }
 
 /** Whether the object `{…}` says `access: "declared"` itself, not in an object nested in it. */
@@ -473,6 +148,21 @@ function optionsConstDeclares(code: string, blank: string, call: string): boolea
         `|Object\\.assign\\(\\s*${escaped}(?![\\w$])`,
     ).test(blank);
     if (!reassigned && !changed) return true;
+  }
+  return false;
+}
+
+/** Whether some test file under the app calls `expectAccessRulesCover(…)` (comments left out). */
+function coverageTested(root: string): boolean {
+  for (const abs of testFiles(root)) {
+    let code: string;
+    try {
+      code = stripBlockComments(readFileSync(abs, "utf8"), true);
+    } catch {
+      continue;
+    }
+    if (!code.includes("expectAccessRulesCover")) continue;
+    if (/\bexpectAccessRulesCover\s*\(/.test(blankStrings(code))) return true;
   }
   return false;
 }
@@ -518,22 +208,30 @@ export function checkDataAccess(ctx: DoctorContext): void {
   }
 
   // ── data/access-rule-tests ───────────────────────────────────────
-  const declared = declaredFunctions(ctx.files);
-  if (declared.length === 0) return;
-  const tested = testedFunctions(ctx.root);
-  const reported = new Set<string>();
-  for (const d of declared) {
-    if (tested.has(d.fn) || reported.has(d.fn)) continue;
-    reported.add(d.fn);
-    ctx.report({
-      rule: "data/access-rule-tests",
-      level: "warn",
-      file: d.file,
-      line: d.line,
-      subject: d.fn,
-      message:
-        `${d.fn} has no access-rule test. Add accessRules({ fn: "${d.fn}", allowed, refused, … }) ` +
-        `(@marktiderman/genesis-core/testing) to a test file: who may call it, and who is refused (${DOCS})`,
-    });
+  const providers = providerCalls(ctx.files);
+  if (providers.length === 0 || coverageTested(ctx.root)) return;
+  const first = providers[0]!;
+  ctx.report({
+    rule: "data/access-rule-tests",
+    level: "warn",
+    file: first.file,
+    line: first.line,
+    subject: "expectAccessRulesCover",
+    message:
+      `no test checks that every database function the provider declares has an access-rule test. Add ` +
+      `expectAccessRulesCover(providerOptions, [/* each accessRules spec */]) (@marktiderman/genesis-core/testing) ` +
+      `to a test file: it fails for each declared function without one (${DOCS})`,
+  });
+}
+
+/** Each `createSupabaseProvider(…)` call in the app's code. */
+function providerCalls(files: DoctorContext["files"]): { file: string; line: number }[] {
+  const out: { file: string; line: number }[] = [];
+  for (const file of files) {
+    if (!SCRIPT_EXTS.has(file.ext)) continue;
+    for (const m of blankStrings(file.code).matchAll(/\bcreateSupabaseProvider\s*\(/g)) {
+      out.push({ file: file.path, line: lineAt(file.code, m.index ?? 0) });
+    }
   }
+  return out;
 }

@@ -23,9 +23,6 @@ const DECLARED = [
   "});",
 ].join("\n");
 
-const TESTS = (fns: string[]) =>
-  fns.map((fn) => `for (const c of accessRules({ fn: "${fn}", as, args, allowed: ["owner"], refused: ["stranger"] })) test(c.name, c.run);`).join("\n");
-
 describe("data/declared-access", () => {
   it("warns on a provider without access: \"declared\", and not on one with it", async () => {
     const found = await only("data/declared-access", {
@@ -90,79 +87,6 @@ describe("data/declared-access", () => {
     });
     expect(findings.filter((f) => f.rule === "data/declared-access")).toEqual([]);
   });
-});
-
-describe("data/access-rule-tests", () => {
-  it("warns on each declared function no test names in accessRules({ fn })", async () => {
-    const found = await only("data/access-rule-tests", { "src/lib/declared.ts": DECLARED });
-    expect(found.map((f) => [f.subject, f.file, f.line, f.level])).toEqual([
-      ["create_task", "src/lib/declared.ts", 7, "warn"],
-      ["save_task", "src/lib/declared.ts", 7, "warn"],
-      ["archive_task", "src/lib/declared.ts", 8, "warn"],
-      ["list_reports", "src/lib/declared.ts", 10, "warn"],
-    ]);
-    expect(found[0]!.message).toContain('accessRules({ fn: "create_task"');
-  });
-
-  it("takes args string values as arguments, never as function names", async () => {
-    const found = await only("data/access-rule-tests", { "src/lib/declared.ts": DECLARED });
-    const subjects = found.map((f) => f.subject);
-    expect(subjects).not.toContain("full");
-    expect(subjects).not.toContain("mine");
-    expect(subjects).not.toContain("tasks_with_people");
-  });
-
-  it("is satisfied by an accessRules test for each function, in any test file", async () => {
-    const found = await only("data/access-rule-tests", {
-      "src/lib/declared.ts": DECLARED,
-      "test/tasks.access.test.ts": TESTS(["create_task", "save_task"]),
-      "src/lib/__tests__/more.ts": TESTS(["archive_task"]),
-    });
-    expect(found.map((f) => f.subject)).toEqual(["list_reports"]);
-
-    const all = await only("data/access-rule-tests", {
-      "src/lib/declared.ts": DECLARED,
-      "test/all.test.ts": TESTS(["create_task", "save_task", "archive_task", "list_reports"]),
-    });
-    expect(all).toEqual([]);
-  });
-
-  it("an accessRules call in app code (not a test) doesn't count", async () => {
-    const found = await only("data/access-rule-tests", {
-      "src/lib/declared.ts": DECLARED,
-      "src/lib/rules.ts": TESTS(["create_task", "save_task", "archive_task", "list_reports"]),
-    });
-    expect(found).toHaveLength(4);
-  });
-
-  it("reports each function once, however many resources declare it", async () => {
-    const found = await only("data/access-rule-tests", {
-      "src/lib/p.ts": 'createSupabaseProvider(s, { access: "declared", resources: { a: { writes: { delete: "remove_row" } }, b: { writes: { delete: "remove_row" } } } });',
-    });
-    expect(found.map((f) => f.subject)).toEqual(["remove_row"]);
-  });
-
-  it("says nothing when nothing is declared", async () => {
-    expect(await only("data/access-rule-tests", { "src/a.ts": "export const x = 1;" })).toEqual([]);
-  });
-});
-
-describe("data-access rules: what isn't theirs", () => {
-  it("an actions object outside provider config (labels, i18n) declares no functions", async () => {
-    const found = await only("data/access-rule-tests", {
-      "src/i18n/en.ts": 'export const en = { actions: { save: "Save", cancel: "Cancel" } };',
-      "src/lib/labels.ts": 'export const labels = { actions: { archive: "Archive" }, writes: { create: "Add" } };',
-    });
-    expect(found).toEqual([]);
-  });
-
-  it("reads resources from a file typed as provider config, without the call", async () => {
-    const found = await only("data/access-rule-tests", {
-      "src/lib/resources.ts":
-        'import type { SupabaseResourceConfig } from "@marktiderman/genesis-core";\nexport const tasks: SupabaseResourceConfig = { writes: { delete: "delete_task" } };',
-    });
-    expect(found.map((f) => f.subject)).toEqual(["delete_task"]);
-  });
 
   it("a Supabase Storage call is not a table write", async () => {
     const found = await only("data/declared-access", {
@@ -186,23 +110,6 @@ describe("data-access rules: what isn't theirs", () => {
     expect(found.map((f) => f.file).sort()).toEqual(["src/lib/imported.ts", "src/lib/open.ts"]);
   });
 
-  it("counts a table-driven test: fn in spec objects the file passes to accessRules", async () => {
-    const found = await only("data/access-rule-tests", {
-      "src/lib/declared.ts": DECLARED,
-      "test/access.test.ts": [
-        "const specs = [",
-        '  { fn: "create_task", allowed: ["owner"], refused: ["stranger"] },',
-        '  { fn: "save_task", allowed: ["owner"], refused: ["stranger"] },',
-        "];",
-        "for (const spec of specs) for (const c of accessRules({ ...spec, as, args })) test(c.name, c.run);",
-        '// fn: "archive_task" in a comment does not count',
-      ].join("\n"),
-    });
-    expect(found.map((f) => f.subject)).toEqual(["archive_task", "list_reports"]);
-  });
-});
-
-describe("data-access rules: the options a provider really gets", () => {
   it("counts only access said by the options object itself, not one nested in it", async () => {
     const found = await only("data/declared-access", {
       "src/lib/a.ts": 'export const a = createSupabaseProvider(supabase, { resources: { t: { writes: { create: { fn: "f", args: () => ({ access: "declared" }) } } } } });',
@@ -222,50 +129,6 @@ describe("data-access rules: the options a provider really gets", () => {
     expect(found.map((f) => f.file).sort()).toEqual(["src/lib/assigned.ts", "src/lib/let.ts", "src/lib/mutated.ts"]);
   });
 
-  it("credits only the fn names an accessRules call is given, not other objects in the test file", async () => {
-    const found = await only("data/access-rule-tests", {
-      "src/lib/declared.ts": DECLARED,
-      "test/access.test.ts": [
-        'const unrelated = { fn: "archive_task" };',
-        'const save = { fn: "save_task", allowed: ["owner"], refused: ["stranger"] };',
-        'for (const c of accessRules({ fn: "create_task", as, args, allowed: ["owner"], refused: ["stranger"] })) test(c.name, c.run);',
-        "for (const c of accessRules({ ...save, as, args })) test(c.name, c.run);",
-        'const rpcs = [{ fn: "list_reports", allowed: ["owner"], refused: ["stranger"] }];',
-        "for (const spec of rpcs) for (const c of accessRules({ ...spec, as, args })) test(c.name, c.run);",
-      ].join("\n"),
-    });
-    expect(found.map((f) => f.subject)).toEqual(["archive_task"]);
-  });
-});
-
-describe("data/access-rule-tests: commented-out tests", () => {
-  it("a commented-out accessRules call doesn't count, in .ts, .mts or .cts test files", async () => {
-    const commented = (fn: string) => `// for (const c of accessRules({ fn: "${fn}", as, args, allowed: ["owner"], refused: ["stranger"] })) test(c.name, c.run);\n/* accessRules({ fn: "${fn}" }) */`;
-    const found = await only("data/access-rule-tests", {
-      "src/lib/declared.ts": DECLARED,
-      "test/a.test.ts": commented("create_task"),
-      "test/b.test.mts": commented("save_task"),
-      "test/c.test.cts": commented("archive_task"),
-      "test/d.test.mts": 'for (const c of accessRules({ fn: "list_reports", as, args, allowed: ["owner"], refused: ["stranger"] })) test(c.name, c.run);',
-    });
-    expect(found.map((f) => f.subject)).toEqual(["create_task", "save_task", "archive_task"]);
-  });
-});
-
-describe("data/access-rule-tests: only resource configuration declares functions", () => {
-  it("ignores a labels object in the same file as the provider", async () => {
-    const found = await only("data/access-rule-tests", {
-      "src/lib/provider.ts": [
-        'export const labels = { actions: { save: "Save", archive: "Archive" }, writes: { create: "Add" } };',
-        'export const provider = createSupabaseProvider(supabase, { access: "declared", resources: { tasks: { writes: { delete: "delete_task" } } } });',
-        'export const more: Record<string, SupabaseResourceConfig> = { notes: { actions: { pin: "pin_note" } } };',
-      ].join("\n"),
-    });
-    expect(found.map((f) => f.subject)).toEqual(["delete_task", "pin_note"]);
-  });
-});
-
-describe("data-access rules: only the top-level key counts", () => {
   it("a nested fn: \"declared\" doesn't make options declared, and a deleted access keeps the warning", async () => {
     const found = await only("data/declared-access", {
       "src/lib/nested-fn.ts": 'const options = { resources: {}, audit: { fn: "declared" } };\nexport const p = createSupabaseProvider(supabase, options);',
@@ -275,130 +138,41 @@ describe("data-access rules: only the top-level key counts", () => {
     });
     expect(found.map((f) => f.file).sort()).toEqual(["src/lib/deleted-index.ts", "src/lib/deleted.ts", "src/lib/nested-fn.ts"]);
   });
-
-  it("an fn in a spec's args is an argument, not the function under test", async () => {
-    const found = await only("data/access-rule-tests", {
-      "src/lib/declared.ts": DECLARED,
-      "test/access.test.ts": [
-        'for (const c of accessRules({ fn: "create_task", as, args: () => ({ fn: "archive_task" }), allowed: ["owner"], refused: ["stranger"] })) test(c.name, c.run);',
-        'const save = { fn: "save_task", args: () => ({ fn: "list_reports" }), allowed: ["owner"], refused: ["stranger"] };',
-        "for (const c of accessRules({ ...save, as })) test(c.name, c.run);",
-      ].join("\n"),
-    });
-    expect(found.map((f) => f.subject)).toEqual(["archive_task", "list_reports"]);
-  });
 });
 
-describe("data/access-rule-tests: resource configuration in its usual shapes", () => {
-  it("reads resources passed by name, as a shorthand, or checked with satisfies", async () => {
-    const found = await only("data/access-rule-tests", {
-      "src/lib/shorthand.ts": 'const resources = { b: { writes: { create: "make_b" } } };\nexport const p = createSupabaseProvider(supabase, { access: "declared", resources });',
-      "src/lib/named.ts": 'const tables = { c: { actions: { close: "close_c" } } };\nexport const p = createSupabaseProvider(supabase, { access: "declared", resources: tables });',
-      "src/lib/satisfies.ts": 'export const all = { a: { writes: { create: "make_a" } } } satisfies Record<string, SupabaseResourceConfig>;',
-      "src/lib/labels.ts": 'export const labels = { actions: { save: "Save" } };\nexport const p = createSupabaseProvider(supabase, { access: "declared", resources: {} });',
-    });
-    expect(found.map((f) => f.subject).sort()).toEqual(["close_c", "make_a", "make_b"]);
-  });
-});
+describe("data/access-rule-tests", () => {
+  const PROVIDER = 'export const provider = createSupabaseProvider(supabase, { access: "declared", resources: {} });';
+  const COVER = [
+    'import { expectAccessRulesCover } from "@marktiderman/genesis-core/testing";',
+    'test("every declared function has an access-rule test", () => expectAccessRulesCover(options, [saveTask]));',
+  ].join("\n");
 
-describe("data/access-rule-tests: resources belong to the provider's options", () => {
-  it("a resources key in another object (labels) is not resource configuration", async () => {
+  it("warns once, at the provider, when no test calls expectAccessRulesCover", async () => {
     const found = await only("data/access-rule-tests", {
-      "src/lib/provider.ts": [
-        'const labels = { resources: { actions: { save: "Save" } } };',
-        'export const p = createSupabaseProvider(client, { access: "declared", resources: {} });',
-      ].join("\n"),
-      "src/lib/typed.ts": [
-        'const options: SupabaseProviderOptions = { access: "declared", resources: { t: { writes: { delete: "drop_t" } } } };',
-        'const more = { access: "declared", resources: { u: { actions: { pin: "pin_u" } } } } satisfies SupabaseProviderOptions;',
-      ].join("\n"),
+      "src/lib/provider.ts": "\n" + PROVIDER,
+      "src/lib/other.ts": PROVIDER,
+      "test/tasks.access.test.ts": 'for (const c of accessRules({ fn: "save_task", as, args, allowed: ["owner"], refused: ["stranger"] })) test(c.name, c.run);',
     });
-    expect(found.map((f) => f.subject).sort()).toEqual(["drop_t", "pin_u"]);
+    expect(found.map((f) => [f.file, f.line, f.subject, f.level])).toEqual([["src/lib/other.ts", 1, "expectAccessRulesCover", "warn"]]);
+    expect(found[0]!.message).toContain("expectAccessRulesCover(providerOptions");
   });
-});
 
-describe("data/access-rule-tests: a named object in args is not a spec", () => {
-  it("credits only the spec passed or spread, not a payload args returns", async () => {
-    const found = await only("data/access-rule-tests", {
-      "src/lib/declared.ts": DECLARED,
-      "test/access.test.ts": [
-        'const payload = { fn: "archive_task" };',
-        'for (const c of accessRules({ fn: "create_task", as, args: () => payload, allowed: ["owner"], refused: ["stranger"] })) test(c.name, c.run);',
-        'const spec = { fn: "save_task", as, args, allowed: ["owner"], refused: ["stranger"] };',
-        "for (const c of accessRules(spec)) test(c.name, c.run);",
-        'const rpcs = [{ fn: "list_reports", allowed: ["owner"], refused: ["stranger"] }];',
-        "for (const r of rpcs) for (const c of accessRules({ ...r, as, args: () => payload })) test(c.name, c.run);",
-      ].join("\n"),
-    });
-    expect(found.map((f) => f.subject)).toEqual(["archive_task"]);
+  it("is satisfied by a test that calls expectAccessRulesCover, in any test file shape", async () => {
+    for (const name of ["test/access.test.ts", "src/lib/__tests__/access.ts", "test/access.test.mts", "test/access.spec.cts"]) {
+      expect(await only("data/access-rule-tests", { "src/lib/provider.ts": PROVIDER, [name]: COVER })).toEqual([]);
+    }
   });
-});
 
-describe("data/access-rule-tests: typed options in every common shape", () => {
-  it("reads a satisfies default export and objects returned by typed factories", async () => {
+  it("a call in a comment, a string or app code doesn't count", async () => {
     const found = await only("data/access-rule-tests", {
-      "src/lib/default.ts": 'export default { access: "declared", resources: { c: { writes: { create: "make_c" } } } } satisfies SupabaseProviderOptions;',
-      "src/lib/arrow.ts": 'export const make = (): SupabaseProviderOptions => ({ access: "declared", resources: { e: { writes: { create: "make_e" } } } });',
-      "src/lib/fn.ts": 'export function build(): SupabaseProviderOptions {\n  const x = 1;\n  return { access: "declared", resources: { f: { actions: { close: "close_f" } } } };\n}',
-      "src/lib/resource.ts": 'export const one = (): SupabaseResourceConfig => ({ writes: { delete: "drop_g" } });',
-      "src/lib/labels.ts": 'export const labels = (): Labels => ({ actions: { save: "Save" } });\nexport const p = createSupabaseProvider(s, { access: "declared", resources: {} });',
+      "src/lib/provider.ts": PROVIDER,
+      "src/lib/check.ts": "expectAccessRulesCover(options, []);",
+      "test/a.test.ts": '// expectAccessRulesCover(options, [])\n/* expectAccessRulesCover(options, []) */\nconst s = "expectAccessRulesCover(options, [])";',
     });
-    expect(found.map((f) => f.subject).sort()).toEqual(["close_f", "drop_g", "make_c", "make_e"]);
+    expect(found).toHaveLength(1);
   });
-});
 
-describe("data/access-rule-tests: typed factories, their own returns only", () => {
-  it("reads block-bodied arrows, async factories and conditional returns, not a nested callback's return", async () => {
-    const found = await only("data/access-rule-tests", {
-      "src/lib/block-arrow.ts": 'export const make = (): SupabaseProviderOptions => {\n  return { access: "declared", resources: { d: { writes: { create: "make_d" } } } };\n};',
-      "src/lib/async.ts": 'export async function make(): Promise<SupabaseProviderOptions> {\n  return { access: "declared", resources: { e: { writes: { create: "make_e" } } } };\n}',
-      "src/lib/branch.ts": 'export function one(flag: boolean): SupabaseResourceConfig {\n  if (flag) {\n    return { writes: { delete: "drop_h" } };\n  }\n  return { writes: { delete: "drop_i" } };\n}',
-      "src/lib/nested.ts": [
-        "export function cfg(rows: Row[]): SupabaseResourceConfig {",
-        '  const labels = rows.map((r) => { return { actions: { save: "Save" } }; });',
-        '  const more = rows.map(function (r) { return { actions: { open: "Open" } }; });',
-        '  function label(): Label { return { actions: { name: "Name" } }; }',
-        '  const helper = { m(): Label { return { actions: { tag: "Tag" } }; } };',
-        '  return { actions: { close: "close_j" } };',
-        "}",
-      ].join("\n"),
-    });
-    expect(found.map((f) => f.subject).sort()).toEqual(["close_j", "drop_h", "drop_i", "make_d", "make_e"]);
-  });
-});
-
-describe("data/access-rule-tests: a loop feeds a spec only around its call", () => {
-  it("an unrelated loop with the same variable name doesn't count", async () => {
-    const found = await only("data/access-rule-tests", {
-      "src/lib/declared.ts": DECLARED,
-      "test/access.test.ts": [
-        'const payloads = [{ fn: "archive_task" }];',
-        "for (const spec of payloads) console.log(spec);",
-        'const spec = { fn: "create_task", as, args, allowed: ["owner"], refused: ["stranger"] };',
-        "for (const c of accessRules(spec)) test(c.name, c.run);",
-        'const rpcs = [{ fn: "list_reports" }, { fn: "save_task" }];',
-        "for (const r of rpcs) {",
-        "  for (const c of accessRules({ ...r, as, args, allowed: [\"owner\"], refused: [\"stranger\"] })) test(c.name, c.run);",
-        "}",
-      ].join("\n"),
-    });
-    expect(found.map((f) => f.subject)).toEqual(["archive_task"]);
-  });
-});
-
-describe("data/access-rule-tests: a resource's own keys only", () => {
-  it("an actions object a write function's args returns is an argument, not a declaration", async () => {
-    const found = await only("data/access-rule-tests", {
-      "src/lib/provider.ts": [
-        "export const p = createSupabaseProvider(client, {",
-        '  access: "declared",',
-        "  resources: {",
-        '    tasks: { writes: { create: { fn: "create_task", args: () => ({ actions: { save: "Save" }, writes: { x: "y" } }) } }, actions: { pin: "pin_task" } },',
-        "  },",
-        "});",
-        'export const one: SupabaseResourceConfig = { writes: { delete: { fn: "drop_one", args: () => ({ actions: { a: "A" } }) } } };',
-      ].join("\n"),
-    });
-    expect(found.map((f) => f.subject).sort()).toEqual(["create_task", "drop_one", "pin_task"]);
+  it("says nothing for an app without a Supabase provider", async () => {
+    expect(await only("data/access-rule-tests", { "src/a.ts": "export const x = 1;" })).toEqual([]);
   });
 });

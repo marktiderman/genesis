@@ -49,18 +49,24 @@ const provider = createSupabaseProvider(supabase, {
 - **`actions`**: named row actions, served by `runAction`.
 - **`table`**: the opt-in. `why` is required; it is what a reviewer reads to accept it.
 
-After a create or update the provider reads the record back through the resource's read, never
-`select *` on the table, and a write on the table (an opt-in) asks the insert or update for its
-`id` only, plus the version column when the resource has a `version` rule: what the write itself
-returns needs SELECT on `id` (and on the version column, with a version rule) and nothing else.
-One read can come before it: an update of a resource with a `source` and no `writeColumns`
-reads the table's row (`select *`) to learn its columns, on an open provider or with
-`table.read`. Set `writeColumns` and that read doesn't happen. A
-resource that declares no read (a write-only one) is never read: a write reports what it sent,
-a null answer can't be told apart (refused, gone or changed first) and says so, and it gets no
-realtime channel. An update on a declared provider reads the table's row for its columns only
-when `table.read` is declared; a table update over a view `source` without `table.read` needs
-`writeColumns`, or it is refused (the view's own columns would go to the table).
+What a create or update returns depends on the mode:
+
+- **Declared** (`access: "declared"`): a write on the table (an opt-in) asks the insert or update
+  for its `id` only, plus the version column when the resource has a `version` rule, so the write
+  itself needs SELECT on `id` (and the version column) and on nothing else. The record is then
+  read back the way the resource reads (its `source`, or the table with its `select` when it
+  declares `table.read`). If that read-back fails or has no version, the provider returns what the
+  write sent, with its id and the version it wrote. A resource that declares no read (a write-only
+  one) is never read: a write reports what it sent, a null answer can't be told apart (refused,
+  gone or changed first) and says so, and it gets no realtime channel.
+- **Open** (the default): an insert or update returns the table's row (`select *`), as before.
+- **A write function** (`writes`) reads the record back the way the resource reads, in either mode.
+
+One read can come before an update: a resource with a `source` and no `writeColumns` reads the
+table's row (`select *`) to learn its columns, on an open provider or with `table.read`. Set
+`writeColumns` and that read doesn't happen. On a declared provider without `table.read`, a table
+update over a view `source` needs `writeColumns`, or it is refused (the view's own columns would
+go to the table).
 
 ## Write functions
 
@@ -137,6 +143,25 @@ for (const c of accessRules({
 
 <!-- api: AccessRuleSpec<string>, AccessRuleCase, AccessRuleClient -->
 
+Then check that none is missing: `expectAccessRulesCover` reads the declared functions from the
+options the provider is made from (every write function, action and function source), and fails
+naming each one with no spec among those you pass. Keep it beside the access-rule tests, so a new
+function can't ship without one.
+
+```ts
+import { expectAccessRulesCover, type AccessRuleSpec } from "@marktiderman/genesis-core/testing";
+import type { SupabaseProviderOptions } from "@marktiderman/genesis-core";
+
+declare const providerOptions: SupabaseProviderOptions;
+declare const saveTask: AccessRuleSpec<string>;
+declare const createTask: AccessRuleSpec<string>;
+declare function test(name: string, run: () => void): void;
+
+test("every declared function has an access-rule test", () => {
+  expectAccessRulesCover(providerOptions, [saveTask, createTask]);
+});
+```
+
 An allowed person's call must succeed and act (answer anything but `null`, `false` or an empty
 list; `acted` overrides that). A refused person's call must fail with a refusal (42501 or P0001)
 or act on nothing. A failed sign-in (an expired or malformed token) is not a refusal: it never
@@ -149,7 +174,7 @@ least one allowed and one refused person.
 | Rule | Reports |
 |---|---|
 | `data/declared-access` | a `createSupabaseProvider(…)` call without `access: "declared"` (in its options, or in a `const` in the same file that it names); a table write in app code (`.from("t").insert/update/upsert/delete(…)`) outside tests and `supabase/`. A direct write that must stay is an `allow` entry for this rule, with its reason. |
-| `data/access-rule-tests` | a declared function no `accessRules` call in a test file is given as `fn: "…"` (written in the call, or in a spec it names: directly, spread, or through a `for (… of specs)` loop over a list set in the same file). Functions are read from resource configuration: the `resources` of the provider's options (written in the `createSupabaseProvider` call, set to a name it passes, or typed `SupabaseProviderOptions`), as a literal or the object behind `resources: name` or `{ resources }` set in the same file; and an object typed `SupabaseResourceConfig`. An object is typed by an annotation, by `satisfies` (an `export default` too), or by being returned from a function annotated to return the type (`Promise<…>` too; the function's own `return`s, not a nested callback's). |
+| `data/access-rule-tests` | an app that configures the Supabase provider with no test calling `expectAccessRulesCover`. Which functions are covered is decided by that test, from the provider's own options, not guessed from the source. |
 
 Both warn; `--strict` fails on them, and `doctor.ratchet` holds new code to them while old code
 moves.

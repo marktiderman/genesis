@@ -383,7 +383,8 @@ describe("a declared provider never reads a table it hasn't declared", () => {
   it("an id-only insert keeps the version when the read-back fails", async () => {
     queue.push(ok({ id: "t5", version: 1 }), fail("permission denied", "42501"));
     const res = await provider({
-      resources: { tasks: { source: "v", version: { field: "version", kind: "integer" } } },
+      access: "declared",
+      resources: { tasks: { source: "v", version: { field: "version", kind: "integer" }, table: { read: true, write: true, why: "Test." } } },
     }).create("tasks", { data: { title: "x" } });
     expect(call("select")[0]).toEqual(["id,version"]);
     expect(res.data).toEqual({ id: "t5", title: "x", version: 1 });
@@ -418,7 +419,8 @@ describe("write functions get the values as given", () => {
 describe("the version goes with the values it was written with", () => {
   it("a read-back without the version returns the values sent with the version written, not a later writer's values", async () => {
     const versioned: SupabaseProviderOptions = {
-      resources: { tasks: { source: "v_no_version", version: { field: "version", kind: "integer" } } },
+      access: "declared",
+      resources: { tasks: { source: "v_no_version", version: { field: "version", kind: "integer" }, table: { read: true, write: true, why: "Test." } } },
     };
     // The update wrote version 4; by the read-back someone else has made the title "Theirs".
     queue.push(ok([{ id: "t1", title: "Old", version: 3 }])); // the table's row, for its columns
@@ -431,7 +433,10 @@ describe("the version goes with the values it was written with", () => {
   });
 
   it("the record keeps the id the write knows when the read-back has neither id nor version", async () => {
-    const select = { resources: { tasks: { source: "v", select: "title", version: { field: "version", kind: "integer" as const } } } };
+    const select: SupabaseProviderOptions = {
+      access: "declared",
+      resources: { tasks: { source: "v", select: "title", version: { field: "version", kind: "integer" }, table: { read: true, write: true, why: "Test." } } },
+    };
     queue.push(ok({ id: "t7", version: 1 }), ok([{ title: "x" }])); // the insert, then a read-back without id or version
     expect((await provider(select).create("tasks", { data: { title: "x" } })).data).toEqual({ id: "t7", title: "x", version: 1 });
     queue.push(ok([{ id: "t7", title: "x" }])); // the table's row, for its columns
@@ -443,8 +448,27 @@ describe("the version goes with the values it was written with", () => {
     queue.push(ok([{ id: "t1", title: "Old", version: 3 }])); // the table's row, for its columns
     queue.push(ok([{ id: "t1", version: 4 }]), ok([{ id: "t1", title: "Theirs", version: 5 }]));
     const res = await provider({
-      resources: { tasks: { source: "v", version: { field: "version", kind: "integer" } } },
+      access: "declared",
+      resources: { tasks: { source: "v", version: { field: "version", kind: "integer" }, table: { read: true, write: true, why: "Test." } } },
     }).update("tasks", { id: "t1", data: { title: "Mine" } });
     expect(res.data).toEqual({ id: "t1", title: "Theirs", version: 5 });
+  });
+});
+
+describe("an open provider writes as it always has", () => {
+  it("an insert and an update return the table's row (select *), with no read-back", async () => {
+    queue.push(ok({ id: "t1", title: "A" }));
+    expect((await createSupabaseProvider(client).create("tasks", { data: { title: "A" } })).data).toEqual({ id: "t1", title: "A" });
+    queue.push(ok([{ id: "t1", title: "B" }]));
+    expect((await createSupabaseProvider(client).update("tasks", { id: "t1", data: { title: "B" } })).data).toEqual({ id: "t1", title: "B" });
+    expect(call("select")).toEqual([["*"], ["*"]]);
+    expect(call("from")).toEqual([["tasks"], ["tasks"]]);
+  });
+
+  it("a write function on an open provider reads back the way the resource reads", async () => {
+    queue.push(ok("t1"), ok([{ id: "t1", title: "A", person_name: "Ann" }]));
+    const res = await provider({ resources: { tasks: { source: "v", writes: { create: "create_task" } } } }).create("tasks", { data: { title: "A" } });
+    expect(call("from")).toEqual([["v"]]);
+    expect(res.data).toEqual({ id: "t1", title: "A", person_name: "Ann" });
   });
 });

@@ -818,7 +818,7 @@ export const features = defineFeatures({
   },
   "declared-data-access": {
     name: "Declared data access",
-    summary: "A Supabase resource declares how it is read (a view or a function, source) and written (named database functions, writes and actions, which hold the access rule); raw table access is a declared opt-in with its why (table). access: \"declared\" refuses anything undeclared with a message naming what to declare; a create or update never selects a column the client may not read. accessRules (genesis-core/testing) turns each function's rule into allowed and refused test cases, and the doctor reports a provider left open, a table write in app code (data/declared-access) and a declared function with no access-rule test (data/access-rule-tests).",
+    summary: "A Supabase resource declares how it is read (a view or a function, source) and written (named database functions, writes and actions, which hold the access rule); raw table access is a declared opt-in with its why (table). access: \"declared\" refuses anything undeclared with a message naming what to declare, and its creates and updates never select a column the client may not read; the default (open) writes as before. accessRules (genesis-core/testing) turns each function's rule into allowed and refused test cases and expectAccessRulesCover fails for any declared function without one; the doctor reports a provider left open, a table write in app code (data/declared-access) and a provider with no expectAccessRulesCover test (data/access-rule-tests).",
     status: "building",
     claimedBy: "claude/declared-data-access",
     kind: "provider",
@@ -831,7 +831,8 @@ export const features = defineFeatures({
     acceptance: [
       "Under access: \"declared\", a read or write a resource doesn't declare is refused with a message naming what to declare, and nothing reaches the database.",
       "A resource's declared write functions create, update, delete and run actions, and a null answer reports forbidden, gone or conflict.",
-      "The doctor reports a provider without access: \"declared\", a table write in app code, and a declared function with no accessRules test.",
+      "expectAccessRulesCover fails, naming each one, for a function the provider's options declare without an accessRules test.",
+      "The doctor reports a provider without access: \"declared\", a table write in app code, and a provider with no expectAccessRulesCover test.",
     ],
     reviewedAt: "2026-11-18",
     links: {

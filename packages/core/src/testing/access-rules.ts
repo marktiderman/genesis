@@ -9,6 +9,7 @@
 // ---------------------------------------------------------------------------
 
 import { toDataWriteError } from "../provider/postgrest-errors";
+import type { SupabaseProviderOptions } from "../provider/supabase-provider";
 import { ContractError } from "./index";
 
 /** The part of a Supabase client an access-rule test calls: any real client's `rpc` fits. */
@@ -132,4 +133,66 @@ export function accessRules<Who extends string>(spec: AccessRuleSpec<Who>): Acce
     }),
   );
   return [...allowed, ...refused];
+}
+
+// ---------------------------------------------------------------------------
+// Coverage: every function the provider declares has an access-rule test
+// ---------------------------------------------------------------------------
+
+/** One database function a Supabase resource declares, read from the provider's options. */
+export interface DeclaredFunction {
+  /** The resource that declares it, as `resources` names it. */
+  readonly resource: string;
+  /** Where: a write (`create`, `update`, `delete`), an action (its name), or the read (`source`). */
+  readonly use: "create" | "update" | "delete" | "source" | `action:${string}`;
+  /** The database function's name. */
+  readonly fn: string;
+}
+
+/** The name a `FunctionCall` calls: the string itself, or its `fn`. */
+const fnOf = (call: string | { readonly fn: string }): string => (typeof call === "string" ? call : call.fn);
+
+/**
+ * Every database function the provider's resources declare: their `writes`, their `actions` and a
+ * `source: { rpc }`. Read from the options themselves, so nothing a resource declares is missed and
+ * nothing else is counted.
+ */
+export function declaredFunctions(options: Pick<SupabaseProviderOptions, "resources">): DeclaredFunction[] {
+  const out: DeclaredFunction[] = [];
+  for (const [resource, config] of Object.entries(options.resources ?? {})) {
+    for (const use of ["create", "update", "delete"] as const) {
+      const call = config.writes?.[use];
+      if (call) out.push({ resource, use, fn: fnOf(call) });
+    }
+    for (const [name, call] of Object.entries(config.actions ?? {})) out.push({ resource, use: `action:${name}`, fn: fnOf(call) });
+    if (config.source && typeof config.source === "object") out.push({ resource, use: "source", fn: config.source.rpc });
+  }
+  return out;
+}
+
+/**
+ * Fails, naming each one, when a function the provider declares has no access-rule test among
+ * `tested` (the specs given to `accessRules`, or the function names). Run it in the app's test
+ * suite beside the access-rule tests, with the options the app's provider is made from:
+ *
+ * ```ts
+ * test("every declared function has an access-rule test", () => {
+ *   expectAccessRulesCover(providerOptions, [saveTask, createTask, archiveTask]);
+ * });
+ * ```
+ *
+ * The doctor's `data/access-rule-tests` rule checks that a test suite calls it.
+ */
+export function expectAccessRulesCover(
+  options: Pick<SupabaseProviderOptions, "resources">,
+  tested: readonly (string | { readonly fn: string })[],
+): void {
+  const covered = new Set(tested.map(fnOf));
+  const missing = declaredFunctions(options).filter((d) => !covered.has(d.fn));
+  if (missing.length === 0) return;
+  const list = missing.map((d) => `${d.fn} (${d.resource} ${d.use})`).join(", ");
+  throw new ContractError(
+    `No access-rule test for ${missing.length === 1 ? "this declared function" : `these ${missing.length} declared functions`}: ${list}. ` +
+      `Give each one accessRules({ fn, allowed, refused, … }) and pass its spec here (docs/DATA-ACCESS.md).`,
+  );
 }

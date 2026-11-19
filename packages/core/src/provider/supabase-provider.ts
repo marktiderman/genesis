@@ -1086,6 +1086,17 @@ export function createSupabaseProvider(
     }
   }
 
+  /**
+   * The record after a write that returned only its id. A declared provider, or a write through a
+   * `writes` function, reads it the way the resource reads (`readRecord`); an app rule on an open
+   * provider reads the table's row, as it always has.
+   */
+  async function readAfterWrite(resource: string, id: Identifier, throughFunction: boolean): Promise<BaseRecord | undefined> {
+    // A write function is new API: it always reads back the way the resource reads.
+    if (declared || throughFunction) return readRecord(resource, id);
+    return readBack(resource, id).catch(() => undefined);
+  }
+
   /** The `create` rule: the app's own, else the declared `writes.create` function. */
   function createRule(resource: string): SupabaseResourceConfig["create"] {
     const config = configFor(resource);
@@ -1823,7 +1834,9 @@ export function createSupabaseProvider(
         if (isIdentifier(returned)) {
           // The row exists from here on. A failed read-back must not report
           // the create as failed: the user would retry and make a second one.
-          record = (await readRecord(resource, returned)) ?? ({ ...row, id: returned } as BaseRecord);
+          record =
+            (await readAfterWrite(resource, returned, throughFunction)) ??
+            (declared || throughFunction ? ({ ...row, id: returned } as BaseRecord) : { id: returned });
         } else if (returned && typeof returned === "object" && isIdentifier(returned.id)) {
           record = returned;
         } else {
@@ -1832,11 +1845,15 @@ export function createSupabaseProvider(
             `[SupabaseProvider] The create rule for "${resource}" returned neither the new row nor its id.`,
           );
         }
+      } else if (!declared) {
+        // An open provider: the insert returns the row, as it always has.
+        const rows = await run(from(resource).insert(row).select("*").single());
+        record = rows[0] as BaseRecord;
       } else {
         assertTableWrite(resource, "create");
-        // Only the id comes back from the insert: the client may not be allowed to read every
-        // column it wrote. The record is then read the way the resource reads.
-        // The version comes back too, so a read-back that fails still leaves the next save its check.
+        // A declared provider asks the insert for the id (and the version) only: the client may
+        // not be allowed to read every column it wrote. The record is then read the way the
+        // resource reads; the version keeps the next save's check when that read fails.
         const version = versionFor(resource);
         const rows = await run(from(resource).insert(row).select(version ? `id,${version.field}` : "id").single());
         const written = (rows[0] ?? {}) as Record<string, unknown>;
@@ -1891,7 +1908,7 @@ export function createSupabaseProvider(
         if (isIdentifier(result) || result === true) {
           // The change committed; a failed read-back still reports it saved.
           const readId = (result === true ? id : result) as Identifier;
-          record = (await readRecord(resource, readId)) ?? ({ ...row, id: readId } as BaseRecord);
+          record = (await readAfterWrite(resource, readId, throughFunction)) ?? ({ ...row, id: readId } as BaseRecord);
         } else if (typeof result === "object") {
           record = { id, ...(result as Record<string, unknown>) } as BaseRecord;
         } else {
@@ -1900,6 +1917,13 @@ export function createSupabaseProvider(
             `[SupabaseProvider] The update rule for "${resource}" returned neither the row, its id, nor nothing.`,
           );
         }
+      } else if (!declared) {
+        // An open provider: the update returns the row, as it always has.
+        let query = from(resource).update(row).eq("id", id);
+        if (expected !== undefined) query = query.eq(version!.field, expected);
+        const rows = await run(query.select("*"));
+        if (rows.length === 0) throw await staleOrNoRowsError(resource, id, "change", expected);
+        record = rows[0] as BaseRecord;
       } else {
         assertTableWrite(resource, "update");
         // Read from a view, the record carries the view's columns (a count, a joined name); the

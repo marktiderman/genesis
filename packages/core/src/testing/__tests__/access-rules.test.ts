@@ -1,7 +1,7 @@
 // @feat:declared-data-access
 import { describe, expect, it } from "vitest";
 import { ContractError } from "../index";
-import { accessRules, type AccessRuleClient } from "../access-rules";
+import { accessRules, declaredFunctions, expectAccessRulesCover, type AccessRuleClient } from "../access-rules";
 
 type Who = "owner" | "editor" | "viewer" | "stranger";
 
@@ -127,5 +127,48 @@ describe("accessRules: what counts as a refusal", () => {
     const results = await run(accessRules<Who>({ fn: "save_task", as, args: () => ({}), allowed: ["owner"], refused: ["viewer", "stranger"] }));
     expect(results[1]![1]).toMatch(/save_task failed for viewer with an error that isn't a refusal: unauthenticated/);
     expect(results[2]![1]).toMatch(/failed for stranger with an error that isn't a refusal/);
+  });
+});
+
+describe("declaredFunctions and expectAccessRulesCover", () => {
+  const options = {
+    resources: {
+      tasks: {
+        source: "tasks_with_people",
+        writes: { create: "create_task", update: { fn: "save_task", args: () => ({ p_mode: "full", fn: "not_a_function" }) } },
+        actions: { archive: "archive_task" },
+      },
+      reports: { source: { rpc: "list_reports", args: () => ({ p_scope: "mine" }) } },
+      labels: { table: { read: true, write: true, why: "A lookup." } },
+    },
+  } as const;
+
+  it("reads every declared function from the options, and nothing else", () => {
+    expect(declaredFunctions(options)).toEqual([
+      { resource: "tasks", use: "create", fn: "create_task" },
+      { resource: "tasks", use: "update", fn: "save_task" },
+      { resource: "tasks", use: "action:archive", fn: "archive_task" },
+      { resource: "reports", use: "source", fn: "list_reports" },
+    ]);
+    expect(declaredFunctions({})).toEqual([]);
+  });
+
+  it("passes when every declared function is tested, by spec or by name", () => {
+    const save = { fn: "save_task" };
+    expect(() => expectAccessRulesCover(options, ["create_task", save, { fn: "archive_task" }, "list_reports"])).not.toThrow();
+  });
+
+  it("fails naming each declared function without a test", () => {
+    expect(() => expectAccessRulesCover(options, ["create_task"])).toThrow(ContractError);
+    expect(() => expectAccessRulesCover(options, ["create_task", "save_task", "archive_task"])).toThrow(
+      "No access-rule test for this declared function: list_reports (reports source).",
+    );
+    expect(() => expectAccessRulesCover(options, [])).toThrow(/these 4 declared functions: create_task \(tasks create\), save_task/);
+  });
+
+  it("is exported from the testing entry point", async () => {
+    const testing = await import("../index");
+    expect(testing.expectAccessRulesCover).toBe(expectAccessRulesCover);
+    expect(testing.declaredFunctions).toBe(declaredFunctions);
   });
 });
