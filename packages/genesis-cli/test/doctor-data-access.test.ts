@@ -385,3 +385,20 @@ describe("data/access-rule-tests: a loop feeds a spec only around its call", () 
     expect(found.map((f) => f.subject)).toEqual(["archive_task"]);
   });
 });
+
+describe("data/access-rule-tests: a resource's own keys only", () => {
+  it("an actions object a write function's args returns is an argument, not a declaration", async () => {
+    const found = await only("data/access-rule-tests", {
+      "src/lib/provider.ts": [
+        "export const p = createSupabaseProvider(client, {",
+        '  access: "declared",',
+        "  resources: {",
+        '    tasks: { writes: { create: { fn: "create_task", args: () => ({ actions: { save: "Save" }, writes: { x: "y" } }) } }, actions: { pin: "pin_task" } },',
+        "  },",
+        "});",
+        'export const one: SupabaseResourceConfig = { writes: { delete: { fn: "drop_one", args: () => ({ actions: { a: "A" } }) } } };',
+      ].join("\n"),
+    });
+    expect(found.map((f) => f.subject).sort()).toEqual(["create_task", "drop_one", "pin_task"]);
+  });
+});

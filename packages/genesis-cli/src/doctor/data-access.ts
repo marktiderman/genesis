@@ -239,6 +239,17 @@ function resourceConfigRanges(code: string, blank: string): [number, number][] {
   return out;
 }
 
+/** The bracket depth at `to`, counting from `from` (the opening brace of a block: depth 1 inside it). */
+function depthBetween(blank: string, from: number, to: number): number {
+  let depth = 0;
+  for (let i = from; i < to; i++) {
+    const ch = blank[i];
+    if (ch === "{" || ch === "(" || ch === "[") depth++;
+    else if (ch === "}" || ch === ")" || ch === "]") depth--;
+  }
+  return depth;
+}
+
 /**
  * Every database function the app's resources declare: the names under `writes: {…}` and
  * `actions: {…}`, and a `source: { rpc: "…" }`.
@@ -252,8 +263,11 @@ export function declaredFunctions(files: DoctorContext["files"]): DeclaredFuncti
     const configs = resourceConfigRanges(file.code, blank);
     for (const m of blank.matchAll(/\b(writes|actions|source)\s*:\s*\{/g)) {
       const open = (m.index ?? 0) + m[0].length - 1;
-      // Only inside a resource's configuration: a labels object beside the provider isn't one.
-      if (!configs.some(([from, to]) => open > from && open < to)) continue;
+      // Only a resource's own key: in a resource configuration (a labels object beside the provider
+      // isn't one), one level in for a single resource or two for a map of them, never deeper (an
+      // `actions` object a write function's `args` returns is an argument).
+      const key = m.index ?? 0;
+      if (!configs.some(([from, to]) => key > from && key < to && [1, 2].includes(depthBetween(blank, from, key)))) continue;
       const block = balanced(file.code, open);
       if (!block) continue;
       const keys = m[1] === "writes" ? /create|update|delete/ : m[1] === "source" ? /rpc/ : /[A-Za-z_$][\w$]*/;
