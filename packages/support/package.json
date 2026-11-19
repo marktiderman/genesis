@@ -67,7 +67,8 @@
     },
     "./server": {
       "types": "./dist/server.d.ts",
-      "import": "./dist/server.js"
+      "import": "./dist/server.js",
+      "require": "./dist/server.cjs"
     }
   },
   "files": [
@@ -77,7 +78,7 @@
     "SKILL.md"
   ],
   "scripts": {
-    "build": "tsup && node ../../scripts/check-exports-resolve.mjs",
+    "build": "rm -rf dist && tsup && node ../../scripts/check-exports-resolve.mjs",
     "clean": "rm -rf dist",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"

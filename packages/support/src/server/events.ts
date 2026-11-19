@@ -83,7 +83,22 @@ export interface SupportMessenger {
   thankReporter?(thanks: ReporterThanks): Promise<void> | void;
 }
 
-const fenceSafe = (text: string) => text.replaceAll("````", "``` `");
+/**
+ * A fenced code block the text can't break out of: the fence is longer than the longest run of
+ * backticks in it (at least four). Inside a fence, mentions, links and images don't render.
+ */
+export function fenced(text: string, lang = ""): string {
+  const longest = Math.max(0, ...(text.match(/`+/g) ?? []).map((run) => run.length));
+  const fence = "`".repeat(Math.max(4, longest + 1));
+  return [`${fence}${lang}`, text, fence].join("\n");
+}
+
+/** Text safe outside a fence (an issue title): no mention, link, image or HTML can form. */
+export function neutralise(text: string): string {
+  // A zero-width space after each character that starts a mention, an issue link, a link, an image,
+  // HTML or code: the text reads the same and nothing renders.
+  return text.replace(/[@#[!<`]/g, (c) => `${c}\u200b`);
+}
 
 /** A short title for an event. */
 export function eventTitle(event: SupportEvent): string {
@@ -115,4 +130,4 @@ export function eventSummaryLines(event: SupportEvent): string[] {
   ];
 }
 
-export { fenceSafe };
+

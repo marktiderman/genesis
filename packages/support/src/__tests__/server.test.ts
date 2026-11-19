@@ -6,6 +6,7 @@ import {
   DiagnosticsStoreError,
   githubIssueNotifier,
   hmacSha256Hex,
+  verifyWebhookSignature,
   memoryRateLimiter,
   messengerNotifier,
   parseDiagnosticReport,
@@ -100,11 +101,71 @@ describe("createDiagnosticsHandler: dumps", () => {
     t = 3_600_001;
     expect((await handle(post(JSON.stringify(dump())))).status).toBe(201);
 
-    const byIp = createDiagnosticsHandler({ authenticate: auth, store: memoryStore().store });
+    // The IP comes only from where the app says it can be trusted (here, its own proxy's header).
+    const byIp = createDiagnosticsHandler({ authenticate: auth, store: memoryStore().store, clientIp: (r) => r.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null });
     const from = (ip: string) => post(JSON.stringify(dump()), { "content-type": "application/json", "x-forwarded-for": `${ip}, 10.0.0.1` });
     for (let i = 0; i < 5; i++) expect((await byIp(from("1.2.3.4"))).status).toBe(201);
     expect((await byIp(from("1.2.3.4"))).status).toBe(429);
     expect((await byIp(from("5.6.7.8"))).status).toBe(201);
+
+    // Without clientIp, a header the client wrote decides nothing: no per-IP limit to dodge or abuse.
+    const noIp = createDiagnosticsHandler({ authenticate: auth, store: memoryStore().store, limits: { diagnosticsPerHour: 100 } });
+    for (let i = 0; i < 8; i++) expect((await noIp(from("1.2.3.4"))).status).toBe(201);
+  });
+
+  it("never takes the role a dump claims: the caller's, or none", async () => {
+    const { store, reports } = memoryStore();
+    const handle = createDiagnosticsHandler({ authenticate: async () => ({ userId: USER }), store });
+    await handle(post(JSON.stringify(dump({ user: { id: USER, role: "admin" } }))));
+    expect(reports[0]?.report.user).toEqual({ id: USER, role: null });
+  });
+
+  it("stops reading a body with no length at the limit (413), however it is sent", async () => {
+    let pulled = 0;
+    const chunk = new Uint8Array(64 * 1024).fill(0x20);
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulled += 1;
+        if (pulled > 400) controller.close();
+        else controller.enqueue(chunk);
+      },
+    });
+    const handle = createDiagnosticsHandler({ authenticate: auth, store: memoryStore().store });
+    const res = await handle(new Request("https://api.test", { method: "POST", headers: { authorization: "Bearer t", "content-type": "application/json" }, body: stream, duplex: "half" } as RequestInit));
+    expect(res.status).toBe(413);
+    // 512 KB is 8 chunks: it stopped soon after, not at 25 MB.
+    expect(pulled).toBeLessThan(20);
+  });
+
+  it("refuses a dump linked to someone else's feedback when the store can tell", async () => {
+    const { store, reports } = memoryStore();
+    const ownsFeedback = vi.fn(async () => false);
+    const handle = createDiagnosticsHandler({ authenticate: auth, store: { ...store, ownsFeedback } });
+    const res = await handle(post(JSON.stringify(dump({ feedbackId: TICKET }))));
+    expect(res.status).toBe(403);
+    expect(ownsFeedback).toHaveBeenCalledWith(USER, TICKET);
+    expect(reports).toEqual([]);
+  });
+
+  it("answers a CORS preflight and adds CORS headers only for allowed origins", async () => {
+    // happy-dom's Request drops a browser-only header like Origin: wrap one that keeps it.
+    const withOrigin = (req: Request, origin: string) => {
+      const map = new Map([...req.headers, ["origin", origin]]);
+      return { method: req.method, body: req.body, headers: { get: (k: string) => map.get(k.toLowerCase()) ?? null } } as unknown as Request;
+    };
+    const handle = createDiagnosticsHandler({ authenticate: (r) => (r.headers.get("authorization") === "Bearer t" ? { userId: USER } : null), store: memoryStore().store, cors: { origins: ["https://app.test"], headers: ["x-tenant"] } });
+    const preflight = await handle(withOrigin(new Request("https://api.test", { method: "OPTIONS" }), "https://app.test"));
+    expect(preflight.status).toBe(204);
+    expect(preflight.headers.get("access-control-allow-origin")).toBe("https://app.test");
+    expect(preflight.headers.get("access-control-allow-headers")).toBe("authorization, content-type, x-tenant");
+    expect((await handle(withOrigin(new Request("https://api.test", { method: "OPTIONS" }), "https://evil.test"))).status).toBe(403);
+    const res = await handle(withOrigin(post(JSON.stringify(dump())), "https://app.test"));
+    expect(res.status).toBe(201);
+    expect(res.headers.get("access-control-allow-origin")).toBe("https://app.test");
+    const other = await handle(withOrigin(post(JSON.stringify(dump())), "https://evil.test"));
+    expect(other.headers.get("access-control-allow-origin")).toBeNull();
+    // Without cors, OPTIONS is the framework's business.
+    expect((await createDiagnosticsHandler({ authenticate: auth, store: memoryStore().store })(new Request("https://api.test", { method: "OPTIONS" }))).status).toBe(405);
   });
 
   it("passes the store's refusals on, and a failing notifier never fails the request", async () => {
@@ -168,6 +229,38 @@ describe("createDiagnosticsHandler: feedback with screenshots", () => {
     expect(event.report?.feedbackId).toBe(TICKET);
   });
 
+  it("takes back a stored screenshot whose record failed", async () => {
+    const { store } = memoryStore();
+    const removed: string[] = [];
+    const handle = createDiagnosticsHandler({
+      authenticate: auth,
+      store: { ...store, attachFile: async () => Promise.reject(new Error("42501")) },
+      files: { put: async () => {}, remove: async (path) => void removed.push(path) },
+      onError: () => {},
+    });
+    const f = new FormData();
+    f.append("feedback", JSON.stringify({ type: "bug", message: "x" }));
+    f.append("screenshot", new Blob([PNG], { type: "image/png" }), "a.png");
+    const res = await handle(new Request("https://api.test", { method: "POST", headers: { authorization: "Bearer t" }, body: f }));
+    expect(await res.json()).toMatchObject({ id: TICKET, attachmentsDropped: 1 });
+    expect(removed).toHaveLength(1);
+    expect(removed[0]).toMatch(new RegExp(`^${USER}/${TICKET}/`));
+  });
+
+  it("drops a diagnosticsId the feedback names but doesn't bring, unless it is the caller's own", async () => {
+    const send = async (store: DiagnosticsStore) => {
+      const f = new FormData();
+      f.append("feedback", JSON.stringify({ type: "bug", message: "x", diagnosticsId: ID }));
+      await createDiagnosticsHandler({ authenticate: auth, store })(new Request("https://api.test", { method: "POST", headers: { authorization: "Bearer t" }, body: f }));
+    };
+    const plain = memoryStore();
+    await send(plain.store);
+    expect(plain.feedback[0]?.feedback.diagnosticsId).toBeNull();
+    const owned = memoryStore();
+    await send({ ...owned.store, ownsReport: async (userId, id) => userId === USER && id === ID });
+    expect(owned.feedback[0]?.feedback.diagnosticsId).toBe(ID);
+  });
+
   it("refuses bad feedback, and answers 501 when the store takes none", async () => {
     const form = (feedback: unknown) => {
       const f = new FormData();
@@ -219,7 +312,43 @@ describe("notifiers", () => {
     expect(body.labels).toEqual(["feedback", "bug"]);
     expect(body.body).not.toContain(USER);
     expect(body.body).not.toContain("SECRET-MODEL");
-    expect(body.body).toContain("``` `\n@everyone");
+    // The whole body is one fence the person's backticks can't close.
+    expect(body.body.startsWith("````\n") || body.body.startsWith("`````\n")).toBe(true);
+    expect(body.body).toContain("@everyone");
+  });
+
+  it("GitHub: no backtick run, mention or link escapes the fence or the title", async () => {
+    const fetch = vi.fn(async () => new Response("{}", { status: 201 }));
+    const event = feedbackEvent();
+    event.feedback = { ...event.feedback, title: "@everyone [click](https://evil) ![x](https://evil/x.png) #1", message: "```````\n@everyone [x](https://evil)" };
+    await githubIssueNotifier({ token: "t", repo: "a/b", fetch: fetch as never }).notify(event);
+    const sent = JSON.parse(String((fetch.mock.calls[0] as unknown as [string, RequestInit])[1].body));
+    const lines = sent.body.split("\n");
+    expect(lines[0]).toBe("````````");
+    expect(lines.at(-1)).toBe("````````");
+    expect(lines.slice(1, -1).some((l: string) => /^`{8,}$/.test(l))).toBe(false);
+    expect(sent.title).not.toMatch(/@everyone|\[click\]|!\[|#1/);
+    expect(sent.title.replace(/\u200b/g, "")).toContain("@everyone [click](https://evil)");
+  });
+
+  it("GitHub: asks again whether the repository is private after the TTL", async () => {
+    let t = 0;
+    let isPrivate = true;
+    const issues: string[] = [];
+    const fetch = vi.fn(async (url: string, init?: RequestInit) => {
+      if (!init?.method) return new Response(JSON.stringify({ private: isPrivate }));
+      issues.push(JSON.parse(String(init.body)).body);
+      return new Response("{}", { status: 201 });
+    });
+    const n = githubIssueNotifier({ token: "t", repo: "a/b", detail: "full", fetch: fetch as never, now: () => t });
+    const event = feedbackEvent(dump({ device: { model: "Pixel 9" } as never }));
+    await n.notify(event);
+    isPrivate = false;
+    t = 599_000;
+    await n.notify(event);
+    t = 600_000;
+    await n.notify(event);
+    expect(issues.map((b) => b.includes("Pixel 9"))).toEqual([true, true, false]);
   });
 
   it("GitHub full detail: only on a repository GitHub says is private", async () => {
@@ -257,7 +386,16 @@ describe("notifiers", () => {
     const fetch = vi.fn(async () => new Response("ok"));
     await webhookNotifier({ url: "https://hooks.test/x", secret: "k", fetch: fetch as never }).notify(feedbackEvent(dump()));
     const [, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
-    expect((init.headers as Record<string, string>)["x-genesis-signature"]).toBe(`sha256=${await hmacSha256Hex("k", String(init.body))}`);
+    const headers = init.headers as Record<string, string>;
+    expect(headers["x-genesis-signature"]).toBe(`sha256=${await hmacSha256Hex("k", `${headers["x-genesis-timestamp"]}.${String(init.body)}`)}`);
+    const check = (over: Partial<Parameters<typeof verifyWebhookSignature>[0]> = {}) =>
+      verifyWebhookSignature({ secret: "k", body: String(init.body), signature: headers["x-genesis-signature"], timestamp: headers["x-genesis-timestamp"], ...over });
+    expect(await check()).toBe(true);
+    expect(await check({ secret: "other" })).toBe(false);
+    expect(await check({ body: `${String(init.body)} ` })).toBe(false);
+    expect(await check({ timestamp: String(Number(headers["x-genesis-timestamp"]) + 1) })).toBe(false);
+    // A replay ten minutes later is refused.
+    expect(await check({ now: () => Date.now() + 600_000 })).toBe(false);
     const body = JSON.parse(String(init.body));
     expect(body.event).toBe("support.feedback.created");
     expect(body).not.toHaveProperty("report");
@@ -276,6 +414,37 @@ describe("notifiers", () => {
 });
 
 describe("supabaseDiagnosticsStore", () => {
+  it("records a screenshot with the person's id (the service role has no session)", async () => {
+    const { client, calls } = fakeSupabase({ respond: () => ({ data: null, error: null }) });
+    await supabaseDiagnosticsStore(client).attachFile!({ feedbackId: TICKET, userId: USER, path: `${USER}/${TICKET}/a.png`, contentType: "image/png", byteSize: 12, width: null, height: null });
+    expect(calls[0]?.table).toBe("ticket_attachments");
+    expect(arg(calls[0], "insert")).toMatchObject({ user_id: USER, report_id: TICKET, path: `${USER}/${TICKET}/a.png` });
+  });
+
+  it("refuses a tenant the person may not write to, asking the database first", async () => {
+    const rpc = vi.fn((_fn: string, _args: unknown) => ({ data: false, error: null }));
+    const { client, calls } = fakeSupabase({ rpc, respond: () => ({ data: { id: TICKET }, error: null }) });
+    const feedback = { type: "bug" as const, title: null, message: "x", severity: null, route: null, appVersion: null, platform: null, device: {}, extra: {}, tenantId: "00000000-0000-4000-8000-0000000000b0", diagnosticsId: null };
+    await expect(supabaseDiagnosticsStore(client).saveFeedback!({ userId: USER, feedback })).rejects.toMatchObject({ status: 403 });
+    expect(rpc).toHaveBeenCalledWith("support_ticket_tenant_allowed", { person: USER, tenant: feedback.tenantId });
+    expect(calls).toEqual([]);
+    rpc.mockReturnValueOnce({ data: true, error: null });
+    await expect(supabaseDiagnosticsStore(client).saveFeedback!({ userId: USER, feedback })).resolves.toEqual({ id: TICKET });
+    // No tenant: the app's own, nothing to ask.
+    rpc.mockClear();
+    await supabaseDiagnosticsStore(client).saveFeedback!({ userId: USER, feedback: { ...feedback, tenantId: null } });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("checks ownership of a ticket and a dump by the person's id", async () => {
+    const { client, calls } = fakeSupabase({ respond: (c) => ({ data: c.ops.some(([op, a]) => op === "eq" && a[1] === USER) ? { id: TICKET } : null, error: null }) });
+    const store = supabaseDiagnosticsStore(client);
+    expect(await store.ownsFeedback!(USER, TICKET)).toBe(true);
+    expect(calls[0]?.table).toBe("tickets");
+    expect(await store.ownsReport!("someone-else", ID)).toBe(false);
+    expect(calls[1]?.table).toBe("support_diagnostics");
+  });
+
   it("writes the dump for the person, and maps the database's rate limit to 429", async () => {
     const { client, calls } = fakeSupabase({ respond: () => ({ data: null, error: null }) });
     await supabaseDiagnosticsStore(client).saveReport({ report: dump(), userId: USER, feedbackId: TICKET });

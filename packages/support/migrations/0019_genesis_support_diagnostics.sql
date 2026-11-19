@@ -13,7 +13,15 @@
 --   3. Size: the report is JSON, at most 512 KB as text (the client caps it to 256 KB first).
 --   4. Rate: 10 dumps an hour per person, counted in private.support_rate_events (kind
 --      'diagnostics'), refused with GS429 like reports and replies.
---   5. Retention: public.support_purge_diagnostics(older_than, max_rows) deletes dumps older than
+--   5. Lookups by short id, for staff: public.support_diagnostics_by_short_id(short) lists every
+--      dump with that short id with its owner and time. A short id is 8 hex digits of an id the
+--      device makes, so two dumps can share one (by chance, or because someone chose an id): staff
+--      see whose each is rather than trusting the first.
+--   6. public.support_ticket_tenant_allowed(person, tenant), for a server writing a ticket with the
+--      service role (genesis-support/server's Supabase store): the tickets trigger checks the
+--      tenant only when a person is signed in, so the server asks this first. True for the app's
+--      own tenant (or none); otherwise the person must belong to the tenant and its help desk be on.
+--   7. Retention: public.support_purge_diagnostics(older_than, max_rows) deletes dumps older than
 --      90 days by default, a bounded batch per call, for the service role. The
 --      genesis-support-cleanup function calls it on its schedule; or schedule it with pg_cron:
 --        select cron.schedule('genesis-support-diagnostics', '17 3 * * *',
@@ -146,3 +154,48 @@ comment on function public.support_purge_diagnostics(interval, integer) is
 
 revoke execute on function public.support_purge_diagnostics(interval, integer) from public, anon, authenticated;
 grant execute on function public.support_purge_diagnostics(interval, integer) to service_role;
+
+-- 4. Staff lookups by short id ----------------------------------------------------------------
+
+create or replace function public.support_diagnostics_by_short_id(short text)
+returns table (id uuid, short_id text, user_id uuid, created_at timestamptz, trigger text, feedback_id uuid)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select d.id, d.short_id, d.user_id, d.created_at, d.trigger, d.feedback_id
+  from public.support_diagnostics d
+  where d.short_id = upper(btrim(short))
+    and (public.support_is_staff() or auth.role() = 'service_role')
+  order by d.created_at desc
+  limit 20
+$$;
+
+comment on function public.support_diagnostics_by_short_id(text) is
+  'Staff: every dump with this short id, with its owner and time (short ids can repeat). Genesis support.';
+
+revoke execute on function public.support_diagnostics_by_short_id(text) from public, anon;
+grant execute on function public.support_diagnostics_by_short_id(text) to authenticated, service_role;
+
+-- 5. The tenant check for service-role writes -------------------------------------------------
+
+create or replace function public.support_ticket_tenant_allowed(person uuid, tenant uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select tenant is null
+    or tenant is not distinct from private.genesis_support_default_tenant_id()
+    or (person is not null
+        and exists (select 1 from private.genesis_support_tenants_of(person) v where v.tenant_id = tenant)
+        and private.genesis_support_helpdesk_on(tenant))
+$$;
+
+comment on function public.support_ticket_tenant_allowed(uuid, uuid) is
+  'Whether a ticket for this person may go to this tenant (the app''s own, or one they belong to with its help desk on). Service role only. Genesis support.';
+
+revoke execute on function public.support_ticket_tenant_allowed(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.support_ticket_tenant_allowed(uuid, uuid) to service_role;
