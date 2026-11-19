@@ -4,8 +4,8 @@
  * sees: an organization can switch a feature off, a paid one needs its plan,
  * and a release flag holds back a beta.
  */
-import { defineFeatures, defineFlags } from "@marktiderman/genesis-features";
-import { gateSnapshot, type GateContext } from "@marktiderman/genesis-features/gate";
+import { defineFeatures, defineFlags } from "@marktiderman/genesis-config";
+import { gateSnapshot, type GateContext } from "@marktiderman/genesis-config/gate";
 import type { Org } from "./tenants";
 
 const common = {

@@ -1,4 +1,8 @@
-# @marktiderman/genesis-features
+# @marktiderman/genesis-config
+
+> Formerly `@marktiderman/genesis-features`, renamed in place (same source, same subpaths, same
+> formats). The old name is a deprecated re-export for two minor versions
+> ([packages/features-alias](../features-alias/README.md)); `genesis upgrade` moves an app's imports.
 
 A repo's features in one typed code file that running code imports. Every other format (the
 AGENTS.md pointer, `features.json`, an OpenFeature `flags.json`, the agent skill, a README
@@ -11,7 +15,7 @@ Phase 1 is deliberately small: one flat file per repo. No database, no sync, no 
 
 ```ts
 // src/features.ts
-import { defineFeatures, type FeatureIdOf } from "@marktiderman/genesis-features";
+import { defineFeatures, type FeatureIdOf } from "@marktiderman/genesis-config";
 
 export const features = defineFeatures({
   tasks: {
@@ -50,7 +54,7 @@ Ids are permanent. `check` and `build` refuse when an id recorded in `features.j
 ## Flags
 
 ```ts
-import { defineFlags } from "@marktiderman/genesis-features";
+import { defineFlags } from "@marktiderman/genesis-config";
 import { features } from "./features";
 
 export const flags = defineFlags(features, {
@@ -120,16 +124,83 @@ The flag scan ignores comments and test files. List the flags runtime itself (th
 
 The CLI loads TypeScript itself, so the registry needs no build step. Keep its imports to packages, with no path aliases.
 
+## App settings
+
+Every package declares its settings next to its `defineBlock`, and the app resolves them through
+one resolver on the server, the web and phones (`@marktiderman/genesis-config/settings`, free of
+zod; also on the root).
+
+```ts
+import { defineSettings, resolveSettings, settingsCatalogue, withSettings } from "@marktiderman/genesis-config/settings";
+
+export const supportSettings = defineSettings("support", {
+  messenger: { type: "boolean", default: { max: true, standard: true, min: false }, scope: "tenant", feature: "support-messenger" },
+  agentDesk: { type: "boolean", default: { max: true, standard: true, min: false }, requires: ["support.inbox"] },
+  inbox: { type: "boolean", default: true },
+  dumpRetentionDays: { type: "number", default: 90, min: 7, max: 365 },
+  githubRepo: { type: "string", default: null, needs: "secret:GITHUB_TOKEN", store: "edge" },
+  sentryDsn: { type: "string", default: null, applies: "build" },
+});
+
+const catalogue = settingsCatalogue([supportSettings]);
+const settings = resolveSettings(catalogue, { preset: "max", file, database, tenant, person });
+settings.values["support.dumpRetentionDays"]; // 90
+settings.sources["support.messenger"]; // { layer: "tenant" }
+const ctx = withSettings({ platform: "web" }, catalogue, settings); // for featureOn
+```
+
+Each key has a `type` (`boolean`, `number`, `string`, `list`, `object`) and a `default`, or one per
+preset (`{ max, standard, min }`). `scope` (`app`, the default, `tenant` or `person`) is the lowest
+layer that may change it; `applies` is `runtime` (the default) or `build` (a new binary or bundle).
+`requires` links other keys, `min`, `max` and `options` bound the value, and `needs:
+"secret:NAME"` names the secret it needs and `store` where it lives (`vault`, `edge`, `server-env`
+or `ci`): never its value. `feature` and `flag` link the key to the gate.
+
+**The layers**, low to high. A later layer wins unless an earlier one locked the value
+(`{ value, locked: true }`):
+
+1. **default**: the declared default (for a per-preset one, `max`'s);
+2. **preset**: `max` (Genesis's default: everything on), `standard` or `min`, chosen in
+   genesis.config.json (`"preset"`) but resolved as its own layer;
+3. **file**: genesis.config.json `settings` (`settingsLayerFromFile`), the only layer that sets a
+   build-time key;
+4. **database**: the app's `genesis_settings` table (genesis-supabase's `settings` block);
+5. **tenant**: only keys declared `scope: "tenant"`;
+6. **person**: only keys declared `scope: "person"`.
+
+Which layers may set each scope is one table, `SCOPE_LAYERS`. A lock always holds: a locked entry
+whose own value is bad keeps the value from below and still locks it. `null` ("not set") is a value
+only for a key whose default is `null`.
+
+`resolveSettings` never throws: it skips a bad entry and reports it in `problems` (an unknown
+key, a value of the wrong type or out of bounds, a tenant or person value for a key without that
+scope, a runtime layer setting a build-time key, a change to a locked value, a key on while one it
+requires is off, an unknown preset, which resolves on `max`). Every map it returns has no prototype,
+so a key such as `__proto__` or `constructor` is just an unknown key. `sources` says which layer set each value and which locked it.
+
+**The gate.** A boolean key linked with `feature` that resolves to `false` puts the feature in
+`GateContext.settingsOff` (`featureOn` answers `reason: "setting"`), and a key linked with `flag`
+gives the flag its value when the context has none (`withSettings`, `settingsGateContext`). A key the
+app locked (genesis.config.json or the database, `APP_LOCK_LAYERS`) wins over the context: the
+tenant's switch can't turn off a feature locked on, nor the context's flag change a locked flag. A
+tenant or person lock only stops later settings layers; it never beats a platform flag, an
+entitlement or (for a person) the tenant's switch. It is the same gate, with one more check.
+
+**Packages without running them.** A package also lists its declaration in package.json
+(`genesis.settings`: `{ "namespace": …, "keys": { … } }`, read with `settingsFromManifest`), so
+`genesis doctor` checks an app's genesis.config.json against the installed packages
+(`invalid-setting`). `catalogueManifest` is the catalogue as the database checks values against it.
+
 ## The gate
 
 `featureOn(registry, context, id)` answers "is this feature on here?" the same way everywhere. Checks
-run in a fixed order and the first "no" wins: **status** (beta, live or deprecated), **platform**, **tenant**
-(switched off), **flag** (each boolean release flag must be exactly `true`) and last **entitlement** (for
+run in a fixed order and the first "no" wins: **status** (beta, live or deprecated), **platform**, **setting**
+(a setting switched it off, through `withSettings`), **tenant** (switched off), **flag** (each boolean release flag must be exactly `true`) and last **entitlement** (for
 `access: { plan }`), so an upgrade prompt only appears when paying is the one thing missing. The answer
 carries the reason, and for a paid feature the plan that unlocks it.
 
 ```ts
-import { featureOn, gateSnapshot, isSnapshotStale, requireFeature } from "@marktiderman/genesis-features/gate";
+import { featureOn, gateSnapshot, isSnapshotStale, requireFeature } from "@marktiderman/genesis-config/gate";
 
 const context = { platform: "web", entitlements: ["form-webhook-delivery"], off: ["library"], flags: { "sms.release": true } };
 featureOn({ features, flags }, context, "library"); // { on: false, reason: "tenant" }
@@ -148,7 +219,7 @@ phones and edge functions. Context id sets are lists, Sets or functions (not ite
 Native), `/gate/react` reads the server's snapshot:
 
 ```tsx
-import { FeatureGate, FeatureGateProvider, useFeature } from "@marktiderman/genesis-features/gate/react";
+import { FeatureGate, FeatureGateProvider, useFeature } from "@marktiderman/genesis-config/gate/react";
 
 <FeatureGateProvider snapshot={snapshot}>
   <FeatureGate feature="form-webhook-delivery" upsell={({ unlock }) => <Upgrade plan={unlock.plan} />}>
@@ -169,11 +240,11 @@ way: [ADR 0001](../../docs/adr/0001-one-feature-gate.md).
 A block is a feature an app adds whole: account, push, observability, support, updates. It is
 declared once, by its FeatureId, with what it needs and what it contributes. The app shell, the
 navigation tree and Settings read the contributions by FeatureId; the app still decides where they
-go. `@marktiderman/genesis-features/blocks` has no zod in it, so it ships to phones (the root
+go. `@marktiderman/genesis-config/blocks` has no zod in it, so it ships to phones (the root
 re-exports it).
 
 ```ts
-import { defineBlock, resolveBlocks } from "@marktiderman/genesis-features/blocks";
+import { defineBlock, resolveBlocks } from "@marktiderman/genesis-config/blocks";
 import type { FeatureId } from "./features";
 
 export const supportBlock = defineBlock<FeatureId>({
@@ -230,7 +301,7 @@ A pack's `sections` are keyed by the block that owns them. Genesis checks what e
 item holds is the block's business, checked by the validator it registers as `contributes.contentSection`:
 
 ```ts
-import { contentPackProblems, defineBlock, defineContentPack } from "@marktiderman/genesis-features/blocks";
+import { contentPackProblems, defineBlock, defineContentPack } from "@marktiderman/genesis-config/blocks";
 
 export const meetingsBlock = defineBlock({
   id: "meetings",
@@ -269,7 +340,7 @@ under the block that owns it.
 ## The page
 
 ```tsx
-import { FeatureList } from "@marktiderman/genesis-features/react";
+import { FeatureList } from "@marktiderman/genesis-config/react";
 
 <FeatureList features={features} flags={flags} pathHref={(p) => `https://github.com/acme/app/blob/main/${p}`} />
 <FeatureList features={features} variant="marketing" title="What it does" />

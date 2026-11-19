@@ -22,16 +22,20 @@ function literal(value: unknown, indent: string): string {
 
 /**
  * Which field an app's features.ts takes a feature's kind in: `kind` from
- * genesis-features 0.8, else the older `layer` (every release reads it, and
- * an older release refuses an unknown `kind`). Read from the genesis-features
- * the app has installed, looking up from `root`; `layer` when none is found.
+ * genesis-features 0.8 (and every genesis-config, its new name), else the older
+ * `layer` (every release reads it, and an older release refuses an unknown
+ * `kind`). Read from the registry package the app has installed, looking up
+ * from `root`; `layer` when none is found.
  */
 export function featureKindField(root: string): "kind" | "layer" {
+  const names = ["@marktiderman/genesis-config", "@marktiderman/genesis-features"];
   for (let dir = path.resolve(root); ; dir = path.dirname(dir)) {
-    for (const file of [path.join(dir, "node_modules/@marktiderman/genesis-features/package.json"), path.join(dir, "packages/features/package.json")]) {
+    const files = [...names.map((name) => path.join(dir, "node_modules", name, "package.json")), path.join(dir, "packages/features/package.json")];
+    for (const file of files) {
       try {
         const pkg = JSON.parse(readFileSync(file, "utf8")) as { name?: string; version?: string };
-        if (pkg.name !== "@marktiderman/genesis-features" || !pkg.version) continue;
+        if (!pkg.name || !names.includes(pkg.name) || !pkg.version) continue;
+        if (pkg.name === "@marktiderman/genesis-config") return "kind";
         const [major = 0, minor = 0] = pkg.version.split(".").map(Number);
         return major > 0 || minor >= 8 ? "kind" : "layer";
       } catch {

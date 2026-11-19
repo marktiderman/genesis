@@ -1,6 +1,6 @@
 /** An owner's settings: switch this organization's features and the assistant's release flag. */
 import { Navigate } from "react-router";
-import { useFeature } from "@marktiderman/genesis-features/gate/react";
+import { useFeature } from "@marktiderman/genesis-config/gate/react";
 import { Badge } from "@marktiderman/genesis-ui";
 import { SettingsPage } from "@marktiderman/genesis-ui/settings-page";
 import { SettingsRow } from "@marktiderman/genesis-ui/settings-row";

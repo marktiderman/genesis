@@ -1,5 +1,6 @@
 // genesis-support-notify: an optional server-side sink for new support reports.
-// A Database Webhook on INSERT into public.support_reports calls it; it opens a
+// A Database Webhook on INSERT into public.tickets (public.support_reports before
+// genesis-support's migration 0004) calls it; it opens a
 // GitHub issue per report and/or posts a signed webhook, with a summary only
 // (no person id, email, device, context or screenshot). See handler.ts.
 // A template from @marktiderman/genesis-supabase: copy this folder to your app's

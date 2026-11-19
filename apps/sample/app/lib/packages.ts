@@ -3,7 +3,7 @@
  * so a new package appears on the site with no hand edit. Each package's
  * `genesis` key says its layer and group (docs/PACKAGE-STRATEGY.md, "Layers").
  */
-import type { PackageGroup, PackageLayer, PackageMeta } from "@marktiderman/genesis-features";
+import type { PackageGroup, PackageLayer, PackageMeta } from "@marktiderman/genesis-config";
 
 interface PackageJson {
   name: string;

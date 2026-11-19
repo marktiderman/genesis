@@ -91,7 +91,10 @@ export function createIntakeClient(config: IntakeClientConfig): IntakeClient {
 
 /**
  * A sink over the intake function. The function takes no screenshots (they
- * go to storage with a session), so attachments are reported as dropped.
+ * go to storage with a session), so attachments are reported as dropped. For
+ * an app whose feedback goes to its own API with screenshots, use
+ * `httpTransport({ url }).feedbackSink` (multipart) and `createDiagnosticsHandler`
+ * from `@marktiderman/genesis-support/server` on the server.
  */
 export function createIntakeSink(client: IntakeClient): FeedbackSink {
   return {
@@ -104,7 +107,7 @@ export function createIntakeSink(client: IntakeClient): FeedbackSink {
         appVersion: record.context.appVersion,
         envType: record.context.platform,
         severity: record.severity,
-        context: record.context.extra,
+        context: record.diagnosticsId ? { ...record.context.extra, diagnosticsId: record.diagnosticsId } : record.context.extra,
       });
       return { id: result.reportId, attachmentsDropped: record.attachments?.length ?? 0 };
     },

@@ -160,12 +160,15 @@ function pruneBunLock(root: string, want: (name: string) => string | null | unde
 
 const EXACT_OR_TAG = /^[0-9A-Za-z][0-9A-Za-z.+-]*$/;
 
-function npm(args: string[], cwd: string): string {
-  return execFileSync("npm", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+function npm(args: string[], cwd: string, timeout?: number): string {
+  return execFileSync("npm", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], ...(timeout ? { timeout } : {}) }).trim();
 }
 
-/** The workflow's lookup: npm view for the version, the published tarball for versions.json. */
-export function npmLookup(cwd: string): ReleaseLookup {
+/**
+ * The workflow's lookup: npm view for the version, the published tarball for versions.json.
+ * `timeoutMs` bounds each `npm view` of `latest` (genesis-behind's deadline); a timeout reads as unpublished.
+ */
+export function npmLookup(cwd: string, options: { timeoutMs?: number } = {}): ReleaseLookup {
   const latest = new Map<string, string | null>();
   return {
     release(target) {
@@ -187,7 +190,7 @@ export function npmLookup(cwd: string): ReleaseLookup {
       if (!latest.has(name)) {
         let v: unknown = null;
         try {
-          v = JSON.parse(npm(["view", `${name}@latest`, "version", "--json"], cwd) || "null");
+          v = JSON.parse(npm(["view", `${name}@latest`, "version", "--json"], cwd, options.timeoutMs) || "null");
         } catch {
           // Not published.
         }
@@ -391,7 +394,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
     skipped.push(...result.skipped);
     if (result.text !== null) bumped.set(file, result.text);
   }
-  const mods = codemodsFor(changes, options.codemods ?? CODEMODS);
+  const mods = codemodsFor(changes, options.codemods ?? CODEMODS, root);
   const breaks = uncoveredBreaks(changes, options.codemods ?? CODEMODS);
 
   // Overlays: cleaned out and rebased onto the release, planned before anything is written, so a
@@ -482,7 +485,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
   }
   for (const mod of mods) {
     log(`codemod ${mod.id}: ${mod.description}`);
-    const changed = await mod.run({ root, dryRun: Boolean(options.dryRun), log });
+    const changed = await mod.run({ root, dryRun: Boolean(options.dryRun), log, wanted });
     codemodRuns.push({ id: mod.id, files: changed });
     for (const f of changed) files.add(f);
   }

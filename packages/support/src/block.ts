@@ -4,7 +4,7 @@
  * stores' privacy forms. Platform-neutral; `createSupport` (native) builds
  * on it, and a web app can resolve it with `resolveBlocks` too.
  */
-import { defineBlock, type BlockContributions, type BlockSettingsRow } from "@marktiderman/genesis-features/blocks";
+import { defineBlock, type BlockContributions, type BlockSettingsRow } from "@marktiderman/genesis-config/blocks";
 import { resolveSupportCopy, type SupportCopyOverrides } from "./copy";
 import { SUPPORT_CHAT_BLOCK_ID } from "./chat";
 
@@ -95,6 +95,8 @@ export function supportContributions(options: SupportBlockOptions = {}): BlockCo
       { package: "@marktiderman/genesis-support", file: "migrations/0004_genesis_support_tickets.sql", test: "migrations/tests/0004_genesis_support_tickets.test.sql" },
       // The Data Studio's keys after the rename, and an agent's unread count.
       { package: "@marktiderman/genesis-support", file: "migrations/0016_genesis_support_ticket_fixes.sql", test: "migrations/tests/0016_genesis_support_ticket_fixes.test.sql" },
+      // The context dump's table (createDiagnostics): own rows, staff read, 10 an hour, 90 days.
+      { package: "@marktiderman/genesis-support", file: "migrations/0019_genesis_support_diagnostics.sql", test: "migrations/tests/0019_genesis_support_diagnostics.test.sql" },
     ],
     privacy: {
       collects: [
@@ -108,6 +110,7 @@ export function supportContributions(options: SupportBlockOptions = {}): BlockCo
         "Feedback is sent only when the person taps Send, and a screenshot only when they include it, after they can hide parts of it.",
         "Reports, screenshots and replies are visible only to the person, the app's support staff and anyone the app names to handle the report, and go when the person deletes them or their account.",
         "Feedback includes the app version, the screen's path (never its query string; private-looking segments are replaced), the platform and basic device facts.",
+        "With diagnostics on, a context dump goes with each piece of feedback, on a shake and when the person taps Send diagnostics: the build and update, device facts (model, OS, locale, time zone, screen, network type, permission states), the recent screens as paths, flags in effect, and recent errors, breadcrumbs and console lines. The person is an id and a role only; emails, phone numbers, tokens, keys and query strings are removed on the device and again on the server. A dump never carries a screenshot. Dumps are capped at 256 KB, limited to 10 an hour, readable only by the person and the app's support staff, and deleted after 90 days.",
       ],
     },
   };

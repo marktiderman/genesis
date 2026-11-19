@@ -27,7 +27,9 @@ migration of your own, and set the Edge Functions' secrets.
 |---|---|
 | The phone: `createSupport`, the feedback screen, inbox, thread and idea board hooks | `@marktiderman/genesis-support/native` |
 | The web: the feedback panel and floating launcher | `@marktiderman/genesis-support/web` |
-| The record, `ContextCollector` and `FeedbackSink` seams | `@marktiderman/genesis-support` |
+| The record, `ContextCollector` and `FeedbackSink` seams; `createDiagnostics` and its transports | `@marktiderman/genesis-support` |
+| The context dump on the phone: `nativeSections`, `observabilitySection`, `SendDiagnosticsRow` | `@marktiderman/genesis-support/native` |
+| The app's own server: `createDiagnosticsHandler`, notifiers, Supabase adapters | `@marktiderman/genesis-support/server` |
 
 ## The help desk
 
@@ -41,6 +43,8 @@ for people, `SupportAgentInbox` for agents, `SupportHelpCenterAdmin` for article
 - Pass the block to `<GenesisNativeApp blocks>`; Settings gets its rows through the block, and
   the screens are the app's route files, each a genesis-ui-native layout fed by a hook.
 - Don't build a second feedback form or idea board: extend this one through its seams.
+- Don't hand-roll a "copy diagnostics" or a device-context report: use `createDiagnostics` and add
+  the app's own state with `defineDiagnosticSection`. A dump holds an id and a role, never an email.
 - Which plan unlocks Support is the app's call, in its own `features.ts`.
 
 Details: the package README.

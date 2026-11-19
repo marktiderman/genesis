@@ -182,7 +182,7 @@ gets a working product surface to switch on for tenants, it is a **module**.
 }
 ```
 
-The type is `PackageMeta` in `@marktiderman/genesis-features` (with `readPackageMeta` and
+The type is `PackageMeta` in `@marktiderman/genesis-config` (with `readPackageMeta` and
 `packageLayerProblems`). Package dependencies are already the record of which primitives a
 module is built from, so they are not declared again. Plans and entitlements are left out on
 purpose: which plan unlocks a module is the app's decision, in its own `features.ts`
@@ -235,7 +235,7 @@ Rejected: shadcn-style ejecting, which recreates the code in each app, breaks G5
 **Overlays: the one exception, marked and short-lived.** When an app can't wait for a release, it
 may copy a package's source into its own workspace under the package's name (an *overlay*), change
 it, ship it, and promote the change upstream. The copy carries a marker in its package.json, which
-`readOverlayMarker` (genesis-features) validates and `genesis doctor` reads:
+`readOverlayMarker` (genesis-config) validates and `genesis doctor` reads:
 
 ```json
 "genesis": {

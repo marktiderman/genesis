@@ -2,7 +2,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { resolveBlocks } from "@marktiderman/genesis-features/blocks";
+import { resolveBlocks } from "@marktiderman/genesis-config/blocks";
 import {
   base64ToBytes,
   cleanRoute,
@@ -257,6 +257,12 @@ describe("the block", () => {
         package: "@marktiderman/genesis-support",
         file: "migrations/0016_genesis_support_ticket_fixes.sql",
         test: "migrations/tests/0016_genesis_support_ticket_fixes.test.sql",
+        feature: SUPPORT_BLOCK_ID,
+      },
+      {
+        package: "@marktiderman/genesis-support",
+        file: "migrations/0019_genesis_support_diagnostics.sql",
+        test: "migrations/tests/0019_genesis_support_diagnostics.test.sql",
         feature: SUPPORT_BLOCK_ID,
       },
     ]);

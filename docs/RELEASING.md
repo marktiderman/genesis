@@ -191,6 +191,27 @@ a major bump (`1.0.0`). Its patch changeset (step 3) bumps that first version,
 so CI publishes the next one (e.g. `0.1.1`). Every later version goes through
 CI as usual.
 
+## Renaming a package
+
+npm can't rename a package, so a rename (genesis-features → genesis-config, 2026-11) is a new
+package plus a deprecated alias under the old name:
+
+1. The new name is a brand-new package: hand-publish and trust its first version before the version
+   PR merges (above). For genesis-config that is 0.10.0; its patch changeset makes CI publish the
+   next one.
+2. The alias publishes through CI as usual (genesis-features 0.10.x, a re-export of genesis-config).
+3. After it is out, deprecate **every** version of the old name, 0.9.x included (the codemod moves
+   an app from any of them, and a 0.9.x install should hear about the rename too). npm ignores
+   package.json's `deprecated` field when publishing; it's there for `genesis doctor` and for
+   readers, so this command is what makes installs warn:
+
+   ```bash
+   npm deprecate '@marktiderman/genesis-features' "Renamed to @marktiderman/genesis-config. Run npx genesis codemod genesis-features-renamed-genesis-config (or genesis upgrade). The alias is kept for 0.10 and 0.11."
+   ```
+
+4. Remove the alias after its second minor (0.11), with the codemod and the doctor's
+   `RENAMED_PACKAGES` entry kept so an app that skipped it is still moved and told.
+
 ## Forms packages and 0.x peer ranges
 
 With `workspace:^` on a 0.x package, every minor of `genesis-forms` would leave

@@ -1,6 +1,6 @@
 /**
  * Blocks on native: `defineBlock` declarations (from
- * `@marktiderman/genesis-features/blocks`) with the two things only a native
+ * `@marktiderman/genesis-config/blocks`) with the two things only a native
  * shell can run, boot steps behind the splash and a root around the screens.
  * `<GenesisNativeApp blocks={[…]}>` resolves them once, runs their steps,
  * mounts their roots, puts their slot fills under the app's own `slots`, and
@@ -8,7 +8,7 @@
  */
 import { createContext, useContext, type ComponentType, type ReactNode } from "react";
 import type { SlotPropsFor, Slots } from "@marktiderman/genesis-core/slots";
-import type { BlockDef, BlockSettingsRow, Contributed, ResolvedBlocks } from "@marktiderman/genesis-features/blocks";
+import type { BlockDef, BlockSettingsRow, Contributed, ResolvedBlocks } from "@marktiderman/genesis-config/blocks";
 import type { BootStep } from "./boot";
 import type { ErrorReport } from "./errors";
 import type { NativeAppSlots } from "./app";

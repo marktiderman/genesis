@@ -11,6 +11,46 @@ This file is appended to (never rewritten) at every release. Newest version on t
 
 ---
 
+## Settings: `preset` and `settings` in genesis.config.json — `@marktiderman/genesis-config` (settings), `@marktiderman/genesis-cli` (**minor**)
+
+🟢 **No action needed**, unless your genesis.config.json already has a top-level `preset` or
+`settings` key of your own. Genesis now reads both: `preset` is `max` (the default), `standard` or
+`min`, and `settings` is the app file's layer of Genesis settings (`"namespace.key": value`, or
+`{ "value": …, "locked": true }`). A value that isn't that shape is ignored, every command still
+runs, and `genesis doctor` reports it (`invalid-setting`): rename your key (to `appPreset` or
+`appSettings`, say) and update what reads it.
+
+---
+
+## `@marktiderman/genesis-features` is now `@marktiderman/genesis-config` — genesis-features 0.10 (deprecated alias), genesis-config 0.10, genesis-cli (rename; **minor**)
+
+🟡 **Action recommended.** The feature registry package is renamed in place: the same source, exports
+and subpaths (`.`, `/blocks`, `/gate`, `/gate/react`, `/node`, `/react`) publish as
+`@marktiderman/genesis-config`. `@marktiderman/genesis-features` is a thin, deprecated re-export of
+it for two minor versions (0.10 and 0.11), then goes.
+
+```bash
+npx genesis codemod genesis-features-renamed-genesis-config   # or genesis upgrade, which runs it
+```
+
+The codemod rewrites the imports (and subpaths), the dependency in each package.json, `overrides` /
+`pnpm.overrides` / `resolutions` keys, `tsconfig*.json` paths and `pnpm-workspace.yaml`, and lists
+whatever still mentions the old name. `genesis doctor` reports any import left (`deprecated-import`).
+Feature ids, `features.ts`, `features.json`, `flags.json` and the generated AGENTS.md block keep their
+format.
+
+- **Move both together.** The Genesis packages that depended on genesis-features (chat, native,
+  notifications, product, sites, supabase, support, the genesis umbrella, genesis-cli) now depend on
+  genesis-config. An app that takes their new releases while still on genesis-features 0.9.x carries
+  two copies of the registry and gate (0.9's own code, and genesis-config): gate snapshots and
+  `BlockDef`s still interoperate (plain data), but take the alias (0.10+) or run the codemod in the
+  same upgrade so there's one copy.
+- **Not the same as the old config schema.** "genesis-config" already names
+  `schema/genesis-config.schema.json` and `scripts/validate-genesis-config.mjs` (the CI gates file,
+  below). They are unrelated to the package.
+
+---
+
 ## The responsive contract: lists answer to their own width, rows and cards open from their own button — `@marktiderman/genesis-ui` 3.0.0 (**major**), `@marktiderman/genesis-support` (minor), `@marktiderman/genesis` (minor)
 
 The components now hold the rules in [RESPONSIVE.md](./RESPONSIVE.md). Several change how existing

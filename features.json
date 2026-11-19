@@ -3846,6 +3846,8 @@
       "links": {
         "code": [
           "packages/features",
+          "packages/features-alias",
+          "packages/genesis-cli/src/upgrade/rename-features.ts",
           "packages/genesis-cli/src/features.ts",
           "features.ts"
         ],
@@ -3881,9 +3883,9 @@
         "server": "building"
       },
       "entry": {
-        "web": "@marktiderman/genesis-features/blocks",
-        "native": "@marktiderman/genesis-features/blocks",
-        "server": "@marktiderman/genesis-features/blocks"
+        "web": "@marktiderman/genesis-config/blocks",
+        "native": "@marktiderman/genesis-config/blocks",
+        "server": "@marktiderman/genesis-config/blocks"
       },
       "requires": [
         "define-block"
@@ -3947,9 +3949,9 @@
         "server": "building"
       },
       "entry": {
-        "web": "@marktiderman/genesis-features/gate",
-        "native": "@marktiderman/genesis-features/gate",
-        "server": "@marktiderman/genesis-features/gate"
+        "web": "@marktiderman/genesis-config/gate",
+        "native": "@marktiderman/genesis-config/gate",
+        "server": "@marktiderman/genesis-config/gate"
       },
       "requires": [
         "feature-registry"
@@ -3988,6 +3990,86 @@
         "docs": [
           "docs/adr/0001-one-feature-gate.md",
           "packages/features/README.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "settings-core",
+      "name": "Settings",
+      "summary": "Typed settings for every Genesis package: defineSettings(namespace, keys) declares each key (type, a default per preset, scope, build or runtime, requires, bounds, the secret it needs by name), settingsCatalogue merges them, and resolveSettings(catalogue, layers) resolves default → preset → genesis.config.json → the app's genesis_settings table → tenant → person, a lock stopping every later layer, with where each value came from and what was wrong. Switches feed the feature gate (withSettings); genesis.config.json gets preset and settings, checked by the doctor.",
+      "category": "Platform",
+      "status": "building",
+      "horizon": "now",
+      "claimedBy": "mark",
+      "kind": "service",
+      "keywords": [
+        "settings",
+        "configuration",
+        "preset",
+        "defineSettings",
+        "resolveSettings",
+        "genesis_settings",
+        "locks",
+        "platform admin",
+        "max standard min"
+      ],
+      "platforms": {
+        "web": "building",
+        "native": "building",
+        "server": "building"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-config/settings",
+        "native": "@marktiderman/genesis-config/settings",
+        "server": "@marktiderman/genesis-config/settings"
+      },
+      "requires": [
+        "feature-gate"
+      ],
+      "contributes": [
+        "fn: defineSettings",
+        "fn: settingsCatalogue",
+        "fn: resolveSettings",
+        "fn: withSettings",
+        "table: genesis_settings",
+        "table: genesis_setting_changes",
+        "table: genesis_app_manifest",
+        "rpc: genesis_settings_layers",
+        "rpc: set_genesis_setting"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native",
+        "server",
+        "cli"
+      ],
+      "audience": [
+        "developer",
+        "admin",
+        "agent"
+      ],
+      "visibility": "internal",
+      "acceptance": [
+        "resolveSettings applies the layers in order; a lock at any layer stops every later one; tenant and person layers change only keys declared with that scope; only the file sets a build-time key; bad entries are reported and skipped, never thrown.",
+        "A boolean setting linked to a feature that resolves to false turns the feature off through featureOn (GateContext.off); there is no second gate.",
+        "genesis.config.json's preset and settings are checked strictly, and the doctor reports settings the installed packages don't declare or that don't fit.",
+        "set_genesis_setting changes a runtime setting only for a platform admin by the app's private.genesis_platform_admin hook, checked against the synced catalogue, with every change audited; without the hook nobody can.",
+        "Not yet: the Settings screen, the wizard, tenant and person values in the database."
+      ],
+      "reviewedAt": "2026-10-22",
+      "links": {
+        "code": [
+          "packages/features/src/settings.ts",
+          "packages/supabase/migrations/0020_genesis_settings.sql",
+          "packages/supabase/src/settings.ts",
+          "packages/genesis-cli/src/doctor/settings.ts"
+        ],
+        "docs": [
+          "packages/features/README.md",
+          "packages/supabase/README.md"
         ]
       },
       "access": "all",
@@ -4117,9 +4199,9 @@
         "server": "building"
       },
       "entry": {
-        "web": "@marktiderman/genesis-features/blocks",
-        "native": "@marktiderman/genesis-features/blocks",
-        "server": "@marktiderman/genesis-features/blocks"
+        "web": "@marktiderman/genesis-config/blocks",
+        "native": "@marktiderman/genesis-config/blocks",
+        "server": "@marktiderman/genesis-config/blocks"
       },
       "requires": [
         "feature-registry"
@@ -8093,6 +8175,105 @@
         "code": [
           "packages/genesis-cli/src/blocks/migrate.ts",
           "packages/genesis-cli/src/blocks/migrations.ts"
+        ],
+        "docs": [
+          "packages/genesis-cli/README.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "doctor-fixes",
+      "name": "genesis fix",
+      "summary": "Every doctor finding declares its fix: automatic, guided or manual. genesis fix plans one (the files with the hash of the text each expects, the allowlisted commands, the secrets by name, what is left to a person, and a hash of the whole plan), applies it with --yes (or --expect <hash>: a stale plan is refused, and a file that changed since it was planned stops every write), then re-runs the doctor for its rules. The first fixes wrap the codemods, genesis agents, introspect, migrate and upgrade (a pull request, never merged); packages add their own with genesis.doctor.fixes. The genesis-behind rule reports how far the installed release is behind and any advisory on it, cached for a day and never failing offline.",
+      "category": "Tooling",
+      "status": "building",
+      "horizon": "now",
+      "kind": "tool",
+      "keywords": [
+        "doctor",
+        "fix",
+        "autofix",
+        "codemod",
+        "plan",
+        "upgrade",
+        "advisories",
+        "behind",
+        "migrate"
+      ],
+      "requires": [
+        "cli-migrate",
+        "cli-upgrade"
+      ],
+      "owner": "mark",
+      "apps": [
+        "cli"
+      ],
+      "audience": [
+        "developer",
+        "agent"
+      ],
+      "visibility": "internal",
+      "acceptance": [
+        "Every finding carries a fix (manual:<rule> when no fix is registered); the report shows genesis fix <id> for one that runs, and the list of built-in rules without one may only shrink.",
+        "Applying plans again and refuses a changed hash, checks every file's expected hash before writing any, and runs commands only as allowlisted argument lists, never through a shell, with secrets on stdin.",
+        "genesis-behind is info a patch behind, a warning one or two minors behind that never fails --strict, a strict-failing warning further or 90 days behind, an error with the advisory id when one applies, and one info from the cache offline."
+      ],
+      "reviewedAt": "2026-11-19",
+      "links": {
+        "code": [
+          "packages/genesis-cli/src/fix",
+          "packages/genesis-cli/src/exec/run.ts",
+          "packages/genesis-cli/src/upgrade/registry.ts",
+          "packages/genesis-cli/src/doctor/behind.ts"
+        ],
+        "docs": [
+          "packages/genesis-cli/README.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "genesis-mcp",
+      "name": "genesis mcp",
+      "summary": "The doctor, the settings and fix plans as MCP tools over stdio for any agent session in the app. The agent reads findings, rule explanations, the settings catalogue and values (secrets by name as set, missing or unknown), the upgrade status and the catalog, and plans fixes and settings changes as hashed plans that write nothing. The one write tool, fix_apply, refuses a stale hash and applies only after the person accepts an MCP elicitation showing the plan; without elicitation it returns the genesis fix command, and a fix that needs a secret is left to the person (genesis fix <id>; genesis setup --step and setup_steps arrive with the wizard). genesis agents --mcp writes the .mcp.json entry.",
+      "category": "Tooling",
+      "status": "building",
+      "horizon": "now",
+      "kind": "tool",
+      "keywords": [
+        "mcp",
+        "agent",
+        "doctor",
+        "fix",
+        "settings",
+        "elicitation",
+        "approval",
+        "claude"
+      ],
+      "requires": [
+        "doctor-fixes"
+      ],
+      "owner": "mark",
+      "apps": [
+        "cli"
+      ],
+      "audience": [
+        "developer",
+        "agent"
+      ],
+      "visibility": "internal",
+      "acceptance": [
+        "Every tool but fix_apply is read-only (readOnlyHint) and writes nothing; fix_plan and settings_propose return a plan and its hash.",
+        "fix_apply refuses a stale hash, applies only after an accepted elicitation showing the plan, returns genesis fix <id> --expect <hash> without elicitation, and never runs a fix that needs a secret.",
+        "No tool result or error carries a secret's value or a stack trace, and every result is bounded in size."
+      ],
+      "reviewedAt": "2026-11-19",
+      "links": {
+        "code": [
+          "packages/genesis-cli/src/mcp"
         ],
         "docs": [
           "packages/genesis-cli/README.md"

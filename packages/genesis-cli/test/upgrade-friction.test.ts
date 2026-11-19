@@ -272,7 +272,7 @@ describe("an app in a sub-folder of its repository", () => {
 });
 
 describe("what's generated from the packages", () => {
-  const packages = (root: string) => linkWorkspacePackage(root, "@marktiderman/genesis-features", "features");
+  const packages = (root: string) => linkWorkspacePackage(root, "@marktiderman/genesis-config", "features");
 
   it("regenerates the agent guide the app has and its features outputs, so doctor has nothing stale to report", async () => {
     const root = expoApp({ "package.json": JSON.stringify({ name: "a", dependencies: { [UI]: "^1.0.0" } }), [SKILL_PATH]: "old\n" });

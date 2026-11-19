@@ -23,7 +23,7 @@
 import { createContext, useContext, useEffect, useRef, useSyncExternalStore, type ComponentType, type ReactNode } from "react";
 import { View } from "react-native";
 import { renderSlot, type SlotPropsFor, type Slots } from "@marktiderman/genesis-core/slots";
-import { defineBlock } from "@marktiderman/genesis-features/blocks";
+import { defineBlock } from "@marktiderman/genesis-config/blocks";
 import { useSession } from "../auth";
 import type { NativeBlock, NativeBlockRootProps } from "../blocks";
 import type { BootStep } from "../boot";

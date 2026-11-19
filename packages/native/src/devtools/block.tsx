@@ -12,7 +12,8 @@
  * - the server's base URL;
  * - "Copy debug info", "Crash test", "Clear cache" and "Sign out";
  * - the `devtoolsFeedback` slot, which the support block fills with
- *   "Send feedback".
+ *   "Send feedback", and the `devtoolsDiagnostics` slot beside "Copy debug
+ *   info", which it fills with "Send diagnostics" (the context dump).
  *
  * Keep it out of production bundles: import this entry only behind a
  * condition Metro can fold at build time (see the README), and pass
@@ -25,7 +26,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { renderSlot } from "@marktiderman/genesis-core/slots";
 import { NativeButton, NativeInput, NativeText } from "@marktiderman/genesis-ui-native/components";
 import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
-import { defineBlock } from "@marktiderman/genesis-features/blocks";
+import { defineBlock } from "@marktiderman/genesis-config/blocks";
 import { useSession } from "../auth";
 import { useBlocks, type NativeBlock, type NativeBlockRootProps } from "../blocks";
 import { useRecentActivity, type ObservabilityBlock } from "../observability/block";
@@ -35,7 +36,7 @@ import type { ChannelSwitchResult } from "../updates/channels";
 import { versionSignature, type VersionSignature } from "../updates/signature";
 import { createHoldDetector, createShakeDetector, type AccelerometerLike } from "./gestures";
 import { buildDebugInfo } from "./info";
-import type { DevtoolsFeedbackProps } from "./slots";
+import type { DevtoolsDiagnosticsProps, DevtoolsFeedbackProps } from "./slots";
 
 /** The FeatureId of the devtools overlay. */
 export const DEVTOOLS_BLOCK_ID = "devtools-overlay";
@@ -214,6 +215,8 @@ export function createDevtools(options: DevtoolsOptions): DevtoolsBlock {
             block={block}
             Feedback={slots?.devtoolsFeedback}
             feedbackProps={slotProps?.devtoolsFeedback}
+            Diagnostics={slots?.devtoolsDiagnostics}
+            diagnosticsProps={slotProps?.devtoolsDiagnostics}
             onCrash={() => {
               set({ open: false });
               setCrash(true);
@@ -241,6 +244,10 @@ function NoFeedback(_props: DevtoolsFeedbackProps) {
   return null;
 }
 
+function NoDiagnostics(_props: DevtoolsDiagnosticsProps) {
+  return null;
+}
+
 function useSignature(options: DevtoolsOptions): VersionSignature | null {
   const updates = options.updates;
   const [requested, setRequested] = useState<string | null>(null);
@@ -255,8 +262,8 @@ function useSignature(options: DevtoolsOptions): VersionSignature | null {
   return useMemo(() => {
     if (!updates) return options.signature ?? null;
     if (!requested) return updates.signature;
-    const { application, updates: modules, platform } = updates.options;
-    return versionSignature({ application, updates: modules, platform, requestedChannel: requested });
+    const { application, updates: modules, platform, buildMetadata } = updates.options;
+    return versionSignature({ application, updates: modules, platform, requestedChannel: requested, buildMetadata: buildMetadata ?? null });
   }, [updates, requested, options.signature]);
 }
 
@@ -276,6 +283,8 @@ interface SheetProps {
   block: DevtoolsBlock;
   Feedback: ComponentType<DevtoolsFeedbackProps> | null | undefined;
   feedbackProps: Partial<DevtoolsFeedbackProps> | undefined;
+  Diagnostics: ComponentType<DevtoolsDiagnosticsProps> | null | undefined;
+  diagnosticsProps: Partial<DevtoolsDiagnosticsProps> | undefined;
   onCrash: () => void;
 }
 
@@ -304,7 +313,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function DevtoolsSheet({ visible, onDismissed, block, Feedback, feedbackProps, onCrash }: SheetProps) {
+function DevtoolsSheet({ visible, onDismissed, block, Feedback, feedbackProps, Diagnostics, diagnosticsProps, onCrash }: SheetProps) {
   const { options } = block;
   const roles = useThemeRoles();
   const { userId } = useSession();
@@ -329,7 +338,8 @@ function DevtoolsSheet({ visible, onDismissed, block, Feedback, feedbackProps, o
       );
   };
 
-  const copy = () => run("Copy debug info", () => (options.copy ? options.copy(info()) : Share.share({ message: info() })));
+  const copyText = (text: string) => (options.copy ? options.copy(text) : Share.share({ message: text }));
+  const copy = () => run("Copy debug info", () => copyText(info()));
   const clearCache = () =>
     run("Clear cache", async () => {
       queryClient.clear();
@@ -458,6 +468,7 @@ function DevtoolsSheet({ visible, onDismissed, block, Feedback, feedbackProps, o
             <NativeButton size="sm" variant="outline" onPress={copy} testID="genesis-devtools-copy">
               Copy debug info
             </NativeButton>
+            {renderSlot(NoDiagnostics, Diagnostics, { debugInfo: info(), close, copy: copyText }, diagnosticsProps)}
             {renderSlot(NoFeedback, Feedback, { debugInfo: info(), close }, feedbackProps)}
             <NativeButton size="sm" variant="outline" onPress={clearCache} testID="genesis-devtools-clear-cache">
               Clear cache

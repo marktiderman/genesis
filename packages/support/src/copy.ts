@@ -10,6 +10,20 @@ export const supportCopy = {
     /** `{count}` new replies. */
     unreadReplies: "{count} new",
   },
+  diagnostics: {
+    send: "Send diagnostics",
+    sending: "Sending diagnostics",
+    hint: "Sends this app's build, device and recent activity to support. No email, name or screenshot.",
+    /** `{id}`: the short id to quote to support. */
+    sent: "Sent. Quote {id} to support.",
+    /** `{id}`: the short id; it goes when the connection is back. */
+    queued: "Saved as {id}. It goes when you're back online.",
+    failed: "Diagnostics weren't sent. Try again.",
+    copy: "Copy id",
+    copied: "Copied",
+    /** After feedback: `{id}` is its diagnostics' short id. */
+    feedbackReference: "Reference: {id}",
+  },
   feedback: {
     title: "Send feedback",
     intro: "Tell us what's broken, what's confusing or what you love. We read every report.",

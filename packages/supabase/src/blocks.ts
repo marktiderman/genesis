@@ -4,7 +4,7 @@
  * stores' privacy forms. The functions themselves (`deleteMyAccount`,
  * `tenantFeatures`, …) don't change.
  */
-import { defineBlock } from "@marktiderman/genesis-features/blocks";
+import { defineBlock } from "@marktiderman/genesis-config/blocks";
 
 const PACKAGE = "@marktiderman/genesis-supabase";
 
@@ -118,6 +118,24 @@ export const featureMirrorBlock = defineBlock({
       notes: [
         "Stores which tenants and which people (the app's person ids) hold which paid features, and flag values.",
       ],
+    },
+  },
+});
+
+/**
+ * The settings block: the database layer of Genesis settings (genesis-config's
+ * `resolveSettings`), its history and the app manifest, with platform admins
+ * changing runtime settings through `set_genesis_setting`.
+ *
+ * @stability Beta
+ */
+export const settingsBlock = defineBlock({
+  id: "settings",
+  platforms: ["web", "native"],
+  contributes: {
+    migrations: [{ package: PACKAGE, file: "migrations/0020_genesis_settings.sql", test: "migrations/tests/0020_genesis_settings.test.sql" }],
+    privacy: {
+      notes: ["Keeps who changed an app setting, when and from what to what; a deleted person's changes stay, without the person. No setting holds a secret."],
     },
   },
 });

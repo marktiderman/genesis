@@ -82,7 +82,7 @@
     "README.md"
   ],
   "dependencies": {
-    "@marktiderman/genesis-features": "workspace:^"
+    "@marktiderman/genesis-config": "workspace:^"
   },
   "scripts": {
     "build": "tsup && node ../../scripts/check-exports-resolve.mjs",
@@ -337,6 +337,41 @@
         "steps": [
           "For each table to check: add `version bigint not null default 1` and `create trigger <table>_version_bump before update on <table> for each row execute function public.genesis_version_bump('version')`.",
           "Give the resource a version rule in createSupabaseProvider: `resources: { tasks: { version: { field: \"version\", kind: \"integer\" } } }`. The Genesis write hooks then send the version they read, and a stale edit comes back as a conflict."
+        ]
+      },
+      "settings": {
+        "feature": {
+          "name": "Settings in the app's database",
+          "summary": "The database layer of Genesis settings: runtime values platform admins set and lock live, every change audited, and the app manifest with the catalogue values are checked against.",
+          "keywords": [
+            "settings",
+            "configuration",
+            "platform admin",
+            "genesis_settings",
+            "preset"
+          ],
+          "audience": [
+            "developer",
+            "admin"
+          ]
+        },
+        "platforms": [
+          "web",
+          "native"
+        ],
+        "migrations": [
+          {
+            "file": "migrations/0020_genesis_settings.sql",
+            "test": "migrations/tests/0020_genesis_settings.test.sql"
+          }
+        ],
+        "install": [
+          "@supabase/supabase-js@^2.118.0"
+        ],
+        "steps": [
+          "Say who your platform admins are in a migration of your own: create private.genesis_platform_admin(person uuid) returns boolean, and revoke execute on it from public, anon, authenticated (genesis-supabase README, Settings). Without it nobody can change a setting.",
+          "On every deploy (and at app start on the server), write the manifest with the service-role client: writeAppManifest(admin, { appId, packages, preset, fileSettings, catalogue }). Until it is written, set_genesis_setting refuses every value.",
+          "Read settings with resolveAppSettings(supabase, catalogue) from @marktiderman/genesis-supabase, and feed the gate with withSettings from @marktiderman/genesis-config."
         ]
       }
     },

@@ -29,7 +29,7 @@ function appWithLocalPackage(config: unknown = { localPackages: ["packages/*"] }
     "packages/os/migrations/tests/0001_acme_metrics.test.sql": TEST_A,
     "packages/notes/README.md": "not a package\n",
   });
-  linkWorkspacePackage(root, "@marktiderman/genesis-features", "features");
+  linkWorkspacePackage(root, "@marktiderman/genesis-config", "features");
   return root;
 }
 

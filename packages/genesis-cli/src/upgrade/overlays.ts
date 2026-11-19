@@ -27,7 +27,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
-import { overlayUpstream } from "@marktiderman/genesis-features";
+import { overlayUpstream } from "@marktiderman/genesis-config";
 import { mergeThreeWay } from "../blocks/owned.js";
 import { localPackages } from "../blocks/local.js";
 import { GENESIS_PACKAGE_NAME, overlayState } from "../doctor/overlays.js";

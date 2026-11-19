@@ -7,9 +7,11 @@
  *
  * Usage:
  *   npx @marktiderman/genesis-cli init <consumer-name> [--target <dir>] [--emit-conflicts]
- *   npx @marktiderman/genesis-cli doctor [--strict] [--json] [--build] [--config <path>] [--base <ref>]
+ *   npx @marktiderman/genesis-cli doctor [--strict] [--json] [--build] [--config <path>] [--base <ref>] [--offline]
+ *   npx @marktiderman/genesis-cli fix [rule|fixId] [--plan] [--yes] [--expect <hash>] [--json] [--offline]
  *   npx @marktiderman/genesis-cli primitives [--json]
- *   npx @marktiderman/genesis-cli agents [--check]
+ *   npx @marktiderman/genesis-cli agents [--check] [--hooks] [--mcp]
+ *   npx @marktiderman/genesis-cli mcp [--offline]
  *   npx @marktiderman/genesis-cli features build|check|find [--registry <file>] [--flags-file <file>]
  *   npx @marktiderman/genesis-cli init <app> --template native [--bundle-id <id>] [--scheme <s>] [--without <switches>] [--beside <web-app>]
  *   npx @marktiderman/genesis-cli add <block> [--dry-run] [--yes] [--no-install]
@@ -23,7 +25,7 @@ import { runScaffold, type FileSystem } from "./scaffolder.js";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { existsSync, readFileSync } from "node:fs";
-import type { FindOptions } from "@marktiderman/genesis-features";
+import type { FindOptions } from "@marktiderman/genesis-config";
 
 /** The installed CLI's version, from its own package.json (dist/ sits beside it). */
 function cliVersion(): string {
@@ -210,7 +212,8 @@ program
   .option("-d, --dir <dir>", "The app's folder", process.cwd())
   .option("--print-genesis", "Print the components, tokens and raw tags read from Genesis, and exit", false)
   .option("--base <ref>", "The git ref change checks compare against (the packages pack's change gate, and the ratchet: newOnly rules report unchanged files as info), e.g. origin/main")
-  .action(async (opts: { strict: boolean; json: boolean; verbose: boolean; build: boolean; config?: string; dir: string; printGenesis: boolean; base?: string }) => {
+  .option("--offline", "Don't reach npm or the advisory endpoints (genesis-behind reads only its cache)", false)
+  .action(async (opts: { strict: boolean; json: boolean; verbose: boolean; build: boolean; config?: string; dir: string; printGenesis: boolean; base?: string; offline: boolean }) => {
     const doctor = await import("./doctor/index.js");
     const root = path.resolve(opts.dir);
     try {
@@ -219,12 +222,60 @@ program
         console.log(JSON.stringify(doctor.genesisSummary(doctor.loadGenesis(root, config)), null, 2));
         return;
       }
-      const result = await doctor.runDoctor({ root, configPath: opts.config, strict: opts.strict, build: opts.build, quietBuild: opts.json, ...(opts.base ? { base: opts.base } : {}) });
+      const result = await doctor.runDoctor({ root, configPath: opts.config, strict: opts.strict, build: opts.build, quietBuild: opts.json, network: networkOn(opts.offline), ...(opts.base ? { base: opts.base } : {}) });
       console.log(opts.json ? JSON.stringify(doctor.toJson(result), null, 2) : doctor.formatReport(result, { verbose: opts.verbose }));
       process.exitCode = result.ok ? 0 : 1;
     } catch (err) {
       // Exit 2: the doctor could not run (bad config, Genesis not installed), as opposed to finding problems.
       // GenesisConfigError covers DoctorConfigError and the shared blocks (a bad `links`, a non-object file).
+      if (!(err instanceof doctor.GenesisConfigError)) throw err;
+      if (opts.json) console.log(JSON.stringify({ ok: false, error: err.message }, null, 2));
+      else console.error(`✗ ${err.message}`);
+      process.exitCode = 2;
+    }
+  });
+
+/** The CLI reaches the network unless --offline, or npm is told to stay offline (npm_config_offline, as tests set). */
+function networkOn(offline: boolean): boolean {
+  return !offline && process.env.npm_config_offline !== "true";
+}
+
+program
+  .command("fix [target]")
+  .description("Fix what the doctor found: without a target, list the fixes; with a fix id (genesis doctor shows it) or a rule id, print the plan and its hash, and apply it with --yes")
+  .option("--plan", "Print the plan and stop; write nothing", false)
+  .option("--yes", "Apply without asking", false)
+  .option("--expect <hash>", "Apply only if the plan's hash is this one (a plan read earlier; a stale one is refused)")
+  .option("--json", "Print the result as JSON", false)
+  .option("-c, --config <path>", "Config file (default: genesis.config.json, then package.json \"genesis\")")
+  .option("-d, --dir <dir>", "The app's folder", process.cwd())
+  .option("--offline", "Don't reach npm or the advisory endpoints", false)
+  .action(async (target: string | undefined, opts: { plan: boolean; yes: boolean; expect?: string; json: boolean; config?: string; dir: string; offline: boolean }) => {
+    const { runFixCommand } = await import("./fix/command.js");
+    const doctor = await import("./doctor/index.js");
+    const interactive = process.stdin.isTTY && process.stdout.isTTY && !opts.json;
+    try {
+      process.exitCode = await runFixCommand(
+        { root: path.resolve(opts.dir), ...(target ? { target } : {}), plan: opts.plan, yes: opts.yes, json: opts.json, network: networkOn(opts.offline), ...(opts.expect ? { expect: opts.expect } : {}), ...(opts.config ? { configPath: opts.config } : {}) },
+        {
+          out: (l) => console.log(l),
+          err: (l) => console.error(l),
+          ...(interactive
+            ? {
+                confirm: async (question: string) => {
+                  const { createInterface } = await import("node:readline/promises");
+                  const rl = createInterface({ input: process.stdin, output: process.stdout });
+                  try {
+                    return /^y(es)?$/i.test((await rl.question(`${question} [y/N] `)).trim());
+                  } finally {
+                    rl.close();
+                  }
+                },
+              }
+            : {}),
+        },
+      );
+    } catch (err) {
       if (!(err instanceof doctor.GenesisConfigError)) throw err;
       if (opts.json) console.log(JSON.stringify({ ok: false, error: err.message }, null, 2));
       else console.error(`✗ ${err.message}`);
@@ -283,8 +334,9 @@ program
   .option("--batch <pattern>", "With --rules: the branch pattern staging batches use in workflow filters", "staging/**")
   .option("--hooks", "Also write the agent hooks into .claude/settings.json: the Genesis rules for Explore and Plan subagents, and deny rules for secret files", false)
   .option("--hook <name>", "Run as a Claude Code hook and print its output (subagent-start); never fails")
+  .option("--mcp", "Also write the genesis mcp server's entry into .mcp.json (other servers are kept); with --check, check it", false)
   .option("-d, --dir <dir>", "The app's folder", process.cwd())
-  .action(async (opts: { check: boolean; rules: boolean; batch: string; dir: string; hooks: boolean; hook?: string }) => {
+  .action(async (opts: { check: boolean; rules: boolean; batch: string; dir: string; hooks: boolean; hook?: string; mcp: boolean }) => {
     const root = path.resolve(opts.dir);
     if (opts.hook) {
       // A hook must never break the session: any failure prints nothing and exits 0.
@@ -325,6 +377,12 @@ program
       // A CLAUDE.md that doesn't import AGENTS.md is the app's own choice (the doctor reports it as info), so it doesn't fail the check.
       const bad: [string, string][] = Object.entries(state).filter(([k, v]) => v !== "ok" && !(k === "claude" && v === "no-import"));
       if (doctor.agentHooksState(root) === "stale") bad.push([doctor.SETTINGS_PATH, "has an older Genesis hook"]);
+      const mcpState = opts.mcp ? (await import("./mcp/config.js")).mcpJsonState(root) : "ok";
+      if (mcpState !== "ok") {
+        console.error(`✗ .mcp.json ${mcpState === "missing" ? "is missing" : mcpState === "invalid" ? "can't be read as a JSON object" : "has no current genesis entry"}. Run \`genesis agents --mcp\` and commit the result.`);
+        process.exitCode = 1;
+        if (!bad.length) return;
+      }
       if (bad.length) {
         const guideBad = bad.some(([k]) => k !== doctor.SETTINGS_PATH && k !== "claude");
         const fix = [
@@ -340,8 +398,32 @@ program
       return;
     }
     // Settings are only written with --hooks: they're the app's own, so an older hook is flagged (doctor, --check), not rewritten.
-    const changed = [...doctor.writeAgentGuide(root, packages), ...(opts.hooks ? doctor.writeAgentHooks(root) : [])];
+    // .mcp.json is the app's own too: written only with --mcp, merged (every other server kept).
+    let mcpFiles: string[] = [];
+    if (opts.mcp) {
+      const { McpJsonError, writeMcpJson } = await import("./mcp/config.js");
+      try {
+        mcpFiles = writeMcpJson(root);
+      } catch (err) {
+        if (!(err instanceof McpJsonError)) throw err;
+        console.error(`✗ ${err.message}`);
+        process.exitCode = 1;
+        return;
+      }
+    }
+    const changed = [...doctor.writeAgentGuide(root, packages), ...(opts.hooks ? doctor.writeAgentHooks(root) : []), ...mcpFiles];
     console.log(changed.length ? `✔ Wrote ${changed.join(", ")}` : "= The agent guide is up to date.");
+  });
+
+program
+  .command("mcp")
+  .description("Serve the doctor, the settings and fix plans as MCP tools over stdio, for an agent session (genesis agents --mcp writes the .mcp.json entry). Every change is a plan the person approves; secrets are never shown")
+  .option("-c, --config <path>", "Config file (default: genesis.config.json, then package.json \"genesis\")")
+  .option("-d, --dir <dir>", "The app's folder", process.cwd())
+  .option("--offline", "Don't reach npm or the advisory endpoints (genesis-behind and upgrades_status read only the cache)", false)
+  .action(async (opts: { config?: string; dir: string; offline: boolean }) => {
+    const { runMcpStdio } = await import("./mcp/server.js");
+    await runMcpStdio({ root: path.resolve(opts.dir), network: networkOn(opts.offline), ...(opts.config ? { configPath: opts.config } : {}) });
   });
 
 const features = program
