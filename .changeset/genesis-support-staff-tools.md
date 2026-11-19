@@ -29,3 +29,13 @@ Settings no screen reads yet say **Planned**; `support.severity` is off by defau
 AI keys are Edge Function secrets. Reply keys take a label (`REPLY_KEY_LABEL` by default) and a
 keyring's `legacy` keys verify addresses an app made in the earlier format; email bodies are cut to
 `MAX_EMAIL_CHARS` and read without backtracking. The phone's agent query keys are scoped by login.
+
+**Platform admins become ticket staff.** In an app with no `private.genesis_support_staff` hook,
+migration 0023 makes the app's platform admins (`private.genesis_platform_admin`) support staff:
+they read and answer the app's own tickets. Define the staff hook to choose others. Migration
+`0026_genesis_support_diagnostics_access.sql` keeps a dump sent with a ticket to whoever handles
+that ticket, so staff (platform admins included) read only dumps with no ticket and those of the
+app's own tickets. 0023 drops 0021's stand-in only while its body is still exactly the stand-in's.
+Reply tokens keep 12 bits of the issued week (no wraparound for about 78 years) beside a 44-bit
+MAC, and a keyring with a letter in both `keys` and `legacy` throws. The dump settings counted in
+whole numbers are declared `integer`.

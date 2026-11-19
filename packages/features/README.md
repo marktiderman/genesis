@@ -154,7 +154,8 @@ preset (`{ max, standard, min }`). `scope` (`app`, the default, `tenant` or `per
 layer that may change it; `applies` is `runtime` (the default) or `build` (a new binary or bundle).
 `requires` links other keys, `min`, `max` and `options` bound the value, and `needs:
 "secret:NAME"` names the secret it needs and `store` where it lives (`vault`, `edge`, `server-env`
-or `ci`): never its value. `feature` and `flag` link the key to the gate.
+or `ci`): never its value. `feature` and `flag` link the key to the gate. A number with
+`integer: true` takes whole numbers only (in every layer, and in the database).
 
 **The layers**, low to high. A later layer wins unless an earlier one locked the value
 (`{ value, locked: true }`):

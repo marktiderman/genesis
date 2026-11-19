@@ -98,6 +98,8 @@ export interface SettingSpec<K extends SettingType = SettingType> {
   flag?: string;
   /** One line for the Settings screen and the agent. */
   summary?: string;
+  /** A number that must be whole (a count, days, milliseconds). Only a number takes it. */
+  integer?: boolean;
 }
 
 /** A declared key with its namespace folded in and its defaults filled. @stability Beta */
@@ -122,6 +124,7 @@ export interface SettingDef {
   readonly feature?: string;
   readonly flag?: string;
   readonly summary?: string;
+  readonly integer?: true;
 }
 
 /** What {@link defineSettings} returns: one package's keys. @stability Beta */
@@ -143,7 +146,7 @@ const KEY = /^[a-z][a-zA-Z0-9]*$/;
 /** A full key: `namespace.key`, or `namespace.group.key` is not allowed (one level). */
 export const SETTING_KEY = /^[a-z][a-zA-Z0-9]*(?:-[a-z0-9]+)*\.[a-z][a-zA-Z0-9]*$/;
 const SECRET_NAME = /^[A-Z][A-Z0-9_]*$/;
-const SPEC_KEYS = new Set(["type", "default", "scope", "applies", "requires", "min", "max", "options", "needs", "store", "feature", "flag", "summary"]);
+const SPEC_KEYS = new Set(["type", "default", "scope", "applies", "requires", "min", "max", "options", "needs", "store", "feature", "flag", "summary", "integer"]);
 const SCOPES: readonly SettingScope[] = ["app", "tenant", "person"];
 const APPLIES: readonly SettingApplies[] = ["build", "runtime"];
 const STORES: readonly SecretStore[] = ["vault", "edge", "server-env", "ci"];
@@ -175,7 +178,7 @@ export function isPresetDefaults(v: unknown): v is PresetDefaults<unknown> {
  * Why a value doesn't fit a key's type and bounds, or null when it does. `null` ("not set") fits
  * only a key whose default is `null` (`nullable`).
  */
-export function settingValueProblem(def: Pick<SettingDef, "type" | "min" | "max" | "options"> & { nullable?: boolean }, value: unknown): string | null {
+export function settingValueProblem(def: Pick<SettingDef, "type" | "min" | "max" | "options"> & { nullable?: boolean; integer?: boolean }, value: unknown): string | null {
   if (value === null) return def.nullable ? null : "can't be null: it has a default, so set a value";
   switch (def.type) {
     case "boolean":
@@ -183,6 +186,7 @@ export function settingValueProblem(def: Pick<SettingDef, "type" | "min" | "max"
       return null;
     case "number":
       if (typeof value !== "number" || !Number.isFinite(value)) return "must be a number";
+      if (def.integer && !Number.isInteger(value)) return "must be a whole number";
       if (def.min !== undefined && value < def.min) return `must be at least ${def.min}`;
       if (def.max !== undefined && value > def.max) return `must be at most ${def.max}`;
       if (def.options && !def.options.includes(value)) return `must be one of ${def.options.join(", ")}`;
@@ -253,12 +257,13 @@ function defineKey(namespace: string, name: string, spec: SettingSpec): SettingD
     if (v !== undefined && (typeof v !== "string" || !v.trim())) fail(`${link} must be a non-empty id`);
   }
   if (spec.feature !== undefined && spec.type !== "boolean") fail("switches a feature, so it must be a boolean");
+  if (spec.integer !== undefined && (typeof spec.integer !== "boolean" || spec.type !== "number")) fail("integer is a boolean, and only a number takes it");
   const byPreset = isPresetDefaults(spec.default);
   const defaults = byPreset
     ? { ...(spec.default as PresetDefaults<unknown>) }
     : { max: spec.default as unknown, standard: spec.default as unknown, min: spec.default as unknown };
   const nullable = SETTINGS_PRESETS.some((preset) => defaults[preset] === null);
-  const shape = { type: spec.type, min: spec.min, max: spec.max, options: spec.options, nullable };
+  const shape = { type: spec.type, min: spec.min, max: spec.max, options: spec.options, nullable, integer: spec.integer === true };
   for (const preset of SETTINGS_PRESETS) {
     const problem = settingValueProblem(shape, defaults[preset]);
     if (problem) fail(`default${byPreset ? ` for ${preset}` : ""} ${problem}`);
@@ -280,6 +285,7 @@ function defineKey(namespace: string, name: string, spec: SettingSpec): SettingD
     ...(spec.feature !== undefined ? { feature: spec.feature } : {}),
     ...(spec.flag !== undefined ? { flag: spec.flag } : {}),
     ...(spec.summary !== undefined ? { summary: spec.summary } : {}),
+    ...(spec.integer === true ? { integer: true as const } : {}),
   };
   return Object.freeze(def);
 }
@@ -661,6 +667,8 @@ export interface SettingManifestEntry {
   options?: readonly (string | number)[];
   /** Present (true) only when the key may be `null` ("not set"). */
   nullable?: true;
+  /** Present (true) only for a number that must be whole. */
+  integer?: true;
 }
 
 /**
@@ -680,6 +688,7 @@ export function catalogueManifest(catalogue: SettingsCatalogue): { [key: string]
       ...(def.max !== undefined ? { max: def.max } : {}),
       ...(def.options !== undefined ? { options: def.options } : {}),
       ...(def.nullable ? { nullable: true as const } : {}),
+      ...(def.integer ? { integer: true as const } : {}),
     };
   }
   return out;

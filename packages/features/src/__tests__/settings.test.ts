@@ -486,3 +486,17 @@ describe("hostile input", () => {
     expect(SCOPE_LAYERS).toEqual({ app: ["file", "database"], tenant: ["file", "database", "tenant"], person: ["file", "database", "person"] });
   });
 });
+
+describe("whole numbers", () => {
+  it("a number declared integer refuses a fraction in every layer, and the manifest says so", async () => {
+    const { defineSettings, settingsCatalogue, resolveSettings, catalogueManifest, settingValueProblem } = await import("../settings");
+    const decl = defineSettings("acme", { perHour: { type: "number", default: 10, min: 1, max: 100, integer: true } });
+    const cat = settingsCatalogue([decl]);
+    const r = resolveSettings(cat, { file: { "acme.perHour": { value: 4 } }, database: { "acme.perHour": { value: 2.5 } } });
+    expect(r.values["acme.perHour"]).toBe(4);
+    expect(r.problems.map((p) => p.kind)).toEqual(["type"]);
+    expect(catalogueManifest(cat)["acme.perHour"]).toMatchObject({ integer: true });
+    expect(settingValueProblem({ type: "number" }, 2.5)).toBeNull();
+    expect(() => defineSettings("acme", { name: { type: "string", default: "x", integer: true } as never })).toThrow();
+  });
+});

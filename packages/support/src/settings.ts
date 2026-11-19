@@ -70,18 +70,18 @@ export const DIAGNOSTICS_SETTING_SPECS = {
   dumpOnFeedback: { type: "boolean", default: true, requires: ["diagnostics.enabled"], summary: "Send a dump with every piece of feedback, linked by its id." },
   sendFromSettings: { type: "boolean", default: true, requires: ["diagnostics.enabled"], summary: "\"Send diagnostics\" for everyone (Settings, the Development screen)." },
   offlineQueue: { type: "boolean", default: true, requires: ["diagnostics.enabled"], summary: "Keep a dump that couldn't be sent and try again when back online." },
-  maxBytes: { type: "number", default: 262_144, min: 65_536, max: 1_048_576, summary: "A dump's size, JSON before gzip; over it the oldest entries go first." },
-  perHour: { type: "number", default: 10, min: 1, max: 100, summary: "Dumps one person may send in an hour." },
-  retentionDays: { type: "number", default: 90, min: 7, max: 365, summary: "Days a dump is kept before the cleanup removes it." },
+  maxBytes: { type: "number", integer: true, default: 262_144, min: 65_536, max: 1_048_576, summary: "A dump's size, JSON before gzip; over it the oldest entries go first." },
+  perHour: { type: "number", integer: true, default: 10, min: 1, max: 100, summary: "Dumps one person may send in an hour." },
+  retentionDays: { type: "number", integer: true, default: 90, min: 7, max: 365, summary: "Days a dump is kept before the cleanup removes it." },
 } as const satisfies Record<string, SettingSpec>;
 
 /** `shake.*`: shake to report. @stability Beta */
 export const SHAKE_SETTING_SPECS = {
   enabled: { type: "boolean", default: true, scope: "person", summary: "Shake the phone to report a problem. Each person can turn it off." },
   threshold: { type: "number", default: 2.3, min: 1.2, max: 8, summary: "Acceleration, in g, that counts as a jolt." },
-  jolts: { type: "number", default: 2, min: 1, max: 10, summary: "Jolts needed within the window." },
-  windowMs: { type: "number", default: 1000, min: 200, max: 5000, summary: "The window the jolts must fall in, in milliseconds." },
-  cooldownMs: { type: "number", default: 3000, min: 500, max: 60_000, summary: "Quiet time after a shake, in milliseconds." },
+  jolts: { type: "number", integer: true, default: 2, min: 1, max: 10, summary: "Jolts needed within the window." },
+  windowMs: { type: "number", integer: true, default: 1000, min: 200, max: 5000, summary: "The window the jolts must fall in, in milliseconds." },
+  cooldownMs: { type: "number", integer: true, default: 3000, min: 500, max: 60_000, summary: "Quiet time after a shake, in milliseconds." },
 } as const satisfies Record<string, SettingSpec>;
 
 /** @stability Beta */
