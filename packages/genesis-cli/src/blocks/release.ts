@@ -316,7 +316,10 @@ export function adoptTemplates(root: string, templates: readonly string[], optio
       const others = rivals.filter((rel) => !own.includes(rel));
       if (own.length || (others.length && !options.replaceRival)) {
         const fix = [
-          ...(own.length ? ["merge the .genesis-next beside deploy-production.yml (or move your edits into genesis.config.json and run again with --replace)"] : []),
+          // This run writes deploy-production.yml's .genesis-next only when it adopts that template too.
+          ...(own.length
+            ? [templates.includes(DEPLOY_PRODUCTION) ? "merge the .genesis-next beside deploy-production.yml (or move your edits into genesis.config.json and run again with --replace)" : "adopt the lane's deploy-production.yml with `genesis add template release` (it puts the new text in a .genesis-next beside yours to merge)"]
+            : []),
           ...(others.length ? [`remove ${others.join(", ")}`] : []),
         ];
         // The flag is a way out only when the other rivals are all that hold it: with the app's own

@@ -20,7 +20,7 @@ import { localImports, readSource } from "./source.js";
 import { insideOverlayOf, markedOverlays } from "./overlays.js";
 import type { DoctorContext } from "./types.js";
 import { appFolderOf } from "../blocks/app-folder.js";
-import { competingReleaseWorkflows, repositoryRoot } from "../blocks/release.js";
+import { competingReleaseWorkflows, LANE_DISPATCH_TARGET, repositoryRoot } from "../blocks/release.js";
 
 const SCRIPT_EXTS = new Set([".ts", ".tsx", ".js", ".jsx", ".mts", ".cts", ".mjs", ".cjs"]);
 const JSX_EXTS = new Set([".tsx", ".jsx"]);
@@ -258,7 +258,11 @@ export function checkReleaseLaneTwice(ctx: DoctorContext): void {
       level: "error",
       file: rival.startsWith(".github/") && appFolder ? path.relative(ctx.root, path.join(repo, rival)).split(path.sep).join("/") : rival,
       subject: rival,
-      message: `${rival} also releases (EAS updates or builds) beside .github/workflows/native-release.yml, so each release would go out twice. Make it the lane's dispatch-only deploy-production.yml (genesis add template release --replace), or remove it (docs/NATIVE-RELEASE.md, "Adopting the lane"). If it only ships a staging update or a preview build, not production, keep it and set "release-lane-twice": "warn" under doctor.rules in genesis.config.json`,
+      // deploy-production.yml is the file native-release.yml dispatches to: merged, never removed.
+      message:
+        rival === LANE_DISPATCH_TARGET
+          ? `${rival} still releases on every push beside .github/workflows/native-release.yml, so each release would go out twice. native-release.yml starts this file on EAS, so keep it: merge its .genesis-next into it (the lane's dispatch-only version), or move your edits into genesis.config.json and run genesis add template release --replace (docs/NATIVE-RELEASE.md, "Adopting the lane")`
+          : `${rival} also releases (EAS updates or builds) beside .github/workflows/native-release.yml, so each release would go out twice. Remove it (docs/NATIVE-RELEASE.md, "Adopting the lane"). If it only ships a staging update or a preview build, not production, keep it and set "release-lane-twice": "warn" under doctor.rules in genesis.config.json`,
     });
   }
 }

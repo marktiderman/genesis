@@ -1082,6 +1082,23 @@ describe("genesis add template", () => {
     expect(logged.join("\n")).not.toMatch(/Remove [^\n]*deploy-production\.yml/);
   });
 
+  it("adopting native-release.yml alone beside the old deploy-production.yml points to the release set, which writes the .genesis-next to merge", () => {
+    const old = "name: Deploy production\non:\n  push:\n    branches: [main]\njobs:\n  update:\n    type: update\n";
+    const root = nativeApp({ ".eas/workflows/deploy-production.yml": old });
+    for (const replaceRival of [false, true]) {
+      const held = adoptTemplates(root, ["ci/native-release.yml"], { replaceRival })[0]!;
+      expect(held).toMatchObject({ outcome: "held" });
+      // This run writes no .genesis-next, so it doesn't say to merge one.
+      expect(held.detail).toContain("genesis add template release");
+      expect(held.detail).not.toContain("Merge the .genesis-next");
+      expect(existsSync(path.join(root, ".eas/workflows/deploy-production.yml.genesis-next"))).toBe(false);
+    }
+    // With the whole set, the .genesis-next is written, and the message says to merge it.
+    const whole = adoptTemplates(root, resolveTemplateNames(["release"])).find((r) => r.path === ".github/workflows/native-release.yml")!;
+    expect(whole.detail).toContain("Merge the .genesis-next beside deploy-production.yml");
+    expect(existsSync(path.join(root, ".eas/workflows/deploy-production.yml.genesis-next"))).toBe(true);
+  });
+
   it("with appFolder, a GitHub rival at the repository's root holds native-release.yml too", () => {
     const repo = tempDir();
     const root = path.join(repo, "mobile");
