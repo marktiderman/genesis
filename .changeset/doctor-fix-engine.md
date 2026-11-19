@@ -28,3 +28,7 @@ of about 20 seconds. Only the Genesis packages' names and versions are sent.
 reports what its cache last knew as one info finding. `doctor.network` is a new setting.
 
 `genesis-config-unknown-key` now adds "or upgrade @marktiderman/genesis-cli if this is a newer key".
+
+`invalid-setting`'s "no installed package declares this setting" now says "not certain" when the
+catalogue couldn't be read completely (a Genesis package not installed, a declaration that can't be
+read), and `settings.remove-unknown` then removes nothing; it never removes a locked key.

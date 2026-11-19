@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { BUILTIN_RULES, runDoctor } from "../src/doctor/index.js";
-import { BEHIND_CACHE, customRegistry, distance, firstNewerAt, installedVersions, type RegistryDeps } from "../src/upgrade/registry.js";
+import { BEHIND_CACHE, bunfigRegistries, customRegistry, distance, firstNewerAt, installedVersions, type RegistryDeps } from "../src/upgrade/registry.js";
 import { cleanupApps, makeApp } from "./doctor-helpers.js";
 
 afterAll(cleanupApps);
@@ -215,6 +215,16 @@ describe("genesis-behind", () => {
     const { found } = await behind(app(), { ...deps, deadlineMs: 1_500, gh: () => new Promise(() => {}) });
     expect(Date.now() - started).toBeLessThan(5_000);
     expect(found).toEqual([]);
+  });
+
+  it("reads the registry from bunfig.toml: [install] registry and the @marktiderman scope", () => {
+    expect(bunfigRegistries('[install]\nregistry = "https://bun.example.com/"\n')).toEqual(["https://bun.example.com/"]);
+    expect(bunfigRegistries('[install]\nregistry = { url = "https://r.example.com/", token = "$T" }\n')).toEqual(["https://r.example.com/"]);
+    expect(bunfigRegistries('[install.scopes]\nmarktiderman = { token = "$T", url = "https://npm.pkg.github.com/" }\nother = "https://x.example.com/"\n')).toEqual(["https://npm.pkg.github.com/"]);
+    expect(bunfigRegistries('[install.scopes]\n"@marktiderman" = "https://scope.example.com/"\n')).toEqual(["https://scope.example.com/"]);
+    expect(bunfigRegistries('[test]\nregistry = "https://not.install/"\n')).toEqual([]);
+    const root = makeApp(null, { "bunfig.toml": '[install.scopes]\nmarktiderman = "https://npm.pkg.github.com/"\n' });
+    expect(customRegistry(root, {}, "/nonexistent")).toBe("https://npm.pkg.github.com/");
   });
 
   it("reads the registry from .npmrc", () => {

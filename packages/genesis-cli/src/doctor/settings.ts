@@ -38,7 +38,7 @@ import {
 } from "@marktiderman/genesis-config/settings";
 import { readGenesisConfig } from "./config.js";
 import { installedGenesis } from "../blocks/discover.js";
-import { rawBlocksOf } from "../blocks/manifest.js";
+import { GENESIS_PACKAGE, rawBlocksOf } from "../blocks/manifest.js";
 import { runTool, TOOL_AUTH_ENV, type ToolRunner } from "../exec/run.js";
 import { readSecretNames, storeOptions, supabaseLinked, targetsOf, TARGET_LABEL, type SecretStore, type SecretTarget } from "../exec/secret-stores.js";
 import type { DoctorContext } from "./types.js";
@@ -281,6 +281,8 @@ export function settingsCheck(options: SettingsCheckOptions = {}): (ctx: DoctorC
     }
 
     const resolved = resolveSettings(catalogue, { ...(config?.preset ? { preset: config.preset } : {}), file: settingsLayerFromFile(config?.settings), ...(database ? { database } : {}) });
+    // An unknown key is certain only when the catalogue is the whole of it; otherwise the finding says why not.
+    const state = resolved.problems.some((p) => p.kind === "unknown-key" && p.layer !== "database") ? catalogueCompleteness(ctx.root) : { complete: true as const };
     for (const problem of resolved.problems) {
       const inFile = problem.layer !== "database";
       if (problem.kind === "requires") {
@@ -295,7 +297,7 @@ export function settingsCheck(options: SettingsCheckOptions = {}): (ctx: DoctorC
         subject: problem.key,
         message:
           problem.kind === "unknown-key" && inFile
-            ? `settings.${problem.key}: no installed Genesis package declares this setting (a typo, or a package that isn't installed)`
+            ? `settings.${problem.key}: no installed Genesis package declares this setting (a typo, or a package that isn't installed)${state.complete ? "" : `; not certain: ${state.reason}`}`
             : inFile
               ? `settings.${problem.message}`
               : `${problem.message} (a row in the database layer; a platform admin changes it on the Settings screen)`,
@@ -350,11 +352,50 @@ export function resolveFileSettings(root: string): { catalogue: SettingsCatalogu
   return { catalogue, resolved, settings };
 }
 
-/** The `settings` keys in genesis.config.json that no installed package declares (what `invalid-setting` reports as unknown). */
-export function unknownSettingKeys(root: string): string[] {
+/**
+ * Whether the installed packages' settings catalogue is the whole of it: node_modules is there,
+ * every Genesis package package.json lists is installed, and every declaration was read. Only then
+ * can a key be called unknown for sure; otherwise the reason it can't.
+ */
+export function catalogueCompleteness(root: string): { complete: true } | { complete: false; reason: string } {
+  let pkg: Record<string, Record<string, string> | undefined>;
+  try {
+    pkg = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")) as typeof pkg;
+  } catch {
+    return { complete: false, reason: "package.json can't be read" };
+  }
+  const listed = [...new Set(["dependencies", "devDependencies", "optionalDependencies", "peerDependencies"].flatMap((f) => Object.keys(pkg[f] ?? {})))].filter((n) => GENESIS_PACKAGE.test(n));
+  const installed = installedGenesis(root);
+  const missing = listed.filter((n) => !installed.has(n));
+  if (missing.length) return { complete: false, reason: `${missing.join(", ")} ${missing.length === 1 ? "isn't" : "aren't"} installed (run the install)` };
+  const { problems, declarations } = installedSettings(root);
+  if (problems.length) return { complete: false, reason: `${[...new Set(problems.map((p) => p.pkg))].join(", ")} declare${problems.length === 1 ? "s" : ""} settings that can't be read` };
+  try {
+    settingsCatalogue(declarations);
+  } catch (err) {
+    return { complete: false, reason: `the settings catalogue can't be built (${(err as Error).message})` };
+  }
+  return { complete: true };
+}
+
+/** Whether genesis.config.json sets this key with `"locked": true`. */
+export function isLockedSetting(root: string, key: string): boolean {
+  const v = readGenesisConfig(root)?.settings?.[key] as unknown;
+  return typeof v === "object" && v !== null && (v as { locked?: unknown }).locked === true;
+}
+
+/**
+ * The `settings` keys in genesis.config.json that no installed package declares (what
+ * `invalid-setting` reports as unknown), and whether that is certain (the catalogue is complete).
+ */
+export function unknownSettingKeys(root: string): { keys: string[]; complete: boolean; reason?: string } {
+  const config = readGenesisConfig(root);
+  if (!config?.settings) return { keys: [], complete: true };
+  const state = catalogueCompleteness(root);
   const r = resolveFileSettings(root);
-  if (!r) return [];
-  return [...new Set(r.resolved.problems.filter((p) => p.kind === "unknown-key" && p.layer === "file").map((p) => p.key))];
+  if (!r) return { keys: [], complete: false, reason: state.complete ? "the settings catalogue can't be built" : state.reason };
+  const keys = [...new Set(r.resolved.problems.filter((p) => p.kind === "unknown-key" && p.layer === "file").map((p) => p.key))];
+  return state.complete ? { keys, complete: true } : { keys, complete: false, reason: state.reason };
 }
 
 /** The `settings` values in genesis.config.json that don't fit their key (what `invalid-setting` reports as a bad value), with why. */

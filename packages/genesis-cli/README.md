@@ -1023,8 +1023,9 @@ doctor couldn't run.
 | `migrate.copy` | auto | `migration-pending` | `genesis migrate`. |
 | `migrate.forward` | guided | `migration-drift` | `genesis migrate --forward`; you fill in each forward migration. |
 | `upgrade.release` | auto | `genesis-behind`, `overlay-behind`, `version-skew` | Plans with `genesis upgrade --dry-run`; applies `genesis upgrade --pr`. The pull request is never merged for you. `genesis-behind` moves to the latest release; the others re-align on the installed one. With uncommitted changes (or outside git) the plan says so and runs nothing. |
-| `settings.remove-unknown` | auto | `invalid-setting` (an undeclared key) | Removes the key from `genesis.config.json`, keeping its format. |
+| `settings.remove-unknown` | auto | `invalid-setting` (an undeclared key) | Removes the key from `genesis.config.json`, keeping its format: only when the settings catalogue read completely (every Genesis package in package.json installed, every declaration readable), and never a locked key. Otherwise the finding says it's "not certain" and the fix is `settings.review`. |
 | `settings.reset` | guided | `invalid-setting` (a value in `genesis.config.json` that doesn't fit) | Takes the value out, so the key takes its default; or you set one that fits (the plan says what does). |
+| `settings.review` | manual | `invalid-setting` (the rest: an unknown key that isn't certain or is locked, a legacy `preset`/`settings` key, a database row) | Lists the settings only you can correct. |
 | `settings.requires` | guided | `setting-requires` (in `genesis.config.json`) | Turns on the boolean keys the setting requires; a locked or non-boolean one, or turning the setting off instead, is yours. |
 | `settings.setup` | guided | `setup-incomplete` | Prints the dormant checklist: `genesis setup --step <id>` for each feature, or the setting and secret to set yourself. Runs nothing. |
 | `secrets.set` | guided | `secret-missing` | Sets each missing secret by name through your signed-in CLIs: `supabase secrets set --env-file /dev/stdin` (edge, one single-quoted dotenv line; a value with a quote or a line break is left to the dashboard) and `gh secret set NAME` (CI). The rest the plan tells you to do: `eas env:create` has no stdin path, so it prints the command; a Vault secret is added in the dashboard (Database → Vault), because SQL carrying the value would be kept in `pg_stat_statements` (Query Performance) and in the logs on an error; a server's environment is yours. |
@@ -1057,8 +1058,9 @@ endpoint for every installed `@marktiderman/genesis*` package (GitHub's advisory
 check has a deadline of about 20 seconds (each step still gets at least a second, and `gh auth status` up to 5).
 
 **What it sends:** only the names and installed versions of the `@marktiderman/genesis*`
-packages. When `.npmrc` (the app's or yours) or `npm_config_registry` points `@marktiderman` or
-the default registry anywhere but registry.npmjs.org, npm's public advisory endpoint isn't asked;
+packages. When `.npmrc` or `bunfig.toml` (`[install] registry`, or the `marktiderman` scope under
+`[install.scopes]`; the app's or yours) or `npm_config_registry` points `@marktiderman` or the
+default registry anywhere but registry.npmjs.org, npm's public advisory endpoint isn't asked;
 only `gh` is (when it's signed in). Withdrawn advisories are left out.
 
 | Distance | Level |

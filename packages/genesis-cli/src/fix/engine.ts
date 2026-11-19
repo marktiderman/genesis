@@ -282,7 +282,7 @@ async function applyWithVault(fix: Fix, plan: FixPlan, context: ApplyContext, va
 
 /** What applyPlan wrote, so a later failure can put every file back. */
 class Journal {
-  private entries: Array<{ abs: string; rel: string; before: string | null; dirs: string | undefined }> = [];
+  private entries: Array<{ abs: string; rel: string; before: string | null; mode?: number; dirs: string | undefined }> = [];
   constructor(private root: string) {}
 
   /** Write one planned file: a new one with `wx` (never over one that appeared), an existing one through a temp file and a rename, after re-reading it. */
@@ -304,13 +304,14 @@ class Journal {
     const before = readFileSync(abs, "utf8");
     const tmp = path.join(path.dirname(abs), `.${path.basename(abs)}.genesis-fix-${process.pid}-${Date.now()}`);
     // The rewrite keeps the file's mode (an executable script stays executable).
+    const mode = statSync(abs).mode & 0o7777;
     writeFileSync(tmp, file.content, { flag: "wx" });
     try {
-      chmodSync(tmp, statSync(abs).mode & 0o7777);
+      chmodSync(tmp, mode);
       // The last look: the file is still what the plan read.
       if (sha256(readFileSync(abs, "utf8")) !== file.beforeHash || sha256(before) !== file.beforeHash) throw new FileConflictError(`${file.path} changed while the fix was writing`);
       checkTarget(this.root, abs, fixId);
-      this.entries.push({ abs, rel: file.path, before, dirs });
+      this.entries.push({ abs, rel: file.path, before, mode, dirs });
       renameSync(tmp, abs);
     } catch (err) {
       try {
@@ -347,6 +348,7 @@ class Journal {
         } else {
           const tmp = `${e.abs}.genesis-rollback-${process.pid}`;
           writeFileSync(tmp, e.before);
+          if (e.mode !== undefined) chmodSync(tmp, e.mode);
           renameSync(tmp, e.abs);
         }
         restored.push(e.rel);
