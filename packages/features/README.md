@@ -168,14 +168,21 @@ or `ci`): never its value. `feature` and `flag` link the key to the gate.
 5. **tenant**: only keys declared `scope: "tenant"`;
 6. **person**: only keys declared `scope: "person"`.
 
-`resolveSettings` never throws on a bad entry: it skips it and reports it in `problems` (an unknown
+Which layers may set each scope is one table, `SCOPE_LAYERS`. A lock always holds: a locked entry
+whose own value is bad keeps the value from below and still locks it. `null` ("not set") is a value
+only for a key whose default is `null`.
+
+`resolveSettings` never throws: it skips a bad entry and reports it in `problems` (an unknown
 key, a value of the wrong type or out of bounds, a tenant or person value for a key without that
 scope, a runtime layer setting a build-time key, a change to a locked value, a key on while one it
-requires is off). `sources` says which layer set each value and which locked it.
+requires is off, an unknown preset, which resolves on `max`). Every map it returns has no prototype,
+so a key such as `__proto__` or `constructor` is just an unknown key. `sources` says which layer set each value and which locked it.
 
 **The gate.** A boolean key linked with `feature` that resolves to `false` puts the feature in
-`GateContext.off`, and a key linked with `flag` gives the flag its value when the context has none
-(`withSettings`, `settingsGateContext`). `featureOn` doesn't change: there is no second gate.
+`GateContext.settingsOff` (`featureOn` answers `reason: "setting"`), and a key linked with `flag`
+gives the flag its value when the context has none (`withSettings`, `settingsGateContext`). A locked
+key wins over the context: the tenant's switch can't turn off a feature locked on, nor the context's
+flag change a locked flag. It is the same gate, with one more check.
 
 **Packages without running them.** A package also lists its declaration in package.json
 (`genesis.settings`: `{ "namespace": …, "keys": { … } }`, read with `settingsFromManifest`), so
@@ -185,8 +192,8 @@ requires is off). `sources` says which layer set each value and which locked it.
 ## The gate
 
 `featureOn(registry, context, id)` answers "is this feature on here?" the same way everywhere. Checks
-run in a fixed order and the first "no" wins: **status** (beta, live or deprecated), **platform**, **tenant**
-(switched off), **flag** (each boolean release flag must be exactly `true`) and last **entitlement** (for
+run in a fixed order and the first "no" wins: **status** (beta, live or deprecated), **platform**, **setting**
+(a setting switched it off, through `withSettings`), **tenant** (switched off), **flag** (each boolean release flag must be exactly `true`) and last **entitlement** (for
 `access: { plan }`), so an upgrade prompt only appears when paying is the one thing missing. The answer
 carries the reason, and for a paid feature the plan that unlocks it.
 

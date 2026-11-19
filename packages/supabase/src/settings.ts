@@ -33,7 +33,12 @@ export interface ManifestClient {
 
 type RpcResult = { data: unknown; error: null } | { data: null; error: PostgrestErrorLike };
 
-/** What `genesis_settings_resolved` returns: the inputs to resolve, runtime keys only. @stability Beta */
+/**
+ * What `genesis_settings_layers` returns: the layers to resolve (not resolved values): the preset,
+ * the file's settings for every declared key (build-time keys too) and the database layer for runtime keys.
+ *
+ * @stability Beta
+ */
 export interface StoredSettingsLayers {
   preset: SettingsPreset;
   file: SettingsLayerValues;
@@ -49,13 +54,13 @@ function isObject(v: unknown): v is Record<string, unknown> {
 }
 
 /**
- * The preset, the file's settings and the database layer, for any signed-in person:
- * `genesis_settings_resolved`. Throws a `SupabaseQueryError` (`42501`) when nobody is signed in.
+ * The preset, the file's settings and the database layer, for any signed-in person or server code:
+ * `genesis_settings_layers`. Throws a `SupabaseQueryError` (`42501`) when nobody is signed in.
  *
  * @stability Beta
  */
 export async function readSettingsLayers(client: SettingsClient): Promise<StoredSettingsLayers> {
-  const data = must((await client.rpc("genesis_settings_resolved")) as RpcResult);
+  const data = must((await client.rpc("genesis_settings_layers")) as RpcResult);
   const raw = isObject(data) ? data : {};
   const database: Record<string, { value: unknown; locked?: boolean }> = {};
   for (const [key, entry] of Object.entries(isObject(raw.database) ? raw.database : {})) {
@@ -77,8 +82,8 @@ export interface ResolveAppSettingsOptions {
   /** The person's values (keys declared `scope: "person"`). */
   person?: SettingsLayerValues;
   /**
-   * The layers the build knows (the preset and genesis.config.json `settings`). They hold build-time
-   * keys the database doesn't return; when given, they replace the stored preset and file layer.
+   * The layers the build itself carries (the preset and genesis.config.json `settings`); when given,
+   * they replace the stored preset and file layer (the stored ones are what the last deploy wrote).
    */
   build?: Pick<SettingsLayers, "preset" | "file">;
 }
@@ -118,8 +123,8 @@ export interface SetGenesisSettingInput {
 /**
  * Set a runtime setting in the database layer: `set_genesis_setting`. Only platform admins (the
  * app's `private.genesis_platform_admin` hook); throws a `SupabaseQueryError` otherwise (`42501`),
- * or for a value the synced catalogue refuses (`22023`: an unknown or build-time key, the wrong
- * type, out of bounds).
+ * or for a value the synced catalogue refuses (`22023`: an unknown or build-time key, one
+ * genesis.config.json locks, the wrong type, out of bounds, or `null` for a key with a default).
  *
  * @stability Beta
  */

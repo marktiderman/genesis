@@ -1773,7 +1773,7 @@ export const features = defineFeatures({
     platforms: { web: "building", native: "building", server: "building" },
     entry: { web: "@marktiderman/genesis-config/settings", native: "@marktiderman/genesis-config/settings", server: "@marktiderman/genesis-config/settings" },
     requires: ["feature-gate"],
-    contributes: ["fn: defineSettings", "fn: settingsCatalogue", "fn: resolveSettings", "fn: withSettings", "table: genesis_settings", "table: genesis_setting_changes", "table: genesis_app_manifest", "rpc: genesis_settings_resolved", "rpc: set_genesis_setting"],
+    contributes: ["fn: defineSettings", "fn: settingsCatalogue", "fn: resolveSettings", "fn: withSettings", "table: genesis_settings", "table: genesis_setting_changes", "table: genesis_app_manifest", "rpc: genesis_settings_layers", "rpc: set_genesis_setting"],
     owner: "mark",
     apps: ["web", "native", "server", "cli"],
     audience: ["developer", "admin", "agent"],

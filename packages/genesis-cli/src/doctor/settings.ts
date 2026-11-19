@@ -11,8 +11,11 @@
  *
  * The file's shape (a `namespace.key`, a boolean lock, a known preset) is checked when the config
  * is read, so a malformed file stops every command, not only the doctor.
+ *
+ * `genesis-config-unknown-key` (warn): a top-level key in genesis.config.json no Genesis tool reads
+ * (`presets`, `setting`), which would otherwise do nothing, silently.
  */
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import * as path from "node:path";
 import {
   SettingsError,
@@ -24,26 +27,77 @@ import {
   type SettingsDeclaration,
 } from "@marktiderman/genesis-config/settings";
 import { readGenesisConfig } from "./config.js";
-import { findPackageDir } from "./genesis.js";
+import { installedGenesis } from "../blocks/discover.js";
 import type { DoctorContext } from "./types.js";
 
 const FILE = "genesis.config.json";
 
-/** The installed Genesis packages' settings declarations (package.json `genesis.settings`: one, or a list). */
+/** Every top-level key a Genesis tool reads from genesis.config.json. A new block adds its key here. */
+export const GENESIS_CONFIG_KEYS: readonly string[] = [
+  "$schema",
+  "$comment",
+  "appFolder",
+  "client",
+  "doctor",
+  "environments",
+  "features",
+  "figma",
+  "links",
+  "localPackages",
+  "notifications",
+  "preset",
+  "privacy",
+  "release",
+  "settings",
+  "starter",
+  "supabase",
+];
+
+/** The known key closest to a typo (one edit, or a plural/singular), if any. */
+function nearestKey(key: string): string | undefined {
+  const k = key.toLowerCase();
+  return GENESIS_CONFIG_KEYS.find((known) => {
+    const c = known.toLowerCase();
+    if (k === `${c}s` || `${k}s` === c) return true;
+    if (Math.abs(c.length - k.length) > 1) return false;
+    let i = 0;
+    while (i < Math.min(c.length, k.length) && c[i] === k[i]) i++;
+    return c.slice(i + 1) === k.slice(i + 1) || c.slice(i) === k.slice(i + 1) || c.slice(i + 1) === k.slice(i);
+  });
+}
+
+/** Top-level keys of genesis.config.json that no Genesis tool reads. */
+export function checkConfigKeys(ctx: DoctorContext): void {
+  const raw = readGenesisConfig(ctx.root)?.raw;
+  if (!raw) return;
+  for (const key of Object.keys(raw)) {
+    if (GENESIS_CONFIG_KEYS.includes(key)) continue;
+    const near = nearestKey(key);
+    ctx.report({
+      rule: "genesis-config-unknown-key",
+      level: "warn",
+      file: FILE,
+      subject: key,
+      message: `"${key}" isn't a genesis.config.json setting, so nothing reads it${near ? `: did you mean "${near}"?` : ` (known: ${GENESIS_CONFIG_KEYS.filter((k) => !k.startsWith("$")).join(", ")})`}`,
+    });
+  }
+}
+
+/**
+ * The settings declarations (package.json `genesis.settings`: one, or a list) of every Genesis
+ * package installed for the app, direct or transitive, as Node would find them from `root`.
+ */
 export function installedSettings(root: string): { declarations: SettingsDeclaration[]; problems: Array<{ pkg: string; message: string }> } {
   const declarations: SettingsDeclaration[] = [];
   const problems: Array<{ pkg: string; message: string }> = [];
-  let pkg: Record<string, Record<string, string> | undefined>;
-  try {
-    pkg = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")) as typeof pkg;
-  } catch {
-    return { declarations, problems };
-  }
-  const names = new Set([...Object.keys(pkg.dependencies ?? {}), ...Object.keys(pkg.devDependencies ?? {})].filter((n) => n.startsWith("@marktiderman/genesis")));
-  for (const name of [...names].sort()) {
-    const dir = findPackageDir(root, name);
-    if (!dir || !existsSync(path.join(dir, "package.json"))) continue;
-    const raw = (JSON.parse(readFileSync(path.join(dir, "package.json"), "utf8")) as { genesis?: { settings?: unknown } }).genesis?.settings;
+  for (const [name, dir] of [...installedGenesis(root)].sort(([a], [b]) => a.localeCompare(b))) {
+    let raw: unknown;
+    try {
+      raw = (JSON.parse(readFileSync(path.join(dir, "package.json"), "utf8")) as { genesis?: { settings?: unknown } }).genesis?.settings;
+    } catch (err) {
+      problems.push({ pkg: name, message: `its package.json can't be read: ${(err as Error).message}` });
+      continue;
+    }
     if (raw === undefined) continue;
     for (const [i, one] of (Array.isArray(raw) ? raw : [raw]).entries()) {
       try {

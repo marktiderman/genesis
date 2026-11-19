@@ -45,7 +45,7 @@ describe("reading settings", () => {
   it("reads the stored layers: the preset, the file (with its locks) and the database", async () => {
     const { client, rpc } = fakeClient({ data: stored, error: null });
     const layers = await readSettingsLayers(client);
-    expect(rpc).toHaveBeenCalledWith("genesis_settings_resolved");
+    expect(rpc).toHaveBeenCalledWith("genesis_settings_layers");
     expect(layers).toEqual({
       preset: "min",
       file: { "support.dumpRetentionDays": { value: 30 }, "support.messenger": { value: true, locked: true } },
@@ -68,6 +68,13 @@ describe("reading settings", () => {
     expect(r.sources["support.messenger"]).toEqual({ layer: "file", lockedBy: "file" });
     expect(r.values["support.shakeToReport"]).toBe(false);
     expect(r.problems.map((p) => p.kind)).toEqual(["locked"]);
+  });
+
+  it("resolves a build-time key from the stored file layer, not as its default", async () => {
+    const { client } = fakeClient({ data: { ...stored, file: { ...stored.file, "support.sentryDsn": "https://dsn.example" } }, error: null });
+    const r = await resolveAppSettings(client, catalogue);
+    expect(r.values["support.sentryDsn"]).toBe("https://dsn.example");
+    expect(r.sources["support.sentryDsn"]).toEqual({ layer: "file" });
   });
 
   it("takes the build's preset and file over the stored ones, for build-time keys", async () => {

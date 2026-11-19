@@ -1,5 +1,5 @@
 -- Genesis settings: public.genesis_settings, its history, the app manifest, and the RPCs
--- genesis_settings_resolved() and set_genesis_setting()
+-- genesis_settings_layers() and set_genesis_setting()
 --
 -- The database layer of Genesis settings (@marktiderman/genesis-config, `resolveSettings`): the
 -- runtime settings a platform admin changes live, on top of the package defaults, the preset and
@@ -8,7 +8,7 @@
 -- below it.
 --
 -- The resolver is the TypeScript one, so the server, the web and phones agree: this file stores
--- the inputs and returns them (genesis_settings_resolved), it doesn't re-implement the layers.
+-- the inputs and returns them (genesis_settings_layers), it doesn't re-implement the layers.
 --
 --   genesis_app_manifest  one row: what this app runs. Its packages and versions, the preset, the
 --                         file's settings, and the settings catalogue (each key's type, bounds,
@@ -29,8 +29,9 @@
 --   revoke execute on function private.genesis_platform_admin(uuid) from public, anon, authenticated;
 --
 -- What set_genesis_setting accepts is checked against the catalogue in the manifest: the key must
--- be declared and apply at runtime, and the value must fit its type and bounds. Without a synced
--- catalogue it refuses every write (22023, with a hint), so nothing unchecked gets in.
+-- be declared and apply at runtime, not be locked by genesis.config.json, and the value must fit
+-- its type and bounds (JSON null only for a key whose default is null). Without a synced catalogue
+-- it refuses every write (22023, with a hint), so nothing unchecked gets in.
 --
 -- Secrets are never settings: a key names the secret it needs, the value lives in its own store
 -- (Vault, Edge Function secrets, the server's environment, CI). Nothing here holds one.
@@ -39,7 +40,9 @@
 -- level security on, no policies and no grants to anon or authenticated. The service role (the
 -- deploy step, a server, the CLI) may write the settings and the manifest directly; its setting
 -- writes are recorded too, with no person and the source it names in `genesis.setting_source`
--- (`set_config('genesis.setting_source', 'cli', true)`), else `server`.
+-- (`set_config('genesis.setting_source', 'cli', true)`), else `server`. Its direct writes are not
+-- checked against the catalogue: the resolver reports and skips a bad one. The history is never
+-- edited; the service role prunes rows older than a year with genesis_prune_setting_changes.
 --
 -- Use: copy this file into your app's `supabase/migrations/` under a new timestamped name (or let
 -- `genesis add settings` do it). Never edit it once applied; change it with a new migration. It
@@ -121,7 +124,26 @@ begin
 end;
 $$;
 
--- Why a value can't be stored for a key, by the manifest's catalogue; null when it can.
+-- Server code, told apart from a person by the request's role (set per request by PostgREST), never
+-- by the JWT's claims: no role switch (a direct connection, a migration) or a role that bypasses
+-- row security (service_role, postgres). authenticated and anon never bypass it.
+create or replace function private.genesis_settings_caller_is_server()
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  request_role text := coalesce(nullif(current_setting('role', true), ''), 'none');
+begin
+  return request_role = 'none'
+      or coalesce((select r.rolbypassrls from pg_catalog.pg_roles r where r.rolname = request_role), false);
+end;
+$$;
+
+-- Why a value can't be stored for a key, by the manifest's catalogue; null when it can. A catalogue
+-- entry that isn't the shape catalogueManifest writes refuses every value for its key.
 create or replace function private.genesis_setting_problem(setting_key text, setting_value jsonb)
 returns text
 language plpgsql
@@ -133,10 +155,14 @@ declare
   cat jsonb;
   def jsonb;
   kind text;
-  given text := jsonb_typeof(setting_value);
+  given text := coalesce(jsonb_typeof(setting_value), 'null');
   n numeric;
+  file_entry jsonb;
 begin
-  select m.catalogue into cat from public.genesis_app_manifest m limit 1;
+  if setting_key is null or setting_key !~ '^[a-z][a-zA-Z0-9]*(-[a-z0-9]+)*\.[a-z][a-zA-Z0-9]*$' then
+    return format('%s isn''t a setting key (namespace.key)', coalesce(setting_key, 'null'));
+  end if;
+  select m.catalogue, m.file_settings -> setting_key into cat, file_entry from public.genesis_app_manifest m limit 1;
   if cat is null or cat = '{}'::jsonb then
     return 'no settings catalogue has been synced yet (write the manifest on deploy: writeAppManifest)';
   end if;
@@ -144,14 +170,29 @@ begin
   if def is null or jsonb_typeof(def) <> 'object' then
     return format('%s isn''t a setting any installed package declares', setting_key);
   end if;
-  if coalesce(def ->> 'applies', 'runtime') <> 'runtime' then
+  kind := def ->> 'type';
+  if kind is null or kind not in ('boolean', 'number', 'string', 'list', 'object')
+     or (def ? 'min' and jsonb_typeof(def -> 'min') <> 'number')
+     or (def ? 'max' and jsonb_typeof(def -> 'max') <> 'number')
+     or (def ? 'options' and jsonb_typeof(def -> 'options') <> 'array')
+     or coalesce(def ->> 'applies', 'runtime') not in ('build', 'runtime') then
+    return format('the synced catalogue''s entry for %s is malformed (write the manifest again: writeAppManifest)', setting_key);
+  end if;
+  if def ->> 'applies' = 'build' then
     return format('%s applies at build time: change it in genesis.config.json', setting_key);
   end if;
-  -- JSON null is "not set", and fits every key.
-  if setting_value is null or given = 'null' then
-    return null;
+  -- A value genesis.config.json locks: no later layer may change it, so don't store one.
+  if jsonb_typeof(file_entry) = 'object' and (select count(*) from jsonb_object_keys(file_entry)) = 2
+     and file_entry ? 'value' and file_entry -> 'locked' = 'true'::jsonb then
+    return format('%s is locked by genesis.config.json: change it there', setting_key);
   end if;
-  kind := def ->> 'type';
+  -- JSON null is "not set": only for a key whose default is null.
+  if given = 'null' then
+    if def -> 'nullable' = 'true'::jsonb then
+      return null;
+    end if;
+    return format('%s can''t be null: it has a default, so set a value', setting_key);
+  end if;
   if kind = 'boolean' and given <> 'boolean'
      or kind = 'number' and given <> 'number'
      or kind = 'string' and given <> 'string'
@@ -183,6 +224,8 @@ begin
 end;
 $$;
 
+-- `value` is JSON: JSON null ("not set") arrives from PostgREST as SQL NULL, so a missing value is
+-- read as JSON null, and checked like any other.
 create or replace function public.set_genesis_setting(key text, value jsonb, locked boolean default false)
 returns void
 language plpgsql
@@ -191,6 +234,7 @@ set search_path = ''
 as $$
 declare
   me uuid := auth.uid();
+  stored jsonb := coalesce(set_genesis_setting.value, 'null'::jsonb);
   problem text;
 begin
   if me is null then
@@ -203,16 +247,16 @@ begin
   if not private.genesis_is_platform_admin() then
     raise exception 'set_genesis_setting: only platform admins can change settings' using errcode = '42501';
   end if;
-  if key is null or value is null or locked is null then
-    raise exception 'set_genesis_setting: key, value and locked are required (JSON null for "not set")' using errcode = '22004';
+  if key is null or locked is null then
+    raise exception 'set_genesis_setting: key and locked are required' using errcode = '22004';
   end if;
-  problem := private.genesis_setting_problem(key, value);
+  problem := private.genesis_setting_problem(key, stored);
   if problem is not null then
     raise exception 'set_genesis_setting: %', problem using errcode = '22023';
   end if;
   perform set_config('genesis.setting_source', 'admin', true);
   insert into public.genesis_settings as s (key, value, locked, updated_by, updated_at)
-  values (set_genesis_setting.key, set_genesis_setting.value, set_genesis_setting.locked, me, now())
+  values (set_genesis_setting.key, stored, set_genesis_setting.locked, me, now())
   on conflict on constraint genesis_settings_pkey do update
     set value = excluded.value, locked = excluded.locked, updated_by = excluded.updated_by, updated_at = excluded.updated_at
     -- Saving the same value and lock again changes nothing, not even who and when.
@@ -223,7 +267,7 @@ end;
 $$;
 
 comment on function public.set_genesis_setting(text, jsonb, boolean) is
-  'Sets a runtime setting in the database layer, optionally locked. Only platform admins (private.genesis_platform_admin); checked against the manifest''s catalogue. Genesis settings.';
+  'Sets a runtime setting in the database layer, optionally locked. Only platform admins (private.genesis_platform_admin); checked against the manifest''s catalogue, and refused for a key genesis.config.json locks. Genesis settings.';
 
 -- Back to the layers below: the database row goes.
 create or replace function public.clear_genesis_setting(key text)
@@ -249,9 +293,11 @@ $$;
 comment on function public.clear_genesis_setting(text) is
   'Removes a setting from the database layer, so the file, preset or default applies again. Only platform admins. Genesis settings.';
 
--- The inputs a signed-in client resolves with: the preset, the file's settings and the database
--- layer, each only for keys the catalogue declares as runtime. Never a secret (none is stored).
-create or replace function public.genesis_settings_resolved()
+-- The layers a client resolves with resolveSettings (it is not a resolved snapshot: the one resolver
+-- is the TypeScript one): the preset, the file's settings for every key the catalogue declares
+-- (build-time keys included: they are committed config, never secrets), and the database layer for
+-- runtime keys. For any signed-in person, and for server code.
+create or replace function public.genesis_settings_layers()
 returns jsonb
 language plpgsql
 stable
@@ -260,18 +306,21 @@ set search_path = ''
 as $$
 declare
   m public.genesis_app_manifest;
+  declared text[];
   runtime text[];
 begin
-  if auth.uid() is null then
-    raise exception 'genesis_settings_resolved: not signed in' using errcode = '42501';
+  if auth.uid() is null and not private.genesis_settings_caller_is_server() then
+    raise exception 'genesis_settings_layers: not signed in' using errcode = '42501';
   end if;
   select * into m from public.genesis_app_manifest limit 1;
-  select coalesce(array_agg(c.key), '{}') into runtime
+  select coalesce(array_agg(c.key), '{}'),
+         coalesce(array_agg(c.key) filter (where coalesce(c.value ->> 'applies', 'runtime') = 'runtime'), '{}')
+    into declared, runtime
   from jsonb_each(coalesce(m.catalogue, '{}'::jsonb)) c
-  where jsonb_typeof(c.value) = 'object' and coalesce(c.value ->> 'applies', 'runtime') = 'runtime';
+  where jsonb_typeof(c.value) = 'object';
   return jsonb_build_object(
     'preset', coalesce(m.preset, 'max'),
-    'file', coalesce((select jsonb_object_agg(f.key, f.value) from jsonb_each(coalesce(m.file_settings, '{}'::jsonb)) f where f.key = any (runtime)), '{}'::jsonb),
+    'file', coalesce((select jsonb_object_agg(f.key, f.value) from jsonb_each(coalesce(m.file_settings, '{}'::jsonb)) f where f.key = any (declared)), '{}'::jsonb),
     'database', coalesce((
       select jsonb_object_agg(s.key, jsonb_build_object('value', s.value, 'locked', s.locked))
       from public.genesis_settings s where s.key = any (runtime)
@@ -281,8 +330,8 @@ begin
 end;
 $$;
 
-comment on function public.genesis_settings_resolved() is
-  'The preset, file settings and database layer for every runtime key, for any signed-in person to resolve with resolveSettings. Genesis settings.';
+comment on function public.genesis_settings_layers() is
+  'The preset, the file settings and the database layer, for any signed-in person or server code to resolve with resolveSettings. Genesis settings.';
 
 -- The database layer's history, newest first, at most `max_rows` (1 to 1000). For platform admins.
 create or replace function public.genesis_setting_history(max_rows integer default 100)
@@ -307,6 +356,29 @@ $$;
 comment on function public.genesis_setting_history(integer) is
   'Who changed which setting, when, from where, and from what to what, newest first. For platform admins. Genesis settings.';
 
+-- The history is evidence: nobody edits it, and the only way to remove rows is this, for the
+-- service role, and never the last year (365 days at least, the default).
+create or replace function public.genesis_prune_setting_changes(older_than interval default interval '365 days')
+returns integer
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  removed integer;
+begin
+  if older_than is null or older_than < interval '365 days' then
+    raise exception 'genesis_prune_setting_changes: keep at least 365 days of history' using errcode = '22023';
+  end if;
+  delete from public.genesis_setting_changes c where c.changed_at < now() - older_than;
+  get diagnostics removed = row_count;
+  return removed;
+end;
+$$;
+
+comment on function public.genesis_prune_setting_changes(interval) is
+  'Deletes setting history older than `older_than` (365 days at least). For the service role. Genesis settings.';
+
 create or replace function private.genesis_record_setting_change()
 returns trigger
 language plpgsql
@@ -329,6 +401,14 @@ begin
     when who_role = 'service_role' then 'server'
     else 'database'
   end;
+  -- A renamed key is two changes: the old key goes, the new one comes.
+  if tg_op = 'UPDATE' and new.key <> old.key then
+    insert into public.genesis_setting_changes (key, old_value, new_value, old_locked, new_locked, changed_by, changed_role, source)
+    values (old.key, old.value, null, old.locked, null, (select u.id from auth.users u where u.id = auth.uid()), who_role, src);
+    insert into public.genesis_setting_changes (key, old_value, new_value, old_locked, new_locked, changed_by, changed_role, source)
+    values (new.key, null, new.value, null, new.locked, (select u.id from auth.users u where u.id = auth.uid()), who_role, src);
+    return null;
+  end if;
   insert into public.genesis_setting_changes (key, old_value, new_value, old_locked, new_locked, changed_by, changed_role, source)
   values (
     coalesce(new.key, old.key),
@@ -367,20 +447,24 @@ revoke all on table public.genesis_app_manifest from service_role;
 grant select, insert, update, delete on table public.genesis_app_manifest to service_role;
 revoke all on table public.genesis_settings from service_role;
 grant select, insert, update, delete on table public.genesis_settings to service_role;
--- The history is the trigger's: the service role may read and purge it, never write it.
+-- The history is the trigger's: the service role reads it, and prunes only old rows, through
+-- genesis_prune_setting_changes.
 revoke all on table public.genesis_setting_changes from service_role;
-grant select, delete on table public.genesis_setting_changes to service_role;
+grant select on table public.genesis_setting_changes to service_role;
 
 revoke execute on function public.set_genesis_setting(text, jsonb, boolean) from public, anon;
 grant execute on function public.set_genesis_setting(text, jsonb, boolean) to authenticated;
 revoke execute on function public.clear_genesis_setting(text) from public, anon;
 grant execute on function public.clear_genesis_setting(text) to authenticated;
-revoke execute on function public.genesis_settings_resolved() from public, anon;
-grant execute on function public.genesis_settings_resolved() to authenticated, service_role;
+revoke execute on function public.genesis_settings_layers() from public, anon;
+grant execute on function public.genesis_settings_layers() to authenticated, service_role;
 revoke execute on function public.genesis_setting_history(integer) from public, anon;
 grant execute on function public.genesis_setting_history(integer) to authenticated;
+revoke execute on function public.genesis_prune_setting_changes(interval) from public, anon, authenticated;
+grant execute on function public.genesis_prune_setting_changes(interval) to service_role;
 
 -- Only the functions above call these.
 revoke execute on function private.genesis_is_platform_admin() from public, anon, authenticated;
+revoke execute on function private.genesis_settings_caller_is_server() from public, anon, authenticated;
 revoke execute on function private.genesis_setting_problem(text, jsonb) from public, anon, authenticated;
 revoke execute on function private.genesis_record_setting_change() from public, anon, authenticated;
