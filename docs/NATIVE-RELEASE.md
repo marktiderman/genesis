@@ -271,7 +271,11 @@ character and `+` as itself, not as GitHub's quantifiers. Merge the `.genesis-ne
 `--replace`) and remove the others, then run it again; or run it with `--replace-rival` to write
 `native-release.yml` now, in a change that also removes them (the command doesn't delete them, and
 names them in its summary). `genesis doctor` fails (`release-lane-twice`, an error) while one is
-there beside `native-release.yml`. Then add the secrets ([One-time setup](#one-time-setup)).
+there beside `native-release.yml`. The check reads commands, not what they publish, so a push
+lane that only ships a staging update or a preview build (`eas update --branch staging`,
+`eas build --profile preview`) counts too: when it doesn't release to production, keep it, run
+`genesis add template release --replace-rival`, and lower the rule in `genesis.config.json`
+(`"doctor": { "rules": { "release-lane-twice": "warn" } }`). Then add the secrets ([One-time setup](#one-time-setup)).
 
 **One native app per repository.** The lane is one GitHub workflow at a fixed path
 (`.github/workflows/native-release.yml`, at the repository's root under `appFolder`) with one

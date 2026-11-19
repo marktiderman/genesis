@@ -258,7 +258,7 @@ export function checkReleaseLaneTwice(ctx: DoctorContext): void {
       level: "error",
       file: rival.startsWith(".github/") && appFolder ? path.relative(ctx.root, path.join(repo, rival)).split(path.sep).join("/") : rival,
       subject: rival,
-      message: `${rival} also releases (EAS updates or builds) beside .github/workflows/native-release.yml, so each release would go out twice. Make it the lane's dispatch-only deploy-production.yml (genesis add template release --replace), or remove it (docs/NATIVE-RELEASE.md, "Adopting the lane")`,
+      message: `${rival} also releases (EAS updates or builds) beside .github/workflows/native-release.yml, so each release would go out twice. Make it the lane's dispatch-only deploy-production.yml (genesis add template release --replace), or remove it (docs/NATIVE-RELEASE.md, "Adopting the lane"). If it only ships a staging update or a preview build, not production, keep it and set "release-lane-twice": "warn" under doctor.rules in genesis.config.json`,
     });
   }
 }
