@@ -1050,6 +1050,33 @@ describe("genesis add template", () => {
     expect(adoptTemplates(root, resolveTemplateNames(["release"])).find((r) => r.path === ".github/workflows/native-release.yml")).toMatchObject({ outcome: "unchanged" });
   });
 
+  it("--replace-rival never passes over the app's own deploy-production.yml, which native-release.yml dispatches to, nor says to remove it", async () => {
+    const old = "name: Deploy production\non:\n  push:\n    branches: [main]\njobs:\n  update:\n    type: update\n";
+    const ota = "on:\n  push:\n    branches: [main]\njobs:\n  a:\n    runs-on: ubuntu-latest\n    steps:\n      - run: eas update --auto\n";
+    const root = nativeApp({ ".eas/workflows/deploy-production.yml": old, ".github/workflows/ota.yml": ota });
+    const logged: string[] = [];
+    expect(await addTemplates(root, ["release"], { replaceRival: true, log: (m) => logged.push(m) })).toBe(1);
+    const out = logged.join("\n");
+    // Held: the old lane's file is merged, not removed, so the flag doesn't pass over it.
+    expect(existsSync(path.join(root, ".github/workflows/native-release.yml"))).toBe(false);
+    const held = logged.find((l) => l.includes(".github/workflows/native-release.yml"))!;
+    expect(held).toMatch(/held back/);
+    expect(held).toMatch(/merge the .genesis-next beside deploy-production.yml/i);
+    expect(held).not.toContain("--replace-rival and remove");
+    // No step tells the app to remove the file the lane dispatches to.
+    expect(out).not.toMatch(/Remove [^\n]*\.eas\/workflows\/deploy-production\.yml/);
+    expect(out).toContain("Merge each .genesis-next into its file");
+    // Merged (the lane's dispatch-only text taken), the flag writes it; only the other rival is named for removal.
+    expect(adoptTemplates(root, resolveTemplateNames(["release"]), { replace: true }).find((r) => r.path === ".eas/workflows/deploy-production.yml")).toMatchObject({ outcome: "replaced" });
+    logged.length = 0;
+    const code = await addTemplates(root, ["release"], { replaceRival: true, log: (m) => logged.push(m) });
+    expect(code, logged.join("\n")).toBe(0);
+    expect(existsSync(path.join(root, ".github/workflows/native-release.yml"))).toBe(true);
+    expect(existsSync(path.join(root, ".eas/workflows/deploy-production.yml"))).toBe(true);
+    expect(logged.join("\n")).toContain("Remove .github/workflows/ota.yml in the same change");
+    expect(logged.join("\n")).not.toMatch(/Remove [^\n]*deploy-production\.yml/);
+  });
+
   it("with appFolder, a GitHub rival at the repository's root holds native-release.yml too", () => {
     const repo = tempDir();
     const root = path.join(repo, "mobile");

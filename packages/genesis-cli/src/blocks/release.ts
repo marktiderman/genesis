@@ -246,6 +246,8 @@ export function resolveTemplateNames(names: readonly string[], dir = templatesDi
 export type AdoptOutcome = "created" | "adopted" | "updated" | "unchanged" | "next" | "replaced" | "pending" | "held";
 
 const NATIVE_RELEASE = "ci/native-release.yml";
+/** The workflow native-release.yml starts on EAS (`eas workflow:run`): the lane needs it, so it's never a file to remove. */
+export const LANE_DISPATCH_TARGET = ".eas/workflows/deploy-production.yml";
 const DEPLOY_PRODUCTION = "release/deploy-production.yml";
 
 export interface AdoptResult {
@@ -303,14 +305,17 @@ export function adoptTemplates(root: string, templates: readonly string[], optio
       const easRivals = pushTriggeredEasWorkflows(root).filter((rel) => !(options.dryRun && rewritten(rel)));
       const githubRivals = githubReleaseWorkflows(root, appFolder);
       const rivals = [...githubRivals, ...easRivals];
-      if (rivals.length && !options.replaceRival) {
-        const own: string[] = easRivals.filter((rel) => rel === ".eas/workflows/deploy-production.yml");
-        const others = rivals.filter((rel) => !own.includes(rel));
+      // The app's own deploy-production.yml is the file native-release.yml dispatches to: it is
+      // merged into the lane's version, never removed, so --replace-rival doesn't pass over it.
+      const own: string[] = easRivals.filter((rel) => rel === LANE_DISPATCH_TARGET);
+      const others = rivals.filter((rel) => !own.includes(rel));
+      if (own.length || (others.length && !options.replaceRival)) {
         const fix = [
           ...(own.length ? ["merge the .genesis-next beside deploy-production.yml (or move your edits into genesis.config.json and run again with --replace)"] : []),
-          ...(others.length ? [`remove ${others.join(", ")}`] : []),
+          ...(others.length && !options.replaceRival ? [`remove ${others.join(", ")}`] : []),
         ];
-        results.push({ template, path: ".github/workflows/native-release.yml", location: ".github/workflows/native-release.yml", outcome: "held", detail: `not written: ${rivals.join(", ")} still release${rivals.length === 1 ? "s" : ""} on every push, and both lanes would publish each release. ${fix.join(" and ").replace(/^./, (c) => c.toUpperCase())}, then run this again; or run it with --replace-rival to write native-release.yml now and remove the rival in the same change` });
+        const now = others.length && !options.replaceRival ? `; or, to write native-release.yml now, run it with --replace-rival and remove ${others.length === 1 ? "that workflow" : "those workflows"} in the same change` : "";
+        results.push({ template, path: ".github/workflows/native-release.yml", location: ".github/workflows/native-release.yml", outcome: "held", detail: `not written: ${rivals.join(", ")} still release${rivals.length === 1 ? "s" : ""} on every push, and both lanes would publish each release. ${fix.join(" and ").replace(/^./, (c) => c.toUpperCase())}, then run this again${now}` });
         continue;
       }
     }

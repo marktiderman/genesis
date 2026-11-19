@@ -420,7 +420,9 @@ the sets and which the app has.
   `eas build` or `eas workflow:run`; a push trigger whose `branches` / `branches_ignore` leave
   `main` out doesn't count. The command then exits 1, naming them. `--replace-rival` writes it
   anyway, for a change that removes the rival too (the rival isn't deleted; the summary names it,
-  and `genesis doctor` fails with `release-lane-twice` until it's gone). The summary lists the
+  and `genesis doctor` fails with `release-lane-twice` until it's gone). The app's own
+  `deploy-production.yml` is never such a rival: `native-release.yml` dispatches to it, so it stays
+  held until its `.genesis-next` is merged, whatever the flag. The summary lists the
   secrets to add.
 
 ### genesis migrate
