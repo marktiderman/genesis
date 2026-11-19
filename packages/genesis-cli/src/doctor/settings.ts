@@ -276,7 +276,8 @@ export function settingsCheck(options: SettingsCheckOptions = {}): (ctx: DoctorC
     for (const problem of resolved.problems) {
       const inFile = problem.layer !== "database";
       if (problem.kind === "requires") {
-        ctx.report({ rule: "setting-requires", level: "warn", file: FILE, subject: problem.key, message: `settings.${problem.message}` });
+        // Reported where the key was set: the database layer's rows are a platform admin's, everything else the file's.
+        ctx.report({ rule: "setting-requires", level: "warn", file: inFile ? FILE : DATABASE_FILE, subject: problem.key, message: `settings.${problem.message} (its value comes from the ${problem.layer} layer)` });
         continue;
       }
       ctx.report({

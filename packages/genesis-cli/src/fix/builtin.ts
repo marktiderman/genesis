@@ -318,6 +318,8 @@ const settingRequires: Fix = {
   kind: "guided",
   rules: ["setting-requires"],
   title: "turn on the settings a setting requires (or turn that setting off yourself)",
+  // genesis.config.json only: a database row is a platform admin's, changed on the Settings screen.
+  appliesTo: (f) => f.file === CONFIG_FILE,
   async plan(ctx) {
     const { resolveFileSettings } = await import("../doctor/settings.js");
     const r = resolveFileSettings(ctx.root);

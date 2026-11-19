@@ -15,8 +15,10 @@
   (read anyway when the app is linked).
 - New guided fixes: `settings.reset`, `settings.requires`, `settings.setup` and `secrets.set`
   (replacing the manual `settings.review`). `secrets.set` asks for each value at the terminal
-  without echoing it, holds it in memory only, sends it to `supabase secrets set --env-file
-  /dev/stdin`, Vault SQL on stdin, or `gh secret set` on stdin (never in argv), redacts it from
-  everything printed, and prints the `eas env:create` command for you to run.
+  without echoing it (one line; a multi-line paste or a control character is refused), holds it
+  in memory only, sends it on stdin (never in argv) to `supabase secrets set --env-file
+  /dev/stdin` or `gh secret set`, and redacts it from everything printed. It prints the
+  `eas env:create` command for you to run, and the dashboard step for a Vault secret (SQL
+  carrying the value would be kept in `pg_stat_statements`).
 - genesis-config: a settings key may name the guided `setup` step that configures it
   (`setup: "github.issues"`).
