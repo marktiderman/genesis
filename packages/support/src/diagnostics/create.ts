@@ -212,7 +212,14 @@ export function createDiagnostics(options: DiagnosticsOptions): Diagnostics {
         }
       }),
     );
-    sections.forEach((section, i) => place(report, section.name, values[i]));
+    sections.forEach((section, i) => {
+      const value = values[i];
+      if (section.options.merge) {
+        if (value && typeof value === "object") for (const [key, part] of Object.entries(value)) if (isCore(key)) place(report, key, part);
+        return;
+      }
+      place(report, section.name, value);
+    });
 
     if (options.user) {
       try {

@@ -176,6 +176,14 @@ export function redactReport(input: DiagnosticReport, options: RedactOptions = {
   }
 
   const device = scrubObject(r["device"]);
+  // Permission states by name: the names are the app's own (`microphone` reads as a contact
+  // detail to the key rule), and a state is one short word, so both are kept only in that shape.
+  const rawPermissions = record(record(r["device"])?.["permissions"]);
+  if (device && rawPermissions) {
+    device["permissions"] = Object.fromEntries(
+      Object.entries(rawPermissions).filter(([k, v]) => SAFE_PATH.test(k) && typeof v === "string" && /^[A-Za-z_-]{1,32}$/.test(v)),
+    );
+  }
   const trigger = DIAGNOSTIC_TRIGGERS.includes(r["trigger"] as DiagnosticTrigger) ? (r["trigger"] as DiagnosticTrigger) : "manual";
   const flags = scrubObject(r["flags"]);
   const blocks = Array.isArray(r["blocks"]) ? r["blocks"].filter((b): b is string => typeof b === "string").map(scrubString) : null;

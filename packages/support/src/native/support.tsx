@@ -25,8 +25,11 @@ import type { HelpAnswerResponse } from "../help-ask";
 import type { OfficeHours } from "../office-hours";
 import type { SupportChatClient } from "../chat";
 import { fill, resolveSupportCopy, type SupportCopy, type SupportCopyOverrides } from "../copy";
-import { composeCollectors, createContextCollector, type ContextCollector, type ScreenshotContentType } from "../record";
+import { composeCollectors, createContextCollector, type ContextCollector, type FeedbackSink, type ScreenshotContentType } from "../record";
+import type { Diagnostics } from "../diagnostics/create";
+import { DIAGNOSTICS_DEFAULTS } from "../diagnostics/report";
 import { listenForShake, type AccelerometerLike, type ShakeOptions, type ViewShotLike } from "./modules";
+import { SendDiagnosticsRow } from "./diagnostics";
 
 /** A screenshot waiting for the feedback screen. `uri` is a data URI. */
 export interface PendingScreenshot {
@@ -91,8 +94,23 @@ export interface SupportOptions {
   settings?: false | { section?: string };
   /** `false` leaves the idea board out. */
   ideas?: boolean;
+  /**
+   * The context dump (`createDiagnostics`): sent on a shake (`dumpOnShake`) and with every piece
+   * of feedback (`dumpOnFeedback`, linked by `diagnosticsId`), kept up to date with the route,
+   * and offered as "Send diagnostics" in the devtools overlay.
+   */
+  diagnostics?: Diagnostics;
+  /** Send a dump when the phone is shaken. Default true. */
+  dumpOnShake?: boolean;
+  /** Send a dump with every piece of feedback. Default true. */
+  dumpOnFeedback?: boolean;
+  /**
+   * Where feedback goes instead of the Supabase client: `diagnostics.feedbackSink` for an app whose
+   * feedback goes to its own API (`httpTransport`), screenshots and dump in one request.
+   */
+  feedbackSink?: FeedbackSink;
   /** Every caught error, for reporting. None of them reaches the person as a crash. */
-  onError?: (error: Error, where: "capture" | "shake") => void;
+  onError?: (error: Error, where: "capture" | "shake" | "diagnostics") => void;
 }
 
 export interface SupportBlock extends NativeBlock<typeof SUPPORT_BLOCK_ID> {
@@ -101,6 +119,8 @@ export interface SupportBlock extends NativeBlock<typeof SUPPORT_BLOCK_ID> {
   readonly copy: SupportCopy;
   readonly paths: SupportPaths;
   readonly collector: ContextCollector;
+  /** The context dump, when the app passed `diagnostics`. */
+  readonly diagnostics: Diagnostics | null;
   /** Capture the screen (if it can and `screenshot` isn't false), then open the feedback screen. */
   openFeedback(options?: { screenshot?: boolean; extra?: Record<string, unknown>; delayMs?: number }): Promise<void>;
   /** Hand the feedback screen what it opens with (`takePending` empties it). */
@@ -177,7 +197,7 @@ export function createSupport(options: SupportOptions): SupportBlock {
     },
   });
 
-  const report = (error: unknown, where: "capture" | "shake") => {
+  const report = (error: unknown, where: "capture" | "shake" | "diagnostics") => {
     try {
       options.onError?.(error instanceof Error ? error : new Error(String(error)), where);
     } catch {
@@ -206,9 +226,21 @@ export function createSupport(options: SupportOptions): SupportBlock {
     );
   }
 
+  // The devtools overlay's "Send diagnostics" (its `devtoolsDiagnostics` slot), beside "Copy debug info".
+  function DevtoolsDiagnostics({ copy: copyText }: { copy: (text: string) => unknown }) {
+    return <SendDiagnosticsRow diagnostics={options.diagnostics ?? null} copy={copyText} copyText={copy.diagnostics} hideHint testID="genesis-support-devtools-diagnostics" />;
+  }
+
   const block: SupportBlock = {
     ...declaration,
-    contributes: { ...declaration.contributes, slots: { devtoolsFeedback: DevtoolsFeedback as ComponentType<never> } },
+    contributes: {
+      ...declaration.contributes,
+      slots: {
+        devtoolsFeedback: DevtoolsFeedback as ComponentType<never>,
+        ...(options.diagnostics ? { devtoolsDiagnostics: DevtoolsDiagnostics as ComponentType<never> } : {}),
+      },
+    },
+    diagnostics: options.diagnostics ?? null,
     platforms: ["native"],
     options,
     client,
@@ -253,6 +285,7 @@ export function createSupport(options: SupportOptions): SupportBlock {
       const current = (options.useCurrentRoute ?? noRoute)();
       useEffect(() => {
         if (current) route = current;
+        if (current) options.diagnostics?.recordRoute(current);
       }, [current]);
       useEffect(() => {
         if (!options.accelerometer || options.shake === false) return;
@@ -262,6 +295,9 @@ export function createSupport(options: SupportOptions): SupportBlock {
             () => {
               // Already on a support screen: shaking again does nothing.
               if (route && route.startsWith(paths.inbox)) return;
+              if (options.diagnostics && (options.dumpOnShake ?? DIAGNOSTICS_DEFAULTS.dumpOnShake)) {
+                options.diagnostics.send({ trigger: "shake" }).catch((error: unknown) => report(error, "diagnostics"));
+              }
               void block.openFeedback();
             },
             options.shake || {},

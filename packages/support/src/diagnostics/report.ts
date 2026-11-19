@@ -217,6 +217,11 @@ export interface DiagnosticSectionOptions {
    * are skipped. Values under secret-looking keys are still filtered.
    */
   pii?: "none";
+  /**
+   * The value is part of a report (`{ logs, sentry }`): each core key in it fills that part, as a
+   * section of that name would. For one source that feeds several parts (`observabilitySection`).
+   */
+  merge?: boolean;
 }
 
 /** One part of the dump: a name and how to read it now. */

@@ -74,7 +74,7 @@ export {
   type UpdateCheckStatus,
 } from "./checker";
 export { createWhatsNewStore, notesSince, type WhatsNewOptions, type WhatsNewState, type WhatsNewStore } from "./whats-new";
-export { versionSignature, type VersionSignature, type VersionSignatureInput } from "./signature";
+export { versionSignature, type BuildMetadata, type VersionSignature, type VersionSignatureInput } from "./signature";
 export { createChannelSwitcher, type ChannelSwitcher, type ChannelSwitcherOptions, type ChannelSwitchResult } from "./channels";
 export { compareVersions, isBelowMinimum, parseVersion } from "./version";
 export type {
