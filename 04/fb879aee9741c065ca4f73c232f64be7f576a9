@@ -1,0 +1,27 @@
+packages/genesis-cli/src/doctor/data-access.ts
+  s_03775a189718c5::t_7ce82befe52bbe 104-142,145-149,157-176,178-179
+packages/genesis-cli/test/doctor-data-access.test.ts
+  s_03775a189718c5::t_7ce82befe52bbe 303-318
+packages/core/src/provider/__tests__/supabase-declared.test.ts
+  s_03775a189718c5::t_172e0bb74582c2 433-441
+docs/DATA-ACCESS.md
+  s_03775a189718c5::t_172e0bb74582c2 54-58
+packages/core/src/provider/supabase-provider.ts
+  s_03775a189718c5::t_7ce82befe52bbe 1851,1926
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "04fb879aee9741c065ca4f73c232f64be7f576a9",
+  "prompts": {},
+  "sessions": {
+    "s_03775a189718c5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1bfce5ab-8151-44b4-9387-b6450c59973d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
