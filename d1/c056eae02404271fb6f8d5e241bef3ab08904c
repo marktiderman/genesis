@@ -1,0 +1,67 @@
+packages/support/src/__tests__/diagnostics.test.ts
+  s_ca8e075e853203::t_793758f6209726 1-467
+packages/support/src/diagnostics/redact.ts
+  s_ca8e075e853203::t_b4dfa911b9f10c 1-205
+packages/support/src/server/notifiers.ts
+  s_ca8e075e853203::t_506afc93e83390 1-175
+packages/support/src/diagnostics/queue.ts
+  s_ca8e075e853203::t_df6b567e53a338 203-204
+  s_ca8e075e853203::t_973d11b0344494 1-202,205-225
+packages/support/src/__tests__/server.test.ts
+  s_ca8e075e853203::t_6078d56d433cd3 1-294
+  s_ca8e075e853203::t_fc452a26ac66e2 295-298
+packages/support/src/diagnostics/report.ts
+  s_ca8e075e853203::t_ead8a89fbcf3d5 1-296
+packages/support/src/server/parse.ts
+  s_ca8e075e853203::t_7bfa83679de765 1-56
+packages/support/src/diagnostics/console.ts
+  s_ca8e075e853203::t_1a2e31b150a954 1-95
+packages/support/src/diagnostics/transports.ts
+  s_ca8e075e853203::t_45a16dd8f4617f 1-176,178-180
+  s_ca8e075e853203::t_40ec718fb282cd 177,181-206
+packages/support/src/diagnostics/create.ts
+  s_ca8e075e853203::t_7ce9a6b3bdc637 1-255
+  s_ca8e075e853203::t_be60fb8b3ef266 256-285
+packages/support/src/server/handler.ts
+  s_ca8e075e853203::t_5f4bb4b6b4ffb9 1-412
+packages/support/src/server/events.ts
+  s_ca8e075e853203::t_7c915f16ceadfb 1-118
+packages/support/src/diagnostics/cap.ts
+  s_ca8e075e853203::t_1fc522ab8484df 1-165
+packages/support/package.json
+  s_ca8e075e853203::t_20b9184665df35 67-70
+packages/support/src/client.ts
+  s_ca8e075e853203::t_86c4f9bc4190fc 633-637
+packages/support/src/diagnostics/index.ts
+  s_ca8e075e853203::t_9e76069bf71fdf 1-31
+packages/support/src/diagnostics/scrub.ts
+  s_ca8e075e853203::t_6c09faa356c9f7 1-166
+packages/support/src/index.ts
+  s_ca8e075e853203::t_19a295352cd325 7-8,25
+packages/support/src/intake.ts
+  s_ca8e075e853203::t_11b4a62f432797 94-97,110
+packages/support/src/record.ts
+  s_ca8e075e853203::t_5121eced32e1fd 65-69
+packages/support/src/server/index.ts
+  s_ca8e075e853203::t_96d3a7714acc06 1-53
+packages/support/src/server/supabase.ts
+  s_ca8e075e853203::t_cd06ed979e8d2b 1-106
+packages/support/tsup.config.ts
+  s_ca8e075e853203::t_efae7ce40dbfcd 4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d1c056eae02404271fb6f8d5e241bef3ab08904c",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
