@@ -747,6 +747,12 @@ preset and genesis.config.json.
 - **Who may change settings** is your hook, `private.genesis_platform_admin(person uuid) returns
   boolean` (ADR 0003's platform zone). Without it nobody can (`42501`, with a hint): a fresh install
   fails closed, as tenant features do.
+- **Server code** is told apart from a person by the request's role, never by a JWT claim: the
+  service role, any role that bypasses row security, or a connection that never switched role. So a
+  direct database login (`psql`, a migration, a BI tool on its own login) counts as server code: it
+  reads the layers without signing in and its writes are recorded as `server` (or the source it names
+  in `genesis.setting_source`), unchecked against the catalogue. Give people API access, never a
+  database login.
 - **Reading.** `genesis_settings_layers()` gives any signed-in person (and server code) the layers,
   not resolved values: the preset, the file settings for every declared key (build-time ones too:
   they're committed config) and the database layer for runtime keys. The client resolves them with the
