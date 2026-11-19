@@ -3,7 +3,8 @@
  * `GenesisNativeApp` (`createSupport`), the feedback form with screenshot
  * mark-up, shake to report, and hooks that feed genesis-ui-native's
  * `InboxPage` and `ThreadPage` for the person's reports, the idea board and
- * "you asked, we shipped".
+ * "you asked, we shipped", and the context dump's phone sections and "Send
+ * diagnostics" (`nativeSections`, `observabilitySection`, `SendDiagnosticsRow`).
  *
  * @stability Beta
  */
@@ -21,6 +22,22 @@ export {
   type SupportOptions,
 } from "./support";
 export { FeedbackForm, type FeedbackFormProps } from "./feedback-form";
+export {
+  nativeSections,
+  observabilitySection,
+  useSendDiagnostics,
+  SendDiagnosticsRow,
+  type DiagnosticsApplicationLike,
+  type DiagnosticsBuildMetadata,
+  type DiagnosticsDeviceLike,
+  type DiagnosticsNetInfoLike,
+  type DiagnosticsUpdatesLike,
+  type NativeSectionsOptions,
+  type ObservabilityLike,
+  type SendDiagnosticsRowProps,
+  type SendDiagnosticsState,
+  type SendDiagnosticsStatus,
+} from "./diagnostics";
 export { HelpAnswerCard, HelpArticleBody, useHelpArticle, useHelpCenter, useMessengerHome, useStartConversation, type HelpAnswerCardProps } from "./help";
 export type { HelpAnswerResponse, HelpAskState } from "../help-ask";
 export { ScreenshotAnnotator, strokeDots, boxOf, type ScreenshotAnnotatorProps } from "./annotator";

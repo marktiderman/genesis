@@ -26,9 +26,11 @@ import {
 import type { SupportClient, SupportReport } from "../client";
 import { resolveSupportCopy, type SupportCopyOverrides } from "../copy";
 import { cleanRoute, type FindingSeverity } from "../contract";
-import { createContextCollector, FEEDBACK_TYPES, type ContextCollector, type FeedbackDelivery, type FeedbackSink, type FeedbackType } from "../record";
+import { createContextCollector, FEEDBACK_TYPES, type ContextCollector, type FeedbackDelivery, type FeedbackRecord, type FeedbackSink, type FeedbackType } from "../record";
 import { annotateScreenshot, canCaptureScreenshot, captureScreenshot, type Redaction, type Stroke, type WebCapture } from "./capture";
 import { pickPin, type FeedbackPin } from "./pin";
+import type { Diagnostics, DiagnosticsDelivery } from "../diagnostics/create";
+import { DiagnosticsSendError } from "../diagnostics/queue";
 
 /** The default web collector: the path (never the query string), `web`, and the viewport and language. */
 export function webContextCollector(options: { appVersion?: string } = {}): ContextCollector {
@@ -53,7 +55,12 @@ export interface FeedbackPanelProps {
   /** Offer a pin on the page. Default on. */
   pins?: boolean;
   defaultType?: FeedbackType;
-  onSent?: (delivery: FeedbackDelivery) => void;
+  onSent?: (delivery: FeedbackDelivery & { diagnostics?: DiagnosticsDelivery | null }) => void;
+  /**
+   * The context dump (`createDiagnostics` with `webSections()`): one goes with every report,
+   * linked both ways by `diagnosticsId` and `feedbackId`. A dump that fails never fails the report.
+   */
+  diagnostics?: Diagnostics | undefined;
   /** Hidden while the person picks a pin or the browser asks to capture, so the page shows. */
   onHide?: (hidden: boolean) => void;
   /**
@@ -154,7 +161,7 @@ export function useFeedbackDraft(defaultType: FeedbackType = "bug"): FeedbackDra
 
 type Status = { kind: "idle" } | { kind: "sending" } | { kind: "sent"; dropped: number } | { kind: "error"; message: string };
 
-export function FeedbackPanel({ client, collector, copy: overrides, screenshots, pins = true, defaultType = "bug", onSent, onHide, about, captureOnOpen, draft: held, captureRequest, onOpenHelp, severity: askSeverity = false, thanksReplacesForm = false }: FeedbackPanelProps) {
+export function FeedbackPanel({ client, diagnostics, collector, copy: overrides, screenshots, pins = true, defaultType = "bug", onSent, onHide, about, captureOnOpen, draft: held, captureRequest, onOpenHelp, severity: askSeverity = false, thanksReplacesForm = false }: FeedbackPanelProps) {
   const copy = useMemo(() => resolveSupportCopy(overrides), [overrides]);
   const collect = useMemo(() => collector ?? webContextCollector(), [collector]);
   const own = useFeedbackDraft(defaultType);
@@ -241,13 +248,16 @@ export function FeedbackPanel({ client, collector, copy: overrides, screenshots,
           return;
         }
       }
-      const delivery = await client.submit({
+      const record: FeedbackRecord = {
         type,
         message: message.trim(),
         ...(askSeverity && type === "bug" && severity ? { severity } : {}),
         context,
         attachments: image ? [{ kind: "screenshot", contentType: image.contentType, base64: image.dataUrl, width: image.width, height: image.height }] : [],
-      });
+      };
+      const delivery: FeedbackDelivery & { diagnostics?: DiagnosticsDelivery | null } = diagnostics
+        ? await diagnostics.submitFeedback(record, { sink: client })
+        : await client.submit(record);
       update(
         {
           status: { kind: "sent", dropped: delivery.attachmentsDropped },
@@ -262,7 +272,7 @@ export function FeedbackPanel({ client, collector, copy: overrides, screenshots,
       );
       onSent?.(delivery);
     } catch (error) {
-      const limited = (error as { code?: string }).code === "GS429";
+      const limited = (error as { code?: string }).code === "GS429" || (error instanceof DiagnosticsSendError && error.status === 429);
       update({ status: { kind: "error", message: limited ? copy.feedback.rateLimited : copy.feedback.failedBody } }, forDraft);
     }
   };

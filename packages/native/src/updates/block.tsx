@@ -37,7 +37,7 @@ import {
   type UpdatePolicySource,
   type UpdateVerdict,
 } from "./policy";
-import { versionSignature, type VersionSignature } from "./signature";
+import { versionSignature, type BuildMetadata, type VersionSignature } from "./signature";
 import { createWhatsNewStore, type WhatsNewState, type WhatsNewStore } from "./whats-new";
 import {
   ForceUpgradeScreen,
@@ -70,6 +70,8 @@ export interface UpdatesOptions {
   application?: ApplicationLike;
   /** `expo-updates`. Without it (or with updates off), no banner and no channel switching. */
   updates?: UpdatesModuleLike;
+  /** The commit, OTA number and release the app stamped at publish time: shown in the signature. */
+  buildMetadata?: BuildMetadata | null;
   /** Min versions, maintenance and notes. Without it, only `notes` and the banner. */
   policy?: UpdatePolicySource;
   /** AsyncStorage: the policy cache, the version whose notes were seen, the picked channel. */
@@ -176,7 +178,7 @@ export function createUpdates(options: UpdatesOptions): UpdatesBlock {
     reloadScreenOptions,
     onError,
   });
-  const signature = versionSignature({ application, updates, platform });
+  const signature = versionSignature({ application, updates, platform, buildMetadata: options.buildMetadata ?? null });
 
   const allNotes = (): ReleaseNote[] => [...(options.notes ?? []), ...(policy.getState().policy?.notes ?? [])];
   const syncNotes = () => {
@@ -380,8 +382,8 @@ function useVersionSignatureOf(block: UpdatesBlock): VersionSignature {
   }, [block]);
   return useMemo(() => {
     if (!requested) return block.signature;
-    const { application, updates, platform } = block.options;
-    return versionSignature({ application, updates, platform, requestedChannel: requested });
+    const { application, updates, platform, buildMetadata } = block.options;
+    return versionSignature({ application, updates, platform, requestedChannel: requested, buildMetadata: buildMetadata ?? null });
   }, [block, requested]);
 }
 

@@ -69,6 +69,15 @@ const PATTERNS: readonly [RegExp, string][] = [
   // Phone numbers: international (`+1 555 555 0101`) and North American (`555-555-0101`).
   [/\+\d[\d\s().-]{6,18}\d/g, "[phone]"],
   [/\b\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\b/g, "[phone]"],
+  // …national numbers in space-separated groups, which start with a trunk 0 (`020 7946 0958`), and
+  // international ones without the + (`44 20 7946 0958`: a country code, then two groups of 4).
+  // Plain counts, durations and dates (`120 340 560`, `2024 11 19`) don't have either shape.
+  [/\b0\d{2,4} \d{3,4} \d{3,4}\b/g, "[phone]"],
+  [/\b\d{2,3} \d{1,4} \d{4} \d{4}\b/g, "[phone]"],
+  // …and North American numbers with no separator (`5555550101`, `15555550101`): an area code and an
+  // exchange that start with 2-9. A whole word only, so a hex id, a longer number or an epoch
+  // time (which starts with 1) is left alone.
+  [/\b1?[2-9]\d{2}[2-9]\d{6}\b/g, "[phone]"],
   // Long opaque hex runs: API keys, refresh tokens, DSN secrets. Linear: a run starts only after a non-hex character.
   [/(^|[^A-Fa-f0-9])[A-Fa-f0-9]{32,}(?![A-Fa-f0-9])/g, "$1[hex]"],
 ];
@@ -96,10 +105,10 @@ const MAX_DEPTH = 8;
  * `"[Truncated]"`. Errors become `{ name, message }`. Header lists
  * (`[["authorization", "…"]]`) are treated like objects.
  */
-export function scrubValue(value: unknown, key = "", depth = 0, seen: WeakSet<object> = new WeakSet()): unknown {
+export function scrubValue(value: unknown, key = "", depth = 0, seen: WeakSet<object> = new WeakSet(), keepIds = true): unknown {
   if (key && isSecretKey(key)) return value === undefined || value === null || value === "" ? value : FILTERED;
   if (typeof value === "string") {
-    if (key && ID_KEY.test(key)) return value;
+    if (keepIds && key && ID_KEY.test(key)) return value;
     return URL_KEY.test(key) ? scrubUrl(value) : scrubString(value);
   }
   if (value === null || typeof value !== "object") return value;
@@ -110,14 +119,23 @@ export function scrubValue(value: unknown, key = "", depth = 0, seen: WeakSet<ob
   if (Array.isArray(value)) {
     // A `[name, value]` pair (fetch's header lists): the name decides, as for an object key.
     if (value.length === 2 && typeof value[0] === "string" && isSecretKey(value[0])) return [value[0], FILTERED];
-    return value.map((item) => scrubValue(item, "", depth + 1, seen));
+    return value.map((item) => scrubValue(item, "", depth + 1, seen, keepIds));
   }
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(value)) {
     if (DROPPED_KEY.test(k)) continue;
-    out[k] = scrubValue(v, k, depth + 1, seen);
+    out[k] = scrubValue(v, k, depth + 1, seen, keepIds);
   }
   return out;
+}
+
+/**
+ * `scrubValue` without the pass for Sentry's own id fields (`release`, `environment`,
+ * `event_id`, …): for data that isn't a Sentry envelope (a support dump, an app's own
+ * object), where a key named like one can hold anything.
+ */
+export function scrubValueStrict(value: unknown): unknown {
+  return scrubValue(value, "", 0, new WeakSet(), false);
 }
 
 /** The fields of a Sentry-shaped event `scrubEvent` treats specially. Anything else is scrubbed by value. */
