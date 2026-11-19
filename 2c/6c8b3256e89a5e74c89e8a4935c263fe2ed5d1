@@ -1,0 +1,79 @@
+packages/genesis-cli/src/fix/engine.ts
+  s_ca8e075e853203::t_b77c9d22f1cf82 143-145
+  s_ca8e075e853203::t_124965f4f4848e 1-142,146-204
+packages/genesis-cli/test/fix-engine.test.ts
+  s_ca8e075e853203::t_e79fe930617f30 1-417
+packages/genesis-cli/test/doctor-behind.test.ts
+  s_ca8e075e853203::t_42d5d3d80ca193 1-161
+packages/genesis-cli/src/doctor/migration-drift.ts
+  s_ca8e075e853203::t_3ea55849208128 1-63
+packages/genesis-cli/src/fix/builtin.ts
+  s_ca8e075e853203::t_dd27b1aec30c3b 1-285
+  s_ca8e075e853203::t_e29e91b16f2740 286-287
+packages/genesis-cli/src/fix/types.ts
+  s_ca8e075e853203::t_f0d5f112729b9a 1-110
+packages/genesis-cli/src/upgrade/registry.ts
+  s_ca8e075e853203::t_8727a5fd4b7f42 214,216
+  s_ca8e075e853203::t_12535f7f0eb920 221-223
+  s_ca8e075e853203::t_5d1cc8d789fd9c 1-213,215,217-220,224-262
+packages/genesis-cli/src/fix/index.ts
+  s_ca8e075e853203::t_1e8281381e01eb 1-8
+packages/genesis-cli/src/fix/command.ts
+  s_ca8e075e853203::t_e283461cb30d85 1-166
+packages/genesis-cli/src/exec/run.ts
+  s_ca8e075e853203::t_2101085330f995 1-81
+packages/genesis-cli/src/fix/registry.ts
+  s_ca8e075e853203::t_c37fb20edbf091 1-74
+packages/genesis-cli/src/doctor/behind.ts
+  s_ca8e075e853203::t_9aaa5d15481395 1-93
+.changeset/doctor-fix-engine.md
+  s_ca8e075e853203::t_9a74ab88bb2fec 1-22
+AGENTS.md
+  s_ca8e075e853203::t_cffa2cac103ec8 155
+features.json
+  s_ca8e075e853203::t_084543f617a1e2 8186-8237
+features.ts
+  s_ca8e075e853203::t_32e5bf0be5f64f 3570-3590
+packages/genesis-cli/README.md
+  s_ca8e075e853203::t_7c49d6d09fa4f9 857-859,908-910,964-1034,1176-1177,1213-1219
+packages/genesis-cli/src/cli.ts
+  s_ca8e075e853203::t_047d13bbc83228 10-11,214-215,224,237-284
+packages/genesis-cli/src/doctor/agent-hooks.ts
+  s_ca8e075e853203::t_5ab6c2e56a6769 96-105,118-119
+packages/genesis-cli/src/doctor/index.ts
+  s_ca8e075e853203::t_d06377e7a0f6b6 52-56,113,146-152,166,175-177,256-257,303,337-338,409,449-453
+packages/genesis-cli/src/doctor/package-rules.ts
+  s_ca8e075e853203::t_cfcd3adadcd5c1 23-24,63,139,168-175,182
+packages/genesis-cli/src/doctor/primitives.ts
+  s_ca8e075e853203::t_7fbca19f257d6c 351-363,366-368,371-374
+packages/genesis-cli/src/doctor/rules.ts
+  s_ca8e075e853203::t_ba6865f5073cb9 104-108
+packages/genesis-cli/src/doctor/settings.ts
+  s_ca8e075e853203::t_d52512b5ddc172 86-99
+packages/genesis-cli/src/doctor/types.ts
+  s_ca8e075e853203::t_fba36298104300 12-28,49-50,415-416
+packages/genesis-cli/src/upgrade/app-scripts.ts
+  s_ca8e075e853203::t_1612097ef180a4 1,24-32
+packages/genesis-cli/src/upgrade/codemods.ts
+  s_ca8e075e853203::t_600a075f639219 7,10,18,29-33,36,78-79,92,118-119,131,150,229-230,239
+packages/genesis-cli/src/upgrade/rename-features.ts
+  s_ca8e075e853203::t_59e6f26861cbc6 24,26,200-201,205
+packages/genesis-cli/test/doctor-migration-drift.test.ts
+  s_ca8e075e853203::t_7b8dabaa5289aa 1-58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2c6c8b3256e89a5e74c89e8a4935c263fe2ed5d1",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
