@@ -29,6 +29,10 @@ export interface SupportPaths {
   help: string;
   /** One article: `article(slug)`. */
   article: (slug: string) => string;
+  /** An agent's queues (the help desk, on the phone). */
+  agent: string;
+  /** One ticket, as an agent: `agentThread(id)`. */
+  agentThread: (id: string) => string;
 }
 
 export function supportPaths(basePath = "/support"): SupportPaths {
@@ -43,6 +47,8 @@ export function supportPaths(basePath = "/support"): SupportPaths {
     newMessage: `${base}/message`,
     help: `${base}/help`,
     article: (slug) => `${base}/help/${encodeURIComponent(slug)}`,
+    agent: `${base}/agent`,
+    agentThread: (id) => `${base}/agent/${encodeURIComponent(id)}`,
   };
 }
 

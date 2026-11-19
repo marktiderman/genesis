@@ -31,6 +31,7 @@ import { DIAGNOSTICS_DEFAULTS } from "../diagnostics/report";
 import { listenForShake, type AccelerometerLike, type ShakeOptions, type ViewShotLike } from "./modules";
 import { SendDiagnosticsRow } from "./diagnostics";
 import { supportSettingValues, type SupportSettingsInput, type SupportSettingValues } from "../settings";
+import { inZone, stripZone, zoneOf } from "../routes";
 
 /** A screenshot waiting for the feedback screen. `uri` is a data URI. */
 export interface PendingScreenshot {
@@ -90,6 +91,22 @@ export interface SupportOptions {
   shake?: false | ShakeOptions;
   /** Default `/support`. The route files live under it. */
   basePath?: string;
+  /**
+   * The app's other navigation zones, as route prefixes (`["/admin", "/coach"]`): each is its own
+   * stack with support mounted under it (`/admin` + `basePath`). A link support opens stays in the
+   * zone the person is in, and `SupportRoute` renders the right screen in each, so one route file
+   * per zone (two with an index) replaces a copy of every screen. Leave it out with one zone.
+   */
+  zones?: readonly string[];
+  /**
+   * What `SupportRoute` needs from the router (expo-router): `Screen` sets the stack header
+   * (`Stack.Screen`), `useSearchParams` reads `?q=` and `?collection=` on the help center
+   * (`useLocalSearchParams`). Without them, no header options and no search params.
+   */
+  router?: {
+    Screen?: ComponentType<{ options?: Record<string, unknown> }>;
+    useSearchParams?: () => Readonly<Record<string, string | string[] | undefined>>;
+  };
   copy?: SupportCopyOverrides;
   /** The Settings rows' section (default `support`), or `false` for none. */
   settings?: false | { section?: string };
@@ -146,6 +163,8 @@ export interface SupportBlock extends NativeBlock<typeof SUPPORT_BLOCK_ID> {
   subscribePending(listener: () => void): () => void;
   /** The route the person is on, as the root last saw it. */
   currentRoute(): string | null;
+  /** The navigation zone the person is in (one of `zones`), or "" for none. */
+  zone(): string;
   readonly Root: ComponentType<NativeBlockRootProps>;
 }
 
@@ -207,6 +226,10 @@ export function createSupport(given: SupportOptions): SupportBlock {
   const client = createSupportClient(options.supabase, { chat: options.chat, ...(options.tenantId !== undefined ? { tenantId: options.tenantId } : {}) });
   const platform = options.platform ?? Platform.OS;
   let route: string | null = null;
+  const zones = options.zones ?? [];
+  // Every link support opens stays in the zone the person is in.
+  const appNavigate = options.navigate;
+  options.navigate = (href: string) => appNavigate(inZone(href, zoneOf(route ?? "", zones)));
   let pending: PendingFeedback | null = null;
   const listeners = new Set<() => void>();
   const setPending = (next: PendingFeedback | null) => {
@@ -323,6 +346,7 @@ export function createSupport(given: SupportOptions): SupportBlock {
       return () => listeners.delete(listener);
     },
     currentRoute: () => route,
+    zone: () => zoneOf(route ?? "", zones),
     Root: function SupportRoot({ children }) {
       const current = (options.useCurrentRoute ?? noRoute)();
       useEffect(() => {
@@ -354,7 +378,7 @@ export function createSupport(given: SupportOptions): SupportBlock {
             options.accelerometer,
             () => {
               // Already on a support screen: shaking again does nothing.
-              if (route && route.startsWith(paths.inbox)) return;
+              if (route && stripZone(route, zones).startsWith(paths.inbox)) return;
               // The person turned shake to report off (shake.enabled is theirs to change).
               if (!readSettings().shake.enabled) return;
               if (options.diagnostics && (options.dumpOnShake ?? DIAGNOSTICS_DEFAULTS.dumpOnShake)) {

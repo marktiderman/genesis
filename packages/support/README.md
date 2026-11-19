@@ -119,6 +119,38 @@ route files, each a genesis-ui-native layout fed by a hook:
 The hooks return the layout's props plus `headerTitle` for `<Stack.Screen>`. Data is cached with
 TanStack Query under the `genesis-support` key root; leave it out of query persistence.
 
+**Every screen from one route file, in every zone** (`SupportRoute`). Instead of a file per
+screen, put two one-line files under `basePath`, and the same two under each other navigation
+zone's copy of it:
+
+```tsx
+// src/app/(tabs)/settings/support/index.tsx and src/app/(tabs)/settings/support/[...route].tsx
+// (and src/app/admin/settings/support/index.tsx, src/app/admin/settings/support/[...route].tsx, …)
+export { SupportRoute as default } from "@marktiderman/genesis-support/native";
+```
+
+```ts
+export const support = createSupport({
+  // …as above, plus:
+  zones: ["/admin", "/coach"], // the route prefixes of the app's other zones (each its own Stack)
+  router: { Screen: Stack.Screen, useSearchParams: useLocalSearchParams },
+});
+```
+
+`SupportRoute` reads the path, takes the zone off (`zoneOf`, `stripZone`), works out the screen
+(`supportScreenOf`: the inbox, `new`, a report's thread, `ideas`, `shipped`, the messenger's
+`home`, `message`, `help` and `help/<slug>`, and an agent's `agent` and `agent/<id>`) and renders
+Genesis's screen for it, with its header through `router.Screen`. Every link support opens
+(`navigate`) stays in the zone the person is in (`inZone`), so a screen opened from the admin zone
+opens its next screen there too. A screen of the app's own replaces one of Genesis's with
+`<SupportRoute screens={{ thread: MyThread }} />` (it gets `{ screen, params }`).
+
+*Moving from re-export files.* An app that copied each screen into every zone (`admin/…/support/
+ideas.tsx` re-exporting `(tabs)/…/support/ideas.tsx`, and so on) deletes those copies, and its own
+`zonePath` wrapper around `navigate`, and adds `zones` and `router` to `createSupport`. Its own
+screens that differ from Genesis's go in `screens`, once, rather than in each zone. Keep a file
+only for a route outside support that the zone needs.
+
 **Shake to report.** With an accelerometer, a shake (two strong jolts within a second, then a
 three second rest) captures the screen and opens the feedback screen with it. The screenshot is
 sent only if the person turns on **Include this screenshot** (off by default); **Mark up** lets them draw on it and **Hide** paints solid boxes

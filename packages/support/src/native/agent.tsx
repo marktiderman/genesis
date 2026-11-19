@@ -255,7 +255,7 @@ export function useAgentInbox(options: AgentInboxOptions = {}): AgentInboxProps 
   const reporters = useReporters(requesterIds);
   const notAllowed = isRefused(list.error);
   const staff = useStaff(tenant, !notAllowed);
-  const open = options.onOpen ?? ((id: string) => block.options.navigate(`${block.paths.inbox}/agent/${encodeURIComponent(id)}`));
+  const open = options.onOpen ?? ((id: string) => block.options.navigate(block.paths.agentThread(id)));
   // Re-read with the list, so how long someone has waited moves on.
   const now = list.dataUpdatedAt || Date.now();
 

@@ -57,4 +57,5 @@ export {
   type AgentThreadOptions,
   type AgentThreadProps,
 } from "./agent";
+export { SupportRoute, type SupportRouteProps, type SupportScreenProps } from "./route";
 export { listenForShake, type AccelerometerLike, type AccelerometerMeasurement, type CaptureOptions, type ShakeOptions, type ViewShotLike } from "./modules";
