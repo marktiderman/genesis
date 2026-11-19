@@ -105,8 +105,9 @@ function namesIn(block: string, keys: RegExp): { name: string; at: number }[] {
  * The opening brace of each object literal the file gives the type `type`:
  * - annotated: `const x: Type = {…}` (or `Record<string, Type>`, any type naming it);
  * - checked: `const x = {…} satisfies …Type…`, and `export default {…} satisfies …Type…`;
- * - returned by a function annotated to return it: `(): Type => ({…})`, or
- *   `function f(): Type { … return {…} }`.
+ * - returned by a function annotated to return it (`Promise<Type>` too): `(): Type => ({…})`,
+ *   `(): Type => { return {…} }`, or `function f(): Type { … return {…} }`. Only the function's
+ *   own `return`s count, not one in a function nested in it (a `.map` callback, say).
  */
 function typedObjects(code: string, blank: string, type: string): number[] {
   const out: number[] = [];
@@ -117,11 +118,55 @@ function typedObjects(code: string, blank: string, type: string): number[] {
     const block = balanced(code, open);
     if (block && new RegExp(`^\\s*satisfies\\b[^;]*${t}`).test(blank.slice(open + block.length))) out.push(open);
   }
-  for (const m of blank.matchAll(new RegExp(`\\)\\s*:\\s*[^=;{]*${t}[^=;{]*=>\\s*\\(\\s*\\{`, "g"))) out.push((m.index ?? 0) + m[0].length - 1);
-  for (const m of blank.matchAll(new RegExp(`\\)\\s*:\\s*[^=;{]*${t}[^=;{>]*\\{`, "g"))) {
+  // The return type: anything up to the body that names the type and has no `=`, `;`, `{` or
+  // parenthesis (so `Promise<Type>` and `Record<string, Type>` count), then `=> ({`, `=> {` or `{`.
+  const returns = `\\)\\s*:\\s*[^=;{()]*${t}[^=;{()]*`;
+  for (const m of blank.matchAll(new RegExp(`${returns}=>\\s*\\(\\s*\\{`, "g"))) out.push((m.index ?? 0) + m[0].length - 1);
+  for (const m of blank.matchAll(new RegExp(`${returns}(?:=>\\s*)?\\{`, "g"))) {
     const bodyOpen = (m.index ?? 0) + m[0].length - 1;
-    const body = balanced(code, bodyOpen);
-    for (const r of blankStrings(body).matchAll(/\breturn\s*\{/g)) out.push(bodyOpen + (r.index ?? 0) + r[0].length - 1);
+    for (const at of ownReturns(code, bodyOpen)) out.push(at);
+  }
+  return out;
+}
+
+/**
+ * The opening brace of each `return {…}` a function body (its `{` at `bodyOpen`) makes itself: in
+ * its own blocks (`if (…) { return {…} }`), not in a function nested in it (an arrow, a
+ * `function`, a method) or inside a call's parentheses.
+ */
+function ownReturns(code: string, bodyOpen: number): number[] {
+  const body = balanced(code, bodyOpen);
+  const blank = blankStrings(body);
+  const out: number[] = [];
+  // Per open bracket: whether it is a nested function's body, or a ( or [ (an expression).
+  const stack: ("block" | "nested")[] = [];
+  const BLOCK_KEYWORDS = /\b(?:if|for|while|switch|catch|with)\s*$/;
+  for (let i = 0; i < blank.length; i++) {
+    const ch = blank[i]!;
+    if (ch === "{") {
+      if (i === 0) {
+        stack.push("block");
+        continue;
+      }
+      const before = blank.slice(0, i).trimEnd();
+      let nested = stack.includes("nested") || before.endsWith("=>");
+      if (!nested && before.endsWith(")")) {
+        // The `(` that closes here: a block statement's condition, or a function's parameters.
+        let depth = 0;
+        let j = before.length - 1;
+        for (; j >= 0; j--) {
+          if (blank[j] === ")") depth++;
+          else if (blank[j] === "(" && --depth === 0) break;
+        }
+        nested = !BLOCK_KEYWORDS.test(blank.slice(0, j));
+      }
+      stack.push(nested ? "nested" : "block");
+    } else if (ch === "(" || ch === "[") stack.push("nested");
+    else if (ch === "}" || ch === ")" || ch === "]") stack.pop();
+    else if (ch === "r" && !stack.includes("nested") && /^return\s*\{/.test(blank.slice(i)) && !/[\w$]/.test(blank[i - 1] ?? " ")) {
+      const r = /^return\s*\{/.exec(blank.slice(i))!;
+      out.push(bodyOpen + i + r[0].length - 1);
+    }
   }
   return out;
 }

@@ -346,3 +346,21 @@ describe("data/access-rule-tests: typed options in every common shape", () => {
     expect(found.map((f) => f.subject).sort()).toEqual(["close_f", "drop_g", "make_c", "make_e"]);
   });
 });
+
+describe("data/access-rule-tests: typed factories, their own returns only", () => {
+  it("reads block-bodied arrows, async factories and conditional returns, not a nested callback's return", async () => {
+    const found = await only("data/access-rule-tests", {
+      "src/lib/block-arrow.ts": 'export const make = (): SupabaseProviderOptions => {\n  return { access: "declared", resources: { d: { writes: { create: "make_d" } } } };\n};',
+      "src/lib/async.ts": 'export async function make(): Promise<SupabaseProviderOptions> {\n  return { access: "declared", resources: { e: { writes: { create: "make_e" } } } };\n}',
+      "src/lib/branch.ts": 'export function one(flag: boolean): SupabaseResourceConfig {\n  if (flag) {\n    return { writes: { delete: "drop_h" } };\n  }\n  return { writes: { delete: "drop_i" } };\n}',
+      "src/lib/nested.ts": [
+        "export function cfg(rows: Row[]): SupabaseResourceConfig {",
+        '  const labels = rows.map((r) => { return { actions: { save: "Save" } }; });',
+        '  const more = rows.map(function (r) { return { actions: { open: "Open" } }; });',
+        '  return { actions: { close: "close_j" } };',
+        "}",
+      ].join("\n"),
+    });
+    expect(found.map((f) => f.subject).sort()).toEqual(["close_j", "drop_h", "drop_i", "make_d", "make_e"]);
+  });
+});
