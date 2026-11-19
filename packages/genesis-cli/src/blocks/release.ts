@@ -304,7 +304,7 @@ export function adoptTemplates(root: string, templates: readonly string[], optio
       const githubRivals = githubReleaseWorkflows(root, appFolder);
       const rivals = [...githubRivals, ...easRivals];
       if (rivals.length && !options.replaceRival) {
-        const own = easRivals.filter((rel) => rel === ".eas/workflows/deploy-production.yml");
+        const own: string[] = easRivals.filter((rel) => rel === ".eas/workflows/deploy-production.yml");
         const others = rivals.filter((rel) => !own.includes(rel));
         const fix = [
           ...(own.length ? ["merge the .genesis-next beside deploy-production.yml (or move your edits into genesis.config.json and run again with --replace)"] : []),
