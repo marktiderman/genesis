@@ -1,4 +1,4 @@
-// @feat:supabase-provider
+// @feat:declared-data-access
 import { afterAll, describe, expect, it } from "vitest";
 import { runDoctor } from "../src/doctor/index.js";
 import { cleanupApps, makeApp } from "./doctor-helpers.js";

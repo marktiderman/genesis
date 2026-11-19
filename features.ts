@@ -816,6 +816,33 @@ export const features = defineFeatures({
     reviewedAt,
     links: { code: ["packages/core/src/provider/supabase-provider.ts"] },
   },
+  "declared-data-access": {
+    name: "Declared data access",
+    summary: "A Supabase resource declares how it is read (a view or a function, source) and written (named database functions, writes and actions, which hold the access rule); raw table access is a declared opt-in with its why (table). access: \"declared\" refuses anything undeclared with a message naming what to declare; a create or update never selects a column the client may not read. accessRules (genesis-core/testing) turns each function's rule into allowed and refused test cases, and the doctor reports a provider left open, a table write in app code (data/declared-access) and a declared function with no access-rule test (data/access-rule-tests).",
+    status: "building",
+    claimedBy: "claude/declared-data-access",
+    kind: "provider",
+    keywords: ["data access", "declared access", "write functions", "rpc writes", "access rule", "accessRules", "table opt-in", "runAction", "security definer"],
+    entry: { web: "@marktiderman/genesis-core", native: "@marktiderman/genesis-core" },
+    requires: ["supabase-provider"],
+    owner: "mark",
+    apps: ["web", "native"],
+    audience: ["developer"],
+    acceptance: [
+      "Under access: \"declared\", a read or write a resource doesn't declare is refused with a message naming what to declare, and nothing reaches the database.",
+      "A resource's declared write functions create, update, delete and run actions, and a null answer reports forbidden, gone or conflict.",
+      "The doctor reports a provider without access: \"declared\", a table write in app code, and a declared function with no accessRules test.",
+    ],
+    reviewedAt: "2026-11-18",
+    links: {
+      code: [
+        "packages/core/src/provider/supabase-provider.ts",
+        "packages/core/src/testing/access-rules.ts",
+        "packages/genesis-cli/src/doctor/data-access.ts",
+      ],
+      docs: ["docs/DATA-ACCESS.md"],
+    },
+  },
   "query-keys": {
     name: "Query keys",
     summary: "Cache keys built in one place: scoped to the signed-in viewer (and group and day), invalidated by domain, kind or any field, including one person inside a multi-person key. ViewerScope empties the cache when the viewer changes.",

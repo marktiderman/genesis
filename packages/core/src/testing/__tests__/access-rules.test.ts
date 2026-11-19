@@ -1,4 +1,4 @@
-// @feat:supabase-provider
+// @feat:declared-data-access
 import { describe, expect, it } from "vitest";
 import { ContractError } from "../index";
 import { accessRules, type AccessRuleClient } from "../access-rules";

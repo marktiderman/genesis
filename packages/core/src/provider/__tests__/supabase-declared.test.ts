@@ -1,4 +1,4 @@
-// @feat:supabase-provider
+// @feat:declared-data-access
 import { beforeEach, describe, expect, it } from "vitest";
 import { createSupabaseProvider, type SupabaseProviderOptions } from "../supabase-provider";
 import { isDataReadError, type DataReadError } from "../../schema/read-outcome";
