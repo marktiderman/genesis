@@ -106,14 +106,21 @@ whenever nobody owned them.
 Every PR into a staging batch (`staging/**`) or into `main` (the release PR included) carries the
 check "Adversarial review" (`.github/workflows/review-gate.yml`), required on staging and main. It
 passes only with the label `review: approved` and an approving latest verdict on the PR's current
-head commit, both from a person's account, never an app or a bot. It runs the base branch's copy
-of the workflow (`pull_request_target`), so a PR can't change its own gate.
+head commit, both from a person's account, never an app or a bot. It runs the default branch's
+copy of the workflow (`pull_request_target` always loads it from `main`, whatever the PR's
+base), so a PR can't change its own gate, and a gate change takes effect only once it is on
+`main`.
 
 - An independent adversarial reviewer, never the PR's author, reviews the latest head and posts a
   formal GitHub review with its findings. Every agent acts as the account that opened the PR, and
   GitHub refuses `--approve` and `--request-changes` from a PR's author, so post
   `gh pr review <n> --comment` with a body that starts `Verdict: approve` or
-  `Verdict: changes requested`, then lists the findings.
+  `Verdict: changes requested`, then lists the findings. Only a maintainer's review (owner, member
+  or collaborator) counts. Write exactly one line that starts with `Verdict`, and don't quote an
+  earlier verdict line: every line starting "verdict" is read, so a second one ("Verdicts below…")
+  makes the review unreadable and a quoted `> Verdict: changes requested` counts against the PR. A
+  review with no verdict line that says "changes requested" or "request changes" anywhere also
+  counts against it.
 - Every finding, lows included, is fixed before merge, or declined with a reason the reviewer
   accepts. The author fixes it itself, in the PR: a follow-up card is not a fix. The reviewer adds
   `review: approved` only then, after posting the review: adding the label is what runs the check.

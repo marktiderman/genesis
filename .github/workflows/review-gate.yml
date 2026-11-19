@@ -13,13 +13,18 @@
 # review never counts. Any new commit, a merge of the base included, takes the label off, and a
 # review of an older head never counts, so a stale label can't pass an unreviewed head.
 #
-# Both the label and the review count only from a person's account, never an app's or a bot's.
+# Both the label and the review count only from a person's account, never an app's or a bot's,
+# and a review counts only from a maintainer (owner, member or collaborator): the repo is public.
+# A review that has any "changes requested" (a verdict line, or the phrase anywhere) and no clean
+# approve never approves; scripts/review-gate-verdict.test.sh pins those rules.
 # That filter doesn't tell the reviewer from the author: every agent acts as the account that
 # opened the PR, so keeping the reviewer apart from the author is process ("Never approve or
 # label your own PR").
 #
-# It runs on `pull_request_target`, so the copy of this file that judges a PR is always the base
-# branch's: a PR can't rewrite its own gate. It checks nothing out and runs no PR code; it only
+# It runs on `pull_request_target`, which always loads this file from the default branch (main),
+# whatever the PR's base: a PR into `staging/**` is judged by main's copy too. So a PR can't
+# rewrite its own gate, and a change to this file takes effect only once it is on main (merging it
+# into a staging batch changes nothing). It checks nothing out and runs no PR code; it only
 # reads the PR through the API. Its check run lands on the PR's head SHA. A push made with
 # Actions' `GITHUB_TOKEN` (a release bot's, say) starts no run: the reviewer reviews the new head,
 # then removes and re-adds the label. To re-run it after a changed verdict, the reviewer removes
@@ -50,6 +55,7 @@ jobs:
       # No job-level `if`: a skipped job would satisfy a required check. A base that isn't gated
       # fails here instead (no ruleset requires the check there, so that red run is harmless).
       - name: Gated base?
+        shell: bash
         run: |
           case "$BASE" in
             staging/*|"$DEFAULT") echo "Gated base: $BASE" ;;
@@ -60,8 +66,9 @@ jobs:
           DEFAULT: ${{ github.event.repository.default_branch }}
       - name: A new commit needs a new review
         if: "${{ github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'review: approved') }}"
+        shell: bash
         run: |
-          # The token is the base branch's, with write access, Dependabot's and forks' PRs included.
+          # The token is the default branch's, with write access, Dependabot's and forks' PRs included.
           # If the revoke still fails, the label stays, but a review of an older head never counts.
           # REST, not `gh pr edit` or `gh pr comment`: their GraphQL queries can fail on GitHub's
           # deprecated Projects (classic) field. A 404 means the label is already off.
@@ -71,8 +78,10 @@ jobs:
               *) echo "::warning::Couldn't remove 'review: approved' ($out). It no longer counts: the new head needs its own review." ;;
             esac
           fi
-          gh api "repos/$REPO/issues/$PR/comments" \
-            -f body="New commits since the review: \`review: approved\` is removed until the latest head is reviewed." >/dev/null || true
+          if ! out=$(gh api "repos/$REPO/issues/$PR/comments" \
+            -f body="New commits since the review: \`review: approved\` is removed until the latest head is reviewed." 2>&1 >/dev/null); then
+            echo "::warning::Couldn't post the 'new commits' comment ($out)."
+          fi
           echo "::error::New commits since the review. Review the latest head, then label the PR 'review: approved'."
           exit 1
         env:
@@ -81,10 +90,14 @@ jobs:
           REPO: ${{ github.repository }}
       - name: Reviewed?
         if: "${{ !(github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'review: approved')) }}"
+        # `shell: bash` runs with -eo pipefail: a failed API call (any page) fails the step, so an
+        # incomplete review history can never pass.
+        shell: bash
         run: |
           # Read the label now, not from the event, so a label a failed revoke left behind or one
           # added since still counts as it stands.
-          if ! gh api "repos/$REPO/issues/$PR/labels" --jq '.[].name' | grep -Fxq 'review: approved'; then
+          labels=$(gh api --paginate "repos/$REPO/issues/$PR/labels" --jq '.[].name')
+          if ! grep -Fxq 'review: approved' <<< "$labels"; then
             echo "::error::Waiting for an independent adversarial review. The reviewer adds 'review: approved' once every finding (lows included) is fixed, or declined with a reason the reviewer accepts."
             exit 1
           fi
@@ -96,18 +109,46 @@ jobs:
             echo "::error::'review: approved' was added by an app or bot ($labeler), not a reviewer. A reviewer adds it from their own account."
             exit 1
           fi
-          # The latest verdict on the head from a person decides: dismissed reviews are ignored,
-          # and a later "changes requested" overrides an earlier approve. Each page is reduced to
-          # "time<TAB>verdict" lines, then sorted across pages.
-          verdict=$(gh api --paginate "repos/$REPO/pulls/$PR/reviews" --jq "
-            .[] | select(.commit_id == \"$HEAD\" and .user.type == \"User\" and .state != \"DISMISSED\")
-            | ((.body // \"\") | ascii_downcase | sub(\"^[\\\\s#*_>]+\"; \"\")) as \$b
-            | (if .state == \"CHANGES_REQUESTED\" then \"changes\"
-               elif (\$b | startswith(\"verdict: approve\")) then \"approve\"
-               elif (\$b | startswith(\"verdict:\")) then \"changes\"
-               elif .state == \"APPROVED\" then \"approve\"
-               else empty end) as \$v
-            | \"\(.submitted_at)\t\(\$v)\"" | sort | tail -n 1 | cut -f 2)
+          # The latest verdict on the head from a maintainer decides (a person who owns, belongs to
+          # or collaborates on the repository; the repo is public, so anyone else's review is
+          # ignored): dismissed reviews are ignored, and a later "changes requested" overrides an
+          # earlier approve.
+          #
+          # A review's verdict is read from EVERY line, lowercased, with <!-- … --> comments and
+          # every * _ ` removed, and leading whitespace, # > and list markers (- + 1. 1)) stripped.
+          # A line that starts "verdict" is a verdict line; it must be exactly "verdict: approve"
+          # or "verdict: changes requested" (an optional trailing . or !), so "approve=false" or
+          # "approve, but…" don't count. It fails closed, in this order:
+          #   any verdict line says changes requested, or the state is CHANGES_REQUESTED → changes
+          #   any verdict line parses to neither                                        → unreadable
+          #   a verdict line approves                                                   → approve
+          #   "changes requested" / "request changes" appears anywhere in the body      → changes
+          #   the state is APPROVED                                                     → approve
+          #   otherwise (a plain comment)                                               → ignored
+          # Each review becomes a "time<TAB>verdict" line; the latest wins, and a tie sorts
+          # approve < changes < unreadable, so it fails closed. scripts/review-gate-verdict.test.sh
+          # runs this program against fixtures; keep the two in step.
+          VERDICT_JQ=$(cat <<'JQ'
+          .[]
+          | select(.commit_id == $head and .user.type == "User" and .state != "DISMISSED"
+                   and ((.author_association // "") | IN("OWNER", "MEMBER", "COLLABORATOR")))
+          | ((.body // "") | ascii_downcase | gsub("<!--[\\s\\S]*?-->"; "") | gsub("[*_`]"; "")) as $body
+          | [$body | split("\n")[]
+             | sub("^[\\s#>]+"; "") | sub("^(?:[-+]|\\d+[.)])\\s+"; "") | sub("^[\\s#>]+"; "")
+             | select(startswith("verdict"))
+             | ([capture("^verdict\\s*:\\s*(?<v>approve|changes requested)\\s*[.!]?\\s*$")] | .[0].v // "unreadable")] as $verdicts
+          | (if .state == "CHANGES_REQUESTED" or ($verdicts | index("changes requested")) then "changes"
+             elif ($verdicts | index("unreadable")) then "unreadable"
+             elif ($verdicts | index("approve")) then "approve"
+             elif ($body | test("changes[\\s-]*requested|request(ed|ing)?\\s+changes")) then "changes"
+             elif .state == "APPROVED" then "approve"
+             else empty end) as $v
+          | "\(.submitted_at)\t\($v)"
+          JQ
+          )
+          reviews=$(mktemp)
+          gh api --paginate "repos/$REPO/pulls/$PR/reviews" > "$reviews"
+          verdict=$(jq -r --arg head "$HEAD" "$VERDICT_JQ" "$reviews" | sort | tail -n 1 | cut -f 2)
           if [ "$verdict" != "approve" ]; then
             echo "::error::'review: approved' is on, but the latest verdict on the head ($HEAD) is '${verdict:-none}', not an approve. Review the latest head."
             exit 1

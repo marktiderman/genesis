@@ -11,7 +11,12 @@ name: Tarball Integrity
 # package's `npm pack --dry-run` tarball actually contains dist/ + a .d.ts, so a
 # repeat of 0.2.1 fails LOUD in CI instead of shipping silently.
 #
-# Runs on:
+# Runs on every PR into main, staging/** and prestage/**, because "npm pack
+# dist/+types check" is a required check: a `paths` filter on the trigger would
+# leave it unreported (and the PR unmergeable) on a PR that touches none of the
+# paths. Instead, the first step decides whether the checks below apply, and the
+# job always finishes under the same name, passing at once when they don't.
+# They apply to:
 #   - any PR touching packages/**, release machinery, or this gate itself
 #     (fast path: the script builds the whole publishable set, then packs
 #     only the packages that changed — see verify-tarball-integrity.mjs's
@@ -19,21 +24,13 @@ name: Tarball Integrity
 #   - any PR whose head is a changeset-release/* branch (the auto-generated
 #     "chore: version packages" PR that changesets/action opens against
 #     main) — that is the EXACT PR shape that published the broken 0.2.1
-#     tarball, so it always gets the full --all check below, regardless of
-#     which files the path filter matched it on.
+#     tarball, so it always gets the full --all check below, whatever files
+#     it touches.
+#   - a manual run (workflow_dispatch), always.
 
 on:
   pull_request:
     branches: [main, "staging/**", "prestage/**"]
-    paths:
-      - "packages/**"
-      - ".changeset/**"
-      - ".github/workflows/release.yml"
-      - ".github/workflows/tarball-integrity.yml"
-      - "scripts/verify-tarball-integrity.mjs"
-      - "pnpm-workspace.yaml"
-      - "pnpm-lock.yaml"
-      - "package.json"
   workflow_dispatch:
 
 permissions:
@@ -68,19 +65,49 @@ jobs:
           # and lazily backfill them. Keep the two in step.
           filter: blob:none
 
+      # The paths the trigger's `paths` filter used to list. HEAD is the PR's
+      # merge commit, so HEAD^1 is the base tip and this lists the PR's own
+      # changes. --no-renames needs trees only, no blobs (see blob:none above).
+      - name: Does this PR touch packages or release machinery?
+        id: changes
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          if [ "$EVENT" != "pull_request" ]; then
+            echo "Manual run: checking." ; echo "relevant=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          case "$HEAD_REF" in
+            changeset-release/*) echo "changeset-release/* head: checking." ; echo "relevant=true" >> "$GITHUB_OUTPUT"; exit 0 ;;
+          esac
+          files=$(git diff --name-only --no-renames HEAD^1 HEAD)
+          pattern='^(packages/|\.changeset/)|^(\.github/workflows/release\.yml|\.github/workflows/tarball-integrity\.yml|scripts/verify-tarball-integrity\.mjs|scripts/verify-no-workspace-protocol\.mjs|pnpm-workspace\.yaml|pnpm-lock\.yaml|package\.json)$'
+          if matched=$(grep -E "$pattern" <<< "$files"); then
+            echo "Relevant changes:"; echo "$matched"
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No packages, release machinery or lockfile changes: nothing to pack. Passing."
+            echo "relevant=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        if: steps.changes.outputs.relevant == 'true'
         with:
           version: 11.26.0
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: steps.changes.outputs.relevant == 'true'
         with:
           node-version: 22
           cache: pnpm
 
       - name: Install dependencies
+        if: steps.changes.outputs.relevant == 'true'
         run: pnpm install --frozen-lockfile
 
       - name: Verify tarball integrity
+        if: steps.changes.outputs.relevant == 'true'
         env:
           BASE_REF: ${{ github.base_ref }}
           HEAD_REF: ${{ github.head_ref }}
@@ -113,4 +140,5 @@ jobs:
       # publishable package's source changed, and dist/ is gitignored, so
       # this has to build for itself rather than assume dist/ exists.
       - name: "Verify no workspace: protocol in packed output"
+        if: steps.changes.outputs.relevant == 'true'
         run: node scripts/verify-no-workspace-protocol.mjs
