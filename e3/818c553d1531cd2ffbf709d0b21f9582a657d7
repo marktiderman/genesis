@@ -1,0 +1,42 @@
+packages/genesis-cli/src/exec/prompt-secret.ts
+  s_ca8e075e853203::t_de69f9694c3b6e 5-12,21-22,24-25,28-54,59-71,73-78,80-84,86-89,91-120,123-127,130
+  s_ca8e075e853203::t_76506dda5ce69b 128,131-132
+.changeset/doctor-secrets.md
+  s_ca8e075e853203::t_1a3d525fc16292 18-22
+packages/genesis-cli/README.md
+  s_ca8e075e853203::t_0d8053310c0386 909,911,1028,1030,1036-1045
+packages/genesis-cli/src/doctor/settings.ts
+  s_ca8e075e853203::t_cee382a5abdd30 279-280
+packages/genesis-cli/src/exec/secret-stores.ts
+  s_ca8e075e853203::t_df19a78d83997e 7,15-23,34-35,84-85
+packages/genesis-cli/src/exec/secret-vault.ts
+  s_ca8e075e853203::t_b85109f501ebfd 10-19,26-27,81,87-88,101,103-109
+packages/genesis-cli/src/fix/builtin.ts
+  s_ca8e075e853203::t_ef8ba717cd4504 321-322
+packages/genesis-cli/src/fix/command.ts
+  s_ca8e075e853203::t_bd80c270e5b5ca 132-133,137,158,165,170,177,180-198,201-209,211-214,217-218
+packages/genesis-cli/src/fix/engine.ts
+  s_ca8e075e853203::t_49197472e4a644 118,167-171,191-192
+packages/genesis-cli/src/fix/types.ts
+  s_ca8e075e853203::t_521ac5437d052b 37
+packages/genesis-cli/test/doctor-secrets.test.ts
+  s_ca8e075e853203::t_a3df56588d128b 37-38,54-67,98,105-106,156-174,176-209,369-379,412,415,417-418,425-426,448-464
+packages/genesis-cli/test/doctor-settings.test.ts
+  s_ca8e075e853203::t_d92e79b239f297 90
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e3818c553d1531cd2ffbf709d0b21f9582a657d7",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
