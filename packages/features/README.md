@@ -178,11 +178,23 @@ scope, a runtime layer setting a build-time key, a change to a locked value, a k
 requires is off, an unknown preset, which resolves on `max`). Every map it returns has no prototype,
 so a key such as `__proto__` or `constructor` is just an unknown key. `sources` says which layer set each value and which locked it.
 
+**Reading a result.** `values`, `sources` and the maps `settingsGateContext` returns have no
+prototype, so they have no `hasOwnProperty` (or `toString`) of their own: `values.hasOwnProperty(k)`
+throws. Read a key directly (`values["support.messenger"]`), test it with `k in values` or
+`Object.prototype.hasOwnProperty.call(values, k)`, and copy one with `{ ...values }` if you need an
+ordinary object.
+
 **The gate.** A boolean key linked with `feature` that resolves to `false` puts the feature in
 `GateContext.settingsOff` (`featureOn` answers `reason: "setting"`), and a key linked with `flag`
 gives the flag its value when the context has none (`withSettings`, `settingsGateContext`). A locked
 key wins over the context: the tenant's switch can't turn off a feature locked on, nor the context's
 flag change a locked flag. It is the same gate, with one more check.
+
+**Two keys switching one feature.** Nothing stops two keys from naming the same `feature` (say a
+package's `messenger` and `helpCenter` both linked to its help desk). Then either key resolving to
+`false` switches the feature off: `off` is "any linked key is false", never "the last one wins". A
+lock on either key keeps the tenant's switch from turning the feature off. Link one key per feature
+unless "off when any of them is off" is what you mean.
 
 **Packages without running them.** A package also lists its declaration in package.json
 (`genesis.settings`: `{ "namespace": …, "keys": { … } }`, read with `settingsFromManifest`), so

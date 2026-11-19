@@ -31,6 +31,7 @@ import { annotateScreenshot, canCaptureScreenshot, captureScreenshot, type Redac
 import { pickPin, type FeedbackPin } from "./pin";
 import type { Diagnostics, DiagnosticsDelivery } from "../diagnostics/create";
 import { DiagnosticsSendError } from "../diagnostics/queue";
+import { supportSettingValues, type SupportSettingsInput } from "../settings";
 
 /** The default web collector: the path (never the query string), `web`, and the viewport and language. */
 export function webContextCollector(options: { appVersion?: string } = {}): ContextCollector {
@@ -95,6 +96,12 @@ export interface FeedbackPanelProps {
    * Default off: the thanks shows under the form, which stays.
    */
   thanksReplacesForm?: boolean | undefined;
+  /**
+   * Genesis settings (`resolveSettings`' result, or the values alone): `support.screenshots`,
+   * `support.pins`, `support.severity` and `diagnostics.dumpOnFeedback`. A prop given here wins over
+   * its setting. Without settings, the props' own defaults (severity stays off).
+   */
+  appSettings?: SupportSettingsInput | undefined;
 }
 
 /** A feedback panel's draft: what the person has chosen, written, captured and pinned. */
@@ -161,7 +168,12 @@ export function useFeedbackDraft(defaultType: FeedbackType = "bug"): FeedbackDra
 
 type Status = { kind: "idle" } | { kind: "sending" } | { kind: "sent"; dropped: number } | { kind: "error"; message: string };
 
-export function FeedbackPanel({ client, diagnostics, collector, copy: overrides, screenshots, pins = true, defaultType = "bug", onSent, onHide, about, captureOnOpen, draft: held, captureRequest, onOpenHelp, severity: askSeverity = false, thanksReplacesForm = false }: FeedbackPanelProps) {
+export function FeedbackPanel({ client, diagnostics: dump, collector, copy: overrides, screenshots: screenshotsProp, pins: pinsProp, defaultType = "bug", onSent, onHide, about, captureOnOpen, draft: held, captureRequest, onOpenHelp, severity: severityProp, thanksReplacesForm = false, appSettings }: FeedbackPanelProps) {
+  const settings = supportSettingValues(appSettings);
+  const screenshots = screenshotsProp ?? (settings.support.screenshots ? undefined : false);
+  const pins = pinsProp ?? settings.support.pins;
+  const askSeverity = severityProp ?? (appSettings ? settings.support.severity : false);
+  const diagnostics = dump && dump.enabled !== false && settings.diagnostics.enabled && settings.diagnostics.dumpOnFeedback ? dump : undefined;
   const copy = useMemo(() => resolveSupportCopy(overrides), [overrides]);
   const collect = useMemo(() => collector ?? webContextCollector(), [collector]);
   const own = useFeedbackDraft(defaultType);

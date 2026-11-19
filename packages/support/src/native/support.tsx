@@ -30,6 +30,7 @@ import type { Diagnostics } from "../diagnostics/create";
 import { DIAGNOSTICS_DEFAULTS } from "../diagnostics/report";
 import { listenForShake, type AccelerometerLike, type ShakeOptions, type ViewShotLike } from "./modules";
 import { SendDiagnosticsRow } from "./diagnostics";
+import { supportSettingValues, type SupportSettingsInput, type SupportSettingValues } from "../settings";
 
 /** A screenshot waiting for the feedback screen. `uri` is a data URI. */
 export interface PendingScreenshot {
@@ -115,10 +116,22 @@ export interface SupportOptions {
   feedbackSink?: FeedbackSink;
   /** Every caught error, for reporting. None of them reaches the person as a crash. */
   onError?: (error: Error, where: "capture" | "shake" | "diagnostics") => void;
+  /**
+   * Genesis settings: what `resolveSettings` (or genesis-supabase's `resolveAppSettings`) returned,
+   * the values alone, or a function that reads them now (the person's `shake.enabled` is read at
+   * each shake). It decides the idea board (`support.ideas`), the Settings rows
+   * (`support.feedback`, `support.inbox`), the reply expectation, shake to report (`shake.*`) and
+   * the dump (`diagnostics.*`). An option given here wins over its setting. Without either, the
+   * `max` preset: everything on.
+   */
+  appSettings?: SupportSettingsInput | (() => SupportSettingsInput | null | undefined);
 }
 
 export interface SupportBlock extends NativeBlock<typeof SUPPORT_BLOCK_ID> {
+  /** The options with the settings applied (an option the app gave wins over its setting). */
   readonly options: SupportOptions;
+  /** Support's settings now (the `max` preset where none are given). */
+  settings(): SupportSettingValues;
   readonly client: SupportClient;
   readonly copy: SupportCopy;
   readonly paths: SupportPaths;
@@ -166,7 +179,29 @@ export function useUnreadReplies(): number {
   return (data ?? []).filter((r) => r.unread).length;
 }
 
-export function createSupport(options: SupportOptions): SupportBlock {
+/** The options with the settings filled in where the app left an option out. */
+function applySettings(options: SupportOptions, s: SupportSettingValues): SupportOptions {
+  const shake: SupportOptions["shake"] =
+    options.shake === false || !s.support.feedback
+      ? false
+      : { threshold: s.shake.threshold, jolts: s.shake.jolts, windowMs: s.shake.windowMs, cooldownMs: s.shake.cooldownMs, ...(options.shake ?? {}) };
+  const replyExpectation = options.replyExpectation ?? s.support.replyExpectation ?? undefined;
+  return {
+    ...options,
+    ideas: options.ideas ?? s.support.ideas,
+    ...(replyExpectation !== undefined ? { replyExpectation } : {}),
+    shake,
+    // Diagnostics off: no dump anywhere (shake, feedback, the devtools row), whatever was passed.
+    ...(s.diagnostics.enabled ? {} : { diagnostics: undefined }),
+    dumpOnShake: options.dumpOnShake ?? s.diagnostics.dumpOnShake,
+    dumpOnFeedback: options.dumpOnFeedback ?? s.diagnostics.dumpOnFeedback,
+  };
+}
+
+export function createSupport(given: SupportOptions): SupportBlock {
+  const readSettings = (): SupportSettingValues => supportSettingValues(typeof given.appSettings === "function" ? given.appSettings() : given.appSettings);
+  const initialSettings = readSettings();
+  const options = applySettings(given, initialSettings);
   const copy = resolveSupportCopy(options.copy);
   const paths = supportPaths(options.basePath);
   const client = createSupportClient(options.supabase, { chat: options.chat, ...(options.tenantId !== undefined ? { tenantId: options.tenantId } : {}) });
@@ -195,6 +230,8 @@ export function createSupport(options: SupportOptions): SupportBlock {
     copy: options.copy,
     settings: options.settings,
     ideas: options.ideas,
+    feedback: initialSettings.support.feedback,
+    inbox: initialSettings.support.inbox,
     useHelpSubtitle: () => {
       const unread = useUnreadReplies();
       return unread ? fill(copy.settings.unreadReplies, { count: unread }) : null;
@@ -241,12 +278,13 @@ export function createSupport(options: SupportOptions): SupportBlock {
       ...declaration.contributes,
       slots: {
         devtoolsFeedback: DevtoolsFeedback as ComponentType<never>,
-        ...(options.diagnostics ? { devtoolsDiagnostics: DevtoolsDiagnostics as ComponentType<never> } : {}),
+        ...(options.diagnostics && initialSettings.diagnostics.sendFromSettings ? { devtoolsDiagnostics: DevtoolsDiagnostics as ComponentType<never> } : {}),
       },
     },
     diagnostics: options.diagnostics ?? null,
     platforms: ["native"],
     options,
+    settings: readSettings,
     client,
     copy,
     paths,
@@ -317,6 +355,8 @@ export function createSupport(options: SupportOptions): SupportBlock {
             () => {
               // Already on a support screen: shaking again does nothing.
               if (route && route.startsWith(paths.inbox)) return;
+              // The person turned shake to report off (shake.enabled is theirs to change).
+              if (!readSettings().shake.enabled) return;
               if (options.diagnostics && (options.dumpOnShake ?? DIAGNOSTICS_DEFAULTS.dumpOnShake)) {
                 options.diagnostics.send({ trigger: "shake" }).catch((error: unknown) => report(error, "diagnostics"));
               }

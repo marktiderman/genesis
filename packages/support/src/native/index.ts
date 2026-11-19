@@ -3,7 +3,8 @@
  * `GenesisNativeApp` (`createSupport`), the feedback form with screenshot
  * mark-up, shake to report, and hooks that feed genesis-ui-native's
  * `InboxPage` and `ThreadPage` for the person's reports, the idea board and
- * "you asked, we shipped", and the context dump's phone sections and "Send
+ * "you asked, we shipped", an agent's help desk queues and ticket threads
+ * (`useAgentInbox`, `useAgentThread`), and the context dump's phone sections and "Send
  * diagnostics" (`nativeSections`, `observabilitySection`, `SendDiagnosticsRow`).
  *
  * @stability Beta
@@ -42,4 +43,18 @@ export { HelpAnswerCard, HelpArticleBody, useHelpArticle, useHelpCenter, useMess
 export type { HelpAnswerResponse, HelpAskState } from "../help-ask";
 export { ScreenshotAnnotator, strokeDots, boxOf, type ScreenshotAnnotatorProps } from "./annotator";
 export { useSupportInbox, useSupportThread, useSupportConversation, useIdeaBoard, useShippedIdeas, VoteButton, SendFeedbackButton } from "./screens";
+export {
+  useIsSupportAgent,
+  useAgentInbox,
+  useAgentThread,
+  useAgentUnreadCount,
+  supportAgentKeys,
+  AGENT_INBOX_VIEWS,
+  AGENT_TICKET_STATUSES,
+  type AgentDeskLabels,
+  type AgentInboxOptions,
+  type AgentInboxProps,
+  type AgentThreadOptions,
+  type AgentThreadProps,
+} from "./agent";
 export { listenForShake, type AccelerometerLike, type AccelerometerMeasurement, type CaptureOptions, type ShakeOptions, type ViewShotLike } from "./modules";

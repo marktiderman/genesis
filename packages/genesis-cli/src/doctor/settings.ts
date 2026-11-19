@@ -45,7 +45,12 @@ import type { DoctorContext } from "./types.js";
 
 const FILE = "genesis.config.json";
 
-/** Every top-level key a Genesis tool reads from genesis.config.json. A new block adds its key here. */
+/**
+ * Every top-level key a Genesis tool reads from genesis.config.json. Kept by hand: nothing derives
+ * it from the config schema or the blocks, so a block or tool that adds a top-level key adds it here
+ * in the same change (and to the config reader in ./config.ts), or `genesis-config-unknown-key` warns
+ * in every app that uses it.
+ */
 export const GENESIS_CONFIG_KEYS: readonly string[] = [
   "$schema",
   "$comment",
