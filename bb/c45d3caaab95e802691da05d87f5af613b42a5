@@ -1,0 +1,53 @@
+packages/genesis-cli/src/exec/run.ts
+  s_ca8e075e853203::t_093d867a398c7b 6-13,16-17,24-29,60-67,78-104,111-117,119,133
+.changeset/doctor-fix-engine.md
+  s_ca8e075e853203::t_38ae2db0426756 10-11,19-28
+docs/APP-CI.md
+  s_ca8e075e853203::t_7c355d506d55b3 81-88
+packages/genesis-cli/README.md
+  s_ca8e075e853203::t_5ccc26a93be82d 857,992-1006,1021,1023,1026,1034-1040,1046-1058,1245-1246,1414
+packages/genesis-cli/src/doctor/behind.ts
+  s_ca8e075e853203::t_0ece9e296688cb 10-15,38,46-48,52,66-67,70,77
+packages/genesis-cli/src/doctor/config.ts
+  s_ca8e075e853203::t_4528260f8603ca 342,685
+packages/genesis-cli/src/doctor/index.ts
+  s_ca8e075e853203::t_2e30d80ad6eccd 54,151-155,171,180-181,345-346
+packages/genesis-cli/src/doctor/package-rules.ts
+  s_ca8e075e853203::t_8dbb8f67fdba7b 142
+packages/genesis-cli/src/doctor/types.ts
+  s_ca8e075e853203::t_b26fc7ab22a60b 251-255
+packages/genesis-cli/src/fix/builtin.ts
+  s_ca8e075e853203::t_65a1da37532c45 15,24-25,177,201,224-237,251,254
+packages/genesis-cli/src/fix/command.ts
+  s_ca8e075e853203::t_6032b9b7f31333 14,16,60-72,171-174
+packages/genesis-cli/src/fix/engine.ts
+  s_ca8e075e853203::t_0d945a55b0719d 9,13,55,65-99,103,181-187,197,204,207-316,318-319
+packages/genesis-cli/src/fix/types.ts
+  s_ca8e075e853203::t_ad058d6c95f697 79-85,107,109
+packages/genesis-cli/src/upgrade/index.ts
+  s_ca8e075e853203::t_7a21775d545005 163-164,167-171,193
+packages/genesis-cli/src/upgrade/registry.ts
+  s_ca8e075e853203::t_b99fbb95483ac7 12-22,26,35-38,88-93,97,99-101,109-110,142,144,167,169-175,177-180,196-209,212-228,232,248-249,253,255,257,261-264,273,275-283,288,290,292,294-295,298-299,302,304,318-322
+packages/genesis-cli/src/vite.ts
+  s_ca8e075e853203::t_250c5d0acd3a3b 45,81
+packages/genesis-cli/test/doctor-behind.test.ts
+  s_ca8e075e853203::t_6b35694e467cc2 6,28-29,110-114,149,167-224
+packages/genesis-cli/test/fix-engine.test.ts
+  s_ca8e075e853203::t_d9777ce806b3ec 2,22,227,372-373,397,406,421-550
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "bbc45d3caaab95e802691da05d87f5af613b42a5",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
