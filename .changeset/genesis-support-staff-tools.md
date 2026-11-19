@@ -11,3 +11,8 @@
 `SupportHelpArticle` (copy under `boards`); it now uses genesis-core's resource views, an optional
 peer. `/native` gains `useIsSupportAgent`, `useAgentUnreadCount`, `useAgentInbox`, `useAgentThread`
 and `supportAgentKeys`.
+
+`/email` gains reply by email's building blocks: `replyKey`, `createReplyToken`,
+`verifyReplyToken`, `replyAddress` and `claimsFromAddresses` (a signed, stateless Reply-To per
+ticket and recipient), and `stripReply` / `htmlToText` / `REPLY_MARKER` (the reply without quoted
+history or signature).

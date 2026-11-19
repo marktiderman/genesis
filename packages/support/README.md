@@ -752,6 +752,16 @@ listed (name, type, size) but not stored yet.
 - A reply keeps its text and thread ids when it is queued (a retry sends the same email); one
   deleted before it goes out is cancelled.
 
+
+**Reply by email, statelessly** (`@marktiderman/genesis-support/email`, server only):
+`replyAddress(replyKey(SUPPORT_REPLY_SIGNING_SECRET), replyDomain, { ticketId, userId })` is a
+Reply-To that names the ticket and the one person the email went to, signed (nothing stored);
+`claimsFromAddresses(key, replyDomain, recipients)` reads it back from an inbound email, and
+`stripReply(text, html)` keeps what the person wrote, without the quoted history, the
+`REPLY_MARKER` line or their signature. Auto-replies are already dropped by genesis-notifications'
+inbound router. Wiring these into the support notification emails is **Planned**
+(`support-email`).
+
 ## Access, in the database
 
 A person sees, edits (while open) and deletes their own reports, replies on them and sees their
