@@ -400,7 +400,8 @@ describe("the settings and secrets fixes", () => {
   it("covers the new rules with guided fixes", () => {
     const fixes = builtinFixes();
     for (const rule of ["setting-requires", "setup-incomplete", "secret-missing"]) expect(fixes.some((f) => f.kind === "guided" && f.rules.includes(rule))).toBe(true);
-    expect(fixes.some((f) => f.id === "settings.review")).toBe(false);
+    // settings.review stays, manual, for what remove-unknown and reset leave (an uncertain or locked key).
+    expect(fixes.find((f) => f.id === "settings.review")?.kind).toBe("manual");
   });
 
   it("secrets.set: asks for each value hidden, sends it on stdin only, and verifies", async () => {

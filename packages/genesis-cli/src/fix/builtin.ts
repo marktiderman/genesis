@@ -326,12 +326,14 @@ const resetBadSettings: Fix = {
   },
 };
 
-/** Every other invalid-setting finding (an unknown key that isn't certain or is locked, a legacy key, a database row): a person's call. */
+/** Every other invalid-setting finding in genesis.config.json (an unknown key that isn't certain or is locked, a legacy key): a person's call. */
 const reviewSettings: Fix = {
   id: "settings.review",
   kind: "manual",
   rules: ["invalid-setting"],
-  title: "correct the setting in genesis.config.json (or the database row) yourself",
+  title: "correct the setting in genesis.config.json yourself",
+  // A database row is a platform admin's (the Settings screen), and a package's declaration its own: no fix here.
+  appliesTo: (f) => f.file === CONFIG_FILE,
   async plan(ctx) {
     const lines = ctx.findings.map((f: Finding) => `- ${f.file}${f.subject ? ` (${f.subject})` : ""}: ${f.message}`);
     return {
