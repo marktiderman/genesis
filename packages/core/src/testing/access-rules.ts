@@ -5,7 +5,8 @@
 // (`source: { rpc }`) holds an access rule: who may call it. `accessRules` turns one function's
 // rule into test cases, one per person: each allowed person's call must act, each refused
 // person's call must be refused. Runner-neutral: register the cases with vitest, jest or
-// node:test. The doctor's `data/access-rule-tests` rule finds a declared function without one.
+// node:test. `expectAccessRulesCover` fails for a declared function without one, and the doctor's
+// `data/access-rule-tests` rule checks that some test calls it.
 // ---------------------------------------------------------------------------
 
 import { toDataWriteError } from "../provider/postgrest-errors";

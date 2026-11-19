@@ -40,8 +40,8 @@ const TABLE_WRITE = /\.from\(\s*(["'`])([\w.]+)\1\s*\)\s*\.\s*(insert|update|ups
 /** `.from(` right after Supabase Storage (`supabase.storage.from("bucket")`): a bucket, not a table. */
 const STORAGE_BEFORE = /\bstorage\s*\??\.?\s*$/;
 
-/** The text of the balanced `{…}` or `(…)` that opens at `start`, or "" when it doesn't close. */
-export function balanced(code: string, start: number): string {
+/** The text of the balanced `{…}`, `(…)` or `[…]` that opens at `start`, or "" when it doesn't close. */
+function balanced(code: string, start: number): string {
   const open = code[start];
   const close = open === "{" ? "}" : open === "(" ? ")" : open === "[" ? "]" : "";
   if (!close) return "";
@@ -104,14 +104,13 @@ function valuesAt(text: string, key: string, depth: number): string[] {
   return out;
 }
 
-/** The `[…]` or `{…}` a `const`/`let`/`var` named `name` is set to in the file, or "". */
-function initializer(code: string, blank: string, name: string): { text: string; keyword: string; at: number; open: number } | null {
+/** The object `{…}` a `const`/`let`/`var` named `name` is set to in the file, or null. */
+function initializer(code: string, blank: string, name: string): { text: string; keyword: string; at: number } | null {
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const decl = new RegExp(`\\b(const|let|var)\\s+${escaped}(?![\\w$])[^=;]*=\\s*[[{]`).exec(blank);
+  const decl = new RegExp(`\\b(const|let|var)\\s+${escaped}(?![\\w$])[^=;]*=\\s*\\{`).exec(blank);
   if (!decl) return null;
-  const open = decl.index + decl[0].length - 1;
-  const text = balanced(code, open);
-  return text ? { text, keyword: decl[1]!, at: decl.index, open } : null;
+  const text = balanced(code, decl.index + decl[0].length - 1);
+  return text ? { text, keyword: decl[1]!, at: decl.index } : null;
 }
 
 /** Whether the object `{…}` says `access: "declared"` itself, not in an object nested in it. */
@@ -138,7 +137,7 @@ function optionsConstDeclares(code: string, blank: string, call: string): boolea
   const args = blankStrings(call).slice(1, -1);
   for (const [, name] of args.matchAll(/(?:^|,)\s*([A-Za-z_$][\w$]*)\s*(?=,|$)/g)) {
     const found = initializer(code, blank, name!);
-    if (!found || !found.text.startsWith("{") || !objectDeclares(found.text)) continue;
+    if (!found || !objectDeclares(found.text)) continue;
     const escaped = name!.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     // Set again (a `let` or `var`), its `access` changed, or merged into: what the call gets is no longer known.
     const reassigned = found.keyword !== "const" && new RegExp(`(?<![\\w$.])${escaped}\\s*=(?!=)`, "g").test(blank.slice(found.at + found.keyword.length + 1 + name!.length));

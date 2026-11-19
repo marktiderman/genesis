@@ -171,6 +171,17 @@ describe("row and bulk actions", () => {
     expect(screen.queryAllByTestId("resource-row-menu-finish")).toEqual([]);
   });
 
+  it("offers no provider action until the provider's capabilities arrive", async () => {
+    // @feat:declared-data-access
+    let answer: (c: ProviderCapabilities) => void = () => {};
+    const capabilities = vi.fn((_resource?: string) => new Promise<ProviderCapabilities>((resolve) => (answer = resolve)));
+    render(<ResourceView view={view} />, { wrapper: wrap(provider({ runAction: vi.fn(), capabilities })) });
+    await screen.findByText("Ship it");
+    expect(screen.queryByLabelText("Select Write the plan")).toBeNull();
+    answer({ search: true, sort: true, filterOperators: [], bulkWrites: false, versionedWrites: false, compositeKeys: false, actions: true });
+    expect(await screen.findByLabelText("Select Write the plan")).toBeTruthy();
+  });
+
   it("runs a provider action at the version the row was read at", async () => {
     // @feat:declared-data-access
     const runAction = vi.fn(async () => ({ data: null }));

@@ -45,7 +45,10 @@ const provider = createSupabaseProvider(supabase, {
   tables as before, and the doctor reports the provider.
 - **`source`**: a view (`with (security_invoker = true)`) or a function that returns rows
   (`security invoker`, or filtering by `auth.uid()` itself). See `SupabaseResourceConfig.source`.
-- **`writes`**: each a function name, or `{ fn, args }` to name the arguments yourself.
+- **`writes`**: each a function name, or `{ fn, args }` to name the arguments yourself. On a
+  resource with a `version` rule, a custom `args` takes the context too (update's third argument,
+  delete's and an action's second) and passes `context.expectedVersion` on; one that doesn't is
+  reported, since its writes would go unchecked.
 - **`actions`**: named row actions, served by `runAction`.
 - **`table`**: the opt-in. `why` is required; it is what a reviewer reads to accept it.
 

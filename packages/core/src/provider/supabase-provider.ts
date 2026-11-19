@@ -991,6 +991,28 @@ export function createSupabaseProvider(
   // ---------------------------------------------------------------------------
 
   const declared = options.access === "declared";
+  /** Whether some resource declares an action (`runAction` and `capabilities().actions` exist only then). */
+  const anyActions = Object.values(options.resources ?? {}).some((r) => Object.keys(r.actions ?? {}).length > 0);
+
+  /**
+   * A `{ fn, args }` write function on a versioned resource whose `args` takes no context: it can't
+   * pass the expected version on, so the version check would silently go. Warned once per call site.
+   */
+  const warnedArgs = new Set<string>();
+  function warnArgsDropVersion(resource: string, use: string, call: FunctionCall<never[]> | undefined, contextAt: number): void {
+    if (!call || typeof call === "string" || !call.args || !versionFor(resource)) return;
+    if (call.args.length >= contextAt) return;
+    const key = `${resource}\0${use}`;
+    if (warnedArgs.has(key)) return;
+    warnedArgs.add(key);
+    reportError(
+      new Error(
+        `[SupabaseProvider] "${resource}" has a version rule and its ${use} function's args takes no context. ` +
+          `Take the context (argument ${contextAt}) and pass context.expectedVersion on as p_expected_version, or writes go unchecked.`,
+      ),
+      { source: "core:versioned-writes", tags: { resource } },
+    );
+  }
 
   /** Whether `resource` may go to its table itself for `op`: always on an open provider, else only as declared. */
   function tableAllowed(resource: string, op: "read" | "create" | "update" | "delete"): boolean {
@@ -1116,6 +1138,7 @@ export function createSupabaseProvider(
     if (config.update) return config.update;
     const call = config.writes?.update;
     if (!call) return undefined;
+    warnArgsDropVersion(resource, "update", call as FunctionCall<never[]>, 3);
     // Three parameters, so the provider passes the expected version (it warns about a rule without one).
     return async (id, row, context) => {
       const expected = context?.expectedVersion;
@@ -1686,10 +1709,9 @@ export function createSupabaseProvider(
         // A declared provider serves only the writes a resource declares.
         create: resource ? writeDeclared(resource, "create") : true,
         delete: resource ? writeDeclared(resource, "delete") : true,
-        // `runAction` serves the actions a resource declares, and nothing else.
-        actions: resource
-          ? Object.keys(configFor(resource).actions ?? {}).length > 0
-          : Object.values(options.resources ?? {}).some((r) => Object.keys(r.actions ?? {}).length > 0),
+        // `runAction` serves the actions a resource declares. Said only when some resource declares
+        // one: a provider without any says nothing, as before, so an app's own runner still shows.
+        ...(anyActions ? { actions: resource ? Object.keys(configFor(resource).actions ?? {}).length > 0 : true } : {}),
         maxPerPage,
         softDelete: resource ? isBinTable(resource) : false,
         cursorPagination: resource ? configFor(resource).orderKey !== false : true,
@@ -1817,6 +1839,8 @@ export function createSupabaseProvider(
     },
 
     async create(resource, params) {
+      // An undeclared write is refused before anything runs: no prepare step, no table read.
+      if (!writeDeclared(resource, "create")) throw new DataWriteError("forbidden", undeclaredMessage(resource, "create"));
       const prepared = await prepare(resource, params.data as Record<string, unknown>, { resource, action: "create" });
       // A `writes.create` function takes the values as they are: it decides what to write, so the
       // table's columns (`writeColumns`) don't trim what it gets.
@@ -1874,6 +1898,8 @@ export function createSupabaseProvider(
 
     async update(resource, params) {
       const { id } = params;
+      // An undeclared write is refused before anything runs: no prepare step, no table read.
+      if (!writeDeclared(resource, "update")) throw new DataWriteError("forbidden", undeclaredMessage(resource, "update"));
       // A copy: with no prepare step this is the caller's own object, and the version is taken out below.
       // A `writes.update` function takes the values as they are: it decides what to write, so neither
       // the table's columns (`writeColumns`) nor its row (which the client may not read) trims them.
@@ -1961,6 +1987,7 @@ export function createSupabaseProvider(
       const expected = expectedFor(resource, params.expectedVersion);
       const deleteCall = configFor(resource).writes?.delete;
       if (deleteCall) {
+        warnArgsDropVersion(resource, "delete", deleteCall as FunctionCall<never[]>, 2);
         const { fn, args } = callFor(deleteCall, [id, expected === undefined ? {} : { expectedVersion: expected }], {
           p_id: id,
           ...versionArgs(expected),
@@ -2021,6 +2048,7 @@ export function createSupabaseProvider(
       if (!call) {
         throw new DataWriteError("invalid", `[SupabaseProvider] "${resource}" declares no action "${action}".`);
       }
+      warnArgsDropVersion(resource, `action "${action}"`, call as FunctionCall<never[]>, 2);
       const expected = expectedFor(resource, params.expectedVersion);
       const { fn, args } = callFor(call, [id, expected === undefined ? {} : { expectedVersion: expected }], {
         p_id: id,
@@ -2050,9 +2078,7 @@ export function createSupabaseProvider(
 
   // `runAction` is served only when some resource declares an action: screens show a view's actions
   // whenever the provider has a runner, so a provider without any must not look like it has one.
-  if (!Object.values(options.resources ?? {}).some((r) => r.actions && Object.keys(r.actions).length > 0)) {
-    delete provider.runAction;
-  }
+  if (!anyActions) delete provider.runAction;
 
   // How many write marks are held, for tests of the pruning. Not part of the provider contract.
   Object.defineProperty(provider, "__recentWriteCount", { value: () => recentWrites.size, enumerable: false });

@@ -219,7 +219,8 @@ describe("runAction", () => {
 
   it("is served only when some resource declares an action, and capabilities say which", async () => {
     expect(createSupabaseProvider(client).runAction).toBeUndefined();
-    expect((await createSupabaseProvider(client).capabilities!("tasks")).actions).toBe(false);
+    // A provider that declares no action says nothing about actions, as before.
+    expect("actions" in (await createSupabaseProvider(client).capabilities!("tasks"))).toBe(false);
     const p = provider({ ...TASKS, resources: { ...TASKS.resources, notes: { source: "notes" } } });
     expect(p.runAction).toBeTypeOf("function");
     expect((await p.capabilities!("tasks")).actions).toBe(true);
@@ -470,5 +471,52 @@ describe("an open provider writes as it always has", () => {
     const res = await provider({ resources: { tasks: { source: "v", writes: { create: "create_task" } } } }).create("tasks", { data: { title: "A" } });
     expect(call("from")).toEqual([["v"]]);
     expect(res.data).toEqual({ id: "t1", title: "A", person_name: "Ann" });
+  });
+});
+
+describe("review round on e1078bd", () => {
+  it("a provider without declared actions leaves an app's own runner to show its actions", async () => {
+    const runAction = vi.fn(async () => ({ data: null }));
+    const composed = { ...createSupabaseProvider(client), runAction };
+    const caps = await composed.capabilities!("tasks");
+    expect("actions" in caps).toBe(false);
+  });
+
+  it("warns once when a versioned resource's { fn, args } takes no context, for update, delete and actions", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const p = provider({
+      resources: {
+        tasks: {
+          version: { field: "version", kind: "integer" },
+          writes: {
+            update: { fn: "save_task", args: (id, values) => ({ p_id: id, p_values: values }) },
+            delete: { fn: "drop_task", args: (id) => ({ p_id: id }) },
+          },
+          actions: { archive: { fn: "archive_task", args: (id) => ({ p_id: id }) }, close: { fn: "close_task", args: (id, ctx) => ({ p_id: id, p_v: ctx.expectedVersion }) } },
+        },
+      },
+    });
+    queue.push(ok("t1"), ok([{ id: "t1", version: 2 }]), ok("t1"), ok([{ id: "t1", version: 3 }]));
+    await p.update("tasks", { id: "t1", data: { title: "x" }, expectedVersion: "1" });
+    await p.update("tasks", { id: "t1", data: { title: "y" }, expectedVersion: "2" });
+    queue.push(ok("t1"), ok({ id: "t1" }), ok({ id: "t1" }));
+    await p.deleteOne("tasks", { id: "t1" });
+    await p.runAction!("tasks", { id: "t1", action: "archive" });
+    await p.runAction!("tasks", { id: "t1", action: "close" });
+    const said = warn.mock.calls.map((c) => String(c[1])).filter((m) => m.includes("args takes no context"));
+    expect(said).toHaveLength(3);
+    expect(said.join(" ")).toMatch(/update function/);
+    expect(said.join(" ")).toMatch(/delete function/);
+    expect(said.join(" ")).toMatch(/action "archive" function/);
+    warn.mockRestore();
+  });
+
+  it("an undeclared write on a declared provider reaches nothing: no prepare step, no table read", async () => {
+    const prepare = vi.fn(async (v: Record<string, unknown>) => v);
+    const p = provider({ access: "declared", resources: { tasks: { source: "v", prepare, table: { read: true, why: "Lookup." } } } });
+    expect((await writeFailure(p.update("tasks", { id: "t1", data: { title: "x" } }))).message).toContain('"tasks" declares no update');
+    expect((await writeFailure(p.create("tasks", { data: { title: "x" } }))).message).toContain('"tasks" declares no create');
+    expect(prepare).not.toHaveBeenCalled();
+    expect(calls).toEqual([]);
   });
 });

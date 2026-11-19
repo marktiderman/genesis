@@ -544,7 +544,8 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
   const viewer = useViewer();
   // The provider runs this view's actions when it has a runner and doesn't say it serves none for
   // this resource (`capabilities().actions === false`).
-  const actionCaps = useCapabilities(view.resource, { enabled: !onAction && !!provider.runAction });
+  const askCaps = !onAction && !!provider.runAction && !!provider.capabilities;
+  const actionCaps = useCapabilities(view.resource, { enabled: askCaps });
   const runAction = useCallback(
     async (name: string, row: T) => {
       if (onAction) await onAction(name, row);
@@ -562,7 +563,8 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
     },
     [onAction, provider, view, queryClient, actionCaps.data],
   );
-  const actionsOn = !!onAction || (!!provider.runAction && actionCaps.data?.actions !== false);
+  // Not on until the provider has said (an action shown before then could run without its version).
+  const actionsOn = !!onAction || (!!provider.runAction && !(askCaps && actionCaps.isPending) && actionCaps.data?.actions !== false);
   const cancelWord = useNativeResourceViewMessages().common.cancel;
   const confirmAction = useCallback(
     (name: string, row: T) => {

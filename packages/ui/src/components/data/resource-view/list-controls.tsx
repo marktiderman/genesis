@@ -304,7 +304,8 @@ export const reasonOf = (allowed: true | string) => (allowed === true ? undefine
  */
 export function useServedActions(view: AnyView): { runnable: boolean; served: ReadonlySet<string> | null; versionField?: string } {
   const provider = useDataProvider();
-  const capabilities = useCapabilities(view.resource, { enabled: !!provider.runAction && view.actions().length > 0 });
+  const asked = !!provider.runAction && !!provider.capabilities && view.actions().length > 0;
+  const capabilities = useCapabilities(view.resource, { enabled: asked });
   const described = useQuery({
     queryKey: ["__describe", view.resource],
     queryFn: () => provider.describe!(view.resource),
@@ -313,7 +314,10 @@ export function useServedActions(view: AnyView): { runnable: boolean; served: Re
   });
   const served = described.data?.actions ? new Set(described.data.actions.map((a) => a.name)) : null;
   const versionField = capabilities.data?.version?.field;
-  return { runnable: !!provider.runAction && capabilities.data?.actions !== false, served, ...(versionField ? { versionField } : {}) };
+  // Not runnable until the provider has said: an action shown before then could run without its
+  // version, or be one the provider doesn't serve.
+  const runnable = !!provider.runAction && !(asked && capabilities.isPending) && capabilities.data?.actions !== false;
+  return { runnable, served, ...(versionField ? { versionField } : {}) };
 }
 
 interface Confirming {
