@@ -2,7 +2,7 @@
  * Overlays: an app's local copy of a published Genesis package, listed in
  * genesis.config.json `localPackages` under the package's own name, so the app
  * can change it today and promote the change upstream later. Its package.json
- * carries the marker (validated by genesis-features, `readOverlayMarker`):
+ * carries the marker (validated by genesis-config, `readOverlayMarker`):
  *
  *   "genesis": { …, "overlay": { "upstream": "@marktiderman/genesis-support@0.2.6",
  *                                "since": "2026-10-30", "owner": "…", "reason": "…" } }
@@ -29,7 +29,7 @@
  */
 import { readFileSync } from "node:fs";
 import * as path from "node:path";
-import { overlayUpstream, readOverlayMarker, type OverlayMarker } from "@marktiderman/genesis-features";
+import { overlayUpstream, readOverlayMarker, type OverlayMarker } from "@marktiderman/genesis-config";
 import { inside } from "../blocks/files.js";
 import { localPackages, type LocalPackage } from "../blocks/local.js";
 import { DEFAULT_NATIVE_SRC, DEFAULT_SRC } from "./scan.js";
@@ -37,7 +37,7 @@ import { compareVersions, parseVersion } from "./semver.js";
 import { readReleaseManifest } from "./versions.js";
 import type { DoctorConfig, DoctorContext, SourceFile } from "./types.js";
 
-export type { OverlayMarker } from "@marktiderman/genesis-features";
+export type { OverlayMarker } from "@marktiderman/genesis-config";
 
 export const GENESIS_PACKAGE_NAME = /^@marktiderman\/genesis(?:-[a-z0-9-]+)?$/;
 /** Days after which an overlay is reported (info), and after which it warns (failing --strict). */

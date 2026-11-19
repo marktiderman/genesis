@@ -4,7 +4,7 @@
  * stores' privacy forms. The functions themselves (`deleteMyAccount`,
  * `tenantFeatures`, …) don't change.
  */
-import { defineBlock } from "@marktiderman/genesis-features/blocks";
+import { defineBlock } from "@marktiderman/genesis-config/blocks";
 
 const PACKAGE = "@marktiderman/genesis-supabase";
 

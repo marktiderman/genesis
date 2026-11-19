@@ -1,1 +1,1 @@
-export * from "@marktiderman/genesis-features";
+export * from "@marktiderman/genesis-config";

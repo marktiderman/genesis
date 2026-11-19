@@ -29,7 +29,7 @@
     "@marktiderman/genesis-chat": "workspace:^",
     "@marktiderman/genesis-core": "workspace:^",
     "@marktiderman/genesis-design-system": "workspace:^",
-    "@marktiderman/genesis-features": "workspace:^",
+    "@marktiderman/genesis-config": "workspace:^",
     "@marktiderman/genesis-forms": "workspace:^",
     "@marktiderman/genesis-forms-builder": "workspace:^",
     "@marktiderman/genesis-forms-devtools": "workspace:^",

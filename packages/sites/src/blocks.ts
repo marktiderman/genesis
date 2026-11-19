@@ -3,7 +3,7 @@
  * installs (the migration and its pgTAP test) and what it means for the
  * stores' privacy forms. Node-safe: no React, no Supabase client.
  */
-import { defineBlock } from "@marktiderman/genesis-features/blocks";
+import { defineBlock } from "@marktiderman/genesis-config/blocks";
 
 const PACKAGE = "@marktiderman/genesis-sites";
 

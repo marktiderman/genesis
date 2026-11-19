@@ -391,7 +391,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
     skipped.push(...result.skipped);
     if (result.text !== null) bumped.set(file, result.text);
   }
-  const mods = codemodsFor(changes, options.codemods ?? CODEMODS);
+  const mods = codemodsFor(changes, options.codemods ?? CODEMODS, root);
   const breaks = uncoveredBreaks(changes, options.codemods ?? CODEMODS);
 
   // Overlays: cleaned out and rebased onto the release, planned before anything is written, so a
@@ -482,7 +482,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
   }
   for (const mod of mods) {
     log(`codemod ${mod.id}: ${mod.description}`);
-    const changed = await mod.run({ root, dryRun: Boolean(options.dryRun), log });
+    const changed = await mod.run({ root, dryRun: Boolean(options.dryRun), log, wanted });
     codemodRuns.push({ id: mod.id, files: changed });
     for (const f of changed) files.add(f);
   }

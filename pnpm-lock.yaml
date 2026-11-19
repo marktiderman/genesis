@@ -36,7 +36,7 @@ importers:
       '@marktiderman/genesis-cli':
         specifier: workspace:*
         version: link:packages/genesis-cli
-      '@marktiderman/genesis-features':
+      '@marktiderman/genesis-config':
         specifier: workspace:*
         version: link:packages/features
       '@marktiderman/genesis-product':
@@ -319,15 +319,15 @@ importers:
       '@marktiderman/genesis-chat':
         specifier: workspace:^
         version: link:../../packages/chat
+      '@marktiderman/genesis-config':
+        specifier: workspace:^
+        version: link:../../packages/features
       '@marktiderman/genesis-core':
         specifier: workspace:^
         version: link:../../packages/core
       '@marktiderman/genesis-design-system':
         specifier: workspace:^
         version: link:../../packages/design-system
-      '@marktiderman/genesis-features':
-        specifier: workspace:^
-        version: link:../../packages/features
       '@marktiderman/genesis-forms':
         specifier: workspace:^
         version: link:../../packages/forms
@@ -659,7 +659,7 @@ importers:
 
   packages/chat:
     dependencies:
-      '@marktiderman/genesis-features':
+      '@marktiderman/genesis-config':
         specifier: workspace:^
         version: link:../features
       frimousse:
@@ -910,6 +910,31 @@ importers:
       tsup:
         specifier: ^8.3.0
         version: 8.5.1(patch_hash=ce9dbc714c187cea78868f1e68c1a0e5097ddbceb7e976a564d94f2291b5bcb9)(jiti@2.7.0)(postcss@8.5.32)(supports-color@8.1.1)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.1)
+      typescript:
+        specifier: ~6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^5.0.5
+        version: 5.1.0(@types/node@22.20.5)(@vitest/browser-playwright@5.1.0)(@vitest/coverage-v8@5.1.0)(@vitest/ui@5.1.0)(happy-dom@21.0.4)(jsdom@26.1.0(supports-color@8.1.1))(vite@8.3.8(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.1)(tsx@4.23.15)(yaml@2.9.1))
+
+  packages/features-alias:
+    dependencies:
+      '@marktiderman/genesis-config':
+        specifier: workspace:^
+        version: link:../features
+      '@marktiderman/genesis-ui':
+        specifier: workspace:>=2.7.0 <4.0.0
+        version: link:../ui
+      lucide-react:
+        specifier: ^1.0.0
+        version: 1.72.0(@types/react@19.3.0)(react@19.3.0)
+      react:
+        specifier: 19.3.0
+        version: 19.3.0
+    devDependencies:
+      '@types/node':
+        specifier: ^22.9.0
+        version: 22.20.5
       typescript:
         specifier: ~6.0.3
         version: 6.0.3
@@ -1231,15 +1256,15 @@ importers:
 
   packages/genesis:
     dependencies:
+      '@marktiderman/genesis-config':
+        specifier: workspace:*
+        version: link:../features
       '@marktiderman/genesis-core':
         specifier: workspace:*
         version: link:../core
       '@marktiderman/genesis-design-system':
         specifier: workspace:*
         version: link:../design-system
-      '@marktiderman/genesis-features':
-        specifier: workspace:*
-        version: link:../features
       '@marktiderman/genesis-forms':
         specifier: workspace:*
         version: link:../forms
@@ -1280,7 +1305,7 @@ importers:
 
   packages/genesis-cli:
     dependencies:
-      '@marktiderman/genesis-features':
+      '@marktiderman/genesis-config':
         specifier: workspace:^
         version: link:../features
       '@marktiderman/genesis-studio-server':
@@ -1372,7 +1397,7 @@ importers:
 
   packages/native:
     dependencies:
-      '@marktiderman/genesis-features':
+      '@marktiderman/genesis-config':
         specifier: workspace:^
         version: link:../features
       react-native:
@@ -1436,7 +1461,7 @@ importers:
 
   packages/notifications:
     dependencies:
-      '@marktiderman/genesis-features':
+      '@marktiderman/genesis-config':
         specifier: workspace:^
         version: link:../features
     devDependencies:
@@ -1497,7 +1522,7 @@ importers:
 
   packages/product:
     dependencies:
-      '@marktiderman/genesis-features':
+      '@marktiderman/genesis-config':
         specifier: workspace:^
         version: link:../features
       react-native:
@@ -1546,7 +1571,7 @@ importers:
 
   packages/sites:
     dependencies:
-      '@marktiderman/genesis-features':
+      '@marktiderman/genesis-config':
         specifier: workspace:^
         version: link:../features
       '@marktiderman/genesis-media':
@@ -1761,7 +1786,7 @@ importers:
 
   packages/supabase:
     dependencies:
-      '@marktiderman/genesis-features':
+      '@marktiderman/genesis-config':
         specifier: workspace:^
         version: link:../features
       '@react-native-google-signin/google-signin':
@@ -1783,7 +1808,7 @@ importers:
 
   packages/support:
     dependencies:
-      '@marktiderman/genesis-features':
+      '@marktiderman/genesis-config':
         specifier: workspace:^
         version: link:../features
       react-native:

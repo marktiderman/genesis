@@ -1,6 +1,6 @@
 // Genesis's own feature registry (features.ts at the repo root), rendered with FeatureList:
 // the admin view (table, status board, roadmap) and the public marketing view.
-import { FeatureList } from "@marktiderman/genesis-features/react";
+import { FeatureList } from "@marktiderman/genesis-config/react";
 import { features } from "../../../../features";
 
 const REPO = "https://github.com/marktiderman/genesis/blob/main";

@@ -719,7 +719,7 @@ way: [ADR 0001](../../docs/adr/0001-one-feature-gate.md).
 
 ```ts
 import { featureGateState, syncFeatureRegistry } from "@marktiderman/genesis-supabase";
-import { gateSnapshot } from "@marktiderman/genesis-features/gate";
+import { gateSnapshot } from "@marktiderman/genesis-config/gate";
 import registry from "../features.json";
 
 // When a production deployment starts serving (never from a preview):
@@ -1042,7 +1042,7 @@ ids are shared with `@marktiderman/genesis-core/testing`.
 ## Blocks
 
 `accountBlock`, `tenantFeaturesBlock`, `jobsBlock` and `versionedWritesBlock` are `defineBlock` declarations
-(`@marktiderman/genesis-features/blocks`) of what this package's blocks need: their migrations
+(`@marktiderman/genesis-config/blocks`) of what this package's blocks need: their migrations
 (with their tests) and, for the account, what it means for the stores' privacy forms. The
 functions above don't change; the declarations are for `resolveBlocks` and the shell.
 

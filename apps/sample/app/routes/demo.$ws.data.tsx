@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import { useDataProvider } from "@marktiderman/genesis-core/provider";
-import { FeatureGate } from "@marktiderman/genesis-features/gate/react";
+import { FeatureGate } from "@marktiderman/genesis-config/gate/react";
 import { DataStudio, createSearchParamsRouter } from "@marktiderman/genesis-studio";
 import { Alert, AlertDescription, AlertTitle } from "@marktiderman/genesis-ui";
 import { PageHeader } from "@marktiderman/genesis-ui/layout";

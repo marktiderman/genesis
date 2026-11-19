@@ -82,7 +82,7 @@
     "README.md"
   ],
   "dependencies": {
-    "@marktiderman/genesis-features": "workspace:^"
+    "@marktiderman/genesis-config": "workspace:^"
   },
   "scripts": {
     "build": "tsup && node ../../scripts/check-exports-resolve.mjs",

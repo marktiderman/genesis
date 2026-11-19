@@ -3846,6 +3846,8 @@
       "links": {
         "code": [
           "packages/features",
+          "packages/features-alias",
+          "packages/genesis-cli/src/upgrade/rename-features.ts",
           "packages/genesis-cli/src/features.ts",
           "features.ts"
         ],
@@ -3881,9 +3883,9 @@
         "server": "building"
       },
       "entry": {
-        "web": "@marktiderman/genesis-features/blocks",
-        "native": "@marktiderman/genesis-features/blocks",
-        "server": "@marktiderman/genesis-features/blocks"
+        "web": "@marktiderman/genesis-config/blocks",
+        "native": "@marktiderman/genesis-config/blocks",
+        "server": "@marktiderman/genesis-config/blocks"
       },
       "requires": [
         "define-block"
@@ -3947,9 +3949,9 @@
         "server": "building"
       },
       "entry": {
-        "web": "@marktiderman/genesis-features/gate",
-        "native": "@marktiderman/genesis-features/gate",
-        "server": "@marktiderman/genesis-features/gate"
+        "web": "@marktiderman/genesis-config/gate",
+        "native": "@marktiderman/genesis-config/gate",
+        "server": "@marktiderman/genesis-config/gate"
       },
       "requires": [
         "feature-registry"
@@ -4117,9 +4119,9 @@
         "server": "building"
       },
       "entry": {
-        "web": "@marktiderman/genesis-features/blocks",
-        "native": "@marktiderman/genesis-features/blocks",
-        "server": "@marktiderman/genesis-features/blocks"
+        "web": "@marktiderman/genesis-config/blocks",
+        "native": "@marktiderman/genesis-config/blocks",
+        "server": "@marktiderman/genesis-config/blocks"
       },
       "requires": [
         "feature-registry"

@@ -5,7 +5,7 @@
  * the app still owns where they go.
  *
  * Platform-neutral and free of zod, so it ships to phones:
- * `@marktiderman/genesis-features/blocks` (also re-exported from the root).
+ * `@marktiderman/genesis-config/blocks` (also re-exported from the root).
  */
 import { cycleProblems, dependencyOrder, requirementProblem } from "./graph";
 import { FEATURE_PLATFORMS, type FeaturePlatform } from "./platforms";

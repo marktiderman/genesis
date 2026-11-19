@@ -8,7 +8,7 @@
 // kind, platforms, entry, keywords, slots, extends and requires make it a reuse catalog: run
 // `pnpm features find <term>` before building anything.
 // visibility "public" + a tagline puts a feature in the README's Features section.
-import { defineFeatures, type FeatureIdOf } from "@marktiderman/genesis-features";
+import { defineFeatures, type FeatureIdOf } from "@marktiderman/genesis-config";
 
 const reviewedAt = "2026-10-22";
 
@@ -1705,7 +1705,7 @@ export const features = defineFeatures({
       "FeatureList shows the registry as a table, a status board and a dateless roadmap.",
     ],
     reviewedAt,
-    links: { code: ["packages/features", "packages/genesis-cli/src/features.ts", "features.ts"], docs: ["packages/features/README.md"] },
+    links: { code: ["packages/features", "packages/features-alias", "packages/genesis-cli/src/upgrade/rename-features.ts", "packages/genesis-cli/src/features.ts", "features.ts"], docs: ["packages/features/README.md"] },
   },
   "content-packs": {
     name: "Content packs",
@@ -1717,7 +1717,7 @@ export const features = defineFeatures({
     kind: "tool",
     keywords: ["defineContentPack", "content pack", "templates", "starter content", "taxonomy", "labels", "install"],
     platforms: { web: "building", native: "building", server: "building" },
-    entry: { web: "@marktiderman/genesis-features/blocks", native: "@marktiderman/genesis-features/blocks", server: "@marktiderman/genesis-features/blocks" },
+    entry: { web: "@marktiderman/genesis-config/blocks", native: "@marktiderman/genesis-config/blocks", server: "@marktiderman/genesis-config/blocks" },
     requires: ["define-block"],
     contributes: ["fn: defineContentPack", "fn: contentPackProblems", "fn: contentPackBlocks"],
     owner: "mark",
@@ -1742,7 +1742,7 @@ export const features = defineFeatures({
     kind: "service",
     keywords: ["featureOn", "useFeature", "requireFeature", "FeatureOff", "gate", "paywall", "upsell", "kill switch", "feature toggle", "snapshot"],
     platforms: { web: "building", native: "building", server: "building" },
-    entry: { web: "@marktiderman/genesis-features/gate", native: "@marktiderman/genesis-features/gate", server: "@marktiderman/genesis-features/gate" },
+    entry: { web: "@marktiderman/genesis-config/gate", native: "@marktiderman/genesis-config/gate", server: "@marktiderman/genesis-config/gate" },
     requires: ["feature-registry"],
     contributes: ["fn: featureOn", "fn: gateSnapshot", "fn: requireFeature", "hook: useFeature", "component: FeatureGate", "component: FeatureGateProvider"],
     owner: "mark",
@@ -1813,7 +1813,7 @@ export const features = defineFeatures({
     kind: "provider",
     keywords: ["block", "blocks", "defineBlock", "resolveBlocks", "contributions", "plugin", "module", "requires", "useBlockSettings"],
     platforms: { web: "building", native: "building", server: "building" },
-    entry: { web: "@marktiderman/genesis-features/blocks", native: "@marktiderman/genesis-features/blocks", server: "@marktiderman/genesis-features/blocks" },
+    entry: { web: "@marktiderman/genesis-config/blocks", native: "@marktiderman/genesis-config/blocks", server: "@marktiderman/genesis-config/blocks" },
     requires: ["feature-registry"],
     contributes: ["blocks prop on GenesisNativeApp", "useBlocks", "useBlockSettings"],
     owner: "mark",

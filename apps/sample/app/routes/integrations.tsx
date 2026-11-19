@@ -1,6 +1,6 @@
 /** The outside services Genesis works with (app/lib/integrations.ts), each linked to its feature. */
 import { Badge, Card, CardDescription, CardHeader, CardTitle } from "@marktiderman/genesis-ui";
-import type { FeatureLinks } from "@marktiderman/genesis-features";
+import type { FeatureLinks } from "@marktiderman/genesis-config";
 import { features } from "../../../../features";
 import { INTEGRATIONS } from "../lib/integrations";
 
