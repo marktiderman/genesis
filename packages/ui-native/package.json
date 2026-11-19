@@ -157,13 +157,16 @@
     "class-variance-authority": "^0.7.1"
   },
   "devDependencies": {
+    "@hookform/resolvers": "^7.0.6",
     "@tanstack/react-query": "^5.105.0",
     "@testing-library/react": "^16.3.2",
     "@types/react": "^19.2.14",
     "@vitest/coverage-v8": "^5.0.5",
     "happy-dom": "^21.0.4",
+    "lucide-react-native": "^1.72.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
+    "react-hook-form": "^7.92.0",
     "tsup": "^8.3.0",
     "typescript": "~6.0.3",
     "vitest": "^5.0.5"
