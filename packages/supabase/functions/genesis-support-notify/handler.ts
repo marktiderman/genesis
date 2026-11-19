@@ -2,9 +2,12 @@
  * The genesis-support-notify Edge Function's request handling, with its
  * dependencies passed in, so it is tested without Deno.
  *
- * A Supabase Database Webhook calls it on INSERT into public.support_reports
- * (Dashboard → Database → Webhooks, or `supabase_functions.http_request` in a
- * migration of your own), with the header `x-genesis-support-secret: <secret>`.
+ * A Supabase Database Webhook calls it on INSERT into public.tickets (Dashboard →
+ * Database → Webhooks, or `supabase_functions.http_request` in a migration of
+ * your own), with the header `x-genesis-support-secret: <secret>`. Since
+ * genesis-support's migration 0004 a report is a row in public.tickets;
+ * public.support_reports, the table before it, is still taken, for an app
+ * whose webhook was set up before that migration.
  * It forwards a summary to the sinks that are configured:
  *
  *   - a GitHub issue per report: GITHUB_TOKEN (fine-grained, Issues: write on
@@ -48,6 +51,13 @@ export interface NotifyDeps {
 }
 
 const MESSAGE_CAP = 2000;
+
+/**
+ * The tables a new report lands in: `tickets` (genesis-support 0004 renamed the table), and
+ * `support_reports` for an app that hasn't applied 0004 yet. A webhook on the old name stops
+ * firing once it's renamed, so point the webhook at `tickets` after 0004.
+ */
+export const REPORT_TABLES: ReadonlySet<string> = new Set(["tickets", "support_reports"]);
 
 /** The only fields a sink ever sees. */
 export function summarize(record: ReportRecord): ReportSummary {
@@ -114,7 +124,7 @@ export async function handle(req: Request, deps: NotifyDeps): Promise<Response> 
   } catch {
     return json(400, { error: "invalid_json" });
   }
-  if (payload.type !== "INSERT" || payload.table !== "support_reports" || !payload.record?.id) {
+  if (payload.type !== "INSERT" || !REPORT_TABLES.has(payload.table ?? "") || !payload.record?.id) {
     return json(200, { ok: true, skipped: true });
   }
   const summary = summarize(payload.record);

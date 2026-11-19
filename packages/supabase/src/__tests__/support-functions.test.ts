@@ -117,6 +117,26 @@ describe("genesis-support-notify", () => {
     expect((init.headers as Record<string, string>)["x-genesis-signature"]).toBe(`sha256=${await hmacHex("k", String(init.body))}`);
   });
 
+  it("takes a new ticket (the table since genesis-support 0004) as well as the old support_reports", async () => {
+    for (const table of ["tickets", "support_reports"]) {
+      const fetch = vi.fn(async () => new Response("{}", { status: 201 }));
+      const deps = { env: env({ GENESIS_SUPPORT_WEBHOOK_SECRET: "s", GITHUB_TOKEN: "ghp", GITHUB_REPO: "acme/app" }), fetch: fetch as unknown as typeof globalThis.fetch, log: vi.fn() };
+      const res = await notify(new Request("https://fn.test", { method: "POST", headers: { "x-genesis-support-secret": "s" }, body: JSON.stringify({ ...insert, table }) }), deps);
+      expect(await res.json()).toEqual({ ok: true, sent: ["github"], failed: [] });
+      expect(fetch).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it("skips other tables and other events", async () => {
+    const fetch = vi.fn(async () => new Response("{}", { status: 201 }));
+    const deps = { env: env({ GENESIS_SUPPORT_WEBHOOK_SECRET: "s", GITHUB_TOKEN: "ghp", GITHUB_REPO: "acme/app" }), fetch: fetch as unknown as typeof globalThis.fetch, log: vi.fn() };
+    for (const payload of [{ ...insert, table: "ticket_attachments" }, { ...insert, table: "tickets", type: "UPDATE" }]) {
+      const res = await notify(new Request("https://fn.test", { method: "POST", headers: { "x-genesis-support-secret": "s" }, body: JSON.stringify(payload) }), deps);
+      expect(await res.json()).toEqual({ ok: true, skipped: true });
+    }
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it("refuses a webhook URL that isn't https", async () => {
     const deps = { env: env({ GENESIS_SUPPORT_WEBHOOK_SECRET: "s", SUPPORT_WEBHOOK_URL: "http://hooks.example" }), fetch: vi.fn(), log: vi.fn() };
     const res = await notify(new Request("https://fn.test", { method: "POST", headers: { "x-genesis-support-secret": "s" }, body: JSON.stringify(insert) }), deps);
