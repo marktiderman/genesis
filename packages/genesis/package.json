@@ -147,7 +147,7 @@
     "@marktiderman/genesis-forms": "workspace:*",
     "@marktiderman/genesis-forms-react": "workspace:*",
     "@marktiderman/genesis-forms-web": "workspace:*",
-    "@marktiderman/genesis-features": "workspace:*"
+    "@marktiderman/genesis-config": "workspace:*"
   },
   "peerDependencies": {
     "react": "^19.0.0",

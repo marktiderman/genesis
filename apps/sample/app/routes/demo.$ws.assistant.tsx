@@ -1,7 +1,7 @@
 /** The assistant: one AI task through genesis-ai's useAiStream, answered in the browser. */
 import { useMemo, useState } from "react";
 import { useAiStream } from "@marktiderman/genesis-ai/react";
-import { FeatureGate } from "@marktiderman/genesis-features/gate/react";
+import { FeatureGate } from "@marktiderman/genesis-config/gate/react";
 import { Alert, AlertDescription, AlertTitle, Badge, Button, Card, CardContent, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@marktiderman/genesis-ui";
 import { PageHeader } from "@marktiderman/genesis-ui/layout";
 import { cannedAiFetch, cannedSummary } from "../demo/ai";

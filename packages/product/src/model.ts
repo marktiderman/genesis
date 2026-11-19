@@ -1,4 +1,4 @@
-import type { FeatureHorizon, FeatureStatus } from "@marktiderman/genesis-features";
+import type { FeatureHorizon, FeatureStatus } from "@marktiderman/genesis-config";
 
 /**
  * A feature as the product system reads it: one entry of `features.json` (the

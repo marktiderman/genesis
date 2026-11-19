@@ -15,7 +15,7 @@
  *
  * "Uses" is a package's dependencies and peer dependencies plus every Genesis specifier its
  * source imports (tests and stories aside), so an undeclared import is still an edge.
- * The rules themselves are `packageLayerProblems` in genesis-features (built first).
+ * The rules themselves are `packageLayerProblems` in genesis-config (built first).
  *
  *   node scripts/check-package-layers.mjs [--root <dir>] [--list]
  *

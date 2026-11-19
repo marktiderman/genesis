@@ -143,3 +143,54 @@ describe("deprecated-import under --base", () => {
     expect(levels).toEqual(["info src/untouched.tsx", "warn src/changed.tsx"]);
   });
 });
+
+describe("deprecated-import for a whole package", () => {
+  const run = async (root: string, code: string) => {
+    const { checkStabilityImports } = await import("../src/doctor/stability.js");
+    const findings: Array<{ rule: string; level?: string; subject?: string; line?: number; message: string }> = [];
+    checkStabilityImports({ root, files: [{ path: "src/a.tsx", ext: ".tsx", code }], report: (f: never) => findings.push(f) } as never);
+    return findings;
+  };
+
+  it("finds every kind of import of a Genesis package", async () => {
+    const { genesisImportSpecifiers } = await import("../src/doctor/stability.js");
+    const code = [
+      'import { a } from "@marktiderman/genesis-features";',
+      'import * as g from "@marktiderman/genesis-features/gate";',
+      'import "@marktiderman/genesis-features/react";',
+      'export { b } from "@marktiderman/genesis-features/blocks";',
+      'const n = await import("@marktiderman/genesis-features/node");',
+      'const r = require("@marktiderman/genesis-ui");',
+      'const s = "import x from \'@marktiderman/genesis-features\'";',
+    ].join("\n");
+    expect(genesisImportSpecifiers(code).map((i) => `${i.line} ${i.specifier}`)).toEqual([
+      "1 @marktiderman/genesis-features",
+      "2 @marktiderman/genesis-features/gate",
+      "3 @marktiderman/genesis-features/react",
+      "4 @marktiderman/genesis-features/blocks",
+      "5 @marktiderman/genesis-features/node",
+      "6 @marktiderman/genesis-ui",
+    ]);
+  });
+
+  it("flags genesis-features, renamed to genesis-config, once per import, even when it isn't installed", async () => {
+    const { mkdtempSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const root = mkdtempSync(path.join(tmpdir(), "genesis-renamed-"));
+    const findings = await run(root, 'import { featureOn, gateSnapshot } from "@marktiderman/genesis-features/gate";\nimport type { BlockDef } from "@marktiderman/genesis-config/blocks";\n');
+    expect(findings).toEqual([
+      expect.objectContaining({ rule: "deprecated-import", level: "warn", line: 1, subject: "@marktiderman/genesis-features/gate", message: expect.stringContaining("renamed to @marktiderman/genesis-config") }),
+    ]);
+  });
+
+  it("reads npm's deprecated notice from an installed package", async () => {
+    const { mkdtempSync, mkdirSync, writeFileSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const root = mkdtempSync(path.join(tmpdir(), "genesis-deprecated-pkg-"));
+    const pkg = path.join(root, "node_modules/@marktiderman/genesis-features");
+    mkdirSync(pkg, { recursive: true });
+    writeFileSync(path.join(pkg, "package.json"), JSON.stringify({ name: "@marktiderman/genesis-features", version: "0.10.0", deprecated: "Renamed to @marktiderman/genesis-config." }));
+    const findings = await run(root, 'import { defineFeatures } from "@marktiderman/genesis-features";\n');
+    expect(findings).toEqual([expect.objectContaining({ rule: "deprecated-import", message: "@marktiderman/genesis-features is deprecated: Renamed to @marktiderman/genesis-config." })]);
+  });
+});

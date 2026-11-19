@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, render, screen } from "@testing-library/react";
 import { genesisBrand } from "@marktiderman/genesis-design-system";
 import { createMockProvider } from "@marktiderman/genesis-core/provider";
-import { BlockError, defineBlock } from "@marktiderman/genesis-features/blocks";
+import { BlockError, defineBlock } from "@marktiderman/genesis-config/blocks";
 import { GenesisNativeApp, type GenesisNativeAppProps } from "../app";
 import { mergeBlockSettings, useBlockSettings, useBlocks, type NativeBlock, type NativeBlockRootProps } from "../blocks";
 import type { FatalScreenProps } from "../errors";

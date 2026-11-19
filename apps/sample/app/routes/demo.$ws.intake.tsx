@@ -10,7 +10,7 @@ import { useWorkspace } from "@marktiderman/genesis-core/hooks";
 import type { FormEngine, Json } from "@marktiderman/genesis-forms";
 import { validateSubmission } from "@marktiderman/genesis-forms/server";
 import { Form } from "@marktiderman/genesis-forms-web";
-import { FeatureGate } from "@marktiderman/genesis-features/gate/react";
+import { FeatureGate } from "@marktiderman/genesis-config/gate/react";
 import { Alert, AlertDescription, AlertTitle, Button } from "@marktiderman/genesis-ui";
 import { PageHeader } from "@marktiderman/genesis-ui/layout";
 import { useDemo } from "../demo/context";

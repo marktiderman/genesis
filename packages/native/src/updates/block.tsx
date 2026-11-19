@@ -21,7 +21,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, useSyncExternalStore, type ComponentType, type ReactNode } from "react";
 import { View } from "react-native";
 import { renderSlot, type SlotPropsFor, type Slots } from "@marktiderman/genesis-core/slots";
-import { defineBlock } from "@marktiderman/genesis-features/blocks";
+import { defineBlock } from "@marktiderman/genesis-config/blocks";
 import type { NativeBlock } from "../blocks";
 import { createUpdateChecker, createReloadGuard, type ReloadGuard, type UpdateChecker, type UpdateCheckState } from "./checker";
 import { createChannelSwitcher, type ChannelSwitcher } from "./channels";

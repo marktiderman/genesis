@@ -175,7 +175,7 @@ still here (a second, unused copy).
 
 ## Blocks: add, migrate, upgrade
 
-A block is a feature an app adds whole (see `defineBlock` in `@marktiderman/genesis-features`).
+A block is a feature an app adds whole (see `defineBlock` in `@marktiderman/genesis-config`).
 The commands read blocks from the Genesis packages, never from a list in the CLI, so a package
 that declares a block is found:
 
@@ -276,7 +276,7 @@ specifier so other Genesis packages that depend on it get the copy too, not a se
   direct dependency to match it).
 
 **Fix the copied manifest.** A source copy keeps Genesis's own `workspace:` ranges for its
-dependencies (`"@marktiderman/genesis-features": "workspace:^"`), which the app can't resolve. Replace
+dependencies (`"@marktiderman/genesis-config": "workspace:^"`), which the app can't resolve. Replace
 each with the published range the upstream release declares (read it from the package.json on npm
 for that version), so the overlay installs against the same Genesis it was copied from.
 

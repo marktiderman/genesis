@@ -10,6 +10,7 @@ import { detectPackageManager, installCommand, shellLine } from "../blocks/pm.js
 import { appScripts } from "./app-scripts.js";
 import { compareVersions } from "./bump-core.mjs";
 import { hapticsUseGenesis, overlaysFitThePhone } from "./doctor-rule-codemods.js";
+import { featuresRenamedConfig } from "./rename-features.js";
 import { addGenesisLint, appPlatform, findEslintConfig, hasTestingLibrary, inlinesRntlRules, manualLines, readPackageJson, TESTING_LIBRARY, TESTING_LIBRARY_RANGE, usesGenesisLint } from "./eslint-config.js";
 import { augmentsResourceScope, IMPORTS_GENESIS, PRACTICE_ID_AUGMENTATION, readsPracticeId, rewriteScopeNames } from "./scope-names.js";
 import type { BumpChange } from "./bump-core.mjs";
@@ -222,7 +223,7 @@ export const composerBarHasContent: Codemod = {
   },
 };
 
-export const CODEMODS: readonly Codemod[] = [scopeNeutralNames, genesisEslintConfig, overlaysFitThePhone, hapticsUseGenesis, composerBarHasContent];
+export const CODEMODS: readonly Codemod[] = [scopeNeutralNames, genesisEslintConfig, overlaysFitThePhone, hapticsUseGenesis, composerBarHasContent, featuresRenamedConfig];
 
 /** What's left after a codemod that edited package.json, which never installs anything itself; null when nothing is. */
 export function codemodInstallNote(root: string, changed: readonly string[], dryRun: boolean): string | null {

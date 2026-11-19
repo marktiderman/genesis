@@ -9,7 +9,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Navigate, Outlet, useLocation, useParams } from "react-router";
 import { GenesisProvider } from "@marktiderman/genesis-core/provider";
 import { WorkspaceScope } from "@marktiderman/genesis-core/hooks";
-import { FeatureGateProvider } from "@marktiderman/genesis-features/gate/react";
+import { FeatureGateProvider } from "@marktiderman/genesis-config/gate/react";
 import { AppShell, WorkspaceSwitcher, type NavItem } from "@marktiderman/genesis-ui/layout";
 import { ReactRouterLink, useReactRouterActivePath } from "@marktiderman/genesis-ui/router/react-router";
 import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@marktiderman/genesis-ui";

@@ -87,7 +87,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@marktiderman/genesis-features": "workspace:^",
+    "@marktiderman/genesis-config": "workspace:^",
     "@marktiderman/genesis-studio-server": "workspace:^",
     "commander": "^15.0.0",
     "jiti": "^2.4.0",

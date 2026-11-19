@@ -23,7 +23,7 @@ import { runScaffold, type FileSystem } from "./scaffolder.js";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { existsSync, readFileSync } from "node:fs";
-import type { FindOptions } from "@marktiderman/genesis-features";
+import type { FindOptions } from "@marktiderman/genesis-config";
 
 /** The installed CLI's version, from its own package.json (dist/ sits beside it). */
 function cliVersion(): string {

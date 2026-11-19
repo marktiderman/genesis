@@ -1,7 +1,7 @@
 /**
  * Public types for `genesis doctor` and its rule plugins.
  */
-import type { OverlayMarker } from "@marktiderman/genesis-features";
+import type { OverlayMarker } from "@marktiderman/genesis-config";
 
 /** `info` is reported but never fails a run, `--strict` included. */
 export type Level = "error" | "warn" | "info";

@@ -807,7 +807,7 @@ await openOnWeb("/clients/1/forms", {
 
 ## Blocks
 
-`blocks` takes `defineBlock` declarations (`@marktiderman/genesis-features/blocks`) a native shell
+`blocks` takes `defineBlock` declarations (`@marktiderman/genesis-config/blocks`) a native shell
 can run: a `NativeBlock` may also carry `bootSteps` (run behind the splash after your `steps`,
 before the session) and a `Root` (mounted around your screens, inside the error boundary). The
 updates block is one, so these are the same:

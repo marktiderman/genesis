@@ -1,4 +1,8 @@
-# @marktiderman/genesis-features
+# @marktiderman/genesis-config
+
+> Formerly `@marktiderman/genesis-features`, renamed in place (same source, same subpaths, same
+> formats). The old name is a deprecated re-export for two minor versions
+> ([packages/features-alias](../features-alias/README.md)); `genesis upgrade` moves an app's imports.
 
 A repo's features in one typed code file that running code imports. Every other format (the
 AGENTS.md pointer, `features.json`, an OpenFeature `flags.json`, the agent skill, a README
@@ -11,7 +15,7 @@ Phase 1 is deliberately small: one flat file per repo. No database, no sync, no 
 
 ```ts
 // src/features.ts
-import { defineFeatures, type FeatureIdOf } from "@marktiderman/genesis-features";
+import { defineFeatures, type FeatureIdOf } from "@marktiderman/genesis-config";
 
 export const features = defineFeatures({
   tasks: {
@@ -50,7 +54,7 @@ Ids are permanent. `check` and `build` refuse when an id recorded in `features.j
 ## Flags
 
 ```ts
-import { defineFlags } from "@marktiderman/genesis-features";
+import { defineFlags } from "@marktiderman/genesis-config";
 import { features } from "./features";
 
 export const flags = defineFlags(features, {
@@ -129,7 +133,7 @@ run in a fixed order and the first "no" wins: **status** (beta, live or deprecat
 carries the reason, and for a paid feature the plan that unlocks it.
 
 ```ts
-import { featureOn, gateSnapshot, isSnapshotStale, requireFeature } from "@marktiderman/genesis-features/gate";
+import { featureOn, gateSnapshot, isSnapshotStale, requireFeature } from "@marktiderman/genesis-config/gate";
 
 const context = { platform: "web", entitlements: ["form-webhook-delivery"], off: ["library"], flags: { "sms.release": true } };
 featureOn({ features, flags }, context, "library"); // { on: false, reason: "tenant" }
@@ -148,7 +152,7 @@ phones and edge functions. Context id sets are lists, Sets or functions (not ite
 Native), `/gate/react` reads the server's snapshot:
 
 ```tsx
-import { FeatureGate, FeatureGateProvider, useFeature } from "@marktiderman/genesis-features/gate/react";
+import { FeatureGate, FeatureGateProvider, useFeature } from "@marktiderman/genesis-config/gate/react";
 
 <FeatureGateProvider snapshot={snapshot}>
   <FeatureGate feature="form-webhook-delivery" upsell={({ unlock }) => <Upgrade plan={unlock.plan} />}>
@@ -169,11 +173,11 @@ way: [ADR 0001](../../docs/adr/0001-one-feature-gate.md).
 A block is a feature an app adds whole: account, push, observability, support, updates. It is
 declared once, by its FeatureId, with what it needs and what it contributes. The app shell, the
 navigation tree and Settings read the contributions by FeatureId; the app still decides where they
-go. `@marktiderman/genesis-features/blocks` has no zod in it, so it ships to phones (the root
+go. `@marktiderman/genesis-config/blocks` has no zod in it, so it ships to phones (the root
 re-exports it).
 
 ```ts
-import { defineBlock, resolveBlocks } from "@marktiderman/genesis-features/blocks";
+import { defineBlock, resolveBlocks } from "@marktiderman/genesis-config/blocks";
 import type { FeatureId } from "./features";
 
 export const supportBlock = defineBlock<FeatureId>({
@@ -230,7 +234,7 @@ A pack's `sections` are keyed by the block that owns them. Genesis checks what e
 item holds is the block's business, checked by the validator it registers as `contributes.contentSection`:
 
 ```ts
-import { contentPackProblems, defineBlock, defineContentPack } from "@marktiderman/genesis-features/blocks";
+import { contentPackProblems, defineBlock, defineContentPack } from "@marktiderman/genesis-config/blocks";
 
 export const meetingsBlock = defineBlock({
   id: "meetings",
@@ -269,7 +273,7 @@ under the block that owns it.
 ## The page
 
 ```tsx
-import { FeatureList } from "@marktiderman/genesis-features/react";
+import { FeatureList } from "@marktiderman/genesis-config/react";
 
 <FeatureList features={features} flags={flags} pathHref={(p) => `https://github.com/acme/app/blob/main/${p}`} />
 <FeatureList features={features} variant="marketing" title="What it does" />

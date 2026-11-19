@@ -1,5 +1,5 @@
 /**
- * `@marktiderman/genesis-features/gate`: the feature gate without the
+ * `@marktiderman/genesis-config/gate`: the feature gate without the
  * registry's zod schemas, for code that ships to browsers, phones and edge
  * functions.
  *
