@@ -14,9 +14,11 @@
  * missing or signed out is an answer ("not checked: gh isn't installed"), never a crash.
  *
  * **Why Vault is set by hand.** Writing a Vault secret means a SQL statement with the value in it
- * (`vault.create_secret('…')`). The body of a DO block (or a function call's literal argument)
- * isn't normalised by pg_stat_statements, so the value would land in `pg_stat_statements.query`
- * (which Supabase shows under Query Performance), and in the Postgres log on an error. And
+ * (`vault.create_secret('…')`). pg_stat_statements replaces a plain statement's constants with
+ * `$1`, but keeps a utility statement such as `DO $$ … $$` word for word, so an upsert written
+ * that way would put the value in `pg_stat_statements.query` (which Supabase shows under Query
+ * Performance); and a statement that fails is written to the Postgres log as it was sent, value
+ * included, whatever its kind. And
  * `supabase db query --linked` needs a direct database connection (IPv6, or the database
  * password), not the Management API. So the CLI never writes Vault: the plan says to add it in
  * the dashboard (Database → Vault). Only the names are read, which carries no value. The in-app
@@ -110,6 +112,9 @@ export function stdinFor(format: StdinFormat, name: string, value: string): stri
       // Single quotes are literal in a dotenv file: no escapes, no ${…} expansion.
       if (/['\r\n]/.test(value)) throw new SecretError(`${name}: a value with a quote or a line break can't go through supabase secrets set on stdin; set it in the Supabase dashboard (Edge Functions → Secrets)`);
       return `${name}='${value}'\n`;
+    default:
+      // A format a plan names that this CLI doesn't know (Vault SQL never was one to keep): refused, never undefined.
+      throw new SecretError(`${name}: no way to send it on stdin as ${JSON.stringify(format)}`);
   }
 }
 
