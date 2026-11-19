@@ -264,3 +264,27 @@ describe("data/access-rule-tests: only resource configuration declares functions
     expect(found.map((f) => f.subject)).toEqual(["delete_task", "pin_note"]);
   });
 });
+
+describe("data-access rules: only the top-level key counts", () => {
+  it("a nested fn: \"declared\" doesn't make options declared, and a deleted access keeps the warning", async () => {
+    const found = await only("data/declared-access", {
+      "src/lib/nested-fn.ts": 'const options = { resources: {}, audit: { fn: "declared" } };\nexport const p = createSupabaseProvider(supabase, options);',
+      "src/lib/deleted.ts": 'const options: SupabaseProviderOptions = { access: "declared" };\ndelete options.access;\nexport const p = createSupabaseProvider(supabase, options);',
+      "src/lib/deleted-index.ts": 'const options = { access: "declared" };\ndelete options["access"];\nexport const p = createSupabaseProvider(supabase, options);',
+      "src/lib/ok.ts": 'const options = { access: "declared", resources: {} };\nexport const p = createSupabaseProvider(supabase, options);',
+    });
+    expect(found.map((f) => f.file).sort()).toEqual(["src/lib/deleted-index.ts", "src/lib/deleted.ts", "src/lib/nested-fn.ts"]);
+  });
+
+  it("an fn in a spec's args is an argument, not the function under test", async () => {
+    const found = await only("data/access-rule-tests", {
+      "src/lib/declared.ts": DECLARED,
+      "test/access.test.ts": [
+        'for (const c of accessRules({ fn: "create_task", as, args: () => ({ fn: "archive_task" }), allowed: ["owner"], refused: ["stranger"] })) test(c.name, c.run);',
+        'const save = { fn: "save_task", args: () => ({ fn: "list_reports" }), allowed: ["owner"], refused: ["stranger"] };',
+        "for (const c of accessRules({ ...save, as })) test(c.name, c.run);",
+      ].join("\n"),
+    });
+    expect(found.map((f) => f.subject)).toEqual(["archive_task", "list_reports"]);
+  });
+});

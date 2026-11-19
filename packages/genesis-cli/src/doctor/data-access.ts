@@ -191,15 +191,34 @@ export function testedFunctions(root: string): Set<string> {
   return out;
 }
 
-/** Every `fn: "…"` written in `text` (strings outside it are not names). */
-function fnNames(text: string): string[] {
+/**
+ * The string values of `key: "…"` written at bracket depth `depth` in `text` (1 is directly inside
+ * the outer `{…}`, `(…)` or `[…]`), so a key in an object nested deeper is not one.
+ */
+function valuesAt(text: string, key: string, depth: number): string[] {
   const blank = blankStrings(text);
   const out: string[] = [];
-  for (const m of text.matchAll(/(?:^|[\s{,])fn\s*:\s*(["'`])([A-Za-z_][\w.]*)\1/g)) {
-    const at = (m.index ?? 0) + m[0].indexOf("fn");
-    if (blank[at] === "f") out.push(m[2]!);
+  const pair = new RegExp(`(?:^|[\\s{,(])${key}\\s*:\\s*(["'\`])([A-Za-z_][\\w.]*)\\1`, "g");
+  for (const m of text.matchAll(pair)) {
+    const at = (m.index ?? 0) + m[0].indexOf(key);
+    if (blank[at] !== key[0]) continue;
+    let d = 0;
+    for (let i = 0; i < at; i++) {
+      const ch = blank[i];
+      if (ch === "{" || ch === "(" || ch === "[") d++;
+      else if (ch === "}" || ch === ")" || ch === "]") d--;
+    }
+    if (d === depth) out.push(m[2]!);
   }
   return out;
+}
+
+/**
+ * The function names a spec gives: its own top-level `fn`, not one in its `args`. `text` is the
+ * call `(…)` (the spec at depth 2), an object `{…}` (depth 1) or a list of specs `[…]` (depth 2).
+ */
+function fnNames(text: string): string[] {
+  return valuesAt(text, "fn", text.startsWith("{") ? 1 : 2);
 }
 
 /** The `[…]` or `{…}` a `const`/`let`/`var` named `name` is set to in the file, or "". */
@@ -231,7 +250,7 @@ function specsNamedIn(code: string, blank: string, call: string): string[] {
 }
 
 /** Whether the object `{…}` says `access: "declared"` itself, not in an object nested in it. */
-const objectDeclares = (object: string) => namesIn(object, /access/).some((p) => p.name === "declared");
+const objectDeclares = (object: string) => valuesAt(object, "access", 1).includes("declared");
 
 /** Whether a `createSupabaseProvider(…)` call's options object, written in the call, says `access: "declared"`. */
 function inlineDeclares(call: string): boolean {
@@ -258,7 +277,11 @@ function optionsConstDeclares(code: string, blank: string, call: string): boolea
     const escaped = name!.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     // Set again (a `let` or `var`), its `access` changed, or merged into: what the call gets is no longer known.
     const reassigned = found.keyword !== "const" && new RegExp(`(?<![\\w$.])${escaped}\\s*=(?!=)`, "g").test(blank.slice(found.at + found.keyword.length + 1 + name!.length));
-    const changed = new RegExp(`(?<![\\w$.])${escaped}\\s*(?:\\.\\s*access|\\[[^\\]]*\\])\\s*=(?!=)|Object\\.assign\\(\\s*${escaped}(?![\\w$])`).test(blank);
+    const changed = new RegExp(
+      `(?<![\\w$.])${escaped}\\s*(?:\\.\\s*access|\\[[^\\]]*\\])\\s*=(?!=)` +
+        `|\\bdelete\\s+${escaped}\\s*(?:\\.\\s*access|\\[)` +
+        `|Object\\.assign\\(\\s*${escaped}(?![\\w$])`,
+    ).test(blank);
     if (!reassigned && !changed) return true;
   }
   return false;
