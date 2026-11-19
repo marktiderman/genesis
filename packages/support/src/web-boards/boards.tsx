@@ -362,7 +362,7 @@ export function SupportIdeaBoard({ client, staff = false, statuses, layout = "em
           <div className="space-y-4" data-testid="support-idea-detail">
             <ViewFields columns={detailColumns} row={i} testId="support-idea-fields" />
             {voteButton(i, true)}
-            {staff ? <SupportIdeaStatusControl client={client} idea={i} copy={overrides} onChanged={refresh} {...(onError ? { onError } : {})} /> : null}
+            {staff ? <SupportIdeaStatusControl key={i.id} client={client} idea={i} copy={overrides} onChanged={refresh} {...(onError ? { onError } : {})} /> : null}
           </div>
         )}
       />

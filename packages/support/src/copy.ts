@@ -183,7 +183,7 @@ export const supportCopy = {
     sendAnyway: "Send anyway",
     review: "Review",
   },
-  /** Desks (migration 0023): each tenant's own help desk, and moving a ticket between desks. */
+  /** Desks (migration 0024): each tenant's own help desk, and moving a ticket between desks. */
   desks: {
     /** The app's own desk, where `private.genesis_tenant_label` names none. */
     appDesk: "Support",
@@ -221,7 +221,7 @@ export const supportCopy = {
     noDeskTitle: "No help desk to answer",
     noDeskBody: "Turn your help desk on in its settings to answer your people here.",
   },
-  /** Support's notifications (migration 0024, `supportNotificationTypes`): `{by}`, `{title}`, `{from}`. */
+  /** Support's notifications (migration 0025, `supportNotificationTypes`): `{by}`, `{title}`, `{from}`. */
   notifications: {
     category: "Support",
     categoryDescription: "Conversations with support",
@@ -244,7 +244,7 @@ export const supportCopy = {
     title: "Contact",
     email: "Email",
     tenants: "Belongs to",
-    /** A tenant's role for the person, from migration 0023 (an app's own words show as it gives them). */
+    /** A tenant's role for the person, from migration 0024 (an app's own words show as it gives them). */
     roles: { admin: "Admin", agent: "Agent", member: "Member" },
     sentFrom: "Sent from",
   },

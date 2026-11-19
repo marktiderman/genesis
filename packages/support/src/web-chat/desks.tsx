@@ -1,5 +1,5 @@
 /**
- * Desks on the web (migration 0023): the cards an agent's details panel shows (who wrote, and
+ * Desks on the web (migration 0024): the cards an agent's details panel shows (who wrote, and
  * where the ticket is with the way to send it up, back or across), a desk picker for an agent who
  * works more than one, and the switch a tenant's admins turn their desk on with.
  *

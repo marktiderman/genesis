@@ -1,5 +1,5 @@
 // @feat:support-desks
-// Desks (migration 0023): the client's calls, the pure pickers, and the web cards and switch.
+// Desks (migration 0024): the client's calls, the pure pickers, and the web cards and switch.
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";

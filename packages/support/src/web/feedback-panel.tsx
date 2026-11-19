@@ -99,7 +99,7 @@ export interface FeedbackPanelProps {
   /**
    * Genesis settings (`resolveSettings`' result, or the values alone): `support.screenshots`,
    * `support.pins`, `support.severity` and `diagnostics.dumpOnFeedback`. A prop given here wins over
-   * its setting. Without settings, the props' own defaults (severity stays off).
+   * its setting. Without settings, the max preset (severity is off unless `support.severity` turns it on).
    */
   appSettings?: SupportSettingsInput | undefined;
 }
@@ -172,7 +172,7 @@ export function FeedbackPanel({ client, diagnostics: dump, collector, copy: over
   const settings = supportSettingValues(appSettings);
   const screenshots = screenshotsProp ?? (settings.support.screenshots ? undefined : false);
   const pins = pinsProp ?? settings.support.pins;
-  const askSeverity = severityProp ?? (appSettings ? settings.support.severity : false);
+  const askSeverity = severityProp ?? settings.support.severity;
   const diagnostics = dump && dump.enabled !== false && settings.diagnostics.enabled && settings.diagnostics.dumpOnFeedback ? dump : undefined;
   const copy = useMemo(() => resolveSupportCopy(overrides), [overrides]);
   const collect = useMemo(() => collector ?? webContextCollector(), [collector]);

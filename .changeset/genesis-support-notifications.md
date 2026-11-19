@@ -2,7 +2,7 @@
 "@marktiderman/genesis-support": minor
 ---
 
-**Support's notifications.** Migration `0024_genesis_support_notifications.sql` (support block)
+**Support's notifications.** Migration `0025_genesis_support_notifications.sql` (support block)
 sends `support.message` to a ticket's desk (a new ticket, the person's next message, a ticket moved
 there; while `support.staffAlerts` is on and nobody who handles it has it), `support.reply` to the
 person when support answers, and `support.verify` with the verify prompt, through

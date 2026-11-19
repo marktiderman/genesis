@@ -82,7 +82,7 @@ export interface SupportAgentInboxProps {
   /** The requester card in the details panel: their name, email and tenants (migration 0022). Default on. */
   requesterPanel?: boolean;
   /**
-   * The desk card in the details panel (migration 0023): where the ticket is, its last move, and
+   * The desk card in the details panel (migration 0024): where the ticket is, its last move, and
    * sending it up to the app's own desk, back, or (`allowMove`) to another desk its person belongs
    * to. Default on; it shows nothing for a ticket that never moved and can't.
    */

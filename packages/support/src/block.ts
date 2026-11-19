@@ -103,10 +103,12 @@ export function supportContributions(options: SupportBlockOptions = {}): BlockCo
       { package: PACKAGE, file: "migrations/0006_genesis_support.sql", test: "migrations/tests/0006_genesis_support.test.sql" },
       // Severity, the verify loop and report handlers, after 0006.
       { package: "@marktiderman/genesis-support", file: "migrations/0003_genesis_support_findings.sql", test: "migrations/tests/0003_genesis_support_findings.test.sql" },
-      // Zero config: the default tenant, staff and viewer-people hooks, where the app has none.
-      { package: "@marktiderman/genesis-support", file: "migrations/0021_genesis_support_default_hooks.sql", test: "migrations/tests/0021_genesis_support_default_hooks.test.sql" },
-      // Tickets and tenants: the rename, tenant_id, agents (needs the default-tenant hook: 0021's, or the app's).
+      // Zero config: a stand-in default tenant for 0004, where the app has none (0023 drops it).
+      { package: "@marktiderman/genesis-support", file: "migrations/0021_genesis_support_default_hooks.sql", test: "migrations/tests/0023_genesis_support_hook_defaults.test.sql" },
+      // Tickets and tenants: the rename, tenant_id, agents (needs the default-tenant hook: 0021's stand-in, or the app's).
       { package: "@marktiderman/genesis-support", file: "migrations/0004_genesis_support_tickets.sql", test: "migrations/tests/0004_genesis_support_tickets.test.sql" },
+      // Zero config in Genesis's own wrappers: the reserved tenant and platform admins as staff, where the app has no hooks.
+      { package: "@marktiderman/genesis-support", file: "migrations/0023_genesis_support_hook_defaults.sql", test: "migrations/tests/0023_genesis_support_hook_defaults.test.sql" },
       // The Data Studio's keys after the rename, and an agent's unread count.
       { package: "@marktiderman/genesis-support", file: "migrations/0016_genesis_support_ticket_fixes.sql", test: "migrations/tests/0016_genesis_support_ticket_fixes.test.sql" },
       // The context dump's table (createDiagnostics): own rows, staff read, 10 an hour, 90 days.
@@ -114,7 +116,7 @@ export function supportContributions(options: SupportBlockOptions = {}): BlockCo
       // The dump's hourly limit and retention from the diagnostics.* settings.
       { package: "@marktiderman/genesis-support", file: "migrations/0020_genesis_support_settings.sql", test: "migrations/tests/0020_genesis_support_settings.test.sql" },
       // support.message, support.reply and support.verify through genesis-notifications (support.staffAlerts).
-      { package: "@marktiderman/genesis-support", file: "migrations/0024_genesis_support_notifications.sql", test: "migrations/tests/0024_genesis_support_notifications.test.sql" },
+      { package: "@marktiderman/genesis-support", file: "migrations/0025_genesis_support_notifications.sql", test: "migrations/tests/0025_genesis_support_notifications.test.sql" },
     ],
     privacy: {
       collects: [
@@ -209,7 +211,7 @@ export const SUPPORT_HELPDESK_BLOCK_ID = "support-helpdesk" as const;
 /**
  * The support-helpdesk block: what a tenant's help desk adds to support and its chat threads. It
  * brings migrations `0010_genesis_support_help_center.sql`, `0017_genesis_support_help_answers.sql`
- * and `0023_genesis_support_desks.sql` (desks). Its screens are components and hooks the
+ * and `0024_genesis_support_desks.sql` (desks). Its screens are components and hooks the
  * app routes to: `SupportMessengerLauncher`, `SupportAgentInbox` and `SupportHelpCenterAdmin` on the
  * web (`/web-chat`), the messenger's hooks on the phone (`/native`).
  */
@@ -230,7 +232,7 @@ export function defineSupportHelpdeskBlock(options: { basePath?: string; require
         // A question routed elsewhere keeps no answer.
         { package: "@marktiderman/genesis-support", file: "migrations/0017_genesis_support_help_answers.sql", test: "migrations/tests/0017_genesis_support_help_answers.test.sql" },
         // Desks: each tenant's own help desk, switched on by its admins; escalate, return and move (after the chat block's 0022).
-        { package: "@marktiderman/genesis-support", file: "migrations/0023_genesis_support_desks.sql", test: "migrations/tests/0023_genesis_support_desks.test.sql" },
+        { package: "@marktiderman/genesis-support", file: "migrations/0024_genesis_support_desks.sql", test: "migrations/tests/0024_genesis_support_desks.test.sql" },
       ],
       privacy: {
         notes: ["With AI answers on, a question the person chooses to ask and its answer are kept with their account and readable by the tenant's agents, and the question and the tenant's published articles go to the AI vendor. People agree first, unless the app's terms cover it. A question the app's safety protocol routes elsewhere isn't kept."],

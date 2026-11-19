@@ -32,7 +32,7 @@ from `@marktiderman/genesis-supabase` into your app's `supabase/` under a new ti
 
 ## Settings and zero config
 
-Every switch and number support reads is a Genesis setting (`@marktiderman/genesis-config`'s
+Every support option is a Genesis setting (`@marktiderman/genesis-config`'s
 `defineSettings`), in three namespaces: `support.*` (the features: `feedback`, `inbox`,
 `messenger`, `agentDesk`, `helpCenter`, `aiAnswers`, `ideas`, `chatThreads`, `email`,
 `replyByEmail`, `desks`, `staffAlerts`; the form's `screenshots`, `pins` and `severity`; the
@@ -40,7 +40,12 @@ GitHub sink's `githubRepo` and `githubIssueDetail`, `webhookUrl`, `contactEmail`
 `replyExpectation`), `diagnostics.*` (`enabled`, `dumpOnShake`, `dumpOnFeedback`,
 `sendFromSettings`, `offlineQueue`, `maxBytes`, `perHour`, `retentionDays`) and `shake.*`
 (`enabled`, a person's own switch, and `threshold`, `jolts`, `windowMs`, `cooldownMs`). Each has a
-default per preset:
+default per preset. Keys whose summary says **Planned** are declared, with their defaults, but no
+screen or function reads them yet (`messenger`, `agentDesk`, `helpCenter`, `aiAnswers`,
+`chatThreads`, `email`, `replyByEmail`, `desks`, `staffAlerts`, `githubRepo`, `githubIssueDetail`,
+`webhookUrl`, `contactEmail`, `contactUrl`): changing one changes nothing until it's wired.
+`support.severity` is off by default: the form asks a bug's severity only when it is turned on (or
+`FeedbackPanel`'s `severity` prop says so).
 
 | Preset | On |
 |---|---|
@@ -48,10 +53,14 @@ default per preset:
 | `standard` | everything but AI answers, email (and reply by email) and desks |
 | `min` | the feedback form, the dump and shake to report; no inbox, messenger, agent desk, help center, idea board, chat threads or staff alerts |
 
+`min` is meant to be the smallest useful support: feedback still lands in the app's database (and
+a GitHub issue or webhook still goes out where the app set one up), but the person has no inbox of
+replies and staff get no alerts, so someone reads new reports in the admin view.
+
 The keys that need a secret name it and its store, never its value: `support.githubRepo`
 (`GITHUB_TOKEN`, an Edge Function secret), `support.webhookUrl` (`SUPPORT_WEBHOOK_SIGNING_SECRET`),
-`support.email` (`RESEND_API_KEY`, the server's environment), `support.replyByEmail`
-(`SUPPORT_REPLY_SIGNING_SECRET`) and `support.aiAnswers` (`ANTHROPIC_API_KEY`). The declarations
+`support.email` (`RESEND_API_KEY`, an Edge Function secret), `support.replyByEmail`
+(`SUPPORT_REPLY_SIGNING_SECRET`) and `support.aiAnswers` (`ANTHROPIC_API_KEY`, an Edge Function secret). The declarations
 are also in this package's package.json (`genesis.settings`), so `genesis doctor` checks an app's
 `genesis.config.json` against them.
 
@@ -73,14 +82,24 @@ turns `shake.enabled` off stops shake to report at once. The database reads two 
 (`diagnostics.perHour`) and how long a dump is kept (`diagnostics.retentionDays`), from
 genesis-supabase's settings tables when they're there, else 10 and 90 as before.
 
-**No SQL of your own.** Migration `0021_genesis_support_default_hooks.sql`, copied before 0004,
-answers the three hooks support asks when the app hasn't: the app is its own one tenant
-(`private.genesis_support_default_tenant`), staff are its platform admins
-(`private.genesis_support_staff` asks genesis-supabase's `private.genesis_platform_admin`; without
-that hook nobody is staff), and every login is one person in the app's tenant
-(`private.genesis_viewer_people`, from `auth.users`). It creates only what's missing and replaces
-nothing; an app with organizations or its own staff defines the hook with `create or replace
-function` in a later migration.
+**No SQL of your own.** Support runs without any hook of the app's:
+
+- **The app's own tenant** is Genesis's reserved zero-config tenant,
+  `00000000-0000-0000-0000-000000000001`. It is never an organisation's id: don't give one to a real
+  organisation. Migration `0021_genesis_support_default_hooks.sql` (before 0004) defines a stand-in
+  `private.genesis_support_default_tenant()` only so 0004 can run; `0023` (right after 0004) drops it
+  again and answers from Genesis's own wrapper.
+- **Staff** are the app's platform admins (genesis-supabase's `private.genesis_platform_admin`),
+  asked in Genesis's own wrapper (0023); without that hook nobody is staff.
+- **No viewer-people default.** `private.genesis_viewer_people` is the tenancy boundary chat, work
+  and entitlements read, so Genesis never defines it. Without it a ticket goes to the app's own desk,
+  and organisations' help desks stay closed until the app defines it.
+
+Genesis never keeps a function of the app's hook names, so the app's own
+`private.genesis_support_default_tenant()` or `private.genesis_support_staff(person uuid)` can come
+in a migration of its own at any time, with a plain `create function` and its own parameter names,
+and takes over. Tickets filed before the app's own default tenant existed stay in the reserved one:
+move them in the same migration if the app's tenant should own them.
 
 ## Native
 
@@ -736,7 +755,19 @@ Names come from two optional hooks, `private.genesis_person_name(person uuid) re
 `private.genesis_tenant_label(tenant uuid) returns text`; without them, the login's
 `full_name` / `name` metadata, and no tenant label.
 
-**Web boards** (`@marktiderman/genesis-support/web`, each a `ResourceView` under the app's
+`staffList` checks candidates, never every login: the caller, the tenant's agent rows whose person
+is a login, and the logins the app's optional `private.genesis_support_staff_list() returns setof
+uuid` gives (its staff; a platform-admin or hook-named staff member is listed only through it).
+The `support.agentListScan` setting checks every login instead, which is slow on a big app.
+Anonymous logins are never listed. `reporters` and `requesterTenants` answer whoever handles the
+ticket, the same check as reading it (an agent, or a handler the app's report hook names). The
+SQL functions have new names (`support_agents_list`, `support_ticket_requesters`,
+`support_requester_tenants`), so an app's own function under an older name is never replaced.
+
+The phone's query keys are scoped by the signed-in login (`supportAgentKeys.user(id)`), so signing
+in as someone else never shows the last person's queue.
+
+**Web boards** (`@marktiderman/genesis-support/web-boards`, its own entry so `/web` stays light; each a `ResourceView` under the app's
 `GenesisProvider` and `QueryClientProvider`, every string in `copy.boards`):
 `SupportMyReports` (the person's reports, delete with a confirm, a detail render prop for the
 thread), `SupportIdeaBoard` (votes, suggest an idea, `SupportIdeaStatusControl` for staff),
@@ -750,9 +781,9 @@ Unassigned, All, Pending, Closed with counts, paged) and `useAgentThread(ticketI
 props: reply or internal note, status, take it / hand it back, the requester's name, email and
 tenants; it marks the ticket read). Query keys are `supportAgentKeys`.
 
-## Desks: each tenant's own help desk (migration 0023)
+## Desks: each tenant's own help desk (migration 0024)
 
-`0023_genesis_support_desks.sql` (in the `support-helpdesk` block, after 0022) makes a tenant's
+`0024_genesis_support_desks.sql` (in the `support-helpdesk` block, after 0022) makes a tenant's
 help desk something its admins run, and lets a ticket move between desks:
 
 - **The switch.** `client.setDesk(tenantId, enabled, reason)` (its tenant admins only, never the
@@ -781,9 +812,9 @@ help desk something its admins run, and lets a ticket move between desks:
 With the `support.desks` setting off (the `standard` and `min` presets) it is 0004 exactly:
 `tenant_features` alone decides, and nothing is switched, routed or moved.
 
-## Notifications: support.message, support.reply, support.verify (migration 0024)
+## Notifications: support.message, support.reply, support.verify (migration 0025)
 
-`0024_genesis_support_notifications.sql` (in the support block) tells people through
+`0025_genesis_support_notifications.sql` (in the support block) tells people through
 genesis-notifications' `genesis_notify`, with no code of the app's own:
 
 - **`support.message`** to the ticket's desk's agents: a new ticket, the person writing again, a
@@ -847,9 +878,17 @@ listed (name, type, size) but not stored yet.
 
 
 **Reply by email, statelessly** (`@marktiderman/genesis-support/email`, server only):
-`replyAddress(replyKey(SUPPORT_REPLY_SIGNING_SECRET), replyDomain, { ticketId, userId })` is a
-Reply-To that names the ticket and the one person the email went to, signed (nothing stored);
-`claimsFromAddresses(key, replyDomain, recipients)` reads it back from an inbound email, and
+`replyAddress(replyKeyring(replyKey(SUPPORT_REPLY_SIGNING_SECRET)), replyDomain, { ticketId, userId })`
+is a Reply-To that names the ticket, the one person the email went to and the week it was made,
+signed (nothing stored). A keyring holds keys by letter, so a new key signs while old ones still
+verify, and removing a key revokes its addresses; addresses expire after `maxAgeWeeks` (26).
+An app that made reply addresses in the earlier format (ticket, login, a 7-byte MAC, no week) keeps
+them working by putting its old key, derived under its own label (`replyKey(secret, { label })`),
+in the ring's `legacy` under its letter; they never expire and are never made again.
+`claimsFromAddresses(ring, replyDomain, recipients)` reads it back from an inbound email (bare or
+`Name <address>`). **A valid token says who the email went to, not who answered:** the inbound route
+must check, when the reply arrives, that `userId` is still the ticket's requester or a handler, and
+that the sender is that login's email with SPF and DKIM passing. And
 `stripReply(text, html)` keeps what the person wrote, without the quoted history, the
 `REPLY_MARKER` line or their signature. Auto-replies are already dropped by genesis-notifications'
 inbound router. Wiring these into the support notification emails is **Planned**

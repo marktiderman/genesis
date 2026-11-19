@@ -8,7 +8,7 @@ describe("support's notification types", () => {
   const support = supportNotificationTypes({ basePath: "/settings/support" });
   const registry = defineNotifications({ categories: support.categories, types: support.types });
 
-  it("is a registry genesis-notifications accepts, with the three types migration 0024 sends", () => {
+  it("is a registry genesis-notifications accepts, with the three types migration 0025 sends", () => {
     expect(Object.keys(registry.types).sort()).toEqual([...SUPPORT_NOTIFICATION_TYPES].sort());
     expect(registry.toTypeRows().map((r) => [r.key, r.category])).toEqual([
       ["support.message", "support"],

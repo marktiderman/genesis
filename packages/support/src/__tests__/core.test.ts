@@ -250,13 +250,19 @@ describe("the block", () => {
       {
         package: "@marktiderman/genesis-support",
         file: "migrations/0021_genesis_support_default_hooks.sql",
-        test: "migrations/tests/0021_genesis_support_default_hooks.test.sql",
+        test: "migrations/tests/0023_genesis_support_hook_defaults.test.sql",
         feature: SUPPORT_BLOCK_ID,
       },
       {
         package: "@marktiderman/genesis-support",
         file: "migrations/0004_genesis_support_tickets.sql",
         test: "migrations/tests/0004_genesis_support_tickets.test.sql",
+        feature: SUPPORT_BLOCK_ID,
+      },
+      {
+        package: "@marktiderman/genesis-support",
+        file: "migrations/0023_genesis_support_hook_defaults.sql",
+        test: "migrations/tests/0023_genesis_support_hook_defaults.test.sql",
         feature: SUPPORT_BLOCK_ID,
       },
       {
@@ -279,8 +285,8 @@ describe("the block", () => {
       },
       {
         package: "@marktiderman/genesis-support",
-        file: "migrations/0024_genesis_support_notifications.sql",
-        test: "migrations/tests/0024_genesis_support_notifications.test.sql",
+        file: "migrations/0025_genesis_support_notifications.sql",
+        test: "migrations/tests/0025_genesis_support_notifications.test.sql",
         feature: SUPPORT_BLOCK_ID,
       },
     ]);

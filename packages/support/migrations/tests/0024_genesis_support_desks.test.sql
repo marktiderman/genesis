@@ -1,5 +1,5 @@
 -- @feat:support-desks
--- pgTAP test for 0023_genesis_support_desks.sql: a tenant's admin turns its desk on, a question
+-- pgTAP test for 0024_genesis_support_desks.sql: a tenant's admin turns its desk on, a question
 -- with no tenant goes to the sender's one desk that is on, a ticket goes up to the app's own desk
 -- and back, each move logged, and the support.desks setting off is 0004 exactly. Rolls back.
 --
@@ -10,7 +10,7 @@ create extension if not exists pgtap with schema extensions;
 select plan(40);
 
 create function pg_temp.person(n text) returns uuid language sql immutable as $$
-  select ('00000000-0000-4000-8000-0000000023' || n)::uuid $$;
+  select ('00000000-0000-4000-8000-0000000024' || n)::uuid $$;
 create function pg_temp.sign_in(n text) returns void language plpgsql as $$
 begin
   perform set_config('request.jwt.claims', json_build_object('sub', pg_temp.person(n), 'role', 'authenticated')::text, true);
@@ -27,16 +27,16 @@ language sql stable set search_path = '' as $$ select '00000000-0000-4000-8000-0
 create or replace function private.genesis_viewer_people(viewer uuid)
 returns table (tenant_id uuid, person_id uuid) language sql stable set search_path = '' as $$
   select '00000000-0000-4000-8000-0000000000b0'::uuid, viewer
-   where viewer in ('00000000-0000-4000-8000-0000000023a1'::uuid, '00000000-0000-4000-8000-0000000023d3'::uuid,
-                    '00000000-0000-4000-8000-0000000023e4'::uuid)
+   where viewer in ('00000000-0000-4000-8000-0000000024a1'::uuid, '00000000-0000-4000-8000-0000000024d3'::uuid,
+                    '00000000-0000-4000-8000-0000000024e4'::uuid)
   union all
   select '00000000-0000-4000-8000-0000000000c0'::uuid, viewer
-   where viewer = '00000000-0000-4000-8000-0000000023e4'::uuid $$;
+   where viewer = '00000000-0000-4000-8000-0000000024e4'::uuid $$;
 create or replace function private.genesis_support_staff(person uuid) returns boolean
-language sql stable set search_path = '' as $$ select person = '00000000-0000-4000-8000-0000000023b2'::uuid $$;
+language sql stable set search_path = '' as $$ select person = '00000000-0000-4000-8000-0000000024b2'::uuid $$;
 create or replace function private.genesis_tenant_admin(tenant uuid, person uuid) returns boolean
 language sql stable set search_path = '' as $$
-  select tenant = '00000000-0000-4000-8000-0000000000b0'::uuid and person = '00000000-0000-4000-8000-0000000023d3'::uuid $$;
+  select tenant = '00000000-0000-4000-8000-0000000000b0'::uuid and person = '00000000-0000-4000-8000-0000000024d3'::uuid $$;
 create or replace function private.genesis_tenant_label(tenant uuid) returns text
 language sql stable set search_path = '' as $$
   select case tenant when '00000000-0000-4000-8000-0000000000b0'::uuid then 'Acme'
@@ -100,7 +100,7 @@ select is(pg_temp.tenant_of(pg_temp.ask('e4')), '00000000-0000-4000-8000-0000000
 
 create function private.genesis_support_desk_for(person uuid, ticket_type text) returns uuid
 language sql stable set search_path = '' as $$
-  select '00000000-0000-4000-8000-0000000000c0'::uuid where person = '00000000-0000-4000-8000-0000000023e4'::uuid $$;
+  select '00000000-0000-4000-8000-0000000000c0'::uuid where person = '00000000-0000-4000-8000-0000000024e4'::uuid $$;
 insert into t values ('e4', pg_temp.ask('e4'));
 select is(pg_temp.tenant_of((select id from t where name = 'e4')), '00000000-0000-4000-8000-0000000000c0'::uuid, 'the app''s hook decides when it answers');
 drop function private.genesis_support_desk_for(uuid, text);

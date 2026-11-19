@@ -1,5 +1,5 @@
 -- @feat:support-notifications
--- pgTAP test for 0024_genesis_support_notifications.sql: a new ticket and the person's messages
+-- pgTAP test for 0025_genesis_support_notifications.sql: a new ticket and the person's messages
 -- tell the desk's agents (support.message), support's answers tell the person (support.reply), the
 -- verify prompt asks them (support.verify), a move tells the new desk, an assignee silences the rest,
 -- support.staffAlerts off tells no staff, and without genesis-notifications nothing fails. A stand-in
@@ -11,7 +11,7 @@ create extension if not exists pgtap with schema extensions;
 select plan(16);
 
 create function pg_temp.person(n text) returns uuid language sql immutable as $$
-  select ('00000000-0000-4000-8000-0000000024' || n)::uuid $$;
+  select ('00000000-0000-4000-8000-0000000025' || n)::uuid $$;
 create function pg_temp.sign_in(n text) returns void language plpgsql as $$
 begin
   perform set_config('request.jwt.claims', json_build_object('sub', pg_temp.person(n), 'role', 'authenticated')::text, true);
@@ -28,12 +28,12 @@ language sql stable set search_path = '' as $$ select '00000000-0000-4000-8000-0
 create or replace function private.genesis_viewer_people(viewer uuid)
 returns table (tenant_id uuid, person_id uuid) language sql stable set search_path = '' as $$
   select '00000000-0000-4000-8000-0000000000b0'::uuid, viewer
-   where viewer in ('00000000-0000-4000-8000-0000000024a1'::uuid, '00000000-0000-4000-8000-0000000024d3'::uuid) $$;
+   where viewer in ('00000000-0000-4000-8000-0000000025a1'::uuid, '00000000-0000-4000-8000-0000000025d3'::uuid) $$;
 create or replace function private.genesis_support_staff(person uuid) returns boolean
-language sql stable set search_path = '' as $$ select person = '00000000-0000-4000-8000-0000000024b2'::uuid $$;
+language sql stable set search_path = '' as $$ select person = '00000000-0000-4000-8000-0000000025b2'::uuid $$;
 create or replace function private.genesis_tenant_admin(tenant uuid, person uuid) returns boolean
 language sql stable set search_path = '' as $$
-  select tenant = '00000000-0000-4000-8000-0000000000b0'::uuid and person = '00000000-0000-4000-8000-0000000024d3'::uuid $$;
+  select tenant = '00000000-0000-4000-8000-0000000000b0'::uuid and person = '00000000-0000-4000-8000-0000000025d3'::uuid $$;
 create or replace function private.genesis_support_verify_prompt_enabled() returns boolean
 language sql stable set search_path = '' as $$ select true $$;
 

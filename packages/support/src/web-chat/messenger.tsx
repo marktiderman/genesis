@@ -62,7 +62,7 @@ export interface SupportMessengerProps {
   tenantId?: string | null;
   /**
    * Messages (and the unread badge) list the person's conversations at every desk, not only this
-   * tenant's: someone who belongs to several tenants (desks, migration 0023) sees each answer in one
+   * tenant's: someone who belongs to several tenants (desks, migration 0024) sees each answer in one
    * place. A new conversation still goes to `tenantId` (or, with none, where the database routes it).
    * Default false.
    */

@@ -1,7 +1,7 @@
 -- @feat:support-notifications
--- Genesis support 0024: support's default notifications, through genesis-notifications (after
+-- Genesis support 0025: support's default notifications, through genesis-notifications (after
 -- 0004_genesis_support_tickets.sql; genesis-notifications' 0001_genesis_notifications.sql, the
--- support-chat block's 0022 (names) and the help desk's 0023 (desks) are optional, before or after).
+-- support-chat block's 0022 (names) and the help desk's 0024 (desks) are optional, before or after).
 --
 -- Three types, which the app adds to its `defineNotifications` with `supportNotificationTypes()`
 -- (`@marktiderman/genesis-support`), synced into notification_types as every type is:
@@ -30,7 +30,7 @@
 -- Use: copy this file into your app's `supabase/migrations/` under a new timestamped name
 -- (`genesis migrate` does it). Never edit it once applied; change it with a new migration.
 --
--- Verify: the pgTAP test beside this file (`tests/0024_genesis_support_notifications.test.sql`).
+-- Verify: the pgTAP test beside this file (`tests/0025_genesis_support_notifications.test.sql`).
 
 create schema if not exists private;
 
@@ -238,7 +238,7 @@ create trigger genesis_support_ticket_notify
   after insert on public.tickets
   for each row execute function private.genesis_support_ticket_notify();
 
--- A ticket moved to another desk (0023): that desk, as of a new ticket ------------------------------
+-- A ticket moved to another desk (0024): that desk, as of a new ticket ------------------------------
 
 create or replace function private.genesis_support_moved_notify()
 returns trigger
@@ -272,8 +272,8 @@ $$;
 
 revoke execute on function private.genesis_support_moved_notify() from public, anon, authenticated;
 
--- On the log, written after the move (the ticket at its new desk, nobody's). With 0023 applied
--- already; otherwise 0023 makes the trigger when it finds this function.
+-- On the log, written after the move (the ticket at its new desk, nobody's). With 0024 applied
+-- already; otherwise 0024 makes the trigger when it finds this function.
 do $$
 begin
   if to_regclass('public.support_desk_log') is not null then

@@ -1,5 +1,5 @@
 -- @feat:support-desks
--- Genesis support 0023: desks, each tenant's own help desk (after 0004_genesis_support_tickets.sql
+-- Genesis support 0024: desks, each tenant's own help desk (after 0004_genesis_support_tickets.sql
 -- and 0022_genesis_support_staff_tools.sql; 0005 and 0006, the support-chat block, are optional).
 --
 -- 0004 gave every ticket a tenant and every tenant its agents, and let a business take tickets
@@ -34,12 +34,12 @@
 --                   move) and support_desk_move_targets (where it can be moved).
 --
 -- Desks' names come from 0022's private.genesis_tenant_label hook; the app's own desk has none
--- (the client names it). Notifying a desk's agents of a moved ticket is 0024's.
+-- (the client names it). Notifying a desk's agents of a moved ticket is 0025's.
 --
 -- Use: copy this file into your app's `supabase/migrations/` under a new timestamped name
 -- (`genesis migrate` does it). Never edit it once applied; change it with a new migration.
 --
--- Verify: the pgTAP test beside this file (`tests/0023_genesis_support_desks.test.sql`).
+-- Verify: the pgTAP test beside this file (`tests/0024_genesis_support_desks.test.sql`).
 
 create schema if not exists private;
 
@@ -717,7 +717,7 @@ comment on function public.support_requester_tenants(uuid) is
 revoke execute on function public.support_requester_tenants(uuid) from public, anon;
 grant execute on function public.support_requester_tenants(uuid) to authenticated;
 
--- 0024's notification of a moved ticket, when 0024 came first (it makes this trigger itself after 0023).
+-- 0025's notification of a moved ticket, when 0025 came first (it makes this trigger itself after 0024).
 do $$
 begin
   if to_regprocedure('private.genesis_support_moved_notify()') is not null then
