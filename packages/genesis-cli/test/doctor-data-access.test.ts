@@ -288,3 +288,15 @@ describe("data-access rules: only the top-level key counts", () => {
     expect(found.map((f) => f.subject)).toEqual(["archive_task", "list_reports"]);
   });
 });
+
+describe("data/access-rule-tests: resource configuration in its usual shapes", () => {
+  it("reads resources passed by name, as a shorthand, or checked with satisfies", async () => {
+    const found = await only("data/access-rule-tests", {
+      "src/lib/shorthand.ts": 'const resources = { b: { writes: { create: "make_b" } } };\nexport const p = createSupabaseProvider(supabase, { access: "declared", resources });',
+      "src/lib/named.ts": 'const tables = { c: { actions: { close: "close_c" } } };\nexport const p = createSupabaseProvider(supabase, { access: "declared", resources: tables });',
+      "src/lib/satisfies.ts": 'export const all = { a: { writes: { create: "make_a" } } } satisfies Record<string, SupabaseResourceConfig>;',
+      "src/lib/labels.ts": 'export const labels = { actions: { save: "Save" } };\nexport const p = createSupabaseProvider(supabase, { access: "declared", resources: {} });',
+    });
+    expect(found.map((f) => f.subject).sort()).toEqual(["close_c", "make_a", "make_b"]);
+  });
+});

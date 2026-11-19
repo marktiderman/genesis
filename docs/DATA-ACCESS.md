@@ -146,7 +146,7 @@ least one allowed and one refused person.
 | Rule | Reports |
 |---|---|
 | `data/declared-access` | a `createSupabaseProvider(…)` call without `access: "declared"` (in its options, or in a `const` in the same file that it names); a table write in app code (`.from("t").insert/update/upsert/delete(…)`) outside tests and `supabase/`. A direct write that must stay is an `allow` entry for this rule, with its reason. |
-| `data/access-rule-tests` | a declared function no `accessRules` call in a test file is given as `fn: "…"` (written in the call, or in a spec it names: directly, spread, or through a `for (… of specs)` loop over a list set in the same file). Resources are read from files that configure the provider (they name `createSupabaseProvider`, `SupabaseResourceConfig` or `SupabaseProviderOptions`). |
+| `data/access-rule-tests` | a declared function no `accessRules` call in a test file is given as `fn: "…"` (written in the call, or in a spec it names: directly, spread, or through a `for (… of specs)` loop over a list set in the same file). Functions are read from resource configuration: a provider's `resources: {…}`, the object behind `resources: name` or `{ resources }` set in the same file, and an object typed `SupabaseResourceConfig` (annotated, or with `satisfies`). |
 
 Both warn; `--strict` fails on them, and `doctor.ratchet` holds new code to them while old code
 moves.

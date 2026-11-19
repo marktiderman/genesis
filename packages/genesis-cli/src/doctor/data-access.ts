@@ -102,8 +102,12 @@ function namesIn(block: string, keys: RegExp): { name: string; at: number }[] {
 }
 
 /**
- * Where the file configures resources: each `resources: {…}` (the provider's options), and each
- * object set to a variable typed with `SupabaseResourceConfig` (one resource, or a map of them).
+ * Where the file configures resources:
+ * - each `resources: {…}` (the provider's options);
+ * - the object behind `resources: name` or a shorthand `{ resources }`, set in the same file;
+ * - each object set to a variable typed with `SupabaseResourceConfig` (one resource, or a map of
+ *   them), by annotation (`const r: Record<string, SupabaseResourceConfig> = {…}`) or by
+ *   `{…} satisfies …SupabaseResourceConfig…`.
  */
 function resourceConfigRanges(code: string, blank: string): [number, number][] {
   const out: [number, number][] = [];
@@ -113,6 +117,20 @@ function resourceConfigRanges(code: string, blank: string): [number, number][] {
   };
   for (const m of blank.matchAll(/\bresources\s*:\s*\{/g)) add((m.index ?? 0) + m[0].length - 1);
   for (const m of blank.matchAll(/\bSupabaseResourceConfig\b[^=;{]*=\s*\{/g)) add((m.index ?? 0) + m[0].length - 1);
+  // `resources: name` and `{ resources }` (or `{ …, resources, … }`) in an object.
+  const named = new Set<string>();
+  for (const m of blank.matchAll(/\bresources\s*:\s*([A-Za-z_$][\w$]*)\s*[,}]/g)) named.add(m[1]!);
+  if (/[{,]\s*resources\s*[,}]/.test(blank)) named.add("resources");
+  for (const name of named) {
+    const found = initializer(code, blank, name);
+    if (found?.text.startsWith("{")) add(found.open);
+  }
+  // `const name = {…} satisfies …SupabaseResourceConfig…`.
+  for (const m of blank.matchAll(/\b(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*=\s*\{/g)) {
+    const open = (m.index ?? 0) + m[0].length - 1;
+    const block = balanced(code, open);
+    if (block && /^\s*satisfies\b[^;]*\bSupabaseResourceConfig\b/.test(blank.slice(open + block.length))) add(open);
+  }
   return out;
 }
 
@@ -222,12 +240,13 @@ function fnNames(text: string): string[] {
 }
 
 /** The `[…]` or `{…}` a `const`/`let`/`var` named `name` is set to in the file, or "". */
-function initializer(code: string, blank: string, name: string): { text: string; keyword: string; at: number } | null {
+function initializer(code: string, blank: string, name: string): { text: string; keyword: string; at: number; open: number } | null {
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const decl = new RegExp(`\\b(const|let|var)\\s+${escaped}(?![\\w$])[^=;]*=\\s*[[{]`).exec(blank);
   if (!decl) return null;
-  const text = balanced(code, decl.index + decl[0].length - 1);
-  return text ? { text, keyword: decl[1]!, at: decl.index } : null;
+  const open = decl.index + decl[0].length - 1;
+  const text = balanced(code, open);
+  return text ? { text, keyword: decl[1]!, at: decl.index, open } : null;
 }
 
 /**
