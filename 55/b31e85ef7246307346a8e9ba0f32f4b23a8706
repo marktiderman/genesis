@@ -1,0 +1,25 @@
+packages/support/src/__tests__/web-diagnostics.test.tsx
+  s_ca8e075e853203::t_5d426e8fb22b30 1-57
+packages/support/src/web/diagnostics.ts
+  s_ca8e075e853203::t_ba198cd4f6fd67 1-81
+packages/support/src/web/feedback-panel.tsx
+  s_ca8e075e853203::t_c0fbb6efe578ab 29,32-33,58-63,164,251,257-260,275
+packages/support/src/web/index.ts
+  s_ca8e075e853203::t_89617c3df10944 4-5,19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "55b31e85ef7246307346a8e9ba0f32f4b23a8706",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

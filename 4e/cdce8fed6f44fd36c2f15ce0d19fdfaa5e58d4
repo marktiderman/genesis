@@ -1,0 +1,33 @@
+.changeset/support-chat-pending.md
+  s_ca8e075e853203::t_9c1bff4548f716 1-5
+.changeset/support-notify-tickets.md
+  s_ca8e075e853203::t_c2858c47e48305 1-5
+packages/supabase/README.md
+  s_ca8e075e853203::t_48bedbdbabe92d 594
+packages/supabase/functions/genesis-support-notify/handler.ts
+  s_ca8e075e853203::t_f310c0b4399ea3 5-10,55-61,127
+packages/supabase/functions/genesis-support-notify/index.ts
+  s_ca8e075e853203::t_493039c784093d 2-3
+packages/supabase/src/__tests__/support-functions.test.ts
+  s_ca8e075e853203::t_120a234dae8a49 120-139
+packages/support/src/__tests__/chat-status.test.ts
+  s_ca8e075e853203::t_0834c57d399193 1-12
+packages/support/src/chat.ts
+  s_ca8e075e853203::t_38b979218ceb08 9-10,72-73,76
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4ecdce8fed6f44fd36c2f15ce0d19fdfaa5e58d4",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

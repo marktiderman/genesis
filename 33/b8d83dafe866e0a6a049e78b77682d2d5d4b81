@@ -1,0 +1,73 @@
+packages/support/migrations/0020_genesis_support_settings.sql
+  s_ca8e075e853203::t_8a6def49c8ce35 1-149
+packages/support/src/__tests__/settings.test.tsx
+  s_ca8e075e853203::t_1871525087e0b1 1-192
+  s_ca8e075e853203::t_13891c00d91d1d 193
+packages/support/migrations/0021_genesis_support_default_hooks.sql
+  s_ca8e075e853203::t_a437dfa17585d1 1-91
+packages/support/src/settings.ts
+  s_ca8e075e853203::t_c06f2beefc77db 162-164
+  s_ca8e075e853203::t_37e0c345ef3361 1-161,165-195
+packages/support/migrations/tests/0020_genesis_support_settings.test.sql
+  s_ca8e075e853203::t_6c18cb097a15a0 1-72
+.changeset/genesis-support-settings.md
+  s_ca8e075e853203::t_0c2084fd4c95e9 1-26
+packages/native/package.json
+  s_ca8e075e853203::t_dd26dd6c0c4d8d 383-424
+packages/native/src/__tests__/devtools/settings.test.tsx
+  s_ca8e075e853203::t_7f2ae6f2f4a9d7 1-31
+packages/native/src/devtools/block.tsx
+  s_ca8e075e853203::t_044c6690637dc6 24-25,79-85,103-113
+packages/native/src/devtools/index.ts
+  s_ca8e075e853203::t_232884a0dc3d14 23
+packages/native/src/devtools/settings.ts
+  s_ca8e075e853203::t_c58c8a503de835 1-50
+packages/supabase/functions/genesis-support-cleanup/handler.ts
+  s_ca8e075e853203::t_50270c9e7f562c 14-16,37-39,41,52,93-96
+packages/supabase/functions/genesis-support-cleanup/index.ts
+  s_ca8e075e853203::t_64913bc044da5d 4-5,37-38
+packages/supabase/src/__tests__/support-functions.test.ts
+  s_ca8e075e853203::t_d5bd840c4f3480 191,196,200
+packages/support/README.md
+  s_ca8e075e853203::t_eafb0ec7591860 33-84
+packages/support/migrations/tests/0021_genesis_support_default_hooks.test.sql
+  s_ca8e075e853203::t_176301437524af 1-63
+packages/support/package.json
+  s_ca8e075e853203::t_922aa0d625cb22 222-225,232,236,247-250,304-305,588-892
+packages/support/src/__tests__/core.test.ts
+  s_ca8e075e853203::t_9c5341aa4bd415 250-255,274-279
+packages/support/src/block.ts
+  s_ca8e075e853203::t_94e4437d1411c1 59-62,76-79,100-102,108-109
+packages/support/src/diagnostics/create.ts
+  s_ca8e075e853203::t_c753c5c4270281 36,67-72,98-99,183-184,188,217,286,290,307-311
+packages/support/src/index.ts
+  s_ca8e075e853203::t_af47234940eefa 26
+packages/support/src/native/support.tsx
+  s_ca8e075e853203::t_6560657db348a8 33,119-127,131,133-134,182-204,233-234,281,287,358-359
+packages/support/src/server/handler.ts
+  s_ca8e075e853203::t_2d3d40d8425f54 21,180-184,275
+packages/support/src/web/feedback-panel.tsx
+  s_ca8e075e853203::t_e3bf2ff0283630 34,99-104,171-176
+packages/support/tsup.config.ts
+  s_ca8e075e853203::t_3f6dd354cb0a4a 29,38-39
+scripts/pgtap-local/apply.sh
+  s_ca8e075e853203::t_4b952e6ff04c05 4,16-17
+scripts/pgtap-local/suites.sh
+  s_ca8e075e853203::t_9c897b3eae61da 24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "33b8d83dafe866e0a6a049e78b77682d2d5d4b81",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

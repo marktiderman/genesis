@@ -1,0 +1,57 @@
+packages/support/src/native/diagnostics.tsx
+  s_ca8e075e853203::t_5ee40d7b169362 1-377
+packages/support/src/__tests__/native-diagnostics.test.tsx
+  s_ca8e075e853203::t_cb5f39c22a584f 1-217
+packages/native/src/__tests__/devtools/devtools.test.tsx
+  s_ca8e075e853203::t_67cc422d3993cc 195-207
+packages/native/src/__tests__/updates/signature-channels.test.ts
+  s_ca8e075e853203::t_935100d2266d27 21-32
+packages/native/src/app.tsx
+  s_ca8e075e853203::t_c0d8691136f95e 623
+packages/native/src/devtools/block.tsx
+  s_ca8e075e853203::t_268b706428990f 15-16,39,218-219,247-250,265-266,286-287,316,341-342,471
+packages/native/src/devtools/index.ts
+  s_ca8e075e853203::t_dab9158a81d1e4 14,22
+packages/native/src/devtools/slots.ts
+  s_ca8e075e853203::t_c62c604ae1ad4e 17-26,31-35
+packages/native/src/updates/block.tsx
+  s_ca8e075e853203::t_7aa980529f25a6 40,73-74,181,385-386
+packages/native/src/updates/index.ts
+  s_ca8e075e853203::t_c56caf391a5913 77
+packages/native/src/updates/signature.ts
+  s_ca8e075e853203::t_ab3e268e0dcc56 13-17,35-40,47-63,70-71,79-81,111-117
+packages/support/src/__tests__/core.test.ts
+  s_ca8e075e853203::t_9f980c963f2695 262-267
+packages/support/src/block.ts
+  s_ca8e075e853203::t_956c60f05f2ce7 98-99,113
+packages/support/src/copy.ts
+  s_ca8e075e853203::t_dbb4d6713996e6 13-26
+packages/support/src/diagnostics/create.ts
+  s_ca8e075e853203::t_c9ec20adb717b0 215-222
+packages/support/src/diagnostics/redact.ts
+  s_ca8e075e853203::t_5285e58ae01c78 179-186
+packages/support/src/diagnostics/report.ts
+  s_ca8e075e853203::t_e93fbb35a25249 220-224
+packages/support/src/native/feedback-form.tsx
+  s_ca8e075e853203::t_12ad5b1e4b1557 16-19,26,66,71-76,80-84,88-90
+packages/support/src/native/index.ts
+  s_ca8e075e853203::t_38e26f7013bb2d 6-7,25-40
+packages/support/src/native/support.tsx
+  s_ca8e075e853203::t_906873053d033d 28-30,32,97-111,113,122-123,200,229-233,236-243,288,298-300
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "426e42fbb0b53d6532ff705b89a2a2a823dcc2cf",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

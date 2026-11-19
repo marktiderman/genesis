@@ -1,0 +1,29 @@
+packages/genesis-cli/test/doctor-data-access.test.ts
+  s_03775a189718c5::t_01595148136d9f 149-151,153
+packages/core/src/testing/access-rules.ts
+  s_03775a189718c5::t_a8267d1e47f695 8-10
+packages/genesis-cli/src/doctor/data-access.ts
+  s_03775a189718c5::t_01595148136d9f 95-97,102-104,109-114,116
+docs/DATA-ACCESS.md
+  s_03775a189718c5::t_a8267d1e47f695 50-52
+packages/ui-native/src/data/resource-view/NativeResourceView.tsx
+  s_03775a189718c5::t_a8267d1e47f695 860
+packages/ui/src/components/data/resource-view/ResourceInbox.tsx
+  s_03775a189718c5::t_a8267d1e47f695 37,192-194,198-201,204
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "02041a1dae89017892e09714b9abaff3baa5d617",
+  "prompts": {},
+  "sessions": {
+    "s_03775a189718c5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1bfce5ab-8151-44b4-9387-b6450c59973d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

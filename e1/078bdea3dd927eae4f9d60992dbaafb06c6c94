@@ -1,0 +1,53 @@
+packages/genesis-cli/src/doctor/data-access.ts
+  s_03775a189718c5::t_51e757ac036874 12-16,155-169,211-234,236
+packages/core/src/provider/supabase-provider.ts
+  s_03775a189718c5::t_210361b0940ca4 1090-1092,1094-1096,1837-1839,1911
+  s_03775a189718c5::t_08a83c5f6bb35a 1089,1093,1097-1099,1848-1851,1854-1856,1920-1926
+docs/DATA-ACCESS.md
+  s_03775a189718c5::t_a1974fe36ff401 52-69,146,148-164,177
+  s_03775a189718c5::t_c4434330562a19 147
+packages/genesis-cli/README.md
+  s_03775a189718c5::t_a1974fe36ff401 835
+packages/core/src/provider/__tests__/supabase-versioned.test.ts
+  s_03775a189718c5::t_b8b589a6cfadbd 86,88,92,94
+packages/genesis-cli/src/doctor/primitives.ts
+  s_03775a189718c5::t_a1974fe36ff401 169
+packages/core/src/provider/__tests__/supabase-declared.test.ts
+  s_03775a189718c5::t_293b1a683e2ed5 386-387,422-423,436-439,451-452,457-473
+  s_03775a189718c5::t_cf61ee4b3a57df 474
+packages/core/src/testing/__tests__/access-rules.test.ts
+  s_03775a189718c5::t_fff1f1a91aff09 4,132-173
+  s_03775a189718c5::t_b3061907983f14 174
+packages/core/src/provider/__tests__/supabase-source.test.ts
+  s_03775a189718c5::t_b8b589a6cfadbd 56-58
+packages/core/src/testing/index.ts
+  s_03775a189718c5::t_48163f288194fe 347-355
+.changeset/declared-data-access.md
+  s_03775a189718c5::t_a1974fe36ff401 8
+packages/genesis-cli/test/doctor-data-access.test.ts
+  s_03775a189718c5::t_8a5493fa1ea66e 143-148,150,152-154,156-157,160-163,166,168-170,172,175-176
+packages/core/src/provider/__tests__/supabase-provider.test.ts
+  s_03775a189718c5::t_b8b589a6cfadbd 348,350,352-354,804,806,810
+features.ts
+  s_03775a189718c5::t_ea5edfa15e693e 821,834-835
+packages/core/src/testing/access-rules.ts
+  s_03775a189718c5::t_48163f288194fe 12,137-198
+features.json
+  s_03775a189718c5::t_ea5edfa15e693e 1854,1887-1888
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e1078bdea3dd927eae4f9d60992dbaafb06c6c94",
+  "prompts": {},
+  "sessions": {
+    "s_03775a189718c5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1bfce5ab-8151-44b4-9387-b6450c59973d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

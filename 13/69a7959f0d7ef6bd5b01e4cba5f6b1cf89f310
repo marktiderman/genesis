@@ -1,0 +1,21 @@
+packages/ui-native/package.json
+  s_ca8e075e853203::t_9cf95329fd59f5 160,166,169
+pnpm-lock.yaml
+  s_ca8e075e853203::t_e879e3ace46bd1 2119-2121,2137-2139,2146-2148
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1369a7959f0d7ef6bd5b01e4cba5f6b1cf89f310",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

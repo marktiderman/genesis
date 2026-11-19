@@ -1,0 +1,28 @@
+packages/core/src/testing/__tests__/access-rules.test.ts
+  s_03775a189718c5::t_6b472d64de7bec 1-121
+packages/core/src/provider/supabase-provider.ts
+  s_03775a189718c5::t_e76df31c25db72 877,1189-1192,1194-1195,1198,1200-1201,1796,1823-1825,1830
+  s_03775a189718c5::t_bcf432501dba8f 1651-1654,1981-1985
+  s_03775a189718c5::t_9088465c08619d 1986
+packages/genesis-cli/test/doctor-data-access.test.ts
+  s_03775a189718c5::t_55a8a5f94b2bc0 1-82,85-86,92-148
+  s_03775a189718c5::t_4894d86548fe06 83-84,87-91
+packages/core/src/provider/__tests__/supabase-declared.test.ts
+  s_03775a189718c5::t_af75e36545070e 1-303
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d6d91f9769af37852ef450e88b27db2404e0a237",
+  "prompts": {},
+  "sessions": {
+    "s_03775a189718c5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1bfce5ab-8151-44b4-9387-b6450c59973d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

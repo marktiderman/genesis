@@ -1,0 +1,82 @@
+packages/supabase/migrations/tests/0020_genesis_settings.test.sql
+  s_ca8e075e853203::t_2269f213725a59 1-357
+packages/supabase/migrations/0020_genesis_settings.sql
+  s_ca8e075e853203::t_fc4f1ee39c51b6 1-383
+  s_ca8e075e853203::t_47c7695ae10138 384-386
+packages/features/src/__tests__/settings.test.ts
+  s_ca8e075e853203::t_12c1dab3be81e8 1-379
+  s_ca8e075e853203::t_f86332cead2dfa 380-382
+  s_ca8e075e853203::t_1417ada42c00da 383-398
+packages/supabase/src/settings.ts
+  s_ca8e075e853203::t_73edc150d5752c 1-191
+packages/genesis-cli/src/doctor/settings.ts
+  s_ca8e075e853203::t_70b49f49f1b999 1-85
+AGENTS.md
+  s_ca8e075e853203::t_a5dda940b514e0 155
+features.json
+  s_ca8e075e853203::t_dab0253d3c2dc9 3998-4077
+features.ts
+  s_ca8e075e853203::t_c40c1c61fe13ab 1764-1793
+packages/features-alias/package.json
+  s_ca8e075e853203::t_55ae1701570548 49-52
+packages/features-alias/tsup.config.ts
+  s_ca8e075e853203::t_cc8f70fce4b9b8 15
+packages/features/README.md
+  s_ca8e075e853203::t_d7be8612339cd9 127-184
+packages/features/package.json
+  s_ca8e075e853203::t_ade72459dcd9ab 53-56
+packages/features/src/index.ts
+  s_ca8e075e853203::t_cab40036c09cc8 124-164
+packages/features/tsup.config.ts
+  s_ca8e075e853203::t_5c36a7532bef0c 27
+packages/genesis-cli/README.md
+  s_ca8e075e853203::t_641a98b198e644 902
+packages/genesis-cli/src/doctor/config.ts
+  s_ca8e075e853203::t_f7a81de86cb8f7 12,146-178,451-452
+packages/genesis-cli/src/doctor/index.ts
+  s_ca8e075e853203::t_2778d87af3c5ff 49,318
+packages/genesis-cli/src/doctor/rules.ts
+  s_ca8e075e853203::t_18a0c54ffaab6f 100-101
+packages/supabase/README.md
+  s_ca8e075e853203::t_657daaa4c9295c 733-769
+packages/supabase/package.json
+  s_ca8e075e853203::t_7ad3afa4729eff 341-375
+packages/supabase/src/blocks.ts
+  s_ca8e075e853203::t_fc57d29389235b 125-142
+packages/supabase/src/index.ts
+  s_ca8e075e853203::t_382e70e922239f 185-199,221
+scripts/pgtap-local/suites.sh
+  s_ca8e075e853203::t_d0975be7312e0d 19
+.changeset/genesis-cli-settings.md
+  s_ca8e075e853203::t_197fa0dba31717 1-9
+.changeset/genesis-config-settings.md
+  s_ca8e075e853203::t_437480ca7928e0 1-16
+.changeset/genesis-supabase-settings.md
+  s_ca8e075e853203::t_cbbbac34bc27ee 1-13
+packages/features-alias/src/settings.ts
+  s_ca8e075e853203::t_955e03adc7c029 1-7
+packages/features/src/settings-entry.ts
+  s_ca8e075e853203::t_5a987359643e5e 1-5
+packages/features/src/settings.ts
+  s_ca8e075e853203::t_78f8f9dad3fee7 1-618
+packages/genesis-cli/test/doctor-settings.test.ts
+  s_ca8e075e853203::t_f3d827b204402d 1-111
+packages/supabase/src/__tests__/settings.test.ts
+  s_ca8e075e853203::t_034f2e6a0fecfb 1-163
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "95bab845769789f51866f6a72c5c6061b72e6ba2",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

@@ -1,0 +1,259 @@
+.changeset/genesis-ai-config-name.md
+  s_ca8e075e853203::t_5acd338093e4dc 1-5
+.changeset/genesis-cli-settings.md
+  s_ca8e075e853203::t_f8c33887218c2e 1-11
+.changeset/genesis-config-rename-cli.md
+  s_ca8e075e853203::t_96f9b14dd7a5ed 1-17
+.changeset/genesis-config-rename-dependents.md
+  s_ca8e075e853203::t_c20a7aa5dcd4b2 1-14
+.changeset/genesis-config-rename.md
+  s_ca8e075e853203::t_5d4b4986c02945 1-16
+.changeset/genesis-config-settings.md
+  s_ca8e075e853203::t_d81200fd4b902e 1-20
+.changeset/genesis-supabase-settings.md
+  s_ca8e075e853203::t_4dd6293beab853 1-16
+.github/CODEOWNERS
+  s_ca8e075e853203::t_35d88e410cdb18 14
+AGENTS.md
+  s_ca8e075e853203::t_98685cb2e7fdb8 155
+README.md
+  s_ca8e075e853203::t_d29437da66faa2 158
+apps/sample/app/demo/features.ts
+  s_ca8e075e853203::t_16993631471ba5 7-8
+apps/sample/app/lib/packages.ts
+  s_ca8e075e853203::t_eaa49e987f1e88 6
+apps/sample/app/routes/demo.$ws.assistant.tsx
+  s_ca8e075e853203::t_7d445f906cec20 4
+apps/sample/app/routes/demo.$ws.data.tsx
+  s_ca8e075e853203::t_49ccae7af65b16 5
+apps/sample/app/routes/demo.$ws.intake.tsx
+  s_ca8e075e853203::t_fe3b0e6af3f5b2 13
+apps/sample/app/routes/demo.$ws.settings.tsx
+  s_ca8e075e853203::t_5a453842b53c06 3
+apps/sample/app/routes/demo.tsx
+  s_ca8e075e853203::t_dda7e72aa5591f 12
+apps/sample/app/routes/features.tsx
+  s_ca8e075e853203::t_0780c804824eba 3
+apps/sample/app/routes/integrations.tsx
+  s_ca8e075e853203::t_74b81ce339bb16 3
+apps/sample/package.json
+  s_ca8e075e853203::t_dd24f80f99d9a1 32
+docs/AI.md
+  s_ca8e075e853203::t_dcbc9f52874c6c 408,738
+docs/MIGRATION.md
+  s_ca8e075e853203::t_69023eff2629a9 14-42
+docs/PACKAGE-STRATEGY.md
+  s_ca8e075e853203::t_4501f15d8f01ef 185,238
+docs/RELEASING.md
+  s_ca8e075e853203::t_a637ebaec1cdea 194-214
+docs/adr/0003-navigation-zones.md
+  s_ca8e075e853203::t_f2da8108647b8d 23
+docs/adr/0005-package-layers.md
+  s_ca8e075e853203::t_02870c728b2ca6 60
+features.json
+  s_ca8e075e853203::t_2acf804de2b511 3849-3850,3886-3888,3952-3954,3998-4077,4202-4204
+features.ts
+  s_ca8e075e853203::t_5ffe0db177eabf 11,1708,1720,1745,1764-1793,1846
+package.json
+  s_ca8e075e853203::t_d026e3b9c54dc0 49
+packages/ai/src/define.ts
+  s_ca8e075e853203::t_190fed8ac926fc 53
+packages/chat/package.json
+  s_ca8e075e853203::t_6e6483fc885bc1 95
+packages/features-alias/LICENSE
+  s_ca8e075e853203::t_4152808d6e6414 1-21
+packages/features-alias/README.md
+  s_ca8e075e853203::t_48f7e770e3c8cb 1-22
+packages/features-alias/package.json
+  s_ca8e075e853203::t_4ef6a959c594ac 1-105
+packages/features-alias/scripts/build.mjs
+  s_ca8e075e853203::t_7b70924bcfb32c 1-29
+packages/features-alias/src/alias.test.ts
+  s_ca8e075e853203::t_cd314b5a228097 1-46
+packages/features-alias/src/blocks.ts
+  s_ca8e075e853203::t_fa9568564486b4 1-7
+packages/features-alias/src/gate-react.ts
+  s_ca8e075e853203::t_437443e47c82ec 1-7
+packages/features-alias/src/gate.ts
+  s_ca8e075e853203::t_0f4cde31d0d4bc 1-7
+packages/features-alias/src/index.ts
+  s_ca8e075e853203::t_995f1e639ce695 1-7
+packages/features-alias/src/node.ts
+  s_ca8e075e853203::t_437ee6e72052f6 1-7
+packages/features-alias/src/react.ts
+  s_ca8e075e853203::t_e69fab32ada231 1-7
+packages/features-alias/src/settings.ts
+  s_ca8e075e853203::t_167491b79d469a 1-7
+packages/features-alias/tsconfig.json
+  s_ca8e075e853203::t_69d372b80ed344 1-17
+packages/features-alias/vitest.config.ts
+  s_ca8e075e853203::t_47dc8642d7625a 1-7
+packages/features/README.md
+  s_ca8e075e853203::t_8be511cb729847 1-5,18,57,127-191,195-196,201,220,241,245,302,341
+packages/features/package.json
+  s_ca8e075e853203::t_722d04df86c78c 2-3,7,14-16,53-56,128
+packages/features/src/__tests__/settings.test.ts
+  s_ca8e075e853203::t_a529b019cd156e 1-488
+packages/features/src/blocks-entry.ts
+  s_ca8e075e853203::t_d6312fdf425c7e 2
+packages/features/src/blocks.ts
+  s_ca8e075e853203::t_f21606d779b58e 8
+packages/features/src/gate-entry.ts
+  s_ca8e075e853203::t_52c59178d196d5 2
+packages/features/src/gate-react.tsx
+  s_ca8e075e853203::t_a22ff0a69da549 2
+packages/features/src/gate.ts
+  s_ca8e075e853203::t_0a6e97cfd743e9 9-12,57,123-124,167,176,181,198
+packages/features/src/index.ts
+  s_ca8e075e853203::t_5acea2c214d5be 124-166
+packages/features/src/settings-entry.ts
+  s_ca8e075e853203::t_9a636020f08fed 1-5
+packages/features/src/settings.ts
+  s_ca8e075e853203::t_1e65c6fa751b9f 1-700
+packages/features/tsup.config.ts
+  s_ca8e075e853203::t_2a25d8d27ae994 27
+packages/genesis-cli/README.md
+  s_ca8e075e853203::t_9ed87150beb56e 92,178,279,547,891,903-904
+packages/genesis-cli/package.json
+  s_ca8e075e853203::t_2100e2d1465e1a 90
+packages/genesis-cli/src/blocks/manifest.ts
+  s_ca8e075e853203::t_4e027251fecf8f 17
+packages/genesis-cli/src/blocks/registry-edit.ts
+  s_ca8e075e853203::t_392fbe4c82864c 25-28,31,33-34,37-38
+packages/genesis-cli/src/blocks/routes.ts
+  s_ca8e075e853203::t_b137a9933435cd 9
+packages/genesis-cli/src/cli.ts
+  s_ca8e075e853203::t_81d3751b45e201 26
+packages/genesis-cli/src/doctor/config.ts
+  s_ca8e075e853203::t_efb94e4cdd4351 12,146-178,451-452
+packages/genesis-cli/src/doctor/index.ts
+  s_ca8e075e853203::t_14db20c93929b4 49,318-319
+packages/genesis-cli/src/doctor/overlays.ts
+  s_ca8e075e853203::t_b19fa052818714 5,32,40
+packages/genesis-cli/src/doctor/rules.ts
+  s_ca8e075e853203::t_65b8ec55a8aa96 100-102
+packages/genesis-cli/src/doctor/settings.ts
+  s_ca8e075e853203::t_1d76897df77359 1-139
+packages/genesis-cli/src/doctor/stability.ts
+  s_ca8e075e853203::t_5efb917876bc1c 10-12,102-141,208-212,215-221,223-224
+packages/genesis-cli/src/doctor/types.ts
+  s_ca8e075e853203::t_f51da9d55e901e 4
+packages/genesis-cli/src/features.ts
+  s_ca8e075e853203::t_3bf5232eda4e0f 5,23,37
+packages/genesis-cli/src/upgrade/codemods.ts
+  s_ca8e075e853203::t_4ae6a982493a7b 13,24-28,40-44,236,240,251-259
+packages/genesis-cli/src/upgrade/index.ts
+  s_ca8e075e853203::t_ff5e2c2f317a8f 394,485
+packages/genesis-cli/src/upgrade/overlays.ts
+  s_ca8e075e853203::t_bb82ed44f1eff1 30
+packages/genesis-cli/src/upgrade/rename-features.ts
+  s_ca8e075e853203::t_98a13d8b085998 1-269
+packages/genesis-cli/test/blocks-add.test.ts
+  s_ca8e075e853203::t_7fc907f51c1c53 15,69
+packages/genesis-cli/test/blocks-helpers.ts
+  s_ca8e075e853203::t_fe19f17bad5d50 126
+packages/genesis-cli/test/blocks-local.test.ts
+  s_ca8e075e853203::t_dbf71231f6ef7a 32
+packages/genesis-cli/test/blocks-migrate.test.ts
+  s_ca8e075e853203::t_6a0ac432a766a6 15
+packages/genesis-cli/test/blocks-review.test.ts
+  s_ca8e075e853203::t_c44ea78477ebeb 21
+packages/genesis-cli/test/codemod-features-renamed.test.ts
+  s_ca8e075e853203::t_5bffcd235bdaf0 1-213
+packages/genesis-cli/test/doctor-settings.test.ts
+  s_ca8e075e853203::t_7bad2c96fa68e1 1-144
+packages/genesis-cli/test/doctor-stability.test.ts
+  s_ca8e075e853203::t_1319ff5286dc19 146-196
+packages/genesis-cli/test/shared-database.test.ts
+  s_ca8e075e853203::t_ea157de587aede 41
+packages/genesis-cli/test/upgrade-friction.test.ts
+  s_ca8e075e853203::t_b33ce7afa11c17 275
+packages/genesis/package.json
+  s_ca8e075e853203::t_4aeb4e794eddb2 150
+packages/genesis/src/features.ts
+  s_ca8e075e853203::t_d755339ae900b1 1
+packages/native/README.md
+  s_ca8e075e853203::t_1ebcd066b8b133 815
+packages/native/package.json
+  s_ca8e075e853203::t_3c5c505e2abc78 116
+packages/native/src/__tests__/blocks.test.tsx
+  s_ca8e075e853203::t_f4abb506230b00 7
+packages/native/src/app.tsx
+  s_ca8e075e853203::t_20820aac8dab25 65
+packages/native/src/blocks.tsx
+  s_ca8e075e853203::t_3fc99be4148d46 3,11
+packages/native/src/devtools/block.tsx
+  s_ca8e075e853203::t_6b52d679e8399d 29
+packages/native/src/observability/block.tsx
+  s_ca8e075e853203::t_95ba08f9a45c20 30
+packages/native/src/push/block.tsx
+  s_ca8e075e853203::t_647815db5d9585 26
+packages/native/src/updates/block.tsx
+  s_ca8e075e853203::t_7b814930f2fb9f 24
+packages/notifications/package.json
+  s_ca8e075e853203::t_cc121656a4b269 102
+packages/notifications/src/blocks.ts
+  s_ca8e075e853203::t_896aca062af7ae 7
+packages/product/package.json
+  s_ca8e075e853203::t_8bef57dde1f4fa 68
+packages/product/src/app.ts
+  s_ca8e075e853203::t_b6785ac86ac227 9
+packages/product/src/model.ts
+  s_ca8e075e853203::t_a82ade36d3aef3 1
+packages/product/src/native/roadmap.tsx
+  s_ca8e075e853203::t_443799d932067d 9
+packages/sites/package.json
+  s_ca8e075e853203::t_9a0189fda632cb 97
+packages/sites/src/blocks.ts
+  s_ca8e075e853203::t_394b389d9bc21c 6
+packages/supabase/README.md
+  s_ca8e075e853203::t_2adc8fbfcf90af 722,733-776,1089
+packages/supabase/migrations/0020_genesis_settings.sql
+  s_ca8e075e853203::t_415861a02aa28a 1-470
+packages/supabase/migrations/tests/0020_genesis_settings.test.sql
+  s_ca8e075e853203::t_fe2b7f40b5cb2a 1-388
+packages/supabase/package.json
+  s_ca8e075e853203::t_4659a7dff92fae 85,341-375
+packages/supabase/src/__tests__/settings.test.ts
+  s_ca8e075e853203::t_eacb78d1ec1a3e 1-170
+packages/supabase/src/__tests__/tenant-features.test.ts
+  s_ca8e075e853203::t_6c42b88df11711 5
+packages/supabase/src/blocks.ts
+  s_ca8e075e853203::t_a6eb76f4185135 7,125-142
+packages/supabase/src/index.ts
+  s_ca8e075e853203::t_387feb342f6bbc 185-199,221
+packages/supabase/src/settings.ts
+  s_ca8e075e853203::t_1b0f354c153411 1-196
+packages/support/package.json
+  s_ca8e075e853203::t_8b69c3c8eb2efc 87
+packages/support/src/__tests__/core.test.ts
+  s_ca8e075e853203::t_41e7aa75a42e3a 5
+packages/support/src/block.ts
+  s_ca8e075e853203::t_21ba5355e73799 7
+pnpm-lock.yaml
+  s_ca8e075e853203::t_4253fe647b398a 39,322-324,662,920-944,1259-1261,1308,1400,1464,1525,1574,1789,1811
+scripts/check-package-layers.mjs
+  s_ca8e075e853203::t_dc3f9ef3c7dc78 18,114
+scripts/gen-component-reference.mjs
+  s_ca8e075e853203::t_5d16bd86a609fc 142,146,149,155
+scripts/pgtap-local/docker.sh
+  s_ca8e075e853203::t_8546c644ae9a03 6-7
+scripts/pgtap-local/suites.sh
+  s_ca8e075e853203::t_6fe8893022027a 19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "113ae4c72b230d23267e2d3f08cbbe9da7647b95",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

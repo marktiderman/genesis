@@ -1,0 +1,27 @@
+packages/ui/src/components/data/resource-view/RecordView.tsx
+  s_03775a189718c5::t_219016978756f1 152-155
+packages/ui-native/src/data/resource-view/__tests__/native-record-view.test.tsx
+  s_03775a189718c5::t_f5947e0bc7b0ed 197-206
+packages/core/src/provider/__tests__/supabase-declared.test.ts
+  s_03775a189718c5::t_219016978756f1 477
+packages/ui-native/src/data/resource-view/NativeRecordView.tsx
+  s_03775a189718c5::t_219016978756f1 119-122
+packages/ui/src/components/data/__tests__/record-view.test.tsx
+  s_03775a189718c5::t_219016978756f1 292-301
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "da5446b33caeacc197849e197c3496e3d3f101e5",
+  "prompts": {},
+  "sessions": {
+    "s_03775a189718c5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1bfce5ab-8151-44b4-9387-b6450c59973d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

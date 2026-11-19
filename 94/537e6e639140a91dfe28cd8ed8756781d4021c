@@ -1,0 +1,38 @@
+packages/ui/src/components/data/resource-view/list-controls.tsx
+  s_03775a189718c5::t_f188d8afe53999 305,315-316,357,389-396,402,409,496
+packages/core/src/provider/supabase-provider.ts
+  s_03775a189718c5::t_7a17f39b47d4a0 1901-1911
+.changeset/declared-data-access.md
+  s_03775a189718c5::t_444267c6ba46d9 8
+packages/core/src/provider/__tests__/supabase-declared.test.ts
+  s_03775a189718c5::t_043e4d1d84d14a 320-321,323,327-336
+  s_03775a189718c5::t_26829537165deb 337-338
+packages/ui/src/components/data/__tests__/resource-view-lists-vnext.test.tsx
+  s_03775a189718c5::t_043e4d1d84d14a 174-188
+packages/genesis-cli/src/doctor/data-access.ts
+  s_03775a189718c5::t_4947c2d8ea9584 164-169,175-200,202-228,231-232,237-238,240-243,255
+  s_03775a189718c5::t_046e79512ba684 201
+  s_03775a189718c5::t_13c5d0e058b134 13-15,20-22
+packages/genesis-cli/test/doctor-data-access.test.ts
+  s_03775a189718c5::t_043e4d1d84d14a 204-239
+docs/DATA-ACCESS.md
+  s_03775a189718c5::t_13c5d0e058b134 58-59,148
+packages/ui-native/src/data/resource-view/NativeResourceView.tsx
+  s_03775a189718c5::t_f188d8afe53999 545-547,551-560,563
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "94537e6e639140a91dfe28cd8ed8756781d4021c",
+  "prompts": {},
+  "sessions": {
+    "s_03775a189718c5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1bfce5ab-8151-44b4-9387-b6450c59973d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

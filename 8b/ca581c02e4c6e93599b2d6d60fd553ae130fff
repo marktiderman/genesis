@@ -1,0 +1,157 @@
+.changeset/native-diagnostics.md
+  s_ca8e075e853203::t_561bf7383f1346 1-8
+.changeset/supabase-cleanup-diagnostics.md
+  s_ca8e075e853203::t_b6fe58ac13c5d1 1-7
+.changeset/support-chat-pending.md
+  s_ca8e075e853203::t_759e0045161f16 1-5
+.changeset/support-diagnostics.md
+  s_ca8e075e853203::t_e3d5aa5f6aff12 1-15
+.changeset/support-notify-tickets.md
+  s_ca8e075e853203::t_7b593a6cb40054 1-5
+apps/genesis-rn-starter/supabase/migrations/20261025000096_genesis_support_diagnostics.sql
+  s_ca8e075e853203::t_1a65fe3a6fe5c0 1-201
+apps/genesis-rn-starter/supabase/tests/database/genesis_support_diagnostics.test.sql
+  s_ca8e075e853203::t_952a5b67b5e2bd 1-171
+packages/native/README.md
+  s_ca8e075e853203::t_424e4585b3bba7 209,299-301,491-493
+packages/native/src/__tests__/devtools/devtools.test.tsx
+  s_ca8e075e853203::t_cbbb03d5359dd6 195-207
+packages/native/src/__tests__/updates/signature-channels.test.ts
+  s_ca8e075e853203::t_60eaec1a3e7f5b 21-32
+packages/native/src/app.tsx
+  s_ca8e075e853203::t_040d8cac91920d 623
+packages/native/src/devtools/block.tsx
+  s_ca8e075e853203::t_d3d480c61a375f 15-16,39,218-219,247-250,265-266,286-287,316,341-342,471
+packages/native/src/devtools/index.ts
+  s_ca8e075e853203::t_24ed1c87d34327 14,22
+packages/native/src/devtools/slots.ts
+  s_ca8e075e853203::t_c9b06b00f36f91 17-26,31-35
+packages/native/src/observability/index.ts
+  s_ca8e075e853203::t_f04413923a1094 46
+packages/native/src/observability/scrub.ts
+  s_ca8e075e853203::t_3f4324eaf1ff76 72-80,108,111,122,127,132-140
+packages/native/src/updates/block.tsx
+  s_ca8e075e853203::t_d1df64df15c7a6 40,73-74,181,385-386
+packages/native/src/updates/index.ts
+  s_ca8e075e853203::t_a6ded30668c046 77
+packages/native/src/updates/signature.ts
+  s_ca8e075e853203::t_a539a887998000 13-17,35-40,47-63,70-71,79-81,111-117
+packages/supabase/README.md
+  s_ca8e075e853203::t_421aea7323745d 594
+packages/supabase/functions/genesis-support-cleanup/handler.ts
+  s_ca8e075e853203::t_1e8f0f359bcf2f 13-15,34-39,50-54,89-100
+packages/supabase/functions/genesis-support-cleanup/index.ts
+  s_ca8e075e853203::t_c9d556669ef316 3-5,13,35-41
+packages/supabase/functions/genesis-support-intake/contract.ts
+  s_ca8e075e853203::t_d86f9121bb149a 124-128,139-147,156-157
+packages/supabase/functions/genesis-support-notify/handler.ts
+  s_ca8e075e853203::t_f0a96993479651 5-10,55-61,96-111,113-123,141,159
+packages/supabase/functions/genesis-support-notify/index.ts
+  s_ca8e075e853203::t_5c110560d8a647 2-3
+packages/supabase/src/__tests__/support-functions.test.ts
+  s_ca8e075e853203::t_154cb52aac246a 120-139,150-157,186,191-213
+packages/support/README.md
+  s_ca8e075e853203::t_7a0c32a4bb7795 13-15,142-144,155-355,796-800
+packages/support/SKILL.md
+  s_ca8e075e853203::t_6d24a21649368f 30-32,46-47
+packages/support/migrations/0019_genesis_support_diagnostics.sql
+  s_ca8e075e853203::t_6af28512d35252 1-201
+packages/support/migrations/tests/0019_genesis_support_diagnostics.test.sql
+  s_ca8e075e853203::t_0826ba85c02047 1-171
+packages/support/package.json
+  s_ca8e075e853203::t_d011748c56cb4c 67-71,81,239-242,346-347
+packages/support/src/__tests__/chat-status.test.ts
+  s_ca8e075e853203::t_b9cd3ed51e1f3a 1-12
+packages/support/src/__tests__/core.test.ts
+  s_ca8e075e853203::t_418712466d4384 262-267
+packages/support/src/__tests__/diagnostics-review.test.ts
+  s_ca8e075e853203::t_02b43658690ba3 1-204
+packages/support/src/__tests__/diagnostics.test.ts
+  s_ca8e075e853203::t_195980a227d969 1-467
+packages/support/src/__tests__/native-diagnostics.test.tsx
+  s_ca8e075e853203::t_fbc668691f564c 1-217
+packages/support/src/__tests__/server.test.ts
+  s_ca8e075e853203::t_26a363f047fa6f 1-467
+packages/support/src/__tests__/web-diagnostics.test.tsx
+  s_ca8e075e853203::t_89b09b87dc3b0f 1-57
+packages/support/src/block.ts
+  s_ca8e075e853203::t_487a3de9132b00 98-99,113
+packages/support/src/chat.ts
+  s_ca8e075e853203::t_51ef34d0c624bc 9-10,72-73,76
+packages/support/src/client.ts
+  s_ca8e075e853203::t_5daf83c3413937 633-637
+packages/support/src/contract.ts
+  s_ca8e075e853203::t_5f6fc3e2bc6656 124-128,139-147,156-157
+packages/support/src/copy.ts
+  s_ca8e075e853203::t_c11a695121cdfb 13-26
+packages/support/src/diagnostics/cap.ts
+  s_ca8e075e853203::t_3a58b2eb7c5047 1-221
+packages/support/src/diagnostics/console.ts
+  s_ca8e075e853203::t_24b1f7cd4147cc 1-96
+packages/support/src/diagnostics/create.ts
+  s_ca8e075e853203::t_f83fa488d67488 1-328
+packages/support/src/diagnostics/index.ts
+  s_ca8e075e853203::t_0814b35e3bf792 1-31
+packages/support/src/diagnostics/queue.ts
+  s_ca8e075e853203::t_a732526c806408 1-234
+packages/support/src/diagnostics/redact.ts
+  s_ca8e075e853203::t_04f0da7c98f0aa 1-215
+packages/support/src/diagnostics/report.ts
+  s_ca8e075e853203::t_8484f598d1e617 1-303
+packages/support/src/diagnostics/scrub.ts
+  s_ca8e075e853203::t_a96c3dfcaf270b 1-184
+packages/support/src/diagnostics/transports.ts
+  s_ca8e075e853203::t_47af2140cd838e 1-206
+packages/support/src/index.ts
+  s_ca8e075e853203::t_352a70f2cc32fc 7-8,25
+packages/support/src/intake.ts
+  s_ca8e075e853203::t_32d1fe133e965b 94-97,110
+packages/support/src/native/diagnostics.tsx
+  s_ca8e075e853203::t_5be97ddaf8872e 1-377
+packages/support/src/native/feedback-form.tsx
+  s_ca8e075e853203::t_34000db669c330 16-19,26,66,71-76,80-84,88-90
+packages/support/src/native/index.ts
+  s_ca8e075e853203::t_ca83b9d80f9dbf 6-7,25-40
+packages/support/src/native/support.tsx
+  s_ca8e075e853203::t_1aeb865c383f12 28-30,32,97-115,117,126-127,204,233-237,240-247,292,294-311,320-322
+packages/support/src/record.ts
+  s_ca8e075e853203::t_9dd0627831d5c8 65-69
+packages/support/src/server/events.ts
+  s_ca8e075e853203::t_b555e0b841b61c 1-133
+packages/support/src/server/handler.ts
+  s_ca8e075e853203::t_35df97d167b698 1-521
+packages/support/src/server/index.ts
+  s_ca8e075e853203::t_8aeb557eeaf0c1 1-60
+packages/support/src/server/notifiers.ts
+  s_ca8e075e853203::t_077606bce9c1d0 1-235
+packages/support/src/server/parse.ts
+  s_ca8e075e853203::t_11ba4ce27e6b01 1-56
+packages/support/src/server/supabase.ts
+  s_ca8e075e853203::t_9f856e34256b47 1-129
+packages/support/src/web/diagnostics.ts
+  s_ca8e075e853203::t_5e70e8bf81c5bd 1-102
+packages/support/src/web/feedback-panel.tsx
+  s_ca8e075e853203::t_caa200c3833120 29,32-33,58-63,164,251,257-260,275
+packages/support/src/web/index.ts
+  s_ca8e075e853203::t_a4a23021208e0a 4-5,19
+packages/support/tsup.config.ts
+  s_ca8e075e853203::t_255a7c1907654c 1,3-39
+scripts/pgtap-local/suites.sh
+  s_ca8e075e853203::t_6856bcd4ae62fe 20,23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8bca581c02e4c6e93599b2d6d60fd553ae130fff",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
