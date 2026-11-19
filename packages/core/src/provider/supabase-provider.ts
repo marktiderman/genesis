@@ -874,7 +874,7 @@ export function createSupabaseProvider(
       return Object.fromEntries(Object.entries(values).filter(([key]) => allowed.has(key)));
     }
     if (!config.source || id === undefined) return values;
-    const row = await readBack(resource, id);
+    const row = (await run(from(resource).select("*").eq("id", id)))[0] as BaseRecord | undefined;
     if (!row) return values;
     return Object.fromEntries(Object.entries(values).filter(([key]) => key in row));
   }
@@ -1186,12 +1186,19 @@ export function createSupabaseProvider(
     return result.data == null ? [] : [result.data];
   }
 
+  /**
+   * Whether the row is visible to this user: on its table, or, for a declared resource that hasn't
+   * opted in to reading its table, through the resource's own read.
+   */
   async function isVisible(resource: string, id: Identifier): Promise<boolean> {
-    return (await run(from(resource).select("id").eq("id", id))).length > 0;
+    const query = tableAllowed(resource, "read") ? from(resource).select("id") : read(resource, "id");
+    return (await run(query.eq("id", id))).length > 0;
   }
 
+  /** The row as it is now: from its table, or through the resource's read when its table isn't declared. */
   async function readBack(resource: string, id: Identifier): Promise<BaseRecord | undefined> {
-    return (await run(from(resource).select("*").eq("id", id)))[0] as BaseRecord | undefined;
+    const query = tableAllowed(resource, "read") ? from(resource).select("*") : read(resource, undefined);
+    return (await run(query.eq("id", id)))[0] as BaseRecord | undefined;
   }
 
   function goneError(resource: string): DataWriteError {
@@ -1641,6 +1648,10 @@ export function createSupabaseProvider(
         // A declared provider serves only the writes a resource declares.
         create: resource ? writeDeclared(resource, "create") : true,
         delete: resource ? writeDeclared(resource, "delete") : true,
+        // `runAction` serves the actions a resource declares, and nothing else.
+        actions: resource
+          ? Object.keys(configFor(resource).actions ?? {}).length > 0
+          : Object.values(options.resources ?? {}).some((r) => Object.keys(r.actions ?? {}).length > 0),
         maxPerPage,
         softDelete: resource ? isBinTable(resource) : false,
         cursorPagination: resource ? configFor(resource).orderKey !== false : true,
@@ -1782,7 +1793,7 @@ export function createSupabaseProvider(
         if (isIdentifier(returned)) {
           // The row exists from here on. A failed read-back must not report
           // the create as failed: the user would retry and make a second one.
-          record = (await readBack(resource, returned).catch(() => undefined)) ?? { id: returned };
+          record = (await readRecord(resource, returned)) ?? ({ ...row, id: returned } as BaseRecord);
         } else if (returned && typeof returned === "object" && isIdentifier(returned.id)) {
           record = returned;
         } else {
@@ -1809,11 +1820,14 @@ export function createSupabaseProvider(
     async update(resource, params) {
       const { id } = params;
       // A copy: with no prepare step this is the caller's own object, and the version is taken out below.
+      // A `writes.update` function takes the values as they are (it decides what to write), so the
+      // table's row isn't read to find its columns: the client may not be allowed to read it.
+      const throughFunction = !configFor(resource).update && configFor(resource).writes?.update !== undefined;
       const row = {
         ...(await tableValues(
           resource,
           await prepare(resource, params.data as Record<string, unknown>, { resource, action: "update", id }),
-          id,
+          throughFunction ? undefined : id,
         )),
       };
       const version = versionFor(resource);
@@ -1963,6 +1977,12 @@ export function createSupabaseProvider(
       return typeof keys === "function" ? keys(event) : keys;
     },
   };
+
+  // `runAction` is served only when some resource declares an action: screens show a view's actions
+  // whenever the provider has a runner, so a provider without any must not look like it has one.
+  if (!Object.values(options.resources ?? {}).some((r) => r.actions && Object.keys(r.actions).length > 0)) {
+    delete provider.runAction;
+  }
 
   // How many write marks are held, for tests of the pruning. Not part of the provider contract.
   Object.defineProperty(provider, "__recentWriteCount", { value: () => recentWrites.size, enumerable: false });
