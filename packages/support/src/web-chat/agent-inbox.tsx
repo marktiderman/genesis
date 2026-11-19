@@ -42,6 +42,7 @@ import { fill, resolveSupportCopy, type SupportCopy, type SupportCopyOverrides }
 import { isSitePath } from "../routes";
 import { ComposerPickerList, showMentions, useComposerPicker, type ComposerPicker } from "./composer-pickers";
 import { supportWebKeys } from "./report-thread";
+import { SupportDeskControls, SupportRequesterPanel } from "./desks";
 import { TicketControls } from "./staff-thread";
 import { scopeOf, useResolvedTenant } from "./tenant";
 import { threadAttachments } from "./thread-files";
@@ -76,8 +77,18 @@ export interface SupportAgentInboxProps {
   resolveUser: ResolveUser;
   /** The tenant's agents, by login: who a ticket can be given to, and whom a note can mention (`@`). Without it there is no assignee picker and no mentions. */
   agents?: readonly { id: string; name: string }[];
-  /** The app's own cards in the details panel (who this customer is, their company), under the ticket's details. */
+  /** The app's own cards in the details panel (who this customer is, their company), under the ticket's details and Genesis's own cards. */
   context?: (ticket: AgentTicket) => ReactNode;
+  /** The requester card in the details panel: their name, email and tenants (migration 0022). Default on. */
+  requesterPanel?: boolean;
+  /**
+   * The desk card in the details panel (migration 0023): where the ticket is, its last move, and
+   * sending it up to the app's own desk, back, or (`allowMove`) to another desk its person belongs
+   * to. Default on; it shows nothing for a ticket that never moved and can't.
+   */
+  deskControls?: boolean | { allowMove?: boolean };
+  /** A ticket was moved to another desk (it closes here, and the queues refresh). */
+  onTicketMoved?: (ticketId: string) => void;
   /**
    * Variables a saved reply fills, besides the requester's `first_name`, `name` and `email`
    * (the agent's own name as `agent_name`, say). Unknown ones stay as written. Without a real name
@@ -566,9 +577,20 @@ function TicketDetails({
   resolveUser,
   context,
   copy,
+  copyOverrides,
   onOpen,
   onError,
-}: Pick<PaneProps, "client" | "ticket" | "resolveUser" | "copy" | "onError"> & { context?: ((ticket: AgentTicket) => ReactNode) | undefined; onOpen: (id: string) => void }) {
+  requesterPanel,
+  deskControls,
+  onMoved,
+}: Pick<PaneProps, "client" | "ticket" | "resolveUser" | "copy" | "onError"> & {
+  context?: ((ticket: AgentTicket) => ReactNode) | undefined;
+  copyOverrides: SupportCopyOverrides | undefined;
+  onOpen: (id: string) => void;
+  requesterPanel: boolean;
+  deskControls: boolean | { allowMove?: boolean };
+  onMoved: (id: string) => void;
+}) {
   const shots = useQuery({ queryKey: supportWebKeys.attachments(ticket.id), queryFn: () => client.attachments(ticket.id), staleTime: 50 * 60_000 });
   const severities = copy.feedback.severities as Record<string, string>;
   // In the viewer's zone, so it waits for the browser: the server's HTML has none.
@@ -610,6 +632,19 @@ function TicketDetails({
             ))}
         </section>
       ) : null}
+      {deskControls ? (
+        <SupportDeskControls
+          client={client}
+          ticket={ticket}
+          onMoved={onMoved}
+          allowMove={typeof deskControls === "object" ? (deskControls.allowMove ?? true) : true}
+          {...(copyOverrides ? { copy: copyOverrides } : {})}
+          {...(onError ? { onError } : {})}
+        />
+      ) : null}
+      {requesterPanel && !ticket.requesterEmail ? (
+        <SupportRequesterPanel client={client} ticket={ticket} {...(copyOverrides ? { copy: copyOverrides } : {})} {...(onError ? { onError } : {})} />
+      ) : null}
       {context ? context(ticket) : null}
       <EarlierConversations client={client} ticket={ticket} copy={copy} onOpen={onOpen} onError={onError} />
     </div>
@@ -639,6 +674,9 @@ function AgentInbox({
   resolveUser,
   agents,
   context,
+  requesterPanel = true,
+  deskControls = true,
+  onTicketMoved,
   replyVariables,
   articleHref = defaultArticleHref,
   shortcuts,
@@ -651,6 +689,7 @@ function AgentInbox({
   className,
 }: SupportAgentInboxProps) {
   const copy = useMemo(() => resolveSupportCopy(copyOverrides), [copyOverrides]);
+  const queryClient = useQueryClient();
   const pageSize = Math.min(Math.max(pageSizeProp, 1), MAX_PAGE);
   const [ownView, setOwnView] = useState<TicketInboxView>(defaultView ?? views[0] ?? "mine");
   const view = viewProp ?? ownView;
@@ -801,7 +840,26 @@ function AgentInbox({
           </div>
         )
       }
-      {...(ticket ? { context: <TicketDetails client={client} ticket={ticket} resolveUser={resolveUser} context={context} copy={copy} onOpen={onTicketChange} onError={onError} /> } : {})}
+      {...(ticket ? { context: (
+            <TicketDetails
+              client={client}
+              ticket={ticket}
+              resolveUser={resolveUser}
+              context={context}
+              copy={copy}
+              copyOverrides={copyOverrides}
+              onOpen={onTicketChange}
+              onError={onError}
+              requesterPanel={requesterPanel}
+              deskControls={deskControls}
+              onMoved={(id) => {
+                void queryClient.invalidateQueries({ queryKey: supportInboxKeys.all });
+                onTicketMoved?.(id);
+                onTicketChange(null);
+              }}
+            />
+          ),
+        } : {})}
     />
   );
 }

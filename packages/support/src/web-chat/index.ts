@@ -16,6 +16,20 @@
 export { SupportReportThread, supportWebKeys, type SupportReportThreadProps } from "./report-thread";
 export { SupportStaffThread, type SupportStaffThreadProps } from "./staff-thread";
 export { SupportAgentInbox, supportInboxKeys, type SupportAgentInboxProps } from "./agent-inbox";
+export {
+  SupportDeskControls,
+  SupportDeskPicker,
+  SupportDeskSwitch,
+  SupportRequesterPanel,
+  deskName,
+  lastMoveLabel,
+  supportDeskKeys,
+  useSupportDesks,
+  type SupportDeskControlsProps,
+  type SupportDeskPickerProps,
+  type SupportDeskSwitchProps,
+  type SupportRequesterPanelProps,
+} from "./desks";
 export { SupportMessenger, SupportMessengerLauncher, supportMessengerKeys, type MessengerSpace, type SupportMessengerLauncherProps, type SupportMessengerProps } from "./messenger";
 export { SupportHelpCenterAdmin, type SupportHelpCenterAdminProps } from "./help-admin";
 export { SupportSavedRepliesAdmin, SupportAgentReports, type SupportSavedRepliesAdminProps, type SupportAgentReportsProps } from "./agent-tools";

@@ -200,7 +200,8 @@ export const SUPPORT_HELPDESK_BLOCK_ID = "support-helpdesk" as const;
 
 /**
  * The support-helpdesk block: what a tenant's help desk adds to support and its chat threads. It
- * brings migration `0010_genesis_support_help_center.sql`. Its screens are components and hooks the
+ * brings migrations `0010_genesis_support_help_center.sql`, `0017_genesis_support_help_answers.sql`
+ * and `0023_genesis_support_desks.sql` (desks). Its screens are components and hooks the
  * app routes to: `SupportMessengerLauncher`, `SupportAgentInbox` and `SupportHelpCenterAdmin` on the
  * web (`/web-chat`), the messenger's hooks on the phone (`/native`).
  */
@@ -220,6 +221,8 @@ export function defineSupportHelpdeskBlock(options: { basePath?: string; require
         { package: "@marktiderman/genesis-support", file: "migrations/0010_genesis_support_help_center.sql", test: "migrations/tests/0010_genesis_support_help_center.test.sql" },
         // A question routed elsewhere keeps no answer.
         { package: "@marktiderman/genesis-support", file: "migrations/0017_genesis_support_help_answers.sql", test: "migrations/tests/0017_genesis_support_help_answers.test.sql" },
+        // Desks: each tenant's own help desk, switched on by its admins; escalate, return and move (after the chat block's 0022).
+        { package: "@marktiderman/genesis-support", file: "migrations/0023_genesis_support_desks.sql", test: "migrations/tests/0023_genesis_support_desks.test.sql" },
       ],
       privacy: {
         notes: ["With AI answers on, a question the person chooses to ask and its answer are kept with their account and readable by the tenant's agents, and the question and the tenant's published articles go to the AI vendor. People agree first, unless the app's terms cover it. A question the app's safety protocol routes elsewhere isn't kept."],

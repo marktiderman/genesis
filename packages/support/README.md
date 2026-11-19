@@ -718,6 +718,37 @@ Unassigned, All, Pending, Closed with counts, paged) and `useAgentThread(ticketI
 props: reply or internal note, status, take it / hand it back, the requester's name, email and
 tenants; it marks the ticket read). Query keys are `supportAgentKeys`.
 
+## Desks: each tenant's own help desk (migration 0023)
+
+`0023_genesis_support_desks.sql` (in the `support-helpdesk` block, after 0022) makes a tenant's
+help desk something its admins run, and lets a ticket move between desks:
+
+- **The switch.** `client.setDesk(tenantId, enabled, reason)` (its tenant admins only, never the
+  app's own desk, which is always on). A desk's row decides; without one, `tenant_features`'
+  `support-helpdesk` row does, as before. Every change is in its log (`client.deskHistory`).
+  `<SupportDeskSwitch client tenantId />` (`/web-chat`) is the switch for a tenant's settings.
+- **Routing.** A question sent to no tenant in particular, by someone who belongs to exactly one
+  tenant whose desk is on and handles no desk themselves, goes to that desk. The app can decide
+  instead with `private.genesis_support_desk_for(person uuid, ticket_type text) returns uuid`.
+- **Moving.** A handler sends a ticket up to the app's own desk (`client.escalateTicket`), the
+  app's desk hands it back to the desk that sent it up (`client.returnTicket`), or a handler moves
+  it to another desk its person belongs to (`client.moveTicket`, among `client.deskMoveTargets`).
+  The same ticket and thread; nobody has it at the new desk, it is unread there, and a pending one
+  opens again. Each move is logged; `client.ticketDesk(id)` says where it is and its last move.
+- **The inbox.** `client.myDesks()` lists the desks the signed-in person works; `chooseDesk`,
+  `pickerDesks`, `workedDesks` and `deskTenant` pick among them, and `<SupportDeskPicker>` is the
+  picker for someone who works more than one. `SupportAgentInbox`'s details panel shows
+  `SupportRequesterPanel` (name, email, tenants with the person's role there) and
+  `SupportDeskControls` (where it is, its last move, escalate / return / move with a reason);
+  turn them off with `requesterPanel={false}` / `deskControls={false}`, and `onTicketMoved` hears a
+  move. Roles come from `private.genesis_tenant_role(tenant uuid, person uuid) returns text`, else
+  `admin`, `agent` or `member`.
+- **The messenger across desks.** `<SupportMessenger allTenants>` (and the launcher) lists the
+  person's conversations at every desk; a new one still goes to `tenantId`, or where routing sends it.
+
+With the `support.desks` setting off (the `standard` and `min` presets) it is 0004 exactly:
+`tenant_features` alone decides, and nothing is switched, routed or moved.
+
 ## Email tickets (the `support-email` block)
 
 Email is a ticket channel (ADR 0011). `genesis add support-email` copies

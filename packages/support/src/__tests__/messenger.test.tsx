@@ -668,6 +668,23 @@ describe("the block", () => {
   it("brings the help center's migration, after support and its chat", () => {
     const block = defineSupportHelpdeskBlock();
     expect(block.requires).toEqual(["support-feedback", "support-chat"]);
-    expect(block.contributes?.migrations?.map((m) => m.file)).toEqual(["migrations/0010_genesis_support_help_center.sql", "migrations/0017_genesis_support_help_answers.sql"]);
+    expect(block.contributes?.migrations?.map((m) => m.file)).toEqual(["migrations/0010_genesis_support_help_center.sql", "migrations/0017_genesis_support_help_answers.sql", "migrations/0023_genesis_support_desks.sql"]);
+  });
+});
+
+describe("the messenger across desks", () => {
+  it("lists every desk's conversations with allTenants", async () => {
+    const client = fakeClient({ myReports: vi.fn(async () => [ticket({ id: "t1" }), ticket({ id: "t2", message: "At the other desk" })]) });
+    show(client, { allTenants: true, spaces: ["messages"] });
+    expect(await screen.findByText("At the other desk")).toBeTruthy();
+    expect(client.myReports).toHaveBeenCalled();
+    expect(client.ticketsInTenant).not.toHaveBeenCalled();
+  });
+
+  it("lists one desk's without it", async () => {
+    const client = fakeClient();
+    show(client);
+    await waitFor(() => expect(client.ticketsInTenant).toHaveBeenCalledWith({ tenantId: "ta" }));
+    expect(client.myReports).not.toHaveBeenCalled();
   });
 });

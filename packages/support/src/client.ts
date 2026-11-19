@@ -12,6 +12,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { FeedbackStatus } from "./contract";
 import { attachmentBytes, sanitizeContext, type FeedbackDelivery, type FeedbackRecord, type FeedbackSink, type FeedbackType } from "./record";
+import { toDesk, toDeskLogEntry, toTicketDesk, type DeskLogEntry, type DeskTarget, type SupportDesk, type TicketDesk } from "./desks";
 import { isMissingFunction, type SupportChatAttachment, type SupportChatClient, type SupportChatMessage, type SupportThreadInfo } from "./chat";
 
 /** Any supabase-js client; the app's generated Database types don't need to list the support tables. */
@@ -357,6 +358,22 @@ export interface SupportClient extends FeedbackSink {
   reporters?(ids: readonly string[]): Promise<SupportReporter[]>;
   /** Agents: the tenants (with the app's label) a requester belongs to, for the details panel. Needs migration 0022. */
   requesterTenants?(personId: string): Promise<RequesterTenant[]>;
+  /** The help desks the signed-in person works: the app's own, and each tenant's they admin or are an agent of. Needs migration 0023. */
+  myDesks?(): Promise<SupportDesk[]>;
+  /** Tenant admins: turn the tenant's own help desk on or off (kept in its log, with `reason`). Needs migration 0023. */
+  setDesk?(tenantId: string, enabled: boolean, reason?: string | null): Promise<void>;
+  /** A ticket's handlers: where it is, whether it can go up or back, and its last move; null for anyone else. Needs migration 0023. */
+  ticketDesk?(ticketId: string): Promise<TicketDesk | null>;
+  /** A ticket's handlers: the desks it can be moved to. Needs migration 0023. */
+  deskMoveTargets?(ticketId: string): Promise<DeskTarget[]>;
+  /** A desk's handler sends the ticket up to the app's own desk. Needs migration 0023. */
+  escalateTicket?(ticketId: string, reason?: string | null): Promise<void>;
+  /** The app's own desk hands an escalated ticket back to the desk that sent it up. Needs migration 0023. */
+  returnTicket?(ticketId: string, reason?: string | null): Promise<void>;
+  /** A handler moves the ticket to another desk its person belongs to (one of `deskMoveTargets`). Needs migration 0023. */
+  moveTicket?(ticketId: string, tenantId: string, reason?: string | null): Promise<void>;
+  /** A desk's agents: its log (switched on or off, tickets in and out), newest first. Null is the app's own. Needs migration 0023. */
+  deskHistory?(options?: { tenantId?: string | null; limit?: number }): Promise<DeskLogEntry[]>;
   /**
    * The person's answer once a report is marked addressed: fixed (confirmed) or not (reopened).
    * Needs migration 0003. Optional: a custom client may leave it out, so check before calling.
@@ -396,6 +413,8 @@ export interface SupportReporter extends SupportPerson {
 export interface RequesterTenant {
   tenantId: string;
   label: string | null;
+  /** How they are there (migration 0023): the app's `private.genesis_tenant_role` answer ("Owner", "Client"), else `admin`, `agent` or `member`; absent before 0023. */
+  role?: string | null;
 }
 
 /** How to show a requester's tenants on one line: the labels, joined ("Acme, Northside"), or null when none has one. */
@@ -967,9 +986,42 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
       const rows = must<Row[]>("reporters", await supabase.rpc("support_reporters", { ids: [...new Set(ids)] }));
       return (rows ?? []).map((r) => ({ id: String(r["user_id"]), name: (r["full_name"] as string | null) ?? null, email: (r["email"] as string | null) ?? null }));
     },
+    async myDesks() {
+      return (must<Row[]>("myDesks", await supabase.rpc("support_my_desks")) ?? []).map(toDesk);
+    },
+    async setDesk(tenantId, enabled, reason = null) {
+      must("setDesk", await supabase.rpc("support_set_desk", { tenant: tenantId, enabled, reason }));
+    },
+    async ticketDesk(ticketId) {
+      const row = (must<Row[]>("ticketDesk", await supabase.rpc("support_ticket_desk", { ticket: ticketId })) ?? [])[0];
+      return row ? toTicketDesk(row) : null;
+    },
+    async deskMoveTargets(ticketId) {
+      return (must<Row[]>("deskMoveTargets", await supabase.rpc("support_desk_move_targets", { ticket: ticketId })) ?? []).map((r) => ({
+        tenantId: String(r["tenant_id"]),
+        label: (r["label"] as string | null) ?? null,
+        isDefault: r["is_default"] === true,
+      }));
+    },
+    async escalateTicket(ticketId, reason = null) {
+      must("escalateTicket", await supabase.rpc("support_escalate_ticket", { ticket: ticketId, reason }));
+    },
+    async returnTicket(ticketId, reason = null) {
+      must("returnTicket", await supabase.rpc("support_return_ticket", { ticket: ticketId, reason }));
+    },
+    async moveTicket(ticketId, tenantId, reason = null) {
+      must("moveTicket", await supabase.rpc("support_move_ticket", { ticket: ticketId, to_tenant: tenantId, reason }));
+    },
+    async deskHistory({ tenantId = null, limit = 50 } = {}) {
+      return (must<Row[]>("deskHistory", await supabase.rpc("support_desk_history", { tenant: tenantId, max_rows: limit })) ?? []).map(toDeskLogEntry);
+    },
     async requesterTenants(personId) {
       const rows = must<Row[]>("requesterTenants", await supabase.rpc("support_requester_tenants", { person: personId }));
-      return (rows ?? []).map((r) => ({ tenantId: String(r["tenant_id"]), label: (r["label"] as string | null) ?? null }));
+      return (rows ?? []).map((r) => ({
+        tenantId: String(r["tenant_id"]),
+        label: (r["label"] as string | null) ?? null,
+        ...(r["role"] !== undefined ? { role: (r["role"] as string | null) ?? null } : {}),
+      }));
     },
 
     async assign(reportId, userId) {

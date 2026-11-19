@@ -183,6 +183,53 @@ export const supportCopy = {
     sendAnyway: "Send anyway",
     review: "Review",
   },
+  /** Desks (migration 0023): each tenant's own help desk, and moving a ticket between desks. */
+  desks: {
+    /** The app's own desk, where `private.genesis_tenant_label` names none. */
+    appDesk: "Support",
+    /** A tenant's desk with no label from the app. */
+    unnamedDesk: "Help desk",
+    pickerLabel: "Help desk",
+    escalate: "Send to {name}",
+    returnTo: "Hand back to {name}",
+    moveTo: "Move to another desk",
+    moveTitle: "Send to {name}",
+    escalateBody: "{name} takes the conversation, its notes included, and your desk no longer sees it. The person keeps the same conversation.",
+    returnBody: "{name} takes the conversation back, its notes included. The person keeps the same conversation.",
+    moveBody: "The desk you pick takes the conversation, its notes included. The person keeps the same conversation.",
+    moveTarget: "Desk",
+    reason: "What they should know (optional)",
+    send: "Send",
+    cancel: "Cancel",
+    sent: "Sent to {name}",
+    failed: "That wasn't moved. Try again.",
+    cantReturn: "{name} can't take it back now: its desk is off, or the person has left it.",
+    /** The last move: `{by}` is " by Ana" or nothing, `{from}` and `{to}` desks' names. */
+    lastEscalated: "Sent up to {to}{by} from {from}.",
+    lastReturned: "Handed back to {to}{by}.",
+    lastMoved: "Moved from {from} to {to}{by}.",
+    by: " by {name}",
+    /** A desk's switch, for its admins. */
+    switchLabel: "Answer our people's support ourselves",
+    switchOn: "On: a question from your people comes to your own help desk, where your admins and agents answer it, and can send it on when it needs the app's support.",
+    switchOff: "Off: your people's questions go to the app's support. Turn it on to answer them yourselves.",
+    switchedOn: "Questions now come to your help desk",
+    switchedOff: "Questions go to the app's support again",
+    switchFailed: "That didn't change. Try again.",
+    offTitle: "Your help desk is off",
+    offBody: "New questions go to the app's support; the conversations already here stay to finish.",
+    noDeskTitle: "No help desk to answer",
+    noDeskBody: "Turn your help desk on in its settings to answer your people here.",
+  },
+  /** The details panel's requester card. */
+  requester: {
+    title: "Contact",
+    email: "Email",
+    tenants: "Belongs to",
+    /** A tenant's role for the person, from migration 0023 (an app's own words show as it gives them). */
+    roles: { admin: "Admin", agent: "Agent", member: "Member" },
+    sentFrom: "Sent from",
+  },
   savedReplies: {
     listLabel: "Saved replies",
     newReply: "New saved reply",
