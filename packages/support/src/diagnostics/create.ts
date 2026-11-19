@@ -210,8 +210,13 @@ export function createDiagnostics(options: DiagnosticsOptions): Diagnostics {
         ...(options.offline.maxBytes ? { maxBytes: options.offline.maxBytes } : {}),
         ...(options.offline.autoRetry !== undefined ? { autoRetry: options.offline.autoRetry } : {}),
         send: async ({ report, userId }) => {
-          // A shared device: whoever is signed in now must be who made it, or it goes nowhere.
-          if ((await currentUserId()) !== userId) throw new DiagnosticsSendError("queued for someone who isn't signed in", 0, false);
+          if (userId) {
+            const current = await currentUserId();
+            // Nobody signed in yet (the session is still being restored at launch): keep it for later.
+            if (!current) throw new DiagnosticsSendError("waiting for the person who made it to be signed in", 0, true);
+            // A shared device, someone else signed in: it goes nowhere. clearQueue() covers sign-out.
+            if (current !== userId) throw new DiagnosticsSendError("queued for someone who isn't signed in", 0, false);
+          }
           return transport.send(report);
         },
         now,
@@ -277,7 +282,8 @@ export function createDiagnostics(options: DiagnosticsOptions): Diagnostics {
         return { id: receipt.id, shortId: receipt.shortId, queued: false };
       } catch (error) {
         if (queue && isRetryableError(error)) {
-          await queue.add({ report, userId: report.user?.id ?? (await currentUserId()) });
+          // The raw id from `user`, not the dump's (scrubbed: a long hex id reads `[hex]` there).
+          await queue.add({ report, userId: await currentUserId() });
           return { id: report.id, shortId: diagnosticsShortId(report.id), queued: true };
         }
         throw error;

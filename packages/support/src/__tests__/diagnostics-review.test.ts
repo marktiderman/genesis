@@ -79,12 +79,21 @@ describe("routes and text", () => {
     expect(cleanRoute("/invite/ab12cd")).toBe("/invite/:token");
     // Ordinary words and versions stay.
     expect(cleanRoute("/settings/oauth2/v2/help-center")).toBe("/settings/oauth2/v2/help-center");
+    expect(cleanRoute("/redeem/x7k9q2")).toBe("/redeem/:token");
+    // Slugs that end in a number, or have separators, are ordinary words.
+    for (const route of ["/game/round42", "/docs/ios17-setup", "/blog/top-10-tips-2024", "/release/v2024"]) expect(cleanRoute(route)).toBe(route);
   });
 
   it("scrubs phone numbers written without a separator or in spaced groups", () => {
     expect(scrubString("call +15555550101 now")).toBe("call [phone] now");
     expect(scrubString("ring 44 20 7946 0958")).toBe("ring [phone]");
     expect(scrubString("on 2026-11-19, v1.4.0")).toBe("on 2026-11-19, v1.4.0");
+    expect(scrubString("ring 020 7946 0958")).toBe("ring [phone]");
+    expect(scrubString("call 5555550101 or 15555550101")).toBe("call [phone] or [phone]");
+    // Counts, durations, dates, epoch times and ids are not phone numbers.
+    for (const text of ["took 120 340 560 ms", "build 2024 11 19", "at 1732012345", "at 1732012345678", "id 5555550101abcdef", "n 12345678901234567", "uuid 3f2a9c1b-0000-4000-8000-000000000001"]) {
+      expect(scrubString(text)).toBe(text);
+    }
   });
 });
 
@@ -123,6 +132,45 @@ describe("the offline queue across people", () => {
     expect(await d.pending()).toBe(1);
     await d.clearQueue();
     expect(await d.pending()).toBe(0);
+  });
+
+  it("keeps a queued dump while nobody is signed in yet (a session restored late), then sends it", async () => {
+    const storage = memoryQueueStorage();
+    const first = createDiagnostics({ app: { id: "acme" }, transport: transport(() => false), user: () => ({ id: "user-a" }), offline: { storage, autoRetry: false } });
+    await first.send({ trigger: "manual" });
+    const due = () => {
+      const queued = JSON.parse(storage.data.get("genesis-support.diagnostics.queue")!);
+      for (const e of queued) e.nextAt = 0;
+      storage.data.set("genesis-support.diagnostics.queue", JSON.stringify(queued));
+    };
+    due();
+    // Restart: online, but `user` is null until the session is back.
+    let user: string | null = null;
+    const t = transport(() => true);
+    const second = createDiagnostics({ app: { id: "acme" }, transport: t, user: () => (user ? { id: user } : null), offline: { storage, autoRetry: false } });
+    await second.flush();
+    expect(await second.pending()).toBe(1);
+    expect(t.sent).toEqual([]);
+    user = "user-a";
+    due();
+    expect(await second.flush()).toEqual({ sent: 1, kept: 0, dropped: 0 });
+    expect(t.sent).toHaveLength(1);
+  });
+
+  it("matches a queued dump to its person by the raw id, even one the scrubber rewrites in the dump", async () => {
+    const hexId = "0123456789abcdef0123456789abcdef";
+    let online = false;
+    const storage = memoryQueueStorage();
+    const t = transport(() => online);
+    const d = createDiagnostics({ app: { id: "acme" }, transport: t, user: () => ({ id: hexId }), offline: { storage, autoRetry: false } });
+    await d.send({ trigger: "manual" });
+    const queued = JSON.parse(storage.data.get("genesis-support.diagnostics.queue")!);
+    expect(queued[0].item.userId).toBe(hexId);
+    expect(queued[0].item.report.user.id).toBe("[hex]");
+    queued[0].nextAt = 0;
+    storage.data.set("genesis-support.diagnostics.queue", JSON.stringify(queued));
+    online = true;
+    expect(await d.flush()).toEqual({ sent: 1, kept: 0, dropped: 0 });
   });
 
   it("caps the stored queue by bytes, dropping the oldest", async () => {

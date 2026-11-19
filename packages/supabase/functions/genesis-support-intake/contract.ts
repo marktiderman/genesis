@@ -138,8 +138,13 @@ function privateSegment(segment: string): string | null {
   if (/^\d+$/.test(s)) return ":id";
   // A phone number: `+15555550101`, `+44-20-7946-0958`.
   if (/^\+\d[\d().\s-]{5,}$/.test(s)) return ":phone";
-  // A short code (an invite, a coupon): letters and digits mixed, at least two of each, six or more.
-  if (s.length >= 6 && /^[A-Za-z0-9_-]+$/.test(s) && (s.match(/\d/g) ?? []).length >= 2 && (s.match(/[A-Za-z]/g) ?? []).length >= 2) return ":token";
+  // A short code (an invite, a coupon): 6 to 12 letters and digits with no separator, the two
+  // interleaved (`ab12cd`, `x7k9q2`). A slug that ends in a number (`round42`, `ios17-setup`,
+  // `top-10-tips-2024`) switches once or has separators, and stays.
+  if (/^[A-Za-z0-9]{6,12}$/.test(s) && (s.match(/[A-Za-z](?=\d)|\d(?=[A-Za-z])/g) ?? []).length >= 2) return ":token";
+  // A slug: words and numbers joined by `-` (`top-10-tips-2024`), each part all letters or all
+  // digits. A token's parts mix them.
+  if (/^[A-Za-z]+(?:-(?:[A-Za-z]+|\d+))+$/.test(s)) return null;
   // A long run of letters and digits with a digit in it reads as a token or a code, not a word.
   if (s.length >= 16 && /\d/.test(s) && /^[A-Za-z0-9_.~-]+$/.test(s)) return ":token";
   return null;

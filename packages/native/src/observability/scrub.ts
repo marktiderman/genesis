@@ -69,9 +69,15 @@ const PATTERNS: readonly [RegExp, string][] = [
   // Phone numbers: international (`+1 555 555 0101`) and North American (`555-555-0101`).
   [/\+\d[\d\s().-]{6,18}\d/g, "[phone]"],
   [/\b\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\b/g, "[phone]"],
-  // …and national or international numbers written in space-separated groups (`44 20 7946 0958`,
-  // `020 7946 0958`): three or more groups of 2 to 4 digits. Dates and versions use `-`, `/` or `.`.
-  [/\b\d{2,4}(?: \d{2,4}){2,4}\b/g, "[phone]"],
+  // …national numbers in space-separated groups, which start with a trunk 0 (`020 7946 0958`), and
+  // international ones without the + (`44 20 7946 0958`: a country code, then two groups of 4).
+  // Plain counts, durations and dates (`120 340 560`, `2024 11 19`) don't have either shape.
+  [/\b0\d{2,4} \d{3,4} \d{3,4}\b/g, "[phone]"],
+  [/\b\d{2,3} \d{1,4} \d{4} \d{4}\b/g, "[phone]"],
+  // …and North American numbers with no separator (`5555550101`, `15555550101`): an area code and an
+  // exchange that start with 2-9. A whole word only, so a hex id, a longer number or an epoch
+  // time (which starts with 1) is left alone.
+  [/\b1?[2-9]\d{2}[2-9]\d{6}\b/g, "[phone]"],
   // Long opaque hex runs: API keys, refresh tokens, DSN secrets. Linear: a run starts only after a non-hex character.
   [/(^|[^A-Fa-f0-9])[A-Fa-f0-9]{32,}(?![A-Fa-f0-9])/g, "$1[hex]"],
 ];
