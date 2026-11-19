@@ -32,11 +32,14 @@ const catalogue = settingsCatalogue([
   }),
 ]);
 
+/** What an app's own handler reports: the database, and the Vault for platform admins. */
+const APP_HOST: SettingsCapabilities = { ...APP_HOST_CAPABILITIES, setSecrets: { vault: true } };
 const CLI_HOST: SettingsCapabilities = { writeFiles: true, writeDatabase: true, setSecrets: true, runCli: true, agent: false, proposeChanges: false };
 
 /** An in-memory host: writes change the layers, so the screen reflects them. */
 function memoryClient(capabilities: SettingsCapabilities, findings: SettingsState["findings"]): SettingsClient {
   let file: SettingsLayerValues = settingsLayerFromFile({ "app.region": "eu", "app.theme": { value: "dark", locked: true } });
+  let vaultSet = false;
   let database: SettingsLayerValues = settingsLayerFromRows([{ key: "support.retentionDays", value: 30 }]);
   const state = (): SettingsState => ({
     app: { name: "Acme", host: capabilities.writeFiles ? "cli" : "app", preset: "max" },
@@ -47,6 +50,7 @@ function memoryClient(capabilities: SettingsCapabilities, findings: SettingsStat
     secrets: [
       { name: "GITHUB_TOKEN", store: "edge", status: "missing", neededBy: ["support.githubRepo"] },
       { name: "RESEND_API_KEY", store: "edge", status: "set", neededBy: ["notifications.email"], lastRotated: "2026-10-01T00:00:00Z" },
+      { name: "AI_PROVIDER_KEY", store: "vault", status: vaultSet ? "set" : "missing", neededBy: ["ai.budget"] },
     ],
     capabilities,
     upgrades: {
@@ -87,6 +91,10 @@ function memoryClient(capabilities: SettingsCapabilities, findings: SettingsStat
     apply: (fixId) => delay({ fixId, verified: true }),
     upgrades: () => delay(state().upgrades!),
     audit: () => delay({ entries: [] }),
+    // Write-only: the story keeps whether it is set, never the value.
+    async setSecret() {
+      vaultSet = true;
+    },
     propose: async ({ key, value }) => ({ snippet: JSON.stringify({ settings: { [key]: value } }, null, 2) }),
   };
 }
@@ -100,7 +108,7 @@ const FINDINGS: SettingsState["findings"] = [
 /** The platform-admin screen inside an app: the database layer only; build keys say "Change in repo". */
 export const AppHost: Story = {
   render: () => {
-    const client = useMemo(() => memoryClient(APP_HOST_CAPABILITIES, FINDINGS), []);
+    const client = useMemo(() => memoryClient(APP_HOST, FINDINGS), []);
     return <GenesisSettings client={client} capabilities={APP_HOST_CAPABILITIES} />;
   },
 };

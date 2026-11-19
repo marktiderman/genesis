@@ -51,15 +51,20 @@ import {
   TabsTrigger,
   Textarea,
 } from "@marktiderman/genesis-ui";
-import { settingValueProblem, type SettingDef, type SettingSource, type SettingsLayer } from "./settings";
+import { PageHeader } from "@marktiderman/genesis-ui/layout";
+import { SETTINGS_LAYERS, settingValueProblem, type SettingDef, type SettingSource, type SettingsLayer } from "./settings";
 import {
+  auditValuesVisible,
+  canSetSecret,
   intersectCapabilities,
+  preferredWriteLayer,
+  safeHref,
+  secretNames,
   settingFileSnippet,
   settingWritability,
   SettingsProtocolError,
   type SettingsApplyResult,
   type SettingsAuditEntry,
-  type SettingsAuditPage,
   type SettingsCapabilities,
   type SettingsClient,
   type SettingsFinding,
@@ -100,7 +105,11 @@ export interface GenesisSettingsCopy {
   lockedBy: (layer: string) => string;
   buildOnly: string;
   edit: string;
+  /** The Edit button's accessible name. */
+  editLabel: (key: string) => string;
   editTitle: (key: string) => string;
+  /** Shown when the layer being written sits below the one the value comes from. */
+  overriddenBy: (layer: string) => string;
   editDescription: string;
   writeLayer: string;
   lock: string;
@@ -110,6 +119,7 @@ export interface GenesisSettingsCopy {
   clearLayer: (layer: string) => string;
   invalidJson: string;
   changeInRepo: string;
+  changeInRepoLabel: (key: string) => string;
   changeInRepoTitle: (key: string) => string;
   changeInRepoDescription: string;
   openPullRequest: string;
@@ -119,6 +129,9 @@ export interface GenesisSettingsCopy {
   healthEmptyDescription: string;
   levels: Record<SettingsFindingLevel, string>;
   fix: string;
+  fixLabel: (rule: string) => string;
+  /** The Health tab's count, for a screen reader. */
+  findingsCount: (n: number) => string;
   howToFix: string;
   openStep: string;
   runInTerminal: string;
@@ -143,6 +156,12 @@ export interface GenesisSettingsCopy {
   neededBy: (keys: string) => string;
   lastRotated: (when: string) => string;
   secretHint: string;
+  setSecret: string;
+  rotateSecret: string;
+  secretLabel: (name: string) => string;
+  setSecretTitle: (name: string) => string;
+  setSecretDescription: string;
+  secretValue: string;
   upgradesEmpty: string;
   checkAgain: string;
   checkedAt: (when: string) => string;
@@ -177,8 +196,10 @@ export const GENESIS_SETTINGS_COPY: GenesisSettingsCopy = {
   lockedBy: (layer) => `Locked by ${layer}`,
   buildOnly: "Build",
   edit: "Edit",
+  editLabel: (key) => `Edit ${key}`,
   editTitle: (key) => `Edit ${key}`,
   editDescription: "A later layer wins unless an earlier one locked the value.",
+  overriddenBy: (layer) => `${layer} overrides this layer, so the change won't show until that value is cleared.`,
   writeLayer: "Save in",
   lock: "Lock",
   lockHint: "Later layers can't change a locked value.",
@@ -187,6 +208,7 @@ export const GENESIS_SETTINGS_COPY: GenesisSettingsCopy = {
   clearLayer: (layer) => `Clear the ${layer} value`,
   invalidJson: "That isn't valid JSON.",
   changeInRepo: "Change in repo",
+  changeInRepoLabel: (key) => `Change ${key} in the repo`,
   changeInRepoTitle: (key) => `Change ${key} in the repo`,
   changeInRepoDescription: "This key is set in genesis.config.json and reviewed like code. Commit this change:",
   openPullRequest: "Open pull request",
@@ -196,6 +218,8 @@ export const GENESIS_SETTINGS_COPY: GenesisSettingsCopy = {
   healthEmptyDescription: "The doctor found no problems.",
   levels: { error: "Error", warn: "Warning", info: "Info" },
   fix: "Fix…",
+  fixLabel: (rule) => `Fix ${rule}`,
+  findingsCount: (n) => ` (${n} ${n === 1 ? "finding" : "findings"})`,
   howToFix: "How to fix",
   openStep: "Open step",
   runInTerminal: "Run in a terminal:",
@@ -221,6 +245,12 @@ export const GENESIS_SETTINGS_COPY: GenesisSettingsCopy = {
   neededBy: (keys) => `Needed by ${keys}`,
   lastRotated: (when) => `Last set ${when}`,
   secretHint: "Set secrets with genesis setup. Their values never reach this screen.",
+  setSecret: "Set…",
+  rotateSecret: "Rotate…",
+  secretLabel: (name) => `Set ${name}`,
+  setSecretTitle: (name) => `Set ${name}`,
+  setSecretDescription: "The value goes straight to the Vault. It is never shown again, here or anywhere.",
+  secretValue: "Value",
   upgradesEmpty: "No release information yet.",
   checkAgain: "Check again",
   checkedAt: (when) => `Checked ${when}`,
@@ -253,6 +283,11 @@ export interface GenesisSettingsProps {
   onOpenStep?: (step: string) => void;
   /** Audit entries per page. Default 25. */
   auditPageSize?: number;
+  /**
+   * Draw the page header (title, description, Refresh). Default true; pass false when the host page
+   * owns the title (under `AppShellPageHeader`, say).
+   */
+  header?: boolean;
   /** Prefix of every test id. Default `genesis-settings`. */
   testID?: string;
   className?: string;
@@ -268,6 +303,11 @@ const DISTANCE_VARIANT = { current: "success", patch: "info", minor: "warning", 
 /** A test id from parts: anything but letters, digits, dots, underscores and dashes becomes a dash. */
 function tid(...parts: string[]): string {
   return parts.map((p) => p.replace(/[^a-zA-Z0-9._-]+/g, "-")).join("-");
+}
+
+/** A layer's name, or the layer itself when a host sends one this screen doesn't know. */
+function layerLabel(copy: Copy, layer: string): string {
+  return (copy.layers as Record<string, string | undefined>)[layer] ?? layer;
 }
 
 function formatValue(value: unknown, copy: Copy): string {
@@ -304,6 +344,7 @@ export function GenesisSettings({
   defaultTab = "values",
   onOpenStep,
   auditPageSize = 25,
+  header = true,
   testID = "genesis-settings",
   className,
 }: GenesisSettingsProps) {
@@ -329,23 +370,25 @@ export function GenesisSettings({
     void load();
   }, [load]);
 
-  const caps = useMemo(() => (state ? intersectCapabilities(state.capabilities, narrow ?? state.capabilities) : null), [state, narrow]);
+  const caps = useMemo(() => (state ? intersectCapabilities(state.capabilities, narrow) : null), [state, narrow]);
+
+  const refresh = (
+    <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading} testID={tid(testID, "refresh")}>
+      {copy.refresh}
+    </Button>
+  );
 
   return (
     <div data-slot="genesis-settings" data-testid={testID} className={["flex flex-col gap-6", className].filter(Boolean).join(" ")}>
-      <header className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-        <div className="flex min-w-0 flex-col gap-1">
-          <h1 className="truncate text-xl font-[number:var(--page-title-font-weight)] tracking-[var(--page-title-letter-spacing)] sm:text-2xl">
-            {copy.title}
-          </h1>
-          <p className="text-sm text-muted-foreground">{state ? `${state.app.name} · ${copy.description}` : copy.description}</p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading} testID={tid(testID, "refresh")}>
-            {copy.refresh}
-          </Button>
-        </div>
-      </header>
+      {header ? (
+        <PageHeader
+          title={copy.title}
+          subtitle={state ? `${state.app.name} · ${copy.description}` : copy.description}
+          actions={refresh}
+        />
+      ) : (
+        <div className="flex justify-end">{refresh}</div>
+      )}
 
       {loadError ? (
         <InlineAlert
@@ -365,14 +408,19 @@ export function GenesisSettings({
         loading ? <PageLoading label={copy.loading} testID={tid(testID, "loading")} /> : null
       ) : (
         <Tabs value={tab} onValueChange={(v) => setTab(v as GenesisSettingsTab)} defaultValue={defaultTab}>
-          <TabsList className="max-w-full justify-start overflow-x-auto [scrollbar-width:none]">
+          <TabsList className="max-w-full justify-start overflow-x-auto [scrollbar-width:thin]">
             {(["values", "health", "secrets", "upgrades", "audit"] as const).map((t) => (
               <TabsTrigger key={t} value={t} data-testid={tid(testID, "tab", t)}>
                 {copy.tabs[t]}
                 {t === "health" && state.findings.length ? (
-                  <Badge variant={state.findings.some((f) => f.level === "error") ? "destructive" : "muted"} className="ml-1.5">
-                    {state.findings.length}
-                  </Badge>
+                  <>
+                    <Badge variant={state.findings.some((f) => f.level === "error") ? "destructive" : "muted"} className="ml-1.5" aria-hidden>
+                      {state.findings.length}
+                    </Badge>
+                    <span className="sr-only" data-testid={tid(testID, "health-count")}>
+                      {copy.findingsCount(state.findings.length)}
+                    </span>
+                  </>
                 ) : null}
               </TabsTrigger>
             ))}
@@ -384,13 +432,13 @@ export function GenesisSettings({
             <HealthTab state={state} caps={caps} client={client} copy={copy} testID={testID} onChanged={load} onOpenStep={onOpenStep} />
           </TabsContent>
           <TabsContent value="secrets" className="pt-4">
-            <SecretsTab secrets={state.secrets} copy={copy} testID={testID} />
+            <SecretsTab secrets={state.secrets} caps={caps} client={client} copy={copy} testID={testID} onChanged={load} />
           </TabsContent>
           <TabsContent value="upgrades" className="pt-4">
             <UpgradesTab initial={state.upgrades} caps={caps} client={client} copy={copy} testID={testID} onChanged={load} />
           </TabsContent>
           <TabsContent value="audit" className="pt-4">
-            <AuditTab initial={state.audit} client={client} copy={copy} testID={testID} pageSize={auditPageSize} />
+            <AuditTab state={state} client={client} copy={copy} testID={testID} pageSize={auditPageSize} />
           </TabsContent>
         </Tabs>
       )}
@@ -490,8 +538,9 @@ function ValueRow({
   onEdit: (mode: Editing["mode"]) => void;
 }) {
   const writable = settingWritability(def, source, caps);
-  // A build key on a host that can't write files: it changes in the repo, through a pull request or by hand.
-  const repoOnly = !writable.layers.length && def.applies === "build" && writable.refused.file === "capability";
+  // A key only the repo can change here (a build key, or one the file layer locked) on a host that
+  // can't write files: it changes through a pull request or by hand.
+  const repoOnly = !writable.layers.length && writable.refused.file === "capability" && (def.applies === "build" || source?.lockedBy === "file");
   const rowId = tid(testID, "row", def.key);
   return (
     <SettingsRow
@@ -502,12 +551,12 @@ function ValueRow({
           {def.summary ? <span>{def.summary}</span> : null}
           <span className="flex flex-wrap items-center gap-1.5">
             <Badge variant="outline" data-testid={tid(rowId, "source")} data-layer={source?.layer}>
-              {copy.layers[source?.layer ?? "default"]}
+              {layerLabel(copy, source?.layer ?? "default")}
             </Badge>
             {source?.lockedBy ? (
               <Badge variant="warning" data-testid={tid(rowId, "lock")} data-layer={source.lockedBy}>
                 <Lock aria-hidden className="mr-1 size-3" />
-                {copy.lockedBy(copy.layers[source.lockedBy])}
+                {copy.lockedBy(layerLabel(copy, source.lockedBy))}
               </Badge>
             ) : null}
             {def.applies === "build" ? <Badge variant="muted">{copy.buildOnly}</Badge> : null}
@@ -522,11 +571,11 @@ function ValueRow({
         {formatValue(value, copy)}
       </span>
       {writable.layers.length ? (
-        <Button variant="outline" size="sm" onClick={() => onEdit("edit")} aria-label={`${copy.edit} ${def.key}`} testID={tid(rowId, "edit")}>
+        <Button variant="outline" size="sm" onClick={() => onEdit("edit")} aria-label={copy.editLabel(def.key)} testID={tid(rowId, "edit")}>
           {copy.edit}
         </Button>
       ) : repoOnly ? (
-        <Button variant="ghost" size="sm" onClick={() => onEdit("repo")} testID={tid(rowId, "repo")} aria-label={`${copy.changeInRepo}: ${def.key}`}>
+        <Button variant="ghost" size="sm" onClick={() => onEdit("repo")} testID={tid(rowId, "repo")} aria-label={copy.changeInRepoLabel(def.key)}>
           {copy.changeInRepo}
         </Button>
       ) : !source?.lockedBy ? (
@@ -544,6 +593,7 @@ function ValueInput({
   id,
   copy,
   testID,
+  problemId,
 }: {
   def: SettingDef;
   draft: string;
@@ -551,11 +601,15 @@ function ValueInput({
   id: string;
   copy: Copy;
   testID: string;
+  /** The id of the problem message, while there is one. */
+  problemId: string | undefined;
 }) {
+  // A value that doesn't fit is announced with its problem.
+  const a11y = problemId ? { "aria-invalid": true as const, "aria-describedby": problemId } : {};
   if (def.type === "boolean") {
     return (
       <div className="flex items-center gap-3">
-        <Switch id={id} checked={draft === "true"} onCheckedChange={(on) => onDraft(on ? "true" : "false")} data-testid={tid(testID, "input")} />
+        <Switch id={id} checked={draft === "true"} onCheckedChange={(on) => onDraft(on ? "true" : "false")} data-testid={tid(testID, "input")} {...a11y} />
         <Label htmlFor={id}>{draft === "true" ? copy.on : copy.off}</Label>
       </div>
     );
@@ -563,7 +617,7 @@ function ValueInput({
   if (def.options && (def.type === "string" || def.type === "number")) {
     return (
       <Select value={draft} onValueChange={onDraft}>
-        <SelectTrigger id={id} data-testid={tid(testID, "input")}>
+        <SelectTrigger id={id} data-testid={tid(testID, "input")} {...a11y}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -577,7 +631,7 @@ function ValueInput({
     );
   }
   if (def.type === "list" || def.type === "object") {
-    return <Textarea id={id} value={draft} onChange={(e) => onDraft(e.target.value)} rows={5} className="font-mono text-sm" data-testid={tid(testID, "input")} />;
+    return <Textarea id={id} value={draft} onChange={(e) => onDraft(e.target.value)} rows={5} className="font-mono text-sm" data-testid={tid(testID, "input")} {...a11y} />;
   }
   return (
     <Input
@@ -588,6 +642,7 @@ function ValueInput({
       {...(def.min !== undefined ? { min: def.min } : {})}
       {...(def.max !== undefined ? { max: def.max } : {})}
       data-testid={tid(testID, "input")}
+      {...a11y}
     />
   );
 }
@@ -634,12 +689,20 @@ function ValueSheetBody({
   const def = editing.def;
   const source = state.resolved.sources[def.key];
   const writable = settingWritability(def, source, caps);
-  // The layer that set the value, when the screen can write it; else the highest it can.
-  const preferred: SettingsWriteLayer | undefined =
-    source && writable.layers.includes(source.layer as SettingsWriteLayer) ? (source.layer as SettingsWriteLayer) : writable.layers[writable.layers.length - 1];
-  const [layer, setLayer] = useState<SettingsWriteLayer | undefined>(preferred);
+  // The file layer when the host can write it (reviewed like code); the database is a choice.
+  const preferred = preferredWriteLayer(writable);
+  const lockedIn = (l: SettingsWriteLayer | undefined) => (l ? state.layers[l]?.[def.key]?.locked === true : source?.lockedBy === "file");
+  const [layer, setLayerState] = useState<SettingsWriteLayer | undefined>(preferred);
   const [draft, setDraft] = useState(() => toDraft(def, state.resolved.values[def.key]));
-  const [locked, setLocked] = useState(() => (preferred ? state.layers[preferred]?.[def.key]?.locked === true : source?.lockedBy === "file"));
+  const [locked, setLocked] = useState(() => lockedIn(preferred));
+  // The lock box shows the chosen layer's own lock.
+  const setLayer = (l: SettingsWriteLayer) => {
+    setLayerState(l);
+    setLocked(lockedIn(l));
+  };
+  // Writing below the layer the value comes from changes nothing until that value goes.
+  const overriddenBy =
+    !editing || editing.mode !== "edit" || !layer || !source || SETTINGS_LAYERS.indexOf(source.layer) <= SETTINGS_LAYERS.indexOf(layer) ? null : source.layer;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [proposal, setProposal] = useState<string | null>(null);
@@ -695,9 +758,9 @@ function ValueSheetBody({
         <div className="flex flex-col gap-4 px-4">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor={inputId}>{def.key}</Label>
-            <ValueInput def={def} draft={draft} onDraft={setDraft} id={inputId} copy={copy} testID={sheetId} />
+            <ValueInput def={def} draft={draft} onDraft={setDraft} id={inputId} copy={copy} testID={sheetId} problemId={problem ? `${baseId}-problem` : undefined} />
             {problem ? (
-              <p className="text-sm text-destructive" role="alert" data-testid={tid(sheetId, "problem")}>
+              <p id={`${baseId}-problem`} className="text-sm text-destructive" role="alert" data-testid={tid(sheetId, "problem")}>
                 {problem}
               </p>
             ) : null}
@@ -711,7 +774,7 @@ function ValueSheetBody({
                 {writable.layers.map((l) => (
                   <div key={l} className="flex items-center gap-2">
                     <RadioGroupItem id={`${baseId}-layer-${l}`} value={l} data-testid={tid(sheetId, "layer", l)} />
-                    <Label htmlFor={`${baseId}-layer-${l}`}>{copy.layers[l]}</Label>
+                    <Label htmlFor={`${baseId}-layer-${l}`}>{layerLabel(copy, l)}</Label>
                   </div>
                 ))}
               </RadioGroup>
@@ -724,6 +787,9 @@ function ValueSheetBody({
               <span className="text-xs text-muted-foreground">{copy.lockHint}</span>
             </div>
           </div>
+          {overriddenBy ? (
+            <InlineAlert variant="info" description={copy.overriddenBy(layerLabel(copy, overriddenBy))} testID={tid(sheetId, "overridden")} />
+          ) : null}
           {repo ? (
             <pre className="max-h-64 overflow-auto rounded-md bg-muted p-3 font-mono text-xs" data-testid={tid(sheetId, "snippet")}>
               {settingFileSnippet(def.key, "value" in parsed ? parsed.value : draft, locked)}
@@ -737,7 +803,7 @@ function ValueSheetBody({
         <SheetFooter className="mt-auto flex-col gap-2 sm:flex-row sm:justify-end">
           {!repo && layer && layerHas ? (
             <Button variant="ghost" onClick={() => void clear()} disabled={busy} testID={tid(sheetId, "clear")}>
-              {copy.clearLayer(copy.layers[layer])}
+              {copy.clearLayer(layerLabel(copy, layer))}
             </Button>
           ) : null}
           <Button variant="outline" onClick={onClose} testID={tid(sheetId, "cancel")}>
@@ -764,9 +830,12 @@ function ValueSheetBody({
 // Health and fixes
 // ---------------------------------------------------------------------------
 
-/** Whether this host can plan and apply an automatic fix at all. */
-function canAutoFix(caps: SettingsCapabilities): boolean {
-  return caps.writeFiles || caps.runCli;
+/**
+ * Whether this host can plan and apply an automatic fix at all: the CLI host can; the app host
+ * only a fix that writes the database layer and nothing else.
+ */
+function canAutoFix(caps: SettingsCapabilities, fix: SettingsFixRef): boolean {
+  return caps.writeFiles || caps.runCli || (fix.databaseOnly === true && caps.writeDatabase);
 }
 
 function HealthTab({
@@ -779,7 +848,7 @@ function HealthTab({
   onOpenStep,
 }: TabProps & { state: SettingsState; onOpenStep: ((step: string) => void) | undefined }) {
   const [fixing, setFixing] = useState<string | null>(null);
-  const findings = useMemo(() => [...state.findings].sort((a, b) => LEVEL_ORDER[a.level] - LEVEL_ORDER[b.level]), [state.findings]);
+  const findings = useMemo(() => [...state.findings].sort((a, b) => (LEVEL_ORDER[a.level] ?? 3) - (LEVEL_ORDER[b.level] ?? 3)), [state.findings]);
   if (!findings.length) return <EmptyState title={copy.healthEmpty} description={copy.healthEmptyDescription} />;
   return (
     <>
@@ -809,6 +878,7 @@ function FindingRow({
   onOpenStep: ((step: string) => void) | undefined;
 }) {
   const fix = finding.fix;
+  const href = safeHref(fix?.href);
   const rowId = tid(testID, "finding", finding.id);
   const where = finding.file ? `${finding.file}${finding.line ? `:${finding.line}` : ""}` : null;
   return (
@@ -818,7 +888,7 @@ function FindingRow({
       description={
         <span className="flex flex-col gap-1.5">
           <span className="flex flex-wrap items-center gap-1.5">
-            <Badge variant={LEVEL_VARIANT[finding.level]}>{copy.levels[finding.level]}</Badge>
+            <Badge variant={LEVEL_VARIANT[finding.level] ?? "muted"}>{copy.levels[finding.level] ?? finding.level}</Badge>
             <Code>{finding.rule}</Code>
             {where ? <span className="break-all">{where}</span> : null}
           </span>
@@ -826,14 +896,14 @@ function FindingRow({
         </span>
       }
     >
-      {fix?.kind === "auto" && canAutoFix(caps) ? (
-        <Button size="sm" onClick={() => onFix(fix.id)} testID={tid(rowId, "fix")} aria-label={`${copy.fix} ${finding.rule}`}>
+      {fix?.kind === "auto" && canAutoFix(caps, fix) ? (
+        <Button size="sm" onClick={() => onFix(fix.id)} testID={tid(rowId, "fix")} aria-label={copy.fixLabel(finding.rule)}>
           {copy.fix}
         </Button>
-      ) : fix?.kind === "guided" && (fix.href || (onOpenStep && fix.step)) ? (
-        fix.href ? (
+      ) : fix?.kind === "guided" && (href || (onOpenStep && fix.step)) ? (
+        href ? (
           <Button size="sm" variant="outline" asChild>
-            <a href={fix.href} data-testid={tid(rowId, "step")}>
+            <a href={href} data-testid={tid(rowId, "step")}>
               {copy.openStep}
             </a>
           </Button>
@@ -861,14 +931,14 @@ function FixHint({
   testID: string;
   onOpenStep: ((step: string) => void) | undefined;
 }) {
-  if (fix.kind === "auto" && !canAutoFix(caps)) {
+  if (fix.kind === "auto" && !canAutoFix(caps, fix)) {
     return (
       <span data-testid={tid(testID, "cli")}>
         {copy.runInTerminal} <Code>genesis fix {fix.id}</Code>
       </span>
     );
   }
-  if (fix.kind === "guided" && !fix.href && !(onOpenStep && fix.step)) {
+  if (fix.kind === "guided" && !safeHref(fix.href) && !(onOpenStep && fix.step)) {
     return (
       <span data-testid={tid(testID, "cli")}>
         {copy.runInTerminal} <Code>{fix.step ? `genesis setup --step ${fix.step}` : `genesis fix ${fix.id}`}</Code>
@@ -899,7 +969,12 @@ function missingFor(plan: SettingsPlan, caps: SettingsCapabilities): string[] {
   const out: string[] = [];
   if (plan.files.length && !caps.writeFiles) out.push("writeFiles");
   if (plan.commands.length && !caps.runCli) out.push("runCli");
-  if (plan.secrets.length && !caps.setSecrets) out.push("setSecrets");
+  // A plan names its secrets, not their stores: only a host that can set every store applies it.
+  if (plan.secrets.length && caps.setSecrets !== true) out.push("setSecrets");
+  for (const layer of plan.layers ?? []) {
+    if (layer === "database" && !caps.writeDatabase) out.push("writeDatabase");
+    if (layer === "file" && !caps.writeFiles && !out.includes("writeFiles")) out.push("writeFiles");
+  }
   return out;
 }
 
@@ -1069,10 +1144,13 @@ function PlanSheet({ fixId, caps, client, copy, testID, onClose, onChanged }: Ta
 
 /**
  * Names and status only. Each field is picked by name, so a value a host sent by mistake is never
- * drawn.
+ * drawn. A Vault secret can be set or rotated when the host allows it: write-only, the value is
+ * held only while the person types it and dropped once sent.
  */
-function SecretsTab({ secrets, copy, testID }: { secrets: readonly SettingsSecretStatus[]; copy: Copy; testID: string }) {
+function SecretsTab({ secrets, caps, client, copy, testID, onChanged }: TabProps & { secrets: readonly SettingsSecretStatus[] }) {
+  const [setting, setSetting] = useState<string | null>(null);
   if (!secrets.length) return <EmptyState title={copy.secretsEmpty} />;
+  const canVault = canSetSecret(caps, "vault") && typeof client.setSecret === "function";
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-muted-foreground">{copy.secretHint}</p>
@@ -1081,6 +1159,7 @@ function SecretsTab({ secrets, copy, testID }: { secrets: readonly SettingsSecre
           .sort((a, b) => a.name.localeCompare(b.name))
           .map((s) => {
             const rowId = tid(testID, "secret", s.name);
+            const neededBy = Array.isArray(s.neededBy) ? s.neededBy : [];
             return (
               <SettingsRow
                 key={`${s.store}:${s.name}`}
@@ -1089,7 +1168,7 @@ function SecretsTab({ secrets, copy, testID }: { secrets: readonly SettingsSecre
                 description={
                   <span className="flex flex-col gap-0.5">
                     <span>{copy.secretStores[s.store] ?? s.store}</span>
-                    {s.neededBy.length ? <span className="break-words">{copy.neededBy(s.neededBy.join(", "))}</span> : null}
+                    {neededBy.length ? <span className="break-words">{copy.neededBy(neededBy.join(", "))}</span> : null}
                     {s.lastRotated ? <span>{copy.lastRotated(copy.formatTime(s.lastRotated))}</span> : null}
                   </span>
                 }
@@ -1097,11 +1176,73 @@ function SecretsTab({ secrets, copy, testID }: { secrets: readonly SettingsSecre
                 <Badge variant={SECRET_VARIANT[s.status] ?? "muted"} data-testid={tid(rowId, "status")} data-status={s.status}>
                   {copy.secretStatus[s.status] ?? s.status}
                 </Badge>
+                {canVault && s.store === "vault" ? (
+                  <Button size="sm" variant="outline" onClick={() => setSetting(s.name)} aria-label={copy.secretLabel(s.name)} testID={tid(rowId, "set")}>
+                    {s.status === "set" ? copy.rotateSecret : copy.setSecret}
+                  </Button>
+                ) : null}
               </SettingsRow>
             );
           })}
       </div>
+      {setting ? (
+        <SecretSheet key={setting} name={setting} caps={caps} client={client} copy={copy} testID={testID} onClose={() => setSetting(null)} onChanged={onChanged} />
+      ) : null}
     </div>
+  );
+}
+
+function SecretSheet({ name, client, copy, testID, onClose, onChanged }: TabProps & { name: string; onClose: () => void }) {
+  const [value, setValue] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const inputId = useId();
+  const sheetId = tid(testID, "secret-sheet");
+  const save = async () => {
+    if (!value || !client.setSecret) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await client.setSecret({ name, store: "vault", value });
+      setValue("");
+      onClose();
+      await onChanged();
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Sheet open onOpenChange={(open) => (open ? undefined : onClose())}>
+      <SheetContent data-testid={sheetId} className="flex flex-col gap-4 sm:max-w-lg">
+        <SheetHeader>
+          <SheetTitle>{copy.setSecretTitle(name)}</SheetTitle>
+          <SheetDescription>{copy.setSecretDescription}</SheetDescription>
+        </SheetHeader>
+        <div className="flex flex-col gap-1.5 px-4">
+          <Label htmlFor={inputId}>{copy.secretValue}</Label>
+          <Input
+            id={inputId}
+            type="password"
+            autoComplete="off"
+            spellCheck={false}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            data-testid={tid(sheetId, "input")}
+          />
+          {error ? <InlineAlert variant="destructive" description={error} testID={tid(sheetId, "error")} /> : null}
+        </div>
+        <SheetFooter className="mt-auto flex-col gap-2 sm:flex-row sm:justify-end">
+          <Button variant="outline" onClick={onClose} testID={tid(sheetId, "cancel")}>
+            {copy.cancel}
+          </Button>
+          <Button onClick={() => void save()} disabled={busy || !value} testID={tid(sheetId, "save")}>
+            {copy.save}
+          </Button>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -1171,8 +1312,8 @@ function UpgradesTab({ initial, caps, client, copy, testID, onChanged }: TabProp
                       {p.latest && p.latest !== p.current ? ` → ${p.latest}` : ""}
                     </span>
                     {p.notes ? <span className="whitespace-pre-wrap">{p.notes}</span> : null}
-                    {p.notesUrl ? (
-                      <a className="text-primary-text underline-offset-4 hover:underline" href={p.notesUrl} target="_blank" rel="noreferrer">
+                    {safeHref(p.notesUrl) ? (
+                      <a className="text-primary-text underline-offset-4 hover:underline" href={safeHref(p.notesUrl)} target="_blank" rel="noreferrer">
                         {copy.releaseNotes}
                       </a>
                     ) : null}
@@ -1197,51 +1338,69 @@ function UpgradesTab({ initial, caps, client, copy, testID, onChanged }: TabProp
 // Audit
 // ---------------------------------------------------------------------------
 
+/**
+ * The history, a page at a time. Rows rather than a ResourceView: the pages come from the
+ * protocol's cursor, not a DataProvider resource (see the README's "Audit" note).
+ */
 function AuditTab({
-  initial,
+  state,
   client,
   copy,
   testID,
   pageSize,
 }: {
-  initial: SettingsAuditPage | undefined;
+  state: SettingsState;
   client: SettingsClient;
   copy: Copy;
   testID: string;
   pageSize: number;
 }) {
+  const initial = state.audit;
   const [entries, setEntries] = useState<readonly SettingsAuditEntry[]>(initial?.entries ?? []);
   const [next, setNext] = useState<string | undefined>(initial?.next);
+  // The host left the history out of `state`: the first page is fetched here.
+  const [fetched, setFetched] = useState(initial !== undefined);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const names = useMemo(() => secretNames(state.catalogue, state.secrets), [state.catalogue, state.secrets]);
+
+  const load = useCallback(
+    async (cursor: string | undefined, append: boolean) => {
+      setBusy(true);
+      setError(null);
+      try {
+        const page = await client.audit({ ...(cursor !== undefined ? { cursor } : {}), limit: pageSize });
+        const got = Array.isArray(page?.entries) ? page.entries : [];
+        setEntries((prev) => (append ? [...prev, ...got] : got));
+        setNext(page?.next);
+      } catch (e) {
+        setError(errorMessage(e));
+      } finally {
+        setBusy(false);
+        setFetched(true);
+      }
+    },
+    [client, pageSize],
+  );
 
   useEffect(() => {
-    setEntries(initial?.entries ?? []);
-    setNext(initial?.next);
-  }, [initial]);
+    if (initial) {
+      setEntries(initial.entries ?? []);
+      setNext(initial.next);
+      setFetched(true);
+    } else void load(undefined, false);
+  }, [initial, load]);
 
-  const more = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      const page = await client.audit({ ...(next !== undefined ? { cursor: next } : {}), limit: pageSize });
-      setEntries((prev) => [...prev, ...page.entries]);
-      setNext(page.next);
-    } catch (e) {
-      setError(errorMessage(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  if (!entries.length && !next) return <EmptyState title={copy.auditEmpty} />;
+  if (!fetched) return <PageLoading label={copy.loading} testID={tid(testID, "audit-loading")} />;
+  if (!entries.length && !next && !error) return <EmptyState title={copy.auditEmpty} />;
   return (
     <div className="flex flex-col gap-4">
       <div className="divide-y">
         {entries.map((e) => {
-          // A secret's change shows its name only: before and after are never drawn for it.
+          // Before and after only for a set or clear of a catalogue key that is no secret
+          // (auditValuesVisible): a fix, an upgrade or a secret shows its subject and summary only.
           const change =
-            e.action !== "secret" && (e.before !== undefined || e.after !== undefined)
+            auditValuesVisible(e, state.catalogue, names) && (e.before !== undefined || e.after !== undefined)
               ? `${formatValue(e.before, copy)} → ${formatValue(e.after, copy)}`
               : null;
           return (
@@ -1258,7 +1417,7 @@ function AuditTab({
                   {e.summary ? <span>{e.summary}</span> : null}
                   {change ? <span className="break-all">{change}</span> : null}
                   <span>
-                    {[e.actor, copy.formatTime(e.at), e.layer ? copy.layers[e.layer] : null, e.locked ? copy.lock : null].filter(Boolean).join(" · ")}
+                    {[e.actor, copy.formatTime(e.at), e.layer ? layerLabel(copy, e.layer) : null, e.locked ? copy.lock : null].filter(Boolean).join(" · ")}
                   </span>
                 </span>
               }
@@ -1269,7 +1428,7 @@ function AuditTab({
       {error ? <InlineAlert variant="destructive" description={error} testID={tid(testID, "audit-error")} /> : null}
       {next ? (
         <div>
-          <Button variant="outline" size="sm" onClick={() => void more()} disabled={busy} testID={tid(testID, "audit-more")}>
+          <Button variant="outline" size="sm" onClick={() => void load(next, true)} disabled={busy} testID={tid(testID, "audit-more")}>
             {copy.loadMore}
           </Button>
         </div>

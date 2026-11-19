@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { GenesisSettings, type GenesisSettingsProps } from "../settings-react";
 import { SettingsProtocolError } from "../settings-protocol";
 import { ALL_CAPS, APP_CAPS, LEAKED, fakeClient, makeState } from "./settings-fixture";
@@ -31,9 +31,9 @@ describe("GenesisSettings: Values", () => {
     expect(within(row("support.retentionDays")).queryByTestId("genesis-settings-row-support.retentionDays-edit")).toBeTruthy();
     expect(within(row("app.region")).queryByTestId("genesis-settings-row-app.region-edit")).toBeNull();
     expect(within(row("app.region")).queryByTestId("genesis-settings-row-app.region-repo")).toBeTruthy();
-    // Locked by the file layer: the database layer can't change it.
+    // Locked by the file layer: the database can't change it, so it changes in the repo, where the lock lives.
     expect(within(row("app.theme")).queryByTestId("genesis-settings-row-app.theme-edit")).toBeNull();
-    expect(within(row("app.theme")).queryByTestId("genesis-settings-row-app.theme-repo")).toBeNull();
+    expect(within(row("app.theme")).queryByTestId("genesis-settings-row-app.theme-repo")).toBeTruthy();
   });
 
   it("lets the capabilities prop narrow a host that can do everything, never widen", async () => {
@@ -84,13 +84,45 @@ describe("GenesisSettings: Values", () => {
     expect(client.clearValue).toHaveBeenCalledWith({ key: "support.retentionDays", layer: "database" });
   });
 
-  it("offers the CLI host both layers for a runtime key", async () => {
+  it("offers the CLI host both layers for a runtime key, the file layer first", async () => {
     const client = fakeClient(makeState(ALL_CAPS));
     await renderSettings({ client });
     fireEvent.click(within(row("support.messenger")).getByTestId("genesis-settings-row-support.messenger-edit"));
     const sheet = await screen.findByTestId("genesis-settings-value-sheet");
-    expect(within(sheet).getByTestId("genesis-settings-value-sheet-layer-file")).toBeTruthy();
-    expect(within(sheet).getByTestId("genesis-settings-value-sheet-layer-database")).toBeTruthy();
+    expect(within(sheet).getByTestId("genesis-settings-value-sheet-layer-file").getAttribute("data-state")).toBe("checked");
+    expect(within(sheet).getByTestId("genesis-settings-value-sheet-layer-database").getAttribute("data-state")).toBe("unchecked");
+    await act(async () => {
+      fireEvent.click(within(sheet).getByTestId("genesis-settings-value-sheet-save"));
+    });
+    expect(client.setValue).toHaveBeenCalledWith(expect.objectContaining({ key: "support.messenger", layer: "file" }));
+  });
+
+  it("follows the chosen layer's own lock, and says when a higher layer overrides it", async () => {
+    const state = makeState(ALL_CAPS);
+    state.layers.database = { ...state.layers.database, "support.retentionDays": { value: 30, locked: true } };
+    await renderSettings({ client: fakeClient(state) });
+    fireEvent.click(within(row("support.retentionDays")).getByTestId("genesis-settings-row-support.retentionDays-edit"));
+    const sheet = await screen.findByTestId("genesis-settings-value-sheet");
+    const lock = () => within(sheet).getByTestId("genesis-settings-value-sheet-lock").getAttribute("data-state");
+    // The file layer (the default) has no lock of its own; the database's value overrides it.
+    expect(lock()).toBe("unchecked");
+    expect(within(sheet).getByTestId("genesis-settings-value-sheet-overridden").textContent).toContain("Database overrides");
+    fireEvent.click(within(sheet).getByTestId("genesis-settings-value-sheet-layer-database"));
+    expect(lock()).toBe("checked");
+    expect(within(sheet).queryByTestId("genesis-settings-value-sheet-overridden")).toBeNull();
+    fireEvent.click(within(sheet).getByTestId("genesis-settings-value-sheet-layer-file"));
+    expect(lock()).toBe("unchecked");
+  });
+
+  it("marks a value that doesn't fit as invalid, described by its problem", async () => {
+    await renderSettings({ client: fakeClient(makeState(APP_CAPS)) });
+    fireEvent.click(within(row("support.retentionDays")).getByTestId("genesis-settings-row-support.retentionDays-edit"));
+    const sheet = await screen.findByTestId("genesis-settings-value-sheet");
+    const input = within(sheet).getByTestId("genesis-settings-value-sheet-input");
+    expect(input.getAttribute("aria-invalid")).toBeNull();
+    fireEvent.change(input, { target: { value: "3" } });
+    expect(input.getAttribute("aria-invalid")).toBe("true");
+    expect(document.getElementById(input.getAttribute("aria-describedby")!)!.textContent).toBe("must be at least 7");
   });
 
   it("shows the genesis.config.json change for a build key, and opens a PR only when the host can", async () => {
@@ -114,6 +146,17 @@ describe("GenesisSettings: Values", () => {
     await renderSettings({ client: fakeClient(makeState()), copy: { title: "Platform settings", layers: { default: "Standard", preset: "Preset", file: "Repo", database: "Live", tenant: "Tenant", person: "Person" } } });
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Platform settings");
     expect(within(row("support.retentionDays")).getByText("Live")).toBeTruthy();
+  });
+
+  it("leaves the title to the host page with header={false}", async () => {
+    await renderSettings({ client: fakeClient(makeState()), header: false });
+    expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
+    expect(screen.getByTestId("genesis-settings-refresh")).toBeTruthy();
+  });
+
+  it("names the Health count for a screen reader", async () => {
+    await renderSettings({ client: fakeClient(makeState()) });
+    expect(screen.getByTestId("genesis-settings-health-count").textContent).toBe(" (3 findings)");
   });
 
   it("shows a load error with a retry", async () => {
@@ -173,6 +216,28 @@ describe("GenesisSettings: Health", () => {
     expect(within(sheet).queryByTestId("genesis-settings-plan-sheet-apply")).toBeNull();
   });
 
+  it("lets the app host apply a fix that writes only the database layer", async () => {
+    const state = makeState(APP_CAPS);
+    state.findings = [{ id: "d1", rule: "settings-seed", level: "warn", message: "Runtime settings aren't seeded.", fix: { id: "settings.seed", kind: "auto", databaseOnly: true } }];
+    const client = fakeClient(state);
+    client.plan.mockResolvedValueOnce({ fixId: "settings.seed", summary: "Seed", hash: "h", files: [], commands: [], secrets: [], layers: ["database"] });
+    await renderSettings({ client, defaultTab: "health" });
+    fireEvent.click(screen.getByTestId("genesis-settings-finding-d1-fix"));
+    const sheet = await screen.findByTestId("genesis-settings-plan-sheet");
+    expect(await within(sheet).findByTestId("genesis-settings-plan-sheet-apply")).toBeTruthy();
+    expect(within(sheet).queryByTestId("genesis-settings-plan-sheet-needs")).toBeNull();
+  });
+
+  it("follows only http, https and same-site links", async () => {
+    const state = makeState(APP_CAPS);
+    state.findings = [{ id: "g1", rule: "secret-missing", level: "error", message: "x", fix: { id: "s", kind: "guided", step: "github.issues", href: "javascript:alert(1)" } }];
+    state.upgrades = { packages: [{ name: "pkg", current: "1.0.0", distance: "current", notesUrl: "javascript:alert(1)" }] };
+    await renderSettings({ client: fakeClient(state), defaultTab: "health" });
+    expect(screen.queryByTestId("genesis-settings-finding-g1-step")).toBeNull();
+    expect(screen.getByTestId("genesis-settings-finding-g1-cli").textContent).toContain("genesis setup --step github.issues");
+    expect(document.querySelector('a[href^="javascript"]')).toBeNull();
+  });
+
   it("on the app host, shows the CLI command instead of a fix button", async () => {
     await renderSettings({ client: fakeClient(makeState(APP_CAPS)), defaultTab: "health" });
     expect(screen.queryByTestId("genesis-settings-finding-f1-fix")).toBeNull();
@@ -211,6 +276,53 @@ describe("GenesisSettings: Secrets", () => {
     expect(screen.getByTestId("genesis-settings-audit-a2").textContent).toContain("RESEND_API_KEY");
     expect(document.body.textContent).not.toContain(LEAKED);
   });
+
+  it("hides before and after for a set on a secret's name and for a fix", async () => {
+    const state = makeState();
+    state.audit = {
+      entries: [
+        { id: "l1", at: "2026-11-18T10:00:00Z", action: "set", subject: "RESEND_API_KEY", after: LEAKED },
+        { id: "l2", at: "2026-11-18T10:00:00Z", action: "fix", subject: "agents.guide", after: { GITHUB_TOKEN: LEAKED } },
+        { id: "l3", at: "2026-11-18T10:00:00Z", action: "set", subject: "support.githubRepo", before: null, after: LEAKED },
+        { id: "l4", at: "2026-11-18T10:00:00Z", action: "set", subject: "GITHUB_TOKEN", after: LEAKED },
+      ],
+    };
+    await renderSettings({ client: fakeClient(state), defaultTab: "audit" });
+    expect(screen.getByTestId("genesis-settings-audit-l1").textContent).toContain("RESEND_API_KEY");
+    expect(screen.getByTestId("genesis-settings-audit-l2")).toBeTruthy();
+    expect(document.body.textContent).not.toContain(LEAKED);
+  });
+
+  it("sets or rotates a Vault secret write-only, when the host allows it", async () => {
+    const state = makeState({ ...APP_CAPS, setSecrets: { vault: true } });
+    state.secrets = [...state.secrets, { name: "AI_KEY", store: "vault", status: "set", neededBy: ["ai.budget"] }];
+    const client = fakeClient(state);
+    client.setSecret = vi.fn(async () => undefined);
+    await renderSettings({ client, defaultTab: "secrets" });
+    // Edge secrets aren't settable here; the Vault one is.
+    expect(screen.queryByTestId("genesis-settings-secret-GITHUB_TOKEN-set")).toBeNull();
+    fireEvent.click(screen.getByTestId("genesis-settings-secret-AI_KEY-set"));
+    const sheet = await screen.findByTestId("genesis-settings-secret-sheet");
+    const input = within(sheet).getByTestId("genesis-settings-secret-sheet-input") as HTMLInputElement;
+    expect(input.type).toBe("password");
+    expect(input.value).toBe("");
+    fireEvent.change(input, { target: { value: "sk-new-value" } });
+    await act(async () => {
+      fireEvent.click(within(sheet).getByTestId("genesis-settings-secret-sheet-save"));
+    });
+    expect(client.setSecret).toHaveBeenCalledWith({ name: "AI_KEY", store: "vault", value: "sk-new-value" });
+    expect(screen.queryByTestId("genesis-settings-secret-sheet")).toBeNull();
+    expect(document.body.innerHTML).not.toContain("sk-new-value");
+  });
+
+  it("offers no Vault writes when the host doesn't say it can", async () => {
+    const state = makeState(APP_CAPS);
+    state.secrets = [{ name: "AI_KEY", store: "vault", status: "missing", neededBy: [] }];
+    const client = fakeClient(state);
+    client.setSecret = vi.fn(async () => undefined);
+    await renderSettings({ client, defaultTab: "secrets", capabilities: { setSecrets: { vault: true } } });
+    expect(screen.queryByTestId("genesis-settings-secret-AI_KEY-set")).toBeNull();
+  });
 });
 
 describe("GenesisSettings: Upgrades", () => {
@@ -246,6 +358,13 @@ describe("GenesisSettings: Audit", () => {
     expect(client.audit).toHaveBeenCalledWith({ cursor: "cursor-2", limit: 2 });
     expect(await screen.findByTestId("genesis-settings-audit-a3")).toBeTruthy();
     expect(screen.queryByTestId("genesis-settings-audit-more")).toBeNull();
+  });
+
+  it("fetches the first page itself when the state has no history", async () => {
+    const client = fakeClient(makeState(APP_CAPS, { audit: undefined }));
+    await renderSettings({ client, defaultTab: "audit", auditPageSize: 5 });
+    expect(await screen.findByTestId("genesis-settings-audit-a3")).toBeTruthy();
+    expect(client.audit).toHaveBeenCalledWith({ limit: 5 });
   });
 
   it("switches tabs from the keyboard-accessible tablist", async () => {

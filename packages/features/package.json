@@ -85,7 +85,7 @@
     "zod": "^4.6.6"
   },
   "peerDependencies": {
-    "@marktiderman/genesis-ui": "workspace:>=2.7.0 <4.0.0",
+    "@marktiderman/genesis-ui": "workspace:>=3.0.0 <4.0.0",
     "lucide-react": "^1.0.0",
     "react": "^19.0.0"
   },

@@ -4,8 +4,13 @@ import {
   NO_SETTINGS_CAPABILITIES,
   SETTINGS_PROTOCOL_VERSION,
   SettingsProtocolError,
+  auditValuesVisible,
+  canSetSecret,
   createSettingsClient,
   intersectCapabilities,
+  preferredWriteLayer,
+  safeHref,
+  secretNames,
   settingFileSnippet,
   settingWritability,
   type SettingsCapabilities,
@@ -20,6 +25,16 @@ function reply(status: number, body: unknown, type = "application/json") {
   };
 }
 
+const MIN_STATE = {
+  app: { name: "Acme", host: "app", preset: "max" },
+  catalogue: [],
+  resolved: { preset: "max", values: {}, sources: {}, problems: [] },
+  layers: {},
+  findings: [],
+  secrets: [],
+  capabilities: { writeFiles: false, writeDatabase: true, setSecrets: false, runCli: false, agent: false },
+};
+
 const ALL: SettingsCapabilities = { writeFiles: true, writeDatabase: true, setSecrets: true, runCli: true, agent: true, proposeChanges: true };
 
 describe("createSettingsClient", () => {
@@ -33,6 +48,8 @@ describe("createSettingsClient", () => {
     expect(init.method).toBe("POST");
     expect(init.headers.authorization).toBe("Bearer t0k");
     expect(init.headers["content-type"]).toBe("application/json");
+    expect((init as unknown as { credentials: string }).credentials).toBe("omit");
+    expect((init as unknown as { signal: AbortSignal }).signal).toBeInstanceOf(AbortSignal);
     expect(JSON.parse(init.body)).toEqual({ v: SETTINGS_PROTOCOL_VERSION, op: "setValue", key: "support.retentionDays", value: 30, layer: "database", locked: true });
   });
 
@@ -49,7 +66,7 @@ describe("createSettingsClient", () => {
   });
 
   it("sends state's audit limit and audit's cursor only when given", async () => {
-    const fetchFn = vi.fn(async () => reply(200, { entries: [] }));
+    const fetchFn = vi.fn(async () => reply(200, { ...MIN_STATE, entries: [] }));
     const client = createSettingsClient(fetchFn, { baseUrl: "/x", token: "t" });
     await client.state();
     await client.state({ auditLimit: 10 });
@@ -109,9 +126,86 @@ describe("createSettingsClient", () => {
 
 describe("intersectCapabilities", () => {
   it("narrows and never widens", () => {
-    expect(intersectCapabilities(ALL, APP_HOST_CAPABILITIES)).toEqual({ ...NO_SETTINGS_CAPABILITIES, writeDatabase: true });
-    expect(intersectCapabilities(APP_HOST_CAPABILITIES, ALL)).toEqual({ ...NO_SETTINGS_CAPABILITIES, writeDatabase: true });
+    expect(intersectCapabilities(ALL, APP_HOST_CAPABILITIES)).toEqual({ ...NO_SETTINGS_CAPABILITIES, writeDatabase: true, setSecrets: { vault: true } });
+    expect(intersectCapabilities(APP_HOST_CAPABILITIES, ALL)).toEqual({ ...NO_SETTINGS_CAPABILITIES, writeDatabase: true, setSecrets: { vault: true } });
     expect(intersectCapabilities(ALL)).toEqual(ALL);
+  });
+
+  it("doesn't narrow on a key the prop leaves out; only false narrows", () => {
+    expect(intersectCapabilities(ALL, {})).toEqual(ALL);
+    expect(intersectCapabilities(ALL, { runCli: false })).toEqual({ ...ALL, runCli: false });
+    expect(intersectCapabilities({ ...ALL, proposeChanges: undefined }, {}).proposeChanges).toBe(false);
+  });
+
+  it("offers the app host's Vault only when the host itself reports it", () => {
+    const host = { ...NO_SETTINGS_CAPABILITIES, writeDatabase: true };
+    expect(canSetSecret(intersectCapabilities(host, APP_HOST_CAPABILITIES), "vault")).toBe(false);
+    const vaultHost = { ...host, setSecrets: { vault: true, edge: true } };
+    const caps = intersectCapabilities(vaultHost, APP_HOST_CAPABILITIES);
+    expect(canSetSecret(caps, "vault")).toBe(true);
+    expect(canSetSecret(caps, "edge")).toBe(false);
+    expect(canSetSecret({ setSecrets: true }, "ci")).toBe(true);
+  });
+});
+
+describe("the client's state check and timeout", () => {
+  it("refuses a state with a missing array or capabilities, and fills a missing layers", async () => {
+    const broken = createSettingsClient(vi.fn(async () => reply(200, { ...MIN_STATE, secrets: undefined })), { baseUrl: "/x", token: "t" });
+    await expect(broken.state()).rejects.toMatchObject({ code: "error", message: expect.stringMatching(/missing secrets/) });
+    const noCaps = createSettingsClient(vi.fn(async () => reply(200, { ...MIN_STATE, capabilities: true })), { baseUrl: "/x", token: "t" });
+    await expect(noCaps.state()).rejects.toThrow(/missing capabilities/);
+    const ok = await createSettingsClient(vi.fn(async () => reply(200, { ...MIN_STATE, layers: undefined })), { baseUrl: "/x", token: "t" }).state();
+    expect(ok.layers).toEqual({});
+  });
+
+  it("gives up after timeoutMs and aborts the request", async () => {
+    let signal: AbortSignal | undefined;
+    const fetchFn = vi.fn((_url: string, init: { signal: AbortSignal }) => {
+      signal = init.signal;
+      return new Promise<never>((_resolve, reject) => init.signal.addEventListener("abort", () => reject(new Error("aborted"))));
+    });
+    const client = createSettingsClient(fetchFn as never, { baseUrl: "/x", token: "t", timeoutMs: 20, messages: { timedOut: (s) => `slow (${s}s)` } });
+    await expect(client.state()).rejects.toMatchObject({ code: "error", message: "slow (0s)" });
+    expect(signal?.aborted).toBe(true);
+  });
+
+  it("sends setSecret for the Vault, write-only", async () => {
+    const fetchFn = vi.fn(async () => reply(200, { ok: true }));
+    await createSettingsClient(fetchFn, { baseUrl: "/x", token: "t" }).setSecret!({ name: "AI_KEY", store: "vault", value: "s3cr3t" });
+    expect(JSON.parse((fetchFn.mock.calls[0] as unknown as [string, { body: string }])[1].body)).toEqual({ v: 1, op: "setSecret", name: "AI_KEY", store: "vault", value: "s3cr3t" });
+  });
+});
+
+describe("audit redaction", () => {
+  const catalogue = [{ key: "support.retentionDays" }, { key: "support.githubRepo", secret: { name: "GITHUB_TOKEN", store: "edge" as const } }];
+  const names = secretNames(catalogue, [{ name: "RESEND_API_KEY" }]);
+
+  it("shows values only for a set or clear of a catalogue key that needs no secret", () => {
+    expect(auditValuesVisible({ action: "set", subject: "support.retentionDays" }, catalogue, names)).toBe(true);
+    expect(auditValuesVisible({ action: "clear", subject: "support.retentionDays" }, catalogue, names)).toBe(true);
+  });
+
+  it("hides values for a secret's name, a key that needs a secret, a fix, and anything unknown", () => {
+    expect(auditValuesVisible({ action: "set", subject: "RESEND_API_KEY" }, catalogue, names)).toBe(false);
+    expect(auditValuesVisible({ action: "set", subject: "GITHUB_TOKEN" }, catalogue, names)).toBe(false);
+    expect(auditValuesVisible({ action: "set", subject: "support.githubRepo" }, catalogue, names)).toBe(false);
+    expect(auditValuesVisible({ action: "fix", subject: "support.retentionDays" }, catalogue, names)).toBe(false);
+    expect(auditValuesVisible({ action: "set", subject: "app.unknown" }, catalogue, names)).toBe(false);
+  });
+});
+
+describe("safeHref", () => {
+  it("allows http, https and same-site paths only", () => {
+    for (const ok of ["https://github.com/o/r", "http://localhost:4400/step", "/admin/genesis", "./x", "../y", "#a", "?q=1"]) expect(safeHref(ok)).toBe(ok);
+    for (const bad of ["javascript:alert(1)", "JaVaScRiPt:alert(1)", "data:text/html,x", "//evil.test/x", "/\\evil.test", "vbscript:x", "", undefined]) expect(safeHref(bad)).toBeUndefined();
+  });
+});
+
+describe("preferredWriteLayer", () => {
+  it("defaults to the file layer, else the database", () => {
+    expect(preferredWriteLayer({ layers: ["file", "database"] })).toBe("file");
+    expect(preferredWriteLayer({ layers: ["database"] })).toBe("database");
+    expect(preferredWriteLayer({ layers: [] })).toBeUndefined();
   });
 });
 

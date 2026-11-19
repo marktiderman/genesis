@@ -34,7 +34,9 @@ export const SETTINGS_PROTOCOL_VERSION = 1;
  *
  * - `writeFiles`: genesis.config.json and the app's files (the CLI host).
  * - `writeDatabase`: the `genesis_settings` table (both hosts).
- * - `setSecrets`: put a secret in its store (the CLI host, through the developer's own CLIs).
+ * - `setSecrets`: put a secret in its store, per store (`{ vault: true }`), or `true` for every
+ *   store. The CLI host sets them through the developer's own CLIs; the app host may set and
+ *   rotate Vault secrets only (`setSecret`, write-only), when it says so.
  * - `runCli`: run `supabase`, `gh`, `eas` and the package manager (the CLI host).
  * - `agent`: "Fix with Claude" (the CLI host, when the Agent SDK is installed).
  * - `proposeChanges`: open a pull request for a file-layer change (`propose`). Optional; off when absent.
@@ -44,10 +46,21 @@ export const SETTINGS_PROTOCOL_VERSION = 1;
 export interface SettingsCapabilities {
   writeFiles: boolean;
   writeDatabase: boolean;
-  setSecrets: boolean;
+  setSecrets: boolean | SecretStoreCapabilities;
   runCli: boolean;
   agent: boolean;
   proposeChanges?: boolean;
+}
+
+/** Which secret stores a host can write. A store left out can't be written. @stability Beta */
+export type SecretStoreCapabilities = { readonly [S in SecretStore]?: boolean };
+
+const SECRET_STORES: readonly SecretStore[] = ["vault", "edge", "server-env", "ci"];
+
+/** Whether the host can write a secret in this store. @stability Beta */
+export function canSetSecret(capabilities: Pick<SettingsCapabilities, "setSecrets">, store: SecretStore): boolean {
+  const s = capabilities.setSecrets;
+  return typeof s === "boolean" ? s : s?.[store] === true;
 }
 
 /** Nothing: a read-only screen. @stability Beta */
@@ -60,28 +73,47 @@ export const NO_SETTINGS_CAPABILITIES: Readonly<SettingsCapabilities> = Object.f
   proposeChanges: false,
 });
 
-/** The app host's capabilities: the database layer and nothing else. @stability Beta */
+/**
+ * The most the app host may do: the database layer, and Vault secrets when the host reports it can.
+ * Pass it as the screen's `capabilities` prop: it is a mask, so Vault is offered only when the host
+ * itself says `setSecrets: { vault: true }`.
+ *
+ * @stability Beta
+ */
 export const APP_HOST_CAPABILITIES: Readonly<SettingsCapabilities> = Object.freeze({
   ...NO_SETTINGS_CAPABILITIES,
   writeDatabase: true,
+  setSecrets: Object.freeze({ vault: true }),
 });
 
 /**
  * Both sets at once: a write is allowed only when both allow it. The screen narrows the host's
  * capabilities with its own `capabilities` prop this way; a prop can never widen what the host
- * reports.
+ * reports. A key the prop leaves out doesn't narrow; only `false` does.
  *
  * @stability Beta
  */
 export function intersectCapabilities(a: SettingsCapabilities, b?: Partial<SettingsCapabilities>): SettingsCapabilities {
   if (!b) return { ...a };
+  const both = (x: boolean, y: boolean | undefined) => x === true && y !== false;
+  let setSecrets: SettingsCapabilities["setSecrets"];
+  if (typeof a.setSecrets === "boolean" && (b.setSecrets === undefined || typeof b.setSecrets === "boolean")) {
+    setSecrets = both(a.setSecrets, b.setSecrets);
+  } else {
+    const out: { [S in SecretStore]?: boolean } = {};
+    for (const store of SECRET_STORES) {
+      const allowed = canSetSecret(a, store) && (b.setSecrets === undefined || canSetSecret({ setSecrets: b.setSecrets }, store));
+      if (allowed) out[store] = true;
+    }
+    setSecrets = out;
+  }
   return {
-    writeFiles: a.writeFiles && b.writeFiles === true,
-    writeDatabase: a.writeDatabase && b.writeDatabase === true,
-    setSecrets: a.setSecrets && b.setSecrets === true,
-    runCli: a.runCli && b.runCli === true,
-    agent: a.agent && b.agent === true,
-    proposeChanges: a.proposeChanges === true && b.proposeChanges === true,
+    writeFiles: both(a.writeFiles, b.writeFiles),
+    writeDatabase: both(a.writeDatabase, b.writeDatabase),
+    setSecrets,
+    runCli: both(a.runCli, b.runCli),
+    agent: both(a.agent, b.agent),
+    proposeChanges: both(a.proposeChanges === true, b.proposeChanges),
   };
 }
 
@@ -119,6 +151,11 @@ export interface SettingsFixRef {
   href?: string;
   /** A manual fix's instructions (plain text, may hold several lines). */
   instructions?: string;
+  /**
+   * An automatic fix that writes the database layer and nothing else (no files, no commands, no
+   * secrets): the app host can apply it with `writeDatabase`.
+   */
+  databaseOnly?: boolean;
 }
 
 /** @stability Beta */
@@ -258,6 +295,8 @@ export interface SettingsPlan {
   commands: readonly SettingsPlanCommand[];
   /** The secrets it needs, by name. */
   secrets: readonly string[];
+  /** The settings layers it writes (a fix that only seeds `genesis_settings` writes `database`). */
+  layers?: readonly SettingsWriteLayer[];
   /** Steps the person does by hand after it. */
   manual?: string;
 }
@@ -296,13 +335,14 @@ export type SettingsRequest =
   | { op: "apply"; fixId: string; expect: string }
   | { op: "upgrades"; refresh?: boolean }
   | { op: "audit"; cursor?: string; limit?: number }
-  | { op: "propose"; key: string; value: unknown; locked?: boolean };
+  | { op: "propose"; key: string; value: unknown; locked?: boolean }
+  | { op: "setSecret"; name: string; store: "vault"; value: string };
 
 /** A request on the wire. @stability Beta */
 export type SettingsWireRequest = SettingsRequest & { v: number };
 
 /** The ops, for a host's router. @stability Beta */
-export const SETTINGS_OPS = ["state", "setValue", "clearValue", "plan", "apply", "upgrades", "audit", "propose"] as const;
+export const SETTINGS_OPS = ["state", "setValue", "clearValue", "plan", "apply", "upgrades", "audit", "propose", "setSecret"] as const;
 /** @stability Beta */
 export type SettingsOp = (typeof SETTINGS_OPS)[number];
 
@@ -316,6 +356,7 @@ export interface SettingsResponses {
   upgrades: SettingsUpgrades;
   audit: SettingsAuditPage;
   propose: SettingsProposal;
+  setSecret: { ok: true };
 }
 
 /**
@@ -383,7 +424,36 @@ export interface SettingsClient {
   upgrades(params?: { refresh?: boolean }): Promise<SettingsUpgrades>;
   audit(params?: { cursor?: string; limit?: number }): Promise<SettingsAuditPage>;
   propose(params: { key: string; value: unknown; locked?: boolean }): Promise<SettingsProposal>;
+  /**
+   * Set or rotate a Vault secret. Write-only: the host stores it and never returns it, and the
+   * screen forgets it once sent. Optional: a host without it can't set secrets from the screen.
+   */
+  setSecret?(params: { name: string; store: "vault"; value: string }): Promise<void>;
 }
+
+/** The client's own error messages, for a translation. @stability Beta */
+export interface SettingsClientMessages {
+  signIn: string;
+  unreachable: (detail: string) => string;
+  timedOut: (seconds: number) => string;
+  notJson: (status: number) => string;
+  badJson: (status: number) => string;
+  notObject: string;
+  status: (status: number) => string;
+  badState: (what: string) => string;
+}
+
+/** @stability Beta */
+export const SETTINGS_CLIENT_MESSAGES: SettingsClientMessages = {
+  signIn: "Sign in to change settings.",
+  unreachable: (detail) => `The settings host couldn't be reached (${detail}).`,
+  timedOut: (seconds) => `The settings host didn't answer within ${seconds} seconds.`,
+  notJson: (status) => `The settings host answered ${status} without JSON.`,
+  badJson: (status) => `The settings host answered ${status} with JSON it couldn't read.`,
+  notObject: "The settings host answered with something other than an object.",
+  status: (status) => `The settings host answered ${status}.`,
+  badState: (what) => `The settings host's state is missing ${what}.`,
+};
 
 /** @stability Beta */
 export interface SettingsClientOptions {
@@ -391,9 +461,29 @@ export interface SettingsClientOptions {
   baseUrl: string;
   /** The bearer token, or a function that returns it (the wizard's session token, the admin's access token). */
   token: string | (() => string | null | Promise<string | null>);
+  /** Give up on a request after this long. Default 30 000 ms. */
+  timeoutMs?: number;
+  /** The client's error messages. */
+  messages?: Partial<SettingsClientMessages>;
 }
 
-type FetchLike = (input: string, init: { method: string; headers: Record<string, string>; body: string }) => Promise<Pick<Response, "ok" | "status" | "headers" | "text">>;
+type FetchLike = (
+  input: string,
+  init: { method: string; headers: Record<string, string>; body: string; signal: AbortSignal; credentials: "omit" },
+) => Promise<Pick<Response, "ok" | "status" | "headers" | "text">>;
+
+const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+
+/** What a state must hold for the screen to draw it; the first thing missing, or null. */
+function stateProblem(v: Record<string, unknown>): string | null {
+  for (const key of ["catalogue", "findings", "secrets"] as const) if (!Array.isArray(v[key])) return key;
+  if (!isObject(v.capabilities)) return "capabilities";
+  if (!isObject(v.app)) return "app";
+  const resolved = v.resolved;
+  if (!isObject(resolved) || !isObject(resolved.values) || !isObject(resolved.sources)) return "resolved";
+  if (v.layers !== undefined && !isObject(v.layers)) return "layers";
+  return null;
+}
 
 /**
  * A {@link SettingsClient} over `fetch`. JSON only: a response that isn't JSON is an error, so a
@@ -406,43 +496,63 @@ type FetchLike = (input: string, init: { method: string; headers: Record<string,
  * @stability Beta
  */
 export function createSettingsClient(fetchFn: FetchLike, options: SettingsClientOptions): SettingsClient {
+  const m: SettingsClientMessages = { ...SETTINGS_CLIENT_MESSAGES, ...options.messages };
+  const timeoutMs = options.timeoutMs ?? 30_000;
+
   async function call<O extends SettingsOp>(body: Extract<SettingsRequest, { op: O }>): Promise<SettingsResponses[O]> {
     const token = typeof options.token === "function" ? await options.token() : options.token;
-    if (!token) throw new SettingsProtocolError("unauthenticated", "Sign in to change settings.");
+    if (!token) throw new SettingsProtocolError("unauthenticated", m.signIn);
+    const controller = new AbortController();
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, timeoutMs);
     let response: Awaited<ReturnType<FetchLike>>;
+    let text: string;
     try {
       response = await fetchFn(options.baseUrl, {
         method: "POST",
         headers: { "content-type": "application/json", accept: "application/json", authorization: `Bearer ${token}` },
         body: JSON.stringify({ v: SETTINGS_PROTOCOL_VERSION, ...body }),
+        signal: controller.signal,
+        // The bearer token is the only credential: no cookies, so no cross-site request forgery.
+        credentials: "omit",
       });
+      text = await response.text();
     } catch (error) {
-      throw new SettingsProtocolError("error", `The settings host couldn't be reached (${error instanceof Error ? error.message : String(error)}).`);
+      if (timedOut) throw new SettingsProtocolError("error", m.timedOut(Math.round(timeoutMs / 1000)));
+      throw new SettingsProtocolError("error", m.unreachable(error instanceof Error ? error.message : String(error)));
+    } finally {
+      clearTimeout(timer);
     }
     const type = response.headers.get("content-type") ?? "";
     if (!/^application\/(?:[\w.+-]+\+)?json\b/i.test(type)) {
-      throw new SettingsProtocolError(response.ok ? "error" : codeForStatus(response.status), `The settings host answered ${response.status} without JSON.`, response.status);
+      throw new SettingsProtocolError(response.ok ? "error" : codeForStatus(response.status), m.notJson(response.status), response.status);
     }
     let payload: unknown;
     try {
-      payload = JSON.parse(await response.text());
+      payload = JSON.parse(text);
     } catch {
-      throw new SettingsProtocolError("error", `The settings host answered ${response.status} with JSON it couldn't read.`, response.status);
+      throw new SettingsProtocolError("error", m.badJson(response.status), response.status);
     }
     if (!response.ok) {
       const error = (payload as Partial<SettingsErrorResponse> | null)?.error;
       const code = error && ERROR_CODES.includes(error.code) ? error.code : codeForStatus(response.status);
-      const message = typeof error?.message === "string" ? error.message : `The settings host answered ${response.status}.`;
+      const message = typeof error?.message === "string" ? error.message : m.status(response.status);
       throw new SettingsProtocolError(code, message, response.status, error?.details);
     }
-    if (typeof payload !== "object" || payload === null) {
-      throw new SettingsProtocolError("error", "The settings host answered with something other than an object.", response.status);
-    }
+    if (!isObject(payload)) throw new SettingsProtocolError("error", m.notObject, response.status);
     return payload as SettingsResponses[O];
   }
 
   return {
-    state: (params) => call({ op: "state", ...(params?.auditLimit !== undefined ? { audit: { limit: params.auditLimit } } : {}) }),
+    async state(params) {
+      const state = await call({ op: "state", ...(params?.auditLimit !== undefined ? { audit: { limit: params.auditLimit } } : {}) });
+      const missing = stateProblem(state as unknown as Record<string, unknown>);
+      if (missing) throw new SettingsProtocolError("error", m.badState(missing));
+      return { ...state, layers: state.layers ?? {} };
+    },
     async setValue({ key, value, locked, layer }) {
       await call({ op: "setValue", key, value, layer, ...(locked !== undefined ? { locked } : {}) });
     },
@@ -454,6 +564,9 @@ export function createSettingsClient(fetchFn: FetchLike, options: SettingsClient
     upgrades: (params) => call({ op: "upgrades", ...(params?.refresh ? { refresh: true } : {}) }),
     audit: (params) => call({ op: "audit", ...(params?.cursor !== undefined ? { cursor: params.cursor } : {}), ...(params?.limit !== undefined ? { limit: params.limit } : {}) }),
     propose: ({ key, value, locked }) => call({ op: "propose", key, value, ...(locked !== undefined ? { locked } : {}) }),
+    async setSecret({ name, value }) {
+      await call({ op: "setSecret", name, store: "vault", value });
+    },
   };
 }
 
@@ -516,4 +629,60 @@ export function settingWritability(def: Pick<SettingDef, "applies">, source: { l
 export function settingFileSnippet(key: string, value: unknown, locked?: boolean): string {
   const entry = locked ? { value, locked: true } : value;
   return JSON.stringify({ settings: { [key]: entry } }, null, 2);
+}
+
+/**
+ * The layer the screen writes by default: the file layer when it can (reviewed like code), else
+ * the database. Writing the database from the CLI host is an explicit choice.
+ *
+ * @stability Beta
+ */
+export function preferredWriteLayer(writable: Pick<SettingWritability, "layers">): SettingsWriteLayer | undefined {
+  return writable.layers.includes("file") ? "file" : writable.layers[0];
+}
+
+/** Every secret name the app knows: the state's secrets and each catalogue key's `needs`. @stability Beta */
+export function secretNames(catalogue: readonly Pick<SettingDef, "secret">[], secrets: readonly Pick<SettingsSecretStatus, "name">[]): Set<string> {
+  const names = new Set<string>();
+  for (const s of secrets) names.add(s.name);
+  for (const def of catalogue) if (def.secret) names.add(def.secret.name);
+  return names;
+}
+
+/**
+ * Whether an audit entry's `before` and `after` may be drawn: only for a `set` or `clear` of a
+ * catalogue key that needs no secret and isn't itself a secret's name. Everything else (a fix, an
+ * upgrade, a secret, a subject the catalogue doesn't know) shows its subject and summary only, so
+ * a value a host forgot to redact never reaches the screen through the history.
+ *
+ * @stability Beta
+ */
+export function auditValuesVisible(
+  entry: Pick<SettingsAuditEntry, "action" | "subject">,
+  catalogue: readonly Pick<SettingDef, "key" | "secret">[],
+  names: ReadonlySet<string>,
+): boolean {
+  if (entry.action !== "set" && entry.action !== "clear") return false;
+  if (names.has(entry.subject)) return false;
+  const def = catalogue.find((d) => d.key === entry.subject);
+  return def !== undefined && def.secret === undefined;
+}
+
+/**
+ * A link the screen may follow: `http:`, `https:` or a path on the same site (`/…`, `./…`, `../…`,
+ * `#…`, `?…`), never `javascript:`, `data:` or a protocol-relative `//host`. Undefined otherwise.
+ *
+ * @stability Beta
+ */
+export function safeHref(href: string | undefined): string | undefined {
+  if (typeof href !== "string") return undefined;
+  const h = href.trim();
+  if (!h) return undefined;
+  if (/^(?:\/(?![/\\])|\.\.?\/|#|\?)/.test(h)) return h;
+  try {
+    const url = new URL(h);
+    return url.protocol === "http:" || url.protocol === "https:" ? h : undefined;
+  } catch {
+    return undefined;
+  }
 }
