@@ -19,3 +19,6 @@ app host; guided and manual fixes), Secrets (set or missing, never a value; Vaul
 write-only when the host allows), Upgrades and Audit tabs, overridable `copy` and test ids. Both
 subpaths are also on the deprecated genesis-features alias. The optional genesis-ui peer is now
 3.0.0 or later.
+Both subpaths are Beta: the screen ships before its design review.
+
+Features: settings-screen

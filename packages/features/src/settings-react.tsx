@@ -6,6 +6,10 @@
  *
  * Tabs: Values (every key with its value, the layer it came from and its lock), Health (the
  * doctor's findings with their fixes), Secrets (set or missing, never a value), Upgrades and Audit.
+ *
+ * Beta: it ships before the maintainer's design review, so its look and props may change in a minor.
+ *
+ * @stability Beta
  */
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { Lock } from "lucide-react";

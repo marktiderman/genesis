@@ -14,6 +14,8 @@
  *
  * No zod, React, Node built-ins or DOM globals beyond `fetch`'s types: it ships to browsers, the
  * CLI and edge functions alike.
+ *
+ * @stability Beta
  */
 import {
   SETTINGS_LAYERS,
