@@ -176,9 +176,21 @@ describe("genesis-support-cleanup", () => {
   it("removes queued and orphaned screenshots through the Storage API, only in its bucket", async () => {
     const s = store();
     const res = await cleanup(new Request("https://fn.test", { method: "POST", headers: { "x-genesis-support-secret": "c" } }), { env: env({ GENESIS_SUPPORT_CLEANUP_SECRET: "c" }), store: s, log: vi.fn() });
-    expect(await res.json()).toEqual({ ok: true, purged: 1, orphans: 1 });
+    expect(await res.json()).toEqual({ ok: true, purged: 1, orphans: 1, diagnostics: 0 });
     expect(s.removed).toEqual([["u/r/a.png"], ["u/r2/b.png"]]);
     expect(s.forgotten).toEqual([[1]]);
+  });
+
+  it("deletes context dumps past their retention (default 90 days) where the store can", async () => {
+    const purgeDiagnostics = vi.fn(async () => 7);
+    const call = (values: Record<string, string>) =>
+      cleanup(new Request("https://fn.test", { method: "POST", headers: { "x-genesis-support-secret": "c" } }), { env: env({ GENESIS_SUPPORT_CLEANUP_SECRET: "c", ...values }), store: store({ purgeDiagnostics }), log: vi.fn() });
+    expect(await (await call({})).json()).toMatchObject({ ok: true, diagnostics: 7 });
+    expect(purgeDiagnostics).toHaveBeenLastCalledWith(90);
+    await call({ GENESIS_SUPPORT_DIAGNOSTICS_RETENTION_DAYS: "30" });
+    expect(purgeDiagnostics).toHaveBeenLastCalledWith(30);
+    await call({ GENESIS_SUPPORT_DIAGNOSTICS_RETENTION_DAYS: "nonsense" });
+    expect(purgeDiagnostics).toHaveBeenLastCalledWith(90);
   });
 
   it("keeps the queue when removal fails", async () => {

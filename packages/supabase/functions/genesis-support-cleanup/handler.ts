@@ -10,6 +10,9 @@
  * is deleted) and the uploads no attachment ever named (older than a day,
  * `support_orphan_objects`). Supabase refuses direct deletes from
  * storage.objects, so this is the only way they go. A bounded batch per call.
+ *
+ * It also deletes context dumps older than GENESIS_SUPPORT_DIAGNOSTICS_RETENTION_DAYS
+ * (default 90, at least 1) where genesis-support's migration 0019 is applied.
  */
 
 export interface PurgeRow {
@@ -28,6 +31,12 @@ export interface CleanupStore {
   remove(bucket: string, paths: string[]): Promise<string[]>;
   /** Forget purge rows whose object is gone. */
   forget(ids: number[]): Promise<void>;
+  /**
+   * Delete context dumps past their retention (genesis-support 0019's
+   * `support_purge_diagnostics`); returns how many went. Left out, or the
+   * function missing (0019 not applied), dumps are left alone.
+   */
+  purgeDiagnostics?(retentionDays: number): Promise<number>;
 }
 
 export interface CleanupDeps {
@@ -38,6 +47,8 @@ export interface CleanupDeps {
 
 const BATCH = 100;
 const BUCKET = "genesis-support";
+/** Days a context dump is kept (genesis-support's DIAGNOSTICS_DEFAULTS.retentionDays). */
+export const DIAGNOSTICS_RETENTION_DAYS = 90;
 
 function json(status: number, body: Record<string, unknown>): Response {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
@@ -72,7 +83,12 @@ export async function handle(req: Request, deps: CleanupDeps): Promise<Response>
     }
     const orphans = await deps.store.orphans(BATCH);
     const removed = orphans.length ? await deps.store.remove(BUCKET, orphans) : [];
-    return json(200, { ok: true, purged, orphans: removed.length });
+    let diagnostics = 0;
+    if (deps.store.purgeDiagnostics) {
+      const days = Number(deps.env("GENESIS_SUPPORT_DIAGNOSTICS_RETENTION_DAYS") ?? DIAGNOSTICS_RETENTION_DAYS);
+      diagnostics = await deps.store.purgeDiagnostics(Number.isFinite(days) && days >= 1 ? Math.floor(days) : DIAGNOSTICS_RETENTION_DAYS);
+    }
+    return json(200, { ok: true, purged, orphans: removed.length, diagnostics });
   } catch (error) {
     deps.log(`[genesis-support-cleanup] ${error instanceof Error ? error.message : String(error)}`);
     return json(500, { error: "cleanup_failed" });
