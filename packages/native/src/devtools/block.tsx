@@ -26,7 +26,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { renderSlot } from "@marktiderman/genesis-core/slots";
 import { NativeButton, NativeInput, NativeText } from "@marktiderman/genesis-ui-native/components";
 import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
-import { defineBlock } from "@marktiderman/genesis-features/blocks";
+import { defineBlock } from "@marktiderman/genesis-config/blocks";
 import { useSession } from "../auth";
 import { useBlocks, type NativeBlock, type NativeBlockRootProps } from "../blocks";
 import { useRecentActivity, type ObservabilityBlock } from "../observability/block";

@@ -27,7 +27,7 @@
  * (`recent`).
  */
 import { createContext, useContext, useEffect, useRef, useSyncExternalStore, type ComponentType, type ReactNode } from "react";
-import { defineBlock } from "@marktiderman/genesis-features/blocks";
+import { defineBlock } from "@marktiderman/genesis-config/blocks";
 import { setErrorReporter } from "@marktiderman/genesis-core/errors";
 import { useSession } from "../auth";
 import { onBeforeReload } from "../reload";

@@ -6,7 +6,7 @@
  * memory source here is for tests and demos), and votes go through a queue
  * that survives being offline. No React and no I/O: `/native` draws it.
  */
-import type { FeatureHorizon, FeatureStatus } from "@marktiderman/genesis-features";
+import type { FeatureHorizon, FeatureStatus } from "@marktiderman/genesis-config";
 import type { Board } from "./board";
 
 /** Where an idea stands. @stability Experimental */

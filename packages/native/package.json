@@ -113,7 +113,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@marktiderman/genesis-features": "workspace:^"
+    "@marktiderman/genesis-config": "workspace:^"
   },
   "peerDependencies": {
     "@marktiderman/genesis-core": "workspace:>=2.11.0 <3.0.0",

@@ -15,7 +15,7 @@
  *
  * "Uses" is a package's dependencies and peer dependencies plus every Genesis specifier its
  * source imports (tests and stories aside), so an undeclared import is still an edge.
- * The rules themselves are `packageLayerProblems` in genesis-features (built first).
+ * The rules themselves are `packageLayerProblems` in genesis-config (built first).
  *
  *   node scripts/check-package-layers.mjs [--root <dir>] [--list]
  *
@@ -111,7 +111,7 @@ export function moduleFileProblems(root, pkgs) {
 
 export async function checkPackageLayers(root) {
   const features = pathToFileURL(path.join(root, "packages", "features", "dist", "index.js")).href;
-  if (!existsSync(fileURLToPath(features))) throw new Error("genesis-features isn't built: run pnpm build:packages first");
+  if (!existsSync(fileURLToPath(features))) throw new Error("genesis-config (packages/features) isn't built: run pnpm build:packages first");
   const { packageLayerProblems } = await import(features);
   const pkgs = readWorkspace(root);
   return { pkgs, problems: [...packageLayerProblems(pkgs.map((p) => p.layer)), ...moduleFileProblems(root, pkgs)] };

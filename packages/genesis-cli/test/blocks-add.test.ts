@@ -12,7 +12,7 @@ const add = (root: string, extra: Partial<Parameters<typeof runAdd>[0]> = {}) =>
 
 function app() {
   const root = expoApp();
-  linkWorkspacePackage(root, "@marktiderman/genesis-features", "features");
+  linkWorkspacePackage(root, "@marktiderman/genesis-config", "features");
   fixturePackage(root);
   return root;
 }
@@ -66,7 +66,7 @@ describe("genesis add", () => {
 
   it("pins an Edge Function's Genesis npm imports to the installed versions", async () => {
     const root = expoApp();
-    linkWorkspacePackage(root, "@marktiderman/genesis-features", "features");
+    linkWorkspacePackage(root, "@marktiderman/genesis-config", "features");
     fixturePackage(root, {}, {
       "functions/fixture-send/index.ts": [
         'import { send } from "npm:@marktiderman/genesis-fixture@^0.1.0/server";',

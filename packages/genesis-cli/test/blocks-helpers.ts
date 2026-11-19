@@ -123,7 +123,7 @@ export function expoApp(extra: Record<string, string> = {}): string {
     "supabase/config.toml": 'project_id = "fixture"\n',
     "supabase/migrations/20261020000000_app_init.sql": "create table public.things (id int);\n",
     "features.ts": [
-      'import { defineFeatures } from "@marktiderman/genesis-features";',
+      'import { defineFeatures } from "@marktiderman/genesis-config";',
       "",
       "export const features = defineFeatures({",
       "  home: {",

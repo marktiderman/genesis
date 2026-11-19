@@ -50,7 +50,7 @@ export interface AiConfig {
   store: AiStore;
   /**
    * The feature gate: is this feature on for this person and tenant? Pass `featureOn` from
-   * genesis-features through it, with the global and per-tenant AI switches folded in.
+   * genesis-config through it, with the global and per-tenant AI switches folded in.
    */
   gate: (ctx: AiContext, feature: string) => boolean | Promise<boolean>;
   /** The app's safety protocol, run before the model on tasks with `safetyText`. */

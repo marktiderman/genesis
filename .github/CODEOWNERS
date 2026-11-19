@@ -11,6 +11,7 @@
 /packages/design-system/ @marktiderman
 /packages/extension/ @marktiderman
 /packages/features/ @marktiderman
+/packages/features-alias/ @marktiderman
 /packages/forms/ @marktiderman
 /packages/forms-builder/ @marktiderman
 /packages/forms-devtools/ @marktiderman

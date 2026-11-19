@@ -38,7 +38,7 @@ async function twoApps(options: { without?: string[] } = {}) {
     "supabase/migrations/20261001000000_genesis_notifications.sql": migrationHeader(NOTIFICATIONS, "migrations/0001_genesis_notifications.sql", notifications) + notifications,
   });
   writeLock(app, { version: 1, blocks: { notifications: { package: NOTIFICATIONS } }, files: {}, migrations: { [`${NOTIFICATIONS}:migrations/0001_genesis_notifications.sql`]: "supabase/migrations/20261001000000_genesis_notifications.sql" } });
-  for (const [name, folder] of [[NOTIFICATIONS, "notifications"], [SUPABASE, "supabase"], ["@marktiderman/genesis-native", "native"], ["@marktiderman/genesis-features", "features"]] as const) linkWorkspacePackage(app, name, folder);
+  for (const [name, folder] of [[NOTIFICATIONS, "notifications"], [SUPABASE, "supabase"], ["@marktiderman/genesis-native", "native"], ["@marktiderman/genesis-config", "features"]] as const) linkWorkspacePackage(app, name, folder);
   const mobile = path.join(root, "mobile");
   const result = await runInitNative({ name: "sample-app", target: mobile, bundleId: "com.acmeco.sampleapp", beside: app, ...(options.without ? { without: options.without } : {}) });
   return { root, app, mobile, result };

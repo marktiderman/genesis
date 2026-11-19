@@ -6,7 +6,7 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import * as path from "node:path";
-import type { BlockRoute } from "@marktiderman/genesis-features/blocks";
+import type { BlockRoute } from "@marktiderman/genesis-config/blocks";
 import { listApp } from "./files.js";
 
 /** The Expo Router root: genesis.config.json's doctor.native.routerRoot, else src/app or app. */

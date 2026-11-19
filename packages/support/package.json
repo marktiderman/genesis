@@ -84,7 +84,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@marktiderman/genesis-features": "workspace:^"
+    "@marktiderman/genesis-config": "workspace:^"
   },
   "peerDependencies": {
     "@marktiderman/genesis-ai": "workspace:>=0.1.0 <1.0.0",

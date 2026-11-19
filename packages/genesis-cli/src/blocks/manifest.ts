@@ -14,7 +14,7 @@
  * Every path in a manifest is package-relative and checked here, before
  * anything reads it: no absolute paths, no `..`, no backslashes.
  */
-import { defineBlock, BlockError, FEATURE_PLATFORMS, type BlockDef, type BlockPrivacy, type BlockRoute, type FeaturePlatform } from "@marktiderman/genesis-features/blocks";
+import { defineBlock, BlockError, FEATURE_PLATFORMS, type BlockDef, type BlockPrivacy, type BlockRoute, type FeaturePlatform } from "@marktiderman/genesis-config/blocks";
 
 /** A Genesis package name: the only packages a manifest may point into. */
 export const GENESIS_PACKAGE = /^@marktiderman\/genesis(-[a-z0-9-]+)?$/;

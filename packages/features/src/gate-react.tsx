@@ -1,5 +1,5 @@
 /**
- * `@marktiderman/genesis-features/gate/react`: the gate's answers in React,
+ * `@marktiderman/genesis-config/gate/react`: the gate's answers in React,
  * on the web and in React Native. The server computes a {@link GateSnapshot}
  * and the provider hands it down; components never decide on their own. To
  * refresh, give the provider a new snapshot: every `useFeature` below it

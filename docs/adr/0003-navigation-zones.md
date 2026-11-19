@@ -20,7 +20,7 @@ Genesis has the parts but not zones:
   `resolveNavigation`). It has no gating, ordering or zones, and works on native as well as web.
 - `genesis-ui` `AppShell` renders that tree on the web, with nested `NavItem` `children` in the
   sidebar, `mobileNavItems` for the phone bar and a `headerSlot`.
-- `genesis-features` has the gate (`featureOn`, `GateSnapshot`, ADR 0001) and `BlockNavItem`, which
+- `genesis-config` (formerly genesis-features) has the gate (`featureOn`, `GateSnapshot`, ADR 0001) and `BlockNavItem`, which
   nothing consumes yet.
 - Native has no navigation shell.
 

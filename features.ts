@@ -8,7 +8,7 @@
 // kind, platforms, entry, keywords, slots, extends and requires make it a reuse catalog: run
 // `pnpm features find <term>` before building anything.
 // visibility "public" + a tagline puts a feature in the README's Features section.
-import { defineFeatures, type FeatureIdOf } from "@marktiderman/genesis-features";
+import { defineFeatures, type FeatureIdOf } from "@marktiderman/genesis-config";
 
 const reviewedAt = "2026-10-22";
 
@@ -1705,7 +1705,7 @@ export const features = defineFeatures({
       "FeatureList shows the registry as a table, a status board and a dateless roadmap.",
     ],
     reviewedAt,
-    links: { code: ["packages/features", "packages/genesis-cli/src/features.ts", "features.ts"], docs: ["packages/features/README.md"] },
+    links: { code: ["packages/features", "packages/features-alias", "packages/genesis-cli/src/upgrade/rename-features.ts", "packages/genesis-cli/src/features.ts", "features.ts"], docs: ["packages/features/README.md"] },
   },
   "content-packs": {
     name: "Content packs",
@@ -1717,7 +1717,7 @@ export const features = defineFeatures({
     kind: "tool",
     keywords: ["defineContentPack", "content pack", "templates", "starter content", "taxonomy", "labels", "install"],
     platforms: { web: "building", native: "building", server: "building" },
-    entry: { web: "@marktiderman/genesis-features/blocks", native: "@marktiderman/genesis-features/blocks", server: "@marktiderman/genesis-features/blocks" },
+    entry: { web: "@marktiderman/genesis-config/blocks", native: "@marktiderman/genesis-config/blocks", server: "@marktiderman/genesis-config/blocks" },
     requires: ["define-block"],
     contributes: ["fn: defineContentPack", "fn: contentPackProblems", "fn: contentPackBlocks"],
     owner: "mark",
@@ -1742,7 +1742,7 @@ export const features = defineFeatures({
     kind: "service",
     keywords: ["featureOn", "useFeature", "requireFeature", "FeatureOff", "gate", "paywall", "upsell", "kill switch", "feature toggle", "snapshot"],
     platforms: { web: "building", native: "building", server: "building" },
-    entry: { web: "@marktiderman/genesis-features/gate", native: "@marktiderman/genesis-features/gate", server: "@marktiderman/genesis-features/gate" },
+    entry: { web: "@marktiderman/genesis-config/gate", native: "@marktiderman/genesis-config/gate", server: "@marktiderman/genesis-config/gate" },
     requires: ["feature-registry"],
     contributes: ["fn: featureOn", "fn: gateSnapshot", "fn: requireFeature", "hook: useFeature", "component: FeatureGate", "component: FeatureGateProvider"],
     owner: "mark",
@@ -1759,6 +1759,36 @@ export const features = defineFeatures({
     links: {
       code: ["packages/features/src/gate.ts", "packages/features/src/gate-react.tsx"],
       docs: ["docs/adr/0001-one-feature-gate.md", "packages/features/README.md"],
+    },
+  },
+  "settings-core": {
+    name: "Settings",
+    summary: "Typed settings for every Genesis package: defineSettings(namespace, keys) declares each key (type, a default per preset, scope, build or runtime, requires, bounds, the secret it needs by name), settingsCatalogue merges them, and resolveSettings(catalogue, layers) resolves default → preset → genesis.config.json → the app's genesis_settings table → tenant → person, a lock stopping every later layer, with where each value came from and what was wrong. Switches feed the feature gate (withSettings); genesis.config.json gets preset and settings, checked by the doctor.",
+    category: "Platform",
+    status: "building",
+    horizon: "now",
+    claimedBy: "mark",
+    kind: "service",
+    keywords: ["settings", "configuration", "preset", "defineSettings", "resolveSettings", "genesis_settings", "locks", "platform admin", "max standard min"],
+    platforms: { web: "building", native: "building", server: "building" },
+    entry: { web: "@marktiderman/genesis-config/settings", native: "@marktiderman/genesis-config/settings", server: "@marktiderman/genesis-config/settings" },
+    requires: ["feature-gate"],
+    contributes: ["fn: defineSettings", "fn: settingsCatalogue", "fn: resolveSettings", "fn: withSettings", "table: genesis_settings", "table: genesis_setting_changes", "table: genesis_app_manifest", "rpc: genesis_settings_layers", "rpc: set_genesis_setting"],
+    owner: "mark",
+    apps: ["web", "native", "server", "cli"],
+    audience: ["developer", "admin", "agent"],
+    visibility: "internal",
+    acceptance: [
+      "resolveSettings applies the layers in order; a lock at any layer stops every later one; tenant and person layers change only keys declared with that scope; only the file sets a build-time key; bad entries are reported and skipped, never thrown.",
+      "A boolean setting linked to a feature that resolves to false turns the feature off through featureOn (GateContext.off); there is no second gate.",
+      "genesis.config.json's preset and settings are checked strictly, and the doctor reports settings the installed packages don't declare or that don't fit.",
+      "set_genesis_setting changes a runtime setting only for a platform admin by the app's private.genesis_platform_admin hook, checked against the synced catalogue, with every change audited; without the hook nobody can.",
+      "Not yet: the Settings screen, the wizard, tenant and person values in the database.",
+    ],
+    reviewedAt,
+    links: {
+      code: ["packages/features/src/settings.ts", "packages/supabase/migrations/0020_genesis_settings.sql", "packages/supabase/src/settings.ts", "packages/genesis-cli/src/doctor/settings.ts"],
+      docs: ["packages/features/README.md", "packages/supabase/README.md"],
     },
   },
   "feature-mirror": {
@@ -1813,7 +1843,7 @@ export const features = defineFeatures({
     kind: "provider",
     keywords: ["block", "blocks", "defineBlock", "resolveBlocks", "contributions", "plugin", "module", "requires", "useBlockSettings"],
     platforms: { web: "building", native: "building", server: "building" },
-    entry: { web: "@marktiderman/genesis-features/blocks", native: "@marktiderman/genesis-features/blocks", server: "@marktiderman/genesis-features/blocks" },
+    entry: { web: "@marktiderman/genesis-config/blocks", native: "@marktiderman/genesis-config/blocks", server: "@marktiderman/genesis-config/blocks" },
     requires: ["feature-registry"],
     contributes: ["blocks prop on GenesisNativeApp", "useBlocks", "useBlockSettings"],
     owner: "mark",

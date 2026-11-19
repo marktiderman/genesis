@@ -65,7 +65,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@marktiderman/genesis-features": "workspace:^"
+    "@marktiderman/genesis-config": "workspace:^"
   },
   "peerDependencies": {
     "@marktiderman/genesis-ui-native": "workspace:>=3.8.0 <4.0.0",

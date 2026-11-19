@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View } from "react-native";
 import { NativeButton, NativeSegmentedControl, NativeSheet, NativeSheetScrollView, NativeText } from "@marktiderman/genesis-ui-native/components";
 import { InboxPage, type InboxItem, type InboxPageProps } from "@marktiderman/genesis-ui-native/layouts";
-import type { FeatureHorizon } from "@marktiderman/genesis-features";
+import type { FeatureHorizon } from "@marktiderman/genesis-config";
 import type { ProductSource, RoadmapItem } from "../app";
 import { mergeCopy, type ProductCopy, type ProductCopyInput } from "./copy";
 import { haptic, type HapticsLike } from "./haptics";

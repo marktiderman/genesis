@@ -12,7 +12,7 @@ const migrations = (root: string) => readdirSync(path.join(root, "supabase/migra
 
 async function appWithBlock(firstOnly = false) {
   const root = expoApp();
-  linkWorkspacePackage(root, "@marktiderman/genesis-features", "features");
+  linkWorkspacePackage(root, "@marktiderman/genesis-config", "features");
   fixturePackage(root, firstOnly ? { migrations: [{ file: "migrations/0001_fixture_notes.sql" }] } : {});
   await runAdd({ root, block: "fixture-notes", yes: true, install: false, featuresBuild: false, now: NOW });
   return root;

@@ -2,7 +2,7 @@
  * `genesis features build|check|find`: load the repo's feature registry (a
  * TypeScript file that running code imports) and its settings, then write,
  * check or search what is generated from it. The logic lives in
- * `@marktiderman/genesis-features/node`; this file finds and loads things.
+ * `@marktiderman/genesis-config/node`; this file finds and loads things.
  *
  * Settings come from the `features` block of `genesis.config.json`, then
  * `package.json` → `"genesisFeatures"` (any `FeatureProjectOptions` field that
@@ -20,7 +20,7 @@ import {
   type FeatureCheckResult,
   type FeaturePrEvidence,
   type FeatureProjectOptions,
-} from "@marktiderman/genesis-features/node";
+} from "@marktiderman/genesis-config/node";
 import {
   FEATURE_KINDS,
   FEATURE_PLATFORMS,
@@ -34,7 +34,7 @@ import {
   type FindOptions,
   type Flags,
   type PackageLayer,
-} from "@marktiderman/genesis-features";
+} from "@marktiderman/genesis-config";
 
 type Settings = Omit<FeatureProjectOptions, "root" | "features" | "flags" | "labels" | "today" | "evidence">;
 

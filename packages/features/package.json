@@ -1,17 +1,19 @@
 {
-  "name": "@marktiderman/genesis-features",
-  "version": "0.9.1",
+  "name": "@marktiderman/genesis-config",
+  "version": "0.10.0",
   "private": false,
   "type": "module",
   "sideEffects": false,
-  "description": "A typed feature registry: defineFeatures and defineFlags in one code file that running code imports, defineBlock and resolveBlocks for blocks (/blocks, free of zod), the feature gate (featureOn, /gate, zod-free, with React hooks at /gate/react), generators for AGENTS.md and JSON, a stale-output check, and a FeatureList page. Part of the Genesis framework.",
+  "description": "Genesis configuration: the typed feature registry (defineFeatures, defineFlags), blocks (defineBlock, resolveBlocks; /blocks, free of zod), the feature gate (featureOn; /gate, zod-free, with React hooks at /gate/react), generators for AGENTS.md and JSON, a stale-output check, and a FeatureList page. Formerly @marktiderman/genesis-features. Part of the Genesis framework.",
   "keywords": [
     "genesis",
     "genesis-framework",
     "feature-flags",
     "feature-registry",
     "openfeature",
-    "typescript"
+    "typescript",
+    "configuration",
+    "settings"
   ],
   "homepage": "https://github.com/marktiderman/genesis/tree/main/packages/features#readme",
   "bugs": {
@@ -47,6 +49,10 @@
     "./gate/react": {
       "types": "./dist/gate-react.d.ts",
       "import": "./dist/gate-react.js"
+    },
+    "./settings": {
+      "types": "./dist/settings.d.ts",
+      "import": "./dist/settings.js"
     },
     "./node": {
       "types": "./dist/node.d.ts",
@@ -119,7 +125,7 @@
             "pattern": "\\b(?:import\\.meta\\.env|process\\.env)\\.(?:VITE_|NEXT_PUBLIC_|EXPO_PUBLIC_)?(?:FEATURE|FF|ENABLE|FLAG)_[A-Z0-9_]+"
           },
           "use": "a feature in features.ts read with featureOn / useFeature, or a flag",
-          "import": "@marktiderman/genesis-features",
+          "import": "@marktiderman/genesis-config",
           "docs": "https://github.com/marktiderman/genesis/blob/main/packages/features/README.md",
           "why": "An environment switch needs a redeploy to change and isn't in the feature registry."
         }

@@ -2,7 +2,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { resolveBlocks } from "@marktiderman/genesis-features/blocks";
+import { resolveBlocks } from "@marktiderman/genesis-config/blocks";
 import {
   base64ToBytes,
   cleanRoute,

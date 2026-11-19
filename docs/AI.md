@@ -405,7 +405,7 @@ mode. A gateway's own figure is recorded alongside when one is used.
   (`rollout: { flag: "ai.default.next", model: anthropic("…") }`).
   - Today flags take per-tenant values, so rollouts go tenant by tenant.
   - Percentage bucketing, stable per tenant and person, is a proposed extension to
-    `genesis-features` (G2), useful well beyond AI.
+    `genesis-config` (G2), useful well beyond AI.
   - Rollback is flipping the flag.
   - The admin compares cost, latency, refusals and invalid outputs by model.
 - **Prompt changes are code.** A new prompt is a new task version, shipped like any change and
@@ -735,7 +735,7 @@ Decided by the maintainer on 2026-10-28. Each is tracked in `features.ts`.
    TanStack AI re-checked at P1.
 2. **Accepted:** a new `genesis_ai` schema in the app's Supabase, and the smallest `consent` block
    in P1 (`consent` is planned now).
-3. **Accepted, later:** percentage rollouts in `genesis-features` (`flag-rollouts`). Until then,
+3. **Accepted, later:** percentage rollouts in `genesis-config` (`flag-rollouts`). Until then,
    model rollouts go tenant by tenant.
 4. **Accepted:** P0–P2 committed (`ai-providers` now, `ai-control-plane` next). The coaching track
    is the direction (`ai-coach-drafts`, `ai-weekly-loop`, `ai-memory`, `ai-client-guidance`,

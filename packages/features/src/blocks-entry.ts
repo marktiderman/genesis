@@ -1,5 +1,5 @@
 /**
- * `@marktiderman/genesis-features/blocks`: `defineBlock` and `resolveBlocks`
+ * `@marktiderman/genesis-config/blocks`: `defineBlock` and `resolveBlocks`
  * without the registry's zod schemas, for code that ships to phones.
  *
  * @stability Beta

@@ -4,7 +4,7 @@
  * stores' privacy forms. Platform-neutral; `createSupport` (native) builds
  * on it, and a web app can resolve it with `resolveBlocks` too.
  */
-import { defineBlock, type BlockContributions, type BlockSettingsRow } from "@marktiderman/genesis-features/blocks";
+import { defineBlock, type BlockContributions, type BlockSettingsRow } from "@marktiderman/genesis-config/blocks";
 import { resolveSupportCopy, type SupportCopyOverrides } from "./copy";
 import { SUPPORT_CHAT_BLOCK_ID } from "./chat";
 

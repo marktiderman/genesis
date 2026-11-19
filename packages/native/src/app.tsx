@@ -62,7 +62,7 @@ import {
 import { SessionProvider, createSessionStore, type AuthClientLike } from "./auth";
 import { useHeldLink, type HeldLinkAuth, type LinkHold } from "./held-link";
 import { connectQueryLifecycle, createNativeQueryClient, reportQueryErrors, type QueryLifecycleOptions, type QueryPersistence } from "./query";
-import { resolveBlocks } from "@marktiderman/genesis-features/blocks";
+import { resolveBlocks } from "@marktiderman/genesis-config/blocks";
 import { BlocksProvider, reportToBlocks, type NativeBlock } from "./blocks";
 import type { DevtoolsSlots } from "./devtools/slots";
 // Types only: the block's code is in the `/updates` entry and arrives with the `updates` prop.

@@ -10,6 +10,7 @@ import { detectPackageManager, installCommand, shellLine } from "../blocks/pm.js
 import { appScripts } from "./app-scripts.js";
 import { compareVersions } from "./bump-core.mjs";
 import { hapticsUseGenesis, overlaysFitThePhone } from "./doctor-rule-codemods.js";
+import { featuresRenamedConfig } from "./rename-features.js";
 import { addGenesisLint, appPlatform, findEslintConfig, hasTestingLibrary, inlinesRntlRules, manualLines, readPackageJson, TESTING_LIBRARY, TESTING_LIBRARY_RANGE, usesGenesisLint } from "./eslint-config.js";
 import { augmentsResourceScope, IMPORTS_GENESIS, PRACTICE_ID_AUGMENTATION, readsPracticeId, rewriteScopeNames } from "./scope-names.js";
 import type { BumpChange } from "./bump-core.mjs";
@@ -20,6 +21,11 @@ export interface CodemodContext {
   root: string;
   dryRun: boolean;
   log: (msg: string) => void;
+  /**
+   * The version the release pins for a package, under `genesis upgrade` (codemods run before the
+   * install, so what's in node_modules is still the old release). Absent under `genesis codemod`.
+   */
+  wanted?: (name: string) => string | null | undefined;
 }
 
 export interface Codemod {
@@ -31,6 +37,11 @@ export interface Codemod {
   version: string;
   /** What breaks, and what the codemod changes, in one sentence. */
   description: string;
+  /**
+   * Also run under `genesis upgrade` when this says the app still needs it, whatever versions the
+   * release moves (an app that took the breaking release without running the codemod).
+   */
+  applies?(root: string): boolean;
   /** Change the app; returns the app-relative files it changed. */
   run(context: CodemodContext): Promise<string[]> | string[];
 }
@@ -222,11 +233,11 @@ export const composerBarHasContent: Codemod = {
   },
 };
 
-export const CODEMODS: readonly Codemod[] = [scopeNeutralNames, genesisEslintConfig, overlaysFitThePhone, hapticsUseGenesis, composerBarHasContent];
+export const CODEMODS: readonly Codemod[] = [scopeNeutralNames, genesisEslintConfig, overlaysFitThePhone, hapticsUseGenesis, composerBarHasContent, featuresRenamedConfig];
 
 /** What's left after a codemod that edited package.json, which never installs anything itself; null when nothing is. */
 export function codemodInstallNote(root: string, changed: readonly string[], dryRun: boolean): string | null {
-  if (dryRun || !changed.includes("package.json")) return null;
+  if (dryRun || !changed.some((file) => file === "package.json" || file.endsWith("/package.json"))) return null;
   return `Not installed yet: package.json changed and nothing was installed. Run \`${shellLine(installCommand(detectPackageManager(root)))}\`; until then, what it added isn't there (the lint can't load its config, say).`;
 }
 
@@ -237,10 +248,15 @@ export function codemodById(id: string, registry: readonly Codemod[] = CODEMODS)
 
 const bare = (spec: string) => spec.replace(/^[\^~=]/, "");
 
-/** The codemods a set of version changes crosses, in registry order. */
-export function codemodsFor(changes: readonly BumpChange[], registry: readonly Codemod[] = CODEMODS): Codemod[] {
-  return registry.filter((mod) =>
-    changes.some((c) => c.name === mod.package && compareVersions(bare(c.from), mod.version) < 0 && compareVersions(bare(c.to), mod.version) >= 0),
+/**
+ * The codemods a set of version changes crosses, in registry order; with `root`, also those whose
+ * `applies` says the app still needs them.
+ */
+export function codemodsFor(changes: readonly BumpChange[], registry: readonly Codemod[] = CODEMODS, root?: string): Codemod[] {
+  return registry.filter(
+    (mod) =>
+      changes.some((c) => c.name === mod.package && compareVersions(bare(c.from), mod.version) < 0 && compareVersions(bare(c.to), mod.version) >= 0) ||
+      (root !== undefined && mod.applies?.(root) === true),
   );
 }
 
