@@ -68,7 +68,8 @@ The provider calls a write function with these arguments unless `args` says othe
 | delete | `p_id`, plus `p_expected_version` as for update | the `id` (or `true`) when a row went; `null` when none did |
 | action | `p_id`, plus `p_expected_version` as for update | the changed row, its `id` or `true`; `null` when no row matched |
 
-On `null` the provider reads the row to say why: `conflict` (someone changed it), `forbidden`
+The function gets the values as the form sent them (after the resource's `prepare`): it decides
+what to write, so `writeColumns` doesn't trim them. On `null` the provider reads the row to say why: `conflict` (someone changed it), `forbidden`
 (still visible, so the change was refused) or `gone`.
 
 A write function:

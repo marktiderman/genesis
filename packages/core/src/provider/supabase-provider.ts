@@ -1802,10 +1802,11 @@ export function createSupabaseProvider(
     },
 
     async create(resource, params) {
-      const row = await tableValues(
-        resource,
-        await prepare(resource, params.data as Record<string, unknown>, { resource, action: "create" }),
-      );
+      const prepared = await prepare(resource, params.data as Record<string, unknown>, { resource, action: "create" });
+      // A `writes.create` function takes the values as they are: it decides what to write, so the
+      // table's columns (`writeColumns`) don't trim what it gets.
+      const throughFunction = !configFor(resource).create && configFor(resource).writes?.create !== undefined;
+      const row = throughFunction ? { ...prepared } : await tableValues(resource, prepared);
       const override = createRule(resource);
       let record: BaseRecord;
       if (override) {
@@ -1841,7 +1842,9 @@ export function createSupabaseProvider(
         }
         record = (await readRecord(resource, id)) ?? ({ ...row, ...written, id } as BaseRecord);
         if (version && record[version.field] == null && written[version.field] != null) {
-          record = { ...record, [version.field]: written[version.field] };
+          // The read has no version: the version this write made goes with the values it sent, not
+          // with values someone may have committed since, so a resubmit isn't a false conflict.
+          record = { ...record, ...row, ...written, id: record.id };
         }
       }
       await committed({ resource, kind: "create", id: record.id, record });
@@ -1851,16 +1854,11 @@ export function createSupabaseProvider(
     async update(resource, params) {
       const { id } = params;
       // A copy: with no prepare step this is the caller's own object, and the version is taken out below.
-      // A `writes.update` function takes the values as they are (it decides what to write), so the
-      // table's row isn't read to find its columns: the client may not be allowed to read it.
+      // A `writes.update` function takes the values as they are: it decides what to write, so neither
+      // the table's columns (`writeColumns`) nor its row (which the client may not read) trims them.
       const throughFunction = !configFor(resource).update && configFor(resource).writes?.update !== undefined;
-      const row = {
-        ...(await tableValues(
-          resource,
-          await prepare(resource, params.data as Record<string, unknown>, { resource, action: "update", id }),
-          throughFunction ? undefined : id,
-        )),
-      };
+      const prepared = await prepare(resource, params.data as Record<string, unknown>, { resource, action: "update", id });
+      const row = throughFunction ? { ...prepared } : { ...(await tableValues(resource, prepared, id)) };
       const version = versionFor(resource);
       const expected = expectedFor(resource, params.expectedVersion);
       // The database advances the version; a submitted value is never written.
@@ -1908,7 +1906,9 @@ export function createSupabaseProvider(
         const written = rows[0] as Record<string, unknown>;
         record = (await readRecord(resource, id)) ?? ({ ...row, ...written, id } as BaseRecord);
         if (version && record[version.field] == null && written[version.field] != null) {
-          record = { ...record, [version.field]: written[version.field] };
+          // The read has no version: the version this write made goes with the values it sent, not
+          // with values someone may have committed since, so a resubmit isn't a false conflict.
+          record = { ...record, ...row, ...written, id: record.id };
         }
       }
       await committed({ resource, kind: "update", id, record });

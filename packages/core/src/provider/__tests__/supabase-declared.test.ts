@@ -376,3 +376,51 @@ describe("a declared provider never reads a table it hasn't declared", () => {
     expect(res.data).toEqual({ id: "t5", title: "x", version: 1 });
   });
 });
+
+describe("write functions get the values as given", () => {
+  it("writeColumns doesn't trim what a writes.create or writes.update function gets", async () => {
+    const p = provider({
+      resources: { tasks: { source: "v", writeColumns: ["title"], writes: { create: "create_task", update: "save_task" } } },
+    });
+    queue.push(ok("t1"), ok([{ id: "t1" }]));
+    await p.create("tasks", { data: { title: "A", assignee_ids: ["u1"] } });
+    queue.push(ok("t1"), ok([{ id: "t1" }]));
+    await p.update("tasks", { id: "t1", data: { title: "B", assignee_ids: ["u2"] } });
+    expect(call("rpc")).toEqual([
+      ["create_task", { p_values: { title: "A", assignee_ids: ["u1"] } }],
+      ["save_task", { p_id: "t1", p_values: { title: "B", assignee_ids: ["u2"] } }],
+    ]);
+  });
+
+  it("a table write still keeps to writeColumns", async () => {
+    queue.push(ok([{ id: "t1" }]), ok([{ id: "t1" }]));
+    await provider({ resources: { tasks: { source: "v", writeColumns: ["title"] } } }).update("tasks", {
+      id: "t1",
+      data: { title: "B", person_name: "Ann" },
+    });
+    expect(call("update")).toEqual([[{ title: "B" }]]);
+  });
+});
+
+describe("the version goes with the values it was written with", () => {
+  it("a read-back without the version returns the values sent with the version written, not a later writer's values", async () => {
+    const versioned: SupabaseProviderOptions = {
+      resources: { tasks: { source: "v_no_version", version: { field: "version", kind: "integer" } } },
+    };
+    // The update wrote version 4; by the read-back someone else has made the title "Theirs".
+    queue.push(ok([{ id: "t1", title: "Old", version: 3 }])); // the table's row, for its columns
+    queue.push(ok([{ id: "t1", version: 4 }]), ok([{ id: "t1", title: "Theirs", person_name: "Ann" }]));
+    const res = await provider(versioned).update("tasks", { id: "t1", data: { title: "Mine" } });
+    expect(res.data).toEqual({ id: "t1", title: "Mine", person_name: "Ann", version: 4 });
+    expect(res.version).toBe("4");
+  });
+
+  it("a read-back with the version is taken as it is", async () => {
+    queue.push(ok([{ id: "t1", title: "Old", version: 3 }])); // the table's row, for its columns
+    queue.push(ok([{ id: "t1", version: 4 }]), ok([{ id: "t1", title: "Theirs", version: 5 }]));
+    const res = await provider({
+      resources: { tasks: { source: "v", version: { field: "version", kind: "integer" } } },
+    }).update("tasks", { id: "t1", data: { title: "Mine" } });
+    expect(res.data).toEqual({ id: "t1", title: "Theirs", version: 5 });
+  });
+});
