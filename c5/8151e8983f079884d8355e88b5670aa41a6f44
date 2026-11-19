@@ -1,0 +1,41 @@
+.changeset/doctor-fix-engine.md
+  s_ca8e075e853203::t_df78378e229553 31-34
+packages/genesis-cli/README.md
+  s_ca8e075e853203::t_de55bf08e8a832 1022,1038-1040
+packages/genesis-cli/src/doctor/settings.ts
+  s_ca8e075e853203::t_55adbbc8ab9815 31,130,138-140,145-181,183-184,189,192-193
+packages/genesis-cli/src/fix/builtin.ts
+  s_ca8e075e853203::t_db1be9299ce322 15,267-274,277-281,299-300
+packages/genesis-cli/src/fix/engine.ts
+  s_ca8e075e853203::t_f31a9d99cd450d 249,271,273,278,315
+packages/genesis-cli/src/upgrade/registry.ts
+  s_ca8e075e853203::t_c0ab4e1b6444c3 212-241,255-261
+packages/genesis-cli/test/doctor-behind.test.ts
+  s_cfe03394c0d379::t_fb753d3011cd07 6,220-229
+packages/genesis-cli/test/fix-engine.test.ts
+  s_cfe03394c0d379::t_f080d33143a603 339-398,570-587
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c58151e8983f079884d8355e88b5670aa41a6f44",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_cfe03394c0d379": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b0c9d35b-ebb9-42c9-9694-dd173757e0d5",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
