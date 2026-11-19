@@ -333,3 +333,16 @@ describe("data/access-rule-tests: a named object in args is not a spec", () => {
     expect(found.map((f) => f.subject)).toEqual(["archive_task"]);
   });
 });
+
+describe("data/access-rule-tests: typed options in every common shape", () => {
+  it("reads a satisfies default export and objects returned by typed factories", async () => {
+    const found = await only("data/access-rule-tests", {
+      "src/lib/default.ts": 'export default { access: "declared", resources: { c: { writes: { create: "make_c" } } } } satisfies SupabaseProviderOptions;',
+      "src/lib/arrow.ts": 'export const make = (): SupabaseProviderOptions => ({ access: "declared", resources: { e: { writes: { create: "make_e" } } } });',
+      "src/lib/fn.ts": 'export function build(): SupabaseProviderOptions {\n  const x = 1;\n  return { access: "declared", resources: { f: { actions: { close: "close_f" } } } };\n}',
+      "src/lib/resource.ts": 'export const one = (): SupabaseResourceConfig => ({ writes: { delete: "drop_g" } });',
+      "src/lib/labels.ts": 'export const labels = (): Labels => ({ actions: { save: "Save" } });\nexport const p = createSupabaseProvider(s, { access: "declared", resources: {} });',
+    });
+    expect(found.map((f) => f.subject).sort()).toEqual(["close_f", "drop_g", "make_c", "make_e"]);
+  });
+});

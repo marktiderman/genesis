@@ -101,13 +101,27 @@ function namesIn(block: string, keys: RegExp): { name: string; at: number }[] {
   return out;
 }
 
-/** Each `const|let|var name = {…} satisfies …Type…` object's opening brace. */
-function satisfying(code: string, blank: string, type: string): number[] {
+/**
+ * The opening brace of each object literal the file gives the type `type`:
+ * - annotated: `const x: Type = {…}` (or `Record<string, Type>`, any type naming it);
+ * - checked: `const x = {…} satisfies …Type…`, and `export default {…} satisfies …Type…`;
+ * - returned by a function annotated to return it: `(): Type => ({…})`, or
+ *   `function f(): Type { … return {…} }`.
+ */
+function typedObjects(code: string, blank: string, type: string): number[] {
   const out: number[] = [];
-  for (const m of blank.matchAll(/\b(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*=\s*\{/g)) {
+  const t = `\\b${type}\\b`;
+  for (const m of blank.matchAll(new RegExp(`${t}[^=;{()]*=\\s*\\{`, "g"))) out.push((m.index ?? 0) + m[0].length - 1);
+  for (const m of blank.matchAll(/(?:\b(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*=|\bexport\s+default)\s*\{/g)) {
     const open = (m.index ?? 0) + m[0].length - 1;
     const block = balanced(code, open);
-    if (block && new RegExp(`^\\s*satisfies\\b[^;]*\\b${type}\\b`).test(blank.slice(open + block.length))) out.push(open);
+    if (block && new RegExp(`^\\s*satisfies\\b[^;]*${t}`).test(blank.slice(open + block.length))) out.push(open);
+  }
+  for (const m of blank.matchAll(new RegExp(`\\)\\s*:\\s*[^=;{]*${t}[^=;{]*=>\\s*\\(\\s*\\{`, "g"))) out.push((m.index ?? 0) + m[0].length - 1);
+  for (const m of blank.matchAll(new RegExp(`\\)\\s*:\\s*[^=;{]*${t}[^=;{>]*\\{`, "g"))) {
+    const bodyOpen = (m.index ?? 0) + m[0].length - 1;
+    const body = balanced(code, bodyOpen);
+    for (const r of blankStrings(body).matchAll(/\breturn\s*\{/g)) out.push(bodyOpen + (r.index ?? 0) + r[0].length - 1);
   }
   return out;
 }
@@ -135,8 +149,7 @@ function providerOptions(code: string, blank: string): number[] {
       if (found?.text.startsWith("{")) out.push(found.open);
     }
   }
-  for (const m of blank.matchAll(/\bSupabaseProviderOptions\b[^=;{]*=\s*\{/g)) out.push((m.index ?? 0) + m[0].length - 1);
-  out.push(...satisfying(code, blank, "SupabaseProviderOptions"));
+  out.push(...typedObjects(code, blank, "SupabaseProviderOptions"));
   return out;
 }
 
@@ -175,8 +188,7 @@ function resourceConfigRanges(code: string, blank: string): [number, number][] {
       else if (ch === "}" || ch === ")" || ch === "]") depth--;
     }
   }
-  for (const m of blank.matchAll(/\bSupabaseResourceConfig\b[^=;{]*=\s*\{/g)) add((m.index ?? 0) + m[0].length - 1);
-  for (const open of satisfying(code, blank, "SupabaseResourceConfig")) add(open);
+  for (const open of typedObjects(code, blank, "SupabaseResourceConfig")) add(open);
   return out;
 }
 
