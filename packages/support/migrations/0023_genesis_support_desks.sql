@@ -716,3 +716,15 @@ comment on function public.support_requester_tenants(uuid) is
 
 revoke execute on function public.support_requester_tenants(uuid) from public, anon;
 grant execute on function public.support_requester_tenants(uuid) to authenticated;
+
+-- 0024's notification of a moved ticket, when 0024 came first (it makes this trigger itself after 0023).
+do $$
+begin
+  if to_regprocedure('private.genesis_support_moved_notify()') is not null then
+    drop trigger if exists genesis_support_moved_notify on public.support_desk_log;
+    create trigger genesis_support_moved_notify
+      after insert on public.support_desk_log
+      for each row execute function private.genesis_support_moved_notify();
+  end if;
+end;
+$$;

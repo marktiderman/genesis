@@ -99,7 +99,8 @@
     "react-native": ">=0.76.0",
     "react-native-safe-area-context": ">=4.0.0",
     "zod": "^3.25.0 || ^4.0.0",
-    "@marktiderman/genesis-core": "workspace:>=2.13.0 <3.0.0"
+    "@marktiderman/genesis-core": "workspace:>=2.13.0 <3.0.0",
+    "@marktiderman/genesis-notifications": "workspace:>=0.4.4 <1.0.0"
   },
   "peerDependenciesMeta": {
     "@marktiderman/genesis-ai": {
@@ -143,6 +144,9 @@
     },
     "@marktiderman/genesis-core": {
       "optional": true
+    },
+    "@marktiderman/genesis-notifications": {
+      "optional": true
     }
   },
   "devDependencies": {
@@ -150,6 +154,7 @@
     "@marktiderman/genesis-chat": "workspace:^",
     "@marktiderman/genesis-core": "workspace:^",
     "@marktiderman/genesis-native": "workspace:^",
+    "@marktiderman/genesis-notifications": "workspace:^",
     "@marktiderman/genesis-ui": "workspace:^",
     "@marktiderman/genesis-ui-native": "workspace:^",
     "@supabase/supabase-js": "^2.118.0",
@@ -252,6 +257,10 @@
           {
             "file": "migrations/0020_genesis_support_settings.sql",
             "test": "migrations/tests/0020_genesis_support_settings.test.sql"
+          },
+          {
+            "file": "migrations/0024_genesis_support_notifications.sql",
+            "test": "migrations/tests/0024_genesis_support_notifications.test.sql"
           }
         ],
         "functions": [
@@ -473,6 +482,10 @@
           {
             "file": "migrations/0017_genesis_support_help_answers.sql",
             "test": "migrations/tests/0017_genesis_support_help_answers.test.sql"
+          },
+          {
+            "file": "migrations/0023_genesis_support_desks.sql",
+            "test": "migrations/tests/0023_genesis_support_desks.test.sql"
           }
         ],
         "steps": [

@@ -781,6 +781,36 @@ help desk something its admins run, and lets a ticket move between desks:
 With the `support.desks` setting off (the `standard` and `min` presets) it is 0004 exactly:
 `tenant_features` alone decides, and nothing is switched, routed or moved.
 
+## Notifications: support.message, support.reply, support.verify (migration 0024)
+
+`0024_genesis_support_notifications.sql` (in the support block) tells people through
+genesis-notifications' `genesis_notify`, with no code of the app's own:
+
+- **`support.message`** to the ticket's desk's agents: a new ticket, the person writing again, a
+  ticket moved to the desk (`escalated`, `returned`, `moved`). Nobody else once someone who still
+  handles it has it (genesis-chat tells them). Only while `support.staffAlerts` is on. Whom it tells
+  is the app's `private.genesis_support_staff_to_notify(ticket uuid) returns uuid[]` when it has one.
+- **`support.reply`** to the person when support answers (not on an email ticket, whose answers go
+  out as email already), one email per ticket however many replies.
+- **`support.verify`** to the person with the verify prompt.
+
+Add the types to the app's registry and sync them as every type is:
+
+```ts
+import { defineNotifications } from "@marktiderman/genesis-notifications";
+import { supportNotificationTypes } from "@marktiderman/genesis-support";
+
+const support = supportNotificationTypes({ basePath: "/support" });
+export const notifications = defineNotifications({ categories: { ...support.categories }, types: { ...support.types } });
+```
+
+Their links open the agent's ticket (`/support/agent/<id>`, with `?desk=` at a tenant's desk) and
+the person's thread; `agentUrl` and `personUrl` change them. `support.reply` offers no push while
+threads run on genesis-chat (`chatPushes: false` for an app without it). The emails:
+`supportEmailTemplates({ replies })` from `/email`, as the runner's `templates`, put the whole
+message in under a subject the ticket's emails share. A notification that can't be sent (no
+genesis-notifications, a type not synced) is a warning, never a failed ticket or message.
+
 ## Email tickets (the `support-email` block)
 
 Email is a ticket channel (ADR 0011). `genesis add support-email` copies

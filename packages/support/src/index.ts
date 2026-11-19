@@ -25,4 +25,5 @@ export * from "./inbox";
 export * from "./office-hours";
 export * from "./diagnostics";
 export * from "./settings";
+export * from "./notifications";
 export type { HelpAnswerResponse, HelpAskState } from "./help-ask";

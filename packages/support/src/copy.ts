@@ -221,6 +221,24 @@ export const supportCopy = {
     noDeskTitle: "No help desk to answer",
     noDeskBody: "Turn your help desk on in its settings to answer your people here.",
   },
+  /** Support's notifications (migration 0024, `supportNotificationTypes`): `{by}`, `{title}`, `{from}`. */
+  notifications: {
+    category: "Support",
+    categoryDescription: "Conversations with support",
+    /** A new ticket, to the desk's agents. */
+    newTicket: "{by}: {title}",
+    /** The person wrote again. */
+    message: "{by} replied: {title}",
+    /** Moved to this desk. */
+    escalated: "Sent up to you: {title}",
+    returned: "Handed back to you: {title}",
+    moved: "Moved to you: {title}",
+    /** Support answered, to the person. `{from}` is the desk's name, else "Support". */
+    reply: "{from} replied: {title}",
+    support: "Support",
+    verify: "Is it fixed? {title}",
+    verifyBody: "We think this is fixed. Please check it, then confirm or reopen it.",
+  },
   /** The details panel's requester card. */
   requester: {
     title: "Contact",
