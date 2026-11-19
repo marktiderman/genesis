@@ -13,7 +13,8 @@ unless an earlier one locks the value; tenant and person change only keys declar
 scope; only the file sets a build-time key) into `{ values, sources, problems }`. `withSettings`
 folds the result into a `GateContext`: switched-off features into the new `settingsOff` (answered
 with the new `GateReason` `"setting"`, checked before the tenant's switch), linked flags into
-`flags`, and a locked setting wins over the context's own switch and flag. `resolveSettings` never
+`flags`, and a setting the app locked (genesis.config.json or the database: `APP_LOCK_LAYERS`) wins
+over the context's own switch and flag; a tenant or person lock only stops later settings layers. `resolveSettings` never
 throws (an unknown preset is a `preset` problem, resolved on `max`), its maps have no prototype, a
 lock with a bad value still locks, `null` fits only a key whose default is `null`, and
 `SCOPE_LAYERS` holds the scope rule. New zod-free subpath `/settings` (also on the root, and on the

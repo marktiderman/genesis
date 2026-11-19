@@ -124,6 +124,9 @@ export function checkSettings(ctx: DoctorContext): void {
     ctx.report({ rule: "invalid-setting", level: "error", file: "package.json", subject: "settings catalogue", message: err.message });
     return;
   }
+  for (const legacy of config?.legacySettingsKeys ?? []) {
+    ctx.report({ rule: "invalid-setting", level: "error", file: FILE, subject: legacy.key, message: legacy.message });
+  }
   if (!config?.settings && !config?.preset) return;
   const resolved = resolveSettings(catalogue, { ...(config.preset ? { preset: config.preset } : {}), file: settingsLayerFromFile(config.settings) });
   for (const problem of resolved.problems) {
