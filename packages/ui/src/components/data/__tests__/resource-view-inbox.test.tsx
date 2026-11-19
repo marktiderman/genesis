@@ -5,7 +5,7 @@
  * Delete, a key no row has falls back to "Not available", narrow screens go Back, and a peek from
  * a list keeps the list's own edit and delete.
  */
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -66,8 +66,7 @@ function provider(extra: Partial<DataProvider> = {}) {
   } as unknown as DataProvider;
 }
 
-function wrap(p: DataProvider) {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+function wrap(p: DataProvider, queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
   return ({ children }: { children: ReactNode }) => (
     <GenesisProvider provider={p} queryClient={queryClient}>
       {children}
@@ -151,6 +150,49 @@ describe("<ResourceView type=\"inbox\">", () => {
       await waitFor(() => expect(capabilities).toHaveBeenCalled());
       fireEvent.click(await screen.findByTestId("resource-inbox-list-row-t1"));
       await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(runAction).not.toHaveBeenCalled();
+    });
+
+    it("a late mark runs at the version the row was opened at, even after the list refreshes", async () => {
+      const runAction = vi.fn(async () => ({ data: null }));
+      const waiting: ((c: ProviderCapabilities) => void)[] = [];
+      const capabilities = vi.fn(() => new Promise<ProviderCapabilities>((resolve) => waiting.push(resolve)));
+      let version = "2026-11-13T09:00:00Z";
+      const p = provider({ runAction, capabilities });
+      const getList = p.getList as ReturnType<typeof vi.fn>;
+      const base = getList.getMockImplementation() as (r: string, params: ListParams) => Promise<{ data: Record<string, unknown>[]; total: number }>;
+      getList.mockImplementation(async (r: string, params: ListParams) => {
+        const res = await base(r, params);
+        return { ...res, data: res.data.map((row: Record<string, unknown>) => (row.id === "t1" ? { ...row, updated_at: version } : row)) };
+      });
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      render(<Screen />, { wrapper: wrap(p, queryClient) });
+      fireEvent.click(await screen.findByTestId("resource-inbox-list-row-t1"));
+      version = "2026-11-13T10:00:00Z";
+      void queryClient.invalidateQueries();
+      await waitFor(() => expect(getList.mock.calls.length).toBeGreaterThan(1));
+      waiting.splice(0).forEach((resolve) => resolve(caps({ versionedWrites: true, version: { field: "updated_at", kind: "timestamp" } })));
+      await waitFor(() =>
+        expect(runAction).toHaveBeenCalledWith("tickets", { id: "t1", action: "markRead", expectedVersion: "2026-11-13T09:00:00Z" }),
+      );
+    });
+
+    it("a controlled selection that moves away and back before the answer drops the waiting mark", async () => {
+      const runAction = vi.fn(async () => ({ data: null }));
+      const waiting: ((c: ProviderCapabilities) => void)[] = [];
+      const capabilities = vi.fn(() => new Promise<ProviderCapabilities>((resolve) => waiting.push(resolve)));
+      let setFromApp: (key: string | null) => void = () => {};
+      function Controlled() {
+        const [selected, setSelected] = useState<string | null>(null);
+        setFromApp = setSelected;
+        return <ResourceView view={marking} type="inbox" inbox={{ selected, onSelectedChange: setSelected }} />;
+      }
+      render(<Controlled />, { wrapper: wrap(provider({ runAction, capabilities })) });
+      fireEvent.click(await screen.findByTestId("resource-inbox-list-row-t1"));
+      act(() => setFromApp(null));
+      act(() => setFromApp("t1"));
+      waiting.splice(0).forEach((resolve) => resolve(caps({})));
+      await new Promise((resolve) => setTimeout(resolve, 30));
       expect(runAction).not.toHaveBeenCalled();
     });
 

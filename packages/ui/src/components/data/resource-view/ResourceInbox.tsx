@@ -204,20 +204,20 @@ export function ResourceInbox<T extends Row = Row>(props: ResourceViewProps<T>) 
     [onAction, provider, view.resource, list, queryClient, runnable, versionField],
   );
   // A row opened before the provider can run markRead (its capabilities haven't answered yet) is
-  // marked read once it can, if it is still the open row.
-  const readLater = useRef<string | null>(null);
-  const markOpened = useCallback(
-    (key: string) => {
-      const row = list.rows.find((r) => list.keyOf(r) === key);
-      if (!row || !markRead || !view.inboxRow(row as T & DataRow).unread || view.canAction(markRead, row as T & DataRow, viewer) !== true) return;
+  // marked read once it can, if it is still the open row, at the version it was opened at: the
+  // row as it was then is kept, not the list's later copy.
+  const readLater = useRef<{ key: string; row: T } | null>(null);
+  const markRow = useCallback(
+    (key: string, row: T) => {
+      if (!markRead || !view.inboxRow(row as T & DataRow).unread || view.canAction(markRead, row as T & DataRow, viewer) !== true) return;
       if (!onAction && !runnable) {
-        readLater.current = key;
+        readLater.current = { key, row };
         return;
       }
       readLater.current = null;
       void runAction(markRead, row).catch(() => undefined);
     },
-    [list, markRead, view, viewer, onAction, runnable, runAction],
+    [markRead, view, viewer, onAction, runnable, runAction],
   );
   const select = useCallback(
     (key: string | null) => {
@@ -225,13 +225,20 @@ export function ResourceInbox<T extends Row = Row>(props: ResourceViewProps<T>) 
       onSelectedChange?.(key);
       // Opening an unread row runs the view's own markRead action, when it declares one.
       readLater.current = null;
-      if (key !== null) markOpened(key);
+      const row = key === null ? undefined : list.rows.find((r) => list.keyOf(r) === key);
+      if (key !== null && row) markRow(key, row);
     },
-    [options.selected, onSelectedChange, markOpened],
+    [options.selected, onSelectedChange, list, markRow],
   );
+  // Any change of the open row (the app's controlled `selected` included) drops a mark waiting for
+  // another row, so moving away and back before the answer never marks it.
   useEffect(() => {
-    if (runnable && readLater.current !== null && readLater.current === selected) markOpened(readLater.current);
-  }, [runnable, selected, markOpened]);
+    if (readLater.current && readLater.current.key !== selected) readLater.current = null;
+  }, [selected]);
+  useEffect(() => {
+    const later = readLater.current;
+    if (runnable && later && later.key === selected) markRow(later.key, later.row);
+  }, [runnable, selected, markRow]);
   const onPage = selected === null ? undefined : list.rows.find((r) => list.keyOf(r) === selected);
   // A row not on the loaded page is read on its own, in the list's scope: a resource read from a
   // function that takes its scope from the list's filters (a tenant, say) reads it in that scope.
