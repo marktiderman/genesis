@@ -179,7 +179,8 @@ const declaresAccess = (text: string) => /\baccess\s*:\s*(["'`])declared\1/.test
 function optionsConstDeclares(code: string, blank: string, call: string): boolean {
   const args = blankStrings(call).slice(1, -1);
   for (const [, name] of args.matchAll(/(?:^|,)\s*([A-Za-z_$][\w$]*)\s*(?=,|$)/g)) {
-    const decl = new RegExp(`\\b(?:const|let|var)\\s+${name!.replace(/\$/g, "\\$")}\\b[^=]*=\\s*\\{`).exec(blank);
+    const escaped = name!.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const decl = new RegExp(`\\b(?:const|let|var)\\s+${escaped}(?![\\w$])[^=]*=\\s*\\{`).exec(blank);
     if (!decl) continue;
     if (declaresAccess(balanced(code, decl.index + decl[0].length - 1))) return true;
   }
