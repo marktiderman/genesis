@@ -1,0 +1,43 @@
+packages/ui/src/components/data/resource-view/RecordView.tsx
+  s_03775a189718c5::t_51fb5fc26e4179 152-153,156
+docs/DATA-ACCESS.md
+  s_03775a189718c5::t_51fb5fc26e4179 66-68,88-89,154-156,159,165,167-168,170
+packages/genesis-cli/src/doctor/data-access.ts
+  s_03775a189718c5::t_51fb5fc26e4179 116-132
+packages/genesis-cli/src/doctor/primitives.ts
+  s_03775a189718c5::t_51fb5fc26e4179 169
+features.ts
+  s_03775a189718c5::t_51fb5fc26e4179 821
+packages/ui/src/components/data/resource-view/list-controls.tsx
+  s_03775a189718c5::t_51fb5fc26e4179 317-319,518
+.changeset/declared-data-access.md
+  s_03775a189718c5::t_51fb5fc26e4179 8
+packages/core/src/testing/access-rules.ts
+  s_03775a189718c5::t_17cbb1b639db79 175-177,180-181,183
+packages/genesis-cli/test/doctor-data-access.test.ts
+  s_03775a189718c5::t_17cbb1b639db79 143-153
+packages/ui/src/components/data/__tests__/resource-view-lists-vnext.test.tsx
+  s_03775a189718c5::t_17cbb1b639db79 185-196
+packages/ui-native/src/data/resource-view/NativeRecordView.tsx
+  s_03775a189718c5::t_51fb5fc26e4179 119-120,123
+packages/ui-native/src/data/resource-view/NativeResourceView.tsx
+  s_03775a189718c5::t_51fb5fc26e4179 567
+features.json
+  s_03775a189718c5::t_4ed76de05b6a8b 1854
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ea2bec4015edac0f9a2e1f6074f285233fcda6fa",
+  "prompts": {},
+  "sessions": {
+    "s_03775a189718c5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1bfce5ab-8151-44b4-9387-b6450c59973d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
