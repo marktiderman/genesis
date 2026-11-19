@@ -182,6 +182,18 @@ describe("row and bulk actions", () => {
     expect(await screen.findByLabelText("Select Write the plan")).toBeTruthy();
   });
 
+  it("offers no provider action when the provider's capabilities fail", async () => {
+    // @feat:declared-data-access
+    const capabilities = vi.fn(async (_resource?: string): Promise<ProviderCapabilities> => {
+      throw new Error("offline");
+    });
+    render(<ResourceView view={view} />, { wrapper: wrap(provider({ runAction: vi.fn(), capabilities })) });
+    await screen.findByText("Ship it");
+    await waitFor(() => expect(capabilities).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(screen.queryByLabelText("Select Write the plan")).toBeNull();
+  });
+
   it("runs a provider action at the version the row was read at", async () => {
     // @feat:declared-data-access
     const runAction = vi.fn(async () => ({ data: null }));

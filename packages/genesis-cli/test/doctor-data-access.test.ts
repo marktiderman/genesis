@@ -140,6 +140,17 @@ describe("data/declared-access", () => {
   });
 });
 
+describe("data/declared-access: a spread after access", () => {
+  it("keeps the warning when a later spread can set access again", async () => {
+    const found = await only("data/declared-access", {
+      "src/lib/inline.ts": 'export const p = createSupabaseProvider(client, { access: "declared", ...overrides });',
+      "src/lib/named.ts": 'const options = { access: "declared", ...overrides };\nexport const p = createSupabaseProvider(client, options);',
+      "src/lib/before.ts": 'export const p = createSupabaseProvider(client, { ...defaults, access: "declared" });',
+    });
+    expect(found.map((f) => f.file).sort()).toEqual(["src/lib/inline.ts", "src/lib/named.ts"]);
+  });
+});
+
 describe("data/access-rule-tests", () => {
   const PROVIDER = 'export const provider = createSupabaseProvider(supabase, { access: "declared", resources: {} });';
   const COVER = [

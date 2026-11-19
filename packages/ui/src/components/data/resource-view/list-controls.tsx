@@ -314,9 +314,9 @@ export function useServedActions(view: AnyView): { runnable: boolean; served: Re
   });
   const served = described.data?.actions ? new Set(described.data.actions.map((a) => a.name)) : null;
   const versionField = capabilities.data?.version?.field;
-  // Not runnable until the provider has said: an action shown before then could run without its
-  // version, or be one the provider doesn't serve.
-  const runnable = !!provider.runAction && !(asked && capabilities.isPending) && capabilities.data?.actions !== false;
+  // Not runnable until the provider has answered: an action shown before then (or after a failed
+  // answer) could run without its version, or be one the provider doesn't serve.
+  const runnable = !!provider.runAction && (!asked || capabilities.isSuccess) && capabilities.data?.actions !== false;
   return { runnable, served, ...(versionField ? { versionField } : {}) };
 }
 
@@ -515,7 +515,7 @@ export function useListActions<T extends Row>(
       });
     }
     return out;
-  }, [bulkable, view, viewer, m, options, provider, idOf, refresh, start, once]);
+  }, [bulkable, view, viewer, m, options, provider, idOf, atVersion, refresh, start, once]);
 
   const run = useCallback(
     (name: string, row: T) => {

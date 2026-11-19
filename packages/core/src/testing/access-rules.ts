@@ -172,13 +172,15 @@ export function declaredFunctions(options: Pick<SupabaseProviderOptions, "resour
 }
 
 /**
- * Fails, naming each one, when a function the provider declares has no access-rule test among
- * `tested` (the specs given to `accessRules`, or the function names). Run it in the app's test
- * suite beside the access-rule tests, with the options the app's provider is made from:
+ * Fails, naming each one, when a function the provider declares has no spec among `tested`. It
+ * compares names only, so pass it the specs the access-rule cases are registered from, with the
+ * options the app's provider is made from:
  *
  * ```ts
+ * const specs = [saveTask, createTask, archiveTask];
+ * for (const spec of specs) for (const c of accessRules(spec)) test(c.name, c.run);
  * test("every declared function has an access-rule test", () => {
- *   expectAccessRulesCover(providerOptions, [saveTask, createTask, archiveTask]);
+ *   expectAccessRulesCover(providerOptions, specs);
  * });
  * ```
  *

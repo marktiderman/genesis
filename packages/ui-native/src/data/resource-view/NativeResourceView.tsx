@@ -564,7 +564,7 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
     [onAction, provider, view, queryClient, actionCaps.data],
   );
   // Not on until the provider has said (an action shown before then could run without its version).
-  const actionsOn = !!onAction || (!!provider.runAction && !(askCaps && actionCaps.isPending) && actionCaps.data?.actions !== false);
+  const actionsOn = !!onAction || (!!provider.runAction && (!askCaps || actionCaps.isSuccess) && actionCaps.data?.actions !== false);
   const cancelWord = useNativeResourceViewMessages().common.cancel;
   const confirmAction = useCallback(
     (name: string, row: T) => {

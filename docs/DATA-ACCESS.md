@@ -63,7 +63,9 @@ What a create or update returns depends on the mode:
   one) is never read: a write reports what it sent, a null answer can't be told apart (refused,
   gone or changed first) and says so, and it gets no realtime channel.
 - **Open** (the default): an insert or update returns the table's row (`select *`), as before.
-- **A write function** (`writes`) reads the record back the way the resource reads, in either mode.
+- **A write function** (`writes`) that returns an id (or `true`, for an update) has the record
+  read back the way the resource reads, in either mode; one that returns the row returns that
+  row. A resource that declares no read is never read back.
 
 One read can come before an update: a resource with a `source` and no `writeColumns` reads the
 table's row (`select *`) to learn its columns, on an open provider or with `table.read`. Set
@@ -83,7 +85,8 @@ The provider calls a write function with these arguments unless `args` says othe
 | action | `p_id`, plus `p_expected_version` as for update | the changed row, its `id` or `true`; `null` when no row matched |
 
 The function gets the values as the form sent them (after the resource's `prepare`): it decides
-what to write, so `writeColumns` doesn't trim them. On `null` the provider reads the row to say why: `conflict` (someone changed it), `forbidden`
+what to write, so `writeColumns` doesn't trim them. On `null` the provider reads the row to say why (a resource that declares no read can't be read,
+so its message says the change was refused, the row is gone or someone changed it first): `conflict` (someone changed it), `forbidden`
 (still visible, so the change was refused) or `gone`.
 
 A write function:
@@ -148,20 +151,23 @@ for (const c of accessRules({
 
 Then check that none is missing: `expectAccessRulesCover` reads the declared functions from the
 options the provider is made from (every write function, action and function source), and fails
-naming each one with no spec among those you pass. Keep it beside the access-rule tests, so a new
-function can't ship without one.
+naming each one with no spec among those you pass. It compares names only, so pass it the same
+specs you register with `accessRules`: keep the specs in one list, register each one's cases, and
+check the list, so a new function can't ship without a running test.
 
 ```ts
-import { expectAccessRulesCover, type AccessRuleSpec } from "@marktiderman/genesis-core/testing";
+import { accessRules, expectAccessRulesCover, type AccessRuleSpec } from "@marktiderman/genesis-core/testing";
 import type { SupabaseProviderOptions } from "@marktiderman/genesis-core";
 
 declare const providerOptions: SupabaseProviderOptions;
 declare const saveTask: AccessRuleSpec<string>;
 declare const createTask: AccessRuleSpec<string>;
-declare function test(name: string, run: () => void): void;
+declare function test(name: string, run: () => void | Promise<void>): void;
 
+const specs = [saveTask, createTask];
+for (const spec of specs) for (const c of accessRules(spec)) test(c.name, c.run);
 test("every declared function has an access-rule test", () => {
-  expectAccessRulesCover(providerOptions, [saveTask, createTask]);
+  expectAccessRulesCover(providerOptions, specs);
 });
 ```
 

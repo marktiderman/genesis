@@ -149,10 +149,11 @@ export function RecordView<T extends Row = Row>(props: RecordViewProps<T>) {
   const viewer = useViewer();
   const header = recordView.headerFor(record, {
     viewer,
-    // Not runnable until the provider has said (an action run before then would go without its version).
+    // Not runnable until the provider has answered (an action run before then, or after a failed
+    // answer, would go without its version).
     runnable:
       Boolean(onAction) ||
-      (Boolean(provider.runAction) && !(provider.capabilities && capabilities.isPending) && capabilities.data?.actions !== false),
+      (Boolean(provider.runAction) && (!provider.capabilities || capabilities.isSuccess) && capabilities.data?.actions !== false),
     ...(!onAction && described.data?.actions ? { served: described.data.actions.map((a) => a.name) } : {}),
     ...(can ? { can: (name: string) => can(name, row) } : {}),
   });
