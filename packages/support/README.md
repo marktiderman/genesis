@@ -891,8 +891,36 @@ must check, when the reply arrives, that `userId` is still the ticket's requeste
 that the sender is that login's email with SPF and DKIM passing. And
 `stripReply(text, html)` keeps what the person wrote, without the quoted history, the
 `REPLY_MARKER` line or their signature. Auto-replies are already dropped by genesis-notifications'
-inbound router. Wiring these into the support notification emails is **Planned**
-(`support-email`).
+inbound router.
+
+**Wired end to end** (migration `0026_genesis_support_email_reply.sql`, in the support-email block,
+and `/email`):
+
+```ts
+import { handleSupportInbound, supportEmailOptions, supportEmailRoute } from "@marktiderman/genesis-support/email";
+
+// POST /api/support/email-inbound (Resend's `email.received` webhook)
+export const POST = ({ request }: { request: Request }) =>
+  handleSupportInbound(request, { env: process.env, client: admin, settings, routes: [supportEmailRoute(admin, { addresses: ["support@acme.test"] })] });
+
+// The notifications job: support's templates, and each support email's own Reply-To
+createNotificationRunner({ store, registry, email: { provider, appName: "Acme", domains, ...supportEmailOptions({ env: process.env, provider, settings }) } });
+```
+
+- **Out.** `supportEmailOptions` gives `support.message` and `support.reply` emails their
+  recipient's signed address as Reply-To (`replyAddress`) and a References header naming the
+  ticket, through the runner's `providerFor`, and puts `REPLY_MARKER` at the top.
+- **In.** `supportReplyRoute` (inside `handleSupportInbound`) verifies the token, drops automatic
+  mail and senders the receiving server didn't authenticate (`senderAuthenticated`: DKIM, or SPF and
+  DMARC), strips the quote (`stripReply`: Gmail, Outlook and Apple Mail forms, signatures) and calls
+  `support_email_reply`, which posts it as the login the email went to: the ticket's person, or one
+  of its handlers (as support), only from that login's own address, once per Message-ID, at most 20 a
+  ticket an hour. A refusal is logged and dropped; a failure worth retrying makes Resend retry.
+- **Set-up.** `SUPPORT_REPLY_DOMAIN` (receiving through Resend, only for these replies; its MX at
+  Resend), `SUPPORT_REPLY_SIGNING_SECRET`, `RESEND_INBOUND_WEBHOOK_SECRET` and `RESEND_API_KEY` (a key
+  that reads received email). `supportReplyConfig(env, { settings })` says what is missing; until it
+  is all set, emails carry no reply address and the endpoint answers 503. The `support.replyByEmail`
+  setting (with `support.email`) turns it off. An app with earlier addresses passes `legacyLabel`.
 
 ## Access, in the database
 

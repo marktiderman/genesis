@@ -3764,7 +3764,7 @@ export const features = defineFeatures({
   // `features find` shows them before anyone builds beside them.
   "support-email": {
     name: "Support over email",
-    summary: "Email is a support ticket channel (ADR 0011): mail to a support address or a ticket's reply address opens or continues the ticket, staff replies (in the app or support-chat) go back threaded through Resend, and one thread holds app and email.",
+    summary: "Email is a support ticket channel (ADR 0011): mail to a support address or a ticket's reply address opens or continues the ticket, staff replies (in the app or support-chat) go back threaded through Resend, and one thread holds app and email. Reply by email: support's notification emails carry each recipient's own signed Reply-To, and the inbound route posts the stripped reply as that login (support_email_reply, migration 0026).",
     category: "Support",
     status: "building",
     horizon: "now",
@@ -3777,7 +3777,7 @@ export const features = defineFeatures({
     audience: ["person", "admin"],
     visibility: "internal",
     links: {
-      code: ["packages/support/migrations/0002_genesis_support_email.sql", "packages/support/src/email.ts"],
+      code: ["packages/support/migrations/0002_genesis_support_email.sql", "packages/support/src/email.ts", "packages/support/migrations/0026_genesis_support_email_reply.sql", "packages/support/src/email-inbound.ts", "packages/support/src/email-reply.ts"],
       docs: ["docs/adr/0011-support-email-tickets.md"],
     },
   },

@@ -535,6 +535,10 @@
           {
             "file": "migrations/0008_genesis_support_email_tenants.sql",
             "test": "migrations/tests/0008_genesis_support_email_tenants.test.sql"
+          },
+          {
+            "file": "migrations/0026_genesis_support_email_reply.sql",
+            "test": "migrations/tests/0026_genesis_support_email_reply.test.sql"
           }
         ],
         "steps": [

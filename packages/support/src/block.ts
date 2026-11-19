@@ -195,6 +195,8 @@ export function defineSupportEmailBlock(options: { requires?: readonly string[] 
         // 0002 written for public.tickets and safe to re-run (apps that applied 0002 keep it), then tenancy.
         { package: "@marktiderman/genesis-support", file: "migrations/0007_genesis_support_email_on_tickets.sql", test: "migrations/tests/0002_genesis_support_email.test.sql" },
         { package: "@marktiderman/genesis-support", file: "migrations/0008_genesis_support_email_tenants.sql", test: "migrations/tests/0008_genesis_support_email_tenants.test.sql" },
+        // Reply by email: support_email_reply, as the login the email went to (the route is /email's supportReplyRoute).
+        { package: "@marktiderman/genesis-support", file: "migrations/0026_genesis_support_email_reply.sql", test: "migrations/tests/0026_genesis_support_email_reply.test.sql" },
       ],
       privacy: {
         notes: [

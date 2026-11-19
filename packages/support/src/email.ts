@@ -187,3 +187,4 @@ export async function runSupportEmail(client: SupportEmailClient, options: RunSu
 
 export * from "./email-reply";
 export * from "./email-templates";
+export * from "./email-inbound";
