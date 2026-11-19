@@ -357,10 +357,31 @@ describe("data/access-rule-tests: typed factories, their own returns only", () =
         "export function cfg(rows: Row[]): SupabaseResourceConfig {",
         '  const labels = rows.map((r) => { return { actions: { save: "Save" } }; });',
         '  const more = rows.map(function (r) { return { actions: { open: "Open" } }; });',
+        '  function label(): Label { return { actions: { name: "Name" } }; }',
+        '  const helper = { m(): Label { return { actions: { tag: "Tag" } }; } };',
         '  return { actions: { close: "close_j" } };',
         "}",
       ].join("\n"),
     });
     expect(found.map((f) => f.subject).sort()).toEqual(["close_j", "drop_h", "drop_i", "make_d", "make_e"]);
+  });
+});
+
+describe("data/access-rule-tests: a loop feeds a spec only around its call", () => {
+  it("an unrelated loop with the same variable name doesn't count", async () => {
+    const found = await only("data/access-rule-tests", {
+      "src/lib/declared.ts": DECLARED,
+      "test/access.test.ts": [
+        'const payloads = [{ fn: "archive_task" }];',
+        "for (const spec of payloads) console.log(spec);",
+        'const spec = { fn: "create_task", as, args, allowed: ["owner"], refused: ["stranger"] };',
+        "for (const c of accessRules(spec)) test(c.name, c.run);",
+        'const rpcs = [{ fn: "list_reports" }, { fn: "save_task" }];',
+        "for (const r of rpcs) {",
+        "  for (const c of accessRules({ ...r, as, args, allowed: [\"owner\"], refused: [\"stranger\"] })) test(c.name, c.run);",
+        "}",
+      ].join("\n"),
+    });
+    expect(found.map((f) => f.subject)).toEqual(["archive_task"]);
   });
 });

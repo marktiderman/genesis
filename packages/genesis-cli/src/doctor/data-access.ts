@@ -149,7 +149,9 @@ function ownReturns(code: string, bodyOpen: number): number[] {
         continue;
       }
       const before = blank.slice(0, i).trimEnd();
-      let nested = stack.includes("nested") || before.endsWith("=>");
+      // A nested function's body: after `=>`, or after a return type (`function f(): Label {`,
+      // `m(): Label {`); an `if (…)` condition is never followed by `:`.
+      let nested = stack.includes("nested") || before.endsWith("=>") || /\)\s*:\s*[^=;{()]*$/.test(before);
       if (!nested && before.endsWith(")")) {
         // The `(` that closes here: a block statement's condition, or a function's parameters.
         let depth = 0;
@@ -306,7 +308,7 @@ export function testedFunctions(root: string): Set<string> {
       // The `fn` the call is given: written in it, or in a spec it names, directly or through a
       // loop over a list of specs (`for (const s of specs) accessRules({ ...s, as })`).
       for (const name of fnNames(call)) out.add(name);
-      for (const name of specsNamedIn(code, blank, call)) for (const fn of fnNames(name)) out.add(fn);
+      for (const name of specsNamedIn(code, blank, call, m.index ?? 0)) for (const fn of fnNames(name)) out.add(fn);
     }
   }
   return out;
@@ -356,7 +358,7 @@ function initializer(code: string, blank: string, name: string): { text: string;
  * The spec objects or lists an `accessRules(…)` call names: an identifier in it set in this file to
  * an object or list, or the list a `for (… of list)` loop takes that identifier from.
  */
-function specsNamedIn(code: string, blank: string, call: string): string[] {
+function specsNamedIn(code: string, blank: string, call: string, callAt: number): string[] {
   const out: string[] = [];
   // The spec itself (`accessRules(spec)`) and what the spec object spreads at its top level
   // (`accessRules({ ...spec, as })`); a name elsewhere (in `args`, say) is not a spec.
@@ -375,15 +377,52 @@ function specsNamedIn(code: string, blank: string, call: string): string[] {
     else if (ch === "}" || ch === ")" || ch === "]") depth--;
   }
   for (const name of names) {
-    const own = initializer(code, blank, name);
-    if (own) out.push(own.text);
     const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    for (const loop of blank.matchAll(new RegExp(`\\bfor\\s*\\(\\s*(?:const|let|var)\\s+${escaped}\\s+of\\s+([A-Za-z_$][\\w$]*)`, "g"))) {
+    // A `for (const name of list)` loop feeds the call only when the call is inside it.
+    let fed = false;
+    for (const loop of blank.matchAll(new RegExp(`\\bfor\\s*\\(\\s*(?:const|let|var)\\s+${escaped}\\s+of\\s+([A-Za-z_$][\\w$]*)\\s*\\)`, "g"))) {
+      const start = loop.index ?? 0;
+      if (callAt <= start || callAt >= loopEnd(blank, start + loop[0].length)) continue;
+      fed = true;
       const list = initializer(code, blank, loop[1]!);
       if (list) out.push(list.text);
     }
+    // Otherwise the name is the spec set in the file.
+    if (!fed) {
+      const own = initializer(code, blank, name);
+      if (own) out.push(own.text);
+    }
   }
   return out;
+}
+
+/**
+ * Where a loop's body ends, from just past its `for (…)`: the `{…}` block, or the one statement it
+ * runs: a nested `for`/`if`/`while (…)` runs on to its own body, anything else ends at the `;` or
+ * line end outside brackets.
+ */
+function loopEnd(blank: string, from: number): number {
+  let i = from;
+  while (/\s/.test(blank[i] ?? "")) i++;
+  const header = /^(?:for|if|while)\s*\(/.exec(blank.slice(i));
+  if (header) {
+    let depth = 0;
+    for (let j = i + header[0].length - 1; j < blank.length; j++) {
+      if (blank[j] === "(") depth++;
+      else if (blank[j] === ")" && --depth === 0) return loopEnd(blank, j + 1);
+    }
+    return blank.length;
+  }
+  let depth = 0;
+  for (; i < blank.length; i++) {
+    const ch = blank[i];
+    if (ch === "{" || ch === "(" || ch === "[") depth++;
+    else if (ch === "}" || ch === ")" || ch === "]") {
+      if (depth === 0) return i;
+      if (--depth === 0 && ch === "}" && blank[from + (blank.slice(from).search(/\S/))] === "{") return i + 1;
+    } else if (depth === 0 && (ch === ";" || ch === "\n")) return i;
+  }
+  return blank.length;
 }
 
 /** Whether the object `{…}` says `access: "declared"` itself, not in an object nested in it. */
