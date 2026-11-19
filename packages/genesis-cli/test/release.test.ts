@@ -1063,6 +1063,11 @@ describe("genesis add template", () => {
     expect(held).toMatch(/held back/);
     expect(held).toMatch(/merge the .genesis-next beside deploy-production.yml/i);
     expect(held).not.toContain("--replace-rival and remove");
+    // Without the flag too: with deploy-production.yml still a rival, the flag is no way out, so it isn't offered.
+    const plain = adoptTemplates(root, resolveTemplateNames(["release"]), { dryRun: true }).find((r) => r.path === ".github/workflows/native-release.yml")!;
+    expect(plain).toMatchObject({ outcome: "held" });
+    expect(plain.detail).not.toContain("--replace-rival");
+    expect(plain.detail).toMatch(/Merge the \.genesis-next beside deploy-production\.yml.* and remove \.github\/workflows\/ota\.yml/);
     // No step tells the app to remove the file the lane dispatches to.
     expect(out).not.toMatch(/Remove [^\n]*\.eas\/workflows\/deploy-production\.yml/);
     expect(out).toContain("Merge each .genesis-next into its file");

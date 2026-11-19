@@ -268,7 +268,10 @@ export interface AdoptOptions {
   pin?: ReleasePin | null;
   /**
    * Write native-release.yml even while another workflow still releases on push (the app removes it
-   * in the same change). Without it, native-release.yml is held back then.
+   * in the same change). Without it, native-release.yml is held back then. Never while the rival is
+   * the app's own push-triggered deploy-production.yml, the file native-release.yml dispatches to:
+   * that one is merged into the lane's version (its .genesis-next), and native-release.yml stays held
+   * until it is.
    */
   replaceRival?: boolean;
   /** The CLI version recorded in the lock. */
@@ -289,7 +292,9 @@ export interface AdoptOptions {
  * - native-release.yml is written last, and held back while another workflow still releases on
  *   push (the app's own deploy-production.yml, kept with the new text in .genesis-next, or a GitHub
  *   workflow running `eas update`): together they would publish every release twice. `replaceRival`
- *   writes it anyway, for an app removing the rival in the same change.
+ *   writes it anyway beside other rivals, for an app removing them in the same change; never
+ *   beside the app's own push-triggered deploy-production.yml, which it dispatches to and which is
+ *   merged, not removed.
  */
 export function adoptTemplates(root: string, templates: readonly string[], options: AdoptOptions = {}): AdoptResult[] {
   const dir = options.dir ?? templatesDir();
@@ -312,9 +317,11 @@ export function adoptTemplates(root: string, templates: readonly string[], optio
       if (own.length || (others.length && !options.replaceRival)) {
         const fix = [
           ...(own.length ? ["merge the .genesis-next beside deploy-production.yml (or move your edits into genesis.config.json and run again with --replace)"] : []),
-          ...(others.length && !options.replaceRival ? [`remove ${others.join(", ")}`] : []),
+          ...(others.length ? [`remove ${others.join(", ")}`] : []),
         ];
-        const now = others.length && !options.replaceRival ? `; or, to write native-release.yml now, run it with --replace-rival and remove ${others.length === 1 ? "that workflow" : "those workflows"} in the same change` : "";
+        // The flag is a way out only when the other rivals are all that hold it: with the app's own
+        // deploy-production.yml still releasing on push, --replace-rival would be held again.
+        const now = others.length && !own.length && !options.replaceRival ? `; or, to write native-release.yml now, run it with --replace-rival and remove ${others.length === 1 ? "that workflow" : "those workflows"} in the same change` : "";
         results.push({ template, path: ".github/workflows/native-release.yml", location: ".github/workflows/native-release.yml", outcome: "held", detail: `not written: ${rivals.join(", ")} still release${rivals.length === 1 ? "s" : ""} on every push, and both lanes would publish each release. ${fix.join(" and ").replace(/^./, (c) => c.toUpperCase())}, then run this again${now}` });
         continue;
       }
