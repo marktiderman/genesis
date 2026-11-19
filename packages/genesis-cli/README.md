@@ -1642,8 +1642,12 @@ the plan is refused). Nothing is written otherwise. One apply runs at a time.
 - A client without elicitation gets `genesis fix <id> --expect <hash>` instead, for the person to
   run at a terminal (for a settings proposal, the key and value to set by hand).
 - A fix that needs a secret (a command fed one on stdin), or a guided fix with a wizard step, never
-  runs over MCP: it returns `genesis setup --step <id>` (or `genesis fix <id>` when it has no
-  step) for the person.
+  runs over MCP: it returns `genesis fix <id>` for the person to run at a terminal, and the step's
+  id. `genesis setup --step <id>`, and a `setup_steps` tool listing the steps, arrive with the setup
+  wizard; until then the command is `genesis fix <id>`.
+- The approval shows a proposed setting's value in full and each file's changed lines (up to
+  12,000 characters; past that it says how to read the rest). A message too long to show whole is
+  refused, never cut.
 - `upgrade.release` runs the package manager attached to the terminal, so it returns its
   `genesis fix` command too.
 
@@ -1651,7 +1655,9 @@ the plan is refused). Nothing is written otherwise. One apply runs at a time.
 `server-env` secret as set or missing from the server's own environment (only whether it is
 there), and the other stores as `unknown`; it reads no `.env` file. Every result and error is
 scrubbed of the values of secret-looking environment variables (`*_TOKEN`, `*_KEY`, `*SECRET*`,
-`DATABASE_URL`, …) and of the settings' declared secrets, and of URL passwords; a planned file's
+`DATABASE_URL`, …) and of the settings' declared secrets (also as JSON escapes them), of URL
+passwords, and of secret-shaped literals (a private key block, GitHub, Slack, Stripe, `sk-`, AWS
+and JWT tokens) wherever they appear, a planned file's content included; a planned file's
 content is shown up to 8,000 characters (the hash covers all of it); a result is at most 60,000
 characters. Errors are MCP errors with a message, never a stack.
 
@@ -1661,7 +1667,8 @@ characters. Errors are MCP errors with a message, never a stack.
 | `-c, --config <path>` | The doctor's config file, as for `genesis doctor`. |
 | `--offline` | `genesis-behind` and `upgrades_status` read only their cache. |
 
-Logs go to stderr; stdout is the protocol's.
+Logs go to stderr; stdout is the protocol's. While it serves, every child process gets a safe
+stdio: stdin ignored and stdout sent to stderr, so nothing a fix runs can write into the protocol.
 
 ## genesis figma:routes
 

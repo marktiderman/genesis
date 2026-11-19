@@ -114,6 +114,11 @@ export interface Fix {
    * Run the plan's commands, when they run in-process (`genesis upgrade`, `genesis migrate`).
    * Without it the engine runs them through src/exec/run.ts. Files are written before this runs.
    * Returns what it actually ran and notes for the person (a pull request's URL, say).
+   *
+   * It must never start a child process that inherits stdin or stdout (`stdio: "inherit"`): under
+   * `genesis mcp` those are the protocol's, and a child writing to fd 1 corrupts it. Pipe the
+   * child's output and pass it on through `context.log`. (`genesis mcp` also guards every
+   * child_process call while it serves: src/mcp/stdio.ts.)
    */
   apply?(plan: FixPlan, context: ApplyContext): Promise<ApplyOutcome | void> | ApplyOutcome | void;
   /** Whether it worked. Default: re-check the fix's rules (`context.recheck`), else that the files hold what the plan wrote. */

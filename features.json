@@ -8301,7 +8301,7 @@
     {
       "id": "genesis-mcp",
       "name": "genesis mcp",
-      "summary": "The doctor, the settings and fix plans as MCP tools over stdio for any agent session in the app. The agent reads findings, rule explanations, the settings catalogue and values (secrets by name as set, missing or unknown), the upgrade status and the catalog, and plans fixes and settings changes as hashed plans that write nothing. The one write tool, fix_apply, refuses a stale hash and applies only after the person accepts an MCP elicitation showing the plan; without elicitation it returns the genesis fix command, and a fix that needs a secret returns its wizard step. genesis agents --mcp writes the .mcp.json entry.",
+      "summary": "The doctor, the settings and fix plans as MCP tools over stdio for any agent session in the app. The agent reads findings, rule explanations, the settings catalogue and values (secrets by name as set, missing or unknown), the upgrade status and the catalog, and plans fixes and settings changes as hashed plans that write nothing. The one write tool, fix_apply, refuses a stale hash and applies only after the person accepts an MCP elicitation showing the plan; without elicitation it returns the genesis fix command, and a fix that needs a secret is left to the person (genesis fix <id>; genesis setup --step and setup_steps arrive with the wizard). genesis agents --mcp writes the .mcp.json entry.",
       "category": "Tooling",
       "status": "building",
       "horizon": "now",

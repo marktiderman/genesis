@@ -1,5 +1,5 @@
 // @feat:genesis-mcp
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -7,7 +7,9 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { ElicitRequestSchema, McpError, type ElicitRequest, type ElicitResult } from "@modelcontextprotocol/sdk/types.js";
 import { createGenesisMcpServer, type GenesisMcpOptions } from "../src/mcp/server.js";
 import { GENESIS_MCP_ENTRY, mcpJsonEdit, mcpJsonState, McpJsonError, writeMcpJson } from "../src/mcp/config.js";
-import { scrub, secretValues } from "../src/mcp/bounds.js";
+import { boundedJson, scrub, secretValues } from "../src/mcp/bounds.js";
+import { guardChildStdio, safeStdio } from "../src/mcp/stdio.js";
+import { changedLines, toMcpError } from "../src/mcp/server.js";
 import { cleanupApps, makeApp } from "./doctor-helpers.js";
 
 const SECRET = "ghp_TopSecretValue_9f8e7d6c5b4a";
@@ -81,6 +83,7 @@ describe("genesis mcp: tools", () => {
       expect(t.annotations?.readOnlyHint).toBe(t.name !== "fix_apply");
     }
     expect(tools.find((t) => t.name === "fix_apply")?.inputSchema.required).toEqual(["fixId", "hash"]);
+    expect(tools.find((t) => t.name === "fix_plan")?.annotations?.openWorldHint).toBe(true);
   });
 
   it("leaves fix_apply out of a read-only server", async () => {
@@ -263,9 +266,9 @@ describe("genesis mcp: plans and approval", () => {
     });
     const planned = await call("fix_plan", { rule: "issues-token" });
     expect(planned.plan.secrets).toEqual(["GITHUB_TOKEN"]);
-    expect(planned.apply).toMatchObject({ runnable: false, command: "genesis setup --step github.issues" });
+    expect(planned.apply).toMatchObject({ runnable: false, command: "genesis fix connect-secret", step: "github.issues" });
     const applied = await call("fix_apply", { fixId: "connect-secret", hash: planned.hash });
-    expect(applied).toMatchObject({ applied: false, command: "genesis setup --step github.issues" });
+    expect(applied).toMatchObject({ applied: false, command: "genesis fix connect-secret" });
     expect(asked).toHaveLength(0);
   });
 
@@ -285,6 +288,33 @@ describe("genesis mcp: plans and approval", () => {
     expect(after).toMatch(/^ {4}"preset"/m);
     // A hash this session never proposed isn't applied.
     await expect(call("fix_apply", { fixId: "settings.propose", hash: "a".repeat(64) })).rejects.toThrow(/no settings proposal with that hash/);
+  });
+
+  it("shows the person a proposed value in full, however long, and each file's changed lines", async () => {
+    const root = app();
+    const long = `${"a".repeat(300)}-THE-END`;
+    const { call, asked } = await connect(root, { answer: () => ({ action: "decline" }) });
+    const { hash } = await call("settings_propose", { key: "support.label", value: long });
+    await call("fix_apply", { fixId: "settings.propose", hash });
+    expect(asked[0]!.params.message).toContain(JSON.stringify(long));
+    expect(asked[0]!.params.message).toMatch(/\+ +"support\.label": "a{300}-THE-END"/);
+    const plan = await call("fix_plan", { fixId: "codemod.scope-names" });
+    await call("fix_apply", { fixId: "codemod.scope-names", hash: plan.hash });
+    expect(asked[1]!.params.message).toMatch(/- .*practiceTimeZone=\{zone\}/);
+    expect(asked[1]!.params.message).toMatch(/\+ .*scopeTimeZone=\{zone\}/);
+    expect(changedLines("a\nb\nc", "a\nB\nc")).toEqual(["- b", "+ B"]);
+  });
+
+  it("returns upgrade.release's command instead of running it (it runs the package manager on the terminal)", async () => {
+    const root = app();
+    const upgrade = { id: "upgrade.release", kind: "auto" as const, rules: ["genesis-behind"], title: "upgrade", plan: () => ({ summary: "upgrade", commands: [{ tool: "genesis", args: ["upgrade", "--pr"], why: "w" }] }), apply: () => { throw new Error("must not run"); } };
+    const finding = { rule: "genesis-behind", level: "warn" as const, file: "package.json", line: 0, message: "behind", fix: { id: "upgrade.release", kind: "auto" as const, title: "upgrade" } };
+    const { call, asked } = await connect(root, { answer: () => ({ action: "accept", content: { approve: true } }), server: { deps: { doctor: async () => ({ findings: [finding] }) as never, extraFixes: [upgrade] } } });
+    // The stand-in replaces the registry's upgrade.release (a later fix with the same id wins the lookup).
+    const planned = await call("fix_plan", { rule: "genesis-behind" });
+    const applied = await call("fix_apply", { fixId: "upgrade.release", hash: planned.hash });
+    expect(applied).toMatchObject({ applied: false, command: `genesis fix upgrade.release --expect ${planned.hash}` });
+    expect(asked).toHaveLength(0);
   });
 
   it("settings_propose without elicitation says what to set by hand", async () => {
@@ -314,11 +344,68 @@ describe("genesis mcp: secrets", () => {
     for (const text of seen) expect(text).not.toContain(SECRET);
   });
 
+  const PEM = "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASC\nBKcwggSjAgEAAoIBAQC7\n-----END PRIVATE KEY-----";
+  const QUOTED = 'pa"ss\\word-Zx81Qp';
+
+  it.each([
+    ["a PEM", PEM],
+    ["a value with a quote and a backslash", QUOTED],
+  ])("never shows %s, escaped or not, through fix_plan and settings_propose", async (_name, secret) => {
+    const root = app({ "src/key.tsx": `export const k = ${JSON.stringify(secret)};\n` });
+    // Also as a literal in the file the plan rewrites.
+    writeFileSync(path.join(root, "src/screen.tsx"), `${read(root, "src/screen.tsx")}export const pem = ${JSON.stringify(secret)};\n`);
+    const { call, seen } = await connect(root, { server: { env: { SUPPORT_GITHUB_TOKEN: secret, MY_PASS: secret } } });
+    await call("fix_plan", { fixId: "codemod.scope-names" });
+    await call("settings_propose", { key: "support.label", value: `x ${secret} y` });
+    await call("settings_propose", { key: "support.label", value: secret });
+    const escaped = JSON.stringify(secret).slice(1, -1);
+    for (const text of seen) {
+      expect(text).not.toContain(secret);
+      expect(text).not.toContain(escaped);
+      expect(text).not.toContain("MIIEvQIBADANBgkqhkiG9w0BAQEFAASC");
+    }
+  });
+
+  it("redacts secret-shaped literals in a file's content whatever holds them", async () => {
+    const token = "ghp_abcdefghijklmnopqrstuvwxyz0123456789";
+    const root = app();
+    writeFileSync(path.join(root, "genesis.config.json"), `${JSON.stringify({ settings: { "support.label": token } }, null, 2)}\n`);
+    const { call } = await connect(root);
+    const proposed = await call("settings_propose", { key: "support.dumpRetentionDays", value: 60 });
+    expect(proposed.plan.files[0].content).toContain("[redacted]");
+    expect(JSON.stringify(proposed)).not.toContain(token);
+    expect(boundedJson({ k: PEM }, [])).not.toContain("MIIEvQ");
+  });
+
   it("scrubs secret-looking environment values and URL passwords", () => {
     const values = secretValues({ DATABASE_URL: "postgres://app:hunter2hunter2@db:5432/x", HOME: "/Users/someone", SHORT_TOKEN: "abc" }, []);
     expect(values).toEqual(["postgres://app:hunter2hunter2@db:5432/x"]);
     expect(scrub("failed: postgres://app:hunter2hunter2@db:5432/x", values)).toBe("failed: [redacted]");
     expect(scrub("connect https://user:pa55word@host/x", [])).toBe("connect https://user:[redacted]@host/x");
+    expect(secretValues({ DB_PASS: "longpassword1", GITHUB_PAT: "patpatpatpat", STRIPE_SK: "sksksksksk", PATH: "/usr/bin:/bin" })).toEqual(["longpassword1", "patpatpatpat", "sksksksksk"]);
+  });
+});
+
+describe("genesis mcp: errors and stdio", () => {
+  it("strips repeated MCP error prefixes", () => {
+    const inner = new McpError(-32602, new McpError(-32602, "bad thing").message);
+    expect(toMcpError(inner, "t", []).message).toBe("MCP error -32602: bad thing");
+  });
+
+  it("gives every child process a stdio that can't touch the protocol's fds", async () => {
+    expect(safeStdio({ stdio: "inherit" as const })).toEqual({ stdio: ["ignore", 2, "inherit"] });
+    expect(safeStdio({ stdio: ["inherit", "pipe", "pipe"] })).toEqual({ stdio: ["ignore", "pipe", "pipe"] });
+    expect(safeStdio({ stdio: [0, 1, 2], cwd: "/x" })).toEqual({ stdio: ["ignore", 2, 2], cwd: "/x" });
+    expect(safeStdio({ cwd: "/x" })).toEqual({ cwd: "/x" });
+    const restore = guardChildStdio();
+    try {
+      // The ESM import sees the guard: an inheriting child's stdout lands on stderr, not fd 1.
+      const { spawnSync } = await import("node:child_process");
+      const result = spawnSync(process.execPath, ["-e", "process.stdout.write('to-stdout')"], { stdio: ["inherit", "inherit", "pipe"] });
+      expect(result.status).toBe(0);
+    } finally {
+      restore();
+    }
   });
 });
 
@@ -344,6 +431,13 @@ describe("genesis agents --mcp (.mcp.json)", () => {
     const old = makeApp(null, { ".mcp.json": JSON.stringify({ mcpServers: { genesis: { command: "genesis", args: ["mcp"], env: { DEBUG: "1" } } } }) });
     writeMcpJson(old);
     expect(JSON.parse(read(old, ".mcp.json")).mcpServers.genesis).toEqual({ command: "npx", args: ["--no", "genesis", "mcp"], env: { DEBUG: "1" }, type: "stdio" });
+
+    const outside = makeApp(null, { "elsewhere.json": "{}" });
+    const linked = makeApp(null, {});
+    symlinkSync(path.join(outside, "elsewhere.json"), path.join(linked, ".mcp.json"));
+    expect(() => writeMcpJson(linked)).toThrow(/symbolic link/);
+    expect(read(outside, "elsewhere.json")).toBe("{}");
+    expect(mcpJsonState(linked)).toBe("invalid");
 
     const broken = makeApp(null, { ".mcp.json": "{ not json" });
     expect(mcpJsonState(broken)).toBe("invalid");

@@ -34,6 +34,7 @@ import { allFixes, type BuiltinDeps } from "../fix/registry.js";
 import type { Fix, FixContext, FixPlan } from "../fix/types.js";
 import { distance, readUpgradeStatus, type RegistryDeps } from "../upgrade/registry.js";
 import { boundedJson, clip, scrub, secretValues } from "./bounds.js";
+import { guardChildStdio } from "./stdio.js";
 import { boundedPlan, catalogSearch, cliPackageDir, explainRule, findingsReport, resolveFixTarget, slimFinding, ToolInputError, type FixTarget } from "./doctor.js";
 import {
   checkProposal,
@@ -73,6 +74,26 @@ export interface GenesisMcpOptions {
 
 /** Fixes that run the package manager attached to the terminal (stdin and stdout), which over stdio is the protocol's: the person runs them. */
 const TERMINAL_ONLY = new Set(["upgrade.release"]);
+
+/** The most an approval message carries; one longer is refused, never cut. */
+const MAX_APPROVAL_CHARS = 30_000;
+/** The most of the files' changed lines an approval message shows. */
+const MAX_DIFF_CHARS = 12_000;
+
+/** The lines that differ between two texts: the middle left after the common first and last lines, as `-`/`+` lines. */
+export function changedLines(before: string, after: string): string[] {
+  const a = before === "" ? [] : before.split("\n");
+  const b = after.split("\n");
+  let start = 0;
+  while (start < a.length && start < b.length && a[start] === b[start]) start++;
+  let endA = a.length;
+  let endB = b.length;
+  while (endA > start && endB > start && a[endA - 1] === b[endB - 1]) {
+    endA--;
+    endB--;
+  }
+  return [...a.slice(start, endA).map((l) => `- ${l}`), ...b.slice(start, endB).map((l) => `+ ${l}`)];
+}
 
 /** How long the person has to answer an approval. */
 const APPROVAL_TIMEOUT_MS = 10 * 60_000;
@@ -206,9 +227,13 @@ export function createGenesisMcpServer(options: GenesisMcpOptions): Server {
       return { runnable: false as const, reason: `nothing to apply${plan.manual ? `: ${clip(plan.manual, 1_000)}` : ""}` };
     }
     if (plan.secrets.length || plan.commands.some((c) => c.stdinSecret) || (fix.kind === "guided" && fix.step)) {
-      // genesis setup arrives with the wizard (Phase 3 S5); until then the CLI's fix asks at a terminal.
-      const command = fix.step ? `genesis setup --step ${fix.step}` : `genesis fix ${fix.id}`;
-      return { runnable: false as const, reason: `${fix.id} needs ${plan.secrets.length ? `secrets (${plan.secrets.join(", ")})` : "a person's input"}: it never runs over MCP. The person runs it.`, command };
+      // `genesis setup --step <id>` arrives with the setup wizard; until then the CLI's fix, which asks at a terminal.
+      return {
+        runnable: false as const,
+        reason: `${fix.id} needs ${plan.secrets.length ? `secrets (${plan.secrets.join(", ")})` : "a person's input"}: it never runs over MCP. The person runs it at a terminal.`,
+        command: `genesis fix ${fix.id}`,
+        ...(fix.step ? { step: fix.step } : {}),
+      };
     }
     if (TERMINAL_ONLY.has(fix.id)) {
       return { runnable: false as const, reason: `${fix.id} runs the package manager at a terminal: the person runs it.`, command: `genesis fix ${fix.id} --expect ${plan.hash}` };
@@ -222,20 +247,42 @@ export function createGenesisMcpServer(options: GenesisMcpOptions): Server {
     return !!e && (e.form !== undefined || e.url === undefined);
   };
 
-  const approvalMessage = (fix: Fix, plan: FixPlan) =>
-    clip(
-      [
-        `Apply this Genesis change in ${path.basename(root)}?`,
-        "",
-        `${fix.id} (${fix.kind}): ${plan.summary}`,
-        ...plan.files.map((f) => `• ${f.beforeHash === null ? "create" : "write"} ${f.path}: ${f.why}`),
-        ...plan.commands.map((c) => `• run ${[c.tool, ...c.args].join(" ")}: ${c.why}`),
-        ...(plan.manual ? ["", `Then: ${plan.manual}`] : []),
-        "",
-        `Plan ${plan.hash.slice(0, 12)}. Nothing is written unless you approve; a plan that changed since is refused.`,
-      ].join("\n"),
-      4_000,
-    );
+  /**
+   * What the person reads before approving: the plan, a proposed setting's value in full, and each
+   * file's changed lines (bounded; past the bound it says how to read the rest). A message that
+   * can't be shown whole is refused, never cut.
+   */
+  const approvalMessage = (fix: Fix, plan: FixPlan, seen: Remembered | undefined, values: readonly string[]) => {
+    let budget = MAX_DIFF_CHARS;
+    const diffs = plan.files.flatMap((f) => {
+      const head = `• ${f.beforeHash === null ? "create" : "write"} ${f.path}: ${f.why}`;
+      let before = "";
+      try {
+        before = f.beforeHash === null ? "" : readFileSync(path.join(root, f.path), "utf8");
+      } catch {
+        before = "";
+      }
+      const lines = changedLines(before, f.content);
+      const text = lines.join("\n");
+      if (text.length > budget) return [head, `  (${lines.length} changed lines, too long to show here: genesis fix ${fix.id} --plan prints them)`];
+      budget -= text.length;
+      return [head, ...lines.map((l) => `  ${l}`)];
+    });
+    const message = [
+      `Apply this Genesis change in ${path.basename(root)}?`,
+      "",
+      `${fix.id} (${fix.kind}): ${plan.summary}`,
+      ...(fix.id === SETTINGS_PROPOSE_ID && seen?.key !== undefined ? ["", `New value of settings.${seen.key}, in full:`, JSON.stringify(seen.value, null, 2) ?? "null"] : []),
+      "",
+      ...diffs,
+      ...plan.commands.map((c) => `• run ${[c.tool, ...c.args].join(" ")}: ${c.why}`),
+      ...(plan.manual ? ["", `Then: ${plan.manual}`] : []),
+      "",
+      `Plan ${plan.hash.slice(0, 12)}. Nothing is written unless you approve; a plan that changed since is refused.`,
+    ].join("\n");
+    if (message.length > MAX_APPROVAL_CHARS) throw new FixError(`${fix.id}: the plan is too large to show whole for approval (${message.length} characters); nothing was written. The person runs it: genesis fix ${fix.id} --plan, then --expect <hash>.`);
+    return scrub(message, values);
+  };
 
   const tools: ToolDef[] = [
     {
@@ -335,6 +382,8 @@ export function createGenesisMcpServer(options: GenesisMcpOptions): Server {
         subject: str("Only the findings about this subject.", 500),
       }),
       readOnly: true,
+      // Planning can reach outside the app: contracts.introspect reads the database, upgrade.release npm.
+      openWorld: true,
       async run(args) {
         if (!args.fixId === !args.rule) throw new ToolInputError("fix_plan: pass fixId or rule (one of them)");
         const { findings, fixes } = await state();
@@ -421,7 +470,7 @@ export function createGenesisMcpServer(options: GenesisMcpOptions): Server {
     const answer = await server.elicitInput(
       {
         mode: "form",
-        message: approvalMessage(fix, plan),
+        message: approvalMessage(fix, plan, seen, secretValues(env, declaredSecretNames())),
         requestedSchema: { type: "object", properties: { approve: { type: "boolean", title: "Apply this plan", description: "Write the files and run the commands listed above.", default: false } }, required: ["approve"] },
       },
       { timeout: APPROVAL_TIMEOUT_MS },
@@ -481,7 +530,8 @@ export function createGenesisMcpServer(options: GenesisMcpOptions): Server {
 /** Any failure as an MCP error: a message (scrubbed, bounded), never a stack. */
 export function toMcpError(err: unknown, tool: string, values: readonly string[]): McpError {
   const message = (text: string) => clip(scrub(text, values), 2_000);
-  if (err instanceof McpError) return new McpError(err.code, message(err.message.replace(/^MCP error -?\d+: /, "")));
+  // McpError's constructor prefixes "MCP error <code>: "; strip every one so a re-thrown error doesn't stack them.
+  if (err instanceof McpError) return new McpError(err.code, message(err.message.replace(/^(?:MCP error -?\d+: )+/, "")));
   const raw = err instanceof Error ? err.message : String(err);
   if (err instanceof ToolInputError || err instanceof ProposalError || err instanceof SettingsError || err instanceof GenesisConfigError) return new McpError(ErrorCode.InvalidParams, message(raw));
   if (err instanceof StalePlanError || err instanceof FixError) return new McpError(ErrorCode.InvalidRequest, message(raw));
@@ -501,6 +551,8 @@ export async function runMcpStdio(options: GenesisMcpOptions): Promise<Server> {
     },
   });
   stdout.write = ((chunk: unknown, ...rest: unknown[]) => (process.stderr.write as (...a: unknown[]) => boolean)(chunk, ...rest)) as typeof stdout.write;
+  // A child that inherits the terminal would write to fd 1: route its stdout to stderr, its stdin away.
+  guardChildStdio();
   const log = options.log ?? ((line: string) => process.stderr.write(`${line}\n`));
   const server = createGenesisMcpServer({ ...options, log });
   await server.connect(new StdioServerTransport(process.stdin, protocolOut));
