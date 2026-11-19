@@ -1,0 +1,23 @@
+packages/genesis-cli/README.md
+  s_cfe03394c0d379::t_1092e6303522d1 1028
+packages/genesis-cli/src/fix/builtin.ts
+  s_cfe03394c0d379::t_3747ccd5e214b6 329,334-336
+packages/genesis-cli/test/doctor-secrets.test.ts
+  s_cfe03394c0d379::t_d9b5ef76abf259 403-404
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6251e04a4b202d4f386d76b553402b5bf26e0ea4",
+  "prompts": {},
+  "sessions": {
+    "s_cfe03394c0d379": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b0c9d35b-ebb9-42c9-9694-dd173757e0d5",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
