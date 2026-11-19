@@ -263,8 +263,9 @@ with the new text in `.genesis-next`; a push trigger limited to other branches, 
 doesn't count, and neither does one only for tags): together they would publish every release
 twice. It names any other workflow that releases on a push to `main` (a GitHub workflow running
 `eas update`, `eas build` or `eas workflow:run`, or an EAS workflow with an update or build job, a
-comment after its `type:` included, or a custom job whose steps run one of those commands; a query
-such as `eas build:list` doesn't count, nor does one that only runs by hand); remove it in the
+comment after its `type:` included, or a custom job whose steps run one of those commands; only a
+step's `run` counts, not a comment, a query such as `eas build:list` doesn't, nor does a workflow
+that only runs by hand; branch filters are read as GitHub reads them, `m[ae]in` classes included); remove it in the
 same change, and `genesis doctor` warns
 (`release-lane-twice`) while one is there. Then add the secrets ([One-time setup](#one-time-setup)).
 

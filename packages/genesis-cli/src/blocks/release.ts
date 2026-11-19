@@ -365,12 +365,17 @@ export function adoptTemplates(root: string, templates: readonly string[], optio
   return results;
 }
 
-/** A branch glob (`main`, `release/*`, `**`) as a regular expression: `*` within a segment, `**` across them. */
+/** A branch glob (`main`, `release/*`, `**`, `m[ae]in`) as a regular expression: `*` within a segment, `**` across them, `[…]` a character class, as GitHub reads them. */
 export function branchGlob(glob: string): RegExp {
   let re = "";
   for (let i = 0; i < glob.length; i++) {
     const c = glob[i]!;
-    if (c === "*" && glob[i + 1] === "*") {
+    const close = c === "[" ? glob.indexOf("]", i + 2) : -1;
+    if (close > i) {
+      // A class: its characters and ranges (a-z), with anything regex-special inside escaped.
+      re += `[${glob.slice(i + 1, close).replace(/[\\\]^[]/g, "\\$&")}]`;
+      i = close;
+    } else if (c === "*" && glob[i + 1] === "*") {
       re += ".*";
       i++;
     } else if (c === "*") re += "[^/]*";
@@ -450,14 +455,21 @@ export const RELEASE_COMMAND = /(?:(?<=\/)|(?<![\w@.-]))eas(?:-cli(?:@[\w.-]+)?)
 export function hasReleaseJob(text: string): boolean {
   const jobs = parseWorkflow(text)?.jobs;
   if (!jobs || typeof jobs !== "object") return false;
-  return Object.values(jobs as Record<string, unknown>).some((job) => {
-    if (!job || typeof job !== "object") return false;
-    const { type, steps } = job as Record<string, unknown>;
-    if (type === "update" || type === "build") return true;
-    return Array.isArray(steps) && steps.some((step) => {
-      const run = step && typeof step === "object" ? (step as Record<string, unknown>).run : undefined;
-      return typeof run === "string" && RELEASE_COMMAND.test(run);
-    });
+  return (
+    Object.values(jobs as Record<string, unknown>).some((job) => {
+      const type = job && typeof job === "object" ? (job as Record<string, unknown>).type : undefined;
+      return type === "update" || type === "build";
+    }) || stepRuns(text).some((run) => RELEASE_COMMAND.test(run))
+  );
+}
+
+/** The `run` scripts of a workflow's steps (`jobs.*.steps[].run`), parsed: what it runs, never a comment. */
+export function stepRuns(text: string): string[] {
+  const jobs = parseWorkflow(text)?.jobs;
+  if (!jobs || typeof jobs !== "object") return [];
+  return Object.values(jobs as Record<string, unknown>).flatMap((job) => {
+    const steps = job && typeof job === "object" ? (job as Record<string, unknown>).steps : undefined;
+    return Array.isArray(steps) ? steps.map((step) => (step && typeof step === "object" ? (step as Record<string, unknown>).run : undefined)).filter((run): run is string => typeof run === "string") : [];
   });
 }
 
@@ -487,7 +499,7 @@ export function competingReleaseWorkflows(root: string, appFolder: string | null
         .filter((f) => {
           // Only one that releases by itself on a push to main: a manual-only one can't double a release.
           const text = readFileSync(path.join(dir, f), "utf8");
-          return RELEASE_COMMAND.test(text) && hasPushTrigger(text);
+          return hasPushTrigger(text) && stepRuns(text).some((run) => RELEASE_COMMAND.test(run));
         })
         .map((f) => `.github/workflows/${f}`)
     : [];

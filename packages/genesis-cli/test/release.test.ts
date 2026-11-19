@@ -874,12 +874,18 @@ describe("the plan script", () => {
 
   it("matches only builds on the channel the updates go to, and refuses a profile on another channel", () => {
     const FPC = "c".repeat(40);
-    const builds = [{ id: "b1", status: "FINISHED", platform: "IOS", buildProfile: "production", distribution: "STORE", channel: "production", fingerprint: { hash: FPC }, runtime: { version: FPC } }];
+    // eas-cli 26's build list records a build's channel as updateChannel.name.
+    const builds = [{ id: "b1", status: "FINISHED", platform: "IOS", buildProfile: "production", distribution: "STORE", updateChannel: { id: "c1", name: "production" }, fingerprint: { hash: FPC }, runtime: { version: FPC } }];
     const lines = (channel?: string) => Object.fromEntries(plan.planOutputs({ ios: { runtime: FPC, by: "fingerprint", builds } }, [], "production", channel ? { channel } : {}).map((l: string) => l.split("=")));
     expect(lines("production")).toMatchObject({ ios_action: "publish" });
     // A build that listens to "production" never takes an update published to "stable": EAS builds instead.
     expect(lines("stable")).toMatchObject({ ios_action: "eas", ios_has_build: "false" });
     expect(plan.pickBuildByRuntime([{ ...builds[0], runtime: { version: "1.0.0" } }], "1.0.0", "ios", "production", "stable")).toBeNull();
+    // A build on no channel takes none of the channel's updates either; with no channel given, any build counts.
+    const noChannel = [{ ...builds[0], updateChannel: null }];
+    expect(plan.pickBuild(noChannel, FPC, "ios", "production", "production")).toBeNull();
+    expect(plan.pickBuild(noChannel, FPC, "ios", "production")).not.toBeNull();
+    expect(plan.pickBuild([{ ...builds[0], updateChannel: { name: "old" } }], FPC, "ios", "production", "production")).toBeNull();
     const eas = { build: { base: { channel: "production" }, production: { extends: "base" }, own: { channel: "stable" } } };
     expect(() => plan.checkProfileChannel(eas, "production", "production")).not.toThrow();
     expect(() => plan.checkProfileChannel(eas, "production", "stable")).toThrow(/listen to the channel "production", but the release publishes to "stable"/);
@@ -902,7 +908,7 @@ describe("the plan script", () => {
   it("a platform whose planning fails is held back alone: the other is planned, and the job fails at its end", () => {
     // planOutputs: the failed platform is neither published nor handed to EAS.
     const FPC = "c".repeat(40);
-    const builds = [{ id: "b1", status: "FINISHED", platform: "IOS", buildProfile: "production", distribution: "STORE", fingerprint: { hash: FPC }, runtime: { version: FPC } }];
+    const builds = [{ id: "b1", status: "FINISHED", platform: "IOS", buildProfile: "production", distribution: "STORE", updateChannel: { name: "production" }, fingerprint: { hash: FPC }, runtime: { version: FPC } }];
     const out = Object.fromEntries(plan.planOutputs({ ios: { runtime: FPC, by: "fingerprint", builds }, android: { failed: true } }, [], "production").map((l: string) => l.split("=")));
     expect(out).toMatchObject({ ios_action: "publish", android_action: "failed", publish_platforms: "ios", eas_platforms: "", failed_platforms: "android" });
     // The plan step itself, with an eas stand-in whose Android fingerprint fails.
@@ -1028,6 +1034,11 @@ describe("genesis add template", () => {
     // A GitHub workflow on push to main that only queries EAS is no rival.
     const gh = makeApp({ ".github/workflows/status.yml": "on:\n  push:\n    branches: [main]\njobs:\n  a:\n    steps:\n      - run: eas build:list --json && eas update:view g --json\n" });
     expect(competingReleaseWorkflows(gh, null)).toEqual([]);
+    // Only what the steps run: a comment naming eas update isn't a release, a run step is.
+    const commented = makeApp({ ".github/workflows/test.yml": "on:\n  push:\n    branches: [main]\n# Use eas update for manual releases\njobs:\n  a:\n    steps:\n      - run: npm test # not eas update\n" });
+    expect(competingReleaseWorkflows(commented, null)).toEqual([]);
+    const real = makeApp({ ".github/workflows/ota.yml": "on:\n  push:\n    branches: [main]\njobs:\n  a:\n    steps:\n      - run: |\n          npm ci\n          eas update --auto\n" });
+    expect(competingReleaseWorkflows(real, null)).toEqual([".github/workflows/ota.yml"]);
   });
 
   it("finds a push trigger however it's written", () => {
@@ -1053,6 +1064,11 @@ describe("genesis add template", () => {
     expect(hasPushTrigger("x-push: &preview\n  branches: [preview]\non:\n  push:\n    <<: *preview\n")).toBe(false);
     expect(hasPushTrigger("x-push: &main\n  branches: [main]\non:\n  push:\n    <<: *main\n")).toBe(true);
     expect(hasPushTrigger("x: &defaults\n  branches: [preview]\non:\n  push: { <<: *defaults }\n")).toBe(false);
+    // GitHub's character classes.
+    expect(hasPushTrigger(push("    branches: ['m[ae]in']\n"))).toBe(true);
+    expect(hasPushTrigger(push("    branches: ['m[a-c]in']\n"))).toBe(true);
+    expect(hasPushTrigger(push("    branches: ['m[eo]in']\n"))).toBe(false);
+    expect(hasPushTrigger(push("    branches: ['**', '!m[ae]in']\n"))).toBe(false);
     // Tags alone: a tag push, not a branch push.
     expect(hasPushTrigger(push("    tags: ['v*']\n"))).toBe(false);
     // Flow forms, quoted or not.

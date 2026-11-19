@@ -138,9 +138,13 @@ export function pickBuild(builds, hash, platform, profile, channel) {
   return matching[0] ?? null;
 }
 
-/** Whether a build listens to `channel` (the one updates are published to); any build when no channel is given or the build records none. */
+/**
+ * Whether a build listens to `channel` (the one updates are published to): eas-cli 26's build list
+ * records it as `updateChannel.name`. Any build when no channel is given; a build on no channel, or
+ * another, doesn't take the updates.
+ */
 function onChannel(build, channel) {
-  return !channel || build.channel == null || build.channel === channel;
+  return !channel || build.updateChannel?.name === channel;
 }
 
 export const RELEASE_WORKFLOW = "deploy-production.yml";
