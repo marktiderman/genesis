@@ -62,6 +62,11 @@ export interface FeedbackRecord {
    * knows whose help desk it is. Null is the app's own. Left out, the client's option, else the app's own.
    */
   tenantId?: string | null | undefined;
+  /**
+   * The context dump sent with it (`createDiagnostics`): its id, so staff open the report and its
+   * dump together. Stored in the report's context as `diagnosticsId`.
+   */
+  diagnosticsId?: string | undefined;
 }
 
 /** Everything but what the person typed. */
