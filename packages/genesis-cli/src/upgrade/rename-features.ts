@@ -44,6 +44,33 @@ const MAX_BYTES = 2 * 1024 * 1024;
  */
 const OLD_NAME = /@marktiderman(\\?\/)genesis-features(?![\w-]|@\d)/g;
 
+/** The old package's exact name anywhere (an exact pin too), not another package's (`genesis-features-extra`). */
+const MENTIONS_OLD = /@marktiderman\/genesis-features(?![\w-])/;
+
+function readText(file: string): string | null {
+  try {
+    return readFileSync(file, "utf8");
+  } catch {
+    return null;
+  }
+}
+
+/** The genesis-config range a package.json's text already lists in a dependency field, if any (not a workspace or catalog one). */
+function listedConfigRange(raw: string | null): string | undefined {
+  if (!raw) return undefined;
+  try {
+    const json = JSON.parse(raw) as Record<string, unknown>;
+    for (const field of DEP_FIELDS) {
+      const deps = json[field];
+      const range = isObject(deps) && Object.prototype.hasOwnProperty.call(deps, CONFIG_PACKAGE) ? deps[CONFIG_PACKAGE] : undefined;
+      if (typeof range === "string" && !/^(?:workspace|link|file|catalog):/.test(range)) return range;
+    }
+  } catch {
+    // Not JSON: nothing listed.
+  }
+  return undefined;
+}
+
 /** The text with every mention of genesis-features as a module name moved to genesis-config. */
 export function rewriteFeaturesSpecifiers(text: string): string {
   return text.replace(OLD_NAME, (_all, slash: string) => `@marktiderman${slash}genesis-config`);
@@ -97,7 +124,7 @@ export function configRangeFor(root: string, dir: string, oldRange: string, want
 
 /** The version an override of the old package gets: the genesis-config range, exact when the old one was exact. */
 function overrideValue(old: string, rangeFor: (oldRange: string) => string): string {
-  if (/^(?:workspace|link|file|npm):/.test(old)) return old;
+  if (/^(?:workspace|link|file|npm|catalog):/.test(old)) return old;
   const range = rangeFor(old);
   return /^\d/.test(old) ? range.replace(/^[\^~]/, "") : range;
 }
@@ -157,7 +184,7 @@ export function renameFeaturesDependency(raw: string, rangeFor: (oldRange: strin
     const next: Array<[string, unknown]> = [];
     for (const [name, range] of Object.entries(deps)) {
       if (name !== OLD_FEATURES_PACKAGE) next.push([name, range]);
-      else if (!listsConfig) next.push([CONFIG_PACKAGE, typeof range === "string" && /^(?:workspace|link|file):/.test(range) ? range : rangeFor(String(range))]);
+      else if (!listsConfig) next.push([CONFIG_PACKAGE, typeof range === "string" && /^(?:workspace|link|file|catalog):/.test(range) ? range : rangeFor(String(range))]);
     }
     json[field] = Object.fromEntries(next);
     changed = true;
@@ -215,7 +242,13 @@ export const featuresRenamedConfig: Codemod = {
       const abs = path.join(root, rel);
       const raw = readFileSync(abs, "utf8");
       if (!raw.includes(OLD_FEATURES_PACKAGE)) continue;
-      const rangeFor = (old: string) => configRangeFor(root, path.dirname(abs), old, wanted);
+      // The release's range; else one genesis-config already has in this package.json or the
+      // app's own (a hand run with nothing installed); else what's installed.
+      const listed = listedConfigRange(raw) ?? listedConfigRange(readText(path.join(root, "package.json")));
+      const rangeFor = (old: string) => {
+        const release = wanted?.(CONFIG_PACKAGE);
+        return release ? configRangeFor(root, path.dirname(abs), old, wanted) : (listed ?? configRangeFor(root, path.dirname(abs), old));
+      };
       // tsconfig may hold comments (its paths are rewritten as text); YAML isn't JSON.
       const next = rel.endsWith("package.json") ? renameFeaturesDependency(raw, rangeFor) : rel.endsWith(".yaml") ? rewriteWorkspaceYaml(raw, rangeFor) : rewriteFeaturesSpecifiers(raw);
       if (next !== raw) write(rel, next);
@@ -227,7 +260,7 @@ export const featuresRenamedConfig: Codemod = {
       if (!dryRun || !done.has(rel)) return text;
       return rel.endsWith("package.json") ? renameFeaturesDependency(text, (old) => old) : rewriteFeaturesSpecifiers(text);
     };
-    const left = walk(root, (rel) => CHECKLIST_FILE.test(rel) && !CHECKLIST_SKIP.test(rel)).filter((rel) => after(rel).includes(OLD_FEATURES_PACKAGE));
+    const left = walk(root, (rel) => CHECKLIST_FILE.test(rel) && !CHECKLIST_SKIP.test(rel)).filter((rel) => MENTIONS_OLD.test(after(rel)));
     if (changed.length) log(`  ${OLD_FEATURES_PACKAGE} → ${CONFIG_PACKAGE}: feature ids, features.json, flags.json and the AGENTS.md block keep their format.`);
     if (left.length) {
       log(`  Still mentions ${OLD_FEATURES_PACKAGE} (docs, comments, or an exact version pin of the old package): check by hand:\n${left.map((f) => `    - [ ] ${f}`).join("\n")}`);

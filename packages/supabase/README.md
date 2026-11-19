@@ -747,9 +747,16 @@ preset and genesis.config.json.
 - **Who may change settings** is your hook, `private.genesis_platform_admin(person uuid) returns
   boolean` (ADR 0003's platform zone). Without it nobody can (`42501`, with a hint): a fresh install
   fails closed, as tenant features do.
-- **Reading.** `genesis_settings_resolved()` gives any signed-in person the preset, the file settings
-  and the database layer for runtime keys; the client resolves them with the app's catalogue, so every
-  platform agrees. No setting is a secret: a key names the secret it needs, never its value.
+- **Reading.** `genesis_settings_layers()` gives any signed-in person (and server code) the layers,
+  not resolved values: the preset, the file settings for every declared key (build-time ones too:
+  they're committed config) and the database layer for runtime keys. The client resolves them with the
+  app's catalogue, so every platform agrees. No setting is a secret: a key names the secret it needs,
+  never its value.
+- **Checked writes.** `set_genesis_setting` refuses a key genesis.config.json locks, `null` for a key
+  with a default, and any key whose synced catalogue entry is malformed. JSON `null` (which PostgREST
+  passes as SQL null) means "not set".
+- **The history is evidence.** Nobody edits it; the service role can't delete it directly, only prune
+  rows older than a year with `genesis_prune_setting_changes(older_than)`.
 
 ```ts
 import { resolveAppSettings, setGenesisSetting, writeAppManifest } from "@marktiderman/genesis-supabase";

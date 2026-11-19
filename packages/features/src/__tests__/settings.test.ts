@@ -17,6 +17,7 @@ import {
   settingsLayerFromRows,
   settingsSecrets,
   withSettings,
+  SCOPE_LAYERS,
   type SettingsLayers,
 } from "../index";
 
@@ -161,8 +162,11 @@ describe("resolveSettings: precedence", () => {
     expect(r.sources["support.githubRepo"]).toEqual({ layer: "database" });
   });
 
-  it("refuses an unknown preset", () => {
-    expect(() => resolve({ preset: "huge" as never })).toThrow(/unknown preset/);
+  it("reports an unknown preset and resolves on max, never throwing", () => {
+    const r = resolve({ preset: "huge" as never });
+    expect(r.preset).toBe("max");
+    expect(r.values["support.messenger"]).toBe(true);
+    expect(r.problems).toEqual([expect.objectContaining({ kind: "preset", key: "preset", layer: "preset" })]);
   });
 });
 
@@ -329,7 +333,8 @@ describe("the file and database layers", () => {
 
   it("checks a value against a key's shape on its own", () => {
     expect(settingValueProblem(support.keys["support.dumpRetentionDays"], 3)).toBe("must be at least 7");
-    expect(settingValueProblem(support.keys["support.dumpRetentionDays"], null)).toBeNull();
+    expect(settingValueProblem(support.keys["support.dumpRetentionDays"], null)).toBe("can't be null: it has a default, so set a value");
+    expect(settingValueProblem(support.keys["support.githubRepo"], null)).toBeNull();
   });
 });
 
@@ -341,26 +346,49 @@ describe("feeding the gate", () => {
 
   it("puts a feature whose switch resolved to false in off, and gives linked flags their values", () => {
     const r = resolve({ preset: "min", file: { "support.channel": { value: "email" } } });
-    expect(settingsGateContext(catalogue, r)).toEqual({ off: ["support-messenger"], flags: { "support-channel": "email" } });
-    expect(settingsGateContext(catalogue, resolve())).toEqual({ off: [], flags: { "support-channel": "chat" } });
+    expect(settingsGateContext(catalogue, r)).toEqual({ off: ["support-messenger"], flags: { "support-channel": "email" }, locked: { features: [], flags: [] } });
+    expect(settingsGateContext(catalogue, resolve())).toEqual({ off: [], flags: { "support-channel": "chat" }, locked: { features: [], flags: [] } });
+    const locked = resolve({ file: { "support.messenger": { value: true, locked: true }, "support.channel": { value: "email", locked: true } } });
+    expect(settingsGateContext(catalogue, locked).locked).toEqual({ features: ["support-messenger"], flags: ["support-channel"] });
   });
 
-  it("turns the feature off through the existing gate, as the tenant switch does", () => {
+  it("turns the feature off through the existing gate, with reason setting", () => {
     const off = resolve({ tenant: { "support.messenger": { value: false } } });
-    expect(featureOn({ features }, withSettings({ platform: "web" }, catalogue, off), "support-messenger")).toEqual({ on: false, reason: "tenant" });
+    expect(featureOn({ features }, withSettings({ platform: "web" }, catalogue, off), "support-messenger")).toEqual({ on: false, reason: "setting" });
+    // The tenant's own switch still answers "tenant".
+    expect(featureOn({ features }, withSettings({ platform: "web", off: ["support-messenger"] }, catalogue, resolve()), "support-messenger")).toEqual({ on: false, reason: "tenant" });
     expect(featureOn({ features }, withSettings({ platform: "web" }, catalogue, resolve()), "support-messenger")).toEqual({ on: true });
   });
 
-  it("keeps the context's own off switches and flags, which win over a setting's flag", () => {
+  it("keeps the context's own off switches and flags, which win over an unlocked setting's flag", () => {
     const ctx = withSettings({ platform: "web", off: ["other"], flags: { "support-channel": "sms" } }, catalogue, resolve({ preset: "min" }));
     const off = ctx.off as (id: string) => boolean;
+    const settingsOff = ctx.settingsOff as (id: string) => boolean;
     expect(off("other")).toBe(true);
-    expect(off("support-messenger")).toBe(true);
-    expect(off("forms")).toBe(false);
+    expect(settingsOff("support-messenger")).toBe(true);
+    expect(off("forms") || settingsOff("forms")).toBe(false);
     expect((ctx.flags as (n: string) => unknown)("support-channel")).toBe("sms");
     const fromSettings = withSettings({ platform: "web", off: new Set(["x"]), flags: () => undefined }, catalogue, resolve());
     expect((fromSettings.flags as (n: string) => unknown)("support-channel")).toBe("chat");
     expect((fromSettings.off as (id: string) => boolean)("x")).toBe(true);
+  });
+
+  it("holds a locked setting against the tenant's switch and the context's flag", () => {
+    const locked = resolve({ file: { "support.messenger": { value: true, locked: true }, "support.channel": { value: "email", locked: true } } });
+    const ctx = withSettings({ platform: "web", off: ["support-messenger"], flags: { "support-channel": "sms" } }, catalogue, locked);
+    expect(featureOn({ features }, ctx, "support-messenger")).toEqual({ on: true });
+    expect((ctx.flags as (n: string) => unknown)("support-channel")).toBe("email");
+    // Locked off holds too: the setting's own answer.
+    const lockedOff = resolve({ file: { "support.messenger": { value: false, locked: true } } });
+    expect(featureOn({ features }, withSettings({ platform: "web" }, catalogue, lockedOff), "support-messenger")).toEqual({ on: false, reason: "setting" });
+  });
+
+  it("reads only the context's own flag values, never a prototype's", () => {
+    const ctx = withSettings({ platform: "web", flags: {} }, catalogue, resolve());
+    const flag = ctx.flags as (n: string) => unknown;
+    expect(flag("toString")).toBeUndefined();
+    expect(flag("constructor")).toBeUndefined();
+    expect(flag("__proto__")).toBeUndefined();
   });
 });
 
@@ -383,7 +411,7 @@ describe("manifests", () => {
     const { catalogueManifest } = await import("../index");
     const m = catalogueManifest(catalogue);
     expect(m["support.dumpRetentionDays"]).toEqual({ type: "number", applies: "runtime", scope: "app", min: 7, max: 365 });
-    expect(m["support.githubRepo"]).toEqual({ type: "string", applies: "runtime", scope: "app" });
+    expect(m["support.githubRepo"]).toEqual({ type: "string", applies: "runtime", scope: "app", nullable: true });
     expect(m["devtools.screen"]).toEqual({ type: "boolean", applies: "build", scope: "app" });
     expect(JSON.stringify(m)).not.toMatch(/GITHUB_TOKEN|default/);
   });
@@ -394,5 +422,67 @@ describe("manifests", () => {
     expect(Object.keys(decl.keys)).toEqual(["acme.on"]);
     expect(() => settingsFromManifest({ keys: {} })).toThrow(/namespace/);
     expect(() => settingsFromManifest({ namespace: "acme", keys: { on: { type: "boolean", default: 1 } } })).toThrow(/true or false/);
+  });
+});
+
+describe("hostile input", () => {
+  it("treats __proto__ and constructor in a layer as unknown keys, and pollutes nothing", () => {
+    const file = JSON.parse('{"__proto__": {"value": {"polluted": 1}}, "constructor": {"value": 5}}') as SettingsLayers["file"];
+    const r = resolve({ file });
+    expect(r.problems.map((p) => `${p.kind} ${p.key}`)).toEqual(["unknown-key __proto__", "unknown-key constructor"]);
+    expect(Object.getPrototypeOf(r.values)).toBeNull();
+    expect(Object.keys(r.values)).not.toContain("constructor");
+    expect((r.values as Record<string, unknown>).polluted).toBeUndefined();
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
+
+  it("answers toString in a tenant or person layer as an unknown key, not a scope problem", () => {
+    expect(kinds({ tenant: { toString: { value: 1 } }, person: { hasOwnProperty: { value: 1 } } })).toEqual(["unknown-key tenant toString", "unknown-key person hasOwnProperty"]);
+  });
+
+  it("builds file and row layers with no prototype", () => {
+    const layer = settingsLayerFromFile(JSON.parse('{"__proto__": {"x": 1}, "support.dumpRetentionDays": 10}') as Record<string, unknown>);
+    expect(Object.getPrototypeOf(layer)).toBeNull();
+    expect(Object.keys(layer).sort()).toEqual(["__proto__", "support.dumpRetentionDays"]);
+    const rows = settingsLayerFromRows([{ key: "__proto__", value: 1 }]);
+    expect(Object.getPrototypeOf(rows)).toBeNull();
+    expect(kinds({ database: rows })).toEqual(["unknown-key database __proto__"]);
+  });
+
+  it("refuses a hand-built declaration with a polluted key, and a spec that inherits its default", () => {
+    expect(() => settingsCatalogue([{ namespace: "z", keys: JSON.parse('{"__proto__": {"key": "z.a", "requires": []}}') } as never])).toThrow(SettingsError);
+    expect(() => defineSettings("x", JSON.parse('{"__proto__": {"type": "boolean", "default": true}}') as never)).toThrow(SettingsError);
+    const spec = Object.create({ default: true }) as Record<string, unknown>;
+    spec.type = "boolean";
+    expect(() => defineSettings("y", { a: spec as never })).toThrow(SettingsError);
+    // A key may be named like an Object method: the maps have no prototype.
+    const d = defineSettings("x", { constructor: { type: "boolean", default: true } } as never);
+    expect(Object.keys(d.keys)).toEqual(["x.constructor"]);
+  });
+
+  it("keeps a lock whose own value is bad: the value below stays, pinned", () => {
+    const r = resolve({ file: { "support.dumpRetentionDays": { value: 1, locked: true } }, database: { "support.dumpRetentionDays": { value: 200 } } });
+    expect(r.values["support.dumpRetentionDays"]).toBe(90);
+    expect(r.sources["support.dumpRetentionDays"]).toEqual({ layer: "default", lockedBy: "file" });
+    expect(r.problems.map((p) => `${p.kind} ${p.layer}`)).toEqual(["type file", "locked database"]);
+    expect(r.problems[0]!.message).toMatch(/its lock still holds the value from the default layer/);
+  });
+
+  it("refuses null for a key with a default, in any layer", () => {
+    const r = resolve({ database: { "support.inbox": { value: null } } });
+    expect(r.values["support.inbox"]).toBe(true);
+    expect(r.problems).toEqual([expect.objectContaining({ kind: "type", key: "support.inbox", layer: "database" })]);
+  });
+
+  it("refuses NaN, and resolves the same whatever the entries' order", () => {
+    expect(kinds({ database: { "support.dumpRetentionDays": { value: Number.NaN } } })).toEqual(["type database support.dumpRetentionDays"]);
+    const a = resolve({ database: { "support.dumpRetentionDays": { value: 10 }, "support.inbox": { value: false } } });
+    const b = resolve({ database: { "support.inbox": { value: false }, "support.dumpRetentionDays": { value: 10 } } });
+    expect(JSON.stringify(a.values)).toBe(JSON.stringify(b.values));
+    expect(JSON.stringify(a.sources)).toBe(JSON.stringify(b.sources));
+  });
+
+  it("keeps the scope rule in one table", () => {
+    expect(SCOPE_LAYERS).toEqual({ app: ["file", "database"], tenant: ["file", "database", "tenant"], person: ["file", "database", "person"] });
   });
 });

@@ -9,7 +9,7 @@
 -- images), so pg_temp.sign_in sets both.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(64);
+select plan(77);
 
 -- People: a1 a platform admin, b2 signed in but not an admin.
 insert into auth.users (id, aud, role, email, instance_id)
@@ -80,16 +80,19 @@ select ok(
 select ok(
   not has_table_privilege('service_role', 'public.genesis_setting_changes', 'insert')
   and not has_table_privilege('service_role', 'public.genesis_setting_changes', 'update')
-  and has_table_privilege('service_role', 'public.genesis_setting_changes', 'delete'),
-  'the service role can purge the history but never write it'
+  and not has_table_privilege('service_role', 'public.genesis_setting_changes', 'delete')
+  and has_table_privilege('service_role', 'public.genesis_setting_changes', 'select'),
+  'the service role reads the history but never writes or deletes it directly'
 );
 select ok(
   (select bool_and(prosecdef and proconfig @> array['search_path=""'] and proowner::regrole::text = 'postgres') from pg_proc
    where oid in (
      'public.set_genesis_setting(text, jsonb, boolean)'::regprocedure,
      'public.clear_genesis_setting(text)'::regprocedure,
-     'public.genesis_settings_resolved()'::regprocedure,
+     'public.genesis_settings_layers()'::regprocedure,
      'public.genesis_setting_history(integer)'::regprocedure,
+     'public.genesis_prune_setting_changes(interval)'::regprocedure,
+     'private.genesis_settings_caller_is_server()'::regprocedure,
      'private.genesis_is_platform_admin()'::regprocedure,
      'private.genesis_setting_problem(text, jsonb)'::regprocedure,
      'private.genesis_record_setting_change()'::regprocedure
@@ -99,14 +102,14 @@ select ok(
 select ok(
   not has_function_privilege('anon', 'public.set_genesis_setting(text, jsonb, boolean)', 'execute')
   and not has_function_privilege('anon', 'public.clear_genesis_setting(text)', 'execute')
-  and not has_function_privilege('anon', 'public.genesis_settings_resolved()', 'execute')
+  and not has_function_privilege('anon', 'public.genesis_settings_layers()', 'execute')
   and not has_function_privilege('anon', 'public.genesis_setting_history(integer)', 'execute'),
   'anon executes none of the public functions'
 );
 select ok(
   has_function_privilege('authenticated', 'public.set_genesis_setting(text, jsonb, boolean)', 'execute')
   and has_function_privilege('authenticated', 'public.clear_genesis_setting(text)', 'execute')
-  and has_function_privilege('authenticated', 'public.genesis_settings_resolved()', 'execute')
+  and has_function_privilege('authenticated', 'public.genesis_settings_layers()', 'execute')
   and has_function_privilege('authenticated', 'public.genesis_setting_history(integer)', 'execute'),
   'authenticated executes them (each checks who is asking)'
 );
@@ -116,7 +119,7 @@ select ok(
     where p.oid in (
       'public.set_genesis_setting(text, jsonb, boolean)'::regprocedure,
       'public.clear_genesis_setting(text)'::regprocedure,
-      'public.genesis_settings_resolved()'::regprocedure,
+      'public.genesis_settings_layers()'::regprocedure,
       'public.genesis_setting_history(integer)'::regprocedure,
       'private.genesis_is_platform_admin()'::regprocedure,
       'private.genesis_setting_problem(text, jsonb)'::regprocedure,
@@ -150,7 +153,10 @@ insert into public.genesis_app_manifest (app_id, name, packages, preset, file_se
     "support.channel": {"type": "string", "applies": "runtime", "scope": "app", "options": ["chat", "email"]},
     "support.languages": {"type": "list", "applies": "runtime", "scope": "app", "options": ["en", "nl"], "min": 1, "max": 2},
     "support.shake": {"type": "object", "applies": "runtime", "scope": "app"},
-    "support.githubRepo": {"type": "string", "applies": "runtime", "scope": "app"},
+    "support.githubRepo": {"type": "string", "applies": "runtime", "scope": "app", "nullable": true},
+    "support.badMin": {"type": "number", "applies": "runtime", "scope": "app", "min": "abc"},
+    "support.weird": {"type": "wat", "applies": "runtime", "scope": "app"},
+    "support.badOptions": {"type": "string", "applies": "runtime", "scope": "app", "options": "a"},
     "support.sentryDsn": {"type": "string", "applies": "build", "scope": "app"}
   }'
 );
@@ -180,7 +186,7 @@ select throws_ok(
   '42501', null, '... and nobody may read the history'
 );
 select is(
-  public.genesis_settings_resolved() ->> 'preset',
+  public.genesis_settings_layers() ->> 'preset',
   'standard',
   'a signed-in person still reads the resolved inputs without the hook'
 );
@@ -198,13 +204,13 @@ revoke execute on function private.genesis_platform_admin(uuid) from public, ano
 -- Who may change a setting --------------------------------------------------------------------
 set local role anon;
 select throws_ok($$ select public.set_genesis_setting('support.inbox', 'false') $$, '42501', null, 'anon cannot call set_genesis_setting');
-select throws_ok($$ select public.genesis_settings_resolved() $$, '42501', null, '... nor read the settings');
+select throws_ok($$ select public.genesis_settings_layers() $$, '42501', null, '... nor read the settings');
 reset role;
 
 select pg_temp.sign_out();
 set local role authenticated;
 select throws_ok($$ select public.set_genesis_setting('support.inbox', 'false') $$, '42501', 'set_genesis_setting: not signed in', 'a call with nobody signed in is refused');
-select throws_ok($$ select public.genesis_settings_resolved() $$, '42501', 'genesis_settings_resolved: not signed in', '... and so is a read');
+select throws_ok($$ select public.genesis_settings_layers() $$, '42501', 'genesis_settings_layers: not signed in', '... and so is a read');
 reset role;
 
 select pg_temp.sign_in('b2');
@@ -229,14 +235,21 @@ select throws_ok($$ select public.set_genesis_setting('support.channel', '"sms"'
 select throws_ok($$ select public.set_genesis_setting('support.languages', '["en", "fr"]') $$, '22023', null, 'a list item outside its options is refused');
 select throws_ok($$ select public.set_genesis_setting('support.languages', '["en", "nl", "en"]') $$, '22023', 'set_genesis_setting: support.languages must be at most 2 items', 'a list longer than its max is refused');
 select throws_ok($$ select public.set_genesis_setting('support.shake', '[1]') $$, '22023', null, 'an object key refuses an array');
-select throws_ok($$ select public.set_genesis_setting('support.inbox', null) $$, '22004', null, 'a SQL null value is refused (JSON null is "not set")');
+select throws_ok($$ select public.set_genesis_setting('support.inbox', null) $$, '22023', 'set_genesis_setting: support.inbox can''t be null: it has a default, so set a value', 'null (as PostgREST sends JSON null) is refused for a key with a default');
+select throws_ok($$ select public.set_genesis_setting('support.inbox', 'null') $$, '22023', null, '... as JSON null too');
+select throws_ok($$ select public.set_genesis_setting(null, 'true') $$, '22004', null, 'a key is required');
+select throws_ok($$ select public.set_genesis_setting('support.diagnostics', 'false') $$, '22023', 'set_genesis_setting: support.diagnostics is locked by genesis.config.json: change it there', 'a key genesis.config.json locks is refused');
+select throws_ok($$ select public.set_genesis_setting('support.badMin', '5') $$, '22023', 'set_genesis_setting: the synced catalogue''s entry for support.badMin is malformed (write the manifest again: writeAppManifest)', 'a malformed catalogue min refuses the key, with no raw cast error');
+select throws_ok($$ select public.set_genesis_setting('support.weird', '{"anything": [1]}') $$, '22023', null, '... and so does an unknown type');
+select throws_ok($$ select public.set_genesis_setting('support.badOptions', '"a"') $$, '22023', null, '... and options that aren''t a list');
+select throws_ok($$ select public.set_genesis_setting('__proto__', 'true') $$, '22023', null, 'a key that isn''t namespace.key is refused');
 select throws_ok($$ select * from public.genesis_settings $$, '42501', null, 'authenticated cannot read the table directly');
 select throws_ok($$ insert into public.genesis_settings (key, value) values ('support.inbox', 'false') $$, '42501', null, '... nor write it');
 select throws_ok($$ select private.genesis_is_platform_admin() $$, '42501', null, '... nor call the hook check itself');
 
 select lives_ok($$ select public.set_genesis_setting('support.dumpRetentionDays', '60') $$, 'the platform admin sets a number in bounds');
 select lives_ok($$ select public.set_genesis_setting('support.inbox', 'false', true) $$, '... and locks a boolean');
-select lives_ok($$ select public.set_genesis_setting('support.githubRepo', 'null') $$, '... and sets a string to JSON null (not set)');
+select lives_ok($$ select public.set_genesis_setting('support.githubRepo', null) $$, '... and sets a key whose default is null to "not set" (SQL null, as PostgREST sends it, is JSON null)');
 select lives_ok($$ select public.set_genesis_setting('support.dumpRetentionDays', '60') $$, '... and saves the same value again');
 reset role;
 
@@ -265,18 +278,30 @@ select is(
 select pg_temp.sign_in('b2');
 set local role authenticated;
 select is(
-  public.genesis_settings_resolved() - 'reportedAt',
+  public.genesis_settings_layers() - 'reportedAt',
   '{
     "preset": "standard",
-    "file": {"support.dumpRetentionDays": 30, "support.diagnostics": {"value": true, "locked": true}},
+    "file": {"support.dumpRetentionDays": 30, "support.diagnostics": {"value": true, "locked": true}, "support.sentryDsn": "https://dsn.example"},
     "database": {
       "support.inbox": {"value": false, "locked": true},
       "support.githubRepo": {"value": null, "locked": false},
       "support.dumpRetentionDays": {"value": 60, "locked": false}
     }
   }'::jsonb,
-  'any signed-in person reads the preset, the file and the database layer, runtime keys only'
+  'any signed-in person reads the preset, the file (build-time keys too) and the database layer (runtime keys)'
 );
+reset role;
+set local role service_role;
+select set_config('request.jwt.claims', '{"role":"service_role"}', true);
+select set_config('request.jwt.claim.sub', '', true);
+select is(public.genesis_settings_layers() ->> 'preset', 'standard', 'server code reads the layers too');
+select throws_ok($$ delete from public.genesis_setting_changes $$, '42501', null, 'the service role cannot wipe the history');
+select throws_ok($$ select public.genesis_prune_setting_changes(interval '1 day') $$, '22023', null, '... nor prune the last year of it');
+select is(public.genesis_prune_setting_changes(), 0, '... and prunes only rows older than a year');
+reset role;
+select pg_temp.sign_in('b2');
+set local role authenticated;
+select throws_ok($$ select public.genesis_prune_setting_changes() $$, '42501', null, 'a signed-in person cannot prune the history');
 reset role;
 
 -- The service role, and keys the catalogue drops ---------------------------------------------
@@ -287,9 +312,10 @@ insert into public.genesis_settings (key, value) values ('legacy.removed', '1');
 select set_config('genesis.setting_source', 'cli', true);
 update public.genesis_settings set value = '90' where key = 'support.dumpRetentionDays';
 select set_config('genesis.setting_source', '', true);
+update public.genesis_settings set key = 'legacy.renamed' where key = 'legacy.removed';
 reset role;
 select is(
-  (select source || ':' || changed_role from public.genesis_setting_changes where key = 'legacy.removed'),
+  (select source || ':' || changed_role from public.genesis_setting_changes where key = 'legacy.removed' order by id limit 1),
   'server:service_role',
   'a service-role write is recorded as from the server, with no person'
 );
@@ -298,10 +324,15 @@ select is(
   'cli',
   '... or from the source it names'
 );
+select is(
+  (select array_agg(key || ':' || coalesce(old_value::text, '-') || '>' || coalesce(new_value::text, '-') order by id) from public.genesis_setting_changes where key in ('legacy.removed', 'legacy.renamed')),
+  array['legacy.removed:->1', 'legacy.removed:1>-', 'legacy.renamed:->1'],
+  'a renamed key is recorded as the old key going and the new one coming'
+);
 select pg_temp.sign_in('b2');
 set local role authenticated;
 select ok(
-  not (public.genesis_settings_resolved() -> 'database' ? 'legacy.removed'),
+  not (public.genesis_settings_layers() -> 'database' ? 'legacy.removed'),
   'a stored key the catalogue no longer declares isn''t returned'
 );
 reset role;
@@ -311,7 +342,7 @@ select pg_temp.sign_in('a1');
 set local role authenticated;
 select lives_ok($$ select public.clear_genesis_setting('support.inbox') $$, 'the platform admin clears a setting');
 select is(
-  (select array_agg(key order by key) from public.genesis_setting_history(1000) where new_value is null),
+  (select array_agg(key order by key) from public.genesis_setting_history(1000) where new_value is null and key like 'support.%'),
   array['support.inbox'],
   '... which the history records with no new value'
 );

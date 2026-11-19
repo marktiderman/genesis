@@ -105,7 +105,40 @@ describe("invalid-setting", () => {
     expect(out).toEqual([expect.stringMatching(/^error @marktiderman\/genesis-support: @marktiderman\/genesis-support declares settings that can't be used: .*support.inbox default must be true or false/)]);
   });
 
+  it("reads settings from Genesis packages installed transitively, not only direct dependencies", async () => {
+    const root = makeApp(null, {
+      "package.json": JSON.stringify({ name: "app", dependencies: { "@marktiderman/genesis": "^0.12.0" } }),
+      [`node_modules/${SUPPORT}/package.json`]: supportPackage(declared),
+      "genesis.config.json": JSON.stringify({ settings: { "support.dumpRetentionDays": 30 } }),
+    });
+    expect(installedSettings(root).declarations.map((d) => d.namespace)).toEqual(["support"]);
+    expect(await findings(root)).toEqual([]);
+  });
+
+  it("reports a Genesis package whose package.json can't be read, and goes on", () => {
+    const root = makeApp(null, {
+      "package.json": JSON.stringify({ name: "app" }),
+      "node_modules/@marktiderman/genesis-broken/package.json": "{ not json",
+      [`node_modules/${SUPPORT}/package.json`]: supportPackage(declared),
+    });
+    const { declarations, problems } = installedSettings(root);
+    expect(declarations.map((d) => d.namespace)).toEqual(["support"]);
+    expect(problems).toEqual([expect.objectContaining({ pkg: "@marktiderman/genesis-broken" })]);
+  });
+
   it("stays quiet in an app with no settings or preset", async () => {
     expect(await findings(app({}))).toEqual([]);
+  });
+});
+
+describe("genesis-config-unknown-key", () => {
+  it("warns on a top-level key nothing reads, naming the one meant", async () => {
+    const root = app({ presets: "max", setting: {}, settings: {}, doctor: {}, $schema: "x" });
+    const result = await runDoctor({ root, config: {} });
+    expect(result.findings.filter((f) => f.rule === "genesis-config-unknown-key").map((f) => `${f.level} ${f.subject}: ${f.message}`)).toEqual([
+      'warn presets: "presets" isn\'t a genesis.config.json setting, so nothing reads it: did you mean "preset"?',
+      'warn setting: "setting" isn\'t a genesis.config.json setting, so nothing reads it: did you mean "settings"?',
+    ]);
+    expect(BUILTIN_RULES).toContain("genesis-config-unknown-key");
   });
 });

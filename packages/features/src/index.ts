@@ -124,6 +124,7 @@ export { overlayUpstream, readOverlayMarker, type OverlayMarker } from "./overla
 export {
   DEFAULT_PRESET,
   SETTINGS_LAYERS,
+  SCOPE_LAYERS,
   SETTINGS_PRESETS,
   SETTING_KEY,
   SETTING_TYPES,
@@ -155,6 +156,7 @@ export {
   type SettingValueOf,
   type SettingsCatalogue,
   type SettingsDeclaration,
+  type SettingsGate,
   type SettingsLayer,
   type SettingsLayerValues,
   type SettingsLayers,

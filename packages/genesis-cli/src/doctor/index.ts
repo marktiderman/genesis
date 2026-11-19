@@ -46,7 +46,7 @@ import { checkAgentHooks } from "./agent-hooks.js";
 import { checkOverlays } from "./overlays.js";
 import { checkLockFiles } from "./lock-files.js";
 import { checkDatabaseHome } from "./database.js";
-import { checkSettings } from "./settings.js";
+import { checkConfigKeys, checkSettings } from "./settings.js";
 import { checkEslintConfig } from "./eslint-config.js";
 import { checkFigmaRoutesRule } from "./figma-routes.js";
 import { checkMigrationDrift } from "./migration-drift.js";
@@ -333,6 +333,7 @@ export function builtinChecks(config: DoctorConfig, options: { contracts?: boole
     { name: "lock-files", check: checkLockFiles },
     { name: "database-elsewhere", check: checkDatabaseHome },
     { name: "settings", check: checkSettings },
+    { name: "genesis-config-keys", check: checkConfigKeys },
     { name: "eslint-config", check: checkEslintConfig },
     { name: "migration-drift", check: checkMigrationDrift },
     { name: "genesis-behind", check: genesisBehindCheck(options.behind ?? { network: false }) },
