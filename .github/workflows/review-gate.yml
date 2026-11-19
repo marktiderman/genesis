@@ -122,7 +122,7 @@ jobs:
           #   any verdict line says changes requested, or the state is CHANGES_REQUESTED → changes
           #   any verdict line parses to neither                                        → unreadable
           #   a verdict line approves                                                   → approve
-          #   "changes requested" appears anywhere in the body                          → changes
+          #   "changes requested" / "request changes" appears anywhere in the body      → changes
           #   the state is APPROVED                                                     → approve
           #   otherwise (a plain comment)                                               → ignored
           # Each review becomes a "time<TAB>verdict" line; the latest wins, and a tie sorts
@@ -140,7 +140,7 @@ jobs:
           | (if .state == "CHANGES_REQUESTED" or ($verdicts | index("changes requested")) then "changes"
              elif ($verdicts | index("unreadable")) then "unreadable"
              elif ($verdicts | index("approve")) then "approve"
-             elif ($body | test("changes\\s+requested")) then "changes"
+             elif ($body | test("changes[\\s-]*requested|request(ed|ing)?\\s+changes")) then "changes"
              elif .state == "APPROVED" then "approve"
              else empty end) as $v
           | "\(.submitted_at)\t\($v)"

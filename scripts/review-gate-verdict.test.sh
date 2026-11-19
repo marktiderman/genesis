@@ -67,6 +67,21 @@ for body in \
   $'Thanks.\n\nI have changes requested on the parser.'; do
   expect "later: $body" changes "$(review $A COMMENTED 'Verdict: approve')" "$(review $B COMMENTED "$body")"
 done
+for body in \
+  '| Verdict | request changes |' \
+  '<b>Verdict: request changes</b>' \
+  '-Verdict: request changes' \
+  $'​Verdict: request changes' \
+  'Status: changes-requested' \
+  'changes_requested'; do
+  expect "later, no verdict line: $body" changes "$(review $A COMMENTED 'Verdict: approve')" "$(review $B COMMENTED "$body")"
+done
+expect "approve quoting an earlier changes verdict" changes "$(review $A COMMENTED $'> Verdict: changes requested\n\nVerdict: approve')"
+expect "approve plus a second verdict-like line" unreadable "$(review $A COMMENTED $'Verdict: approve\n\nVerdicts below are per finding.')"
+expect "approve after an HTML comment on the same line" approve "$(review $A COMMENTED '<!-- x -->Verdict: approve')"
+expect "approve beside a multi-line comment holding a changes verdict" approve "$(review $A COMMENTED $'<!--\nVerdict: changes requested\n-->\nVerdict: approve')"
+expect "approve fixing requested changes" approve "$(review $A COMMENTED $'Verdict: approve\n\nThe requested changes are fixed.')"
+expect "member approve" approve "$(review $A COMMENTED 'Verdict: approve' MEMBER)"
 expect "CHANGES_REQUESTED state" changes "$(review $A COMMENTED 'Verdict: approve')" "$(review $B CHANGES_REQUESTED 'nits')"
 expect "approve and changes lines in one review" changes "$(review $A COMMENTED $'Verdict: approve\nVerdict: changes requested')"
 
