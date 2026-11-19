@@ -82,7 +82,7 @@ jobs:
             changeset-release/*) echo "changeset-release/* head: checking." ; echo "relevant=true" >> "$GITHUB_OUTPUT"; exit 0 ;;
           esac
           files=$(git diff --name-only --no-renames HEAD^1 HEAD)
-          pattern='^(packages/|\.changeset/)|^(\.github/workflows/release\.yml|\.github/workflows/tarball-integrity\.yml|scripts/verify-tarball-integrity\.mjs|pnpm-workspace\.yaml|pnpm-lock\.yaml|package\.json)$'
+          pattern='^(packages/|\.changeset/)|^(\.github/workflows/release\.yml|\.github/workflows/tarball-integrity\.yml|scripts/verify-tarball-integrity\.mjs|scripts/verify-no-workspace-protocol\.mjs|pnpm-workspace\.yaml|pnpm-lock\.yaml|package\.json)$'
           if matched=$(grep -E "$pattern" <<< "$files"); then
             echo "Relevant changes:"; echo "$matched"
             echo "relevant=true" >> "$GITHUB_OUTPUT"

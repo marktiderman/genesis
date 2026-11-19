@@ -115,7 +115,9 @@ base), so a PR can't change its own gate, and a gate change takes effect only on
   formal GitHub review with its findings. Every agent acts as the account that opened the PR, and
   GitHub refuses `--approve` and `--request-changes` from a PR's author, so post
   `gh pr review <n> --comment` with a body that starts `Verdict: approve` or
-  `Verdict: changes requested`, then lists the findings.
+  `Verdict: changes requested`, then lists the findings. Only a maintainer's review (owner, member
+  or collaborator) counts, and a "changes requested" anywhere in a review without a clean
+  `Verdict: approve` line counts against the PR.
 - Every finding, lows included, is fixed before merge, or declined with a reason the reviewer
   accepts. The author fixes it itself, in the PR: a follow-up card is not a fix. The reviewer adds
   `review: approved` only then, after posting the review: adding the label is what runs the check.

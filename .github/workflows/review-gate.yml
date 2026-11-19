@@ -13,7 +13,10 @@
 # review never counts. Any new commit, a merge of the base included, takes the label off, and a
 # review of an older head never counts, so a stale label can't pass an unreviewed head.
 #
-# Both the label and the review count only from a person's account, never an app's or a bot's.
+# Both the label and the review count only from a person's account, never an app's or a bot's,
+# and a review counts only from a maintainer (owner, member or collaborator): the repo is public.
+# A review that has any "changes requested" (a verdict line, or the phrase anywhere) and no clean
+# approve never approves; scripts/review-gate-verdict.test.sh pins those rules.
 # That filter doesn't tell the reviewer from the author: every agent acts as the account that
 # opened the PR, so keeping the reviewer apart from the author is process ("Never approve or
 # label your own PR").
@@ -106,23 +109,38 @@ jobs:
             echo "::error::'review: approved' was added by an app or bot ($labeler), not a reviewer. A reviewer adds it from their own account."
             exit 1
           fi
-          # The latest verdict on the head from a person decides: dismissed reviews are ignored,
-          # and a later "changes requested" overrides an earlier approve. A review's verdict is
-          # read from its first non-empty line, lowercased, with every * _ ` removed and leading
-          # # > and whitespace stripped. The whole line must then be "verdict: approve" or
-          # "verdict: changes requested" (an optional trailing . or !), so "approve=false" or
-          # "approve, but…" don't count. A line that starts "verdict" but parses to neither counts
-          # as not approving. Each review becomes a "time<TAB>verdict" line; the latest wins.
+          # The latest verdict on the head from a maintainer decides (a person who owns, belongs to
+          # or collaborates on the repository; the repo is public, so anyone else's review is
+          # ignored): dismissed reviews are ignored, and a later "changes requested" overrides an
+          # earlier approve.
+          #
+          # A review's verdict is read from EVERY line, lowercased, with <!-- … --> comments and
+          # every * _ ` removed, and leading whitespace, # > and list markers (- + 1. 1)) stripped.
+          # A line that starts "verdict" is a verdict line; it must be exactly "verdict: approve"
+          # or "verdict: changes requested" (an optional trailing . or !), so "approve=false" or
+          # "approve, but…" don't count. It fails closed, in this order:
+          #   any verdict line says changes requested, or the state is CHANGES_REQUESTED → changes
+          #   any verdict line parses to neither                                        → unreadable
+          #   a verdict line approves                                                   → approve
+          #   "changes requested" appears anywhere in the body                          → changes
+          #   the state is APPROVED                                                     → approve
+          #   otherwise (a plain comment)                                               → ignored
+          # Each review becomes a "time<TAB>verdict" line; the latest wins, and a tie sorts
+          # approve < changes < unreadable, so it fails closed. scripts/review-gate-verdict.test.sh
+          # runs this program against fixtures; keep the two in step.
           VERDICT_JQ=$(cat <<'JQ'
           .[]
-          | select(.commit_id == $head and .user.type == "User" and .state != "DISMISSED")
-          | ((.body // "") | ascii_downcase | split("\n") | map(select(test("\\S"))) | (.[0] // "")
-             | gsub("[*_`]"; "") | sub("^[\\s#>]+"; "")) as $line
-          | ([$line | capture("^verdict\\s*:\\s*(?<v>approve|changes requested)\\s*[.!]?\\s*$")] | .[0].v) as $parsed
-          | (if .state == "CHANGES_REQUESTED" then "changes"
-             elif $parsed == "approve" then "approve"
-             elif $parsed == "changes requested" then "changes"
-             elif ($line | startswith("verdict")) then "unreadable"
+          | select(.commit_id == $head and .user.type == "User" and .state != "DISMISSED"
+                   and ((.author_association // "") | IN("OWNER", "MEMBER", "COLLABORATOR")))
+          | ((.body // "") | ascii_downcase | gsub("<!--[\\s\\S]*?-->"; "") | gsub("[*_`]"; "")) as $body
+          | [$body | split("\n")[]
+             | sub("^[\\s#>]+"; "") | sub("^(?:[-+]|\\d+[.)])\\s+"; "") | sub("^[\\s#>]+"; "")
+             | select(startswith("verdict"))
+             | ([capture("^verdict\\s*:\\s*(?<v>approve|changes requested)\\s*[.!]?\\s*$")] | .[0].v // "unreadable")] as $verdicts
+          | (if .state == "CHANGES_REQUESTED" or ($verdicts | index("changes requested")) then "changes"
+             elif ($verdicts | index("unreadable")) then "unreadable"
+             elif ($verdicts | index("approve")) then "approve"
+             elif ($body | test("changes\\s+requested")) then "changes"
              elif .state == "APPROVED" then "approve"
              else empty end) as $v
           | "\(.submitted_at)\t\($v)"

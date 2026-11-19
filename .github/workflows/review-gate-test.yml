@@ -1,0 +1,35 @@
+# Runs the review gate's verdict program (the jq in review-gate.yml) against fixture review
+# histories, so a change to how verdicts are read can't quietly let a "changes requested" through.
+# review-gate.yml itself runs from the default branch (pull_request_target), so this is the only
+# place a PR's version of the program is exercised before it merges.
+name: Review gate test
+
+concurrency:
+  group: review-gate-test-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/review-gate.yml'
+      - '.github/workflows/review-gate-test.yml'
+      - 'scripts/review-gate-verdict.test.sh'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/review-gate.yml'
+      - '.github/workflows/review-gate-test.yml'
+      - 'scripts/review-gate-verdict.test.sh'
+
+permissions:
+  contents: read
+
+jobs:
+  verdict:
+    name: Verdict program
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Verdict fixtures
+        run: bash scripts/review-gate-verdict.test.sh
