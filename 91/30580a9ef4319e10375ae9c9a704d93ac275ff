@@ -1,0 +1,21 @@
+docs/NATIVE-RELEASE.md
+  s_a2e5357843c63e::t_cf5c592e6bde73 268
+packages/genesis-cli/src/blocks/release.ts
+  s_a2e5357843c63e::t_f2539213a5875b 368-372
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9130580a9ef4319e10375ae9c9a704d93ac275ff",
+  "prompts": {},
+  "sessions": {
+    "s_a2e5357843c63e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "93276e5f-d2ca-4b24-908d-d8b238e10dcf",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
