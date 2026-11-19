@@ -124,6 +124,7 @@ export { overlayUpstream, readOverlayMarker, type OverlayMarker } from "./overla
 export {
   DEFAULT_PRESET,
   SETTINGS_LAYERS,
+  APP_LOCK_LAYERS,
   SCOPE_LAYERS,
   SETTINGS_PRESETS,
   SETTING_KEY,

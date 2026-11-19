@@ -267,6 +267,9 @@ export function settingsCheck(options: SettingsCheckOptions = {}): (ctx: DoctorC
       ctx.report({ rule: "invalid-setting", level: "error", file: "package.json", subject: "settings catalogue", message: err.message });
       return;
     }
+    for (const legacy of config?.legacySettingsKeys ?? []) {
+      ctx.report({ rule: "invalid-setting", level: "error", file: FILE, subject: legacy.key, message: legacy.message });
+    }
     const run = options.run ?? runTool;
 
     let database: SettingsLayerValues | undefined;

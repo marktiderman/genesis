@@ -53,6 +53,21 @@ describe("genesis.config.json preset and settings", () => {
     expect(run).toThrow(message);
   });
 
+  it("doesn't stop an app that already used preset or settings for its own thing: the doctor says to rename it", async () => {
+    const root = app({ settings: "legacy-string", preset: "tailwind" });
+    const config = readGenesisConfig(root)!;
+    expect(config.settings).toBeUndefined();
+    expect(config.preset).toBeUndefined();
+    expect(config.legacySettingsKeys?.map((l) => l.key)).toEqual(["preset", "settings"]);
+    expect(await findings(root)).toEqual([
+      expect.stringMatching(/^error preset: "preset" is "tailwind", not one of max, standard, min, so it was ignored.*rename it \(for example to "appPreset"\)/),
+      expect.stringMatching(/^error settings: "settings" isn't an object of "namespace\.key": value \(it is "legacy-string"\), so it was ignored.*"appSettings"/),
+    ]);
+    // An object of the app's own keys reads the same way; one with a setting key is the new block, checked strictly.
+    expect(readGenesisConfig(app({ settings: { theme: "dark" } }))!.legacySettingsKeys?.map((l) => l.key)).toEqual(["settings"]);
+    expect(() => readGenesisConfig(app({ settings: { "support.inbox": true, theme: "dark" } }))).toThrow(GenesisConfigError);
+  });
+
   it("lets an object setting hold any object that isn't exactly { value, locked }", () => {
     expect(validateSettings({ "support.shake": { thresholdG: 2, value: 1 } })).toEqual({ "support.shake": { thresholdG: 2, value: 1 } });
   });

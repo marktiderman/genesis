@@ -145,8 +145,37 @@ export interface GenesisConfigFile {
   release?: GenesisRelease;
   /** The settings preset (`max`, the default, `standard` or `min`), resolved as its own layer: see {@link validatePreset}. */
   preset?: SettingsPreset;
+  /**
+   * A top-level `preset` or `settings` that isn't the settings shape at all (an app that used the
+   * key for something of its own before Genesis read it): left out of `preset` / `settings`, and
+   * reported by the doctor (`invalid-setting`) with how to move it, so every other command still runs.
+   */
+  legacySettingsKeys?: Array<{ key: "preset" | "settings"; message: string }>;
   /** The app file's settings layer, by `namespace.key`: see {@link validateSettings}. Checked against the catalogue by the doctor (`invalid-setting`). */
   settings?: Record<string, unknown>;
+}
+
+const RENAME_HINT = 'Genesis now reads this key (the settings preset and layer, docs/MIGRATION.md): if it holds something of your own, rename it (for example to "app%KEY%") and update what reads it';
+
+/**
+ * The top-level `preset` and `settings` that aren't the settings shape at all, so they read as an
+ * app's own use of the key, not a typo in the new block: a `preset` that isn't one of the presets,
+ * a `settings` that isn't an object, or one none of whose keys is `namespace.key`. A value that is
+ * the new shape with a mistake in it still fails when read (validatePreset, validateSettings).
+ */
+export function legacySettingsKeys(raw: Record<string, unknown>): Array<{ key: "preset" | "settings"; message: string }> {
+  const out: Array<{ key: "preset" | "settings"; message: string }> = [];
+  const hint = (key: string) => RENAME_HINT.replace("%KEY%", key[0]!.toUpperCase() + key.slice(1));
+  if (raw.preset !== undefined && !(typeof raw.preset === "string" && (SETTINGS_PRESETS as readonly string[]).includes(raw.preset))) {
+    out.push({ key: "preset", message: `"preset" is ${JSON.stringify(raw.preset)}, not one of ${SETTINGS_PRESETS.join(", ")}, so it was ignored and the app runs on max. ${hint("preset")}` });
+  }
+  if (raw.settings !== undefined) {
+    const keys = isObject(raw.settings) ? Object.keys(raw.settings) : null;
+    if (keys === null || (keys.length > 0 && !keys.some((k) => SETTING_KEY.test(k)))) {
+      out.push({ key: "settings", message: `"settings" isn't an object of "namespace.key": value (it ${keys === null ? `is ${JSON.stringify(raw.settings).slice(0, 60)}` : `has ${keys.slice(0, 3).map((k) => JSON.stringify(k)).join(", ")}`}), so it was ignored. ${hint("settings")}` });
+    }
+  }
+  return out;
 }
 
 /** Check the top-level `preset`: `max`, `standard` or `min`. */
@@ -449,8 +478,10 @@ export function readGenesisConfig(root: string): GenesisConfigFile | null {
   if (raw.environments !== undefined) out.environments = validateEnvironments(raw.environments, file);
   if (raw.client !== undefined) out.client = validateClient(raw.client, file);
   if (raw.release !== undefined) out.release = validateRelease(raw.release, file);
-  if (raw.preset !== undefined) out.preset = validatePreset(raw.preset, file);
-  if (raw.settings !== undefined) out.settings = validateSettings(raw.settings, file);
+  const legacy = legacySettingsKeys(raw);
+  if (legacy.length) out.legacySettingsKeys = legacy;
+  if (raw.preset !== undefined && !legacy.some((l) => l.key === "preset")) out.preset = validatePreset(raw.preset, file);
+  if (raw.settings !== undefined && !legacy.some((l) => l.key === "settings")) out.settings = validateSettings(raw.settings, file);
   // localPackages is read and validated by blocks/local.ts where it's used (doctor, add, migrate);
   // the Expo config plugin loads this file too and must not pull the CLI's block code in.
   return out;

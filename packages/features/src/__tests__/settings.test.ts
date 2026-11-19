@@ -18,6 +18,7 @@ import {
   settingsSecrets,
   withSettings,
   SCOPE_LAYERS,
+  APP_LOCK_LAYERS,
   type SettingsLayers,
 } from "../index";
 
@@ -386,6 +387,58 @@ describe("feeding the gate", () => {
     // Locked off holds too: the setting's own answer.
     const lockedOff = resolve({ file: { "support.messenger": { value: false, locked: true } } });
     expect(featureOn({ features }, withSettings({ platform: "web" }, catalogue, lockedOff), "support-messenger")).toEqual({ on: false, reason: "setting" });
+  });
+
+  describe("a tenant or person lock never outranks the gate context", () => {
+    const scoped = settingsCatalogue([
+      defineSettings("beta", {
+        release: { type: "boolean", default: false, scope: "tenant", flag: "beta.release" },
+        tenantSwitch: { type: "boolean", default: true, scope: "tenant", feature: "beta-tenant" },
+        personSwitch: { type: "boolean", default: true, scope: "person", feature: "beta-person" },
+        paid: { type: "boolean", default: true, scope: "tenant", feature: "beta-paid" },
+      }),
+    ]);
+    const registry = {
+      features: {
+        "beta-flagged": { status: "live" as const, apps: ["web"] },
+        "beta-tenant": { status: "live" as const, apps: ["web"] },
+        "beta-person": { status: "live" as const, apps: ["web"] },
+        "beta-paid": { status: "live" as const, apps: ["web"], access: { plan: "pro" } },
+      },
+      flags: { "beta.release": { feature: "beta-flagged", kind: "release" as const, default: false } },
+    };
+
+    it("a tenant lock on a flag-linked key doesn't beat the platform's release flag", () => {
+      const r = resolveSettings(scoped, { tenant: { "beta.release": { value: true, locked: true } } });
+      expect(r.sources["beta.release"]).toEqual({ layer: "tenant", lockedBy: "tenant" });
+      expect(settingsGateContext(scoped, r).locked).toEqual({ features: [], flags: [] });
+      const ctx = withSettings({ platform: "web", flags: { "beta.release": false } }, scoped, r);
+      expect((ctx.flags as (n: string) => unknown)("beta.release")).toBe(false);
+      expect(featureOn(registry, ctx, "beta-flagged")).toEqual({ on: false, reason: "flag", flag: "beta.release" });
+    });
+
+    it("a tenant lock doesn't grant an entitlement", () => {
+      const r = resolveSettings(scoped, { tenant: { "beta.paid": { value: true, locked: true } } });
+      expect(featureOn(registry, withSettings({ platform: "web" }, scoped, r), "beta-paid")).toEqual({ on: false, reason: "entitlement", unlock: { plan: "pro" } });
+    });
+
+    it("a person lock doesn't beat the tenant's switch", () => {
+      const r = resolveSettings(scoped, { person: { "beta.personSwitch": { value: true, locked: true } } });
+      expect(featureOn(registry, withSettings({ platform: "web", off: ["beta-person"] }, scoped, r), "beta-person")).toEqual({ on: false, reason: "tenant" });
+    });
+
+    it("a tenant lock doesn't beat the tenant's own switch either; only the app's locks do", () => {
+      const tenantLocked = resolveSettings(scoped, { tenant: { "beta.tenantSwitch": { value: true, locked: true } } });
+      expect(featureOn(registry, withSettings({ platform: "web", off: ["beta-tenant"] }, scoped, tenantLocked), "beta-tenant")).toEqual({ on: false, reason: "tenant" });
+      const appLocked = resolveSettings(scoped, { database: { "beta.tenantSwitch": { value: true, locked: true } } });
+      expect(featureOn(registry, withSettings({ platform: "web", off: ["beta-tenant"] }, scoped, appLocked), "beta-tenant")).toEqual({ on: true });
+    });
+
+    it("a tenant or person lock still stops later settings layers", () => {
+      const r = resolveSettings(scoped, { tenant: { "beta.release": { value: true, locked: true } } });
+      expect(r.values["beta.release"]).toBe(true);
+      expect(APP_LOCK_LAYERS).toEqual(["file", "database"]);
+    });
   });
 
   it("reads only the context's own flag values, never a prototype's", () => {

@@ -11,6 +11,17 @@ This file is appended to (never rewritten) at every release. Newest version on t
 
 ---
 
+## Settings: `preset` and `settings` in genesis.config.json — `@marktiderman/genesis-config` (settings), `@marktiderman/genesis-cli` (**minor**)
+
+🟢 **No action needed**, unless your genesis.config.json already has a top-level `preset` or
+`settings` key of your own. Genesis now reads both: `preset` is `max` (the default), `standard` or
+`min`, and `settings` is the app file's layer of Genesis settings (`"namespace.key": value`, or
+`{ "value": …, "locked": true }`). A value that isn't that shape is ignored, every command still
+runs, and `genesis doctor` reports it (`invalid-setting`): rename your key (to `appPreset` or
+`appSettings`, say) and update what reads it.
+
+---
+
 ## `@marktiderman/genesis-features` is now `@marktiderman/genesis-config` — genesis-features 0.10 (deprecated alias), genesis-config 0.10, genesis-cli (rename; **minor**)
 
 🟡 **Action recommended.** The feature registry package is renamed in place: the same source, exports
