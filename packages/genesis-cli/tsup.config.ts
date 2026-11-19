@@ -49,7 +49,7 @@ export default defineConfig([
     minify: false,
     target: "es2022",
     outExtension: () => ({ js: ".js" }),
-    external: ["commander", "postgres", "jiti", "yaml", /^@marktiderman\//, /^@expo\//, "vite", /^@playwright\//, /^@axe-core\//, "playwright"],
+    external: ["commander", "postgres", "jiti", "yaml", /^@marktiderman\//, /^@expo\//, /^@modelcontextprotocol\//, "vite", /^@playwright\//, /^@axe-core\//, "playwright"],
   },
   {
     // The lint pieces apps load from eslint.config.js, which is often CommonJS: built for require and import.
@@ -79,7 +79,7 @@ export default defineConfig([
     target: "es2022",
     outExtension: () => ({ js: ".js" }),
     banner: { js: "#!/usr/bin/env node" },
-    external: ["commander", "postgres", "jiti", "yaml", /^@marktiderman\//, /^@expo\//, "vite"],
+    external: ["commander", "postgres", "jiti", "yaml", /^@marktiderman\//, /^@expo\//, /^@modelcontextprotocol\//, "vite"],
     onSuccess: async () => bundleAssets(),
   },
 ]);

@@ -1586,6 +1586,69 @@ missing import as info). A CLAUDE.md that's blocked, by another case of the name
 never writes over it. `genesis agents --rules` checks the repo against the agent rules of
 engagement a script can check. Run `genesis agents` after every Genesis upgrade.
 
+`genesis agents --mcp` also writes the [`genesis mcp`](#genesis-mcp) server's entry into
+`.mcp.json` (`"genesis": { "type": "stdio", "command": "npx", "args": ["--no", "genesis", "mcp"] }`),
+keeping every other server and any key of the entry it doesn't set (`env`). `npx --no` runs the
+app's own installed CLI and never downloads a package of that name. A `.mcp.json` that isn't a
+JSON object is left alone and the command exits 1. With `--check`, it exits 1 when the entry is
+missing or out of date.
+
+## genesis mcp
+
+`genesis mcp` serves the doctor, the settings and fix plans as [MCP](https://modelcontextprotocol.io)
+tools over stdio, for any agent session in the app (`genesis agents --mcp` registers it in
+`.mcp.json`). The agent reads; every change is a plan the person approves; it never sees a
+secret's value.
+
+| Tool | Read-only | What it returns |
+| --- | --- | --- |
+| `doctor_run {rules?, base?, offline?}` | yes | The doctor's findings (rule, level, file, line, message) with each one's fix, at most 150. |
+| `doctor_explain {rule}` | yes | What a rule checks, where it comes from (built in, a package, the app's patterns), what to use instead, and the fixes that cover it. |
+| `settings_catalogue {package?}` | yes | Every setting the installed packages declare: type, defaults by preset, scope, bounds, `requires`, and the secret it needs, by name. |
+| `settings_get {keys?}` | yes | Each setting's resolved value and its source (default, preset, file, and a lock), the problems, and the secrets the settings need: name, store and `set`, `missing` or `unknown`, never a value. |
+| `upgrades_status {offline?}` | yes | The installed release, npm's latest, how far behind, and advisories (as [genesis-behind](#genesis-behind) reads them). |
+| `catalog_search {need}` | yes | What Genesis has for a need, from `genesis catalog`. |
+| `fix_plan {fixId \| rule, file?, subject?}` | yes | The fix's plan (as `genesis fix --plan`: files with the hash of the text each expects and their new content, commands, secrets by name, what is left to a person) and its hash. Writes nothing. |
+| `settings_propose {key, value}` | yes | A plan that sets one key in `genesis.config.json` (checked against the catalogue; a locked value stays locked), and its hash. Writes nothing. |
+| `fix_apply {fixId, hash}` | no | Applies a plan from either, only after the person approves it. |
+
+**`fix_apply`** plans again and refuses a hash that no longer matches (the app changed), then asks
+the person through an MCP elicitation that shows the plan: what it writes, what it runs, what is
+left, and the hash. Only an accepted answer with "Apply this plan" ticked applies it, through the
+fix engine, which checks the hash and every file once more (a file edited while the person read
+the plan is refused). Nothing is written otherwise. One apply runs at a time.
+
+- A client without elicitation gets `genesis fix <id> --expect <hash>` instead, for the person to
+  run at a terminal (for a settings proposal, the key and value to set by hand).
+- A fix that needs a secret (a command fed one on stdin), or a guided fix with a wizard step, never
+  runs over MCP: it returns `genesis fix <id>` for the person to run at a terminal, and the step's
+  id. `genesis setup --step <id>`, and a `setup_steps` tool listing the steps, arrive with the setup
+  wizard; until then the command is `genesis fix <id>`.
+- The approval shows a proposed setting's value in full and each file's changed lines (up to
+  12,000 characters; past that it says how to read the rest). A message too long to show whole is
+  refused, never cut.
+- `upgrade.release` runs the package manager attached to the terminal, so it returns its
+  `genesis fix` command too.
+
+**Secrets and size.** A setting names its secret and never holds it. `settings_get` reports a
+`server-env` secret as set or missing from the server's own environment (only whether it is
+there), and the other stores as `unknown`; it reads no `.env` file. Every result and error is
+scrubbed of the values of secret-looking environment variables (`*_TOKEN`, `*_KEY`, `*SECRET*`,
+`DATABASE_URL`, …) and of the settings' declared secrets (also as JSON escapes them), of URL
+passwords, and of secret-shaped literals (a private key block, GitHub, Slack, Stripe, `sk-`, AWS
+and JWT tokens) wherever they appear, a planned file's content included; a planned file's
+content is shown up to 8,000 characters (the hash covers all of it); a result is at most 60,000
+characters. Errors are MCP errors with a message, never a stack.
+
+| Option | |
+| --- | --- |
+| `-d, --dir <dir>` | The app's folder (default: cwd). |
+| `-c, --config <path>` | The doctor's config file, as for `genesis doctor`. |
+| `--offline` | `genesis-behind` and `upgrades_status` read only their cache. |
+
+Logs go to stderr; stdout is the protocol's. While it serves, every child process gets a safe
+stdio: stdin ignored and stdout sent to stderr, so nothing a fix runs can write into the protocol.
+
 ## genesis figma:routes
 
 A read-only check that an app's Figma app file covers its routes, so CI reports the drift and an

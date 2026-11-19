@@ -10,7 +10,8 @@
  *   npx @marktiderman/genesis-cli doctor [--strict] [--json] [--build] [--config <path>] [--base <ref>] [--offline]
  *   npx @marktiderman/genesis-cli fix [rule|fixId] [--plan] [--yes] [--expect <hash>] [--json] [--offline]
  *   npx @marktiderman/genesis-cli primitives [--json]
- *   npx @marktiderman/genesis-cli agents [--check]
+ *   npx @marktiderman/genesis-cli agents [--check] [--hooks] [--mcp]
+ *   npx @marktiderman/genesis-cli mcp [--offline]
  *   npx @marktiderman/genesis-cli features build|check|find [--registry <file>] [--flags-file <file>]
  *   npx @marktiderman/genesis-cli init <app> --template native [--bundle-id <id>] [--scheme <s>] [--without <switches>] [--beside <web-app>]
  *   npx @marktiderman/genesis-cli add <block> [--dry-run] [--yes] [--no-install]
@@ -333,8 +334,9 @@ program
   .option("--batch <pattern>", "With --rules: the branch pattern staging batches use in workflow filters", "staging/**")
   .option("--hooks", "Also write the agent hooks into .claude/settings.json: the Genesis rules for Explore and Plan subagents, and deny rules for secret files", false)
   .option("--hook <name>", "Run as a Claude Code hook and print its output (subagent-start); never fails")
+  .option("--mcp", "Also write the genesis mcp server's entry into .mcp.json (other servers are kept); with --check, check it", false)
   .option("-d, --dir <dir>", "The app's folder", process.cwd())
-  .action(async (opts: { check: boolean; rules: boolean; batch: string; dir: string; hooks: boolean; hook?: string }) => {
+  .action(async (opts: { check: boolean; rules: boolean; batch: string; dir: string; hooks: boolean; hook?: string; mcp: boolean }) => {
     const root = path.resolve(opts.dir);
     if (opts.hook) {
       // A hook must never break the session: any failure prints nothing and exits 0.
@@ -375,6 +377,12 @@ program
       // A CLAUDE.md that doesn't import AGENTS.md is the app's own choice (the doctor reports it as info), so it doesn't fail the check.
       const bad: [string, string][] = Object.entries(state).filter(([k, v]) => v !== "ok" && !(k === "claude" && v === "no-import"));
       if (doctor.agentHooksState(root) === "stale") bad.push([doctor.SETTINGS_PATH, "has an older Genesis hook"]);
+      const mcpState = opts.mcp ? (await import("./mcp/config.js")).mcpJsonState(root) : "ok";
+      if (mcpState !== "ok") {
+        console.error(`✗ .mcp.json ${mcpState === "missing" ? "is missing" : mcpState === "invalid" ? "can't be read as a JSON object" : "has no current genesis entry"}. Run \`genesis agents --mcp\` and commit the result.`);
+        process.exitCode = 1;
+        if (!bad.length) return;
+      }
       if (bad.length) {
         const guideBad = bad.some(([k]) => k !== doctor.SETTINGS_PATH && k !== "claude");
         const fix = [
@@ -390,8 +398,32 @@ program
       return;
     }
     // Settings are only written with --hooks: they're the app's own, so an older hook is flagged (doctor, --check), not rewritten.
-    const changed = [...doctor.writeAgentGuide(root, packages), ...(opts.hooks ? doctor.writeAgentHooks(root) : [])];
+    // .mcp.json is the app's own too: written only with --mcp, merged (every other server kept).
+    let mcpFiles: string[] = [];
+    if (opts.mcp) {
+      const { McpJsonError, writeMcpJson } = await import("./mcp/config.js");
+      try {
+        mcpFiles = writeMcpJson(root);
+      } catch (err) {
+        if (!(err instanceof McpJsonError)) throw err;
+        console.error(`✗ ${err.message}`);
+        process.exitCode = 1;
+        return;
+      }
+    }
+    const changed = [...doctor.writeAgentGuide(root, packages), ...(opts.hooks ? doctor.writeAgentHooks(root) : []), ...mcpFiles];
     console.log(changed.length ? `✔ Wrote ${changed.join(", ")}` : "= The agent guide is up to date.");
+  });
+
+program
+  .command("mcp")
+  .description("Serve the doctor, the settings and fix plans as MCP tools over stdio, for an agent session (genesis agents --mcp writes the .mcp.json entry). Every change is a plan the person approves; secrets are never shown")
+  .option("-c, --config <path>", "Config file (default: genesis.config.json, then package.json \"genesis\")")
+  .option("-d, --dir <dir>", "The app's folder", process.cwd())
+  .option("--offline", "Don't reach npm or the advisory endpoints (genesis-behind and upgrades_status read only the cache)", false)
+  .action(async (opts: { config?: string; dir: string; offline: boolean }) => {
+    const { runMcpStdio } = await import("./mcp/server.js");
+    await runMcpStdio({ root: path.resolve(opts.dir), network: networkOn(opts.offline), ...(opts.config ? { configPath: opts.config } : {}) });
   });
 
 const features = program
