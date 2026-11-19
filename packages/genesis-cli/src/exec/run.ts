@@ -20,6 +20,13 @@ import * as path from "node:path";
 export const ALLOWED_TOOLS = ["supabase", "gh", "eas", "npx", "git", "npm", "pnpm", "yarn", "bun"] as const;
 export type AllowedTool = (typeof ALLOWED_TOOLS)[number];
 
+/** The variables a tool signs in with, passed through when the developer set them (never a secret being set: those go on stdin). */
+export const TOOL_AUTH_ENV: Readonly<Record<string, readonly string[]>> = {
+  gh: ["GH_TOKEN", "GITHUB_TOKEN", "GH_HOST", "GH_ENTERPRISE_TOKEN"],
+  supabase: ["SUPABASE_ACCESS_TOKEN", "SUPABASE_DB_PASSWORD"],
+  eas: ["EXPO_TOKEN"],
+};
+
 /** What every child gets from the parent's environment. */
 const BASE_ENV = [
   "PATH", "HOME", "USER", "LOGNAME", "LANG", "LC_ALL", "TMPDIR", "TEMP", "TMP", "SYSTEMROOT", "APPDATA", "LOCALAPPDATA", "PATHEXT", "ComSpec",
@@ -38,6 +45,8 @@ export interface RunToolOptions {
   env?: Readonly<Record<string, string>>;
   /** Kill the child after this long. Default 10 minutes. */
   timeoutMs?: number;
+  /** Each chunk of output as it arrives (the secret vault's redactingRunner redacts it line by line). */
+  onOutput?: (chunk: string, stream: "stdout" | "stderr") => void;
 }
 
 export interface RunToolResult {
@@ -126,8 +135,14 @@ export const runTool: ToolRunner = (tool, args, options) => {
     });
     let stdout = "";
     let stderr = "";
-    child.stdout.setEncoding("utf8").on("data", (d: string) => (stdout += d));
-    child.stderr.setEncoding("utf8").on("data", (d: string) => (stderr += d));
+    child.stdout.setEncoding("utf8").on("data", (d: string) => {
+      stdout += d;
+      options.onOutput?.(d, "stdout");
+    });
+    child.stderr.setEncoding("utf8").on("data", (d: string) => {
+      stderr += d;
+      options.onOutput?.(d, "stderr");
+    });
     child.on("error", reject);
     child.on("close", (code) => resolve({ code, stdout, stderr }));
     child.stdin.on("error", () => {}); // a tool that exits without reading stdin

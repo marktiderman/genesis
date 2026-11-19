@@ -16,6 +16,7 @@ import type { Finding } from "../doctor/types.js";
 import { applyPlan, planFix } from "./engine.js";
 import { allFixes, type BuiltinDeps } from "./registry.js";
 import type { Fix, FixContext, FixPlan } from "./types.js";
+import { SecretVault } from "../exec/secret-vault.js";
 
 export interface FixCommandOptions {
   root: string;
@@ -34,6 +35,11 @@ export interface FixCommandIo {
   err: (line: string) => void;
   /** Ask the person; absent when there's no terminal (then only --yes applies). */
   confirm?: (question: string) => Promise<boolean>;
+  /**
+   * Ask for a secret's value without echoing it (a terminal only). Default: a hidden prompt when
+   * `confirm` is given and stdin is a terminal; absent, a plan that needs a secret is refused.
+   */
+  promptSecret?: (name: string, question: string) => Promise<string>;
   /** Test seams for the built-in fixes. */
   deps?: BuiltinDeps;
   /** Test seam: the doctor run (default runDoctor). */
@@ -56,9 +62,12 @@ function describePlan(fix: Fix, plan: FixPlan): string[] {
   return lines;
 }
 
-export async function runFixCommand(options: FixCommandOptions, io: FixCommandIo): Promise<number> {
+export async function runFixCommand(options: FixCommandOptions, rawIo: FixCommandIo): Promise<number> {
+  // Values typed in for this run live here only; everything printed is redacted against them.
+  const vault = new SecretVault();
+  const io: FixCommandIo = { ...rawIo, out: (l) => rawIo.out(vault.redact(l)), err: (l) => rawIo.err(vault.redact(l)) };
   try {
-    return await fixCommand(options, io);
+    return await fixCommand(options, io, vault);
   } catch (err) {
     // The doctor couldn't run (a bad config): the CLI exits 2 for it.
     if (err instanceof GenesisConfigError) throw err;
@@ -66,10 +75,19 @@ export async function runFixCommand(options: FixCommandOptions, io: FixCommandIo
     if (options.json) io.out(JSON.stringify({ ok: false, error: message }, null, 2));
     else io.err(`✗ ${message}`);
     return 1;
+  } finally {
+    vault.clear();
   }
 }
 
-async function fixCommand(options: FixCommandOptions, io: FixCommandIo): Promise<number> {
+async function defaultPrompt(io: FixCommandIo): Promise<FixCommandIo["promptSecret"]> {
+  if (io.promptSecret) return io.promptSecret;
+  if (!io.confirm || !process.stdin.isTTY) return undefined;
+  const { promptHidden } = await import("../exec/prompt-secret.js");
+  return (_name, question) => promptHidden(question);
+}
+
+async function fixCommand(options: FixCommandOptions, io: FixCommandIo, vault: SecretVault): Promise<number> {
   const network = options.network ?? true;
   const doctor = io.doctor ?? ((o) => runDoctor({ root: o.root, ...(o.configPath ? { configPath: o.configPath } : {}), network: o.network }));
   const { findings } = await doctor({ root: options.root, ...(options.configPath ? { configPath: options.configPath } : {}), network });
@@ -157,8 +175,26 @@ async function fixCommand(options: FixCommandOptions, io: FixCommandIo): Promise
       results.push({ id: fix.id, kind: fix.kind, plan, applied: false });
       continue;
     }
+    const missing = plan.secrets.filter((name) => !vault.has(name));
+    if (missing.length) {
+      const prompt = await defaultPrompt(io);
+      if (!prompt) {
+        io.err(`✗ ${fix.id} needs ${missing.join(", ")}: run genesis fix ${fix.id} at a terminal, where it asks for ${missing.length === 1 ? "the value" : "each value"} without showing it (a value is never taken from a flag or a file). Nothing was written.`);
+        results.push({ id: fix.id, kind: fix.kind, plan, applied: false, refused: "secrets", secrets: missing });
+        code = 1;
+        continue;
+      }
+      try {
+        for (const name of missing) vault.set(name, (await prompt(name, `${name} (hidden; Enter when done): `)).trim());
+      } catch (err) {
+        io.err(`✗ ${fix.id}: ${(err as Error).message}. Nothing was written.`);
+        results.push({ id: fix.id, kind: fix.kind, plan, applied: false, refused: "secrets" });
+        code = 1;
+        continue;
+      }
+    }
     try {
-      const applied = await applyPlan(fix, plan, ctx, { expect: options.expect ?? plan.hash });
+      const applied = await applyPlan(fix, plan, { ...ctx, secrets: vault }, { expect: options.expect ?? plan.hash });
       results.push({ id: fix.id, kind: fix.kind, plan: applied.plan, applied: true, written: applied.written, ran: applied.ran, notes: applied.notes, verify: { ok: applied.verify.ok, message: applied.verify.message, remaining: applied.verify.remaining?.length ?? 0 } });
       if (!options.json) {
         if (applied.written.length) io.out(`✔ Wrote ${applied.written.join(", ")}`);
@@ -175,6 +211,6 @@ async function fixCommand(options: FixCommandOptions, io: FixCommandIo): Promise
       code = 1;
     }
   }
-  if (options.json) io.out(JSON.stringify({ target, fixes: results }, null, 2));
+  if (options.json) io.out(JSON.stringify(vault.redactJson({ target, fixes: results }), null, 2));
   return code;
 }

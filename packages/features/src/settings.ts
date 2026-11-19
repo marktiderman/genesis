@@ -98,6 +98,11 @@ export interface SettingSpec<K extends SettingType = SettingType> {
   flag?: string;
   /** One line for the Settings screen and the agent. */
   summary?: string;
+  /**
+   * The guided setup step that configures it, when it needs an outside service (`github.issues`):
+   * `genesis setup --step <id>`. The doctor's `setup-incomplete` names it while the key is unset.
+   */
+  setup?: string;
 }
 
 /** A declared key with its namespace folded in and its defaults filled. @stability Beta */
@@ -122,6 +127,7 @@ export interface SettingDef {
   readonly feature?: string;
   readonly flag?: string;
   readonly summary?: string;
+  readonly setup?: string;
 }
 
 /** What {@link defineSettings} returns: one package's keys. @stability Beta */
@@ -143,7 +149,9 @@ const KEY = /^[a-z][a-zA-Z0-9]*$/;
 /** A full key: `namespace.key`, or `namespace.group.key` is not allowed (one level). */
 export const SETTING_KEY = /^[a-z][a-zA-Z0-9]*(?:-[a-z0-9]+)*\.[a-z][a-zA-Z0-9]*$/;
 const SECRET_NAME = /^[A-Z][A-Z0-9_]*$/;
-const SPEC_KEYS = new Set(["type", "default", "scope", "applies", "requires", "min", "max", "options", "needs", "store", "feature", "flag", "summary"]);
+/** A setup step id: `github.issues`, `ai.key-budget`. */
+export const SETUP_STEP_ID = /^[a-z][a-z0-9-]*(?:\.[a-z0-9][a-z0-9-]*)*$/;
+const SPEC_KEYS = new Set(["type", "default", "scope", "applies", "requires", "min", "max", "options", "needs", "store", "feature", "flag", "summary", "setup"]);
 const SCOPES: readonly SettingScope[] = ["app", "tenant", "person"];
 const APPLIES: readonly SettingApplies[] = ["build", "runtime"];
 const STORES: readonly SecretStore[] = ["vault", "edge", "server-env", "ci"];
@@ -252,6 +260,7 @@ function defineKey(namespace: string, name: string, spec: SettingSpec): SettingD
     const v = spec[link];
     if (v !== undefined && (typeof v !== "string" || !v.trim())) fail(`${link} must be a non-empty id`);
   }
+  if (spec.setup !== undefined && (typeof spec.setup !== "string" || !SETUP_STEP_ID.test(spec.setup))) fail(`setup must be a step id like "github.issues" (got ${JSON.stringify(spec.setup)})`);
   if (spec.feature !== undefined && spec.type !== "boolean") fail("switches a feature, so it must be a boolean");
   const byPreset = isPresetDefaults(spec.default);
   const defaults = byPreset
@@ -280,6 +289,7 @@ function defineKey(namespace: string, name: string, spec: SettingSpec): SettingD
     ...(spec.feature !== undefined ? { feature: spec.feature } : {}),
     ...(spec.flag !== undefined ? { flag: spec.flag } : {}),
     ...(spec.summary !== undefined ? { summary: spec.summary } : {}),
+    ...(spec.setup !== undefined ? { setup: spec.setup } : {}),
   };
   return Object.freeze(def);
 }

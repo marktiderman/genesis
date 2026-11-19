@@ -62,6 +62,10 @@ describe("defineSettings", () => {
     ]);
   });
 
+  it("keeps a key's setup step", () => {
+    expect(defineSettings("x", { repo: { type: "string", default: null, needs: "secret:GITHUB_TOKEN", setup: "github.issues" } }).keys["x.repo"].setup).toBe("github.issues");
+  });
+
   it.each([
     ["a bad namespace", () => defineSettings("Support", { a: { type: "boolean", default: true } }), /valid namespace/],
     ["no keys", () => defineSettings("x", {}), /at least one key/],
@@ -85,6 +89,7 @@ describe("defineSettings", () => {
     ["a bad store", () => defineSettings("x", { a: { type: "string", default: null, needs: "secret:A", store: "disk" as never } }), /store "disk"/],
     ["a store without needs", () => defineSettings("x", { a: { type: "string", default: null, store: "vault" } }), /no needs/],
     ["a feature link on a non-boolean", () => defineSettings("x", { a: { type: "string", default: null, feature: "chat" } }), /must be a boolean/],
+    ["a bad setup step id", () => defineSettings("x", { a: { type: "string", default: null, setup: "GitHub Issues" } }), /step id/],
   ])("refuses %s", (_, define, message) => {
     expect(define).toThrow(SettingsError);
     expect(define).toThrow(message);
