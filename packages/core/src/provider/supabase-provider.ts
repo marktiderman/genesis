@@ -1898,6 +1898,17 @@ export function createSupabaseProvider(
         }
       } else {
         assertTableWrite(resource, "update");
+        // Read from a view, the record carries the view's columns (a count, a joined name); the
+        // table's own are found by reading its row, which a declared provider does only with
+        // table.read. Without that or writeColumns, the update would send columns the table hasn't.
+        const config = configFor(resource);
+        if (config.source !== undefined && !config.writeColumns && !tableAllowed(resource, "read")) {
+          throw new DataWriteError(
+            "error",
+            `[SupabaseProvider] "${resource}" updates its table but reads ${typeof config.source === "string" ? config.source : `${config.source.rpc}()`}. ` +
+              `Name the table's columns with \`writeColumns\`, or declare \`table: { read: true, … }\` (docs/DATA-ACCESS.md).`,
+          );
+        }
         let query = from(resource).update(row).eq("id", id);
         if (expected !== undefined) query = query.eq(version!.field, expected);
         // Only the key (and the version) come back: the record is read the way the resource reads.

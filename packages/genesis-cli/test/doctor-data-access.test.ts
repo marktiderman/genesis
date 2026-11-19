@@ -201,3 +201,39 @@ describe("data-access rules: what isn't theirs", () => {
     expect(found.map((f) => f.subject)).toEqual(["archive_task", "list_reports"]);
   });
 });
+
+describe("data-access rules: the options a provider really gets", () => {
+  it("counts only access said by the options object itself, not one nested in it", async () => {
+    const found = await only("data/declared-access", {
+      "src/lib/a.ts": 'export const a = createSupabaseProvider(supabase, { resources: { t: { writes: { create: { fn: "f", args: () => ({ access: "declared" }) } } } } });',
+      "src/lib/b.ts": 'const options = { resources: { t: { args: () => ({ access: "declared" }) } } };\nexport const b = createSupabaseProvider(supabase, options);',
+      "src/lib/c.ts": 'export const c = createSupabaseProvider(supabase, { access: "declared", resources: {} });',
+    });
+    expect(found.map((f) => f.file).sort()).toEqual(["src/lib/a.ts", "src/lib/b.ts"]);
+  });
+
+  it("doesn't trust an options object set again or changed after it says declared", async () => {
+    const found = await only("data/declared-access", {
+      "src/lib/let.ts": 'let options = { access: "declared" };\noptions = { access: "open" };\nexport const p = createSupabaseProvider(supabase, options);',
+      "src/lib/mutated.ts": 'const options = { access: "declared" };\noptions.access = "open";\nexport const p = createSupabaseProvider(supabase, options);',
+      "src/lib/assigned.ts": 'const options = { access: "declared" };\nObject.assign(options, { access: "open" });\nexport const p = createSupabaseProvider(supabase, options);',
+      "src/lib/kept.ts": 'let options = { access: "declared" };\nif (options === other) log();\nexport const p = createSupabaseProvider(supabase, options);',
+    });
+    expect(found.map((f) => f.file).sort()).toEqual(["src/lib/assigned.ts", "src/lib/let.ts", "src/lib/mutated.ts"]);
+  });
+
+  it("credits only the fn names an accessRules call is given, not other objects in the test file", async () => {
+    const found = await only("data/access-rule-tests", {
+      "src/lib/declared.ts": DECLARED,
+      "test/access.test.ts": [
+        'const unrelated = { fn: "archive_task" };',
+        'const save = { fn: "save_task", allowed: ["owner"], refused: ["stranger"] };',
+        'for (const c of accessRules({ fn: "create_task", as, args, allowed: ["owner"], refused: ["stranger"] })) test(c.name, c.run);',
+        "for (const c of accessRules({ ...save, as, args })) test(c.name, c.run);",
+        'const rpcs = [{ fn: "list_reports", allowed: ["owner"], refused: ["stranger"] }];',
+        "for (const spec of rpcs) for (const c of accessRules({ ...spec, as, args })) test(c.name, c.run);",
+      ].join("\n"),
+    });
+    expect(found.map((f) => f.subject)).toEqual(["archive_task"]);
+  });
+});

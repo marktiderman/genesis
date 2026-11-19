@@ -171,6 +171,21 @@ describe("row and bulk actions", () => {
     expect(screen.queryAllByTestId("resource-row-menu-finish")).toEqual([]);
   });
 
+  it("runs a provider action at the version the row was read at", async () => {
+    // @feat:declared-data-access
+    const runAction = vi.fn(async () => ({ data: null }));
+    const capabilities = vi.fn(
+      async (_resource?: string) =>
+        ({ search: true, sort: true, filterOperators: [], bulkWrites: false, versionedWrites: true, compositeKeys: false, actions: true, version: { field: "hours", kind: "integer" } }) as ProviderCapabilities,
+    );
+    render(<ResourceView view={view} />, { wrapper: wrap(provider({ runAction, capabilities })) });
+    await screen.findByText("Ship it");
+    await waitFor(() => expect(capabilities).toHaveBeenCalled());
+    for (const name of ["Write the plan", "Ship it"]) fireEvent.click(screen.getByLabelText(`Select ${name}`));
+    fireEvent.click(await screen.findByTestId("bulk-finish"));
+    await waitFor(() => expect(runAction).toHaveBeenCalledWith("tasks", { id: "a", action: "finish", expectedVersion: "2" }));
+  });
+
   it("selects a range with Shift", async () => {
     render(<ResourceView view={view} />, { wrapper: wrap(provider({ runAction: vi.fn() })) });
     await screen.findByText("Tell people");

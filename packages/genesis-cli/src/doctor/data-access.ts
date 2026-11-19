@@ -10,14 +10,16 @@
  *     a named database function, which holds the access rule. A write that must stay on the table
  *     is recorded as an exception: an `allow` entry for this rule, with its reason.
  * - `data/access-rule-tests`: a database function a resource declares (`writes`, `actions`, a
- *   `source: { rpc }`) with no access-rule test: no `fn: "<name>"` in a test file that calls
- *   `accessRules` (in the call, or in a spec object it is given). The function holds who may call
+ *   `source: { rpc }`) with no access-rule test: no `accessRules` call in a test file given
+ *   `fn: "<name>"`, written in the call or in a spec it names (directly, spread, or through a
+ *   `for (… of specs)` loop over a list set in the same file). The function holds who may call
  *   it, so a test proves who is allowed and who is refused. Resources are read from files that
  *   configure the Supabase provider (they name `createSupabaseProvider`, `SupabaseResourceConfig`
  *   or `SupabaseProviderOptions`), so another `actions: {…}` (a labels object) is not taken for one.
  *
- * A provider's options are read where the call writes them, or from a `const` in the same file
- * that the call names (`createSupabaseProvider(client, options)`).
+ * A provider's options are read where the call writes them, or from an object set in the same
+ * file that the call names (`createSupabaseProvider(client, options)`), unless the file sets it
+ * again or changes its `access`. Only the options object's own `access` counts.
  *
  * Tests, migrations and Edge Functions (`supabase/`) aren't checked for table writes: a test sets
  * up its rows, and the database's own code is the database's.
@@ -159,30 +161,86 @@ export function testedFunctions(root: string): Set<string> {
     }
     if (!code.includes("accessRules")) continue;
     const blank = blankStrings(code);
-    if (!/\baccessRules\s*(?:<[^>]*>)?\s*\(/.test(blank)) continue;
-    // Every `fn: "…"` in the file: in the call itself, or in spec objects the file gives it
-    // (`const specs = [{ fn: "a", … }]; for (const s of specs) accessRules({ ...s, as })`).
-    for (const m of code.matchAll(/(?:^|[\s{,])fn\s*:\s*(["'`])([A-Za-z_][\w.]*)\1/g)) {
-      const at = (m.index ?? 0) + m[0].indexOf("fn");
-      if (blank[at] === "f") out.add(m[2]!);
+    for (const m of blank.matchAll(/\baccessRules\s*(?:<[^>]*>)?\s*\(/g)) {
+      const call = balanced(code, (m.index ?? 0) + m[0].length - 1);
+      // The `fn` the call is given: written in it, or in a spec it names, directly or through a
+      // loop over a list of specs (`for (const s of specs) accessRules({ ...s, as })`).
+      for (const name of fnNames(call)) out.add(name);
+      for (const name of specsNamedIn(code, blank, call)) for (const fn of fnNames(name)) out.add(fn);
     }
   }
   return out;
 }
 
-const declaresAccess = (text: string) => /\baccess\s*:\s*(["'`])declared\1/.test(text);
+/** Every `fn: "…"` written in `text` (strings outside it are not names). */
+function fnNames(text: string): string[] {
+  const blank = blankStrings(text);
+  const out: string[] = [];
+  for (const m of text.matchAll(/(?:^|[\s{,])fn\s*:\s*(["'`])([A-Za-z_][\w.]*)\1/g)) {
+    const at = (m.index ?? 0) + m[0].indexOf("fn");
+    if (blank[at] === "f") out.push(m[2]!);
+  }
+  return out;
+}
+
+/** The `[…]` or `{…}` a `const`/`let`/`var` named `name` is set to in the file, or "". */
+function initializer(code: string, blank: string, name: string): { text: string; keyword: string; at: number } | null {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const decl = new RegExp(`\\b(const|let|var)\\s+${escaped}(?![\\w$])[^=;]*=\\s*[[{]`).exec(blank);
+  if (!decl) return null;
+  const text = balanced(code, decl.index + decl[0].length - 1);
+  return text ? { text, keyword: decl[1]!, at: decl.index } : null;
+}
 
 /**
- * Whether a `createSupabaseProvider(client, options)` call names a `const` from the same file
- * whose object says `access: "declared"`.
+ * The spec objects or lists an `accessRules(…)` call names: an identifier in it set in this file to
+ * an object or list, or the list a `for (… of list)` loop takes that identifier from.
+ */
+function specsNamedIn(code: string, blank: string, call: string): string[] {
+  const out: string[] = [];
+  const names = new Set([...blankStrings(call).matchAll(/(?:(?<=\.\.\.)|(?<![\w$.]))([A-Za-z_$][\w$]*)(?![\w$]*\s*:)/g)].map((m) => m[1]!));
+  for (const name of names) {
+    const own = initializer(code, blank, name);
+    if (own) out.push(own.text);
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    for (const loop of blank.matchAll(new RegExp(`\\bfor\\s*\\(\\s*(?:const|let|var)\\s+${escaped}\\s+of\\s+([A-Za-z_$][\\w$]*)`, "g"))) {
+      const list = initializer(code, blank, loop[1]!);
+      if (list) out.push(list.text);
+    }
+  }
+  return out;
+}
+
+/** Whether the object `{…}` says `access: "declared"` itself, not in an object nested in it. */
+const objectDeclares = (object: string) => namesIn(object, /access/).some((p) => p.name === "declared");
+
+/** Whether a `createSupabaseProvider(…)` call's options object, written in the call, says `access: "declared"`. */
+function inlineDeclares(call: string): boolean {
+  const blank = blankStrings(call);
+  let depth = 0;
+  for (let i = 0; i < blank.length; i++) {
+    const ch = blank[i];
+    if (ch === "{" && depth === 1 && objectDeclares(balanced(call, i))) return true;
+    if (ch === "{" || ch === "(" || ch === "[") depth++;
+    else if (ch === "}" || ch === ")" || ch === "]") depth--;
+  }
+  return false;
+}
+
+/**
+ * Whether a `createSupabaseProvider(client, options)` call names an object set in this file that
+ * says `access: "declared"`, and nothing in the file sets it again or changes its `access`.
  */
 function optionsConstDeclares(code: string, blank: string, call: string): boolean {
   const args = blankStrings(call).slice(1, -1);
   for (const [, name] of args.matchAll(/(?:^|,)\s*([A-Za-z_$][\w$]*)\s*(?=,|$)/g)) {
+    const found = initializer(code, blank, name!);
+    if (!found || !found.text.startsWith("{") || !objectDeclares(found.text)) continue;
     const escaped = name!.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const decl = new RegExp(`\\b(?:const|let|var)\\s+${escaped}(?![\\w$])[^=]*=\\s*\\{`).exec(blank);
-    if (!decl) continue;
-    if (declaresAccess(balanced(code, decl.index + decl[0].length - 1))) return true;
+    // Set again (a `let` or `var`), its `access` changed, or merged into: what the call gets is no longer known.
+    const reassigned = found.keyword !== "const" && new RegExp(`(?<![\\w$.])${escaped}\\s*=(?!=)`, "g").test(blank.slice(found.at + found.keyword.length + 1 + name!.length));
+    const changed = new RegExp(`(?<![\\w$.])${escaped}\\s*(?:\\.\\s*access|\\[[^\\]]*\\])\\s*=(?!=)|Object\\.assign\\(\\s*${escaped}(?![\\w$])`).test(blank);
+    if (!reassigned && !changed) return true;
   }
   return false;
 }
@@ -194,7 +252,7 @@ export function checkDataAccess(ctx: DoctorContext): void {
     const blank = blankStrings(file.code);
     for (const m of blank.matchAll(/\bcreateSupabaseProvider\s*\(/g)) {
       const call = balanced(file.code, (m.index ?? 0) + m[0].length - 1);
-      if (declaresAccess(call) || optionsConstDeclares(file.code, blank, call)) continue;
+      if (inlineDeclares(call) || optionsConstDeclares(file.code, blank, call)) continue;
       ctx.report({
         rule: "data/declared-access",
         level: "warn",

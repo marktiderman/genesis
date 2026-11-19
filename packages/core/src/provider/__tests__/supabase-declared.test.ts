@@ -317,10 +317,23 @@ describe("a declared provider never reads a table it hasn't declared", () => {
     queue.push(ok([{ id: "t1" }]), ok([{ id: "t1", title: "x" }]));
     await provider({
       access: "declared",
-      resources: { tasks: { source: "v_tasks", table: { write: ["update"], why: "Bulk renames." } } },
-    }).update("tasks", { id: "t1", data: { title: "x" } });
+      resources: { tasks: { source: "v_tasks", writeColumns: ["title"], table: { write: ["update"], why: "Bulk renames." } } },
+    }).update("tasks", { id: "t1", data: { title: "x", assignee_count: 2 } });
     expect(call("from")).toEqual([["tasks"], ["v_tasks"]]);
+    expect(call("update")).toEqual([[{ title: "x" }]]);
     expect(call("select")[0]).toEqual(["id"]);
+  });
+
+  it("refuses a table update over a view with neither table.read nor writeColumns: it can't tell the table's columns", async () => {
+    const err = await writeFailure(
+      provider({
+        access: "declared",
+        resources: { tasks: { source: "v_tasks", table: { write: ["update"], why: "Bulk renames." } } },
+      }).update("tasks", { id: "t1", data: { title: "x", assignee_count: 2 } }),
+    );
+    expect(err.message).toContain('"tasks" updates its table but reads v_tasks');
+    expect(err.message).toContain("writeColumns");
+    expect(calls).toEqual([]);
   });
 
   it("a write-only resource is never read: a create reports what it sent", async () => {

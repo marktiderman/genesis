@@ -55,7 +55,8 @@ After a create or update the provider reads the record back through the resource
 resource that declares no read (a write-only one) is never read: a write reports what it sent,
 a null answer can't be told apart (refused, gone or changed first) and says so, and it gets no
 realtime channel. An update on a declared provider reads the table's row for its columns only
-when `table.read` is declared; otherwise name them with `writeColumns`.
+when `table.read` is declared; a table update over a view `source` without `table.read` needs
+`writeColumns`, or it is refused (the view's own columns would go to the table).
 
 ## Write functions
 
@@ -144,7 +145,7 @@ least one allowed and one refused person.
 | Rule | Reports |
 |---|---|
 | `data/declared-access` | a `createSupabaseProvider(…)` call without `access: "declared"` (in its options, or in a `const` in the same file that it names); a table write in app code (`.from("t").insert/update/upsert/delete(…)`) outside tests and `supabase/`. A direct write that must stay is an `allow` entry for this rule, with its reason. |
-| `data/access-rule-tests` | a declared function that no test file calling `accessRules` names as `fn: "…"` (in the call, or in a spec object the file passes it). Resources are read from files that configure the provider (they name `createSupabaseProvider`, `SupabaseResourceConfig` or `SupabaseProviderOptions`). |
+| `data/access-rule-tests` | a declared function no `accessRules` call in a test file is given as `fn: "…"` (written in the call, or in a spec it names: directly, spread, or through a `for (… of specs)` loop over a list set in the same file). Resources are read from files that configure the provider (they name `createSupabaseProvider`, `SupabaseResourceConfig` or `SupabaseProviderOptions`). |
 
 Both warn; `--strict` fails on them, and `doctor.ratchet` holds new code to them while old code
 moves.

@@ -542,17 +542,26 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
   const provider = useDataProvider();
   const queryClient = useQueryClient();
   const viewer = useViewer();
-  const runAction = useCallback(
-    async (name: string, row: T) => {
-      if (onAction) await onAction(name, row);
-      else if (provider.runAction) await provider.runAction(view.resource, { id: recordKey(view as AnyResourceView<Row>, row), action: name });
-      await queryClient.invalidateQueries({ queryKey: resourceKeys(view.resource).all });
-    },
-    [onAction, provider, view, queryClient],
-  );
   // The provider runs this view's actions when it has a runner and doesn't say it serves none for
   // this resource (`capabilities().actions === false`).
   const actionCaps = useCapabilities(view.resource, { enabled: !onAction && !!provider.runAction });
+  const runAction = useCallback(
+    async (name: string, row: T) => {
+      if (onAction) await onAction(name, row);
+      else if (provider.runAction) {
+        // At the version the row was read at, so a row changed since is a conflict.
+        const field = actionCaps.data?.version?.field;
+        const value = field ? (row as Record<string, unknown>)[field] : undefined;
+        await provider.runAction(view.resource, {
+          id: recordKey(view as AnyResourceView<Row>, row),
+          action: name,
+          ...(value == null ? {} : { expectedVersion: String(value) }),
+        });
+      }
+      await queryClient.invalidateQueries({ queryKey: resourceKeys(view.resource).all });
+    },
+    [onAction, provider, view, queryClient, actionCaps.data],
+  );
   const actionsOn = !!onAction || (!!provider.runAction && actionCaps.data?.actions !== false);
   const cancelWord = useNativeResourceViewMessages().common.cancel;
   const confirmAction = useCallback(

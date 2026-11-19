@@ -302,7 +302,7 @@ export const reasonOf = (allowed: true | string) => (allowed === true ? undefine
  * The actions a provider serves for the resource: all of them when it doesn't say. A provider whose
  * capabilities say it runs no actions for this resource (`actions: false`) runs none of them.
  */
-export function useServedActions(view: AnyView): { runnable: boolean; served: ReadonlySet<string> | null } {
+export function useServedActions(view: AnyView): { runnable: boolean; served: ReadonlySet<string> | null; versionField?: string } {
   const provider = useDataProvider();
   const capabilities = useCapabilities(view.resource, { enabled: !!provider.runAction && view.actions().length > 0 });
   const described = useQuery({
@@ -312,7 +312,8 @@ export function useServedActions(view: AnyView): { runnable: boolean; served: Re
     staleTime: Infinity,
   });
   const served = described.data?.actions ? new Set(described.data.actions.map((a) => a.name)) : null;
-  return { runnable: !!provider.runAction && capabilities.data?.actions !== false, served };
+  const versionField = capabilities.data?.version?.field;
+  return { runnable: !!provider.runAction && capabilities.data?.actions !== false, served, ...(versionField ? { versionField } : {}) };
 }
 
 interface Confirming {
@@ -353,7 +354,7 @@ export function useListActions<T extends Row>(
   const viewer = useViewer();
   const provider = useDataProvider();
   const queryClient = useQueryClient();
-  const { runnable, served } = useServedActions(view as AnyView);
+  const { runnable, served, versionField } = useServedActions(view as AnyView);
   const [confirming, setConfirming] = useState<Confirming | null>(null);
   const hide = options.refusals === "hide";
 
@@ -385,19 +386,27 @@ export function useListActions<T extends Row>(
   }, []);
   const refresh = useCallback(() => queryClient.invalidateQueries({ queryKey: resourceKeys(view.resource).all }), [queryClient, view.resource]);
   const idOf = useCallback((row: T) => encodeRecordKey(view.contract, row as T & DataRow), [view]);
+  // The provider runs an action at the version the row was read at, so a row changed since is a conflict.
+  const atVersion = useCallback(
+    (row: T): { expectedVersion?: string } => {
+      const value = versionField ? (row as Record<string, unknown>)[versionField] : undefined;
+      return value == null ? {} : { expectedVersion: String(value) };
+    },
+    [versionField],
+  );
 
   const runRow = useCallback(
     async (action: ResolvedViewAction, row: T) => {
       try {
         if (options.onRun) await options.onRun(action.name, row);
-        else await provider.runAction!(view.resource, { id: idOf(row), action: action.name });
+        else await provider.runAction!(view.resource, { id: idOf(row), action: action.name, ...atVersion(row) });
       } catch (error) {
         toast.error(error instanceof Error ? error.message : String(error));
       } finally {
         await refresh();
       }
     },
-    [options, provider, view.resource, idOf, refresh],
+    [options, provider, view.resource, idOf, atVersion, refresh],
   );
 
   const start = useCallback(
@@ -484,7 +493,7 @@ export function useListActions<T extends Row>(
               for (const r of allowed) {
                 try {
                   if (options.onRun) await options.onRun(a.name, r);
-                  else await provider.runAction!(view.resource, { id: idOf(r), action: a.name });
+                  else await provider.runAction!(view.resource, { id: idOf(r), action: a.name, ...atVersion(r) });
                   done += 1;
                 } catch (error) {
                   skipped.count += 1;
