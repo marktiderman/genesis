@@ -82,7 +82,9 @@ full history, which the doctor's supabase pack needs to compare migrations with 
 npm for the latest Genesis release and npm's advisory endpoint (or `gh`) about the installed
 `@marktiderman/genesis*` versions, at most once a day per checkout's `node_modules` cache. In CI
 (`CI` is set) being behind is at most a warning that never fails the run, `doctor-strict`
-included; an advisory of high or critical severity on an installed version is an error. To keep
+included. Advisories are security signals and aren't softened in CI: one of high or critical
+severity on an installed version is an error, and a lower-severity one is a warning, which fails
+`doctor-strict`. To keep
 the doctor offline, put `"network": false` in the doctor settings of `genesis.config.json`; to skip
 the rule entirely, `"rules": { "genesis-behind": "off" }`.
 

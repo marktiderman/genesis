@@ -1,5 +1,5 @@
 // @feat:doctor-fixes
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
@@ -450,6 +450,25 @@ describe("writes stay inside the app", () => {
     symlinkSync(outside, path.join(root, "d"));
     await expect(applyPlan(fix, plan, { root, findings: [] })).rejects.toThrow(/outside the app/);
     expect(existsSync(path.join(outside, "new.txt"))).toBe(false);
+  });
+});
+
+describe("file checks", () => {
+  it("names the path when it can't be checked (a file where a folder should be)", async () => {
+    const root = tmpApp({ "a.txt": "plain file" });
+    const fix = defineFix({ id: "test.notdir", kind: "auto", rules: ["r"], title: "t", plan: () => ({ summary: "s", files: [{ path: "a.txt/b.txt", beforeHash: null, content: "x", why: "x" }] }) });
+    const err = await planFix(fix, { root, findings: [] }).catch((e: unknown) => e as Error);
+    expect(err).toBeInstanceOf(FixError);
+    expect(err.message).toMatch(/can't check a\.txt\/b\.txt \(ENOTDIR\)/);
+  });
+
+  it("keeps an executable file executable", async () => {
+    const root = tmpApp({ "run.sh": "echo hi\n" });
+    chmodSync(path.join(root, "run.sh"), 0o755);
+    const fix = defineFix({ id: "test.exec", kind: "auto", rules: ["r"], title: "t", plan: (ctx) => ({ summary: "s", files: [{ path: "run.sh", beforeHash: sha256(read(ctx.root, "run.sh")), content: "echo bye\n", why: "x" }] }) });
+    await applyPlan(fix, await planFix(fix, { root, findings: [] }), { root, findings: [] });
+    expect(read(root, "run.sh")).toBe("echo bye\n");
+    expect(statSync(path.join(root, "run.sh")).mode & 0o777).toBe(0o755);
   });
 });
 

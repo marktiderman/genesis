@@ -19,10 +19,12 @@ reports), and `genesis-behind`: the installed `@marktiderman/genesis` release ag
 strict-failing warning further, a major or 90 days behind; in CI never failing) and a published
 advisory on an installed Genesis package (an error when high or critical, else a warning; npm's
 bulk advisory endpoint, `gh api /advisories` as a fallback or for a private registry), cached in
-`node_modules/.cache/genesis/behind.json` for a day (a failure for an hour), with a 20-second
-deadline. Only the Genesis packages' names and versions are sent.
+`node_modules/.cache/genesis/behind.json` for a day (a failure for an hour), with a deadline
+of about 20 seconds. Only the Genesis packages' names and versions are sent.
 
 **`genesis doctor` now reaches the network** in the CLI. To keep it offline: `--offline`,
 `npm_config_offline=true`, or `"network": false` in the doctor settings; `"rules": {
 "genesis-behind": "off" }` skips the rule. The Vite plugin never reaches it, and offline the rule
 reports what its cache last knew as one info finding. `doctor.network` is a new setting.
+
+`genesis-config-unknown-key` now adds "or upgrade @marktiderman/genesis-cli if this is a newer key".

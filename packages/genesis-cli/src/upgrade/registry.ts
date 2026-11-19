@@ -11,7 +11,7 @@
  *
  * The answer is cached in `node_modules/.cache/genesis/behind.json` for 24 hours, and a failed
  * check for an hour, so a registry that is down isn't asked on every run. The whole check has one
- * deadline (20 seconds by default). The network is injected and off unless asked for: the CLI turns
+ * deadline of about 20 seconds (each step still gets at least a second, and `gh auth status` up to 5). The network is injected and off unless asked for: the CLI turns
  * it on; the Vite plugin, tests, `--offline` and `doctor.network: false` don't, and then only the
  * cache is read.
  *

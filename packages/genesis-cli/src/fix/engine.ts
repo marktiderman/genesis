@@ -6,7 +6,7 @@
  * plan expects (`beforeHash`) before writing any, writes, runs the commands, then verifies.
  */
 import { createHash } from "node:crypto";
-import { existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, renameSync, rmdirSync, unlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, lstatSync, statSync, mkdirSync, readFileSync, realpathSync, renameSync, rmdirSync, unlinkSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 import { runTool, isAllowedTool, type ToolRunner } from "../exec/run.js";
 import type { Finding } from "../doctor/types.js";
@@ -80,7 +80,8 @@ export function checkTarget(root: string, abs: string, fixId: string): void {
     if (!st.isFile()) throw new FixError(`${fixId}: ${path.relative(root, abs)} isn't a file`);
   } catch (err) {
     if (err instanceof FixError) throw err;
-    if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code !== "ENOENT") throw new FixError(`${fixId}: can't check ${path.relative(root, abs)} (${code ?? (err as Error).message}); nothing was written there`, { cause: err });
   }
   let dir = path.dirname(abs);
   while (!existsSync(dir)) {
@@ -266,7 +267,9 @@ class Journal {
     }
     const before = readFileSync(abs, "utf8");
     const tmp = path.join(path.dirname(abs), `.${path.basename(abs)}.genesis-fix-${process.pid}-${Date.now()}`);
+    // The rewrite keeps the file's mode (an executable script stays executable).
     writeFileSync(tmp, file.content, { flag: "wx" });
+    chmodSync(tmp, statSync(abs).mode & 0o7777);
     try {
       // The last look: the file is still what the plan read.
       if (sha256(readFileSync(abs, "utf8")) !== file.beforeHash || sha256(before) !== file.beforeHash) throw new FileConflictError(`${file.path} changed while the fix was writing`);

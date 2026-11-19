@@ -1032,7 +1032,7 @@ How far the app's Genesis is behind, read from the installed `@marktiderman/gene
 endpoint for every installed `@marktiderman/genesis*` package (GitHub's advisory database through
 `gh api` when that can't be reached). The answer is cached in
 `node_modules/.cache/genesis/behind.json` for 24 hours, a failed check for an hour, and the whole
-check has a 20-second deadline.
+check has a deadline of about 20 seconds (each step still gets at least a second, and `gh auth status` up to 5).
 
 **What it sends:** only the names and installed versions of the `@marktiderman/genesis*`
 packages. When `.npmrc` (the app's or yours) or `npm_config_registry` points `@marktiderman` or

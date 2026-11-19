@@ -78,7 +78,7 @@ export function checkConfigKeys(ctx: DoctorContext): void {
       level: "warn",
       file: FILE,
       subject: key,
-      message: `"${key}" isn't a genesis.config.json setting, so nothing reads it${near ? `: did you mean "${near}"?` : ` (known: ${GENESIS_CONFIG_KEYS.filter((k) => !k.startsWith("$")).join(", ")})`}`,
+      message: `"${key}" isn't a genesis.config.json setting, so nothing reads it${near ? `: did you mean "${near}"?` : ` (known: ${GENESIS_CONFIG_KEYS.filter((k) => !k.startsWith("$")).join(", ")})`}; or upgrade @marktiderman/genesis-cli if this is a newer key`,
     });
   }
 }
