@@ -730,6 +730,50 @@ const state = await featureGateState(supabase, teamId); // per session; includes
 const snapshot = gateSnapshot({ features, flags }, { platform: "web", ...state }, { version: BUILD_TIME });
 ```
 
+## Settings (the settings block)
+
+`migrations/0020_genesis_settings.sql` is the database layer of Genesis settings (genesis-config's
+`resolveSettings`): runtime values platform admins change live, on top of the package defaults, the
+preset and genesis.config.json.
+
+- **`genesis_settings`**: a value per `namespace.key`, optionally `locked` (tenant and person values
+  can't change it). Every change goes to **`genesis_setting_changes`** (who, when, the old and new value
+  and lock, and from where: `admin`, `wizard`, `cli`, `central`, `server` or `database`), written only
+  by a trigger.
+- **`genesis_app_manifest`**: one row, what the app runs: its packages and versions, preset, file
+  settings and the settings catalogue. Write it with the service role on every deploy and at app start
+  (`writeAppManifest`). `set_genesis_setting` checks values against its catalogue (declared, runtime, the
+  right type, in bounds); until it is written, every write is refused.
+- **Who may change settings** is your hook, `private.genesis_platform_admin(person uuid) returns
+  boolean` (ADR 0003's platform zone). Without it nobody can (`42501`, with a hint): a fresh install
+  fails closed, as tenant features do.
+- **Reading.** `genesis_settings_layers()` gives any signed-in person (and server code) the layers,
+  not resolved values: the preset, the file settings for every declared key (build-time ones too:
+  they're committed config) and the database layer for runtime keys. The client resolves them with the
+  app's catalogue, so every platform agrees. No setting is a secret: a key names the secret it needs,
+  never its value.
+- **Checked writes.** `set_genesis_setting` refuses a key genesis.config.json locks, `null` for a key
+  with a default, and any key whose synced catalogue entry is malformed. JSON `null` (which PostgREST
+  passes as SQL null) means "not set".
+- **The history is evidence.** Nobody edits it; the service role can't delete it directly, only prune
+  rows older than a year with `genesis_prune_setting_changes(older_than)`.
+
+```ts
+import { resolveAppSettings, setGenesisSetting, writeAppManifest } from "@marktiderman/genesis-supabase";
+
+// On deploy, with the service role:
+await writeAppManifest(admin, { appId: "sample-app", packages, preset: "max", fileSettings, catalogue });
+
+// In the app, for any signed-in person:
+const settings = await resolveAppSettings(supabase, catalogue, { person: preferences });
+
+// A platform admin, from the Settings screen:
+await setGenesisSetting(supabase, { key: "support.dumpRetentionDays", value: 30, locked: true });
+```
+
+`clearGenesisSetting` removes a row (the layers below apply again) and `genesisSettingHistory` reads
+the history, both for platform admins. Tenant and person values aren't stored here yet.
+
 ## Background jobs (the jobs block)
 
 `migrations/0007_genesis_jobs.sql` is one queue for background work and one way to schedule it, so

@@ -183,6 +183,21 @@ export async function deleteMyAccount(client: DeleteAccountClient, options: Dele
   await client.auth.signOut({ scope: "local" });
 }
 export {
+  clearGenesisSetting,
+  genesisSettingHistory,
+  readSettingsLayers,
+  resolveAppSettings,
+  setGenesisSetting,
+  writeAppManifest,
+  type AppManifestInput,
+  type GenesisSettingChange,
+  type ManifestClient,
+  type ResolveAppSettingsOptions,
+  type SetGenesisSettingInput,
+  type SettingsClient,
+  type StoredSettingsLayers,
+} from "./settings";
+export {
   tenantFeatures,
   setTenantFeature,
   tenantFeatureSettings,
@@ -203,7 +218,7 @@ export {
   type FeatureRegistryDocument,
   type SyncFeatureRegistryOptions,
 } from "./feature-registry";
-export { accountBlock, eventsBlock, featureMirrorBlock, jobsBlock, tenantFeaturesBlock, versionedWritesBlock } from "./blocks";
+export { accountBlock, eventsBlock, featureMirrorBlock, jobsBlock, settingsBlock, tenantFeaturesBlock, versionedWritesBlock } from "./blocks";
 export {
   createAuthFormClient,
   fetchAuthSettings,

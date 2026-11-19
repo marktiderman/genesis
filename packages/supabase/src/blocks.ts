@@ -123,6 +123,24 @@ export const featureMirrorBlock = defineBlock({
 });
 
 /**
+ * The settings block: the database layer of Genesis settings (genesis-config's
+ * `resolveSettings`), its history and the app manifest, with platform admins
+ * changing runtime settings through `set_genesis_setting`.
+ *
+ * @stability Beta
+ */
+export const settingsBlock = defineBlock({
+  id: "settings",
+  platforms: ["web", "native"],
+  contributes: {
+    migrations: [{ package: PACKAGE, file: "migrations/0020_genesis_settings.sql", test: "migrations/tests/0020_genesis_settings.test.sql" }],
+    privacy: {
+      notes: ["Keeps who changed an app setting, when and from what to what; a deleted person's changes stay, without the person. No setting holds a secret."],
+    },
+  },
+});
+
+/**
  * The jobs block: a background-job queue and named schedules that call the
  * app's job route. Server only; the route is `createJobsHandler` from `/jobs`.
  *

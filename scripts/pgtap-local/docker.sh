@@ -3,7 +3,8 @@
 #   scripts/pgtap-local/docker.sh [suite …]
 set -u
 root=$(cd "$(dirname "$0")/../.." && pwd)
-name="genesis-pgtap-$(basename "$root" | tr -cd 'a-zA-Z0-9')"
+# One container per checkout: two worktrees with the same folder name must not share (or remove) one.
+name="genesis-pgtap-$(basename "$root" | tr -cd 'a-zA-Z0-9')-$(printf %s "$root" | cksum | cut -d' ' -f1)"
 docker rm -f "$name" >/dev/null 2>&1
 docker run -d --name "$name" -e POSTGRES_HOST_AUTH_METHOD=trust -v "$root:/repo:ro" postgres:17@sha256:31ba9c94a03ada9988f2bb493a22a75eef3a185884533e5cdbcd498ea835b08f >/dev/null || exit 1
 trap 'docker rm -f "$name" >/dev/null 2>&1' EXIT

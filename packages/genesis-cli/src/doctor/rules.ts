@@ -97,6 +97,9 @@ export const BUILTIN_RULES = [
   "lock-files",
   // an app whose database files live in another app (database.ts)
   "database-elsewhere",
+  // settings (settings.ts)
+  "invalid-setting",
+  "genesis-config-unknown-key",
   // the app's eslint config loads Genesis's lint rules (eslint-config.ts)
   "genesis-eslint-config",
   // custom views and app parts (custom-views.ts)

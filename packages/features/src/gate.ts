@@ -6,9 +6,10 @@
  *
  *   1. status       the feature has shipped (beta, live or deprecated)
  *   2. platform     it has shipped on this platform
- *   3. tenant       the tenant has not switched it off
- *   4. flag         each of its boolean release or permission flags is true
- *   5. entitlement  a paid feature (`access: { plan }`) has an active entitlement
+ *   3. setting      no setting switched it off (genesis-config settings, withSettings)
+ *   4. tenant       the tenant has not switched it off
+ *   5. flag         each of its boolean release or permission flags is true
+ *   6. entitlement  a paid feature (`access: { plan }`) has an active entitlement
  *
  * A feature that `requires` other features in the registry (a module's parts
  * require the module) is also off while any of them is off: after its own
@@ -53,7 +54,7 @@ export const SHIPPED_STATUSES: readonly FeatureStatus[] = [
  * @stability Beta
  */
 export type GateReason =
-  "unknown" | "status" | "platform" | "tenant" | "flag" | "entitlement";
+  "unknown" | "status" | "platform" | "setting" | "tenant" | "flag" | "entitlement";
 
 /**
  * The gate's answer for one feature. `unlock` is set when the reason is
@@ -119,6 +120,8 @@ export interface GateContext {
   entitlements?: IdSet;
   /** Feature ids the tenant switched off. */
   off?: IdSet;
+  /** Feature ids a setting switched off (`withSettings` fills it): answered with reason `setting`. */
+  settingsOff?: IdSet;
   /** Flag values for this tenant, by flag name. A missing flag has its default. */
   flags?:
     | { readonly [name: string]: FlagValue | undefined }
@@ -161,6 +164,7 @@ interface Prepared {
   context: GateContext;
   entitled: Test;
   off: Test;
+  settingsOff: Test;
 }
 
 function prepare(registry: GateRegistry, context: GateContext): Prepared {
@@ -169,11 +173,12 @@ function prepare(registry: GateRegistry, context: GateContext): Prepared {
     context,
     entitled: toTest(context.entitlements, "entitlements"),
     off: toTest(context.off, "off"),
+    settingsOff: toTest(context.settingsOff, "settingsOff"),
   };
 }
 
 function answer(prepared: Prepared, id: string, seen: ReadonlySet<string> = new Set()): GateAnswer {
-  const { registry, context, entitled, off } = prepared;
+  const { registry, context, entitled, off, settingsOff } = prepared;
   const def = Object.hasOwn(registry.features, id)
     ? registry.features[id]
     : undefined;
@@ -190,6 +195,7 @@ function answer(prepared: Prepared, id: string, seen: ReadonlySet<string> = new 
     const parent = answer(prepared, need, new Set([...seen, id]));
     if (!parent.on) return { ...parent, via: parent.via ?? need };
   }
+  if (settingsOff(id)) return { on: false, reason: "setting" };
   if (off(id)) return { on: false, reason: "tenant" };
   for (const [name, flag] of Object.entries(registry.flags ?? {})) {
     if (

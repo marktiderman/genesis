@@ -151,6 +151,38 @@ describe("the genesis-features → genesis-config codemod", () => {
   });
 });
 
+describe("a hand run (genesis codemod), with nothing installed", () => {
+  it("takes the genesis-config range the package.json already lists, for overrides too", async () => {
+    const root = app({
+      "package.json": JSON.stringify({ name: "app", dependencies: { "@marktiderman/genesis-features": "^0.11.0" }, devDependencies: { "@marktiderman/genesis-config": "^0.11.4" }, pnpm: { overrides: { "@marktiderman/genesis-features": "0.11.0" } } }),
+    });
+    await codemodById(ID)!.run({ root, dryRun: false, log: () => {} });
+    const pkg = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8"));
+    expect(pkg.dependencies).toEqual({});
+    expect(pkg.devDependencies).toEqual({ "@marktiderman/genesis-config": "^0.11.4" });
+    expect(pkg.pnpm.overrides).toEqual({ "@marktiderman/genesis-config": "0.11.4" });
+  });
+
+  it("keeps a catalog: reference as one", async () => {
+    const root = app({ "package.json": JSON.stringify({ name: "app", dependencies: { "@marktiderman/genesis-features": "catalog:" } }) });
+    await codemodById(ID)!.run({ root, dryRun: false, log: () => {}, wanted: () => "0.13.0" });
+    expect(JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")).dependencies).toEqual({ "@marktiderman/genesis-config": "catalog:" });
+  });
+
+  it("lists only files that still name the old package exactly", async () => {
+    const root = app({
+      "package.json": JSON.stringify({ name: "app", dependencies: { "@marktiderman/genesis-features": "^0.11.0" } }),
+      "docs/extra.md": "We use `@marktiderman/genesis-features-extra`.\n",
+      "docs/old.md": "We used `@marktiderman/genesis-features`.\n",
+    });
+    const logs: string[] = [];
+    await codemodById(ID)!.run({ root, dryRun: false, log: (m) => logs.push(m), wanted: () => "0.13.0" });
+    const text = logs.join("\n");
+    expect(text).toContain("- [ ] docs/old.md");
+    expect(text).not.toContain("docs/extra.md");
+  });
+});
+
 describe("genesis upgrade moves an app off genesis-features", () => {
   const lookup = (packages: Record<string, string>): ReleaseLookup => ({ release: () => ({ version: "2.0.0", packages }), latest: () => null });
 

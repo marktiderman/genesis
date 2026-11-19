@@ -9,6 +9,7 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import * as path from "node:path";
+import { SETTING_KEY, SETTINGS_PRESETS, isLockedEntry, type SettingsPreset } from "@marktiderman/genesis-config/settings";
 import type { DoctorConfig } from "./types.js";
 
 /** A genesis.config.json that can't be read or has a block of the wrong shape. */
@@ -142,6 +143,68 @@ export interface GenesisConfigFile {
   client?: GenesisClient;
   /** The native release lane's settings (templates/ci/native-release.yml and the EAS build lane): see {@link validateRelease}. */
   release?: GenesisRelease;
+  /** The settings preset (`max`, the default, `standard` or `min`), resolved as its own layer: see {@link validatePreset}. */
+  preset?: SettingsPreset;
+  /**
+   * A top-level `preset` or `settings` that isn't the settings shape at all (an app that used the
+   * key for something of its own before Genesis read it): left out of `preset` / `settings`, and
+   * reported by the doctor (`invalid-setting`) with how to move it, so every other command still runs.
+   */
+  legacySettingsKeys?: Array<{ key: "preset" | "settings"; message: string }>;
+  /** The app file's settings layer, by `namespace.key`: see {@link validateSettings}. Checked against the catalogue by the doctor (`invalid-setting`). */
+  settings?: Record<string, unknown>;
+}
+
+const RENAME_HINT = 'Genesis now reads this key (the settings preset and layer, docs/MIGRATION.md): if it holds something of your own, rename it (for example to "app%KEY%") and update what reads it';
+
+/**
+ * The top-level `preset` and `settings` that aren't the settings shape at all, so they read as an
+ * app's own use of the key, not a typo in the new block: a `preset` that isn't one of the presets,
+ * a `settings` that isn't an object, or one none of whose keys is `namespace.key`. A value that is
+ * the new shape with a mistake in it still fails when read (validatePreset, validateSettings).
+ */
+export function legacySettingsKeys(raw: Record<string, unknown>): Array<{ key: "preset" | "settings"; message: string }> {
+  const out: Array<{ key: "preset" | "settings"; message: string }> = [];
+  const hint = (key: string) => RENAME_HINT.replace("%KEY%", key[0]!.toUpperCase() + key.slice(1));
+  if (raw.preset !== undefined && !(typeof raw.preset === "string" && (SETTINGS_PRESETS as readonly string[]).includes(raw.preset))) {
+    out.push({ key: "preset", message: `"preset" is ${JSON.stringify(raw.preset)}, not one of ${SETTINGS_PRESETS.join(", ")}, so it was ignored and the app runs on max. ${hint("preset")}` });
+  }
+  if (raw.settings !== undefined) {
+    const keys = isObject(raw.settings) ? Object.keys(raw.settings) : null;
+    if (keys === null || (keys.length > 0 && !keys.some((k) => SETTING_KEY.test(k)))) {
+      out.push({ key: "settings", message: `"settings" isn't an object of "namespace.key": value (it ${keys === null ? `is ${JSON.stringify(raw.settings).slice(0, 60)}` : `has ${keys.slice(0, 3).map((k) => JSON.stringify(k)).join(", ")}`}), so it was ignored. ${hint("settings")}` });
+    }
+  }
+  return out;
+}
+
+/** Check the top-level `preset`: `max`, `standard` or `min`. */
+export function validatePreset(raw: unknown, source = "config"): SettingsPreset {
+  if (typeof raw !== "string" || !(SETTINGS_PRESETS as readonly string[]).includes(raw)) {
+    throw new GenesisConfigError(`${source}: "preset" must be one of ${SETTINGS_PRESETS.join(", ")} (got ${JSON.stringify(raw)})`);
+  }
+  return raw as SettingsPreset;
+}
+
+/**
+ * Check the top-level `settings` block's shape: an object of `namespace.key` → a value, or
+ * `{ "value": …, "locked": true }` to lock it. A malformed key or lock fails here; whether the key
+ * exists and its value fits is the doctor's `invalid-setting`, which reads the installed packages'
+ * catalogue.
+ */
+export function validateSettings(raw: unknown, source = "config"): Record<string, unknown> {
+  const fail = (msg: string): never => {
+    throw new GenesisConfigError(`${source}: settings.${msg}`);
+  };
+  if (!isObject(raw)) throw new GenesisConfigError(`${source}: "settings" must be an object of "namespace.key": value`);
+  for (const [key, value] of Object.entries(raw)) {
+    if (!SETTING_KEY.test(key)) fail(`${key}: a setting is "namespace.key" (like "support.dumpOnShake")`);
+    if (value === undefined) fail(`${key}: needs a value (null for "not set")`);
+    if (isObject(value) && "locked" in value && "value" in value && Object.keys(value).length === 2 && !isLockedEntry(value)) {
+      fail(`${key}: locked must be true or false`);
+    }
+  }
+  return raw;
 }
 
 /**
@@ -414,6 +477,10 @@ export function readGenesisConfig(root: string): GenesisConfigFile | null {
   if (raw.environments !== undefined) out.environments = validateEnvironments(raw.environments, file);
   if (raw.client !== undefined) out.client = validateClient(raw.client, file);
   if (raw.release !== undefined) out.release = validateRelease(raw.release, file);
+  const legacy = legacySettingsKeys(raw);
+  if (legacy.length) out.legacySettingsKeys = legacy;
+  if (raw.preset !== undefined && !legacy.some((l) => l.key === "preset")) out.preset = validatePreset(raw.preset, file);
+  if (raw.settings !== undefined && !legacy.some((l) => l.key === "settings")) out.settings = validateSettings(raw.settings, file);
   // localPackages is read and validated by blocks/local.ts where it's used (doctor, add, migrate);
   // the Expo config plugin loads this file too and must not pull the CLI's block code in.
   return out;
