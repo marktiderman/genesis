@@ -2,7 +2,7 @@
  * `genesis agents --mcp`: the app's `.mcp.json` entry that starts `genesis mcp`, merged into the
  * file: every other server, and any key of the entry Genesis doesn't set (`env`), is kept.
  */
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 
 export const MCP_JSON = ".mcp.json";
@@ -23,6 +23,7 @@ const isObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v =
 /** `.mcp.json`'s new text with the Genesis entry in it, or null when it already has it. Throws McpJsonError when the file can't be merged safely. */
 export function mcpJsonEdit(root: string): string | null {
   const file = path.join(root, MCP_JSON);
+  refuseLink(file);
   const raw = existsSync(file) ? readFileSync(file, "utf8") : null;
   let json: Record<string, unknown> = {};
   if (raw !== null && raw.trim()) {
@@ -46,6 +47,18 @@ export function mcpJsonEdit(root: string): string | null {
   return `${JSON.stringify(next, null, indent)}\n`;
 }
 
+/** A `.mcp.json` that is a symbolic link (a dangling one included) or not a file is never read or written through. */
+function refuseLink(file: string): void {
+  let st;
+  try {
+    st = lstatSync(file);
+  } catch {
+    return;
+  }
+  if (st.isSymbolicLink()) throw new McpJsonError(`${MCP_JSON} is a symbolic link; genesis agents --mcp never writes through one. Nothing was written.`);
+  if (!st.isFile()) throw new McpJsonError(`${MCP_JSON} isn't a file; nothing was written.`);
+}
+
 /** Whether `.mcp.json` has the Genesis entry as `genesis agents --mcp` writes it. */
 export function mcpJsonState(root: string): "ok" | "missing" | "stale" | "invalid" {
   if (!existsSync(path.join(root, MCP_JSON))) return "missing";
@@ -60,6 +73,20 @@ export function mcpJsonState(root: string): "ok" | "missing" | "stale" | "invali
 export function writeMcpJson(root: string): string[] {
   const content = mcpJsonEdit(root);
   if (content === null) return [];
-  writeFileSync(path.join(root, MCP_JSON), content);
+  const file = path.join(root, MCP_JSON);
+  // A temp file beside it, renamed into place: a link that appears meanwhile is replaced, never followed.
+  const tmp = path.join(root, `.${MCP_JSON}.genesis-${process.pid}-${Date.now()}`);
+  writeFileSync(tmp, content, { flag: "wx" });
+  try {
+    refuseLink(file);
+    renameSync(tmp, file);
+  } catch (err) {
+    try {
+      unlinkSync(tmp);
+    } catch {
+      /* gone */
+    }
+    throw err;
+  }
   return [MCP_JSON];
 }
