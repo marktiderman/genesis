@@ -1,0 +1,17 @@
+/*
+ * The wizard's stylesheet, compiled into dist/wizard by the CLI's build: Tailwind over the
+ * wizard's own files, genesis-ui's and the shared Settings screen's, with Genesis's default theme.
+ */
+@import "tailwindcss";
+@import "@marktiderman/genesis-design-system/themes/genesis.css";
+@import "@marktiderman/genesis-design-system/themes/genesis-tailwind4.css";
+@import "@marktiderman/genesis-ui/styles.css";
+
+@source "./";
+@source "../../../features/dist";
+
+body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: var(--font-sans, ui-sans-serif, system-ui, sans-serif);
+}

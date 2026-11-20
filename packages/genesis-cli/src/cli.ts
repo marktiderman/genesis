@@ -8,6 +8,7 @@
  * Usage:
  *   npx @marktiderman/genesis-cli init <consumer-name> [--target <dir>] [--emit-conflicts]
  *   npx @marktiderman/genesis-cli doctor [--strict] [--json] [--build] [--config <path>] [--base <ref>] [--offline]
+ *   npx @marktiderman/genesis-cli setup [--step <id>] [--port <p>] [--no-open] [--yes --preset max|standard|min --without <switches>]
  *   npx @marktiderman/genesis-cli fix [rule|fixId] [--plan] [--yes] [--expect <hash>] [--json] [--offline]
  *   npx @marktiderman/genesis-cli primitives [--json]
  *   npx @marktiderman/genesis-cli agents [--check] [--hooks] [--mcp]
@@ -27,6 +28,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import type { FindOptions } from "@marktiderman/genesis-config";
+import { atTerminal } from "./wizard/interactive.js";
 
 /** The installed CLI's version, from its own package.json (dist/ sits beside it). */
 function cliVersion(): string {
@@ -49,8 +51,8 @@ program
 
 program
   .command("init")
-  .description("Scaffold a new Genesis consumer (brand package + tailwind + tokens), or with --template native a new Expo app from the Genesis RN starter")
-  .argument("<consumer>", "Consumer slug (lowercase, e.g., 'acme')")
+  .description("Scaffold a new Genesis consumer (brand package + tailwind + tokens), or with --template native a new Expo app from the Genesis RN starter. With no name, at a terminal, it opens the setup wizard on localhost to make one")
+  .argument("[consumer]", "Consumer slug (lowercase, e.g., 'acme'); leave it out to open the wizard")
   .option("-t, --target <dir>", "Target directory (default: cwd; with --template, ./<consumer>)")
   .option(
     "--genesis-version <v>",
@@ -68,7 +70,17 @@ program
     "Emit `.genesis-next` siblings for files that already exist (so you can diff)",
     false,
   )
-  .action(async (consumer: string, opts: {
+  .option("--preset <preset>", "The settings preset: max (the default, written as nothing), standard or min")
+  .option("-y, --yes", "No wizard: with no name, set up the app in --target (or here) headless, as genesis setup --yes (without it and without a terminal, the plans are printed and nothing is applied)", false)
+  .option("--port <port>", "The wizard's first port to try (default 4400; it tries ten)")
+  .option("--no-open", "Print the wizard's link; don't open a browser")
+  .option("--offline", "Don't reach npm, the advisory endpoints or the secret stores", false)
+  .action(async (consumer: string | undefined, opts: {
+    preset?: string;
+    yes?: boolean;
+    port?: string;
+    open?: boolean;
+    offline?: boolean;
     target?: string;
     genesisVersion?: string;
     emitConflicts?: boolean;
@@ -80,6 +92,37 @@ program
     without?: string;
     beside?: string;
   }) => {
+    if (consumer === undefined) {
+      const root = path.resolve(opts.target ?? process.cwd());
+      const interactive = isInteractive();
+      const hasApp = existsSync(path.join(root, "package.json")) || existsSync(path.join(root, "genesis.config.json"));
+      if (!opts.yes && interactive) {
+        // A new app's wizard starts from --preset and --without; an existing app's changes them only with --yes.
+        if (hasApp && (opts.preset !== undefined || opts.without !== undefined)) {
+          console.error("✗ This folder has an app: --preset and --without change it only with --yes (genesis setup --yes --preset …). Leave them out to open the wizard.");
+          process.exitCode = 1;
+          return;
+        }
+        const { runWizard } = await import("./wizard/command.js");
+        const initial = { ...(opts.preset ? { preset: opts.preset } : {}), ...(opts.without ? { without: splitList(opts.without) } : {}) };
+        process.exitCode = await runWizard({ mode: hasApp ? "setup" : "init", root, port: wizardPort(opts.port), open: opts.open !== false, network: networkOn(opts.offline ?? false), ...(Object.keys(initial).length ? { initial } : {}), out: (l) => console.log(l) });
+        return;
+      }
+      if (!existsSync(path.join(root, "package.json"))) {
+        console.error("✗ Without a browser, genesis init needs the app's name: genesis init <slug> --template native [--preset max|standard|min] [--without …] (or run it at a terminal for the wizard).");
+        process.exitCode = 1;
+        return;
+      }
+      const { runSetupHeadless } = await import("./wizard/headless.js");
+      process.exitCode = await runSetupHeadless({ root, apply: opts.yes === true, network: networkOn(opts.offline ?? false), ...(opts.preset ? { preset: opts.preset } : {}), ...(opts.without ? { without: splitList(opts.without) } : {}), out: (l) => console.log(l), err: (l) => console.error(l) });
+      return;
+    }
+    if (opts.preset !== undefined) {
+      // Checked before anything is written, and only where it can be written.
+      if (opts.template === undefined) throw new Error("--preset applies to a new app from a template (--template native) or to the wizard (genesis init with no name); a consumer scaffold has no genesis.config.json.");
+      const { SETTINGS_PRESETS } = await import("@marktiderman/genesis-config/settings");
+      if (!(SETTINGS_PRESETS as readonly string[]).includes(opts.preset)) throw new Error(`--preset must be ${SETTINGS_PRESETS.join(", ")}, not "${opts.preset}".`);
+    }
     if (opts.template !== undefined) {
       if (opts.template !== "native") throw new Error(`--template must be native, not "${opts.template}".`);
       const { runInitNative, releasePinFor } = await import("./blocks/init-native.js");
@@ -94,6 +137,11 @@ program
         ...(opts.without ? { without: opts.without.split(",").map((s) => s.trim()).filter(Boolean) } : {}),
         ...(opts.beside ? { beside: opts.beside } : {}),
       });
+      if (opts.preset !== undefined) {
+        const { withPreset } = await import("./wizard/init.js");
+        const configFile = path.join(result.target, "genesis.config.json");
+        if (existsSync(configFile)) await fs.writeFile(configFile, withPreset(readFileSync(configFile, "utf8"), opts.preset as "max" | "standard" | "min"));
+      }
       console.log(`✔ Wrote ${result.files.length} files to ${result.target}`);
       if (result.blocks.length) console.log(`  blocks: ${result.blocks.join(", ")}`);
       if (result.leftOut.length) console.log(`  left out (switched off): ${result.leftOut.join(", ")}`);
@@ -241,6 +289,53 @@ program
 function networkOn(offline: boolean): boolean {
   return !offline && process.env.npm_config_offline !== "true";
 }
+
+/** A person at a terminal (src/wizard/interactive.ts): never in CI. */
+function isInteractive(): boolean {
+  return atTerminal({ stdin: process.stdin.isTTY, stdout: process.stdout.isTTY }, process.env);
+}
+
+function splitList(text: string): string[] {
+  return text.split(",").map((s) => s.trim()).filter(Boolean);
+}
+
+function wizardPort(text: string | undefined): number | undefined {
+  if (text === undefined) return undefined;
+  const port = Number(text);
+  if (!Number.isInteger(port) || port < 1024 || port > 65_000) throw new Error(`--port must be a port from 1024 to 65000, not "${text}".`);
+  return port;
+}
+
+program
+  .command("setup")
+  .description("Open the setup wizard on localhost for this app: the doctor's findings with their fixes, the settings, secrets (set through your signed-in CLIs, never shown) and upgrades. Every change is a plan you approve. With --yes it runs headless: applies the automatic fixes and prints the dormant checklist. With no terminal and no --yes it prints the plans, applies nothing and exits 1 when there is something to apply")
+  .option("--step <id>", "Open on one guided setup step (headless: print that step's checklist)")
+  .option("--port <port>", "The first port to try (default 4400; it tries ten)")
+  .option("--no-open", "Print the link; don't open a browser")
+  .option("-y, --yes", "Headless: apply every automatic fix, print the guided ones, exit", false)
+  .option("--preset <preset>", "With --yes: set the settings preset (max, standard or min)")
+  .option("--without <switches>", "With --yes: starter.config.ts feature switches to turn off, comma-separated")
+  .option("-c, --config <path>", "Config file (default: genesis.config.json, then package.json \"genesis\")")
+  .option("-d, --dir <dir>", "The app's folder", process.cwd())
+  .option("--offline", "Don't reach npm, the advisory endpoints or the secret stores", false)
+  .action(async (opts: { step?: string; port?: string; open: boolean; yes: boolean; preset?: string; without?: string; config?: string; dir: string; offline: boolean }) => {
+    const root = path.resolve(opts.dir);
+    const interactive = isInteractive();
+    const network = networkOn(opts.offline);
+    // --preset and --without never imply --yes: at a terminal they need it; without one, they are planned and printed.
+    if (interactive && !opts.yes && (opts.preset !== undefined || opts.without !== undefined)) {
+      console.error("✗ --preset and --without apply with --yes (genesis setup --yes --preset …). Leave them out to open the wizard.");
+      process.exitCode = 1;
+      return;
+    }
+    if (opts.yes || !interactive) {
+      const { runSetupHeadless } = await import("./wizard/headless.js");
+      process.exitCode = await runSetupHeadless({ root, network, apply: opts.yes, ...(opts.config ? { configPath: opts.config } : {}), ...(opts.step ? { step: opts.step } : {}), ...(opts.preset ? { preset: opts.preset } : {}), ...(opts.without ? { without: splitList(opts.without) } : {}), out: (l) => console.log(l), err: (l) => console.error(l) });
+      return;
+    }
+    const { runWizard } = await import("./wizard/command.js");
+    process.exitCode = await runWizard({ mode: "setup", root, network, port: wizardPort(opts.port), open: opts.open, ...(opts.step ? { step: opts.step } : {}), ...(opts.config ? { configPath: opts.config } : {}), out: (l) => console.log(l) });
+  });
 
 program
   .command("fix [target]")

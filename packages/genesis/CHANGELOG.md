@@ -1,5 +1,13 @@
 # @marktiderman/genesis
 
+## 0.11.3
+
+### Patch Changes
+
+- Updated dependencies [06d4caa]
+- Updated dependencies [5c9653e]
+  - @marktiderman/genesis-config@0.11.1
+
 ## 0.11.2
 
 ### Patch Changes

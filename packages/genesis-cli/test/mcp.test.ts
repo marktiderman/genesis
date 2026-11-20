@@ -83,7 +83,7 @@ describe("genesis mcp: tools", () => {
   it("lists every tool with a JSON schema, read-only ones marked", async () => {
     const { client } = await connect(app());
     const { tools } = await client.listTools();
-    expect(tools.map((t) => t.name).sort()).toEqual(["catalog_search", "doctor_explain", "doctor_run", "fix_apply", "fix_plan", "settings_catalogue", "settings_get", "settings_propose", "upgrades_status"]);
+    expect(tools.map((t) => t.name).sort()).toEqual(["catalog_search", "doctor_explain", "doctor_run", "fix_apply", "fix_plan", "settings_catalogue", "settings_get", "settings_propose", "setup_steps", "upgrades_status"]);
     for (const t of tools) {
       expect(t.inputSchema.type).toBe("object");
       expect(t.annotations?.readOnlyHint).toBe(t.name !== "fix_apply");
@@ -272,9 +272,9 @@ describe("genesis mcp: plans and approval", () => {
     });
     const planned = await call("fix_plan", { rule: "issues-token" });
     expect(planned.plan.secrets).toEqual(["GITHUB_TOKEN"]);
-    expect(planned.apply).toMatchObject({ runnable: false, command: "genesis fix connect-secret", step: "github.issues" });
+    expect(planned.apply).toMatchObject({ runnable: false, command: "genesis setup --step github.issues", step: "github.issues" });
     const applied = await call("fix_apply", { fixId: "connect-secret", hash: planned.hash });
-    expect(applied).toMatchObject({ applied: false, command: "genesis fix connect-secret" });
+    expect(applied).toMatchObject({ applied: false, command: "genesis setup --step github.issues" });
     expect(asked).toHaveLength(0);
   });
 
