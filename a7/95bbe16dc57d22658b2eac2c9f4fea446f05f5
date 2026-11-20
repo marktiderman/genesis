@@ -1,0 +1,41 @@
+.changeset/genesis-support-web-ui.md
+  s_ca8e075e853203::t_f8ae123f2f5ce4 10-11
+packages/support/README.md
+  s_ca8e075e853203::t_1a8d157981b4a4 596-600,995-998,1009-1023
+packages/support/src/__tests__/messenger.test.tsx
+  s_ca8e075e853203::t_bf0c9901b922c6 248-258,300
+packages/support/src/__tests__/web-desk-admin.test.tsx
+  s_ca8e075e853203::t_a30e53848fff2a 205-218,274-298
+packages/support/src/client.ts
+  s_ca8e075e853203::t_7fa14c0a8d341e 501
+packages/support/src/copy.ts
+  s_ca8e075e853203::t_c03ddb670a3c6b 274
+packages/support/src/desks.ts
+  s_ca8e075e853203::t_492a8a3e4cb7df 29-30,71-72,172
+packages/support/src/web-chat/agent-inbox.tsx
+  s_ca8e075e853203::t_1169e9819dd335 705,717-720
+packages/support/src/web-chat/agent-tools.tsx
+  s_ca8e075e853203::t_3043aad32fdd47 295,357,588
+packages/support/src/web-chat/desks.tsx
+  s_ca8e075e853203::t_b3665a41e5dac8 12,524-531
+packages/support/src/web-chat/messenger.tsx
+  s_ca8e075e853203::t_1546d8ad874f99 722-724,726-727,732,740-743,745-746
+packages/support/src/web-chat/tenant.ts
+  s_ca8e075e853203::t_9d58d8a3ff383a 34-35,41-43,48-49,57-60
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a795bbe16dc57d22658b2eac2c9f4fea446f05f5",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
