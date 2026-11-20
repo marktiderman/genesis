@@ -786,22 +786,52 @@ preset and genesis.config.json.
   passes as SQL null) means "not set".
 - **The history is evidence.** Nobody edits it; the service role can't delete it directly, only prune
   rows older than a year with `genesis_prune_setting_changes(older_than)`.
+- **Tenant and person values** (migration `0023_genesis_settings_tenant_person.sql`):
+  `genesis_tenant_settings` holds a tenant's value for keys declared `scope: "tenant"`, set by the
+  tenant's admins (your `private.genesis_tenant_admin(tenant uuid, person uuid)` hook, the one tenant
+  features use) for their own tenant only; `genesis_person_settings` holds a person's own value for
+  keys declared `scope: "person"`. Each write is checked like a platform admin's, and refused for a
+  key of another scope or one genesis.config.json or the database layer locks. Every change goes to
+  `genesis_scoped_setting_changes`. A tenant's members and admins read its values (the optional
+  `private.genesis_tenant_member` hook) and its admins alone its history; a person reads their own
+  values and history, platform admins everything; the tables
+  are written only through the functions. Add a foreign key from `tenant_id` to your tenant table
+  (the migration's header shows how); a deleted person takes their values and history with them.
+- **Reading a tenant.** `genesis_settings_layers(tenant)` returns the layers above plus that tenant's
+  layer and the signed-in person's own; `readSettingsLayers(supabase, { tenantId })` and
+  `resolveAppSettings(supabase, catalogue, { tenantId })` call it. On a database without 0023 they
+  read 0020's layers and leave tenant and person values out, warning once in the console.
+- **Realtime.** A change to any of the three settings tables is broadcast on a private channel
+  (`genesis-settings`, `genesis-settings:tenant:<id>`, `genesis-settings:person:<id>`) with the layer
+  and key, never the value, to those who may read it. `watchAppSettings` resolves now and again on
+  every change (and after a reconnect), and returns the function that stops it; a channel it can't
+  join or that times out goes to `onError`. To opt out, call `resolveAppSettings` instead: nothing
+  listens. The listen policy (`genesis_settings_listen` on `realtime.messages`) is created only if
+  Realtime is enabled when 0023 runs; enable Realtime later and copy 0023's `do $rt$ … $rt$` block
+  into a migration of your own.
 
 ```ts
-import { resolveAppSettings, setGenesisSetting, writeAppManifest } from "@marktiderman/genesis-supabase";
+import { resolveAppSettings, setGenesisSetting, watchAppSettings, writeAppManifest } from "@marktiderman/genesis-supabase";
 
 // On deploy, `genesis settings sync` writes the manifest. Or at server start, with the service role:
 await writeAppManifest(admin, { appId: "sample-app", packages, preset: "max", fileSettings, catalogue });
 
-// In the app, for any signed-in person:
-const settings = await resolveAppSettings(supabase, catalogue, { person: preferences });
+// In the app, for any signed-in person, with their tenant's values and their own:
+const settings = await resolveAppSettings(supabase, catalogue, { tenantId });
+
+// …or kept up to date over Realtime:
+const stop = watchAppSettings(supabase, catalogue, { tenantId, personId: user.id, onChange: setSettings });
 
 // A platform admin, from the Settings screen:
 await setGenesisSetting(supabase, { key: "support.dumpRetentionDays", value: 30, locked: true });
+// A tenant's admin, for their tenant; a person, for themselves:
+await setGenesisSetting(supabase, { key: "support.messenger", value: false, layer: "tenant", tenant: tenantId });
+await setGenesisSetting(supabase, { key: "support.shakeToReport", value: false, layer: "person" });
 ```
 
-`clearGenesisSetting` removes a row (the layers below apply again) and `genesisSettingHistory` reads
-the history, both for platform admins. Tenant and person values aren't stored here yet.
+`clearGenesisSetting(supabase, key, { layer, tenant })` removes a value (the layers below apply
+again): the database layer by default, for platform admins. `genesisSettingHistory` reads the
+database layer's history, for platform admins.
 
 ## Background jobs (the jobs block)
 

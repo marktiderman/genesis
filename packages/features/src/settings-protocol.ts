@@ -252,7 +252,8 @@ export interface SettingsAuditPage {
  *
  * `layers` are the raw file and database layers (what each holds for a key, and whether it is
  * locked there), so the screen can tell "set here" from "inherited", and offer to clear a layer's
- * own value.
+ * own value; and the tenant layer (of the tenant `state` asked for) and the signed-in person's
+ * layer, when the host serves them.
  *
  * @stability Beta
  */
@@ -261,7 +262,7 @@ export interface SettingsState {
   /** The catalogue's keys (`SettingDef`, serialised). */
   catalogue: readonly SettingDef[];
   resolved: ResolvedSettings;
-  layers: { file?: SettingsLayerValues; database?: SettingsLayerValues };
+  layers: { file?: SettingsLayerValues; database?: SettingsLayerValues; tenant?: SettingsLayerValues; person?: SettingsLayerValues };
   findings: readonly SettingsFinding[];
   secrets: readonly SettingsSecretStatus[];
   capabilities: SettingsCapabilities;
@@ -322,19 +323,26 @@ export interface SettingsProposal {
   snippet: string;
 }
 
-/** The layers a person can write from the screen. @stability Beta */
-export type SettingsWriteLayer = "file" | "database";
+/**
+ * The layers a request can write. `tenant` writes the tenant the request names (its admins only,
+ * keys declared `scope: "tenant"`); `person` writes the signed-in person's own value (keys declared
+ * `scope: "person"`). The Settings screen itself writes only `file` and `database`.
+ *
+ * @stability Beta
+ */
+export type SettingsWriteLayer = "file" | "database" | "tenant" | "person";
 
 /**
  * Every request. `audit` takes a cursor from the last page; `upgrades` with `refresh` skips the
- * host's cache.
+ * host's cache. `tenant` names the tenant: the one whose layer `state` returns, and the one a
+ * `tenant`-layer `setValue` or `clearValue` writes.
  *
  * @stability Beta
  */
 export type SettingsRequest =
-  | { op: "state"; audit?: { limit?: number } }
-  | { op: "setValue"; key: string; value: unknown; locked?: boolean; layer: SettingsWriteLayer }
-  | { op: "clearValue"; key: string; layer: SettingsWriteLayer }
+  | { op: "state"; audit?: { limit?: number }; tenant?: string }
+  | { op: "setValue"; key: string; value: unknown; locked?: boolean; layer: SettingsWriteLayer; tenant?: string }
+  | { op: "clearValue"; key: string; layer: SettingsWriteLayer; tenant?: string }
   | { op: "plan"; fixId: string }
   | { op: "apply"; fixId: string; expect: string }
   | { op: "upgrades"; refresh?: boolean }
@@ -421,9 +429,9 @@ function codeForStatus(status: number): SettingsErrorCode {
 
 /** The Settings screen's view of its host. A fake one is a plain object. @stability Beta */
 export interface SettingsClient {
-  state(params?: { auditLimit?: number }): Promise<SettingsState>;
-  setValue(params: { key: string; value: unknown; locked?: boolean; layer: SettingsWriteLayer }): Promise<void>;
-  clearValue(params: { key: string; layer: SettingsWriteLayer }): Promise<void>;
+  state(params?: { auditLimit?: number; tenant?: string }): Promise<SettingsState>;
+  setValue(params: { key: string; value: unknown; locked?: boolean; layer: SettingsWriteLayer; tenant?: string }): Promise<void>;
+  clearValue(params: { key: string; layer: SettingsWriteLayer; tenant?: string }): Promise<void>;
   plan(fixId: string): Promise<SettingsPlan>;
   apply(fixId: string, expect: string): Promise<SettingsApplyResult>;
   upgrades(params?: { refresh?: boolean }): Promise<SettingsUpgrades>;
@@ -573,16 +581,20 @@ export function createSettingsClient(fetchFn: FetchLike, options: SettingsClient
 
   return {
     async state(params) {
-      const state = await call({ op: "state", ...(params?.auditLimit !== undefined ? { audit: { limit: params.auditLimit } } : {}) });
+      const state = await call({
+        op: "state",
+        ...(params?.auditLimit !== undefined ? { audit: { limit: params.auditLimit } } : {}),
+        ...(params?.tenant !== undefined ? { tenant: params.tenant } : {}),
+      });
       const missing = stateProblem(state as unknown as Record<string, unknown>);
       if (missing) throw new SettingsProtocolError("error", m.badState(missing));
       return { ...state, layers: state.layers ?? {} };
     },
-    async setValue({ key, value, locked, layer }) {
-      await call({ op: "setValue", key, value, layer, ...(locked !== undefined ? { locked } : {}) });
+    async setValue({ key, value, locked, layer, tenant }) {
+      await call({ op: "setValue", key, value, layer, ...(locked !== undefined ? { locked } : {}), ...(tenant !== undefined ? { tenant } : {}) });
     },
-    async clearValue({ key, layer }) {
-      await call({ op: "clearValue", key, layer });
+    async clearValue({ key, layer, tenant }) {
+      await call({ op: "clearValue", key, layer, ...(tenant !== undefined ? { tenant } : {}) });
     },
     async plan(fixId) {
       const { plan } = await call({ op: "plan", fixId });
