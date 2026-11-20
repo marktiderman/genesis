@@ -17,14 +17,16 @@
  */
 import { useEffect, type ComponentType, type ReactNode } from "react";
 import { ScrollView } from "react-native";
+import { NativeEmptyState } from "@marktiderman/genesis-ui-native/components";
 import { getInboxPageStackOptions, getSettingsSubPageStackOptions, getThreadPageStackOptions, InboxPage, SettingsSubPage, ThreadPage } from "@marktiderman/genesis-ui-native/layouts";
 import { supportScreenOf, type SupportScreen, type SupportScreenName } from "../routes";
 import type { SupportSettingValues } from "../settings";
 import { useAgentInbox, useAgentThread } from "./agent";
-import { FeedbackForm } from "./feedback-form";
+import { resolveSupportCopy } from "../copy";
+import { FeedbackForm, type FeedbackFormProps } from "./feedback-form";
 import { HelpArticleBody, useHelpArticle, useHelpCenter, useMessengerHome, useStartConversation } from "./help";
 import { useIdeaBoard, useShippedIdeas, useSupportInbox, useSupportThread } from "./screens";
-import { useSupport } from "./support";
+import { useOptionalSupport, useSupport, type SupportBlock } from "./support";
 
 /** What a screen of the app's own gets: the screen the path names, and the search params. */
 export interface SupportScreenProps {
@@ -39,17 +41,40 @@ export interface SupportRouteProps {
   params?: Readonly<Record<string, string | string[] | undefined>>;
   /** The app's own screens, by name, in place of Genesis's. */
   screens?: Partial<Record<SupportScreenName, ComponentType<SupportScreenProps>>>;
-  /** Shown for a path that is no support screen. Default nothing. */
+  /** Shown for a path that is no support screen, or one the settings turn off. Default nothing. */
   notFound?: ReactNode;
+  /**
+   * Shown when there is no support block (the app turned support off): a redirect (expo-router's
+   * `<Redirect href="/settings" />`), say. Default an empty state that says support isn't available.
+   */
+  unavailable?: ReactNode;
+  /**
+   * Feedback was sent from the route's feedback screen: say so your way (a toast) and leave it. With
+   * it, the form shows no alert of its own.
+   */
+  onFeedbackSent?: FeedbackFormProps["onSent"];
 }
 
 const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? undefined;
 const noParams = () => ({});
 const noPath = () => "";
 
-/** Every support screen, from one route file per zone. See the module's notes. */
-export function SupportRoute({ path, params, screens, notFound = null }: SupportRouteProps) {
-  const block = useSupport();
+/** Every support screen, from one route file per zone. See the module's notes. Never throws for want of a support block. */
+export function SupportRoute({ unavailable, ...props }: SupportRouteProps) {
+  const block = useOptionalSupport();
+  if (!block) return <>{unavailable === undefined ? <SupportUnavailable /> : unavailable}</>;
+  return <SupportScreens {...props} block={block} />;
+}
+
+function SupportUnavailable() {
+  const { off } = resolveSupportCopy();
+  return <NativeEmptyState title={off.supportTitle} body={off.supportBody} testID="genesis-support-unavailable" />;
+}
+
+/** What the route's feedback screen does once it's sent. */
+type SentHandler = SupportRouteProps["onFeedbackSent"];
+
+function SupportScreens({ path, params, screens, notFound = null, onFeedbackSent, block }: Omit<SupportRouteProps, "unavailable"> & { block: SupportBlock }) {
   const current = (block.options.useCurrentRoute ?? noPath)();
   const search = (block.options.router?.useSearchParams ?? noParams)();
   const where = path ?? current;
@@ -65,7 +90,7 @@ export function SupportRoute({ path, params, screens, notFound = null }: Support
   const query = params ?? search;
   const Own = screens?.[screen.name];
   if (Own) return <Own screen={screen} params={query} />;
-  return <DefaultScreen screen={screen} params={query} />;
+  return <DefaultScreen screen={screen} params={query} onFeedbackSent={onFeedbackSent} />;
 }
 
 /** Whether the app's settings have this screen on (a screen turned off is `notFound`). */
@@ -98,12 +123,12 @@ function Header({ options }: { options: Record<string, unknown> }) {
   return Screen ? <Screen options={options} /> : null;
 }
 
-function DefaultScreen({ screen, params }: SupportScreenProps) {
+function DefaultScreen({ screen, params, onFeedbackSent }: SupportScreenProps & { onFeedbackSent: SentHandler }) {
   switch (screen.name) {
     case "inbox":
       return <Inbox />;
     case "feedback":
-      return <Feedback />;
+      return <Feedback onSent={onFeedbackSent} />;
     case "thread":
       return <Thread id={screen.id} />;
     case "ideas":
@@ -138,13 +163,13 @@ function Inbox() {
   );
 }
 
-function Feedback() {
+function Feedback({ onSent }: { onSent: SentHandler }) {
   const block = useSupport();
   return (
     <>
       <Header options={getSettingsSubPageStackOptions({ headerTitle: block.copy.feedback.title })} />
       <SettingsSubPage testID="genesis-support-route-feedback" onConfirmLeave={null}>
-        <FeedbackForm />
+        <FeedbackForm {...(onSent ? { onSent, sentAlert: false } : {})} />
       </SettingsSubPage>
     </>
   );
@@ -160,7 +185,9 @@ function useLeave(gone: boolean, to: string) {
 
 function Thread({ id }: { id: string }) {
   const block = useSupport();
-  const { headerTitle, notFound, awaiting: _awaiting, report: _report, loading: _loading, mode: _mode, conversationId: _conversationId, ...thread } = useSupportThread(id);
+  // `awaiting` reaches the screen above the composer, and "Is it fixed?" in `header`: both are in `thread`.
+  const { headerTitle, notFound, awaiting: _awaiting, awaitingVerification: _verifying, verify: _verify, report: _report, loading: _loading, mode: _mode, conversationId: _conversationId, ...thread } =
+    useSupportThread(id);
   useLeave(notFound, block.paths.inbox);
   return (
     <>
@@ -201,6 +228,7 @@ function Home() {
 }
 
 function Start() {
+  // The expectation reaches the screen above the composer, and a failed send in `header`: both are in `start`.
   const { headerTitle, failed: _failed, expectation: _expectation, ...start } = useStartConversation();
   return (
     <>

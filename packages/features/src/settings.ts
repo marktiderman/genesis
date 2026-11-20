@@ -702,7 +702,8 @@ export function withSettings(ctx: GateContext, catalogue: SettingsCatalogue, res
 
 /**
  * One key as the manifest stores it (genesis_app_manifest.catalogue): what the database checks a
- * value against (type, bounds, scope, applies), and the rest of the declaration, so a server can
+ * value against (type, bounds, scope, applies), its defaults by preset (genesis-supabase's
+ * `private.genesis_setting` starts from them), and the rest of the declaration, so a server can
  * rebuild the catalogue from the database alone ({@link catalogueFromManifest}). A secret appears by
  * name and store only, never a value.
  *
@@ -712,6 +713,8 @@ export interface SettingManifestEntry {
   type: SettingType;
   applies: SettingApplies;
   scope: SettingScope;
+  /** The default for each preset (the same value three times for a plain default). */
+  defaults: PresetDefaults<unknown>;
   min?: number;
   max?: number;
   options?: readonly (string | number)[];
@@ -719,8 +722,8 @@ export interface SettingManifestEntry {
   nullable?: true;
   /** Present (true) only for a number that must be whole. */
   integer?: true;
-  /** The default as declared: one value, or `{ max, standard, min }`. */
-  default: unknown;
+  /** Present (true) only when the default was declared per preset. */
+  byPreset?: true;
   requires?: readonly string[];
   summary?: string;
   /** The secret it needs, by name and store. */
@@ -733,8 +736,9 @@ export interface SettingManifestEntry {
 
 /**
  * The catalogue as the database's manifest stores it, so `set_genesis_setting` can check a value
- * (type, bounds, runtime only) without the packages' code, and the app's Settings host can rebuild
- * the catalogue ({@link catalogueFromManifest}). Written on deploy with the manifest.
+ * (type, bounds, runtime only) and `private.genesis_setting` can resolve one (from its defaults)
+ * without the packages' code, and the app's Settings host can rebuild the catalogue
+ * ({@link catalogueFromManifest}). Written on deploy with the manifest.
  *
  * @stability Beta
  */
@@ -745,12 +749,13 @@ export function catalogueManifest(catalogue: SettingsCatalogue): { [key: string]
       type: def.type,
       applies: def.applies,
       scope: def.scope,
+      defaults: { max: def.defaults.max, standard: def.defaults.standard, min: def.defaults.min },
       ...(def.min !== undefined ? { min: def.min } : {}),
       ...(def.max !== undefined ? { max: def.max } : {}),
       ...(def.options !== undefined ? { options: def.options } : {}),
       ...(def.nullable ? { nullable: true as const } : {}),
       ...(def.integer ? { integer: true as const } : {}),
-      default: def.byPreset ? { ...def.defaults } : def.defaults.max,
+      ...(def.byPreset ? { byPreset: true as const } : {}),
       ...(def.requires.length ? { requires: def.requires } : {}),
       ...(def.summary !== undefined ? { summary: def.summary } : {}),
       ...(def.secret ? { secret: { name: def.secret.name, store: def.secret.store } } : {}),
@@ -769,7 +774,7 @@ function specFromManifest(entry: Record<string, unknown>): SettingSpec {
   const pick = (k: string) => (entry[k] !== undefined ? { [k]: entry[k] } : {});
   return {
     ...pick("type"),
-    ...(Object.prototype.hasOwnProperty.call(entry, "default") ? { default: entry.default } : {}),
+    ...(isPlainObject(entry.defaults) ? { default: entry.byPreset === true ? entry.defaults : (entry.defaults as Record<string, unknown>).max } : {}),
     ...pick("scope"),
     ...pick("applies"),
     ...pick("requires"),
@@ -802,8 +807,8 @@ export function catalogueFromManifest(raw: unknown): { catalogue: SettingsCatalo
       problems.push({ key, message: `${key} isn't a catalogue entry` });
       continue;
     }
-    if (!Object.prototype.hasOwnProperty.call(entry, "default")) {
-      problems.push({ key, message: `${key} has no default in the manifest: it was written by an older release (write the manifest again)` });
+    if (!isPresetDefaults(entry.defaults)) {
+      problems.push({ key, message: `${key} has no defaults in the manifest: it was written by an older release (write the manifest again)` });
       continue;
     }
     const dot = key.indexOf(".");

@@ -1,5 +1,5 @@
 -- @feat:support-feedback
--- pgTAP test for 0029_genesis_support_staff_admin_list.sql, with genesis-supabase 0022 applied and no
+-- pgTAP test for 0032_genesis_support_staff_admin_list.sql, with genesis-supabase 0022 applied and no
 -- hooks of the app's own: a person in public.genesis_platform_admins is support staff; the app's own
 -- staff or platform-admin hook, once it exists, decides instead. Drops the app's hooks and empties the
 -- list inside this transaction only. Rolls back.

@@ -300,7 +300,7 @@ describe("the manifest", () => {
     const [row, options] = upsert.mock.calls[0] as unknown as [Record<string, unknown>, unknown];
     expect(options).toEqual({ onConflict: "one" });
     expect(row).toMatchObject({ app_id: "sample-app", preset: "standard", file_settings: { "support.dumpRetentionDays": 30 }, name: null, config_hash: null });
-    expect((row.catalogue as Record<string, unknown>)["support.dumpRetentionDays"]).toEqual({ type: "number", applies: "runtime", scope: "app", min: 7, max: 365, default: 90 });
+    expect((row.catalogue as Record<string, unknown>)["support.dumpRetentionDays"]).toEqual({ type: "number", applies: "runtime", scope: "app", defaults: { max: 90, standard: 90, min: 90 }, min: 7, max: 365 });
     // The Settings host lists the secret and Vault allows only declared names: the name and store, nothing else.
     expect((row.catalogue as Record<string, unknown>)["support.githubRepo"]).toMatchObject({ secret: { name: "GITHUB_TOKEN", store: "edge" } });
   });

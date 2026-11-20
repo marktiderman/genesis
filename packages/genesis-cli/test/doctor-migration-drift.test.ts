@@ -44,6 +44,18 @@ describe("migration-pending and migration-drift", () => {
     expect(await of(root, "migration-pending")).toEqual([]);
   });
 
+  it("migration-drift: a copy with an older CLI's one-line header doesn't drift, though its text starts with a comment; an edit still does", async () => {
+    const root = await appWithBlock();
+    const copy = "supabase/migrations/20261101120000_fixture_notes.sql";
+    const [first, note, ...body] = read(root, copy).split("\n");
+    expect(note).toMatch(/^-- Copied by the Genesis CLI\./);
+    expect(body[0]).toMatch(/^-- fixture notes/);
+    writeFileSync(path.join(root, copy), [first, ...body].join("\n"));
+    expect(await of(root, "migration-drift")).toEqual([]);
+    writeFileSync(path.join(root, copy), [first, ...body].join("\n").replace("primary key", "primary key, extra int"));
+    expect((await of(root, "migration-drift")).map((f) => f.file)).toEqual([copy]);
+  });
+
   it("migration-drift: an edited copy, with the guided forward-migration fix", async () => {
     const root = await appWithBlock();
     const copy = "supabase/migrations/20261101120000_fixture_notes.sql";

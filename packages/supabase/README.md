@@ -741,8 +741,8 @@ preset and genesis.config.json.
   and lock, and from where: `admin`, `wizard`, `cli`, `central`, `server` or `database`), written only
   by a trigger.
 - **`genesis_app_manifest`**: one row, what the app runs: its packages and versions, preset, file
-  settings and the settings catalogue. Write it on every deploy, after the migrations, with
-  `genesis settings sync` (genesis-cli, through the linked project), or from your server at start with
+  settings and the settings catalogue. **Write it on every deploy, after the migrations**, with
+  `genesis settings sync` (genesis-cli, through the linked project; put it in the deploy pipeline), or from your server at start with
   the service role (`writeAppManifest`). `set_genesis_setting` checks values against its catalogue
   (declared, runtime, the right type, in bounds); until it is written, every write is refused.
 - **Who may change settings** is the app's hook `private.genesis_platform_admin(person uuid) returns
@@ -766,7 +766,7 @@ preset and genesis.config.json.
   ```
 
   The app's own hook, added whenever and however it likes (`create function`, its own parameter
-  name), takes over from the list. With genesis-support (0029), the platform admins are also support
+  name), takes over from the list. With genesis-support (0032), the platform admins are also support
   staff.
 - **Server code** is told apart from a person by the request's role, never by a JWT claim: the
   service role, any role that bypasses row security, or a connection that never switched role. So a

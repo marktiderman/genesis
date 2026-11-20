@@ -9,7 +9,7 @@
  *   (which checks the webhook's signature, fetches the email and flags automatic mail): it takes an
  *   email sent to a reply address, verifies the token, drops automatic mail and mail whose sender the
  *   receiving server didn't authenticate (DMARC), strips the quoted history and signature (`stripReply`), and
- *   posts the rest with `support_email_reply` (migration 0027), which posts it as that login.
+ *   posts the rest with `support_email_reply` (migration 0031), which posts it as that login.
  * - **Both.** `supportReplyConfig(env, settings)` reads the set-up, and `handleSupportInbound` is the
  *   whole inbound endpoint: 503 until it is set up, then the reply route (and any routes of yours).
  *

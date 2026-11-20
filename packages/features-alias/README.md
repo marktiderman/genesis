@@ -2,7 +2,7 @@
 
 **Renamed to [`@marktiderman/genesis-config`](../features/README.md).** This package is a thin
 re-export of genesis-config with the same subpaths (`.`, `/blocks`, `/gate`, `/gate/react`,
-`/settings`, `/settings/react`, `/settings-protocol`, `/setup`, `/node`, `/react`), kept for two minor versions (0.10 and 0.11) so apps can move at their own pace.
+`/settings`, `/settings/react`, `/settings-protocol`, `/node`, `/react`), kept for two minor versions (0.10 and 0.11) so apps can move at their own pace.
 It goes after that.
 
 To move an app:

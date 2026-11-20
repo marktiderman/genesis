@@ -14,7 +14,7 @@ import { useSegments } from "expo-router";
 import * as Updates from "expo-updates";
 import type { ComponentType } from "react";
 import { Platform } from "react-native";
-import { consoleSink, createObservability, createScreenErrorBoundary, defineEvents, sentrySink } from "@marktiderman/genesis-native/observability";
+import { consoleSink, createObservability, defineEvents, sentrySink } from "@marktiderman/genesis-native/observability";
 import { versionSignature } from "@marktiderman/genesis-native/updates";
 import starter from "../../starter.config";
 import { env } from "./env";
@@ -46,11 +46,3 @@ export const observability = starter.features.observability
 export function wrapRoot<P extends Record<string, unknown>>(root: ComponentType<P>): ComponentType<P> {
   return observability ? observability.wrap(root) : root;
 }
-
-/**
- * Each tab's `ErrorBoundary` (`export { ScreenErrorBoundary as ErrorBoundary }` in its
- * `_layout.tsx`): a screen that throws shows "This screen hit a problem" with Try again, the tab
- * bar and the other tabs keep working, and the error is reported non-fatal (through Sentry's
- * Expo Router wrapper when the block is on).
- */
-export const ScreenErrorBoundary = observability ? observability.screenBoundary() : createScreenErrorBoundary();

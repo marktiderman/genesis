@@ -46,7 +46,7 @@ import { changedLines } from "../mcp/server.js";
 import { CONFIG_FILE, fileLayers, loadCatalogue, ProposalError, settingsProposalFix } from "../mcp/settings.js";
 import { distance, readUpgradeStatus, type RegistryDeps } from "../upgrade/registry.js";
 import { checkInitChoices, initAppFix, InitChoiceError, starterSwitches, INIT_FIX_ID, type InitChoices } from "./init.js";
-import { SetupStepError } from "@marktiderman/genesis-config/setup";
+import { SetupStepError } from "./steps/define.js";
 import { runnerFor, startStep, stepFix, stepList, StepError, verifyStep } from "./steps/index.js";
 import type { FetchLike } from "./steps/framework.js";
 

@@ -2565,7 +2565,7 @@ export const features = defineFeatures({
   },
   "support-desks": {
     name: "Help desk desks",
-    summary: "Each tenant's own help desk in genesis-support (migration 0024): its tenant admins turn it on or off with every change logged, a question sent to no tenant goes to the sender's one desk that is on (or where the app's hook says), and a ticket's handler sends it up to the app's own desk, hands an escalated one back, or moves it to another desk its person belongs to, each move logged, the thread kept, nobody assigned and a pending one open again. The support.desks setting turns it off (0004's tenant_features rule alone). On the web, the agent inbox's details panel shows who wrote (name, email, tenants with their role) and the desk card with escalate, return and move; SupportDeskPicker and SupportDeskSwitch are a desk picker and a tenant's on/off switch; the messenger can list every desk's conversations (allTenants).",
+    summary: "Each tenant's own help desk in genesis-support (migration 0029): its tenant admins turn it on or off with every change logged, a question sent to no tenant goes to the sender's one desk that is on (or where the app's hook says), and a ticket's handler sends it up to the app's own desk, hands an escalated one back, or moves it to another desk its person belongs to, each move logged, the thread kept, nobody assigned and a pending one open again. The support.desks setting turns it off (0004's tenant_features rule alone). On the web, the agent inbox's details panel shows who wrote (name, email, tenants with their role) and the desk card with escalate, return and move; SupportDeskPicker and SupportDeskSwitch are a desk picker and a tenant's on/off switch; the messenger can list every desk's conversations (allTenants).",
     category: "Support",
     status: "building",
     claimedBy: "mark",
@@ -2577,7 +2577,7 @@ export const features = defineFeatures({
     requires: ["support-helpdesk"],
     reviewedAt: "2026-11-19",
     links: {
-      code: ["packages/support/migrations/0024_genesis_support_desks.sql", "packages/support/src/desks.ts", "packages/support/src/web-chat/desks.tsx", "packages/support/src/client.ts"],
+      code: ["packages/support/migrations/0029_genesis_support_desks.sql", "packages/support/src/desks.ts", "packages/support/src/web-chat/desks.tsx", "packages/support/src/client.ts"],
       docs: ["packages/support/README.md"],
     },
     owner: "mark",
@@ -2609,7 +2609,7 @@ export const features = defineFeatures({
   },
   "support-notifications": {
     name: "Support notifications",
-    summary: "Support's default notification types through genesis-notifications (migration 0025): support.message tells a ticket's desk about a new ticket, the person's next message or a ticket moved there (while nobody who handles it has it, and while support.staffAlerts is on), support.reply tells the person support answered (one email per ticket), support.verify asks them to check a fix. supportNotificationTypes adds them to the app's registry; supportEmailTemplates gives their emails the whole message under one subject per ticket.",
+    summary: "Support's default notification types through genesis-notifications (migration 0030): support.message tells a ticket's desk about a new ticket, the person's next message or a ticket moved there (while nobody who handles it has it, and while support.staffAlerts is on), support.reply tells the person support answered (one email per ticket), support.verify asks them to check a fix. supportNotificationTypes adds them to the app's registry; supportEmailTemplates gives their emails the whole message under one subject per ticket.",
     category: "Support",
     status: "building",
     claimedBy: "mark",
@@ -2621,7 +2621,7 @@ export const features = defineFeatures({
     requires: ["support-feedback", "notifications"],
     reviewedAt: "2026-11-19",
     links: {
-      code: ["packages/support/migrations/0025_genesis_support_notifications.sql", "packages/support/src/notifications.ts", "packages/support/src/email-templates.ts"],
+      code: ["packages/support/migrations/0030_genesis_support_notifications.sql", "packages/support/src/notifications.ts", "packages/support/src/email-templates.ts"],
       docs: ["packages/support/README.md"],
     },
     owner: "mark",
@@ -3836,7 +3836,7 @@ export const features = defineFeatures({
     audience: ["person", "admin"],
     visibility: "internal",
     links: {
-      code: ["packages/support/migrations/0002_genesis_support_email.sql", "packages/support/src/email.ts", "packages/support/migrations/0027_genesis_support_email_reply.sql", "packages/support/src/email-inbound.ts", "packages/support/src/email-reply.ts"],
+      code: ["packages/support/migrations/0002_genesis_support_email.sql", "packages/support/src/email.ts", "packages/support/migrations/0031_genesis_support_email_reply.sql", "packages/support/src/email-inbound.ts", "packages/support/src/email-reply.ts"],
       docs: ["docs/adr/0011-support-email-tickets.md"],
     },
   },
