@@ -9,8 +9,10 @@
  *   (`/@marktiderman\/genesis-features/`), or anchored in a mapper key (`"^@marktiderman/genesis-features(.*)$"`);
  * - each package.json: the dependency (dependencies, devDependencies, peerDependencies,
  *   optionalDependencies), renamed in place to genesis-config with the release's genesis-config
- *   range, or dropped when genesis-config is already listed in any of those fields; and the keys
- *   of `overrides`, `pnpm.overrides` and `resolutions`;
+ *   range, or dropped when genesis-config already covers it (listed in the same field, or in
+ *   `dependencies` for a dev dependency); a production dependency stays one; and the keys of
+ *   `overrides`, `pnpm.overrides` and `resolutions` (a key genesis-config already has is dropped,
+ *   not doubled; an npm override of a direct dependency becomes `$@marktiderman/genesis-config`);
  * - `tsconfig*.json` (`paths`) and `pnpm-workspace.yaml` (`overrides`, `catalog`, with
  *   genesis-config's range as the value), leaving exact version pins of the old package (`'@marktiderman/genesis-features@0.10.0'`) alone: they name
  *   versions of the old package that may still be installed.
@@ -138,13 +140,19 @@ const OLD_KEY = /^((?:.*\/)?)@marktiderman\/genesis-features(?![\w-])(.*)$/;
  * genesis-config to it). Nested maps (`"parent>child"` style objects) are walked too.
  */
 function renameOverrideKeys(obj: Record<string, unknown>, rangeFor: (oldRange: string) => string): Record<string, unknown> {
-  return Object.fromEntries(
-    Object.entries(obj).map(([k, v]) => {
-      const m = OLD_KEY.exec(k);
-      if (!m) return [k, isObject(v) ? renameOverrideKeys(v, rangeFor) : v];
-      return [`${m[1]}${CONFIG_PACKAGE}${m[2]}`, isObject(v) ? renameOverrideKeys(v, rangeFor) : typeof v === "string" ? overrideValue(v, rangeFor) : v];
-    }),
-  );
+  const out: Array<[string, unknown]> = [];
+  for (const [k, v] of Object.entries(obj)) {
+    const m = OLD_KEY.exec(k);
+    if (!m) {
+      out.push([k, isObject(v) ? renameOverrideKeys(v, rangeFor) : v]);
+      continue;
+    }
+    const key = `${m[1]}${CONFIG_PACKAGE}${m[2]}`;
+    // genesis-config already has this override: it stays, and the old one goes (never two of one key).
+    if (Object.prototype.hasOwnProperty.call(obj, key)) continue;
+    out.push([key, isObject(v) ? renameOverrideKeys(v, rangeFor) : typeof v === "string" ? overrideValue(v, rangeFor) : v]);
+  }
+  return Object.fromEntries(out);
 }
 
 /**
@@ -154,15 +162,38 @@ function renameOverrideKeys(obj: Record<string, unknown>, rangeFor: (oldRange: s
  */
 export function rewriteWorkspaceYaml(text: string, rangeFor: (oldRange: string) => string): string {
   const entry = /^(\s*)(['"]?)@marktiderman\/genesis-features(?![\w-])([^'":]*)\2(\s*:\s*)(['"]?)([^'"\s#]+)\5(.*)$/;
-  return text
-    .split("\n")
-    .map((line) => {
-      const m = entry.exec(line);
-      if (!m) return rewriteFeaturesSpecifiers(line);
+  // An entry of a flow mapping (`catalog: { '@marktiderman/genesis-features': ^0.11.0 }`).
+  const inline = /(['"]?)@marktiderman\/genesis-features(?![\w-])([^'":,{}]*)\1(\s*:\s*)(['"]?)([^'",{}\s#]+)\4/g;
+  const configEntry = /^(\s*)(['"]?)@marktiderman\/genesis-config(?![\w-])([^'":]*)\2\s*:/;
+  const lines = text.split("\n");
+  // The block-mapping keys genesis-config already has (indent and subpath): the old entry beside one goes.
+  const taken = new Set(
+    lines
+      .map((l) => configEntry.exec(l))
+      .filter((m): m is RegExpExecArray => m !== null)
+      .map((m) => `${m[1]}|${m[3]}`),
+  );
+  const out: string[] = [];
+  for (const line of lines) {
+    const m = entry.exec(line);
+    if (m) {
       const [, indent, q, rest, colon, vq, value, tail] = m;
-      return `${indent}${q}${CONFIG_PACKAGE}${rest}${q}${colon}${vq}${overrideValue(value!, rangeFor)}${vq}${tail}`;
-    })
-    .join("\n");
+      if (taken.has(`${indent}|${rest}`)) continue;
+      out.push(`${indent}${q}${CONFIG_PACKAGE}${rest}${q}${colon}${vq}${overrideValue(value!, rangeFor)}${vq}${tail}`);
+      continue;
+    }
+    if (/\{[^}]*@marktiderman\/genesis-features(?![\w-])/.test(line)) {
+      // A flow mapping: the old entry goes when genesis-config is already in it, else it is renamed with the new range.
+      const hasConfig = /@marktiderman\/genesis-config(?![\w-])['"]?\s*:/.test(line);
+      const next = hasConfig
+        ? line.replace(new RegExp(`,?\\s*${inline.source}`, "g"), "").replace(/\{\s*,\s*/, "{ ")
+        : line.replace(inline, (_all, q: string, rest: string, colon: string, vq: string, value: string) => `${q}${CONFIG_PACKAGE}${rest}${q}${colon}${vq}${overrideValue(value, rangeFor)}${vq}`);
+      out.push(rewriteFeaturesSpecifiers(next));
+      continue;
+    }
+    out.push(rewriteFeaturesSpecifiers(line));
+  }
+  return out.join("\n");
 }
 
 /**
@@ -177,17 +208,28 @@ export function rewriteWorkspaceYaml(text: string, rangeFor: (oldRange: string) 
 export function renameFeaturesDependency(raw: string, rangeFor: (oldRange: string) => string): string {
   const json = JSON.parse(raw) as Record<string, unknown>;
   let changed = false;
-  const listsConfig = DEP_FIELDS.some((field) => isObject(json[field]) && CONFIG_PACKAGE in (json[field] as object));
+  const lists = (field: string) => isObject(json[field]) && Object.prototype.hasOwnProperty.call(json[field], CONFIG_PACKAGE);
+  // A plain range genesis-config already has in another field: the renamed entry takes it.
+  const listed = DEP_FIELDS.map((field) => (lists(field) ? (json[field] as Record<string, unknown>)[CONFIG_PACKAGE] : undefined)).find(
+    (r): r is string => typeof r === "string" && !/^(?:workspace|link|file|npm|catalog):/.test(r),
+  );
   for (const field of DEP_FIELDS) {
     const deps = json[field];
     if (!isObject(deps) || !(OLD_FEATURES_PACKAGE in deps)) continue;
+    // Covered already: genesis-config in the same field, or in `dependencies` for a dev dependency.
+    // Otherwise the entry is renamed where it is, so a production dependency stays one.
+    const covered = lists(field) || (field === "devDependencies" && lists("dependencies"));
     const next: Array<[string, unknown]> = [];
     for (const [name, range] of Object.entries(deps)) {
       if (name !== OLD_FEATURES_PACKAGE) next.push([name, range]);
-      else if (!listsConfig) next.push([CONFIG_PACKAGE, typeof range === "string" && /^(?:workspace|link|file|catalog):/.test(range) ? range : rangeFor(String(range))]);
+      else if (!covered) next.push([CONFIG_PACKAGE, typeof range === "string" && /^(?:workspace|link|file|catalog):/.test(range) ? range : (listed ?? rangeFor(String(range)))]);
     }
     json[field] = Object.fromEntries(next);
     changed = true;
+  }
+  // Now a production dependency, genesis-config needs no dev entry as well.
+  if (changed && lists("dependencies") && lists("devDependencies")) {
+    json.devDependencies = Object.fromEntries(Object.entries(json.devDependencies as Record<string, unknown>).filter(([name]) => name !== CONFIG_PACKAGE));
   }
   const renameIn = (holder: Record<string, unknown>, key: string) => {
     const value = holder[key];
@@ -201,6 +243,17 @@ export function renameFeaturesDependency(raw: string, rangeFor: (oldRange: strin
   renameIn(json, "overrides");
   renameIn(json, "resolutions");
   if (isObject(json.pnpm)) renameIn(json.pnpm, "overrides");
+  // npm refuses an override of a direct dependency whose spec differs from it (EOVERRIDE); a
+  // reference to the dependency's own spec (`$name`) is npm's way to say "the same".
+  const npmOverrides = json.overrides;
+  const directFields = DEP_FIELDS.filter((f) => f !== "peerDependencies" && lists(f));
+  if (isObject(npmOverrides) && typeof npmOverrides[CONFIG_PACKAGE] === "string" && !String(npmOverrides[CONFIG_PACKAGE]).startsWith("$") && directFields.length) {
+    const direct = directFields.map((f) => (json[f] as Record<string, unknown>)[CONFIG_PACKAGE]);
+    if (!direct.includes(npmOverrides[CONFIG_PACKAGE])) {
+      json.overrides = { ...npmOverrides, [CONFIG_PACKAGE]: `$${CONFIG_PACKAGE}` };
+      changed = true;
+    }
+  }
   if (!changed) return raw;
   const indent = /^[ \t]+(?=")/m.exec(raw)?.[0] ?? "  ";
   return `${JSON.stringify(json, null, indent)}${raw.endsWith("\n") ? "\n" : ""}`;

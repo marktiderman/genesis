@@ -64,6 +64,7 @@ const OLD_LANE_FILE = ".eas/workflows/deploy-production.yml";
 import { bumpPackageJson, bumpSummary, compareVersions, normaliseReleaseAgeExcludes, pnpmReadsExactExcludes, pnpmWorkspaceFile, releaseAgeExcludeProblems, tidyLocked, UMBRELLA, type BumpChange, type BumpSkip } from "./bump-core.mjs";
 import { breakLines, fetchChangelog, type ChangelogReader } from "./changelog.js";
 import { codemodInstallNote, codemodsFor, uncoveredBreaks, CODEMODS, type Codemod } from "./codemods.js";
+import { CONFIG_PACKAGE, FEATURES_RENAMED_CODEMOD } from "./rename-features.js";
 import { componentValues, handBuiltSwaps, swapLines, type HandBuiltSwap } from "./new-exports.js";
 import { applyOverlayPlans, gitUpstream, overlayChecklist, planOverlays, type OverlayLockEdit, type OverlayPlan, type UpstreamSource } from "./overlays.js";
 import { BUN_LOCK, readBunLock, removeBunLockEntries, staleNestedEntries, type StaleNestedEntry } from "../blocks/bun-lock.js";
@@ -394,7 +395,13 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
     skipped.push(...result.skipped);
     if (result.text !== null) bumped.set(file, result.text);
   }
-  const mods = codemodsFor(changes, options.codemods ?? CODEMODS, root);
+  // The rename to genesis-config needs a release that has genesis-config: an older release (a
+  // historical --to) would get npm's latest genesis-config, outside the release asked for.
+  const mods = codemodsFor(changes, options.codemods ?? CODEMODS, root).filter((mod) => {
+    if (mod.id !== FEATURES_RENAMED_CODEMOD || pinned[CONFIG_PACKAGE]) return true;
+    log(`codemod ${mod.id}: skipped, release ${release.version} has no ${CONFIG_PACKAGE}; it runs on an upgrade to a release that does`);
+    return false;
+  });
   const breaks = uncoveredBreaks(changes, options.codemods ?? CODEMODS);
 
   // Overlays: cleaned out and rebased onto the release, planned before anything is written, so a

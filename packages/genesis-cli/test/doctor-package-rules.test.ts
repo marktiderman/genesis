@@ -644,6 +644,25 @@ describe("ratchet", () => {
     expect(result.ok).toBe(false);
   });
 
+  it("keeps a new invalid-setting an error under ratchet: true (the base pass doesn't read the head's genesis.config.json)", async () => {
+    const SUPPORT = "@marktiderman/genesis-support";
+    const config = (settings: Record<string, unknown>) => JSON.stringify({ doctor: { ratchet: true, rules: { "genesis-behind": "off" } }, settings });
+    const root = makeApp(null, {
+      "package.json": JSON.stringify({ name: "app", dependencies: { [SUPPORT]: "^0.12.0" } }),
+      [`node_modules/${SUPPORT}/package.json`]: JSON.stringify({ name: SUPPORT, version: "0.12.0", genesis: { settings: { namespace: "support", keys: { inbox: { type: "boolean", default: true } } } } }),
+      "genesis.config.json": config({}),
+    });
+    const git = gitIn(root);
+    git("init", "-q", "-b", "main");
+    git("add", "-A");
+    git("commit", "-q", "-m", "base");
+    git("checkout", "-q", "-b", "work");
+    writeFileSync(path.join(root, "genesis.config.json"), config({ "support.inbox": "yes" }));
+    git("commit", "-q", "-am", "a bad value");
+    const result = await runDoctor({ root, base: "main" });
+    expect(result.findings.filter((f) => f.rule === "invalid-setting").map((f) => `${f.level} ${f.subject}`)).toEqual(["error support.inbox"]);
+  });
+
   /** A git repo at `files` on main, then `head` committed on a work branch; the doctor run with --base main. */
   const branch = async (files: Record<string, string>, head: Record<string, string | null>, fixture: string | null = null) => {
     const root = makeApp(fixture, files);

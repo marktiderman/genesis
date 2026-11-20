@@ -656,6 +656,7 @@
             "requires": [
               "support.inbox"
             ],
+            "planned": true,
             "summary": "Planned (nothing reads it yet): The messenger (Home, Messages, Help) on web and phone."
           },
           "agentDesk": {
@@ -668,6 +669,7 @@
             "requires": [
               "support.inbox"
             ],
+            "planned": true,
             "summary": "Planned (nothing reads it yet): The staff side: the agent inbox on the web and the phone."
           },
           "helpCenter": {
@@ -678,6 +680,7 @@
               "min": false
             },
             "scope": "tenant",
+            "planned": true,
             "summary": "Planned (nothing reads it yet): Help articles in collections, searchable, with an admin editor."
           },
           "aiAnswers": {
@@ -694,6 +697,7 @@
             "feature": "support-helpdesk-ai",
             "needs": "secret:ANTHROPIC_API_KEY",
             "store": "edge",
+            "planned": true,
             "summary": "Planned (nothing reads it yet): AI answers that cite the help center and hand off to a person (needs the person's consent and a provider key)."
           },
           "ideas": {
@@ -713,6 +717,7 @@
               "min": false
             },
             "feature": "support-chat",
+            "planned": true,
             "summary": "Planned (nothing reads it yet): A report's thread runs on genesis-chat: live, with files, an assignee and internal notes."
           },
           "email": {
@@ -725,6 +730,7 @@
             "feature": "support-email",
             "needs": "secret:RESEND_API_KEY",
             "store": "edge",
+            "planned": true,
             "summary": "Planned (nothing reads it yet): Email is a ticket channel: inbound mail opens or continues a ticket, replies go out threaded."
           },
           "replyByEmail": {
@@ -739,6 +745,7 @@
             ],
             "needs": "secret:SUPPORT_REPLY_SIGNING_SECRET",
             "store": "server-env",
+            "planned": true,
             "summary": "Planned (nothing reads it yet): Reply by email: a signed Reply-To per recipient, quoted text stripped, auto-replies ignored."
           },
           "desks": {
@@ -751,6 +758,7 @@
             "requires": [
               "support.agentDesk"
             ],
+            "planned": true,
             "summary": "Planned (nothing reads it yet): Desks: each tenant's own help desk, switched on per tenant, with escalate, return and move between desks."
           },
           "staffAlerts": {
@@ -760,6 +768,7 @@
               "standard": true,
               "min": false
             },
+            "planned": true,
             "summary": "Planned (nothing reads it yet): Tell staff about a new report (the app's notifiers: email, push, webhook)."
           },
           "githubRepo": {
@@ -767,6 +776,7 @@
             "default": null,
             "needs": "secret:GITHUB_TOKEN",
             "store": "edge",
+            "planned": true,
             "summary": "Planned (nothing reads it yet): owner/name: open a GitHub issue for each new report. Not set, no issues."
           },
           "githubIssueDetail": {
@@ -776,6 +786,7 @@
               "summary",
               "full"
             ],
+            "planned": true,
             "summary": "Planned (nothing reads it yet): What an issue carries: the summary only, or (private repositories only) the dump's detail too."
           },
           "webhookUrl": {
@@ -783,16 +794,19 @@
             "default": null,
             "needs": "secret:SUPPORT_WEBHOOK_SIGNING_SECRET",
             "store": "edge",
+            "planned": true,
             "summary": "Planned (nothing reads it yet): A signed POST for each new report. Not set, no webhook."
           },
           "contactEmail": {
             "type": "string",
             "default": null,
+            "planned": true,
             "summary": "Planned (nothing reads it yet): Where people can write when the app can't help (shown in Help and on error screens)."
           },
           "contactUrl": {
             "type": "string",
             "default": null,
+            "planned": true,
             "summary": "Planned (nothing reads it yet): A support page, shown beside the contact email."
           },
           "agentListScan": {

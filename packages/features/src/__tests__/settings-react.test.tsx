@@ -216,6 +216,36 @@ describe("GenesisSettings: Health", () => {
     expect((await screen.findByTestId("genesis-settings-plan-sheet-result")).textContent).toContain("Applied and verified.");
   });
 
+  it("never shows or applies a late plan for another fix", async () => {
+    const state = makeState(ALL_CAPS);
+    state.findings = [...state.findings, { id: "f4", rule: "other-rule", level: "warn", message: "Other.", fix: { id: "other.fix", kind: "auto" } }];
+    const client = fakeClient(state);
+    let releaseA: () => void = () => {};
+    const planFor = (fixId: string) => ({ fixId, summary: `Plan for ${fixId}`, hash: `hash-${fixId}`, files: [{ path: `${fixId}.txt`, why: "w" }], commands: [], secrets: [] });
+    client.plan.mockImplementationOnce((fixId: string) => new Promise((resolve) => (releaseA = () => resolve(planFor(fixId)))));
+    client.plan.mockImplementationOnce(async (fixId: string) => planFor(fixId));
+    await renderSettings({ client, defaultTab: "health" });
+    fireEvent.click(screen.getByTestId("genesis-settings-finding-f1-fix"));
+    const first = await screen.findByTestId("genesis-settings-plan-sheet");
+    await act(async () => {
+      fireEvent.keyDown(first, { key: "Escape" });
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("genesis-settings-finding-f4-fix"));
+    });
+    const sheet = await screen.findByTestId("genesis-settings-plan-sheet");
+    await within(sheet).findByText("other.fix.txt");
+    // Fix A's plan arrives after B's: it is dropped.
+    await act(async () => releaseA());
+    expect(within(sheet).queryByText("agents.guide.txt")).toBeNull();
+    fireEvent.click(within(sheet).getByTestId("genesis-settings-plan-sheet-apply"));
+    await act(async () => {
+      fireEvent.click(await screen.findByTestId("genesis-settings-plan-sheet-confirm-apply"));
+    });
+    expect(client.apply).toHaveBeenCalledWith("other.fix", "hash-other.fix");
+    expect(client.apply).toHaveBeenCalledTimes(1);
+  });
+
   it("offers to plan again when the plan went stale", async () => {
     const client = fakeClient(makeState(ALL_CAPS));
     client.apply.mockRejectedValueOnce(new SettingsProtocolError("stale_plan", "hash changed", 409));
@@ -260,7 +290,7 @@ describe("GenesisSettings: Health", () => {
     state.upgrades = { packages: [{ name: "pkg", current: "1.0.0", distance: "current", notesUrl: "javascript:alert(1)" }] };
     await renderSettings({ client: fakeClient(state), defaultTab: "health" });
     expect(screen.queryByTestId("genesis-settings-finding-g1-step")).toBeNull();
-    expect(screen.getByTestId("genesis-settings-finding-g1-cli").textContent).toContain("genesis setup --step github.issues");
+    expect(screen.getByTestId("genesis-settings-finding-g1-cli").textContent).toContain("genesis fix s");
     expect(document.querySelector('a[href^="javascript"]')).toBeNull();
   });
 
@@ -268,7 +298,7 @@ describe("GenesisSettings: Health", () => {
     await renderSettings({ client: fakeClient(makeState(APP_CAPS)), defaultTab: "health" });
     expect(screen.queryByTestId("genesis-settings-finding-f1-fix")).toBeNull();
     expect(screen.getByTestId("genesis-settings-finding-f1-cli").textContent).toContain("genesis fix agents.guide");
-    expect(screen.getByTestId("genesis-settings-finding-f2-cli").textContent).toContain("genesis setup --step github.issues");
+    expect(screen.getByTestId("genesis-settings-finding-f2-cli").textContent).toContain("genesis fix setup:github.issues");
   });
 
   it("opens a guided step through onOpenStep, and shows a manual fix's instructions", async () => {

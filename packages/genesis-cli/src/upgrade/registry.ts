@@ -241,8 +241,11 @@ export function bunfigRegistries(text: string): string[] {
 /** The registry the app installs `@marktiderman/*` from, when it isn't npm's: the scope's or the default registry in the app's or the home .npmrc and bunfig.toml, or npm_config_registry. */
 export function customRegistry(root: string, env: NodeJS.ProcessEnv = process.env, home = homedir()): string | null {
   const found: string[] = [];
-  if (env.npm_config_registry) found.push(env.npm_config_registry);
-  if (env["npm_config_@marktiderman:registry"]) found.push(env["npm_config_@marktiderman:registry"]!);
+  // npm reads its environment settings in any case (NPM_CONFIG_REGISTRY too).
+  for (const [key, value] of Object.entries(env)) {
+    const k = key.toLowerCase();
+    if (value && (k === "npm_config_registry" || k === "npm_config_@marktiderman:registry")) found.push(value);
+  }
   for (const file of [path.join(root, ".npmrc"), path.join(home, ".npmrc")]) {
     let text: string;
     try {
@@ -317,15 +320,17 @@ export async function readUpgradeStatus(root: string, deps: RegistryDeps = {}): 
     }
     return fromCache(reason);
   };
-  let latest: string | null;
-  let times: Record<string, string> | null;
+  let latest: string | null = null;
+  let times: Record<string, string> | null = null;
+  // npm failing doesn't skip the advisories: they are asked for all the same, below.
+  let npmFailure: string | undefined;
   try {
     // The upgrade's own lookup (loaded only when the network is used: it's the heavy module).
     latest = (deps.latest ?? (await import("./index.js")).npmLookup(root, { timeoutMs: left() }).latest)(UMBRELLA_PACKAGE);
     if (latest === null && !deps.latest) throw new Error(`npm view ${UMBRELLA_PACKAGE} gave no version`);
     times = (deps.times ?? ((n) => npmJson(["view", n, "time", "--json"], root, left()) as Record<string, string> | null))(UMBRELLA_PACKAGE);
   } catch (err) {
-    return fail(`npm couldn't be read: ${(err as Error).message.split("\n")[0]}`);
+    npmFailure = `npm couldn't be read: ${(err as Error).message.split("\n")[0]}`;
   }
   const registry = deps.registry !== undefined ? deps.registry : customRegistry(root);
   const gh = deps.gh ?? defaultGh(root, left);
@@ -337,8 +342,16 @@ export async function readUpgradeStatus(root: string, deps: RegistryDeps = {}): 
     try {
       advisories = await withDeadline(ghAdvisories(packages, gh), left());
     } catch (ghErr) {
-      return fail(`no advisory source answered (${(bulkErr as Error).message}; ${(ghErr as Error).message})`);
+      const reason = `no advisory source answered (${(bulkErr as Error).message}; ${(ghErr as Error).message})`;
+      return fail(npmFailure ? `${npmFailure}; ${reason}` : reason);
     }
+  }
+  if (npmFailure) {
+    // The release distance comes from the cache (if any); the advisories are this run's.
+    const cached = fail(npmFailure);
+    return cached
+      ? { ...cached, advisories }
+      : { installed: manifest.version, packages, latest: null, firstNewerAt: null, advisories, checkedAt: now.toISOString(), source: "network", offlineReason: npmFailure };
   }
   const status: UpgradeStatus = { installed: manifest.version, packages, latest, firstNewerAt: firstNewerAt(times, manifest.version), advisories, checkedAt: now.toISOString(), source: "network" };
   try {

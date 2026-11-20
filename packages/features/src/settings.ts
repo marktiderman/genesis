@@ -105,6 +105,11 @@ export interface SettingSpec<K extends SettingType = SettingType> {
   setup?: string;
   /** A number that must be whole (a count, days, milliseconds). Only a number takes it. */
   integer?: boolean;
+  /**
+   * Declared ahead of the code that reads it: nothing acts on the value yet. The doctor treats a
+   * planned key as dormant (no `secret-missing`, no `setup-incomplete`), whatever its value.
+   */
+  planned?: boolean;
 }
 
 /** A declared key with its namespace folded in and its defaults filled. @stability Beta */
@@ -131,6 +136,8 @@ export interface SettingDef {
   readonly summary?: string;
   readonly setup?: string;
   readonly integer?: true;
+  /** Declared, but nothing reads it yet: dormant in the doctor. */
+  readonly planned?: true;
 }
 
 /** What {@link defineSettings} returns: one package's keys. @stability Beta */
@@ -154,10 +161,19 @@ export const SETTING_KEY = /^[a-z][a-zA-Z0-9]*(?:-[a-z0-9]+)*\.[a-z][a-zA-Z0-9]*
 const SECRET_NAME = /^[A-Z][A-Z0-9_]*$/;
 /** A setup step id: `github.issues`, `ai.key-budget`. */
 export const SETUP_STEP_ID = /^[a-z][a-z0-9-]*(?:\.[a-z0-9][a-z0-9-]*)*$/;
-const SPEC_KEYS = new Set(["type", "default", "scope", "applies", "requires", "min", "max", "options", "needs", "store", "feature", "flag", "summary", "setup", "integer"]);
+const SPEC_KEYS = new Set(["type", "default", "scope", "applies", "requires", "min", "max", "options", "needs", "store", "feature", "flag", "summary", "setup", "integer", "planned"]);
 const SCOPES: readonly SettingScope[] = ["app", "tenant", "person"];
 const APPLIES: readonly SettingApplies[] = ["build", "runtime"];
 const STORES: readonly SecretStore[] = ["vault", "edge", "server-env", "ci"];
+
+/** A value as a problem message shows it; never throws (a bigint, a cycle), so the resolver doesn't either. */
+function preview(value: unknown): string {
+  try {
+    return JSON.stringify(value, (_k, v: unknown) => (typeof v === "bigint" ? `${v}n` : v)) ?? String(value);
+  } catch {
+    return String(value);
+  }
+}
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   if (typeof v !== "object" || v === null || Array.isArray(v)) return false;
@@ -267,6 +283,7 @@ function defineKey(namespace: string, name: string, spec: SettingSpec): SettingD
   if (spec.setup !== undefined && (typeof spec.setup !== "string" || !SETUP_STEP_ID.test(spec.setup))) fail(`setup must be a step id like "github.issues" (got ${JSON.stringify(spec.setup)})`);
   if (spec.feature !== undefined && spec.type !== "boolean") fail("switches a feature, so it must be a boolean");
   if (spec.integer !== undefined && (typeof spec.integer !== "boolean" || spec.type !== "number")) fail("integer is a boolean, and only a number takes it");
+  if (spec.planned !== undefined && typeof spec.planned !== "boolean") fail("planned must be a boolean");
   const byPreset = isPresetDefaults(spec.default);
   const defaults = byPreset
     ? { ...(spec.default as PresetDefaults<unknown>) }
@@ -296,6 +313,7 @@ function defineKey(namespace: string, name: string, spec: SettingSpec): SettingD
     ...(spec.summary !== undefined ? { summary: spec.summary } : {}),
     ...(spec.setup !== undefined ? { setup: spec.setup } : {}),
     ...(spec.integer === true ? { integer: true as const } : {}),
+    ...(spec.planned === true ? { planned: true as const } : {}),
   };
   return Object.freeze(def);
 }
@@ -524,7 +542,7 @@ export function resolveSettings(catalogue: SettingsCatalogue, layers: SettingsLa
         // A bad value under a lock still locks: what the layers below gave stays, pinned.
         const locks = entry.locked === true && !source.lockedBy;
         if (locks) sources[key] = { layer: source.layer, lockedBy: layer };
-        problems.push({ kind: "type", key, layer, message: `${key} ${bad} (the ${layer} layer has ${JSON.stringify(entry.value)})${locks ? `; its lock still holds the value from the ${source.layer} layer` : ""}` });
+        problems.push({ kind: "type", key, layer, message: `${key} ${bad} (the ${layer} layer has ${preview(entry.value)})${locks ? `; its lock still holds the value from the ${source.layer} layer` : ""}` });
         continue;
       }
       if (source.lockedBy) {
@@ -612,7 +630,8 @@ export function settingsGateContext(catalogue: SettingsCatalogue, resolved: Reso
     const locked = lockedBy !== undefined && (APP_LOCK_LAYERS as readonly string[]).includes(lockedBy);
     if (def.feature && value === false) off.add(def.feature);
     if (def.feature && locked) lockedFeatures.add(def.feature);
-    if (def.flag && value !== null && value !== undefined) {
+    // Two keys may give one flag its value: an app-locked one wins over one that isn't locked.
+    if (def.flag && value !== null && value !== undefined && (locked || !lockedFlags.has(def.flag))) {
       flags[def.flag] = value as FlagValue;
       if (locked) lockedFlags.add(def.flag);
     }

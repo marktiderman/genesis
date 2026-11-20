@@ -4,7 +4,7 @@ import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { codemodById, codemodInstallNote, codemodsFor } from "../src/upgrade/codemods.js";
 import { runUpgrade, type ReleaseLookup } from "../src/upgrade/index.js";
-import { renameFeaturesDependency, rewriteFeaturesSpecifiers } from "../src/upgrade/rename-features.js";
+import { renameFeaturesDependency, rewriteFeaturesSpecifiers, rewriteWorkspaceYaml } from "../src/upgrade/rename-features.js";
 
 const ID = "genesis-features-renamed-genesis-config";
 
@@ -49,13 +49,37 @@ describe("renameFeaturesDependency", () => {
     expect(next).toBe(`{\n    "name": "app",\n    "dependencies": {\n        "@marktiderman/genesis-core": "^2.0.0",\n        "@marktiderman/genesis-config": "^0.10.1",\n        "zod": "^4.0.0"\n    }\n}\n`);
   });
 
-  it("drops the old entry when genesis-config is already in any dependency field, and keeps workspace ranges", () => {
+  it("drops the old entry when genesis-config already covers it, and keeps workspace ranges", () => {
     const both = JSON.stringify({ devDependencies: { "@marktiderman/genesis-config": "^0.10.1", "@marktiderman/genesis-features": "^0.10.0" } });
     expect(JSON.parse(renameFeaturesDependency(both, () => "x"))).toEqual({ devDependencies: { "@marktiderman/genesis-config": "^0.10.1" } });
-    const across = JSON.stringify({ dependencies: { "@marktiderman/genesis-features": "^0.10.0" }, devDependencies: { "@marktiderman/genesis-config": "^0.10.1" } });
-    expect(JSON.parse(renameFeaturesDependency(across, () => "x"))).toEqual({ dependencies: {}, devDependencies: { "@marktiderman/genesis-config": "^0.10.1" } });
+    const devOnly = JSON.stringify({ dependencies: { "@marktiderman/genesis-config": "^0.10.1" }, devDependencies: { "@marktiderman/genesis-features": "^0.10.0" } });
+    expect(JSON.parse(renameFeaturesDependency(devOnly, () => "x"))).toEqual({ dependencies: { "@marktiderman/genesis-config": "^0.10.1" }, devDependencies: {} });
     const ws = JSON.stringify({ peerDependencies: { "@marktiderman/genesis-features": "workspace:^" } });
     expect(JSON.parse(renameFeaturesDependency(ws, () => "x"))).toEqual({ peerDependencies: { "@marktiderman/genesis-config": "workspace:^" } });
+  });
+
+  it("keeps a production dependency when genesis-config is only a dev dependency", () => {
+    const across = JSON.stringify({ dependencies: { "@marktiderman/genesis-features": "^0.10.0" }, devDependencies: { "@marktiderman/genesis-config": "^0.10.1", vitest: "1" } });
+    expect(JSON.parse(renameFeaturesDependency(across, () => "x"))).toEqual({ dependencies: { "@marktiderman/genesis-config": "^0.10.1" }, devDependencies: { vitest: "1" } });
+  });
+
+  it("never doubles a key genesis-config already has in overrides or resolutions", () => {
+    const raw = JSON.stringify({
+      pnpm: { overrides: { "@marktiderman/genesis-config": "0.11.4", "@marktiderman/genesis-features": "0.11.0" } },
+      resolutions: { "@marktiderman/genesis-features": "0.11.0", "@marktiderman/genesis-config": "0.11.4" },
+    });
+    expect(JSON.parse(renameFeaturesDependency(raw, () => "^0.13.0"))).toEqual({
+      pnpm: { overrides: { "@marktiderman/genesis-config": "0.11.4" } },
+      resolutions: { "@marktiderman/genesis-config": "0.11.4" },
+    });
+  });
+
+  it("points an npm override of a direct dependency at it, so npm doesn't refuse it (EOVERRIDE)", () => {
+    const raw = JSON.stringify({ dependencies: { "@marktiderman/genesis-features": "^0.11.0" }, overrides: { "@marktiderman/genesis-features": "0.11.0" } });
+    expect(JSON.parse(renameFeaturesDependency(raw, () => "^0.13.0"))).toEqual({
+      dependencies: { "@marktiderman/genesis-config": "^0.13.0" },
+      overrides: { "@marktiderman/genesis-config": "$@marktiderman/genesis-config" },
+    });
   });
 
   it("renames overrides, pnpm.overrides and resolutions keys, moving their values to genesis-config's range", () => {
@@ -81,6 +105,14 @@ describe("renameFeaturesDependency", () => {
     expect(pkg.dependencies).toEqual({ "@marktiderman/genesis-config": "^0.13.0" });
     expect(pkg.pnpm.overrides).toEqual({ "@marktiderman/genesis-config": "0.13.0" });
     expect(readFileSync(path.join(root, "pnpm-workspace.yaml"), "utf8")).toBe("catalog:\n  \"@marktiderman/genesis-config\": ^0.13.0 # shared\noverrides:\n  '@marktiderman/genesis-config': 0.13.0\n");
+  });
+
+  it("moves flow-mapping entries in pnpm-workspace.yaml, and drops the old one beside genesis-config", () => {
+    const rangeFor = () => "^0.13.0";
+    expect(rewriteWorkspaceYaml("catalog: { '@marktiderman/genesis-features': ^0.11.0, zod: ^4.0.0 }\n", rangeFor)).toBe("catalog: { '@marktiderman/genesis-config': ^0.13.0, zod: ^4.0.0 }\n");
+    expect(rewriteWorkspaceYaml("catalog: { '@marktiderman/genesis-config': ^0.11.4, '@marktiderman/genesis-features': ^0.11.0 }\n", rangeFor)).toBe("catalog: { '@marktiderman/genesis-config': ^0.11.4 }\n");
+    expect(rewriteWorkspaceYaml("catalog: { '@marktiderman/genesis-features': ^0.11.0, '@marktiderman/genesis-config': ^0.11.4 }\n", rangeFor)).toBe("catalog: { '@marktiderman/genesis-config': ^0.11.4 }\n");
+    expect(rewriteWorkspaceYaml("catalog:\n  '@marktiderman/genesis-config': ^0.11.4\n  '@marktiderman/genesis-features': ^0.11.0\n", rangeFor)).toBe("catalog:\n  '@marktiderman/genesis-config': ^0.11.4\n");
   });
 
   it("returns the text unchanged when there's nothing to rename", () => {
@@ -158,8 +190,9 @@ describe("a hand run (genesis codemod), with nothing installed", () => {
     });
     await codemodById(ID)!.run({ root, dryRun: false, log: () => {} });
     const pkg = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8"));
-    expect(pkg.dependencies).toEqual({});
-    expect(pkg.devDependencies).toEqual({ "@marktiderman/genesis-config": "^0.11.4" });
+    // Still a production dependency (`npm ci --omit=dev` keeps it), at the range already listed.
+    expect(pkg.dependencies).toEqual({ "@marktiderman/genesis-config": "^0.11.4" });
+    expect(pkg.devDependencies).toEqual({});
     expect(pkg.pnpm.overrides).toEqual({ "@marktiderman/genesis-config": "0.11.4" });
   });
 
@@ -197,6 +230,20 @@ describe("genesis upgrade moves an app off genesis-features", () => {
     expect(report.codemods.map((c) => c.id)).toContain(ID);
     expect(JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")).dependencies).toEqual({ "@marktiderman/genesis-config": "^0.11.2" });
     expect(readFileSync(path.join(root, "src/gate.ts"), "utf8")).toBe('import { featureOn } from "@marktiderman/genesis-config/gate";\n');
+  });
+
+  it("waits for a release that has genesis-config: an older --to never gets npm's latest", async () => {
+    const root = app({
+      "package.json": JSON.stringify({ name: "app", dependencies: { "@marktiderman/genesis-features": "^0.11.0" } }, null, 2) + "\n",
+      "src/a.ts": 'import { defineBlock } from "@marktiderman/genesis-features/blocks";\n',
+    });
+    const latest: ReleaseLookup = { release: () => ({ version: "1.0.0", packages: { "@marktiderman/genesis-features": "0.11.0" } }), latest: (name) => (name === "@marktiderman/genesis-config" ? "9.9.9" : null) };
+    const logs: string[] = [];
+    const report = await runUpgrade({ root, lookup: latest, install: false, doctor: false, log: (m) => logs.push(m) });
+    expect(report.codemods.map((c) => c.id)).not.toContain(ID);
+    expect(readFileSync(path.join(root, "package.json"), "utf8")).not.toContain("9.9.9");
+    expect(readFileSync(path.join(root, "src/a.ts"), "utf8")).toContain("@marktiderman/genesis-features/blocks");
+    expect(logs.join("\n")).toContain("has no @marktiderman/genesis-config");
   });
 
   it("runs for an app already on the alias, though the release crosses no version", async () => {

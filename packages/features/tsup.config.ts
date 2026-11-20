@@ -23,18 +23,44 @@ function stampUseClient(file: string) {
   }
 }
 
-export default defineConfig({
-  entry: { index: "src/index.ts", blocks: "src/blocks-entry.ts", gate: "src/gate-entry.ts", settings: "src/settings-entry.ts", "settings-protocol": "src/settings-protocol.ts", "settings-react": "src/settings-react.tsx", "gate-react": "src/gate-react.tsx", node: "src/node.ts", react: "src/react.tsx" },
-  format: ["esm"],
-  dts: true,
-  sourcemap: true,
-  clean: true,
-  treeshake: true,
-  target: "es2022",
-  external: [/^@marktiderman\//, "react", "react-dom", "lucide-react", "zod", /^node:/],
-  onSuccess: async () => {
-    stampUseClient("dist/react.js");
-    stampUseClient("dist/gate-react.js");
-    stampUseClient("dist/settings-react.js");
+const ESM_ENTRIES = { index: "src/index.ts", blocks: "src/blocks-entry.ts", gate: "src/gate-entry.ts", settings: "src/settings-entry.ts", "settings-protocol": "src/settings-protocol.ts", "settings-react": "src/settings-react.tsx", "gate-react": "src/gate-react.tsx", node: "src/node.ts", react: "src/react.tsx" };
+
+/**
+ * The React-free entries also ship as CommonJS (`require` condition). The Expo
+ * config plugin in genesis-cli reads `/settings`, and Expo loads plugins with
+ * `require` (through tsx/cjs or its own transpiler), so an `import`-only export
+ * fails there with "Package subpath './settings' is not defined by exports".
+ */
+const CJS_ENTRIES = { index: "src/index.ts", blocks: "src/blocks-entry.ts", gate: "src/gate-entry.ts", settings: "src/settings-entry.ts", "settings-protocol": "src/settings-protocol.ts", node: "src/node.ts" };
+
+const EXTERNAL = [/^@marktiderman\//, "react", "react-dom", "lucide-react", "zod", /^node:/];
+
+// Two passes. Not tsup's clean: it runs per pass and would delete the other pass's files; `build` empties dist first.
+export default defineConfig([
+  {
+    entry: ESM_ENTRIES,
+    format: ["esm"],
+    dts: true,
+    sourcemap: true,
+    clean: false,
+    treeshake: true,
+    target: "es2022",
+    external: EXTERNAL,
+    onSuccess: async () => {
+      stampUseClient("dist/react.js");
+      stampUseClient("dist/gate-react.js");
+      stampUseClient("dist/settings-react.js");
+    },
   },
-});
+  {
+    entry: CJS_ENTRIES,
+    format: ["cjs"],
+    dts: true,
+    sourcemap: true,
+    clean: false,
+    treeshake: true,
+    target: "es2022",
+    external: EXTERNAL,
+    outExtension: () => ({ js: ".cjs", dts: ".d.cts" }),
+  },
+]);

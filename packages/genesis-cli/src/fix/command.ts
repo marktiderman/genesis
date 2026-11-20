@@ -144,6 +144,38 @@ async function fixCommand(options: FixCommandOptions, io: FixCommandIo, vault: S
   // Each result is redacted as it is recorded, while the values it could hold are still in the vault.
   const record = (result: unknown) => results.push(vault.redactJson(result));
   let code = 0;
+  const contextFor = (fix: Fix, g: Group): FixContext => ({
+    root: options.root,
+    findings: g.findings,
+    network,
+    log: (m) => (options.json ? io.err(m) : io.out(m)),
+    recheck: async (rules) => (await doctor({ root: options.root, ...(options.configPath ? { configPath: options.configPath } : {}), network })).findings.filter((f) => rules.includes(f.rule)),
+  });
+
+  // `--expect <hash>` names one plan. Every plan is read before anything is applied, so a target
+  // with several fixes to apply is refused whole, not after the first one is written.
+  const planned = new Map<string, FixPlan>();
+  if (options.expect && !options.plan) {
+    const toApply: string[] = [];
+    for (const g of chosen) {
+      if (!g.fix) continue;
+      let plan: FixPlan;
+      try {
+        plan = await planFix(g.fix, contextFor(g.fix, g));
+      } catch {
+        continue; // reported by the loop below, which plans it again
+      }
+      planned.set(g.fix.id, plan);
+      if (g.fix.kind !== "manual" && plan.files.length + plan.commands.length > 0) toApply.push(g.fix.id);
+    }
+    if (toApply.length > 1) {
+      const message = `--expect names one plan, but ${target} has ${toApply.length} fixes to apply (${toApply.join(", ")}). Nothing was written; run genesis fix <id> --expect <hash> for each.`;
+      if (options.json) io.out(JSON.stringify({ target, fixes: toApply.map((id) => ({ id, plan: planned.get(id), refused: "ambiguous" })), error: message }, null, 2));
+      else io.err(`✗ ${message}`);
+      return 1;
+    }
+  }
+
   for (const g of chosen) {
     if (!g.fix) {
       record({ id: g.id, kind: "manual", findings: g.findings });
@@ -155,16 +187,10 @@ async function fixCommand(options: FixCommandOptions, io: FixCommandIo, vault: S
     }
     const fix = g.fix;
     if (!g.findings.length && !options.json) io.out(`${fix.id}: no finding uses it now; planning anyway.`);
-    const ctx: FixContext = {
-      root: options.root,
-      findings: g.findings,
-      network,
-      log: (m) => (options.json ? io.err(m) : io.out(m)),
-      recheck: async (rules) => (await doctor({ root: options.root, ...(options.configPath ? { configPath: options.configPath } : {}), network })).findings.filter((f) => rules.includes(f.rule)),
-    };
+    const ctx = contextFor(fix, g);
     let plan: FixPlan;
     try {
-      plan = await planFix(fix, ctx);
+      plan = planned.get(fix.id) ?? (await planFix(fix, ctx));
     } catch (err) {
       io.err(`✗ ${fix.id}: couldn't plan: ${(err as Error).message}`);
       record({ id: fix.id, error: (err as Error).message });

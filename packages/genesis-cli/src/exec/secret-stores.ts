@@ -18,9 +18,9 @@
  * `$1`, but keeps a utility statement such as `DO $$ … $$` word for word, so an upsert written
  * that way would put the value in `pg_stat_statements.query` (which Supabase shows under Query
  * Performance); and a statement that fails is written to the Postgres log as it was sent, value
- * included, whatever its kind. And
- * `supabase db query --linked` needs a direct database connection (IPv6, or the database
- * password), not the Management API. So the CLI never writes Vault: the plan says to add it in
+ * included, whatever its kind. And `supabase db query --linked` (CLI 2.117) sends the statement
+ * through the Management API, so the value would also leave the machine in a request body. So
+ * the CLI never writes Vault: the plan says to add it in
  * the dashboard (Database → Vault). Only the names are read, which carries no value. The in-app
  * Settings screen will set Vault secrets server-side through a parameterised function (Phase 4).
  */
