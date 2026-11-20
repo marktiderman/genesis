@@ -374,8 +374,12 @@ describe("the wizard's host: every write is a plan applied by its hash", () => {
   it("lists the guided setup steps", async () => {
     const { call } = host(wizardApp());
     const r = (await call("step.list")).body as { steps: Array<{ id: string; done: boolean; secrets: Array<{ name: string }> }> };
-    expect(r.steps).toEqual([expect.objectContaining({ id: "github.issues", done: false, secrets: [{ name: "GITHUB_TOKEN", store: "edge" }], command: "genesis setup --step github.issues" })]);
-    expect((await call("step.start", { id: "github.issues" })).status).toBe(501);
+    // The catalogue's step, with its runner; and supabase.link, since the app has a supabase/ folder.
+    expect(r.steps).toEqual([
+      expect.objectContaining({ id: "supabase.link", runner: expect.objectContaining({ title: "Link the Supabase project" }) }),
+      expect.objectContaining({ id: "github.issues", done: false, secrets: [{ name: "GITHUB_TOKEN", store: "edge" }], command: "genesis setup --step github.issues", runner: expect.objectContaining({ id: "github.issues" }) }),
+    ]);
+    expect((await call("step.start", { id: "github.issues" })).body).toMatchObject({ step: { id: "github.issues" }, detected: [] });
   });
 });
 

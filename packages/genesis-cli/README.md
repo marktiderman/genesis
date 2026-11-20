@@ -1681,8 +1681,9 @@ wizard shows them with their fixes and walks you through them.
   (`<GenesisSettings>` from `@marktiderman/genesis-config/settings/react`, the one an app's platform
   admin mounts too) on its Health tab, with the Values, Secrets and Upgrades tabs beside it, and the
   **Guided steps**: every `setup` step the installed packages' settings name (`github.issues`, …),
-  the keys each configures, the secrets they need and whether they are set. `--step <id>` opens on
-  one.
+  the keys each configures, the secrets they need and whether they are set, plus `supabase.link`
+  and `eas.push` when the app has a `supabase/` folder or an `eas.json`. A step with a runner
+  (below) has **Start**, **Run** and **Check**.
 - **`genesis init`** with no name, at a terminal, opens it on an empty folder: **App** (slug, name,
   bundle id, folder), **Preset** (max, the default, needs no configuration), **Packages** (the
   starter's feature switches) and **Review** (every file it writes). It makes the same app as
@@ -1719,7 +1720,8 @@ wizard shows them with their fixes and walks you through them.
   `Sec-Fetch-Site: cross-site` is refused outright.
 - **JSON only**, up to 1 MB (past that it answers 413 and drops the connection), at
   `POST /api {v, op, …}` (the settings protocol's ops, plus the wizard's `wizard.info`,
-  `settings.plan`, `init.plan`, `install.plan`, `plan.file` and `step.list`). No CORS headers; a CSP of
+  `settings.plan`, `init.plan`, `install.plan`, `plan.file`, `step.list`, `step.start`,
+  `step.submit` and `step.verify`). No CORS headers; a CSP of
   `default-src 'self'` with inline styles allowed (the dialogs position themselves with them) and no
   inline script; nothing cached. `GET /events` streams a fix's output, redacted.
 - It stops on Ctrl-C, or after 30 minutes without a request.
@@ -1729,7 +1731,8 @@ and turns `--without` switches off, each as a plan; applies every automatic fix 
 findings name (except `upgrade.release`, which opens a pull request: it is listed); and prints the
 rest: `genesis fix <id>` for each guided fix, and the dormant checklist, `genesis setup --step <id>`
 for each setup step not done. A dormant feature fails nothing. It exits 0, or 1 when a fix it
-applied failed or didn't verify. With `--step <id>` it prints that step's checklist only.
+applied failed or didn't verify. With `--step <id>` it prints that step's checklist only (or, for
+a step no package names, its instructions).
 
 Without `--yes` and without a terminal (a script, or CI: with `CI` set, even a pseudo-terminal
 doesn't open the wizard), it applies nothing, as `genesis fix` doesn't
@@ -1738,12 +1741,38 @@ and exits 1 when there is anything to apply. `--preset` and `--without` never im
 terminal they need it (`genesis init` with no name in an empty folder takes them as the wizard's
 starting choices instead).
 
-**Planned** (`setup-wizard`): each guided step's runner, which walks the outside service and
-verifies it live (link Supabase, a GitHub token, a Resend domain, Sentry, an AI key, EAS push), the
-Brand and Data screens, and Fix with Claude. Until a step's runner arrives, it is set up by its
-keys and secrets in the wizard, and `step.start`, `step.submit` and `step.verify` answer
-`unsupported`. `genesis setup --step <id>` reports a step's settings as set; its secret is checked
-by `genesis doctor` online, and the step stays on the checklist while the doctor says it is missing.
+**Guided steps.** Each walks one outside service and ends with a live check, or stays open.
+`genesis setup --step <id>` at a terminal runs one there; the wizard's Guided steps tab runs the
+same runner. A step is declared with `defineSetupStep` (`@marktiderman/genesis-config/setup`): what
+to do in the service, the values it asks for, the secrets it needs by name, and links.
+
+1. The instructions and links, and what is there now (`step.start`: the Supabase project list, a
+   dry run of the migrations).
+2. The step's values (never a secret), checked against their patterns. A value that a package's
+   setting names this step for is saved to `genesis.config.json` in the same plan.
+3. The plan (`step.submit`), approved by its hash. Each secret it needs is typed in then (hidden at
+   a terminal, a password field in the wizard), held in memory for that run and sent to your
+   signed-in CLI on stdin only, as `genesis fix secrets.set` does; a request to the service carries
+   it in a header. Never argv, a URL, a log line or an answer.
+4. Apply through the [fix engine](#genesis-fix), then the test call. **Check** (`step.verify`)
+   runs it again later; a check that needs a secret asks for it again, since none is kept, and
+   says it tested the value typed in, not the stored one. Remote text printed at a terminal
+   (project names, DNS records) has its control characters stripped.
+
+| Step | Runs | Checks |
+|---|---|---|
+| `supabase.link` | `supabase link --project-ref`, `db push`, `functions deploy` for each function in `supabase/functions`; the plan names each migration with its content hash, so an edited one makes it stale (a first link has no dry run, and says so) | linked to the project ref typed in, no migration pending, every function deployed |
+| `github.issues` | `GITHUB_TOKEN` to the Edge Function secrets | the token reads the repository and its issues, with issues on (write access isn't checked: that would open an issue) |
+| `resend.domain` | `RESEND_API_KEY` to the Edge Function secrets; the domain added to Resend (or found) and its DNS records shown | Resend says the domain is `verified` |
+| `sentry` | `SENTRY_AUTH_TOKEN` through `gh secret set`; the `eas env:create` line for you to run | the token reads the project; a test event reaches the DSN (a `*.sentry.io` host only), when given |
+| `ai.key-budget` | `ANTHROPIC_API_KEY` to the Edge Function secrets; the budget as a setting | `GET /v1/models` (spends no tokens) |
+| `eas.push` | nothing: a manual step (`eas credentials` asks its own questions) | never verified from here: it checks the EAS CLI is signed in and answers "not verified: send a test push from a device build" |
+
+`eas env:create` takes a secret only as a flag or a prompt, never stdin, so an EAS secret is always
+a line you run yourself. If `supabase db push` asks for the database password, set
+`SUPABASE_DB_PASSWORD` in the shell you start `genesis` from.
+
+**Planned** (`setup-wizard`): the Brand and Data screens, and Fix with Claude.
 
 ## genesis mcp
 

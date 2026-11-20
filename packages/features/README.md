@@ -207,6 +207,29 @@ unless "off when any of them is off" is what you mean.
 (`invalid-setting`, `setting-requires`, and `setup-incomplete` and `secret-missing` for keys with a
 `setup` step or a secret they `needs`, checked by name only). `catalogueManifest` is the catalogue as the database checks values against it.
 
+### Guided setup steps
+
+A key whose feature needs an outside service names its step (`setup: "github.issues"`). The step
+itself is declared with `defineSetupStep` (`@marktiderman/genesis-config/setup`, Beta: ESM and
+CommonJS, no zod or React): what to do in the service, the values it asks for (a `setting` field is
+saved to the key that names the step and ends in `.<setting>`), the secrets it needs by name and
+where they are kept, and links. `checkSetupFields` checks the values a person typed. The CLI runs
+the steps (`genesis setup --step <id>`, and the wizard's Guided steps tab).
+
+```ts
+import { checkSetupFields, defineSetupStep } from "@marktiderman/genesis-config/setup";
+
+const githubIssues = defineSetupStep({
+  id: "github.issues",
+  title: "Open a GitHub issue for each report",
+  needs: [{ name: "GITHUB_TOKEN", store: "edge" }],
+  fields: [{ name: "repo", label: "Repository (owner/name)", pattern: "[A-Za-z0-9-]+/[A-Za-z0-9._-]+", setting: "githubRepo" }],
+  links: [{ label: "New fine-grained token", url: "https://github.com/settings/personal-access-tokens/new" }],
+  instructions: ["Make a fine-grained token for that one repository, with Issues: Read and write."],
+});
+const values: Record<string, string> = checkSetupFields(githubIssues, { repo: "your-org/your-repo" });
+```
+
 ### The Settings screen
 
 One screen, two hosts: the localhost wizard (`genesis setup`) and the app's own platform-admin

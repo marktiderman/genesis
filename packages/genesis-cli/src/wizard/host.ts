@@ -41,12 +41,14 @@ import { allFixes, type BuiltinDeps } from "../fix/registry.js";
 import type { Fix, FixContext, FixPlan, FixPlanDraft } from "../fix/types.js";
 import type { ToolRunner } from "../exec/run.js";
 import { findLockfile, installCommand, type PackageManager } from "../blocks/pm.js";
-import { SecretError, SecretVault } from "../exec/secret-vault.js";
+import { safeErrorMessage, SecretError, SecretVault } from "../exec/secret-vault.js";
 import { changedLines } from "../mcp/server.js";
 import { CONFIG_FILE, fileLayers, loadCatalogue, ProposalError, settingsProposalFix } from "../mcp/settings.js";
 import { distance, readUpgradeStatus, type RegistryDeps } from "../upgrade/registry.js";
 import { checkInitChoices, initAppFix, InitChoiceError, starterSwitches, INIT_FIX_ID, type InitChoices } from "./init.js";
-import { setupSteps } from "./steps.js";
+import { SetupStepError } from "@marktiderman/genesis-config/setup";
+import { runnerFor, startStep, stepFix, stepList, StepError, verifyStep } from "./steps/index.js";
+import type { FetchLike } from "./steps/framework.js";
 
 export type WizardMode = "init" | "setup";
 
@@ -69,6 +71,8 @@ export interface WizardHostOptions {
     registry?: Omit<RegistryDeps, "network">;
     /** Runs allowlisted tools for the plans' commands (default src/exec/run.ts). */
     run?: ToolRunner;
+    /** The guided steps' requests to outside services (default fetch). */
+    fetch?: FetchLike;
   };
 }
 
@@ -101,7 +105,7 @@ class HostError extends Error {
 export const WIZARD_OPS = ["wizard.info", "settings.plan", "init.plan", "install.plan", "plan.file", "step.list", "step.start", "step.submit", "step.verify", "agent.start", "agent.approve", "agent.discard"] as const;
 
 /** How a plan was made, so `apply` can make the same one again. Never written to disk, never holds a secret. */
-type Recipe = { kind: "install" } | { kind: "fix"; fixId: string; subject?: string } | { kind: "set"; key: string; value: unknown; locked?: boolean } | { kind: "clear"; key: string } | { kind: "init"; choices: InitChoices };
+type Recipe = { kind: "install" } | { kind: "step"; id: string; fields: unknown } | { kind: "fix"; fixId: string; subject?: string } | { kind: "set"; key: string; value: unknown; locked?: boolean } | { kind: "clear"; key: string } | { kind: "init"; choices: InitChoices };
 
 const SETTINGS_CLEAR_ID = "settings.clear";
 
@@ -312,6 +316,7 @@ export function createWizardHost(options: WizardHostOptions): WizardHost {
   const deps = options.deps ?? {};
   const publish = options.publish ?? (() => {});
   const recipes = new Map<string, Recipe>();
+  const stepDeps = { network, ...(deps.run ? { run: deps.run } : {}), ...(deps.fetch ? { fetch: deps.fetch } : {}) };
   /** The last plans made, whole, so the page can read every planned file before approving (`plan.file`). */
   const plans = new Map<string, FixPlan>();
   /** One apply at a time: two writes never interleave. */
@@ -356,6 +361,11 @@ export function createWizardHost(options: WizardHostOptions): WizardHost {
     if (recipe.kind === "clear") return { fix: settingsClearFix(recipe.key), findings: [] };
     if (recipe.kind === "init") return { fix: initAppFix(recipe.choices), findings: [] };
     if (recipe.kind === "install") return { fix: installFix(), findings: [] };
+    if (recipe.kind === "step") {
+      const runner = runnerFor(recipe.id);
+      if (!runner) throw new HostError("not_found", `no guided runner for ${recipe.id}`, 404);
+      return { fix: stepFix(runner, recipe.fields, stepDeps), findings: [] };
+    }
     const list = await fixes();
     const fix = list.find((f) => f.id === recipe.fixId);
     if (!fix) throw new HostError("not_found", `no fix ${recipe.fixId}`, 404);
@@ -384,7 +394,7 @@ export function createWizardHost(options: WizardHostOptions): WizardHost {
     try {
       plan = await planFix(fix, context(findings, undefined, recipe));
     } catch (err) {
-      if (err instanceof ProposalError || err instanceof InitChoiceError) throw new HostError("bad_request", err.message);
+      if (err instanceof ProposalError || err instanceof InitChoiceError || err instanceof SetupStepError || err instanceof StepError) throw new HostError("bad_request", err.message);
       if (err instanceof FixError) throw new HostError("error", err.message, 500);
       // The starter's own checks (a folder that isn't empty, a switch that isn't there) are the person's to correct.
       if (recipe.kind === "init" && err instanceof Error) throw new HostError("bad_request", err.message);
@@ -406,7 +416,7 @@ export function createWizardHost(options: WizardHostOptions): WizardHost {
     }
     if (!recipe) throw new HostError("stale_plan", "This plan is no longer current (it was applied, expired or made elsewhere). Nothing was written: plan it again and read the new plan.", 409);
     const vault = new SecretVault();
-    const log = (m: string) => publish("log", { fixId, line: vault.redact(m) });
+    const log = (m: string) => publish("log", { fixId, line: safeErrorMessage(vault, m, "(a line isn't shown: it may hold a secret)") });
     try {
       const { fix, findings } = await resolveRecipe(recipe);
       if (fix.id !== fixId) throw new HostError("bad_request", `that plan is ${fix.id}'s, not ${fixId}'s`);
@@ -435,12 +445,12 @@ export function createWizardHost(options: WizardHostOptions): WizardHost {
       return vault.redactJson({ fixId, verified: result.verify.ok, ...(message ? { message } : {}), ...(pr ? { pullRequestUrl: pr } : {}) });
     } catch (err) {
       publish("apply", { fixId, state: "failed" });
-      if (err instanceof HostError) throw new HostError(err.code, vault.redact(err.message), err.status);
+      if (err instanceof HostError) throw new HostError(err.code, safeErrorMessage(vault, err), err.status);
       // The engine's own wording names the CLI; the page plans again instead.
       if (err instanceof StalePlanError || err instanceof FileConflictError) throw new HostError("stale_plan", STALE_MESSAGE, 409);
-      if (err instanceof SecretError) throw new HostError("bad_request", vault.redact(err.message));
-      if (err instanceof ProposalError || err instanceof InitChoiceError) throw new HostError("bad_request", vault.redact(err.message));
-      throw new HostError("error", vault.redact(err instanceof Error ? err.message : String(err)), 500);
+      if (err instanceof SecretError) throw new HostError("bad_request", safeErrorMessage(vault, err));
+      if (err instanceof ProposalError || err instanceof InitChoiceError) throw new HostError("bad_request", safeErrorMessage(vault, err));
+      throw new HostError("error", safeErrorMessage(vault, err, "The fix failed; its error isn't shown, since it may hold a secret."), 500);
     } finally {
       vault.clear();
     }
@@ -511,13 +521,6 @@ export function createWizardHost(options: WizardHostOptions): WizardHost {
     };
   };
 
-  const safeSteps = () => {
-    try {
-      return setupSteps(root);
-    } catch {
-      return [];
-    }
-  };
 
   const info = () => ({
     mode,
@@ -528,7 +531,7 @@ export function createWizardHost(options: WizardHostOptions): WizardHost {
     capabilities: CLI_CAPABILITIES,
     ...(mode === "init"
       ? { switches: starterSwitches(), folderEmpty: !existsSync(initRoot) || fs.readdirSync(initRoot).length === 0, ...(options.initial ? { initial: options.initial } : {}) }
-      : { steps: safeSteps(), needsInstall: existsSync(path.join(root, "package.json")) && !packagesInstalled(root) }),
+      : { steps: stepList(root), needsInstall: existsSync(path.join(root, "package.json")) && !packagesInstalled(root) }),
   });
 
   const str = (body: Record<string, unknown>, key: string, max = 200): string => {
@@ -610,11 +613,26 @@ export function createWizardHost(options: WizardHostOptions): WizardHost {
         return { plan: await makePlan({ kind: "install" }) };
       case "step.list":
         if (mode === "init") return { steps: [] };
-        return { steps: setupSteps(root) };
+        return { steps: stepList(root) };
       case "step.start":
       case "step.submit":
-      case "step.verify":
-        throw new HostError("unsupported", "A step's guided runner (walk the service, verify it) isn't in this release: set the step's keys and secrets here.", 501);
+      case "step.verify": {
+        if (mode === "init") throw new HostError("unsupported", "There's no app yet: make one first.", 501);
+        const id = str(body, "id", 100);
+        if (!runnerFor(id)) throw new HostError("not_found", `No guided runner for ${id}.`, 404);
+        try {
+          if (op === "step.start") return await startStep(root, id, stepDeps);
+          // The fields are the step's plain values; its secrets come with apply (or a check), never here.
+          if (op === "step.submit") return { plan: await makePlan({ kind: "step", id, fields: body.fields ?? {} }) };
+          const secrets = body.secrets;
+          if (secrets !== undefined && (!secrets || typeof secrets !== "object" || Array.isArray(secrets))) throw new HostError("bad_request", `"secrets" must map names to values`);
+          const result = await verifyStep(root, id, body.fields ?? {}, secrets as Record<string, unknown> | undefined, stepDeps);
+          return { result: { verified: result.ok, ...(result.message ? { message: result.message } : {}) } };
+        } catch (err) {
+          if (err instanceof SetupStepError || err instanceof StepError) throw new HostError("bad_request", err.message);
+          throw err;
+        }
+      }
       case "agent.start":
       case "agent.approve":
       case "agent.discard":
@@ -636,8 +654,9 @@ export function createWizardHost(options: WizardHostOptions): WizardHost {
       } catch (err) {
         if (err instanceof HostError) return { status: err.status, body: { error: { code: err.code, message: err.message } } };
         if (err instanceof GenesisConfigError) return { status: 400, body: { error: { code: "bad_request", message: err.message } } };
-        // An unexpected error's message only: never a stack, never the request.
-        return { status: 500, body: { error: { code: "error", message: err instanceof Error ? err.message : "The wizard failed on that request." } } };
+        // An unexpected error: never its text (it may hold a value typed in), a stack or the request.
+        // Every path that knows its text is safe (a HostError, a GenesisConfigError) answers above.
+        return { status: 500, body: { error: { code: "error", message: "The wizard failed on that request." } } };
       }
     },
   };

@@ -44,8 +44,9 @@ import {
 import { readGenesisConfig } from "./config.js";
 import { installedGenesis } from "../blocks/discover.js";
 import { GENESIS_PACKAGE, rawBlocksOf } from "../blocks/manifest.js";
-import { runTool, TOOL_AUTH_ENV, type ToolRunner } from "../exec/run.js";
+import { runTool, type ToolRunner } from "../exec/run.js";
 import { readSecretNames, storeOptions, supabaseLinked, targetsOf, TARGET_LABEL, type SecretStore, type SecretTarget } from "../exec/secret-stores.js";
+import { supabaseQuery } from "../exec/supabase-query.js";
 import type { DoctorContext } from "./types.js";
 
 const FILE = "genesis.config.json";
@@ -161,7 +162,7 @@ const SETTINGS_SQL = "select key, value, locked from public.genesis_settings ord
 export async function readDatabaseLayer(root: string, run: ToolRunner = runTool): Promise<{ ok: true; layer: SettingsLayerValues } | { ok: false; reason: string }> {
   let result;
   try {
-    result = await run("supabase", ["db", "query", "--linked", "-o", "json", "-f", "/dev/stdin"], { cwd: root, stdin: SETTINGS_SQL, timeoutMs: 30_000, passEnv: TOOL_AUTH_ENV["supabase"] ?? [] });
+    result = await supabaseQuery(root, SETTINGS_SQL, run, { args: ["-o", "json"] });
   } catch (err) {
     return { ok: false, reason: (err as Error).message };
   }
@@ -212,7 +213,9 @@ function hasPlatformAdminsMigration(root: string): boolean {
 export async function readPlatformAdmins(root: string, run: ToolRunner = runTool): Promise<{ ok: true; count: number; appHook: boolean } | { ok: false; reason: string }> {
   let result;
   try {
-    result = await run("supabase", ["db", "query", "--linked", "-o", "json", "-f", "/dev/stdin"], { cwd: root, stdin: ADMINS_SQL, timeoutMs: 30_000, passEnv: TOOL_AUTH_ENV["supabase"] ?? [] });
+    // Through a temp file (src/exec/supabase-query.ts), as the doctor's other reads are, not /dev/stdin.
+    // (settings-manifest.ts still sends its SQL on /dev/stdin outside Windows.)
+    result = await supabaseQuery(root, ADMINS_SQL, run, { args: ["-o", "json"] });
   } catch (err) {
     return { ok: false, reason: (err as Error).message };
   }

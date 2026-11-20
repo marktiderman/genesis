@@ -28,6 +28,7 @@ import type { Fix, FixContext, FixPlanDraft } from "../fix/types.js";
 import type { ToolRunner } from "../exec/run.js";
 import { CONFIG_FILE } from "../mcp/settings.js";
 import { setupSteps } from "./steps.js";
+import { runnerFor } from "./steps/index.js";
 
 /** Automatic fixes headless setup lists instead of applying: they act outside the repository. */
 export const HEADLESS_SKIP: ReadonlySet<string> = new Set(["upgrade.release"]);
@@ -193,13 +194,19 @@ export async function runSetupHeadless(options: HeadlessOptions): Promise<number
   const open = steps.filter((s) => (!s.done || secretGap(s).length > 0) && (!options.step || s.id === options.step));
   if (options.step && !open.length) {
     const step = steps.find((s) => s.id === options.step);
+    const runner = runnerFor(options.step);
     if (step) {
       const unverified = step.secrets.map((x) => x.name);
       out(
         unverified.length
-          ? `✔ ${options.step}: its settings are set. ${unverified.join(", ")} ${unverified.length === 1 ? "isn't" : "aren't"} verified here: genesis doctor (online) checks ${unverified.length === 1 ? "it" : "them"}, and the step's own check comes with its runner.`
+          ? `✔ ${options.step}: its settings are set. ${unverified.join(", ")} ${unverified.length === 1 ? "isn't" : "aren't"} verified here: genesis doctor (online) checks ${unverified.length === 1 ? "it" : "them"}${runner ? `, and genesis setup --step ${options.step} at a terminal runs the step's live check` : ""}.`
           : `✔ ${options.step}: its settings are set.`,
       );
+    } else if (runner) {
+      // A guided step needs a person: its values and secrets are typed in at a terminal.
+      out(`${runner.step.title} (${runner.step.id}): run genesis setup --step ${runner.step.id} at a terminal.`);
+      runner.step.instructions.forEach((line, i) => out(`  ${i + 1}. ${line}`));
+      for (const link of runner.step.links) out(`  ${link.label}: ${link.url}`);
     } else {
       err(`✗ No setup step ${options.step}${steps.length ? ` (the steps: ${steps.map((s) => s.id).join(", ")})` : ""}.`);
       code = 1;

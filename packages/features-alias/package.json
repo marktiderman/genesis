@@ -58,6 +58,10 @@
       "types": "./dist/settings-protocol.d.ts",
       "import": "./dist/settings-protocol.js"
     },
+    "./setup": {
+      "types": "./dist/setup.d.ts",
+      "import": "./dist/setup.js"
+    },
     "./node": {
       "types": "./dist/node.d.ts",
       "import": "./dist/node.js"

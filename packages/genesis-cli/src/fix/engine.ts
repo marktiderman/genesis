@@ -9,7 +9,7 @@ import { createHash } from "node:crypto";
 import { chmodSync, closeSync, existsSync, lstatSync, statSync, mkdirSync, readFileSync, realpathSync, renameSync, rmdirSync, unlinkSync, writeFileSync, openSync } from "node:fs";
 import * as path from "node:path";
 import { runTool, isAllowedTool, TOOL_AUTH_ENV, type ToolRunner } from "../exec/run.js";
-import { SecretVault } from "../exec/secret-vault.js";
+import { safeErrorMessage, SecretVault } from "../exec/secret-vault.js";
 import { stdinFor } from "../exec/secret-stores.js";
 import type { Finding } from "../doctor/types.js";
 import { manualFixId, type ApplyContext, type ApplyOutcome, type Fix, type FixContext, type FixPlan, type FixPlanDraft, type FixRef, type PlannedFile, type VerifyResult } from "./types.js";
@@ -194,7 +194,8 @@ export async function applyPlan(fix: Fix, plan: FixPlan, context: ApplyContext, 
 }
 
 async function applyWithVault(fix: Fix, plan: FixPlan, context: ApplyContext, vault: SecretVault, options: ApplyOptions): Promise<ApplyResult> {
-  const redact = (text: string) => vault.redact(text);
+  // Never the raw text: if redaction itself failed, a generic line stands in.
+  const redact = (text: string) => safeErrorMessage(vault, text, "(the error isn't shown: it may hold a secret)");
   if (fix.kind === "manual") throw new FixError(`${fix.id} is a manual fix: nothing runs. ${plan.manual ?? ""}`.trim());
   if (plan.fixId !== fix.id) throw new FixError(`the plan is ${plan.fixId}'s, not ${fix.id}'s`);
   const { hash: handed, ...body } = plan;

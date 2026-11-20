@@ -52,6 +52,9 @@
       "settings-protocol": [
         "./dist/settings-protocol.d.cts"
       ],
+      "setup": [
+        "./dist/setup.d.cts"
+      ],
       "node": [
         "./dist/node.d.cts"
       ],
@@ -118,6 +121,16 @@
       "require": {
         "types": "./dist/settings-protocol.d.cts",
         "default": "./dist/settings-protocol.cjs"
+      }
+    },
+    "./setup": {
+      "import": {
+        "types": "./dist/setup.d.ts",
+        "default": "./dist/setup.js"
+      },
+      "require": {
+        "types": "./dist/setup.d.cts",
+        "default": "./dist/setup.cjs"
       }
     },
     "./node": {
