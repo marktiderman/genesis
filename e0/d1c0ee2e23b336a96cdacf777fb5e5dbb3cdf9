@@ -1,0 +1,82 @@
+packages/genesis-cli/src/studio/init.ts
+  s_ee1136e5d8692a::t_ce7660b9d540e5 209,357,359
+packages/genesis-cli/test/studio-init.test.ts
+  s_ee1136e5d8692a::t_ce7660b9d540e5 43
+scripts/__tests__/check-code-connect.test.mjs
+  s_ee1136e5d8692a::t_ce7660b9d540e5 264,375,429
+packages/data-server/src/client.ts
+  s_ee1136e5d8692a::t_576ee46e8a4f73 118,127,136,306,323,325
+  s_ee1136e5d8692a::t_a2b203334d06c3 2
+apps/sample/app/routes/studio.tsx
+  s_ee1136e5d8692a::t_7664a99d0fc410 1,3,5
+apps/sample/studio/vite-plugin.ts
+  s_ee1136e5d8692a::t_7664a99d0fc410 2,66
+docs/DATA-STUDIO.md
+  s_ee1136e5d8692a::t_4cafa77004c91a 1-8
+apps/sample/app/routes.ts
+  s_ee1136e5d8692a::t_7664a99d0fc410 47-48
+packages/data-server/src/authorize.ts
+  s_ee1136e5d8692a::t_576ee46e8a4f73 27,53,78-79,84,91,94
+docs/GLOSSARY.md
+  s_ee1136e5d8692a::t_4cafa77004c91a 75-76
+.github/workflows/ci.yml
+  s_ee1136e5d8692a::t_ce7660b9d540e5 27
+scripts/check-code-connect.mjs
+  s_ee1136e5d8692a::t_ce7660b9d540e5 52,166,306
+packages/data-server/src/access.ts
+  s_ee1136e5d8692a::t_576ee46e8a4f73 374,387,431
+apps/sample/studio/supabase-demo/seed.mjs
+  s_ee1136e5d8692a::t_7664a99d0fc410 97
+apps/sample/.react-router/types/app/routes/+types/data.ts
+  s_ee1136e5d8692a::t_f322494ea9cb48 1-74
+apps/sample/app/routes/_layout.tsx
+  s_ee1136e5d8692a::t_7664a99d0fc410 34
+docs/adr/0025-genesis-data-rename.md
+  s_ee1136e5d8692a::t_146d31ebe71a25 50-54,63-65,67-71
+  s_ee1136e5d8692a::t_56d06a1d716feb 55-62
+README.md
+  s_ee1136e5d8692a::t_ce7660b9d540e5 160
+apps/sample/studio/setup-db.mjs
+  s_ee1136e5d8692a::t_7664a99d0fc410 3,98
+apps/sample/.react-router/types/+routes.ts
+  s_ee1136e5d8692a::t_f322494ea9cb48 124-126,196,260,322-325,432
+packages/data-server/README.md
+  s_ee1136e5d8692a::t_576ee46e8a4f73 10,32,138,158,162,220,251,281,317,361,367,392
+apps/sample/README.md
+  s_ee1136e5d8692a::t_7664a99d0fc410 26,60
+apps/sample/app/lib/site.ts
+  s_ee1136e5d8692a::t_7664a99d0fc410 53
+apps/sample/app/routes/data.tsx
+  s_ee1136e5d8692a::t_7664a99d0fc410 1-218
+packages/data/README.md
+  s_ee1136e5d8692a::t_576ee46e8a4f73 43,45,47-48,73,87
+  s_ee1136e5d8692a::t_ce7660b9d540e5 71
+docs/DATA.md
+  s_ee1136e5d8692a::t_576ee46e8a4f73 30,108,243,247,258
+packages/data-server/src/cli.ts
+  s_ee1136e5d8692a::t_ce7660b9d540e5 18-19
+docs/DESIGN-LIBRARY.md
+  s_ee1136e5d8692a::t_41eabb3ce28cca 157,191,215
+docs/PACKAGE-STRATEGY.md
+  s_ee1136e5d8692a::t_fb2972d7025fc5 50,150
+docs/RESOURCE-VIEW.md
+  s_ee1136e5d8692a::t_ba7396be795010 819,1473
+docs/SITES.md
+  s_ee1136e5d8692a::t_8684e5c0941fc5 277
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e0d1c0ee2e23b336a96cdacf777fb5e5dbb3cdf9",
+  "prompts": {},
+  "sessions": {
+    "s_ee1136e5d8692a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7ae1bc89-ab61-49a4-ad8e-066febd5d1ba",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
