@@ -99,7 +99,7 @@ export function subscribe(onEvent: (event: string, data: unknown) => void): () =
 /** What the page asks the person: approve a plan, and type the secrets it needs. */
 export interface Approvals {
   confirmPlan(plan: SettingsPlan): Promise<boolean>;
-  askSecrets(names: readonly string[], plan: SettingsPlan): Promise<Record<string, string> | null>;
+  askSecrets(names: readonly string[], plan?: SettingsPlan): Promise<Record<string, string> | null>;
 }
 
 export class CancelledError extends Error {
@@ -160,4 +160,28 @@ export function wizardSettingsClient(approvals: Approvals): SettingsClient {
       await changeSetting(key, { clear: true }, approvals);
     },
   };
+}
+
+/**
+ * Check a guided step live (`step.verify`). Its secrets, when it has some, are asked for first,
+ * sent with this one request and forgotten: the wizard never keeps them between runs.
+ */
+export async function verifyStep(id: string, fields: Record<string, string>, needs: readonly string[], approvals: Approvals) {
+  let secrets: Record<string, string> | null = null;
+  if (needs.length) {
+    secrets = await approvals.askSecrets(needs);
+    if (!secrets) throw new CancelledError();
+  }
+  try {
+    return (await call<{ result: { verified: boolean; message?: string } }>("step.verify", { id, fields, ...(secrets ? { secrets } : {}) })).result;
+  } finally {
+    if (secrets) for (const k of Object.keys(secrets)) secrets[k] = "";
+  }
+}
+
+/** Run a guided step: plan it with the person's values, show the plan, then apply (its secrets asked for there). */
+export async function runStep(id: string, fields: Record<string, string>, approvals: Approvals) {
+  const { plan } = await call<{ plan: SettingsPlan }>("step.submit", { id, fields });
+  if (!(await approvals.confirmPlan(plan))) throw new CancelledError();
+  return applyPlan(plan, approvals);
 }

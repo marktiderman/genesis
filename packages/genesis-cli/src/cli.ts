@@ -298,7 +298,7 @@ function wizardPort(text: string | undefined): number | undefined {
 program
   .command("setup")
   .description("Open the setup wizard on localhost for this app: the doctor's findings with their fixes, the settings, secrets (set through your signed-in CLIs, never shown) and upgrades. Every change is a plan you approve. With --yes it runs headless: applies the automatic fixes and prints the dormant checklist. With no terminal and no --yes it prints the plans, applies nothing and exits 1 when there is something to apply")
-  .option("--step <id>", "Open on one guided setup step (headless: print that step's checklist)")
+  .option("--step <id>", "Run one guided setup step here: what to do in the outside service, its values and secrets (hidden), the plan, then a live check (headless: print that step's checklist)")
   .option("--port <port>", "The first port to try (default 4400; it tries ten)")
   .option("--no-open", "Print the link; don't open a browser")
   .option("-y, --yes", "Headless: apply every automatic fix, print the guided ones, exit", false)
@@ -322,8 +322,31 @@ program
       process.exitCode = await runSetupHeadless({ root, network, apply: opts.yes, ...(opts.config ? { configPath: opts.config } : {}), ...(opts.step ? { step: opts.step } : {}), ...(opts.preset ? { preset: opts.preset } : {}), ...(opts.without ? { without: splitList(opts.without) } : {}), out: (l) => console.log(l), err: (l) => console.error(l) });
       return;
     }
+    if (opts.step) {
+      // At a terminal, one step runs here: the same runner as the wizard's Guided steps tab.
+      const { runStepCommand } = await import("./wizard/step-command.js");
+      const { promptHidden, drainInput } = await import("./exec/prompt-secret.js");
+      const ask = async (question: string) => {
+        const { createInterface } = await import("node:readline/promises");
+        const rl = createInterface({ input: process.stdin, output: process.stdout });
+        try {
+          return await rl.question(question);
+        } finally {
+          rl.close();
+        }
+      };
+      try {
+        process.exitCode = await runStepCommand(
+          { root, id: opts.step, network },
+          { out: (l) => console.log(l), err: (l) => console.error(l), ask, confirm: async (q) => /^y(es)?$/i.test((await ask(`${q} [y/N] `)).trim()), askSecret: (q) => promptHidden(q) },
+        );
+      } finally {
+        await drainInput();
+      }
+      return;
+    }
     const { runWizard } = await import("./wizard/command.js");
-    process.exitCode = await runWizard({ mode: "setup", root, network, port: wizardPort(opts.port), open: opts.open, ...(opts.step ? { step: opts.step } : {}), ...(opts.config ? { configPath: opts.config } : {}), out: (l) => console.log(l) });
+    process.exitCode = await runWizard({ mode: "setup", root, network, port: wizardPort(opts.port), open: opts.open, ...(opts.config ? { configPath: opts.config } : {}), out: (l) => console.log(l) });
   });
 
 program

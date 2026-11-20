@@ -41,12 +41,22 @@ import {
 } from "@marktiderman/genesis-ui";
 import { GenesisSettings } from "@marktiderman/genesis-config/settings/react";
 import type { SettingsPlan, SettingsSecretStatus } from "@marktiderman/genesis-config/settings-protocol";
-import { applyPlan, call, CancelledError, changeSetting, subscribe, wizardSettingsClient, type Approvals } from "./client";
+import { applyPlan, call, CancelledError, changeSetting, runStep, subscribe, verifyStep, wizardSettingsClient, type Approvals } from "./client";
 
 interface StepKey {
   key: string;
   summary?: string;
   set: boolean;
+}
+/** A step's guided runner (genesis-config `./setup`'s SetupStepDef). */
+interface StepRunnerDef {
+  id: string;
+  title: string;
+  needs: Array<{ name: string; store: string; help?: string }>;
+  fields: Array<{ name: string; label: string; help?: string; placeholder?: string; optional?: boolean }>;
+  links: Array<{ label: string; url: string }>;
+  instructions: string[];
+  manual?: boolean;
 }
 interface SetupStep {
   id: string;
@@ -55,6 +65,7 @@ interface SetupStep {
   secrets: Array<{ name: string; store: string }>;
   done: boolean;
   command: string;
+  runner?: StepRunnerDef;
 }
 interface Info {
   mode: "init" | "setup";
@@ -248,7 +259,100 @@ function Result({ result }: { result: { ok: boolean; text: string } | null }) {
   return <InlineAlert variant={result.ok ? "success" : "destructive"} title={result.ok ? "Done" : "Not done"} description={result.text} testID="wizard-result" />;
 }
 
-/** One guided step: its keys (set through a plan) and its secrets' status. */
+/**
+ * A step's runner: what to do in the outside service, what is there now, the step's values, then
+ * Run (a plan you approve; its secrets asked for there) and Check (the live test call).
+ */
+function GuidedRunner({ runner, approvals, onChanged }: { runner: StepRunnerDef; approvals: Approvals; onChanged: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [detected, setDetected] = useState<string[] | null>(null);
+  const [fields, setFields] = useState<Record<string, string>>({});
+  const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const values = () => Object.fromEntries(Object.entries(fields).filter(([, v]) => v.trim()));
+  const go = async (work: () => Promise<{ verified: boolean; message?: string }>) => {
+    setBusy(true);
+    try {
+      const r = await work();
+      setResult({ ok: r.verified, text: r.message ?? (r.verified ? "Done and verified." : "Not verified yet.") });
+      onChanged();
+    } catch (e) {
+      if (!(e instanceof CancelledError)) setResult({ ok: false, text: message(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (!open)
+    return (
+      <Button
+        variant="outline"
+        onClick={() => {
+          setOpen(true);
+          void call<{ detected: string[] }>("step.start", { id: runner.id })
+            .then((r) => setDetected(r.detected))
+            .catch((e: unknown) => setDetected([message(e)]));
+        }}
+        data-testid={`wizard-step-start-${runner.id}`}
+      >
+        Start: {runner.title}
+      </Button>
+    );
+  return (
+    <div className="flex flex-col gap-3" data-testid={`wizard-runner-${runner.id}`}>
+      <p className="font-medium">{runner.title}</p>
+      <ol className="list-decimal pl-5 text-sm">
+        {runner.instructions.map((line, i) => (
+          <li key={i}>{line}</li>
+        ))}
+      </ol>
+      {runner.links.length ? (
+        <ul className="flex flex-wrap gap-3 text-sm">
+          {runner.links.map((l) => (
+            <li key={l.url}>
+              <a className="underline" href={l.url} target="_blank" rel="noreferrer noopener">
+                {l.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {detected === null ? <p className="text-xs text-muted-foreground">Looking…</p> : detected.length ? <pre className="max-h-40 overflow-auto rounded bg-muted p-2 font-mono text-xs">{detected.join("\n")}</pre> : null}
+      <form
+        className="flex flex-col gap-2"
+        autoComplete="off"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!runner.manual) void go(() => runStep(runner.id, values(), approvals));
+        }}
+      >
+        {runner.fields.map((f) => (
+          <div key={f.name} className="flex flex-col gap-1">
+            <Label htmlFor={`field-${runner.id}-${f.name}`}>
+              {f.label}
+              {f.optional ? " (optional)" : ""}
+            </Label>
+            <Input id={`field-${runner.id}-${f.name}`} value={fields[f.name] ?? ""} placeholder={f.placeholder} onChange={(e) => setFields((v) => ({ ...v, [f.name]: e.target.value }))} data-testid={`wizard-field-${runner.id}-${f.name}`} />
+            {f.help ? <p className="text-xs text-muted-foreground">{f.help}</p> : null}
+          </div>
+        ))}
+        {runner.needs.length ? <p className="text-xs text-muted-foreground">Needs {runner.needs.map((n) => n.name).join(", ")}: you type {runner.needs.length === 1 ? "it" : "each"} when the step runs. It goes to your signed-in CLI on stdin and is never shown or kept.</p> : null}
+        <div className="flex gap-2">
+          {runner.manual ? null : (
+            <Button type="submit" disabled={busy} data-testid={`wizard-step-run-${runner.id}`}>
+              Run
+            </Button>
+          )}
+          <Button type="button" variant="outline" disabled={busy} onClick={() => void go(() => verifyStep(runner.id, values(), runner.needs.map((n) => n.name), approvals))} data-testid={`wizard-step-check-${runner.id}`}>
+            Check
+          </Button>
+        </div>
+      </form>
+      <Result result={result} />
+    </div>
+  );
+}
+
+/** One guided step: its runner, its keys (set through a plan) and its secrets' status. */
 function StepCard({ step, secrets, approvals, onChanged, focused }: { step: SetupStep; secrets: readonly SettingsSecretStatus[]; approvals: Approvals; onChanged: () => void; focused: boolean }) {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
@@ -269,13 +373,14 @@ function StepCard({ step, secrets, approvals, onChanged, focused }: { step: Setu
     <Card data-testid={`wizard-step-${step.id}`} className={focused ? "ring-2 ring-primary" : undefined}>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          {step.id} <Badge variant={step.done ? "success" : "muted"}>{step.done ? "Set up" : "Dormant"}</Badge>
+          {step.runner?.title ?? step.id} <Badge variant={step.done ? "success" : "muted"}>{step.done ? "Set up" : "Dormant"}</Badge>
         </CardTitle>
         <CardDescription>
           {step.packages.join(", ")} · <code className="font-mono text-xs">{step.command}</code>
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        {step.runner ? <GuidedRunner runner={step.runner} approvals={approvals} onChanged={onChanged} /> : null}
         {step.keys.map((k) => (
           <form
             key={k.key}
@@ -373,7 +478,7 @@ function SetupScreen({ info, step, approvals, reload }: { info: Info; step?: str
         ) : (
           <p className="text-sm text-muted-foreground">No installed package names a guided setup step.</p>
         )}
-        <p className="text-xs text-muted-foreground">Each step stays dormant until it is set up; nothing fails meanwhile. Walking an outside service and verifying it live comes with each step's own runner.</p>
+        <p className="text-xs text-muted-foreground">Each step stays dormant until it is set up; nothing fails meanwhile. A step ends with a live check: Check runs it again any time.</p>
       </TabsContent>
     </Tabs>
   );

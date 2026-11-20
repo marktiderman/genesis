@@ -4,7 +4,7 @@
  * | Store (settings `store`) | Target | Set | Status |
  * |---|---|---|---|
  * | `edge` | Supabase Edge Function secrets | `supabase secrets set --env-file /dev/stdin` | `supabase secrets list -o json` |
- * | `vault` | Supabase Vault | none: the person adds it in the dashboard (Database → Vault) | `select name from vault.secrets` through `supabase db query --linked` |
+ * | `vault` | Supabase Vault | none: the person adds it in the dashboard (Database → Vault) | `select name from vault.secrets` through `supabase db query --linked -f <temp file>` (src/exec/supabase-query.ts) |
  * | `ci` | GitHub Actions | `gh secret set NAME` (reads stdin) | `gh secret list --json name` |
  * | `ci` | EAS (apps with eas.json) | none: `eas env:create` has no stdin path, so the person runs it | `eas env:list <environment>` (names parsed; values discarded) |
  * | `server-env` | the app's server host | none: the person sets it there | none |
@@ -29,6 +29,7 @@ import * as path from "node:path";
 import type { PlannedCommand } from "../fix/types.js";
 import { runTool, TOOL_AUTH_ENV, type ToolRunner } from "./run.js";
 import { assertSecretName, SecretError } from "./secret-vault.js";
+import { supabaseQuery } from "./supabase-query.js";
 
 export type SecretStore = "vault" | "edge" | "server-env" | "ci";
 export type SecretTarget = "edge" | "vault" | "github" | "eas" | "server-env";
@@ -171,10 +172,10 @@ export const VAULT_NAMES_SQL = "select name from vault.secrets order by name;\n"
 /** Read which secrets a target holds, by name, through the developer's CLI. */
 export async function readSecretNames(target: SecretTarget, root: string, options: StoreOptions & { run?: ToolRunner } = {}): Promise<StatusResult> {
   const run = options.run ?? runTool;
-  const attempt = async (tool: "supabase" | "gh" | "eas", args: string[], parse: (out: string) => Set<string>, stdin?: string): Promise<StatusResult> => {
+  const attempt = async (tool: "supabase" | "gh" | "eas", args: string[], parse: (out: string) => Set<string>, sql?: string): Promise<StatusResult> => {
     let result;
     try {
-      result = await run(tool, args, { cwd: root, timeoutMs: 30_000, passEnv: TOOL_AUTH_ENV[tool], ...(stdin ? { stdin } : {}) });
+      result = sql !== undefined ? await supabaseQuery(root, sql, run, { args }) : await run(tool, args, { cwd: root, timeoutMs: 30_000, passEnv: TOOL_AUTH_ENV[tool] });
     } catch (err) {
       return { ok: false, reason: (err as Error).message };
     }
@@ -191,7 +192,7 @@ export async function readSecretNames(target: SecretTarget, root: string, option
       return attempt("supabase", ["secrets", "list", "-o", "json"], parseSupabaseSecrets);
     case "vault":
       if (!supabaseLinked(root)) return { ok: false, reason: "the app isn't linked to a Supabase project (supabase link)" };
-      return attempt("supabase", ["db", "query", "--linked", "-o", "json", "-f", "/dev/stdin"], parseVaultNames, VAULT_NAMES_SQL);
+      return attempt("supabase", ["-o", "json"], parseVaultNames, VAULT_NAMES_SQL);
     case "github":
       checkEnvironment(options.githubEnvironment, "release.environment");
       return attempt("gh", ["secret", "list", "--json", "name", ...(options.githubEnvironment ? ["--env", options.githubEnvironment] : [])], parseGhSecrets);

@@ -220,8 +220,10 @@ beforeAll(() => {
   stubs = mkdtempSync(path.join(tmpdir(), "genesis-stub-clis-"));
   const script = `#!/bin/sh
 D='${stubs}'
-printf '%s\\n' "$(basename "$0") $*" >> "$D/calls.log"
+printf '%s\\n' "$(basename "$0") $*" | sed 's#-f [^ ]*/query[.]sql#-f <sql file>#' >> "$D/calls.log"
 input=$(cat)
+# supabase db query reads its SQL from the file after -f (src/exec/supabase-query.ts).
+case "$(basename "$0") $*" in "supabase db query"*) for a; do last=$a; done; input=$(cat "$last") ;; esac
 printf '%s\\n---\\n' "$input" >> "$D/stdin.log"
 case "$(basename "$0") $*" in
   "supabase secrets list"*) echo '[{"name":"GENESIS_SUPPORT_CLEANUP_SECRET","value":"0f3c"}]' ;;
@@ -325,7 +327,7 @@ describe("the settings check: setup and secrets", () => {
     expect(calls().split("\n").filter(Boolean).sort()).toEqual([
       "eas env:list production --format short",
       "gh secret list --json name",
-      "supabase db query --linked -o json -f /dev/stdin",
+      "supabase db query --linked -o json -f <sql file>",
       "supabase secrets list -o json",
     ]);
     // eas printed a plaintext value: it is dropped with the rest of its output.

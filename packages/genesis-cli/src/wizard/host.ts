@@ -44,7 +44,9 @@ import { changedLines } from "../mcp/server.js";
 import { CONFIG_FILE, fileLayers, loadCatalogue, ProposalError, settingsProposalFix } from "../mcp/settings.js";
 import { distance, readUpgradeStatus, type RegistryDeps } from "../upgrade/registry.js";
 import { checkInitChoices, initAppFix, InitChoiceError, starterSwitches, INIT_FIX_ID, type InitChoices } from "./init.js";
-import { setupSteps } from "./steps.js";
+import { SetupStepError } from "@marktiderman/genesis-config/setup";
+import { runnerFor, startStep, stepFix, stepList, StepError, verifyStep } from "./steps/index.js";
+import type { FetchLike } from "./steps/framework.js";
 
 export type WizardMode = "init" | "setup";
 
@@ -67,6 +69,8 @@ export interface WizardHostOptions {
     registry?: Omit<RegistryDeps, "network">;
     /** Runs allowlisted tools for the plans' commands (default src/exec/run.ts). */
     run?: ToolRunner;
+    /** The guided steps' requests to outside services (default fetch). */
+    fetch?: FetchLike;
   };
 }
 
@@ -96,7 +100,7 @@ class HostError extends Error {
 export const WIZARD_OPS = ["wizard.info", "settings.plan", "init.plan", "install.plan", "step.list", "step.start", "step.submit", "step.verify", "agent.start", "agent.approve", "agent.discard"] as const;
 
 /** How a plan was made, so `apply` can make the same one again. Never written to disk, never holds a secret. */
-type Recipe = { kind: "install" } | { kind: "fix"; fixId: string; subject?: string } | { kind: "set"; key: string; value: unknown; locked?: boolean } | { kind: "clear"; key: string } | { kind: "init"; choices: InitChoices };
+type Recipe = { kind: "install" } | { kind: "step"; id: string; fields: unknown } | { kind: "fix"; fixId: string; subject?: string } | { kind: "set"; key: string; value: unknown; locked?: boolean } | { kind: "clear"; key: string } | { kind: "init"; choices: InitChoices };
 
 const SETTINGS_CLEAR_ID = "settings.clear";
 
@@ -236,6 +240,7 @@ export function createWizardHost(options: WizardHostOptions): WizardHost {
   const deps = options.deps ?? {};
   const publish = options.publish ?? (() => {});
   const recipes = new Map<string, Recipe>();
+  const stepDeps = { network, ...(deps.run ? { run: deps.run } : {}), ...(deps.fetch ? { fetch: deps.fetch } : {}) };
   /** One apply at a time: two writes never interleave. */
   let queue: Promise<unknown> = Promise.resolve();
 
@@ -277,6 +282,11 @@ export function createWizardHost(options: WizardHostOptions): WizardHost {
     if (recipe.kind === "clear") return { fix: settingsClearFix(recipe.key), findings: [] };
     if (recipe.kind === "init") return { fix: initAppFix(recipe.choices), findings: [] };
     if (recipe.kind === "install") return { fix: installFix(), findings: [] };
+    if (recipe.kind === "step") {
+      const runner = runnerFor(recipe.id);
+      if (!runner) throw new HostError("not_found", `no guided runner for ${recipe.id}`, 404);
+      return { fix: stepFix(runner, recipe.fields, stepDeps), findings: [] };
+    }
     const list = await fixes();
     const fix = list.find((f) => f.id === recipe.fixId);
     if (!fix) throw new HostError("not_found", `no fix ${recipe.fixId}`, 404);
@@ -305,7 +315,7 @@ export function createWizardHost(options: WizardHostOptions): WizardHost {
     try {
       plan = await planFix(fix, context(findings));
     } catch (err) {
-      if (err instanceof ProposalError || err instanceof InitChoiceError) throw new HostError("bad_request", err.message);
+      if (err instanceof ProposalError || err instanceof InitChoiceError || err instanceof SetupStepError || err instanceof StepError) throw new HostError("bad_request", err.message);
       if (err instanceof FixError) throw new HostError("error", err.message, 500);
       // The starter's own checks (a folder that isn't empty, a switch that isn't there) are the person's to correct.
       if (recipe.kind === "init" && err instanceof Error) throw new HostError("bad_request", err.message);
@@ -424,13 +434,6 @@ export function createWizardHost(options: WizardHostOptions): WizardHost {
     };
   };
 
-  const safeSteps = () => {
-    try {
-      return setupSteps(root);
-    } catch {
-      return [];
-    }
-  };
 
   const info = () => ({
     mode,
@@ -441,7 +444,7 @@ export function createWizardHost(options: WizardHostOptions): WizardHost {
     capabilities: CLI_CAPABILITIES,
     ...(mode === "init"
       ? { switches: starterSwitches(), folderEmpty: !existsSync(initRoot) || fs.readdirSync(initRoot).length === 0, ...(options.initial ? { initial: options.initial } : {}) }
-      : { steps: safeSteps(), needsInstall: existsSync(path.join(root, "package.json")) && !existsSync(path.join(root, "node_modules")) }),
+      : { steps: stepList(root), needsInstall: existsSync(path.join(root, "package.json")) && !existsSync(path.join(root, "node_modules")) }),
   });
 
   const str = (body: Record<string, unknown>, key: string, max = 200): string => {
@@ -507,11 +510,26 @@ export function createWizardHost(options: WizardHostOptions): WizardHost {
         return { plan: await makePlan({ kind: "install" }) };
       case "step.list":
         if (mode === "init") return { steps: [] };
-        return { steps: setupSteps(root) };
+        return { steps: stepList(root) };
       case "step.start":
       case "step.submit":
-      case "step.verify":
-        throw new HostError("unsupported", "A step's guided runner (walk the service, verify it) isn't in this release: set the step's keys and secrets here.", 501);
+      case "step.verify": {
+        if (mode === "init") throw new HostError("unsupported", "There's no app yet: make one first.", 501);
+        const id = str(body, "id", 100);
+        if (!runnerFor(id)) throw new HostError("not_found", `No guided runner for ${id}.`, 404);
+        try {
+          if (op === "step.start") return await startStep(root, id, stepDeps);
+          // The fields are the step's plain values; its secrets come with apply (or a check), never here.
+          if (op === "step.submit") return { plan: await makePlan({ kind: "step", id, fields: body.fields ?? {} }) };
+          const secrets = body.secrets;
+          if (secrets !== undefined && (!secrets || typeof secrets !== "object" || Array.isArray(secrets))) throw new HostError("bad_request", `"secrets" must map names to values`);
+          const result = await verifyStep(root, id, body.fields ?? {}, secrets as Record<string, unknown> | undefined, stepDeps);
+          return { result: { verified: result.ok, ...(result.message ? { message: result.message } : {}) } };
+        } catch (err) {
+          if (err instanceof SetupStepError || err instanceof StepError) throw new HostError("bad_request", err.message);
+          throw err;
+        }
+      }
       case "agent.start":
       case "agent.approve":
       case "agent.discard":
