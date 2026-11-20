@@ -358,7 +358,7 @@ await pool.begin(async (tx) => {
 - **A login without the grant:** a login that wasn't granted the role (`grant authenticated to
   <login>`) can't switch to it. That throws `IdentitySwitchError` ("the database login can't switch
   to it"), with the database's 42501 as its `cause`, not a bare 42501 that reads as the caller
-  lacking a permission. Genesis Data handler reports it the same way.
+  lacking a permission. Genesis Data's handler reports it the same way.
 - **The check:** after the switch, a check in SQL makes sure `current_user` is the role and can't
   bypass RLS, and that the login is neither a superuser nor BYPASSRLS. A failure raises inside the
   transaction, so Postgres aborts it and it throws `IdentitySwitchError`. Catching that error
