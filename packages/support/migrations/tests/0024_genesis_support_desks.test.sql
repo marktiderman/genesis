@@ -1,4 +1,4 @@
--- @feat:support-desks
+-- @feat:support-helpdesk
 -- pgTAP test for 0024_genesis_support_desks.sql: a tenant's admin turns its desk on, a question
 -- with no tenant goes to the sender's one desk that is on, a ticket goes up to the app's own desk
 -- and back, each move logged, and the support.desks setting off is 0004 exactly. Rolls back.

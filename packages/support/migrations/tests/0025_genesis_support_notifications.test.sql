@@ -1,4 +1,4 @@
--- @feat:support-notifications
+-- @feat:support-feedback
 -- pgTAP test for 0025_genesis_support_notifications.sql: a new ticket and the person's messages
 -- tell the desk's agents (support.message), support's answers tell the person (support.reply), the
 -- verify prompt asks them (support.verify), a move tells the new desk, an assignee silences the rest,

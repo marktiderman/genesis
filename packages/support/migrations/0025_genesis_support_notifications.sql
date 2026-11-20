@@ -1,4 +1,4 @@
--- @feat:support-notifications
+-- @feat:support-feedback
 -- Genesis support 0025: support's default notifications, through genesis-notifications (after
 -- 0004_genesis_support_tickets.sql; genesis-notifications' 0001_genesis_notifications.sql, the
 -- support-chat block's 0022 (names) and the help desk's 0024 (desks) are optional, before or after).

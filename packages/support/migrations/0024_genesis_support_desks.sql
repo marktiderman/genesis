@@ -1,4 +1,4 @@
--- @feat:support-desks
+-- @feat:support-helpdesk
 -- Genesis support 0024: desks, each tenant's own help desk (after 0004_genesis_support_tickets.sql
 -- and 0022_genesis_support_staff_tools.sql; 0005 and 0006, the support-chat block, are optional).
 --
