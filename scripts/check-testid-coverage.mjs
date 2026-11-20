@@ -17,7 +17,8 @@
  *     TouchableWithoutFeedback, TouchableNativeFeedback
  *   - Button (RN core), NativeButton (Genesis re-export)
  *
- * Coverage = primitives_with_testID / total_primitives.
+ * Coverage = primitives_with_testID / total_primitives. On the web a
+ * `data-testid` counts as the testID (Playwright and Testing Library read it).
  *
  * Threshold default: 80%. Override via `genesis.config.yml` → ci.testid-coverage.threshold (0-1 fraction per the schema; legacy 0-100 accepted):
  *
@@ -38,8 +39,9 @@
  *   1 — coverage < threshold.
  *
  * Usage:
- *   node scripts/check-testid-coverage.mjs                 # scans apps/
+ *   node scripts/check-testid-coverage.mjs                 # scans apps/ and the packages' UI source
  *   node scripts/check-testid-coverage.mjs apps/genesis-rn-starter
+ *   node scripts/check-testid-coverage.mjs --threshold 0.64 packages/support/src
  *   node scripts/check-testid-coverage.mjs --self-test      # run built-in fixture checks, no scan
  *   pnpm check:testid-coverage
  *
@@ -51,6 +53,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import YAML from 'yaml';
+import { defaultUiScanRoots } from './lib/ui-scan-roots.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -732,7 +735,7 @@ function findInteractiveOpenTags(content) {
 }
 
 function tagHasTestID(tagAttrs) {
-  return /\btestID\s*=/.test(tagAttrs);
+  return /(?:\btestID|(?<![\w-])data-testid)\s*=/.test(tagAttrs);
 }
 
 function lineNumberAtIndex(content, idx) {
@@ -802,6 +805,16 @@ const SELF_TEST_CASES = [
     name: 'self-closing tag with testID',
     source: `<Pressable testID="x" onPress={() => go()} />`,
     expected: [{ component: 'Pressable', hasTestID: true }],
+  },
+  {
+    name: 'a web data-testid counts as the testID',
+    source: `<Button data-testid="web-x" onClick={() => go()}>Go</Button>`,
+    expected: [{ component: 'Button', hasTestID: true }],
+  },
+  {
+    name: 'a prop merely ending in data-testid does not count',
+    source: `<Button wrapper-data-testid="x">Go</Button>`,
+    expected: [{ component: 'Button', hasTestID: false }],
   },
   {
     name: 'genuinely missing testID despite an arrow-function prop',
@@ -1007,10 +1020,14 @@ if (rawArgs.includes(SELF_TEST_FLAG)) {
   process.exit(ok ? 0 : 1);
 }
 
-const args = rawArgs;
-const scanRoots = args.length > 0 ? args.map((a) => path.resolve(REPO_ROOT, a)) : [path.join(REPO_ROOT, 'apps')];
+// `--threshold <0-1>` sets the bar for this run (a scope with its own, like the packages'),
+// over genesis.config.yml's.
+const thresholdAt = rawArgs.indexOf('--threshold');
+const thresholdArg = thresholdAt === -1 ? undefined : rawArgs[thresholdAt + 1];
+const args = thresholdAt === -1 ? rawArgs : rawArgs.filter((_, i) => i !== thresholdAt && i !== thresholdAt + 1);
+const scanRoots = args.length > 0 ? args.map((a) => path.resolve(REPO_ROOT, a)) : defaultUiScanRoots(REPO_ROOT);
 
-const threshold = readThreshold();
+const threshold = thresholdArg === undefined ? readThreshold() : normalizeThreshold(Number(thresholdArg));
 
 let total = 0;
 let covered = 0;

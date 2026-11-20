@@ -9,6 +9,7 @@
     "android": "expo run:android",
     "export:ios": "expo export --platform ios",
     "doctor": "genesis doctor",
+    "eas-build-post-install": "genesis build-stamp",
     "typecheck": "tsc --noEmit",
     "lint": "expo lint",
     "test": "vitest run && jest",

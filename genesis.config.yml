@@ -2,9 +2,8 @@
 schema_version: 1
 
 ci:
-  # Threshold is a 0-1 FRACTION. Current measured coverage on this repo's scope
-  # (apps/sample, apps/genesis-rn-starter, packages/ui, packages/ui-native):
-  # `node scripts/check-testid-coverage.mjs`. Ratchet this up toward 80 as
-  # testIDs land. (Value below is a placeholder verified against the actual
-  # measurement before this repo's first push.)
-  testid-coverage: { threshold: 0.37 }
+  # Threshold is a 0-1 FRACTION, the bar for the apps (self-lint.yml scans `apps`;
+  # 47.0% measured, a web `data-testid` counting). Raise it as testIDs land, never lower.
+  # The packages' UI source has its own bar (64.8% measured), in package.json's
+  # `check:testid-coverage:packages`, which ci.yml's Lint job runs.
+  testid-coverage: { threshold: 0.47 }

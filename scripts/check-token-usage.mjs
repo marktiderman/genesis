@@ -40,12 +40,19 @@
  *   - Pure-decimal `#163` / `#1284` — almost always issue refs in prose;
  *     a real 3- or 4-digit hex color overwhelmingly contains a-f.
  *
+ * Baseline: the packages' UI source came under this gate with raw colors
+ *   already in it (token-owning presets, email HTML, a page bar injected into
+ *   other sites). `scripts/token-usage-baseline.json` lists each such file
+ *   with its count; a listed file may keep up to that many, never more, and
+ *   every other file none. `--write-baseline` rewrites it from the scan
+ *   (only ever to lower a count, when one is fixed).
+ *
  * Exit codes:
  *   0 — clean.
  *   1 — at least one violation. Prints up to the first 20 with file:line.
  *
  * Usage:
- *   node scripts/check-token-usage.mjs               # scans apps/
+ *   node scripts/check-token-usage.mjs               # scans apps/ and the packages' UI source
  *   node scripts/check-token-usage.mjs apps/genesis-rn-starter
  *   pnpm check:token-usage
  *
@@ -66,6 +73,7 @@ import {
   findHexLiterals,
   stripBlockComments,
 } from './lib/color-literals.mjs';
+import { defaultUiScanRoots } from './lib/ui-scan-roots.mjs';
 
 // Re-exported for checks that import it from here (check-navigation-reimplementation.mjs).
 export { stripBlockComments };
@@ -88,6 +96,8 @@ const SKIP_DIRS = new Set(['node_modules', 'dist', 'build', '.git', '.next', 'co
 const ALLOWLIST_PATTERNS = [
   /(^|\/)tokens\//,
   /(^|\/)themes\//,
+  // Build output (sites' inlined assets), git-ignored: written, not authored.
+  /\.generated\.(ts|tsx|js)$/,
   /\.test\.(ts|tsx|jsx)$/,
   /(^|\/)__fixtures__\//,
   /(^|\/)__mocks__\//,
@@ -118,6 +128,12 @@ const COMMENT_LINE_RE = /^\s*\/\//;
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const MAX_VIOLATIONS_PRINTED = 20;
+const BASELINE_FILE = path.join(__dirname, 'token-usage-baseline.json');
+
+function readBaseline() {
+  if (!fs.existsSync(BASELINE_FILE)) return {};
+  return JSON.parse(fs.readFileSync(BASELINE_FILE, 'utf8'));
+}
 
 /** Recursively yield scannable files under `dir` (or `dir` itself if it is a file), skipping ignored directories. */
 function* walk(dir) {
@@ -154,10 +170,11 @@ function isColorFnAllowlisted(relPath) {
 // Exported helpers (stripBlockComments) are reused by other checks, so the
 // scan runs only when this file is executed, not when it is imported.
 function main() {
-  const args = process.argv.slice(2);
-  const scanRoots = args.length > 0 ? args.map((a) => path.resolve(REPO_ROOT, a)) : [path.join(REPO_ROOT, 'apps')];
+  const writeBaseline = process.argv.includes('--write-baseline');
+  const args = process.argv.slice(2).filter((a) => a !== '--write-baseline');
+  const scanRoots = args.length > 0 ? args.map((a) => path.resolve(REPO_ROOT, a)) : defaultUiScanRoots(REPO_ROOT);
 
-  const violations = [];
+  let violations = [];
 
   for (const root of scanRoots) {
     for (const file of walk(root)) {
@@ -201,8 +218,26 @@ function main() {
     }
   }
 
+  const counts = {};
+  for (const v of violations) counts[v.file] = (counts[v.file] ?? 0) + 1;
+  if (writeBaseline) {
+    const sorted = Object.fromEntries(Object.entries(counts).sort(([a], [b]) => a.localeCompare(b)));
+    fs.writeFileSync(BASELINE_FILE, `${JSON.stringify(sorted, null, 2)}\n`);
+    console.log(`Wrote ${toPosix(path.relative(REPO_ROOT, BASELINE_FILE))}: ${Object.keys(sorted).length} file(s), ${violations.length} literal(s).`);
+    process.exit(0);
+  }
+  // A baselined file within its count passes; one over it fails with all its literals listed.
+  const baseline = readBaseline();
+  let known = 0;
+  for (const [file, count] of Object.entries(counts)) {
+    const allowed = baseline[file] ?? 0;
+    if (count <= allowed) known += count;
+    if (count < allowed) console.log(`NOTE ${file} is down to ${count} raw color(s) from ${allowed}: lower it in scripts/token-usage-baseline.json (--write-baseline).`);
+  }
+  violations = violations.filter((v) => counts[v.file] > (baseline[v.file] ?? 0));
+
   if (violations.length === 0) {
-    console.log('OK No raw color literals found. Token usage is clean.');
+    console.log(`OK No raw color literals found${known ? ` beyond the ${known} baselined` : ''}. Token usage is clean.`);
     process.exit(0);
   }
 
