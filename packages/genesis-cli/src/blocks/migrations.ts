@@ -320,8 +320,9 @@ export function planMigrations(
       continue;
     }
     const copy = copies.length > 1 ? tracked[0] : copies[0];
-    const drafts = copies.length > 1 ? copies.filter((m) => m !== copy).map((m) => m.name) : [];
-    const draftNote = drafts.length ? `${drafts.join(", ")} ${drafts.length > 1 ? "share" : "shares"} its name: the app's own, left alone` : "";
+    // The other files that hold it, by name or by text: the app's own, left alone.
+    const others = copies.length > 1 ? copies.filter((m) => m !== copy) : [];
+    const draftNote = others.length ? `${others.map((m) => m.name).join(", ")} also ${others.length > 1 ? "hold" : "holds"} it (${[...new Set(others.map((m) => (sameName(m) ? "its name" : "its text")))].join(" or ")}): the app's own, left alone` : "";
     if (src.source === null || sourceSha === null) {
       rows.push({ ...base, state: "unavailable", ...(copy ? { copy: copy.path } : {}), detail: `${src.package} isn't installed, or doesn't ship ${src.file}` });
       continue;

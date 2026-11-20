@@ -9,7 +9,10 @@
  *   copied, or a same-named file with other text. When several files share the name and exactly one
  *   carries the migration's header, that one is the copy and the others are the app's own drafts.
  *   An applied migration is never rewritten. Fix:
- *   `migrate.forward` (`genesis migrate --forward` writes a forward migration to fill in).
+ *   `migrate.forward` (`genesis migrate --forward` writes a forward migration to fill in). When
+ *   several files hold the migration and their headers can't tell which is the copy, a forward
+ *   migration doesn't settle it: giving exactly one of them the migration's genesis-migration
+ *   header does.
  *
  * Only an app whose genesis.lock.json lists blocks is checked; an app whose database files live in
  * another app (genesis.config.json `supabase`) is checked there. A lock that can't be read is

@@ -1,5 +1,5 @@
 // @feat:doctor-fixes
-import { cpSync, writeFileSync } from "node:fs";
+import { cpSync, rmSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { runAdd } from "../src/blocks/add.js";
@@ -66,7 +66,13 @@ describe("migration-pending and migration-drift", () => {
     expect(await of(root, "migration-drift")).toEqual([]);
     // The copy is current, and its row names the draft as the app's own.
     const row = (await runMigrate({ root, dryRun: true, now: NOW })).plan.rows.find((r) => r.file === "migrations/0001_fixture_notes.sql");
-    expect([row?.state, row?.copy, row?.detail]).toEqual(["current", copy, "20261001120000_fixture_notes.sql shares its name: the app's own, left alone"]);
+    expect([row?.state, row?.copy, row?.detail]).toEqual(["current", copy, "20261001120000_fixture_notes.sql also holds it (its name): the app's own, left alone"]);
+    // A file that holds it by its text alone, under another name, is named the same way.
+    const byText = "supabase/migrations/20261002120000_notes_by_hand.sql";
+    writeFileSync(path.join(root, byText), read(root, "node_modules/@marktiderman/genesis-fixture/migrations/0001_fixture_notes.sql"));
+    const both = (await runMigrate({ root, dryRun: true, now: NOW })).plan.rows.find((r) => r.file === "migrations/0001_fixture_notes.sql");
+    expect([both?.state, both?.detail]).toEqual(["current", "20261001120000_fixture_notes.sql, 20261002120000_notes_by_hand.sql also hold it (its name or its text): the app's own, left alone"]);
+    rmSync(path.join(root, byText));
     // The tracked copy edited: it drifts, and the draft beside it still doesn't.
     writeFileSync(path.join(root, copy), published.replace("primary key", "primary key, extra int"));
     expect((await of(root, "migration-drift")).map((f) => f.file)).toEqual([copy]);
