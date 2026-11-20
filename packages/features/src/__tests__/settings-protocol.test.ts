@@ -82,6 +82,28 @@ describe("createSettingsClient", () => {
     ]);
   });
 
+  it("reads and writes the tenant and person layers in the same shape, naming the tenant only when given", async () => {
+    const tenantLayer = { "support.messenger": { value: false } };
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(reply(200, { ...MIN_STATE, layers: { tenant: tenantLayer, person: {} } }))
+      .mockResolvedValue(reply(200, { ok: true }));
+    const client = createSettingsClient(fetchFn, { baseUrl: "/x", token: "t" });
+    expect((await client.state({ tenant: "tenant-a" })).layers.tenant).toEqual(tenantLayer);
+    await client.setValue({ key: "support.messenger", value: false, layer: "tenant", tenant: "tenant-a" });
+    await client.clearValue({ key: "support.messenger", layer: "tenant", tenant: "tenant-a" });
+    await client.setValue({ key: "support.shakeToReport", value: false, layer: "person" });
+    await client.clearValue({ key: "support.shakeToReport", layer: "person" });
+    const bodies = fetchFn.mock.calls.map((c) => JSON.parse((c as unknown as [string, { body: string }])[1].body));
+    expect(bodies).toEqual([
+      { v: 1, op: "state", tenant: "tenant-a" },
+      { v: 1, op: "setValue", key: "support.messenger", value: false, layer: "tenant", tenant: "tenant-a" },
+      { v: 1, op: "clearValue", key: "support.messenger", layer: "tenant", tenant: "tenant-a" },
+      { v: 1, op: "setValue", key: "support.shakeToReport", value: false, layer: "person" },
+      { v: 1, op: "clearValue", key: "support.shakeToReport", layer: "person" },
+    ]);
+  });
+
   it("turns a 200 the screen can't draw into an error, not a crash", async () => {
     const fetchFn = vi
       .fn()
