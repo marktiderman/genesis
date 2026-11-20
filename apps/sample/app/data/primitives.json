@@ -33472,7 +33472,7 @@
               "type": "boolean",
               "required": false,
               "defaultValue": null,
-              "description": "Marks the row disabled: the label steps down to the muted colour and the\nrow carries `data-disabled`. The text keeps its contrast (it isn't faded\nwith opacity); the control it wraps dims itself."
+              "description": "Dims the row to indicate the control it wraps is disabled."
             },
             {
               "name": "htmlFor",
