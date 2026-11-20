@@ -1,5 +1,136 @@
 # @marktiderman/genesis-config (formerly @marktiderman/genesis-features, up to 0.9.1)
 
+## 0.12.0
+
+### Minor Changes
+
+- 02a51b9: **One settings resolver on the server.** genesis-supabase 0023 adds `private.genesis_setting(key,
+tenant)` (and `private.genesis_setting_entry`, which also says the layer and the lock): a key's
+  value as `resolveSettings` gives it (default and preset from the synced catalogue, the file, the
+  database, a tenant-scoped key's tenant value, with locks). One function checks values
+  (`genesis_setting_value_problem`), for writes and the resolver alike; a catalogue entry whose `min`
+  or `max` isn't a number is reported as malformed there, never a cast error in a server gate. `catalogueManifest` now writes
+  each key's `defaults` by preset (write the manifest again on deploy). Support's gates read it with
+  the tenant where there is one, so a tenant's `support.helpCenter` closes its help center on the
+  server too; support 0020's own resolver and its readers are dropped (0033).
+
+  **Support's unreleased migrations come after 0028**, so apps that applied 0026 and 0028 apply them
+  in order: desks 0029, notifications 0030, reply by email 0031, staff from the admin list 0032, the
+  resolver 0033 (support block) and agent admin 0034 (support-chat block).
+
+  **Every setting is read, on the server where it matters.** `SupportSettingValues` is derived from
+  the specs. No key is planned: `support.email` opens and closes the email channel
+  (`support_receive_email` files nothing, `support_claim_outbound_emails` sends nothing while it is
+  off), `support.aiAnswers` gates a tenant's AI answers (0029), `support.chatThreads` off makes
+  `support_chat_conversation` answer none, so every client stays on support_replies (0034), and
+  `support.verifyPrompt` turns on the verify prompt. `support.githubRepo` names its `github.issues`
+  setup step; the `sentry` step no longer saves its DSN as a setting and `ai.key-budget` drops its
+  budget field (no package reads either).
+
+  **Agents and people** (0034). Who manages a desk's agents is one rule, and a null tenant is the
+  app's own desk everywhere: `support_set_agent` and the new `support_can_manage_agents` /
+  `client.canManageAgents` agree. `support_agents_list` gives each agent's login, person record,
+  `role` and `removable`. `support_people_search` / `client.searchPeople` lets a desk's agents (who
+  also link email tickets) find people in its tenant by name or email, with their person record and
+  login: through the app's optional `private.genesis_people_search` hook, else the people support
+  knows at that desk, so the cost never follows the number of logins; only the tenant's people, no
+  anonymous logins. People search is deliberately open to every agent of the desk, not only those who
+  manage its agents (linking an email ticket needs it): any agent can read the names and emails of the
+  tenant's people who match, 25 per query. Which records a login is in a tenant is one rule
+  (`private.genesis_support_people_in`), which 0004's `genesis_support_agent`, the admin agent check
+  and the search share: under zero config a login added at the app's own desk is an agent there (it
+  shows in the list and sees the desk's tickets), and an admin row there manages its agents.
+  `support_agents_list` lists every agent row, one whose person has no login with a null `user_id`,
+  so it can be seen and removed. 0029's `support_my_ticket_desks` / `client.myTicketDesks` gives each of the
+  person's own tickets its desk, the desk's name and whether it is the app's own.
+
+  **Breaking: `SupportClientOptions.settings` is removed.** The server decides whether threads run on
+  chat: with `support.chatThreads` off, `support_chat_conversation` (0034) answers none, so every
+  client stays on support_replies whatever `chat` it was given. Migrate: drop `settings` from
+  `createSupportClient(supabase, { … })` (TypeScript flags it), apply support 0034 and set
+  `support.chatThreads` where you set it before (genesis.config.json or the settings screen); write
+  the manifest on deploy so the server reads it.
+
+  **Breaking (types): `client.staffList` returns `SupportStaffMember[]`**, whose `id` (the login) is
+  null for an agent row whose person has no login. Code that reads `id` as a string checks for null
+  first; such a row can't be assigned a ticket, but it can be removed by its `personId`.
+
+  **Requester labels from one hook** (0034): the report asks only
+  `genesis_support_requester_labels`; the one-ticket `genesis_support_requester_label` is no longer
+  called (the report warns while it is the only one), and `byRequesterCapped` is gone. See
+  docs/MIGRATION.md.
+
+  **Removed in the next minor:** the deprecated `private.genesis_support_verify_prompt_enabled()` hook.
+  Set `support.verifyPrompt` instead; a value set or locked in any layer already wins over the hook.
+
+- 11219ef: The Settings screen now runs inside the app. genesis-supabase's `createSettingsHandler` (`/settings/server`) serves every op of the settings protocol from the app's Supabase, as the signed-in person: it calls the database with their own token (never the service role) and answers its own origin only. A platform admin sees every key, the health the server can know, secrets, upgrades, the whole history and pending proposals; a tenant's admin sees and writes that tenant's `scope: "tenant"` keys; anyone else their own `scope: "person"` keys. A bad database value is fixed through plan and apply with a hash over what is stored.
+
+  The new `settings-host` block (migration `0024_genesis_settings_host.sql`, after the settings block) adds `genesis_settings_viewer`, proposals (`propose_genesis_setting`, `decide_genesis_setting_proposal`: someone who can't change a locked value asks, with why, and a platform admin approves or declines), Vault set and rotate for platform admins (`set_genesis_vault_secret`: the value is a parameter all the way into Vault, never logged or stored outside it; `genesis_secret_rotations` records when, without it) and one paged history (`genesis_settings_audit`).
+
+  genesis-config: `<GenesisSettings tenant>` shows the viewer's slice (`state.viewer`) with a Propose button for a value the app locked, and a platform admin decides proposals on Values. The protocol gains `SettingsViewer`, `SettingsProposalEntry`, the `decideProposal` op and `propose`'s `reason`; `settingWritability` takes the viewer. `catalogueManifest` now writes each key's whole declaration (default, summary, links, a secret's name and store), and `catalogueFromManifest` rebuilds the catalogue from it: run `genesis settings sync` again after upgrading.
+
+  genesis-cli: `genesis settings init` writes the handler's route for Next.js, TanStack Start, React Router or Expo Router.
+
+- 8f49de2: Settings protocol: the tenant and person layers in the S4 shape. `SettingsWriteLayer` adds `tenant` and `person`; `state`, `setValue` and `clearValue` take an optional `tenant` (the tenant whose layer `state` returns and a tenant write changes), and `SettingsState.layers` may carry `tenant` and `person`. `<GenesisSettings>` is unchanged: it still writes the file and database layers only.
+- 4acea0b: Guided setup steps that walk an outside service and end with a live check: `supabase.link`,
+  `github.issues`, `resend.domain`, `sentry`, `ai.key-budget` and `eas.push`.
+
+  - Each step is declared inside the CLI (`defineSetupStep`: what to do in the service, its values,
+    the secrets it needs by name, links), and `checkSetupFields` checks the values a person typed.
+  - `<GenesisSettings>` shows a guided fix with a step as `genesis setup --step <id>`.
+  - `genesis setup --step <id>` at a terminal runs one step: the instructions and links, what is
+    there now (the Supabase project list, say), the step's values, then the plan to approve. Each
+    secret is asked for hidden, held in memory and sent on stdin only; the commands run through the
+    fix engine; then the step's test call (GitHub reads the repository with the token, Sentry reads
+    the project and sends a test event to the DSN, Resend reports the domain verified, the AI
+    provider lists its models, Supabase has no pending migration and every function deployed).
+    Headless, `--step` prints the step's instructions.
+  - The wizard's Guided steps tab runs the same runners (`step.start`, `step.submit`, then `apply`,
+    and `step.verify` for "Check"), and lists `supabase.link` and `eas.push` when the app has a
+    `supabase/` folder or an `eas.json`.
+  - `eas env:create` has no stdin input, so EAS secrets stay a line the person runs, and `eas.push`
+    is a manual step: its instructions, and a check that the EAS CLI is signed in.
+  - Redaction no longer builds a regular expression from a secret: one past ~1,500 characters made
+    it throw an error that spelled the value out. A value over 64 KiB is refused, and an error whose
+    text can't be redacted is replaced by a generic line, never shown raw.
+  - `supabase db query --linked` (the Vault names and the settings table the doctor reads, and
+    `genesis settings sync`'s manifest) gets its SQL from a temp file it removes, not `/dev/stdin`.
+  - `genesis mcp` redacts with the fix engine's matcher: every JSON-escaped form of a secret, and
+    overlapping secrets, are caught in what it returns and logs.
+  - The wizard follows the system's dark mode, and its page header and form fields are genesis-ui's.
+
+- 22bfd48: Support on the phone, after the final review. The person's thread asks "Is it fixed?" once support marks a report addressed (`client.verify`; reports carry `verifiedAt`). The agent thread links the requester's email, has an assignee picker and the desk controls (`AgentDeskControls`: send up, hand back, move), and the agent inbox has a tenant admin's desk switch (`AgentDeskSwitch`). Settings has a "Support inbox" row into the agent desk for the app's agents. The dump viewer says when it is loading, heads each dump with its trigger and local time (`dumpHeading`), shows it in the mono font and copies it (saying so when a copy fails). The feedback form shows "About: …" (`openFeedback({ about })`, else the screen's path) with "Not this". The native screens use genesis-ui-native's layout primitives and text presets, and errors show in `NativeInlineAlert`. `healthChecks.runCheck(name)` runs one check again.
+
+  `createSupport` follows live settings (`appSettings` as a function, and `subscribeSettings` to update an open Settings screen): its Settings rows, the idea board, shake to report and "Report this". It forgets queued dumps and feedback on sign-out. `SupportRoute` never throws without a support block: it shows `unavailable` (default an empty state), and `onFeedbackSent` replaces the feedback screen's alert (a toast). Caught errors from a desk move or switch and a failed copy go to `onError` (`SupportErrorSource`).
+
+  A block's Settings row can take a `useShown` hook (genesis-config), and genesis-native's `useBlockSettings` leaves out a row it hides. genesis-native's error screens take `labels` ("Contact support" included, `DEFAULT_FATAL_SCREEN_LABELS`) and offer "Report this" when a block takes reports (`NativeBlock.reportProblem`: the support block opens its feedback form with the error attached). The devtools overlay is a `NativeSheet`, shows health checks in words (`checkLabels`) with a "Try again" for each where the registry has `runCheck`, and its values wrap and can be selected.
+
+  genesis-ui-native: `NativeSettingsRow` takes `descriptionLines` (`null` wraps the description whole) and `selectable`, and `NativeListItem` `subtitleLines` and `subtitleSelectable`.
+
+### Patch Changes
+
+- ec8a3ba: `genesis setup`: the setup wizard on localhost, on the doctor's engine. It shows the app's findings
+  with their fixes, its settings, secrets (by name) and upgrades through the shared Settings screen,
+  and the guided setup steps the installed packages' settings name; `--step <id>` opens on one.
+  `genesis init` with no name, at a terminal, opens it on an empty folder to make a new app (App,
+  Preset, Packages, Review), the same app `genesis init <slug> --template native` makes, then installs
+  its packages. Every write is a fix plan you read and apply by its hash; a stale plan, or one the
+  wizard didn't make, is refused. A secret is typed into a password field and reaches your signed-in
+  CLI on stdin only; no page, answer, event or log holds it. The server listens on 127.0.0.1 only and
+  refuses another Host (localhost included), a write without its own Origin, a cross-site fetch and
+  anything but JSON. Its session key never appears in a URL or a command line: the link carries a
+  one-time launch code that the page swaps for it.
+
+  `genesis setup --yes` runs headless: `--preset` and `--without`, every automatic fix, then the
+  dormant checklist (`genesis setup --step <id>`). Without `--yes` and without a terminal it applies
+  nothing: it prints the plans and the checklist and exits 1 when there is something to apply.
+  `--preset` and `--without` never imply `--yes`. `genesis init <name>
+--template native --preset standard|min` sets a new app's preset (checked before anything is
+  written; refused without a template). With `CI` set the wizard never opens. `genesis mcp` adds the read-only `setup_steps` tool,
+  and a fix with a setup step now returns `genesis setup --step <id>`.
+
+  The Settings screen shows `genesis setup --step <id>` for a guided fix that has a step (else `genesis fix <id>`).
+
 ## 0.11.1
 
 ### Patch Changes

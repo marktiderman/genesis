@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 858 components · 5244 other exports · 4464 standalone types across 227 entry points in 32 packages.
+**Totals:** 871 components · 5324 other exports · 4515 standalone types across 229 entry points in 32 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -1298,7 +1298,7 @@ Platform-agnostic providers, hooks, and data layer. Use anywhere — web, native
 | [`ViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | `ViewerScopeProps` | — | Keeps one viewer's cached data from ever showing to the next. Children render only once the viewer is known, under a key of that viewer, so a sign-out or a new person signing in unmounts every screen and its queries before the cache is e... |
 | [`WorkspaceScope`](../packages/core/src/hooks/workspace-scope.tsx) | `WorkspaceScopeProps` | Beta | `ViewerScope` for an app with workspaces: use it in place of `ViewerScope`. It reads the current workspace from the URL and scopes everything under it to that workspace (its `scope`, `roles` and `timeZone`), so every view with `scope: ["... |
 
-### Other exports (99)
+### Other exports (101)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -1362,6 +1362,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`relationNamingField`](../packages/core/src/hooks/use-relation-label.ts) | function | — | The linked resource's naming field, as a link's words find it: its `labelField` from `describe`, else a `name`/`title`-like field. Undefined when it can't say. Asked once per resource and provider; a picker uses it to search and sort the... |
 | [`rememberedWorkspaceId`](../packages/core/src/hooks/workspace-scope.tsx) | function | Beta | The workspace this viewer was last in on this device, for the app's front door (`defaultWorkspace(workspaces, rememberedWorkspaceId(viewer))`). Null when unknown. |
 | [`reportError`](../packages/core/src/errors.ts) | function | — | Report an error a package caught and handled. Never throws: a failing reporter must not take the caller (an event handler, a render) down. `context` may be just the source. |
+| [`requireDataProvider`](../packages/core/src/provider/context.tsx) | function | — | The provider, or the error that says one is missing: for a hook that holds an optional provider (`useOptionalDataProvider`) and needs it only when it reads or writes. |
 | [`resolveAggregate`](../packages/core/src/provider/aggregate.ts) | function | Beta | Totals over a resource's rows through any provider: its `aggregate` when it has one, else a count from `getList`'s total (one row read), else the rows themselves, paged (`toAggregateValues`). Throws `DataReadError` for a request that isn... |
 | [`resolveAppearancePreferences`](../packages/core/src/appearance-values.ts) | function | Beta | The appearance and density that apply: app lock, then the person, then the organization's default, then the theme's, then Genesis's. Values that aren't known appearances or densities are skipped, so a bad stored value falls through to th... |
 | [`resourceKeys`](../packages/core/src/query-keys.ts) | function | — | The keys Genesis's own hooks cache a resource under, for writing into or invalidating them by hand: `[resource]` covers them all. |
@@ -1385,6 +1386,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useLiveInvalidation`](../packages/core/src/hooks/use-live.ts) | function | — | Subscribes while mounted and `enabled`, and invalidates `queryKey` (a prefix) once per burst of events that `accept` lets through. While the page is hidden the queries are only marked stale; they refetch when it is shown again (TanStack ... |
 | [`useOne`](../packages/core/src/hooks/use-one.ts) | function | — | Fetch a single record by id, powered by TanStack Query. |
 | [`useOptionalAppearancePreferences`](../packages/core/src/appearance.tsx) | function | Beta | Like `useAppearancePreferences`, but null outside a provider: for a component (a shell, a theme provider) that keeps its own behaviour when an app hasn't set preferences up. |
+| [`useOptionalDataProvider`](../packages/core/src/provider/context.tsx) | function | — | The data provider when there is one, else null: for a screen that also works over rows it was given (a `ResourceView` with `rows`), where nothing is read or run through a provider. |
 | [`useOptionalViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | function | — | Like useViewerScope, or null outside a ViewerScope. |
 | [`usePersistedUiState`](../packages/core/src/hooks/use-persisted-ui-state.ts) | function | — | _(no summary)_ |
 | [`useRelationLabel`](../packages/core/src/hooks/use-relation-label.ts) | function | — | A linked row's words for a `relation` cell: `undefined` while they load, `null` when there are none (the row is hidden from this viewer, gone, unnamed, or the read failed), so a screen shows its own words then, never the raw id. Cached p... |
@@ -1583,7 +1585,7 @@ export type { WriteState };
 | [`DataProviderRoot`](../packages/core/src/provider/context.tsx) | `DataProviderRootProps` | — | _(no summary)_ |
 | [`GenesisProvider`](../packages/core/src/provider/context.tsx) | `GenesisProviderProps` | — | Convenience root: a `QueryClientProvider`, storage, and a data provider (yours, or a mock built from datasets). It creates its own `QueryClient` unless you pass `queryClient`; an app that already has one should pass it, or mount `DataPro... |
 
-### Other exports (21)
+### Other exports (23)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -1603,11 +1605,13 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`NO_ROWS_MATCHED`](../packages/core/src/schema/write-outcome.ts) | const | — | `DataWriteError.code` when a write came back with no row: `useResource`'s `update` sets it. |
 | [`readFailureMessage`](../packages/core/src/schema/read-outcome.ts) | function | — | The plain sentence for a failed read of `noun` records (one, or a list). |
 | [`readOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a store error code to the read outcome it means: the write mapping, with `22***` and PostgREST request errors (`PGRST1**` other than PGRST116, `42703` unknown column, `42P01` unknown table) read as `invalid`. |
+| [`requireDataProvider`](../packages/core/src/provider/context.tsx) | function | — | The provider, or the error that says one is missing: for a hook that holds an optional provider (`useOptionalDataProvider`) and needs it only when it reads or writes. |
 | [`resolveAggregate`](../packages/core/src/provider/aggregate.ts) | function | Beta | Totals over a resource's rows through any provider: its `aggregate` when it has one, else a count from `getList`'s total (one row read), else the rows themselves, paged (`toAggregateValues`). Throws `DataReadError` for a request that isn... |
 | [`RPC_FAILED`](../packages/core/src/provider/write-helpers.ts) | const | — | _(no summary)_ |
 | [`toAggregateValues`](../packages/core/src/provider/aggregate.ts) | function | Beta | The metrics' values over rows already in hand: what an in-memory provider, a test, or the paged fallback computes. `count` counts every row; the others skip rows with no number in the field and are `null` when none has one. |
 | [`toDataWriteError`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Turns anything a write threw, or the `{ message, code }` error a Supabase client returned, into a `DataWriteError`. A `DataWriteError` passes through unchanged; anything else keeps its message and `code`, and is kept as the `cause`. |
 | [`useDataProvider`](../packages/core/src/provider/context.tsx) | function | — | _(no summary)_ |
+| [`useOptionalDataProvider`](../packages/core/src/provider/context.tsx) | function | — | The data provider when there is one, else null: for a screen that also works over rows it was given (a `ResourceView` with `rows`), where nothing is read or run through a provider. |
 | [`useStorage`](../packages/core/src/provider/context.tsx) | function | — | _(no summary)_ |
 | [`writeOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a Postgres SQLSTATE or PostgREST error code to the write outcome it means. Anything not listed is `error`: a code is only read as a refusal or a bad value when it says so. |
 
@@ -3328,7 +3332,7 @@ Genesis configuration (formerly genesis-features): a typed feature registry, `de
 
 **Barrel:** [`packages/features/src/index.ts`](../packages/features/src/index.ts)
 
-### Other exports (79)
+### Other exports (80)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -3339,7 +3343,8 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`APP_LOCK_LAYERS`](../packages/features/src/settings.ts) | const | Beta | The layers whose locks outrank the gate context: the app's own. @stability Beta |
 | [`BlockError`](../packages/features/src/blocks.ts) | class | Beta | Thrown by {@link defineBlock} and {@link resolveBlocks}; lists every problem at once. @stability Beta |
 | [`BrokenBlockError`](../packages/features/src/generate.ts) | class | — | Thrown when a generated block's markers are broken: one is missing, repeated or out of order. |
-| [`catalogueManifest`](../packages/features/src/settings.ts) | function | Beta | The catalogue as the database's manifest stores it, so `set_genesis_setting` can check a value (type, bounds, runtime only) without the packages' code. Written on deploy with the manifest. |
+| [`catalogueFromManifest`](../packages/features/src/settings.ts) | function | Beta | The catalogue a manifest's `catalogue` stores ({@link catalogueManifest}), with every key checked as {@link defineSettings} checks it. A key that can't be rebuilt (written by a release that left out its default, malformed, or requiring a... |
+| [`catalogueManifest`](../packages/features/src/settings.ts) | function | Beta | The catalogue as the database's manifest stores it, so `set_genesis_setting` can check a value (type, bounds, runtime only) and `private.genesis_setting` can resolve one (from its defaults) without the packages' code, and the app's Setti... |
 | [`CONTENT_PACK_FIELD_TARGETS`](../packages/features/src/content-packs-legacy.ts) | const | Beta | Where a custom field lives, and the block that owns that table. |
 | [`contentPackBlocks`](../packages/features/src/content-packs.ts) | function | Beta | The block ids a pack's sections need, whatever it declares. @stability Beta |
 | [`ContentPackError`](../packages/features/src/content-packs.ts) | class | Beta | Thrown by {@link defineContentPack}; lists every problem at once. @stability Beta |
@@ -3600,14 +3605,15 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 
 **Barrel:** [`packages/features/src/settings.ts`](../packages/features/src/settings.ts)
 
-### Other exports (22)
+### Other exports (23)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
 | [`APP_LOCK_LAYERS`](../packages/features/src/settings.ts) | const | Beta | The layers whose locks outrank the gate context: the app's own. @stability Beta |
-| [`catalogueManifest`](../packages/features/src/settings.ts) | function | Beta | The catalogue as the database's manifest stores it, so `set_genesis_setting` can check a value (type, bounds, runtime only) without the packages' code. Written on deploy with the manifest. |
+| [`catalogueFromManifest`](../packages/features/src/settings.ts) | function | Beta | The catalogue a manifest's `catalogue` stores ({@link catalogueManifest}), with every key checked as {@link defineSettings} checks it. A key that can't be rebuilt (written by a release that left out its default, malformed, or requiring a... |
+| [`catalogueManifest`](../packages/features/src/settings.ts) | function | Beta | The catalogue as the database's manifest stores it, so `set_genesis_setting` can check a value (type, bounds, runtime only) and `private.genesis_setting` can resolve one (from its defaults) without the packages' code, and the app's Setti... |
 | [`DEFAULT_PRESET`](../packages/features/src/settings.ts) | const | Beta | Genesis's default preset: zero config is everything on. @stability Beta |
 | [`defineSettings`](../packages/features/src/settings.ts) | function | Beta | A package's settings, declared next to its `defineBlock`. Keys are `namespace.key`. |
 | [`isLockedEntry`](../packages/features/src/settings.ts) | function | Beta | `{ value, locked }` exactly, with a boolean lock: the file's way to lock a value. @stability Beta |
@@ -3714,7 +3720,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`SettingsProtocolError`](../packages/features/src/settings-protocol.ts) | class | Beta | A failed request, as the client throws it. @stability Beta |
 | [`settingWritability`](../packages/features/src/settings-protocol.ts) | function | Beta | The write rules, in one place, for the screen and a host's handler alike: |
 
-### Types (34)
+### Types (37)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -3745,11 +3751,14 @@ export type { SettingsPlan };
 export type { SettingsPlanCommand };
 export type { SettingsPlanFile };
 export type { SettingsProposal };
+export type { SettingsProposalEntry };
+export type { SettingsProposalStatus };
 export type { SettingsRequest };
 export type { SettingsResponses };
 export type { SettingsSecretStatus };
 export type { SettingsState };
 export type { SettingsUpgrades };
+export type { SettingsViewer };
 export type { SettingsWireRequest };
 export type { SettingsWriteLayer };
 export type { UpgradeDistance };
@@ -3818,7 +3827,7 @@ Deprecated: renamed to @marktiderman/genesis-config. A thin re-export of genesis
 
 **Barrel:** [`packages/features-alias/src/index.ts`](../packages/features-alias/src/index.ts)
 
-### Other exports (79)
+### Other exports (80)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -3829,7 +3838,8 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`APP_LOCK_LAYERS`](../packages/features/src/settings.ts) | const | Beta | The layers whose locks outrank the gate context: the app's own. @stability Beta |
 | [`BlockError`](../packages/features/src/blocks.ts) | class | Beta | Thrown by {@link defineBlock} and {@link resolveBlocks}; lists every problem at once. @stability Beta |
 | [`BrokenBlockError`](../packages/features/src/generate.ts) | class | — | Thrown when a generated block's markers are broken: one is missing, repeated or out of order. |
-| [`catalogueManifest`](../packages/features/src/settings.ts) | function | Beta | The catalogue as the database's manifest stores it, so `set_genesis_setting` can check a value (type, bounds, runtime only) without the packages' code. Written on deploy with the manifest. |
+| [`catalogueFromManifest`](../packages/features/src/settings.ts) | function | Beta | The catalogue a manifest's `catalogue` stores ({@link catalogueManifest}), with every key checked as {@link defineSettings} checks it. A key that can't be rebuilt (written by a release that left out its default, malformed, or requiring a... |
+| [`catalogueManifest`](../packages/features/src/settings.ts) | function | Beta | The catalogue as the database's manifest stores it, so `set_genesis_setting` can check a value (type, bounds, runtime only) and `private.genesis_setting` can resolve one (from its defaults) without the packages' code, and the app's Setti... |
 | [`CONTENT_PACK_FIELD_TARGETS`](../packages/features/src/content-packs-legacy.ts) | const | Beta | Where a custom field lives, and the block that owns that table. |
 | [`contentPackBlocks`](../packages/features/src/content-packs.ts) | function | Beta | The block ids a pack's sections need, whatever it declares. @stability Beta |
 | [`ContentPackError`](../packages/features/src/content-packs.ts) | class | Beta | Thrown by {@link defineContentPack}; lists every problem at once. @stability Beta |
@@ -4069,14 +4079,15 @@ export type { IdSet };
 
 **Barrel:** [`packages/features-alias/src/settings.ts`](../packages/features-alias/src/settings.ts)
 
-### Other exports (22)
+### Other exports (23)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
 | [`APP_LOCK_LAYERS`](../packages/features/src/settings.ts) | const | Beta | The layers whose locks outrank the gate context: the app's own. @stability Beta |
-| [`catalogueManifest`](../packages/features/src/settings.ts) | function | Beta | The catalogue as the database's manifest stores it, so `set_genesis_setting` can check a value (type, bounds, runtime only) without the packages' code. Written on deploy with the manifest. |
+| [`catalogueFromManifest`](../packages/features/src/settings.ts) | function | Beta | The catalogue a manifest's `catalogue` stores ({@link catalogueManifest}), with every key checked as {@link defineSettings} checks it. A key that can't be rebuilt (written by a release that left out its default, malformed, or requiring a... |
+| [`catalogueManifest`](../packages/features/src/settings.ts) | function | Beta | The catalogue as the database's manifest stores it, so `set_genesis_setting` can check a value (type, bounds, runtime only) and `private.genesis_setting` can resolve one (from its defaults) without the packages' code, and the app's Setti... |
 | [`DEFAULT_PRESET`](../packages/features/src/settings.ts) | const | Beta | Genesis's default preset: zero config is everything on. @stability Beta |
 | [`defineSettings`](../packages/features/src/settings.ts) | function | Beta | A package's settings, declared next to its `defineBlock`. Keys are `namespace.key`. |
 | [`isLockedEntry`](../packages/features/src/settings.ts) | function | Beta | `{ value, locked }` exactly, with a boolean lock: the file's way to lock a value. @stability Beta |
@@ -4154,7 +4165,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`SettingsProtocolError`](../packages/features/src/settings-protocol.ts) | class | Beta | A failed request, as the client throws it. @stability Beta |
 | [`settingWritability`](../packages/features/src/settings-protocol.ts) | function | Beta | The write rules, in one place, for the screen and a host's handler alike: |
 
-### Types (34)
+### Types (37)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -4185,11 +4196,14 @@ export type { SettingsPlan };
 export type { SettingsPlanCommand };
 export type { SettingsPlanFile };
 export type { SettingsProposal };
+export type { SettingsProposalEntry };
+export type { SettingsProposalStatus };
 export type { SettingsRequest };
 export type { SettingsResponses };
 export type { SettingsSecretStatus };
 export type { SettingsState };
 export type { SettingsUpgrades };
+export type { SettingsViewer };
 export type { SettingsWireRequest };
 export type { SettingsWriteLayer };
 export type { UpgradeDistance };
@@ -5594,7 +5608,7 @@ export type { UploadHost };
 | [`ViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | `ViewerScopeProps` | — | Keeps one viewer's cached data from ever showing to the next. Children render only once the viewer is known, under a key of that viewer, so a sign-out or a new person signing in unmounts every screen and its queries before the cache is e... |
 | [`WorkspaceScope`](../packages/core/src/hooks/workspace-scope.tsx) | `WorkspaceScopeProps` | Beta | `ViewerScope` for an app with workspaces: use it in place of `ViewerScope`. It reads the current workspace from the URL and scopes everything under it to that workspace (its `scope`, `roles` and `timeZone`), so every view with `scope: ["... |
 
-### Other exports (99)
+### Other exports (101)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -5658,6 +5672,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`relationNamingField`](../packages/core/src/hooks/use-relation-label.ts) | function | — | The linked resource's naming field, as a link's words find it: its `labelField` from `describe`, else a `name`/`title`-like field. Undefined when it can't say. Asked once per resource and provider; a picker uses it to search and sort the... |
 | [`rememberedWorkspaceId`](../packages/core/src/hooks/workspace-scope.tsx) | function | Beta | The workspace this viewer was last in on this device, for the app's front door (`defaultWorkspace(workspaces, rememberedWorkspaceId(viewer))`). Null when unknown. |
 | [`reportError`](../packages/core/src/errors.ts) | function | — | Report an error a package caught and handled. Never throws: a failing reporter must not take the caller (an event handler, a render) down. `context` may be just the source. |
+| [`requireDataProvider`](../packages/core/src/provider/context.tsx) | function | — | The provider, or the error that says one is missing: for a hook that holds an optional provider (`useOptionalDataProvider`) and needs it only when it reads or writes. |
 | [`resolveAggregate`](../packages/core/src/provider/aggregate.ts) | function | Beta | Totals over a resource's rows through any provider: its `aggregate` when it has one, else a count from `getList`'s total (one row read), else the rows themselves, paged (`toAggregateValues`). Throws `DataReadError` for a request that isn... |
 | [`resolveAppearancePreferences`](../packages/core/src/appearance-values.ts) | function | Beta | The appearance and density that apply: app lock, then the person, then the organization's default, then the theme's, then Genesis's. Values that aren't known appearances or densities are skipped, so a bad stored value falls through to th... |
 | [`resourceKeys`](../packages/core/src/query-keys.ts) | function | — | The keys Genesis's own hooks cache a resource under, for writing into or invalidating them by hand: `[resource]` covers them all. |
@@ -5681,6 +5696,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useLiveInvalidation`](../packages/core/src/hooks/use-live.ts) | function | — | Subscribes while mounted and `enabled`, and invalidates `queryKey` (a prefix) once per burst of events that `accept` lets through. While the page is hidden the queries are only marked stale; they refetch when it is shown again (TanStack ... |
 | [`useOne`](../packages/core/src/hooks/use-one.ts) | function | — | Fetch a single record by id, powered by TanStack Query. |
 | [`useOptionalAppearancePreferences`](../packages/core/src/appearance.tsx) | function | Beta | Like `useAppearancePreferences`, but null outside a provider: for a component (a shell, a theme provider) that keeps its own behaviour when an app hasn't set preferences up. |
+| [`useOptionalDataProvider`](../packages/core/src/provider/context.tsx) | function | — | The data provider when there is one, else null: for a screen that also works over rows it was given (a `ResourceView` with `rows`), where nothing is read or run through a provider. |
 | [`useOptionalViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | function | — | Like useViewerScope, or null outside a ViewerScope. |
 | [`usePersistedUiState`](../packages/core/src/hooks/use-persisted-ui-state.ts) | function | — | _(no summary)_ |
 | [`useRelationLabel`](../packages/core/src/hooks/use-relation-label.ts) | function | — | A linked row's words for a `relation` cell: `undefined` while they load, `null` when there are none (the row is hidden from this viewer, gone, unnamed, or the read failed), so a screen shows its own words then, never the raw id. Cached p... |
@@ -7264,7 +7280,7 @@ export type { UseThreadJumpOptions };
 | [`GenesisNativeApp`](../packages/native/src/app.tsx) | `GenesisNativeAppProps` | Beta | The root of an Expo app: theme, keyboard, data, boot behind the splash, errors, session and held links. |
 | [`ScreenErrorBoundary`](../packages/native/src/screen-boundary.tsx) | `ScreenErrorBoundaryProps` | Beta | A boundary around part of a screen tree, for apps without Expo Router's per-route boundaries: non-fatal, reported, with "Try again". |
 
-### Other exports (33)
+### Other exports (35)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -7275,6 +7291,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`BootTimeoutError`](../packages/native/src/boot.tsx) | class | — | Thrown when a step takes longer than its timeout. |
 | [`classifyError`](../packages/core/src/errors.ts) | function | — | What kind of error this is, a sentence that is safe to show, and whether it is worth reporting. Understands the provider's `DataWriteError` and `DataReadError`, Postgres and PostgREST codes, HTTP statuses, Supabase's auth and fetch error... |
 | [`connectQueryLifecycle`](../packages/native/src/query.ts) | function | — | Tell TanStack Query when the app comes to the front (refetch stale queries) and when the network comes and goes. Returns the cleanup. |
+| [`contactHref`](../packages/native/src/errors.tsx) | function | — | The link a contact opens: the support page, else a mailto. Null with neither (or one that isn't safe). |
 | [`createBoot`](../packages/native/src/boot.tsx) | function | — | The boot controller: runs `steps` once each, in order, with a timeout per step. |
 | [`createHydrationGate`](../packages/native/src/hydration-gate.ts) | function | — | A gate that holds writes until a persisted store has hydrated. |
 | [`createLinkHold`](../packages/native/src/held-link.ts) | function | — | A place to hold one deep link until sign-in completes; lives outside React. |
@@ -7282,13 +7299,14 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`createScreenErrorBoundary`](../packages/native/src/screen-boundary.tsx) | function | Beta | An Expo Router `ErrorBoundary`: reports each error once (non-fatal, source `screen`) and shows `fallback`. Build it once, at module scope. |
 | [`createSessionStore`](../packages/native/src/auth.tsx) | function | — | The Supabase session as a store: `load` reads it once, `start` follows auth events. |
 | [`DAY_MS`](../packages/native/src/query.ts) | const | — | One day in milliseconds: the default max age of the saved query cache. |
+| [`DEFAULT_FATAL_SCREEN_LABELS`](../packages/native/src/errors.tsx) | const | — | _(no summary)_ |
 | [`defaultErrorUtils`](../packages/native/src/errors.tsx) | function | — | `globalThis.ErrorUtils` in a React Native runtime, undefined elsewhere. |
 | [`defaultRejectionTracker`](../packages/native/src/errors.tsx) | function | — | Hermes's rejection tracker, when the app runs on Hermes. React Native sends unhandled rejections to `ExceptionsManager` (LogBox in development), never to `ErrorUtils`' global handler, so without this they never reach `onError`. |
 | [`errorDetails`](../packages/native/src/errors.tsx) | function | — | What a fatal or screen error says under its title: the safe sentence for its kind (offline, signed out…), or nothing for a plain bug. The error's own text can hold an email, an id or a store's internals, so it is shown only in developmen... |
 | [`errorMessages`](../packages/core/src/errors.ts) | const | — | The English catalogue. Plain words, never the store's text. |
 | [`installGlobalErrorHandler`](../packages/native/src/errors.tsx) | function | — | Route global errors to `onError`. A fatal one goes to `onFatal` instead of React Native's default handler, which would close the app; a non-fatal one still reaches the previous handler (LogBox in development). Returns a function that put... |
 | [`installRejectionTracker`](../packages/native/src/errors.tsx) | function | — | Report unhandled promise rejections to `onError`: non-fatal, and unhandled (`handled: false`), so release health counts them. This replaces React Native's own tracker, so each rejection is also written with `console.warn`, which LogBox s... |
-| [`mergeBlockSettings`](../packages/native/src/blocks.tsx) | function | Beta | The merge `useBlockSettings` does, without hooks (subtitles already read). @stability Beta |
+| [`mergeBlockSettings`](../packages/native/src/blocks.tsx) | function | Beta | The merge `useBlockSettings` does, without hooks (subtitles and `shown` already read; a row shown false is left out). @stability Beta |
 | [`normalizeLink`](../packages/native/src/links.ts) | function | — | The app path for `url`, `"/"` when it is unknown, or `null` when it is ignored. |
 | [`onBeforeReload`](../packages/native/src/reload.ts) | function | Beta | Run `hook` before every reload the updates block starts. Returns the unregister. @stability Beta |
 | [`PlainFatalScreen`](../packages/native/src/errors.tsx) | function | — | The last-resort fatal screen. |
@@ -7304,7 +7322,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useHeldLink`](../packages/native/src/held-link.ts) | function | — | Follow the held link after a sign-in, drop it otherwise; returns the link still held. |
 | [`useSession`](../packages/native/src/auth.tsx) | function | — | The session and whether it is known yet. Inside `GenesisNativeApp` or a `SessionProvider`. |
 
-### Types (49)
+### Types (51)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -7327,7 +7345,9 @@ export type { ErrorKind };
 export type { ErrorMessages };
 export type { ErrorReport };
 export type { ErrorUtilsLike };
+export type { FatalScreenContact };
 export type { FatalScreenKind };
+export type { FatalScreenLabels };
 export type { FatalScreenViewProps };
 export type { GlobalErrorHandlerOptions };
 export type { HeldLinkAuth };
@@ -8033,7 +8053,7 @@ export type { UploadHost };
 
 **Barrel:** [`packages/genesis/src/features.ts`](../packages/genesis/src/features.ts)
 
-### Other exports (79)
+### Other exports (80)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -8044,7 +8064,8 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`APP_LOCK_LAYERS`](../packages/features/src/settings.ts) | const | Beta | The layers whose locks outrank the gate context: the app's own. @stability Beta |
 | [`BlockError`](../packages/features/src/blocks.ts) | class | Beta | Thrown by {@link defineBlock} and {@link resolveBlocks}; lists every problem at once. @stability Beta |
 | [`BrokenBlockError`](../packages/features/src/generate.ts) | class | — | Thrown when a generated block's markers are broken: one is missing, repeated or out of order. |
-| [`catalogueManifest`](../packages/features/src/settings.ts) | function | Beta | The catalogue as the database's manifest stores it, so `set_genesis_setting` can check a value (type, bounds, runtime only) without the packages' code. Written on deploy with the manifest. |
+| [`catalogueFromManifest`](../packages/features/src/settings.ts) | function | Beta | The catalogue a manifest's `catalogue` stores ({@link catalogueManifest}), with every key checked as {@link defineSettings} checks it. A key that can't be rebuilt (written by a release that left out its default, malformed, or requiring a... |
+| [`catalogueManifest`](../packages/features/src/settings.ts) | function | Beta | The catalogue as the database's manifest stores it, so `set_genesis_setting` can check a value (type, bounds, runtime only) and `private.genesis_setting` can resolve one (from its defaults) without the packages' code, and the app's Setti... |
 | [`CONTENT_PACK_FIELD_TARGETS`](../packages/features/src/content-packs-legacy.ts) | const | Beta | Where a custom field lives, and the block that owns that table. |
 | [`contentPackBlocks`](../packages/features/src/content-packs.ts) | function | Beta | The block ids a pack's sections need, whatever it declares. @stability Beta |
 | [`ContentPackError`](../packages/features/src/content-packs.ts) | class | Beta | Thrown by {@link defineContentPack}; lists every problem at once. @stability Beta |
@@ -8215,7 +8236,7 @@ Genesis CLI — `genesis init` scaffolds a Genesis app (`--template native`: a n
 
 **Barrel:** [`packages/genesis-cli/src/index.ts`](../packages/genesis-cli/src/index.ts)
 
-### Other exports (28)
+### Other exports (31)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -8223,6 +8244,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | --- | --- | --- | --- |
 | `appNavTargets` | value | — | _(no summary)_ |
 | `appRoutes` | value | — | _(no summary)_ |
+| `BUILD_STAMP_FILE` | value | — | _(no summary)_ |
 | `checkFigmaRoutes` | value | — | _(no summary)_ |
 | `CommentSettingsError` | value | — | _(no summary)_ |
 | `compareFigmaRoutes` | value | — | _(no summary)_ |
@@ -8244,18 +8266,22 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | `readFigma` | value | — | _(no summary)_ |
 | `readFigmaConfig` | value | — | _(no summary)_ |
 | `readGenesisConfig` | value | — | _(no summary)_ |
+| `resolveBuildStamp` | value | — | _(no summary)_ |
 | `runDoctor` | value | — | _(no summary)_ |
 | `runScaffold` | value | — | _(no summary)_ |
 | `validateConsumerName` | value | — | _(no summary)_ |
 | `validateFigmaConfig` | value | — | _(no summary)_ |
 | `validateLinks` | value | — | _(no summary)_ |
+| `writeBuildStamp` | value | — | _(no summary)_ |
 
-### Types (31)
+### Types (33)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
 export type { AppRoute };
+export type { BuildStamp };
+export type { BuildStampOptions };
 export type { CoverageReport };
 export type { DoctorConfig };
 export type { DoctorContext };
@@ -8965,7 +8991,7 @@ The native app shell: `GenesisNativeApp` (boot behind the splash, fatal screen, 
 | [`GenesisNativeApp`](../packages/native/src/app.tsx) | `GenesisNativeAppProps` | Beta | The root of an Expo app: theme, keyboard, data, boot behind the splash, errors, session and held links. |
 | [`ScreenErrorBoundary`](../packages/native/src/screen-boundary.tsx) | `ScreenErrorBoundaryProps` | Beta | A boundary around part of a screen tree, for apps without Expo Router's per-route boundaries: non-fatal, reported, with "Try again". |
 
-### Other exports (33)
+### Other exports (35)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -8976,6 +9002,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`BootTimeoutError`](../packages/native/src/boot.tsx) | class | — | Thrown when a step takes longer than its timeout. |
 | [`classifyError`](../packages/core/src/errors.ts) | function | — | What kind of error this is, a sentence that is safe to show, and whether it is worth reporting. Understands the provider's `DataWriteError` and `DataReadError`, Postgres and PostgREST codes, HTTP statuses, Supabase's auth and fetch error... |
 | [`connectQueryLifecycle`](../packages/native/src/query.ts) | function | — | Tell TanStack Query when the app comes to the front (refetch stale queries) and when the network comes and goes. Returns the cleanup. |
+| [`contactHref`](../packages/native/src/errors.tsx) | function | — | The link a contact opens: the support page, else a mailto. Null with neither (or one that isn't safe). |
 | [`createBoot`](../packages/native/src/boot.tsx) | function | — | The boot controller: runs `steps` once each, in order, with a timeout per step. |
 | [`createHydrationGate`](../packages/native/src/hydration-gate.ts) | function | — | A gate that holds writes until a persisted store has hydrated. |
 | [`createLinkHold`](../packages/native/src/held-link.ts) | function | — | A place to hold one deep link until sign-in completes; lives outside React. |
@@ -8983,13 +9010,14 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`createScreenErrorBoundary`](../packages/native/src/screen-boundary.tsx) | function | Beta | An Expo Router `ErrorBoundary`: reports each error once (non-fatal, source `screen`) and shows `fallback`. Build it once, at module scope. |
 | [`createSessionStore`](../packages/native/src/auth.tsx) | function | — | The Supabase session as a store: `load` reads it once, `start` follows auth events. |
 | [`DAY_MS`](../packages/native/src/query.ts) | const | — | One day in milliseconds: the default max age of the saved query cache. |
+| [`DEFAULT_FATAL_SCREEN_LABELS`](../packages/native/src/errors.tsx) | const | — | _(no summary)_ |
 | [`defaultErrorUtils`](../packages/native/src/errors.tsx) | function | — | `globalThis.ErrorUtils` in a React Native runtime, undefined elsewhere. |
 | [`defaultRejectionTracker`](../packages/native/src/errors.tsx) | function | — | Hermes's rejection tracker, when the app runs on Hermes. React Native sends unhandled rejections to `ExceptionsManager` (LogBox in development), never to `ErrorUtils`' global handler, so without this they never reach `onError`. |
 | [`errorDetails`](../packages/native/src/errors.tsx) | function | — | What a fatal or screen error says under its title: the safe sentence for its kind (offline, signed out…), or nothing for a plain bug. The error's own text can hold an email, an id or a store's internals, so it is shown only in developmen... |
 | [`errorMessages`](../packages/core/src/errors.ts) | const | — | The English catalogue. Plain words, never the store's text. |
 | [`installGlobalErrorHandler`](../packages/native/src/errors.tsx) | function | — | Route global errors to `onError`. A fatal one goes to `onFatal` instead of React Native's default handler, which would close the app; a non-fatal one still reaches the previous handler (LogBox in development). Returns a function that put... |
 | [`installRejectionTracker`](../packages/native/src/errors.tsx) | function | — | Report unhandled promise rejections to `onError`: non-fatal, and unhandled (`handled: false`), so release health counts them. This replaces React Native's own tracker, so each rejection is also written with `console.warn`, which LogBox s... |
-| [`mergeBlockSettings`](../packages/native/src/blocks.tsx) | function | Beta | The merge `useBlockSettings` does, without hooks (subtitles already read). @stability Beta |
+| [`mergeBlockSettings`](../packages/native/src/blocks.tsx) | function | Beta | The merge `useBlockSettings` does, without hooks (subtitles and `shown` already read; a row shown false is left out). @stability Beta |
 | [`normalizeLink`](../packages/native/src/links.ts) | function | — | The app path for `url`, `"/"` when it is unknown, or `null` when it is ignored. |
 | [`onBeforeReload`](../packages/native/src/reload.ts) | function | Beta | Run `hook` before every reload the updates block starts. Returns the unregister. @stability Beta |
 | [`PlainFatalScreen`](../packages/native/src/errors.tsx) | function | — | The last-resort fatal screen. |
@@ -9005,7 +9033,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useHeldLink`](../packages/native/src/held-link.ts) | function | — | Follow the held link after a sign-in, drop it otherwise; returns the link still held. |
 | [`useSession`](../packages/native/src/auth.tsx) | function | — | The session and whether it is known yet. Inside `GenesisNativeApp` or a `SessionProvider`. |
 
-### Types (49)
+### Types (51)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -9028,7 +9056,9 @@ export type { ErrorKind };
 export type { ErrorMessages };
 export type { ErrorReport };
 export type { ErrorUtilsLike };
+export type { FatalScreenContact };
 export type { FatalScreenKind };
+export type { FatalScreenLabels };
 export type { FatalScreenViewProps };
 export type { GlobalErrorHandlerOptions };
 export type { HeldLinkAuth };
@@ -9402,7 +9432,7 @@ export type { TimingTags };
 
 **Barrel:** [`packages/native/src/devtools/index.ts`](../packages/native/src/devtools/index.ts)
 
-### Other exports (8)
+### Other exports (9)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -9412,12 +9442,13 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`createDevtools`](../packages/native/src/devtools/block.tsx) | function | Beta | Build the overlay once, at module scope. @stability Beta |
 | [`createHoldDetector`](../packages/native/src/devtools/gestures.ts) | function | — | _(no summary)_ |
 | [`createShakeDetector`](../packages/native/src/devtools/gestures.ts) | function | — | _(no summary)_ |
+| [`DEFAULT_DEVTOOLS_CHECK_LABELS`](../packages/native/src/devtools/block.tsx) | const | — | _(no summary)_ |
 | [`DEVTOOLS_BLOCK_ID`](../packages/native/src/devtools/block.tsx) | const | — | The FeatureId of the devtools overlay. |
 | [`DEVTOOLS_SETTING_SPECS`](../packages/native/src/devtools/settings.ts) | const | Beta | `devtools.*`, as declared. @stability Beta |
 | [`devtoolsSettings`](../packages/native/src/devtools/settings.ts) | const | Beta | _(no summary)_ |
 | [`devtoolsSettingValues`](../packages/native/src/devtools/settings.ts) | function | Beta | The overlay's settings from `resolveSettings`' result (or the values alone, by full key). A key that's missing, or whose value doesn't fit, takes its default (every one on). |
 
-### Types (14)
+### Types (17)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -9426,6 +9457,9 @@ export type { AccelerometerLike };
 export type { DebugInfoInput };
 export type { DevSettingsLike };
 export type { DevtoolsBlock };
+export type { DevtoolsCheckLabels };
+export type { DevtoolsCheckResult };
+export type { DevtoolsChecksLike };
 export type { DevtoolsDiagnosticsProps };
 export type { DevtoolsFeedbackProps };
 export type { DevtoolsOptions };
@@ -9672,7 +9706,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`isSafeAddress`](../packages/notifications/src/server/email-render.ts) | function | — | A bare address safe as a header value. |
 | [`NotificationStoreError`](../packages/notifications/src/server/store.ts) | class | — | A database refusal, with its SQLSTATE; never the row it refused. |
 | [`notify`](../packages/notifications/src/server/notify.ts) | function | Beta | Queue a notification for each recipient. Resolves one result per recipient that exists (a deleted login is left out); the same idempotency key again (for the same type and tenant) resolves `created: false` and sends nothing more. |
-| [`parseAddress`](../packages/notifications/src/server/inbound.ts) | function | — | "Pat <Pat@Example.test>" → { email: "pat@example.test", name: "Pat" }. |
+| [`parseAddress`](../packages/notifications/src/server/inbound.ts) | function | — | "Pat <Pat@Example.test>" → { email: "pat@example.test", name: "Pat" }. One address only: a header naming several (`a@x.test, b@y.test`, or a second address in the display name) is no sender, so a route can't be handed the wrong one. Line... |
 | [`refusedOutright`](../packages/notifications/src/server/expo.ts) | function | — | Expo refused the request itself (a 4xx other than 429): resend its messages one by one. |
 | [`REQUEST_TIMEOUT_MS`](../packages/notifications/src/server/errors.ts) | const | — | Every request gives up after this long. |
 | [`RESEND_API`](../packages/notifications/src/server/resend.ts) | const | — | _(no summary)_ |
@@ -11149,7 +11183,7 @@ Supabase for Genesis apps on web and React Native: a client with PKCE and safe d
 
 **Barrel:** [`packages/supabase/src/index.ts`](../packages/supabase/src/index.ts)
 
-### Other exports (29)
+### Other exports (31)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -11157,7 +11191,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | --- | --- | --- | --- |
 | [`accountBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The account block: sign-in, profile and in-app account deletion. Its screens are the app's (or genesis-ui-native's `AuthScreen`); this names its migrations and its data. |
 | [`APPLE_REVOKE_FUNCTION`](../packages/supabase/src/apple-tokens.ts) | const | — | The Edge Function's default name, as shipped in `functions/genesis-apple-revoke`. |
-| [`clearGenesisSetting`](../packages/supabase/src/settings.ts) | function | Beta | Remove a setting from the database layer, so the file, preset or default applies again: `clear_genesis_setting`. Platform admins only. @stability Beta |
+| [`clearGenesisSetting`](../packages/supabase/src/settings.ts) | function | Beta | Remove a value from a layer, so the layers below apply again: the database layer (default; platform admins), a tenant's (`{ layer: "tenant", tenant }`, its admins) or the signed-in person's own (`{ layer: "person" }`). |
 | [`createAuthFormClient`](../packages/supabase/src/auth-form-client.ts) | function | Beta | genesis-ui's `AuthForm` client on Supabase Auth: password sign-in, magic link and emailed code (`signInWithOtp`, the code checked with `verifyOtp`), sign-up (`confirmEmail` when the project confirms emails), the reset email, the new pass... |
 | [`createGenesisSupabase`](../packages/supabase/src/index.ts) | function | Beta | A Supabase client with Genesis's defaults: PKCE sign-in (the code flow, not tokens in a redirect URL, with an S256 challenge: pass `crypto` on native), a persisted session that refreshes itself, and the session storage you pass. |
 | [`deleteMyAccount`](../packages/supabase/src/index.ts) | function | Beta | In-app account deletion (App Store Review Guideline 5.1.1(v)), on web and native: calls the `delete_my_account` RPC (this package's `migrations/0001_genesis_account_deletion.sql`), which deletes the login and, through the app's `on delet... |
@@ -11168,12 +11202,13 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`genesisSettingHistory`](../packages/supabase/src/settings.ts) | function | Beta | The database layer's history, newest first (at most `maxRows`, 1 to 1000, default 100). Platform admins only. @stability Beta |
 | [`jobsBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The jobs block: a background-job queue and named schedules that call the app's job route. Server only; the route is `createJobsHandler` from `/jobs`. |
 | [`must`](../packages/supabase/src/index.ts) | function | Beta | The data, or a thrown {@link SupabaseQueryError}: for query results where an error should fail the caller (a TanStack Query `queryFn`). The return type keeps `null` when the query can return no row (`.maybeSingle()`). |
-| [`readSettingsLayers`](../packages/supabase/src/settings.ts) | function | Beta | The preset, the file's settings and the database layer, for any signed-in person or server code: `genesis_settings_layers`. Throws a `SupabaseQueryError` (`42501`) when nobody is signed in. |
+| [`readSettingsLayers`](../packages/supabase/src/settings.ts) | function | Beta | The stored layers, for any signed-in person or server code: `genesis_settings_layers`. With `tenantId`, the tenant's layer too (its members and admins, platform admins and server code only). On a database without migration 0023 it reads ... |
 | [`requestAppleRevocation`](../packages/supabase/src/apple-tokens.ts) | function | — | Asks the Edge Function to revoke the tokens of deleted accounts now, rather than at its next scheduled run. Never throws and never fails the caller: the account is already gone and the queue keeps the token until a run succeeds. |
 | [`resolveAppSettings`](../packages/supabase/src/settings.ts) | function | Beta | Read the stored layers and resolve them with the app's catalogue: values, where each came from, and what was wrong. |
-| [`setGenesisSetting`](../packages/supabase/src/settings.ts) | function | Beta | Set a runtime setting in the database layer: `set_genesis_setting`. Only platform admins (the app's `private.genesis_platform_admin` hook); throws a `SupabaseQueryError` otherwise (`42501`), or for a value the synced catalogue refuses (`... |
+| [`setGenesisSetting`](../packages/supabase/src/settings.ts) | function | Beta | Set a runtime setting: in the database layer (`set_genesis_setting`, platform admins: the app's `private.genesis_platform_admin` hook), a tenant's layer (`set_genesis_tenant_setting`, the tenant's admins: `private.genesis_tenant_admin`) ... |
 | [`setTenantFeature`](../packages/supabase/src/tenant-features.ts) | function | Beta | Turn a feature on or off for a tenant: `set_tenant_feature`. Only the tenant's admins (the app's `private.genesis_tenant_admin` hook); throws a `SupabaseQueryError` otherwise (`42501`), for a blank reason (`22023`) or a malformed feature... |
 | [`settingsBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The settings block: the database layer of Genesis settings (genesis-config's `resolveSettings`), its history and the app manifest, with platform admins changing runtime settings through `set_genesis_setting`. |
+| [`settingsHostBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The Settings host block: what the in-app Settings screen's server (`createSettingsHandler` from `/settings/server`) needs on top of the settings block: who is looking, proposals a platform admin decides, Vault set and rotate (write-only)... |
 | [`storeAppleToken`](../packages/supabase/src/apple-tokens.ts) | function | Beta | After a Sign in with Apple, sends the authorization code to the Edge Function, which exchanges it for Apple's refresh token and keeps it where only the server reads it, so deleting the account can revoke it. Call it with the session from... |
 | [`SUPABASE_OAUTH_PROVIDERS`](../packages/supabase/src/auth-form-client.ts) | const | Beta | The OAuth providers `fetchAuthSettings` reports: the ones `signInWithOAuth` takes and genesis-ui's `AUTH_PROVIDER_NAMES` names. Any other key of the settings' `external` (`email`, `phone`, `saml`, `web3_*`…) isn't a button. |
 | [`SupabaseQueryError`](../packages/supabase/src/index.ts) | class | Beta | A failed query, with the database's `code` (`23505` unique violation, `42501` permission denied, `PGRST116` no rows…), `details` and `hint`, so a caller can tell an RLS refusal from a conflict. The original error is the `cause`. |
@@ -11183,14 +11218,16 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`tenantFeaturesBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The tenant features block: per-tenant on/off switches for shipped features, set by the tenant's admins with a reason. |
 | [`tenantFeatureSettings`](../packages/supabase/src/tenant-features.ts) | function | Beta | Every switch a tenant has set, with its reason, for its admins: `tenant_feature_settings`. @stability Beta |
 | [`versionedWritesBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The versioned-writes block: `genesis_version_bump`, the trigger that advances a row's version on every update, so the Supabase data provider's `version` rule can refuse an edit made on a stale copy as a `conflict`. |
+| [`watchAppSettings`](../packages/supabase/src/settings.ts) | function | Beta | Resolve the settings now and again whenever a layer changes: the database layer, the tenant's (`tenantId`) or the person's (`personId`). It listens on the private Realtime channels migration 0023 broadcasts on (each change names the laye... |
 | [`writeAppManifest`](../packages/supabase/src/settings.ts) | function | Beta | Write the app manifest (one row) with the service-role client, on deploy and at app start. It carries the catalogue `set_genesis_setting` validates against: until it's written, no setting can be changed. Server only: never with a browser... |
 
-### Types (33)
+### Types (37)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
 export type { AppManifestInput };
+export type { AppSettings };
 export type { AuthCallError };
 export type { AuthCallResult };
 export type { AuthFormSupabase };
@@ -11207,9 +11244,11 @@ export type { FeatureRegistryDocument };
 export type { FlagStateValue };
 export type { FunctionsClient };
 export type { GenesisSettingChange };
+export type { GenesisSettingLayer };
 export type { GenesisSupabaseOptions };
 export type { ManifestClient };
 export type { PostgrestErrorLike };
+export type { RealtimeSettingsClient };
 export type { ResolveAppSettingsOptions };
 export type { SessionStorage };
 export type { SetGenesisSettingInput };
@@ -11223,6 +11262,7 @@ export type { TenantFeatureChange };
 export type { TenantFeatureSetting };
 export type { TenantFeatures };
 export type { TenantFeaturesClient };
+export type { WatchAppSettingsOptions };
 ```
 
 ---
@@ -11281,7 +11321,7 @@ export type { WipeOnReinstallOptions };
 
 **Barrel:** [`packages/supabase/src/blocks.ts`](../packages/supabase/src/blocks.ts)
 
-### Other exports (8)
+### Other exports (9)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -11292,6 +11332,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`featureMirrorBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The feature registry block: the registry mirrored into the app's database on deploy, entitlements, per-tenant and platform flag values and SQL `feature_on()`, for the feature gate. Needs the tenant features block. |
 | [`jobsBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The jobs block: a background-job queue and named schedules that call the app's job route. Server only; the route is `createJobsHandler` from `/jobs`. |
 | [`settingsBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The settings block: the database layer of Genesis settings (genesis-config's `resolveSettings`), its history and the app manifest, with platform admins changing runtime settings through `set_genesis_setting`. |
+| [`settingsHostBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The Settings host block: what the in-app Settings screen's server (`createSettingsHandler` from `/settings/server`) needs on top of the settings block: who is looking, proposals a platform admin decides, Vault set and rotate (write-only)... |
 | [`tenantFeaturesBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The tenant features block: per-tenant on/off switches for shipped features, set by the tenant's admins with a reason. |
 | [`versionedWritesBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The versioned-writes block: `genesis_version_bump`, the trigger that advances a row's version on every update, so the Supabase data provider's `version` rule can refuse an edit made on a stale copy as a `conflict`. |
 | [`webHandoffBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The web handoff block: continue on the web, already signed in. The routes are `createWebHandoff` from `/web-handoff/server`, the page uses `/web-handoff`, and the native app calls `openOnWeb` from genesis-native. |
@@ -11467,24 +11508,53 @@ export type { WebHandoffOptions };
 
 ---
 
+## @marktiderman/genesis-supabase/settings/server
+
+**Barrel:** [`packages/supabase/src/settings-server.ts`](../packages/supabase/src/settings-server.ts)
+
+### Other exports (2)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`createSettingsHandler`](../packages/supabase/src/settings-server.ts) | function | Beta | The handler for the Settings screen's endpoint. See the module header. @stability Beta |
+| [`upgradeDistance`](../packages/supabase/src/settings-server.ts) | function | — | `1.2.3` against `1.4.0`: how far behind. Anything that isn't a plain version is `unknown`. |
+
+### Types (2)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { SettingsHandlerOptions };
+export type { SettingsHostClient };
+```
+
+---
+
 ## @marktiderman/genesis-support
 
 Support and feedback for Genesis apps, in the app's own Supabase: a feedback record (bug, idea, question, praise) with the app's context and screenshots, collector and sink seams with a Supabase sink, a web feedback panel and launcher, a native feedback screen with screenshot capture, annotation and shake to report, the person's reports with staff replies (on genesis-chat with the support-chat block: live, with files, an assignee and internal notes), and an idea board with votes and "you asked, we shipped". Declared as a defineBlock block. Part of the Genesis framework.
 
 **Barrel:** [`packages/support/src/index.ts`](../packages/support/src/index.ts)
 
-### Other exports (144)
+### Other exports (177)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
+| [`asksVerification`](../packages/support/src/client.ts) | function | — | Whether a thread asks "Is it fixed?", on the web and the phone alike: the `support.verifyPrompt` setting (`supportSettingValues(…).support.verifyPrompt`, off in every preset) is on and the report awaits the person's answer. |
+| [`asksVerification`](../packages/support/src/client.ts) | function | — | Whether a thread asks "Is it fixed?", on the web and the phone alike: the `support.verifyPrompt` setting (`supportSettingValues(…).support.verifyPrompt`, off in every preset) is on and the report awaits the person's answer. |
 | [`attachmentBytes`](../packages/support/src/record.ts) | function | — | The bytes of an attachment, from `bytes` or `base64`. |
 | [`attachmentBytes`](../packages/support/src/record.ts) | function | — | The bytes of an attachment, from `bytes` or `base64`. |
+| [`awaitsVerification`](../packages/support/src/client.ts) | function | — | A report marked fixed that the person hasn't confirmed yet: the "Is it fixed?" question is theirs to answer (`verify`). |
+| [`awaitsVerification`](../packages/support/src/client.ts) | function | — | A report marked fixed that the person hasn't confirmed yet: the "Is it fixed?" question is theirs to answer (`verify`). |
 | [`base64ToBytes`](../packages/support/src/record.ts) | function | — | Base64 (or a `data:` URI) to bytes, without `atob` (Hermes, workers, Node all agree). |
 | [`base64ToBytes`](../packages/support/src/record.ts) | function | — | Base64 (or a `data:` URI) to bytes, without `atob` (Hermes, workers, Node all agree). |
 | [`capReport`](../packages/support/src/diagnostics/cap.ts) | function | — | The report within every cap. Returns a new report; the input is left as it was. |
 | [`captureConsole`](../packages/support/src/diagnostics/console.ts) | function | — | Keep the last console lines. Calling it again while a capture runs returns that capture. |
+| [`chooseDesk`](../packages/support/src/desks.ts) | function | — | The desk an inbox opens: the one asked for whenever the login works it (a notification's link lands on its ticket, even at a desk that is off), else the app's own, else their first. Undefined when there is none to open. |
 | [`cleanLabel`](../packages/support/src/client.ts) | function | — | An about label as it can be shown: the reporter's (so untrusted), on one line, at most 80 characters, without control or direction-changing (bidi) characters. Null when nothing is left. |
 | [`cleanLabel`](../packages/support/src/client.ts) | function | — | An about label as it can be shown: the reporter's (so untrusted), on one line, at most 80 characters, without control or direction-changing (bidi) characters. Null when nothing is left. |
 | [`cleanRoute`](../packages/support/src/contract.ts) | function | — | A route as a path only, safe to store and send: the query string and fragment (tokens, codes, emails), written or percent-encoded, are dropped, and path segments that look private (an email, an id, a phone or card number, a token or shor... |
@@ -11497,6 +11567,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`createContextCollector`](../packages/support/src/record.ts) | function | — | The default collector: reads each value when feedback is sent, cleans the route, and drops a device or extra bag over its size cap rather than sending a report the database would refuse. |
 | [`createContextCollector`](../packages/support/src/record.ts) | function | — | The default collector: reads each value when feedback is sent, cleans the route, and drops a device or extra bag over its size cap rather than sending a report the database would refuse. |
 | [`createDiagnostics`](../packages/support/src/diagnostics/create.ts) | function | — | _(no summary)_ |
+| [`createHealthChecks`](../packages/support/src/diagnostics/health.ts) | function | — | A registry of its own (tests, a second app in one process). Most apps use `healthChecks`. |
 | [`createIntakeClient`](../packages/support/src/intake.ts) | function | — | _(no summary)_ |
 | [`createIntakeClient`](../packages/support/src/intake.ts) | function | — | _(no summary)_ |
 | [`createIntakeSink`](../packages/support/src/intake.ts) | function | — | A sink over the intake function. The function takes no screenshots (they go to storage with a session), so attachments are reported as dropped. For an app whose feedback goes to its own API with screenshots, use `httpTransport({ url }).f... |
@@ -11515,8 +11586,10 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`defineSupportChatBlock`](../packages/support/src/block.ts) | function | — | The support-chat block: a report's conversation runs on genesis-chat. It adds no screens of its own (the support block's thread route renders the conversation); it brings migrations `0005_genesis_support_chat_on_tickets.sql`, `0006_genes... |
 | [`defineSupportEmailBlock`](../packages/support/src/block.ts) | function | — | The support-email block: email is a ticket channel (ADR 0011). It brings migration `0002_genesis_support_email.sql` from this package, after 0006; the server half is `@marktiderman/genesis-support/email` with genesis-notifications' inbou... |
 | [`defineSupportEmailBlock`](../packages/support/src/block.ts) | function | — | The support-email block: email is a ticket channel (ADR 0011). It brings migration `0002_genesis_support_email.sql` from this package, after 0006; the server half is `@marktiderman/genesis-support/email` with genesis-notifications' inbou... |
-| [`defineSupportHelpdeskBlock`](../packages/support/src/block.ts) | function | — | The support-helpdesk block: what a tenant's help desk adds to support and its chat threads. It brings migration `0010_genesis_support_help_center.sql`. Its screens are components and hooks the app routes to: `SupportMessengerLauncher`, `... |
-| [`defineSupportHelpdeskBlock`](../packages/support/src/block.ts) | function | — | The support-helpdesk block: what a tenant's help desk adds to support and its chat threads. It brings migration `0010_genesis_support_help_center.sql`. Its screens are components and hooks the app routes to: `SupportMessengerLauncher`, `... |
+| [`defineSupportHelpdeskBlock`](../packages/support/src/block.ts) | function | — | The support-helpdesk block: what a tenant's help desk adds to support and its chat threads. It brings migrations `0010_genesis_support_help_center.sql`, `0017_genesis_support_help_answers.sql` and `0029_genesis_support_desks.sql` (desks)... |
+| [`defineSupportHelpdeskBlock`](../packages/support/src/block.ts) | function | — | The support-helpdesk block: what a tenant's help desk adds to support and its chat threads. It brings migrations `0010_genesis_support_help_center.sql`, `0017_genesis_support_help_answers.sql` and `0029_genesis_support_desks.sql` (desks)... |
+| [`deskTenant`](../packages/support/src/desks.ts) | function | — | The desk's tenant as the support client's `tenantId` names it: null for the app's own. |
+| [`deskTitle`](../packages/support/src/desks.ts) | function | — | A desk's name: the app's label, else the copy's ("Support" for the app's own). |
 | [`DEVICE_MAX_BYTES`](../packages/support/src/record.ts) | const | — | _(no summary)_ |
 | [`DEVICE_MAX_BYTES`](../packages/support/src/record.ts) | const | — | _(no summary)_ |
 | [`DIAGNOSTIC_TRIGGERS`](../packages/support/src/diagnostics/report.ts) | const | — | _(no summary)_ |
@@ -11527,6 +11600,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`DiagnosticsSendError`](../packages/support/src/diagnostics/queue.ts) | class | — | A send that failed. `retryable` decides whether the queue keeps it. |
 | [`diagnosticsSettings`](../packages/support/src/settings.ts) | const | Beta | _(no summary)_ |
 | [`diagnosticsShortId`](../packages/support/src/diagnostics/report.ts) | function | — | The short id a person quotes to support: the first 8 hex digits of the dump's id, upper case (`3F2A9C1B`). The database's `short_id` column is the same expression. |
+| [`diagnosticsViewSections`](../packages/support/src/diagnostics/view.ts) | function | — | The dump's sections as text, in reading order. Sections nobody collected are left out; an empty list of errors, breadcrumbs or console lines is too. A value that isn't a `genesis.diagnostics/1` report gives one section saying so. |
 | [`emptyReport`](../packages/support/src/diagnostics/report.ts) | function | — | An empty report: every section null, the lists empty. |
 | [`EXTRA_MAX_BYTES`](../packages/support/src/record.ts) | const | — | _(no summary)_ |
 | [`EXTRA_MAX_BYTES`](../packages/support/src/record.ts) | const | — | _(no summary)_ |
@@ -11539,6 +11613,11 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`FEEDBACK_TYPES`](../packages/support/src/record.ts) | const | — | _(no summary)_ |
 | [`fill`](../packages/support/src/copy.ts) | function | — | Fills `{name}` placeholders. |
 | [`fill`](../packages/support/src/copy.ts) | function | — | Fills `{name}` placeholders. |
+| [`HEALTH_CHECK_TIMEOUT_MS`](../packages/support/src/diagnostics/health.ts) | const | — | _(no summary)_ |
+| [`HEALTH_RESULTS_MAX_AGE_MS`](../packages/support/src/diagnostics/health.ts) | const | — | Results older than this are run again before they go in a dump. |
+| [`HEALTH_STATUSES`](../packages/support/src/diagnostics/health.ts) | const | — | _(no summary)_ |
+| [`healthChecks`](../packages/support/src/diagnostics/health.ts) | const | — | The app's registry: packages and the app register into it. |
+| [`healthChecksSection`](../packages/support/src/diagnostics/health.ts) | function | — | The dump's `checks` section: the latest results, each with when it ran. When nothing has run yet, or the last run is over 5 minutes old, it runs the checks first (within its timeout). No checks registered: nothing. |
 | [`helpArticleDoc`](../packages/support/src/help-pages.ts) | function | — | Plain text as rich text: a blank line parts paragraphs, a single line break stays one. |
 | [`helpArticleDoc`](../packages/support/src/help-pages.ts) | function | — | Plain text as rich text: a blank line parts paragraphs, a single line break stays one. |
 | [`helpCenterPages`](../packages/support/src/help-pages.ts) | function | — | The index page and one page per published article, ready for a site's `createSite` or page saves. |
@@ -11546,22 +11625,29 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`httpTransport`](../packages/support/src/diagnostics/transports.ts) | function | — | Dumps and feedback over HTTP to the app's own API. Feedback is `multipart/form-data`: a `feedback` part (the record as JSON, without the images) and one `screenshot` part per image, so a server that isn't Supabase stores the screenshots ... |
 | [`IntakeError`](../packages/support/src/intake.ts) | class | — | A non-2xx answer (`status` 0: it never arrived). `code` is the function's `error`. |
 | [`IntakeError`](../packages/support/src/intake.ts) | class | — | A non-2xx answer (`status` 0: it never arrived). `code` is the function's `error`. |
+| [`inZone`](../packages/support/src/routes.ts) | function | Beta | A support path in a zone: `/account/support/ideas` in `/admin` is `/admin/account/support/ideas`. A path already in the zone, or "" for no zone, stays as it is. |
+| [`inZone`](../packages/support/src/routes.ts) | function | Beta | A support path in a zone: `/account/support/ideas` in `/admin` is `/admin/account/support/ideas`. A path already in the zone, or "" for no zone, stays as it is. |
 | [`isMissingFunction`](../packages/support/src/chat.ts) | function | — | PostgREST's "no such function" (PGRST202) or Postgres's (42883): the block's migration isn't applied. |
 | [`isMissingFunction`](../packages/support/src/chat.ts) | function | — | PostgREST's "no such function" (PGRST202) or Postgres's (42883): the block's migration isn't applied. |
 | [`isRetryableError`](../packages/support/src/diagnostics/queue.ts) | function | — | True when trying again later may work: no answer, a timeout, a rate limit or a server error. |
 | [`isSitePath`](../packages/support/src/routes.ts) | function | — | Whether a report's route is a path on this site, safe to link: one leading "/", not "//" or "/\\" (another host), no scheme, no whitespace or control characters, and no placeholder segment (":id") where cleanRoute took an id out. |
 | [`isSitePath`](../packages/support/src/routes.ts) | function | — | Whether a report's route is a path on this site, safe to link: one leading "/", not "//" or "/\\" (another host), no scheme, no whitespace or control characters, and no placeholder segment (":id") where cleanRoute took an id out. |
+| [`isUnderPath`](../packages/support/src/routes.ts) | function | Beta | Whether `path` is `base` or under it, at a segment boundary (`/support-plans` isn't under `/support`). @stability Beta |
+| [`isUnderPath`](../packages/support/src/routes.ts) | function | Beta | Whether `path` is `base` or under it, at a segment boundary (`/support-plans` isn't under `/support`). @stability Beta |
 | [`isUnread`](../packages/support/src/client.ts) | function | — | True when there is a staff reply newer than the person's last read. |
 | [`isUnread`](../packages/support/src/client.ts) | function | — | True when there is a staff reply newer than the person's last read. |
 | [`isUuid`](../packages/support/src/diagnostics/report.ts) | function | — | True for a UUID (any version). |
 | [`jsonByteLength`](../packages/support/src/diagnostics/report.ts) | function | — | JSON size in UTF-8 bytes. |
+| [`lastMoveLine`](../packages/support/src/desks.ts) | function | — | What a ticket's last move says ("Sent up to Support by Ana from Acme."), or null when it never moved. |
 | [`LIMITS`](../packages/support/src/contract.ts) | const | — | Text limits, the same as the database's checks. |
 | [`LIMITS`](../packages/support/src/contract.ts) | const | — | Text limits, the same as the database's checks. |
+| [`mailtoHref`](../packages/support/src/settings.ts) | function | Beta | A `mailto:` link for an address, with the characters that would start its query or fragment (or escape) encoded (RFC 6068): `help?desk@acme.test` stays one mailbox. |
 | [`memoryQueueStorage`](../packages/support/src/diagnostics/queue.ts) | function | — | A storage in memory: tests, or a platform with nothing persistent. |
 | [`officeHoursState`](../packages/support/src/office-hours.ts) | function | — | Whether someone is in at `now`, and if not, when they're next in. |
 | [`officeHoursState`](../packages/support/src/office-hours.ts) | function | — | Whether someone is in at `now`, and if not, when they're next in. |
 | [`pageOf`](../packages/support/src/client.ts) | function | — | A report's page for people: the about label with the route, else the route. |
 | [`pageOf`](../packages/support/src/client.ts) | function | — | A report's page for people: the about label with the route, else the route. |
+| [`pickerDesks`](../packages/support/src/desks.ts) | function | — | The desks a picker offers: those with an inbox to open, and the one open now. |
 | [`randomUuid`](../packages/support/src/diagnostics/report.ts) | function | — | A random UUID v4: `crypto.randomUUID` where there is one, else from `getRandomValues`, else Math.random. |
 | [`redactReport`](../packages/support/src/diagnostics/redact.ts) | function | — | The report with every rule applied. Accepts any object (the server passes what arrived) and returns the report's exact shape: unknown top-level keys are dropped, missing sections are null. |
 | [`reportHeading`](../packages/support/src/client.ts) | function | — | A report's heading: its title, else its words (the first line, shortened), never just its kind. |
@@ -11577,6 +11663,9 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`SHAKE_SETTING_SPECS`](../packages/support/src/settings.ts) | const | Beta | `shake.*`: shake to report. @stability Beta |
 | [`shakeSettings`](../packages/support/src/settings.ts) | const | Beta | _(no summary)_ |
 | [`storedByteLength`](../packages/support/src/diagnostics/report.ts) | function | — | A dump's size as the database measures it (`octet_length(report::text)` in migration 0019): Postgres writes jsonb with a space after every `,` and `:`, a few percent over compact JSON. The whole-dump cap counts this, so a dump at the cap... |
+| [`stripZone`](../packages/support/src/routes.ts) | function | Beta | The path without its zone: `/admin/account/support/new` → `/account/support/new`. @stability Beta |
+| [`stripZone`](../packages/support/src/routes.ts) | function | Beta | The path without its zone: `/admin/account/support/new` → `/account/support/new`. @stability Beta |
+| [`supabaseHealthChecks`](../packages/support/src/diagnostics/health.ts) | function | — | Two checks every Genesis app with Supabase can make: |
 | [`supabaseTransport`](../packages/support/src/diagnostics/transports.ts) | function | — | Dumps into the app's own Supabase (migration 0019 applied). The person comes from the session; the database refuses more than 10 dumps an hour (`GS429`, kept by the offline queue to try later). |
 | [`SUPPORT_BLOCK_ID`](../packages/support/src/block.ts) | const | — | The FeatureId of the support block (features.ts). |
 | [`SUPPORT_BLOCK_ID`](../packages/support/src/block.ts) | const | — | The FeatureId of the support block (features.ts). |
@@ -11592,20 +11681,25 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`SUPPORT_EMAIL_BLOCK_ID`](../packages/support/src/block.ts) | const | — | The support-email block's id. |
 | [`SUPPORT_HELPDESK_BLOCK_ID`](../packages/support/src/block.ts) | const | — | The help desk block's id: the messenger, the help center and its AI answers, with the agent inbox. |
 | [`SUPPORT_HELPDESK_BLOCK_ID`](../packages/support/src/block.ts) | const | — | The help desk block's id: the messenger, the help center and its AI answers, with the agent inbox. |
+| [`SUPPORT_NOTIFICATION_TYPES`](../packages/support/src/notifications.ts) | const | Beta | The type keys migration 0030 sends. @stability Beta |
 | [`SUPPORT_SETTING_SPECS`](../packages/support/src/settings.ts) | const | Beta | `support.*`, as declared (and as package.json `genesis.settings` repeats it). @stability Beta |
 | [`SUPPORT_SETTINGS_DECLARATIONS`](../packages/support/src/settings.ts) | const | Beta | Every declaration this package makes, for the app's catalogue. @stability Beta |
 | [`SUPPORT_TO_CHAT_STATUS`](../packages/support/src/chat.ts) | const | — | A support report's status, as genesis-chat's conversation status (the migration's mapping). |
 | [`SUPPORT_TO_CHAT_STATUS`](../packages/support/src/chat.ts) | const | — | A support report's status, as genesis-chat's conversation status (the migration's mapping). |
+| [`supportContact`](../packages/support/src/settings.ts) | function | Beta | The contact fallback from the settings (`support.contactEmail`, `support.contactUrl`): an email address that looks like one and an https page, or null with neither. Shown in Help and on error screens. |
 | [`supportContributions`](../packages/support/src/block.ts) | function | — | The block's contributions, for any platform. |
 | [`supportContributions`](../packages/support/src/block.ts) | function | — | The block's contributions, for any platform. |
 | [`supportCopy`](../packages/support/src/copy.ts) | const | — | Every string the support block shows, in English. Pass `copy` (any part of this shape) to translate or reword; what you leave out stays English. |
 | [`supportCopy`](../packages/support/src/copy.ts) | const | — | Every string the support block shows, in English. Pass `copy` (any part of this shape) to translate or reword; what you leave out stays English. |
 | [`SupportError`](../packages/support/src/client.ts) | class | — | A Supabase refusal, with its code (`GS429` rate limited, `42501` not allowed, …). |
 | [`SupportError`](../packages/support/src/client.ts) | class | — | A Supabase refusal, with its code (`GS429` rate limited, `42501` not allowed, …). |
+| [`supportNotificationTypes`](../packages/support/src/notifications.ts) | function | Beta | Support's category and its three types, to spread into `defineNotifications`. @stability Beta |
 | [`supportPaths`](../packages/support/src/block.ts) | function | — | _(no summary)_ |
 | [`supportPaths`](../packages/support/src/block.ts) | function | — | _(no summary)_ |
 | [`supportQueueSource`](../packages/support/src/inbox.ts) | function | — | A provider `source` for the agent queue: migration 0018's `support_agent_queue`, which returns every ticket (no limit of its own) so the provider pages, counts and filters it. The queue (`mine`, `unassigned`, `pending`, `closed`, `all`, ... |
 | [`supportQueueSource`](../packages/support/src/inbox.ts) | function | — | A provider `source` for the agent queue: migration 0018's `support_agent_queue`, which returns every ticket (no limit of its own) so the provider pages, counts and filters it. The queue (`mine`, `unassigned`, `pending`, `closed`, `all`, ... |
+| [`supportScreenOf`](../packages/support/src/routes.ts) | function | Beta | Which support screen a path is: the path (with or without its zone and query) under `basePath`, or null when it isn't a support path. The paths are `supportPaths(basePath)`'s. |
+| [`supportScreenOf`](../packages/support/src/routes.ts) | function | Beta | Which support screen a path is: the path (with or without its zone and query) under `basePath`, or null when it isn't a support path. The paths are `supportPaths(basePath)`'s. |
 | [`supportSettings`](../packages/support/src/settings.ts) | const | Beta | _(no summary)_ |
 | [`supportSettingsCatalogue`](../packages/support/src/settings.ts) | function | Beta | Support's keys alone as a catalogue (an app builds one catalogue from every package's declarations). @stability Beta |
 | [`supportSettingValues`](../packages/support/src/settings.ts) | function | Beta | Support's settings as typed values. A key the input doesn't have, or has with a value that doesn't fit (a hand-written map), takes its `max` default, so a partial map is safe. No input: every key at `max` (zero config). |
@@ -11617,14 +11711,18 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`ticketInbox`](../packages/support/src/inbox.ts) | const | — | The queue's rows as an inbox: the title, the latest message, when, who, unread for agents, the status. |
 | [`ticketSegments`](../packages/support/src/inbox.ts) | const | — | The queue's segments, the inbox's rail, with the agent inbox's (SupportAgentInbox's) meanings: Mine and Unassigned hold active tickets (not pending, not closed); Open every active one; Pending those waiting on the requester; Closed the a... |
 | [`ticketSegments`](../packages/support/src/inbox.ts) | const | — | The queue's segments, the inbox's rail, with the agent inbox's (SupportAgentInbox's) meanings: Mine and Unassigned hold active tickets (not pending, not closed); Open every active one; Pending those waiting on the requester; Closed the a... |
+| [`toDiagnosticCheck`](../packages/support/src/diagnostics/health.ts) | function | — | A result as the dump keeps it. |
 | [`validateSubmitInput`](../packages/support/src/contract.ts) | function | — | Checks a `submit` body the way the server does: known keys only, every limit. |
 | [`validateSubmitInput`](../packages/support/src/contract.ts) | function | — | Checks a `submit` body the way the server does: known keys only, every limit. |
 | [`waitingSinceOf`](../packages/support/src/client.ts) | function | — | Since when a ticket's requester has waited, from its reply times: for a queue read before migration 0013. |
 | [`waitingSinceOf`](../packages/support/src/client.ts) | function | — | Since when a ticket's requester has waited, from its reply times: for a queue read before migration 0013. |
 | [`WIDGET_HEADERS`](../packages/support/src/contract.ts) | const | — | Headers a client sends. The person's access token goes in `Authorization: Bearer …`. |
 | [`WIDGET_HEADERS`](../packages/support/src/contract.ts) | const | — | Headers a client sends. The person's access token goes in `Authorization: Bearer …`. |
+| [`workedDesks`](../packages/support/src/desks.ts) | function | — | The desks with an inbox to open: the app's own, each tenant's that is on, and one turned off that still has open tickets (its agents finish them). A tenant admin whose desk is off and empty has nothing to answer (the switch turns it on). |
+| [`zoneOf`](../packages/support/src/routes.ts) | function | Beta | The navigation zone a path is in: the longest of `zones` (route prefixes like `/admin`, `/coach`; expo-router groups such as `(tabs)` aren't in a path) that starts it, else "" (no zone). |
+| [`zoneOf`](../packages/support/src/routes.ts) | function | Beta | The navigation zone a path is in: the longest of `zones` (route prefixes like `/admin`, `/coach`; expo-router groups such as `(tabs)` aren't in a path) that starts it, else "" (no zone). |
 
-### Types (107)
+### Types (129)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -11642,6 +11740,9 @@ export type { ConsoleLevel };
 export type { ContextCollector };
 export type { ContextCollectorOptions };
 export type { CoreSectionName };
+export type { DeskAction };
+export type { DeskLogEntry };
+export type { DeskTarget };
 export type { DiagnosticApp };
 export type { DiagnosticBreadcrumb };
 export type { DiagnosticBuild };
@@ -11665,6 +11766,7 @@ export type { DiagnosticsOptions };
 export type { DiagnosticsReceipt };
 export type { DiagnosticsTransport };
 export type { DiagnosticsUser };
+export type { DiagnosticsViewSection };
 export type { EarlierTicket };
 export type { FeedbackAttachment };
 export type { FeedbackContext };
@@ -11675,8 +11777,15 @@ export type { FeedbackReportSummary };
 export type { FeedbackReportType };
 export type { FeedbackSink };
 export type { FeedbackStatus };
+export type { FeedbackSubmission };
 export type { FeedbackType };
 export type { FindingSeverity };
+export type { HealthAnswer };
+export type { HealthCheck };
+export type { HealthChecks };
+export type { HealthResult };
+export type { HealthStatus };
+export type { HealthSupabaseLike };
 export type { HelpAnswerResponse };
 export type { HelpArticle };
 export type { HelpArticleInput };
@@ -11716,22 +11825,33 @@ export type { SupportChatClient };
 export type { SupportChatMessage };
 export type { SupportClient };
 export type { SupportClientOptions };
+export type { SupportContactInfo };
 export type { SupportCopy };
 export type { SupportCopyOverrides };
+export type { SupportDesk };
 export type { SupportIdea };
+export type { SupportMyTicketDesk };
+export type { SupportNotificationOptions };
+export type { SupportNotificationType };
 export type { SupportPaths };
 export type { SupportPerson };
+export type { SupportPersonMatch };
 export type { SupportReply };
 export type { SupportReplyAttachment };
 export type { SupportReport };
 export type { SupportReporter };
+export type { SupportScreen };
+export type { SupportScreenName };
 export type { SupportSettingValues };
 export type { SupportSettingsInput };
+export type { SupportStaffMember };
 export type { SupportSupabase };
 export type { SupportThreadInfo };
 export type { ThemeTokens };
 export type { Ticket };
 export type { TicketAgentRole };
+export type { TicketDesk };
+export type { TicketDiagnostics };
 export type { TicketInboxView };
 export type { WidgetConfig };
 export type { WidgetType };
@@ -11799,30 +11919,47 @@ export type { WebSectionsOptions };
 
 **Barrel:** [`packages/support/src/web-chat/index.ts`](../packages/support/src/web-chat/index.ts)
 
-### Components (8)
+### Components (17)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
 | [`SupportAgentInbox`](../packages/support/src/web-chat/agent-inbox.tsx) | `SupportAgentInboxProps` | — | A tenant's help desk inbox: its queues, the open ticket's thread and its details. Another tenant is a fresh inbox. |
 | [`SupportAgentReports`](../packages/support/src/web-chat/agent-tools.tsx) | `SupportAgentReportsProps` | — | The help desk's numbers over a range of days: opened, closed, median first response and time to close, open now and by customer. |
+| [`SupportAgentsAdmin`](../packages/support/src/web-chat/agent-tools.tsx) | `SupportAgentsAdminProps` | — | A help desk's agents (`staffList`, with each one's role), for whoever manages them (`canManageAgents`): find someone in the desk's tenant (`searchPeople`) and add them as an agent or an admin, or remove a removable one (`setAgent`). Anyo... |
+| [`SupportContact`](../packages/support/src/web-chat/contact.tsx) | `SupportContactProps` | — | Email and support-page links, or nothing. |
+| [`SupportDeskControls`](../packages/support/src/web-chat/desks.tsx) | `SupportDeskControlsProps` | — | Where the ticket is, and moving it: a tenant desk's handler sends it up to the app's own desk; the app's own desk hands an escalated one back; either moves it to another desk its person belongs to. Nothing shows for a ticket that never m... |
+| [`SupportDeskPicker`](../packages/support/src/web-chat/desks.tsx) | `SupportDeskPickerProps` | — | A desk picker for someone who works more than one desk (the app's staff who also run a tenant's desk, an agent of two tenants). Renders nothing for one desk or none. Pair it with `chooseDesk(desks, asked)` for the desk the inbox opens. |
+| [`SupportDeskSwitch`](../packages/support/src/web-chat/desks.tsx) | `SupportDeskSwitchProps` | — | A tenant's settings: whether its people's questions come to its own help desk, or go to the app's support. Its admins turn it on or off (`support_set_desk`, which keeps every change); anyone else sees it disabled. Renders nothing for som... |
 | [`SupportHelpCenterAdmin`](../packages/support/src/web-chat/help-admin.tsx) | `SupportHelpCenterAdminProps` | — | A tenant's help center, for its agents. |
+| [`SupportLinkRequester`](../packages/support/src/web-chat/desks.tsx) | `SupportLinkRequesterProps` | — | An email ticket with no login: find the person in the ticket's tenant (`searchPeople`) and, after a confirm that names both, link it to their login (`linkRequester`), so it shows in their app. It can't be undone here. For the desk's agen... |
 | [`SupportMessenger`](../packages/support/src/web-chat/messenger.tsx) | `SupportMessengerProps` | — | The messenger: Home, Messages and Help, in whatever holds it. Another tenant is another messenger: nothing carries over. |
 | [`SupportMessengerLauncher`](../packages/support/src/web-chat/messenger.tsx) | `SupportMessengerLauncherProps` | — | A button with the unread count that opens the messenger: in the chat dock when there is one, else a sheet. |
+| [`SupportMyMentions`](../packages/support/src/web-chat/agent-tools.tsx) | `SupportMyMentionsProps` | — | Where the signed-in agent was mentioned in an internal note (`agentMentions`, migration 0014), newest first; each opens its ticket. |
 | [`SupportReportThread`](../packages/support/src/web-chat/report-thread.tsx) | `SupportReportThreadProps` | — | The person's view of their report: the report, then the conversation with support, live. |
+| [`SupportRequesterPanel`](../packages/support/src/web-chat/desks.tsx) | `SupportRequesterPanelProps` | — | Who wrote: their name and email (a mailto link), the tenants they belong to, and where they wrote from (migration 0022). Whoever manages the desk's agents (`canManageAgents`) also gets "Make an agent" (`setAgent`). |
 | [`SupportSavedRepliesAdmin`](../packages/support/src/web-chat/agent-tools.tsx) | `SupportSavedRepliesAdminProps` | — | A tenant's saved replies, for its agents: the list, and the one open for editing. |
 | [`SupportStaffThread`](../packages/support/src/web-chat/staff-thread.tsx) | `SupportStaffThreadProps` | — | A report for staff: status and assignee controls over the live conversation, with internal notes. |
+| [`SupportTicketDiagnostics`](../packages/support/src/web-chat/diagnostics-viewer.tsx) | `SupportTicketDiagnosticsProps` | — | A ticket's dumps as text sections. Nothing when the client can't read them or there are none. |
 
-### Other exports (3)
+### Other exports (11)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
+| [`deskName`](../packages/support/src/web-chat/desks.tsx) | function | — | A desk's name: the app's label, else the copy's ("Support" for the app's own). |
+| [`diagnosticsText`](../packages/support/src/web-chat/diagnostics-viewer.tsx) | function | — | A dump's whole text, section by section, to paste into an issue or a chat. |
+| [`lastMoveLabel`](../packages/support/src/web-chat/desks.tsx) | function | — | What the details panel says about a ticket's last move, or null when it never moved. |
+| [`supportAgentKeys`](../packages/support/src/web-chat/desks.tsx) | const | — | Agent lists' query keys (`SupportAgentsAdmin`), under genesis-support's root. |
+| [`supportDeskKeys`](../packages/support/src/web-chat/desks.tsx) | const | — | Desk query keys, under genesis-support's root (a support write refreshes them too), each scoped to its support client and the signed-in login (`scope`, from `useSupportDeskScope(client)`), so two clients sharing a QueryClient, or two log... |
+| [`supportDiagnosticsKeys`](../packages/support/src/web-chat/diagnostics-viewer.tsx) | const | — | The dump viewer's query keys, under genesis-support's root, scoped to the client and its login. |
 | [`supportInboxKeys`](../packages/support/src/web-chat/agent-inbox.tsx) | const | — | The agent inbox's query keys, under genesis-support's root. |
 | [`supportMessengerKeys`](../packages/support/src/web-chat/messenger.tsx) | const | — | _(no summary)_ |
 | [`supportWebKeys`](../packages/support/src/web-chat/report-thread.tsx) | const | — | The query keys, under genesis-support's root (as on native). |
+| [`useSupportDesks`](../packages/support/src/web-chat/desks.tsx) | function | — | The desks the signed-in person works (`support_my_desks`), or undefined while loading. |
+| [`useSupportDeskScope`](../packages/support/src/web-chat/desks.tsx) | function | — | A support client's scope for `supportDeskKeys`: the client and the signed-in login (null until it's known). |
 
-### Types (3)
+### Types (4)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -11830,6 +11967,7 @@ Type-only exports not consumed as a component's `Props`.
 export type { HelpAnswerResponse };
 export type { HelpAskState };
 export type { MessengerSpace };
+export type { SupportDiagnosticsLinks };
 ```
 
 ---
@@ -11874,16 +12012,20 @@ export type { SupportReportRow };
 
 **Barrel:** [`packages/support/src/native/index.ts`](../packages/support/src/native/index.ts)
 
-### Components (4)
+### Components (8)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
+| [`AgentDeskControls`](../packages/support/src/native/desks.tsx) | `AgentDeskControlsProps` | — | Where the ticket is and its last move; a tenant desk's handler sends it up to the app's own desk, the app's own desk hands an escalated one back, and either moves it to another desk its person belongs to. Nothing for a ticket that never ... |
+| [`AgentDeskSwitch`](../packages/support/src/native/desks.tsx) | `AgentDeskSwitchProps` | — | Whether a tenant's people's questions come to its own help desk or go to the app's support. Its admins turn it on or off (`setDesk`); its agents see it disabled; anyone else sees nothing. |
+| [`AgentTicketDiagnostics`](../packages/support/src/native/diagnostics-viewer.tsx) | `AgentTicketDiagnosticsProps` | — | A ticket's dumps, for an agent. Nothing when the client can't read them or there are none. |
 | [`FeedbackForm`](../packages/support/src/native/feedback-form.tsx) | `FeedbackFormProps` | — | _(no summary)_ |
 | [`HelpAnswerCard`](../packages/support/src/native/help.tsx) | `HelpAnswerCardProps` | — | The AI's answer, or that it has none, always with the way to a person. |
 | [`ScreenshotAnnotator`](../packages/support/src/native/annotator.tsx) | `ScreenshotAnnotatorProps` | — | _(no summary)_ |
 | [`SendDiagnosticsRow`](../packages/support/src/native/diagnostics.tsx) | `SendDiagnosticsRowProps` | — | A "Send diagnostics" row for a Development or About screen: sends the dump, then shows the short id to quote to support, with "Copy id". |
+| [`SupportRoute`](../packages/support/src/native/route.tsx) | `SupportRouteProps` | — | Every support screen, from one route file per zone. See the module's notes. Never throws for want of a support block. |
 
-### Other exports (32)
+### Other exports (34)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -11893,6 +12035,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`AGENT_TICKET_STATUSES`](../packages/support/src/native/agent.tsx) | const | — | The statuses an agent sets a ticket to, in the order the thread's controls show them. |
 | [`boxOf`](../packages/support/src/native/annotator.tsx) | function | — | _(no summary)_ |
 | [`createSupport`](../packages/support/src/native/support.tsx) | function | — | _(no summary)_ |
+| [`dumpHeading`](../packages/support/src/native/diagnostics-viewer.tsx) | function | — | A dump's heading: its short id, what made it, and when ("Dump AB12 · Shake · 19 Nov 2026, 10:04"). |
 | [`HelpArticleBody`](../packages/support/src/native/help.tsx) | function | — | An article's words, and the way to a person. |
 | [`listenForShake`](../packages/support/src/native/modules.ts) | function | — | Calls `onShake` when the phone is shaken: a few strong jolts close together, then a cooldown. Returns the stop. |
 | [`nativeSections`](../packages/support/src/native/diagnostics.tsx) | function | — | The phone's sections (support-features 4.2): `build` (version, update, channel, commit, OTA number, release), `device` (OS, model, locale, time zone, screen, font scale, network, permission states, each probed with a timeout), `session` ... |
@@ -11901,6 +12044,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`strokeDots`](../packages/support/src/native/annotator.tsx) | function | — | The dots along a stroke, close enough to read as a line. |
 | [`SUPPORT_QUERY_ROOT`](../packages/support/src/native/support.tsx) | const | — | _(no summary)_ |
 | [`supportAgentKeys`](../packages/support/src/native/agent.tsx) | const | — | The agent desk's query keys, scoped by the signed-in login (`user`) so a sign-in as someone else on the same phone never reads the last person's queue from the cache. `tenant` is the tenant id, null for the app's own. |
+| [`SupportContactRow`](../packages/support/src/native/help.tsx) | function | Beta | Where people can write when the app can't help (`support.contactEmail` / `contactUrl`): an email and a support-page button, or nothing. In Help, and for an app's own error screens. |
 | [`SupportProvider`](../packages/support/src/native/support.tsx) | function | — | _(no summary)_ |
 | [`useAgentInbox`](../packages/support/src/native/agent.tsx) | function | — | One queue of a help desk's tickets as `InboxPage` props: latest activity first, unread in bold, the requester, status, assignee and how long they've waited on each row, a switcher between the queues with their counts (`header`), and the ... |
 | [`useAgentThread`](../packages/support/src/native/agent.tsx) | function | — | One ticket for an agent as `ThreadPage` props: what the requester wrote, then the conversation (live on genesis-chat, else re-read every `pollMs`); a composer that replies or, on chat, writes an internal note; the ticket's status and ass... |
@@ -11922,7 +12066,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useUnreadReplies`](../packages/support/src/native/support.tsx) | function | — | How many reports have a staff reply the person hasn't read. |
 | [`VoteButton`](../packages/support/src/native/screens.tsx) | function | — | A vote toggle for an idea row. |
 
-### Types (25)
+### Types (27)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -11950,7 +12094,9 @@ export type { SendDiagnosticsState };
 export type { SendDiagnosticsStatus };
 export type { ShakeOptions };
 export type { SupportBlock };
+export type { SupportErrorSource };
 export type { SupportOptions };
+export type { SupportScreenProps };
 export type { ViewShotLike };
 ```
 
@@ -11999,6 +12145,41 @@ export type { SupportEmailRouteOptions };
 
 ---
 
+## @marktiderman/genesis-support/email-notifications
+
+**Barrel:** [`packages/support/src/email-notifications.ts`](../packages/support/src/email-notifications.ts)
+
+### Other exports (10)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`handleSupportInbound`](../packages/support/src/email-inbound.ts) | function | Beta | The inbound endpoint: 405 for anything but POST, 503 until it is set up (or with replies off), else genesis-notifications' inbound handler with the reply route first and `routes` after (the support-email block's `supportEmailRoute`, say). |
+| [`senderAuthenticated`](../packages/support/src/email-inbound.ts) | function | Beta | Whether the receiving server vouched for the From address (Resend's `authentication`, worked out on receipt, never read from the message's headers): DMARC "pass", which means SPF or DKIM passed for a domain aligned with the From domain. ... |
+| [`SUPPORT_REPLY_TYPES`](../packages/support/src/email-inbound.ts) | const | — | The support types whose emails take replies (the verify prompt is answered in the app). |
+| [`supportEmailOptions`](../packages/support/src/email-inbound.ts) | function | Beta | What the notifications runner's `email` options take for support: the templates, and with replies set up, the reply addresses. Spread it into the app's `EmailOptions` (its own `templates` win). |
+| [`supportEmailTemplate`](../packages/support/src/email-templates.ts) | function | — | One template for support's emails. |
+| [`supportEmailTemplates`](../packages/support/src/email-templates.ts) | function | Beta | The runner's `templates` for support's three types. @stability Beta |
+| [`supportJobClaims`](../packages/support/src/email-inbound.ts) | function | — | The ticket and recipient a notification's email answers to, or null for any other email. |
+| [`supportReplyConfig`](../packages/support/src/email-inbound.ts) | function | Beta | Reply by email's set-up, or the names of what is missing. Off (`{ missing: [] , off: true }`) with the `support.replyByEmail` setting off. `legacyLabel`: an app that made reply addresses before passes its old key label (and `legacySecret... |
+| [`supportReplyProvider`](../packages/support/src/email-inbound.ts) | function | — | A provider that gives a support email its recipient's reply address and the ticket's thread header; other emails pass unchanged. |
+| [`supportReplyRoute`](../packages/support/src/email-inbound.ts) | function | Beta | The inbound route for reply addresses. True for every email it recognises as one (posted, or dropped: automatic, unauthenticated, empty, refused); false for anything else, so another route may take it. Throws on a failure worth retrying,... |
+
+### Types (5)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { SupportEmailCopy };
+export type { SupportEmailTemplateOptions };
+export type { SupportReplyConfig };
+export type { SupportReplyOutcome };
+export type { SupportReplyRpc };
+```
+
+---
+
 ## @marktiderman/genesis-support/ai
 
 **Barrel:** [`packages/support/src/ai.ts`](../packages/support/src/ai.ts)
@@ -12032,7 +12213,7 @@ export type { LoadedHelpQuestion };
 
 **Barrel:** [`packages/support/src/server/index.ts`](../packages/support/src/server/index.ts)
 
-### Other exports (27)
+### Other exports (28)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -12062,6 +12243,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`supabaseAuthenticate`](../packages/support/src/server/supabase.ts) | function | — | The person from `Authorization: Bearer <Supabase access token>`, checked with Supabase Auth. |
 | [`supabaseDiagnosticsFiles`](../packages/support/src/server/supabase.ts) | function | — | Screenshots into the private `genesis-support` bucket (migration 0006), under `<user>/<report>/`. |
 | [`supabaseDiagnosticsStore`](../packages/support/src/server/supabase.ts) | function | — | The store over the service-role client. Each row is written for the authenticated person. |
+| [`supportNotifiersFromSettings`](../packages/support/src/server/notifiers.ts) | function | Beta | The GitHub and webhook notifiers the app's settings and environment describe: the repository from `GITHUB_REPO`, else `support.githubRepo` (with the token `GITHUB_TOKEN`, a secret, and `support.githubIssueDetail`); the webhook from `SUPP... |
 | [`verifyWebhookSignature`](../packages/support/src/server/notifiers.ts) | function | — | For the receiving end of `webhookNotifier`: true when `signature` (`sha256=<hex>`) is the HMAC of `<timestamp>.<body>` with `secret` (compared in constant time) and the timestamp (Unix seconds) is within `toleranceSec` (default 300) of n... |
 | [`WEBHOOK_HEADERS`](../packages/support/src/server/notifiers.ts) | const | — | The headers a signed webhook carries. |
 | [`webhookNotifier`](../packages/support/src/server/notifiers.ts) | function | — | _(no summary)_ |
@@ -13466,7 +13648,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`DataProviderRoot`](../packages/core/src/provider/context.tsx) | `DataProviderRootProps` | — | _(no summary)_ |
 | [`GenesisProvider`](../packages/core/src/provider/context.tsx) | `GenesisProviderProps` | — | Convenience root: a `QueryClientProvider`, storage, and a data provider (yours, or a mock built from datasets). It creates its own `QueryClient` unless you pass `queryClient`; an app that already has one should pass it, or mount `DataPro... |
 
-### Other exports (21)
+### Other exports (23)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -13486,11 +13668,13 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`NO_ROWS_MATCHED`](../packages/core/src/schema/write-outcome.ts) | const | — | `DataWriteError.code` when a write came back with no row: `useResource`'s `update` sets it. |
 | [`readFailureMessage`](../packages/core/src/schema/read-outcome.ts) | function | — | The plain sentence for a failed read of `noun` records (one, or a list). |
 | [`readOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a store error code to the read outcome it means: the write mapping, with `22***` and PostgREST request errors (`PGRST1**` other than PGRST116, `42703` unknown column, `42P01` unknown table) read as `invalid`. |
+| [`requireDataProvider`](../packages/core/src/provider/context.tsx) | function | — | The provider, or the error that says one is missing: for a hook that holds an optional provider (`useOptionalDataProvider`) and needs it only when it reads or writes. |
 | [`resolveAggregate`](../packages/core/src/provider/aggregate.ts) | function | Beta | Totals over a resource's rows through any provider: its `aggregate` when it has one, else a count from `getList`'s total (one row read), else the rows themselves, paged (`toAggregateValues`). Throws `DataReadError` for a request that isn... |
 | [`RPC_FAILED`](../packages/core/src/provider/write-helpers.ts) | const | — | _(no summary)_ |
 | [`toAggregateValues`](../packages/core/src/provider/aggregate.ts) | function | Beta | The metrics' values over rows already in hand: what an in-memory provider, a test, or the paged fallback computes. `count` counts every row; the others skip rows with no number in the field and are `null` when none has one. |
 | [`toDataWriteError`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Turns anything a write threw, or the `{ message, code }` error a Supabase client returned, into a `DataWriteError`. A `DataWriteError` passes through unchanged; anything else keeps its message and `code`, and is kept as the `cause`. |
 | [`useDataProvider`](../packages/core/src/provider/context.tsx) | function | — | _(no summary)_ |
+| [`useOptionalDataProvider`](../packages/core/src/provider/context.tsx) | function | — | The data provider when there is one, else null: for a screen that also works over rows it was given (a `ResourceView` with `rows`), where nothing is read or run through a provider. |
 | [`useStorage`](../packages/core/src/provider/context.tsx) | function | — | _(no summary)_ |
 | [`writeOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a Postgres SQLSTATE or PostgREST error code to the write outcome it means. Anything not listed is `error`: a code is only read as a refusal or a bad value when it says so. |
 

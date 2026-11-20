@@ -1,5 +1,26 @@
 # @marktiderman/genesis
 
+## 0.11.4
+
+### Patch Changes
+
+- Updated dependencies [dfd6577]
+- Updated dependencies [02a51b9]
+- Updated dependencies [06ccee9]
+- Updated dependencies [f934d70]
+- Updated dependencies [11219ef]
+- Updated dependencies [8f49de2]
+- Updated dependencies [4acea0b]
+- Updated dependencies [ec8a3ba]
+- Updated dependencies [dfd6577]
+- Updated dependencies [22bfd48]
+  - @marktiderman/genesis-native@0.13.0
+  - @marktiderman/genesis-config@0.12.0
+  - @marktiderman/genesis-core@2.20.0
+  - @marktiderman/genesis-ui@3.2.1
+  - @marktiderman/genesis-ui-native@3.15.0
+  - @marktiderman/genesis-forms@0.11.1
+
 ## 0.11.3
 
 ### Patch Changes
