@@ -171,7 +171,7 @@ describe("createSupport({ diagnostics })", () => {
     const diagnostics = createDiagnostics({ app: { id: "acme" }, transport, randomId: () => ID });
     const acc = accelerometer();
     let deliver: () => void = () => {};
-    const feedbackSink = { submit: vi.fn(() => new Promise<{ id: string }>((resolve) => (deliver = () => resolve({ id: REPORT })))) };
+    const feedbackSink = { submit: vi.fn(() => new Promise<{ id: string; attachmentsDropped: number }>((resolve) => (deliver = () => resolve({ id: REPORT, attachmentsDropped: 0 })))) };
     const { navigate, wrap } = harness(diagnostics, { accelerometer: acc, feedbackSink });
     const view = render(wrap(<span />));
     let t = 0;

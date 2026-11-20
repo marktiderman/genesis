@@ -180,7 +180,7 @@ describe("diagnostics.enabled is read again at the moment of sending", () => {
     const transport: DiagnosticsTransport = {
       name: "t",
       send: async (r) => (sent.push(r), { id: r.id, shortId: diagnosticsShortId(r.id) }),
-      feedbackSink: { submit: async (record) => (submitted.push(record), { id: "fb-1" }) },
+      feedbackSink: { submit: async (record) => (submitted.push(record), { id: "fb-1", attachmentsDropped: 0 }) },
     };
     return { sent, submitted, transport };
   };
