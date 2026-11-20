@@ -218,7 +218,8 @@ export function checkProposal(catalogue: SettingsCatalogue, key: string, value: 
   const def = catalogue.keys[key]!;
   if (value === undefined) throw new ProposalError(`${key} needs a value`);
   if (canonicalJson(value).length > MAX_VALUE_JSON) throw new ProposalError(`the value for ${key} is over ${MAX_VALUE_JSON} characters as JSON`);
-  const problem = settingValueProblem({ type: def.type, ...(def.min !== undefined ? { min: def.min } : {}), ...(def.max !== undefined ? { max: def.max } : {}), ...(def.options ? { options: def.options } : {}), nullable: def.nullable }, value);
+  // The whole declaration: its bounds, options, pattern and whole-number rule, as every layer checks them.
+  const problem = settingValueProblem(def, value);
   if (problem) throw new ProposalError(`${key} ${problem}`);
   // The file reads exactly { value, locked } as a lock, so an object of that shape can't be a value.
   if (isLockedEntry(value)) throw new ProposalError(`${key}: an object of exactly { value, locked } reads as a lock in ${CONFIG_FILE}; propose the value itself`);

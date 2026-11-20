@@ -141,6 +141,8 @@ export const settingsBlock = defineBlock({
       { package: PACKAGE, file: "migrations/0022_genesis_platform_admins.sql", test: "migrations/tests/0022_genesis_platform_admins.test.sql" },
       // The tenant and person layers, and Realtime refresh.
       { package: PACKAGE, file: "migrations/0023_genesis_settings_tenant_person.sql", test: "migrations/tests/0023_genesis_settings_tenant_person.test.sql" },
+      // A string's shape: a value that doesn't match its key's `pattern` is refused.
+      { package: PACKAGE, file: "migrations/0025_genesis_settings_pattern.sql", test: "migrations/tests/0025_genesis_settings_pattern.test.sql" },
     ],
     privacy: {
       notes: ["Keeps who changed an app setting, when and from what to what; a deleted person's changes stay, without the person. No setting holds a secret."],
