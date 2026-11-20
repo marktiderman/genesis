@@ -90,7 +90,7 @@ function SupportScreens({ path, params, screens, notFound = null, onFeedbackSent
   const query = params ?? search;
   const Own = screens?.[screen.name];
   if (Own) return <Own screen={screen} params={query} />;
-  return <DefaultScreen screen={screen} params={query} onFeedbackSent={onFeedbackSent} />;
+  return <DefaultScreen screen={screen} params={query} onFeedbackSent={onFeedbackSent ?? block.options.onFeedbackSent} />;
 }
 
 /** Whether the app's settings have this screen on (a screen turned off is `notFound`). */

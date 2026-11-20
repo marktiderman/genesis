@@ -245,7 +245,8 @@ opens its next screen there too. A screen of the app's own replaces one of Genes
 shows `unavailable`, by default an empty state that says support isn't available
 (`<SupportRoute unavailable={<Redirect href="/settings" />} />` sends people back instead).
 `onFeedbackSent={(delivery) => …}` hears a report sent from its feedback screen, in place of the
-form's own alert: show a toast and leave the screen there.
+form's own alert: show a toast and leave the screen there. A one-line route file can't pass it, so
+`createSupport({ onFeedbackSent })` takes it too (the route's own wins).
 
 **Settings that change while the app runs.** With `appSettings` as a function, support reads it
 each time: the Settings rows (`support.feedback`, `support.inbox`, `support.agentDesk`), the idea
@@ -553,8 +554,9 @@ The queue is tried when `createDiagnostics` runs, and on reconnect and coming to
 `createSupport({ appState: AppState, netInfo: NetInfo })` on the phone, `flushDiagnosticsOnReconnect(diagnostics)`
 on the web. A refusal (403, a bad dump) isn't kept. Each queued dump remembers who was signed in,
 and is dropped rather than sent under someone else (a shared device). On sign-out the queue is
-cleared: on the phone `createSupport` does it itself (the Supabase client's `SIGNED_OUT`, which also
-drops a shake's dump and a report waiting for the form); on the web (`FeedbackPanel`,
+cleared: on the phone `createSupport` does it itself (the Supabase client's `SIGNED_OUT`, heard from
+creation, so during boot and behind the fatal screen too, and also dropping a shake's dump and a
+report waiting for the form; `support.dispose()` stops listening, for a block you throw away); on the web (`FeedbackPanel`,
 `flushDiagnosticsOnReconnect`) call `diagnostics.clearQueue()` when the person signs out.
 
 Feedback goes in the same queue: `diagnostics.submitFeedback` (what `FeedbackForm` and
