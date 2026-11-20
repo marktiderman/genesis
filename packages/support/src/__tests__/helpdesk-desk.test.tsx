@@ -20,7 +20,6 @@ const AGENT = "00000000-0000-4000-8000-0000000000c4";
 
 const ticket = (over: Partial<AgentTicket> = {}): AgentTicket => ({
   id: "t1",
-  verifiedAt: null,
   tenantId: "ta",
   type: "question",
   title: "Export is broken",

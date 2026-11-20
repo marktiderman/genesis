@@ -212,10 +212,16 @@ export function FatalScreen({ error, retry, kind = "app", contact, onReport, lab
   );
 }
 
-/** The first block that takes a problem report (the support block's "Report this"). */
+/**
+ * The first block that takes a problem report (the support block's "Report this"), read now: the
+ * function itself is kept, so a setting that changes before the press can't leave it undefined.
+ */
 function blockReporter(blocks: readonly NativeBlock[] | undefined): FatalScreenViewProps["onReport"] {
-  const block = blocks?.find((b) => typeof b.reportProblem === "function");
-  return block?.reportProblem ? (error, where) => block.reportProblem!(error, where) : null;
+  for (const block of blocks ?? []) {
+    const report = block.reportProblem;
+    if (report) return report;
+  }
+  return null;
 }
 
 /**

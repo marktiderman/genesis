@@ -29,7 +29,6 @@ const article = (over: Partial<HelpArticle> = {}): HelpArticle => ({
 
 const ticket = (over: Partial<Ticket> = {}): Ticket => ({
   id: "t1",
-  verifiedAt: null,
   type: "question",
   title: null,
   message: "Where is my invoice?",

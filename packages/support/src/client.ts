@@ -74,8 +74,12 @@ export interface SupportReport {
   unread: boolean;
   /** Who sent it (the person's own id, or for staff the reporter's). */
   userId?: string | null;
-  /** When the person confirmed the fix (migration 0003, which the support block brings). Addressed and not confirmed: the thread asks "Is it fixed?". */
-  verifiedAt: string | null;
+  /**
+   * When the person confirmed the fix (migration 0003): null while it isn't confirmed. The support
+   * client always reads it; a client of your own that doesn't leaves it out, and then nothing asks
+   * "Is it fixed?".
+   */
+  verifiedAt?: string | null;
 }
 
 /** A ticket: a request from someone outside the team, owed a reply (ADR 0015). The new name for {@link SupportReport}. */

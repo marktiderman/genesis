@@ -35,6 +35,9 @@ import { useAgentUnreadCount, useIsSupportAgent } from "./agent";
 import { supportContact, supportSettingValues, type SupportContactInfo, type SupportSettingsInput, type SupportSettingValues } from "../settings";
 import { isUnderPath, stripZone, zoneOf } from "../routes";
 
+/** Where a caught error came from, for `onError`: a screenshot, the shake, the dump, a desk move or switch, a copy. */
+export type SupportErrorSource = "capture" | "shake" | "diagnostics" | "desks" | "copy";
+
 /** A screenshot waiting for the feedback screen. `uri` is a data URI. */
 export interface PendingScreenshot {
   uri: string;
@@ -80,6 +83,8 @@ export interface ShakeDump {
   end(ok: boolean): void;
   /** No report after all: send it on its own (once). */
   sendAlone(): void;
+  /** Never send it (the person signed out). */
+  discard(): void;
 }
 
 /** How long a shake's dump waits for the feedback screen to claim it before it goes on its own. */
@@ -168,18 +173,24 @@ export interface SupportOptions {
    */
   feedbackSink?: FeedbackSink;
   /** Every caught error, for reporting. None of them reaches the person as a crash. */
-  onError?: (error: Error, where: "capture" | "shake" | "diagnostics") => void;
+  onError?: (error: Error, where: SupportErrorSource) => void;
   /**
    * Genesis settings: what `resolveSettings` (or genesis-supabase's `resolveAppSettings`) returned,
-   * the values alone, or a function that reads them now. It decides the idea board
-   * (`support.ideas`), the Settings rows (`support.feedback`, `support.inbox`), the reply
-   * expectation and shake to report's thresholds (`shake.*`), read once at creation; and
-   * `shake.enabled` and the dump (`diagnostics.enabled`, `dumpOnShake`, `dumpOnFeedback`,
-   * `sendFromSettings`), read each time they're used, so with a function a change applies without a
-   * restart. An option given here wins over its setting. Without either, the `max` preset:
-   * everything on.
+   * the values alone, or a function that reads them now. The reply expectation and shake to
+   * report's thresholds (`shake.*`) are read once at creation. Everything else is read each time
+   * it's used, so with a function a change applies without a restart: the idea board
+   * (`support.ideas`), the Settings rows (`support.feedback`, `support.inbox`, `support.agentDesk`),
+   * shake to report and "Report this" (`shake.enabled`, `support.feedback`) and the dump
+   * (`diagnostics.*`). With `subscribeSettings`, a mounted Settings screen updates at once. An
+   * option given here wins over its setting. Without either, the `max` preset: everything on.
    */
   appSettings?: SupportSettingsInput | (() => SupportSettingsInput | null | undefined);
+  /**
+   * Tells support the settings changed (genesis-supabase's `watchAppSettings` updating your store,
+   * say): returns the stop. Screens that show what the settings decide (Settings rows) then render
+   * again at once. Without it they read the settings each time they render.
+   */
+  subscribeSettings?: (onChange: () => void) => () => void;
 }
 
 export interface SupportBlock extends NativeBlock<typeof SUPPORT_BLOCK_ID> {
@@ -191,6 +202,8 @@ export interface SupportBlock extends NativeBlock<typeof SUPPORT_BLOCK_ID> {
   readonly options: SupportOptions;
   /** Support's settings now (the `max` preset where none are given). */
   settings(): SupportSettingValues;
+  /** Support's settings now, rendering again when `subscribeSettings` says they changed. */
+  useSettings(): SupportSettingValues;
   readonly client: SupportClient;
   readonly copy: SupportCopy;
   readonly paths: SupportPaths;
@@ -220,6 +233,8 @@ export interface SupportBlock extends NativeBlock<typeof SUPPORT_BLOCK_ID> {
   zone(): string;
   /** Where people can write when the app can't help (`support.contactEmail` / `contactUrl`), or null: for Help and for genesis-native's fatal screens (`contact`). */
   contact(): SupportContactInfo | null;
+  /** Hands a caught error to `onError` (a reporter that throws is ignored), for support's own screens. */
+  report(error: unknown, where: SupportErrorSource): void;
   readonly Root: ComponentType<NativeBlockRootProps>;
 }
 
@@ -280,6 +295,31 @@ export function createSupport(given: SupportOptions): SupportBlock {
     return lastSettings;
   };
   const initialSettings = readSettings();
+  // A change the app announces (`subscribeSettings`) bumps the version, which re-renders whoever reads them live.
+  let settingsVersion = 0;
+  const settingsListeners = new Set<() => void>();
+  let stopWatching: (() => void) | null = null;
+  const subscribeSettings = (listener: () => void) => {
+    settingsListeners.add(listener);
+    if (!stopWatching && given.subscribeSettings) {
+      stopWatching = given.subscribeSettings(() => {
+        settingsVersion++;
+        settingsListeners.forEach((l) => l());
+      });
+    }
+    return () => {
+      settingsListeners.delete(listener);
+      if (!settingsListeners.size && stopWatching) {
+        stopWatching();
+        stopWatching = null;
+      }
+    };
+  };
+  const settingsSnapshot = () => settingsVersion;
+  function useLiveSettings(): SupportSettingValues {
+    useSyncExternalStore(subscribeSettings, settingsSnapshot, settingsSnapshot);
+    return readSettings();
+  }
   const options = applySettings(given, initialSettings);
   // The dump's switches follow the settings at use. Diagnostics off: no dump anywhere (shake,
   // feedback, the devtools row), whatever was passed.
@@ -329,15 +369,15 @@ export function createSupport(given: SupportOptions): SupportBlock {
     settings: options.settings,
     // Its routes are declared unless the app said no; the rows show as the settings say now.
     ideas: given.ideas,
-    feedback: () => readSettings().support.feedback,
-    inbox: () => readSettings().support.inbox,
+    feedback: () => useLiveSettings().support.feedback,
+    inbox: () => useLiveSettings().support.inbox,
     useHelpSubtitle: () => {
       const unread = useUnreadReplies();
       return unread ? fill(copy.settings.unreadReplies, { count: unread }) : null;
     },
   });
 
-  const report = (error: unknown, where: "capture" | "shake" | "diagnostics") => {
+  const report = (error: unknown, where: SupportErrorSource) => {
     try {
       options.onError?.(error instanceof Error ? error : new Error(String(error)), where);
     } catch {
@@ -345,15 +385,27 @@ export function createSupport(given: SupportOptions): SupportBlock {
     }
   };
 
-  // Where to go once the app's screens are back (the fatal screen's "Report this").
-  let afterRemount: string | null = null;
+  // Sign-out forgets what this device held for the person: the dumps and feedback queued offline,
+  // and a report waiting for the feedback screen. Apps needn't remember to.
+  const auth = options.supabase.auth as { onAuthStateChange?: (cb: (event: string) => void) => unknown };
+  auth.onAuthStateChange?.((event) => {
+    if (event !== "SIGNED_OUT") return;
+    pending?.shakeDump?.discard();
+    setPending(null);
+    void given.diagnostics?.clearQueue().catch((error: unknown) => report(error, "diagnostics"));
+  });
+
+  // Where to go once the app's screens are back (the fatal screen's "Report this"): taken by the
+  // support root's very next commit, and only within REPORT_WINDOW_MS of the press, so an app that
+  // stays down (its retry failed) never opens the form much later.
+  let afterRemount: { href: string; until: number } | null = null;
   function reportProblem(error: Error, where: { kind: "app" | "screen" }) {
     pending?.shakeDump?.sendAlone();
     setPending({ route, screenshot: null, extra: { error: errorSummary(error) }, about: null, shakeDump: null });
     // A screen's error leaves the router up; the app's fatal screen has just remounted it ("Try
     // again" ran first), so the form opens from the support root's next commit, below it.
     if (where.kind === "screen") options.navigate(paths.feedback);
-    else afterRemount = paths.feedback;
+    else afterRemount = { href: paths.feedback, until: Date.now() + REPORT_WINDOW_MS };
   }
 
   let opening = false;
@@ -449,6 +501,11 @@ export function createSupport(given: SupportOptions): SupportBlock {
         if (abandoned) sendAlone();
       },
       sendAlone,
+      discard() {
+        state = "done";
+        clearTimeout(timer);
+        clearTimeout(releasing);
+      },
     };
   }
 
@@ -469,9 +526,9 @@ export function createSupport(given: SupportOptions): SupportBlock {
                 href: paths.agent,
                 order: 30,
                 testID: "genesis-support-agent-desk-row",
-                useShown: () => useIsSupportAgent() && readSettings().support.agentDesk,
+                useShown: () => useIsSupportAgent(null, { enabled: useLiveSettings().support.agentDesk }),
                 useSubtitle: () => {
-                  const unread = useAgentUnreadCount();
+                  const unread = useAgentUnreadCount(null, { enabled: useLiveSettings().support.agentDesk });
                   return unread ? fill(copy.agentInbox.unreadCount, { count: unread }) : null;
                 },
               },
@@ -490,8 +547,10 @@ export function createSupport(given: SupportOptions): SupportBlock {
       return readSettings().support.feedback ? reportProblem : undefined;
     },
     platforms: ["native"],
+    report,
     options,
     settings: readSettings,
+    useSettings: useLiveSettings,
     client,
     copy,
     paths,
@@ -549,9 +608,9 @@ export function createSupport(given: SupportOptions): SupportBlock {
       // After every commit: a "Report this" on the app's fatal screen waits for the screens it remounted.
       useEffect(() => {
         if (!afterRemount) return;
-        const to = afterRemount;
+        const { href, until } = afterRemount;
         afterRemount = null;
-        options.navigate(to);
+        if (Date.now() <= until) options.navigate(href);
       });
       useEffect(() => {
         if (current) route = current;
@@ -607,6 +666,9 @@ export function createSupport(given: SupportOptions): SupportBlock {
   };
   return block;
 }
+
+/** How long after a fatal screen's "Report this" the remounted app may still open the form. */
+const REPORT_WINDOW_MS = 10_000;
 
 /** An error as feedback carries it: its name, message and the top of its stack, bounded. */
 function errorSummary(error: Error): Record<string, string> {

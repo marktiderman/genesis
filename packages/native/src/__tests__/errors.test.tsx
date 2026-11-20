@@ -13,6 +13,8 @@ import {
   type EnableRejectionTracker,
   type ErrorUtilsLike,
 } from "../errors";
+import { BlocksProvider } from "../blocks";
+import { createScreenErrorBoundary } from "../screen-boundary";
 
 function fakeErrorUtils(previous = vi.fn()) {
   let handler: ((error: unknown, isFatal?: boolean) => void) | undefined = previous;
@@ -239,9 +241,7 @@ describe("contactHref, after review", async () => {
   });
 });
 
-describe("the error screens' words and Report this", async () => {
-  const { BlocksProvider } = await import("../blocks");
-  const { createScreenErrorBoundary } = await import("../screen-boundary");
+describe("the error screens' words and Report this", () => {
   const withReporter = (reportProblem: (error: Error, where: { kind: "app" | "screen" }) => void) =>
     ({ blocks: [{ id: "support-feedback", reportProblem }], ids: new Set(["support-feedback"]), slots: {}, settings: [] }) as never;
 

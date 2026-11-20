@@ -28,6 +28,10 @@ export interface NativeListItemProps {
   showChevron?: boolean;
   /** When provided, the row becomes pressable. */
   onPress?: () => void;
+  /** How many lines the subtitle shows before it's cut short. Default 2; `null` wraps it whole (a value to read, an id). */
+  subtitleLines?: number | null;
+  /** The subtitle can be selected and copied (a value: an id, a URL). Default false. */
+  subtitleSelectable?: boolean;
   disabled?: boolean;
   /**
    * What a pressable row is to a screen reader. Default `button`; a row that flips its switch
@@ -53,6 +57,8 @@ export function NativeListItem({
   trailing,
   showChevron,
   onPress,
+  subtitleLines = 2,
+  subtitleSelectable = false,
   disabled,
   accessibilityRole = "button",
   accessibilityState,
@@ -70,7 +76,8 @@ export function NativeListItem({
         {subtitle ? (
           <Text
             className="mt-0.5 text-xs text-muted-foreground"
-            numberOfLines={2}
+            {...(subtitleLines === null ? {} : { numberOfLines: subtitleLines })}
+            selectable={subtitleSelectable}
           >
             {subtitle}
           </Text>

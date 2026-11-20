@@ -166,12 +166,25 @@ describe("the devtools overlay", () => {
     fireEvent.click(screen.getByTestId("genesis-devtools-check-socket-retry"));
     await act(settle);
     expect(checks.runCheck).toHaveBeenCalledWith("socket");
+    expect(screen.getByTestId("genesis-devtools-check-socket-retry").getAttribute("aria-label")).toBe("Try again: socket");
     expect(checks.run).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId("genesis-devtools-check-socket").textContent).toContain("Fine");
     expect(screen.getByTestId("genesis-devtools-check-supabase.reachable").textContent).toContain("Fine");
   });
 
-
+  it("offers no Try again for a registry that can't run one check, and lets the values wrap and be selected", async () => {
+    const results = [{ name: "socket", status: "fail" as const, message: "a long message that wraps", ms: 3 }];
+    const checks = { list: () => results, latest: () => [], run: vi.fn(async () => results) };
+    const devtools = createDevtools({ enabled: true, checks, baseUrl: "http://127.0.0.1:54421" });
+    setup({ blocks: [devtools] });
+    await act(settle);
+    act(() => devtools.open());
+    await act(settle);
+    expect(screen.queryByTestId("genesis-devtools-check-socket-retry")).toBeNull();
+    const value = screen.getByText("http://127.0.0.1:54421");
+    expect(value.getAttribute("data-selectable")).toBe("true");
+    expect(value.getAttribute("data-number-of-lines")).toBeNull();
+  });
 
   it("copies the debug info through the app's copy", async () => {
     const copy = vi.fn();
@@ -179,6 +192,8 @@ describe("the devtools overlay", () => {
     setup({ blocks: [devtools] });
     await act(settle);
     act(() => devtools.open());
+    // The sheet shows once it knows whether to animate (reduced motion).
+    await act(settle);
     fireEvent.click(screen.getByTestId("genesis-devtools-copy"));
     await act(settle);
     expect(copy.mock.calls[0]![0]).toContain("User user-9");
@@ -193,6 +208,8 @@ describe("the devtools overlay", () => {
     setup({ blocks: [observability, devtools] });
     await act(settle);
     act(() => devtools.open());
+    // The sheet shows once it knows whether to animate (reduced motion).
+    await act(settle);
     act(() => fireEvent.click(screen.getByTestId("genesis-devtools-crash")));
     await act(settle);
     expect(alert).toHaveBeenCalled();
@@ -235,6 +252,8 @@ describe("the devtools overlay", () => {
     });
     await act(settle);
     act(() => devtools.open());
+    // The sheet shows once it knows whether to animate (reduced motion).
+    await act(settle);
     expect(screen.getByTestId("genesis-devtools")).toBeTruthy();
     await act(async () => {
       fireEvent.click(screen.getByTestId("feedback"));
@@ -255,6 +274,8 @@ describe("the devtools overlay", () => {
     });
     await act(settle);
     act(() => devtools.open());
+    // The sheet shows once it knows whether to animate (reduced motion).
+    await act(settle);
     fireEvent.click(screen.getByTestId("diagnostics"));
     expect(copied).toEqual(["id true"]);
   });
@@ -264,6 +285,8 @@ describe("the devtools overlay", () => {
     setup({ blocks: [devtools], slots: { devtoolsFeedback: ({ debugInfo }) => <span data-testid="feedback">{debugInfo.split("\n")[0]}</span> } });
     await act(settle);
     act(() => devtools.open());
+    // The sheet shows once it knows whether to animate (reduced motion).
+    await act(settle);
     expect(screen.getByTestId("feedback").textContent).toMatch(/^Debug info /);
   });
 });

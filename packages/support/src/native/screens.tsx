@@ -20,6 +20,7 @@ import type { SupportThreadInfo } from "../chat";
 import { fill } from "../copy";
 import { awaitingReplyLine, useReplyExpectation } from "../reply-expectation";
 import { SUPPORT_QUERY_ROOT, useOptionalSupport, useSupport } from "./support";
+import { required } from "./agent";
 
 const key = (...parts: string[]) => [SUPPORT_QUERY_ROOT, ...parts];
 
@@ -243,7 +244,7 @@ export function useSupportThread(reportId: string, options: { pollMs?: number } 
 
   const [answered, setAnswered] = useState<"fixed" | "reopened" | null>(null);
   const verify = useMutation({
-    mutationFn: (fixed: boolean) => client.verify!(reportId, fixed),
+    mutationFn: (fixed: boolean) => required(client.verify, "verify")(reportId, fixed),
     onSuccess: (_done, fixed) => {
       setAnswered(fixed ? "fixed" : "reopened");
       void queryClient.invalidateQueries({ queryKey: key("report", reportId) });

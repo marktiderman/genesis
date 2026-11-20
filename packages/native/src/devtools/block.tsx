@@ -25,11 +25,21 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ComponentType, type ReactNode } from "react";
 import type { ResolvedSettings } from "@marktiderman/genesis-config/settings";
 import { devtoolsSettingValues } from "./settings";
-import { Alert, Modal, ScrollView, Share, View, type GestureResponderEvent } from "react-native";
+import { Alert, Share, View, type GestureResponderEvent } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
 import { renderSlot } from "@marktiderman/genesis-core/slots";
-import { Box, Inline, NativeButton, NativeInput, NativeSectionListHeader, NativeSettingsRow, NativeText, Stack } from "@marktiderman/genesis-ui-native/components";
-import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
+import {
+  Box,
+  Inline,
+  NativeButton,
+  NativeInput,
+  NativeSectionListHeader,
+  NativeSettingsRow,
+  NativeSheet,
+  NativeSheetScrollView,
+  NativeText,
+  Stack,
+} from "@marktiderman/genesis-ui-native/components";
 import { defineBlock } from "@marktiderman/genesis-config/blocks";
 import { useSession } from "../auth";
 import { useBlocks, type NativeBlock, type NativeBlockRootProps } from "../blocks";
@@ -63,8 +73,8 @@ export interface DevtoolsChecksLike {
   list(): readonly unknown[];
   run(): Promise<readonly DevtoolsCheckResult[]>;
   latest(): readonly DevtoolsCheckResult[];
-  /** Run one check again (a check's "Try again"); null when none has that name. */
-  runCheck(name: string): Promise<DevtoolsCheckResult | null>;
+  /** Run one check again (a check's "Try again"); null when none has that name. Without it, no check has "Try again". */
+  runCheck?(name: string): Promise<DevtoolsCheckResult | null>;
 }
 
 /** The health checks' words: each status, and the actions. */
@@ -348,9 +358,9 @@ interface SheetProps {
   onCrash: () => void;
 }
 
-/** A label and its value, as a settings row (ui-native's, compiled with the app's NativeWind). */
+/** A label and its value, as a settings row: the value wraps whole and can be selected (an id, a URL). */
 function Row({ label, value, testID }: { label: string; value: string; testID?: string }) {
-  return <NativeSettingsRow label={label} description={value} {...(testID ? { testID } : {})} />;
+  return <NativeSettingsRow label={label} description={value} descriptionLines={null} selectable {...(testID ? { testID } : {})} />;
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -373,10 +383,10 @@ function HealthChecksSection({ checks, labels }: { checks: DevtoolsChecksLike; l
       .then(setResults, () => undefined)
       .finally(() => setRunning(false));
   };
-  const retry = (name: string) => {
+  const runCheck = checks.runCheck?.bind(checks);
+  const retry = (again: NonNullable<typeof runCheck>, name: string) => {
     setRetrying(name);
-    checks
-      .runCheck(name)
+    again(name)
       .then((next) => {
         if (next) setResults((all) => all.map((r) => (r.name === name ? next : r)));
       }, () => undefined)
@@ -392,17 +402,27 @@ function HealthChecksSection({ checks, labels }: { checks: DevtoolsChecksLike; l
     <Section title={`Health checks (${verdict})`}>
       {checks.list().length === 0 ? <NativeText preset="body-sm">None registered</NativeText> : null}
       {results.map((r) => (
-        <NativeSettingsRow key={r.name} label={r.name} description={`${word[r.status]}${r.message ? ` · ${r.message}` : ""} · ${r.ms} ms`} testID={`genesis-devtools-check-${r.name}`}>
-          <NativeButton
-            size="sm"
-            variant="ghost"
-            onPress={() => retry(r.name)}
-            disabled={running || retrying !== null}
-            loading={retrying === r.name}
-            testID={`genesis-devtools-check-${r.name}-retry`}
-          >
-            {labels.retry}
-          </NativeButton>
+        <NativeSettingsRow
+          key={r.name}
+          label={r.name}
+          description={`${word[r.status]}${r.message ? ` · ${r.message}` : ""} · ${r.ms} ms`}
+          descriptionLines={null}
+          selectable
+          testID={`genesis-devtools-check-${r.name}`}
+        >
+          {runCheck ? (
+            <NativeButton
+              size="sm"
+              variant="ghost"
+              onPress={() => retry(runCheck, r.name)}
+              disabled={running || retrying !== null}
+              loading={retrying === r.name}
+              accessibilityLabel={`${labels.retry}: ${r.name}`}
+              testID={`genesis-devtools-check-${r.name}-retry`}
+            >
+              {labels.retry}
+            </NativeButton>
+          ) : null}
         </NativeSettingsRow>
       ))}
       <NativeButton size="sm" variant="outline" onPress={run} disabled={running} testID="genesis-devtools-run-checks">
@@ -414,7 +434,6 @@ function HealthChecksSection({ checks, labels }: { checks: DevtoolsChecksLike; l
 
 function DevtoolsSheet({ visible, onDismissed, block, Feedback, feedbackProps, Diagnostics, diagnosticsProps, onCrash }: SheetProps) {
   const { options } = block;
-  const roles = useThemeRoles();
   const { userId } = useSession();
   const blocks = useBlocks();
   const recent = useRecentActivity(options.observability ?? null);
@@ -466,17 +485,11 @@ function DevtoolsSheet({ visible, onDismissed, block, Feedback, feedbackProps, D
 
   const flags = Object.entries(options.flags ?? {});
   return (
-    // React Native's own modal, as a page sheet on iOS: it needs no provider above it (a bottom-sheet
-    // library's modal does), so the overlay opens whatever the app has mounted.
-    <Modal
-      visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={() => void close()}
-      onDismiss={onDismissed}
-      testID="genesis-devtools"
-    >
-      <ScrollView style={{ flex: 1, backgroundColor: roles.background }}>
+    // The sheet primitive: a page sheet on iOS (React Native's modal, needing no provider above it),
+    // or the bottom-sheet library's under NativeSheetProvider; it brings the escape gesture, reduced
+    // motion and the safe area.
+    <NativeSheet open={visible} onOpenChange={(open) => (open ? undefined : void close())} onDismissed={onDismissed} testID="genesis-devtools">
+      <NativeSheetScrollView>
         <Box p="lg" pb="3xl">
           <Stack gap="md">
             <Inline justify="between">
@@ -598,7 +611,7 @@ function DevtoolsSheet({ visible, onDismissed, block, Feedback, feedbackProps, D
             </Section>
           </Stack>
         </Box>
-      </ScrollView>
-    </Modal>
+      </NativeSheetScrollView>
+    </NativeSheet>
   );
 }

@@ -2,7 +2,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ReactNode } from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { describe, expect, it, vi } from "vitest";
 import { resolveSettings, settingsCatalogue, settingsFromManifest, settingsSecrets } from "@marktiderman/genesis-config/settings";
@@ -150,10 +150,9 @@ describe("createSupport with settings", () => {
 
   it("leaves out the Settings rows for a feature that is off, as the setting says now", () => {
     const { block } = make({ "support.inbox": false });
-    // Every row is declared; each one's useShown reads its setting on every render of Settings.
-    const shown = (id: string) => block.contributes!.settings!.find((r) => r.id === id)!.useShown!();
-    expect(shown("support-send-feedback")).toBe(true);
-    expect(shown("support-help")).toBe(false);
+    // Every row is declared; each one's useShown hook reads its setting on every render of Settings.
+    const { result } = renderHook(() => Object.fromEntries(["support-send-feedback", "support-help"].map((id) => [id, block.contributes?.settings?.find((r) => r.id === id)?.useShown?.()])));
+    expect(result.current).toEqual({ "support-send-feedback": true, "support-help": false });
     expect(supportContributions({ feedback: false, inbox: false }).settings).toEqual([]);
   });
 

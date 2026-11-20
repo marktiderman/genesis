@@ -101,7 +101,8 @@ const isRefused = (error: unknown) => error instanceof SupportError && error.cod
 /** A refusal doesn't change by asking again. */
 const retryUnlessRefused = (count: number, error: unknown) => !isRefused(error) && count < 2;
 
-function required<T>(method: T | undefined, name: string): NonNullable<T> {
+/** A client method the screen needs, or a SupportError naming it (`0A000`). @internal */
+export function required<T>(method: T | undefined, name: string): NonNullable<T> {
   if (!method) throw new SupportError(`This support client has no ${name} (the agent inbox, migration 0009).`, "0A000", name);
   return method as NonNullable<T>;
 }
@@ -123,28 +124,29 @@ function waitedFor(sinceIso: string, copy: SupportCopy, now: number): string {
  * business's, `client.isStaff()` for the app's own (null or left out). False while it's read, when
  * signed out, and when the read fails.
  */
-export function useIsSupportAgent(tenantId?: string | null): boolean {
+export function useIsSupportAgent(tenantId?: string | null, options: { enabled?: boolean } = {}): boolean {
   const { client } = useSupport();
   const tenant = tenantId ?? null;
   const me = useSignedInId(undefined);
   const query = useQuery({
     queryKey: supportAgentKeys.isAgent(me ?? null, tenant),
     queryFn: () => (tenant === null ? client.isStaff() : client.isAgent ? client.isAgent(tenant) : Promise.resolve(false)),
-    enabled: me !== null && me !== undefined,
+    enabled: options.enabled !== false && me !== null && me !== undefined,
     staleTime: 5 * 60_000,
   });
-  return query.data === true;
+  return options.enabled !== false && query.data === true;
 }
 
 /**
  * How many active tickets in the help desk hold a requester's message no agent has read
  * (`client.agentUnreadCount`), for a badge. 0 for anyone who isn't an agent there, and while it's read.
  */
-export function useAgentUnreadCount(tenantId?: string | null, options: { refreshInterval?: number } = {}): number {
+export function useAgentUnreadCount(tenantId?: string | null, options: { refreshInterval?: number; enabled?: boolean } = {}): number {
   const { client } = useSupport();
   const tenant = tenantId ?? null;
   const me = useSignedInId(undefined);
-  const agent = useIsSupportAgent(tenant);
+  // Not asked, nor polled, while whatever shows it is hidden.
+  const agent = useIsSupportAgent(tenant, { enabled: options.enabled !== false });
   const query = useQuery({
     queryKey: supportAgentKeys.unread(me ?? null, tenant),
     queryFn: () => required(client.agentUnreadCount, "agentUnreadCount")({ tenantId: tenant }),

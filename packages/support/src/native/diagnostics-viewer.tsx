@@ -13,6 +13,7 @@ import { fill, type SupportCopy } from "../copy";
 import type { DiagnosticTrigger } from "../diagnostics/report";
 import { diagnosticsViewSections } from "../diagnostics/view";
 import { SUPPORT_QUERY_ROOT, useSupport } from "./support";
+import { required } from "./agent";
 
 export interface AgentTicketDiagnosticsProps {
   ticketId: string;
@@ -37,13 +38,15 @@ export function dumpHeading(dump: Pick<TicketDiagnostics, "shortId" | "trigger" 
 
 /** A ticket's dumps, for an agent. Nothing when the client can't read them or there are none. */
 export function AgentTicketDiagnostics({ ticketId, me, copy: copyText, formatTime = localTime, testID = "genesis-support-agent-diagnostics" }: AgentTicketDiagnosticsProps) {
-  const { client, copy } = useSupport();
+  const block = useSupport();
+  const { client, copy } = block;
   const [open, setOpen] = useState(false);
-  const [copied, setCopied] = useState<string | null>(null);
+  // The dump the last copy was of, and whether it went.
+  const [copied, setCopied] = useState<{ id: string; ok: boolean } | null>(null);
   const read = client.ticketDiagnostics?.bind(client);
   const dumps = useQuery({
     queryKey: [SUPPORT_QUERY_ROOT, "agent", me, "diagnostics", ticketId],
-    queryFn: () => read!(ticketId),
+    queryFn: () => required(read, "ticketDiagnostics")(ticketId),
     enabled: Boolean(read),
     staleTime: 5 * 60_000,
   });
@@ -58,9 +61,11 @@ export function AgentTicketDiagnostics({ ticketId, me, copy: copyText, formatTim
     const text = [heading, ...diagnosticsViewSections(dump.report).map((section) => `${section.title}\n${section.text}`)].join("\n\n");
     try {
       await (copyText ? copyText(text) : Share.share({ message: text }));
-      setCopied(dump.id);
-    } catch {
-      // The share sheet dismissed, or the clipboard refused: nothing was copied.
+      setCopied({ id: dump.id, ok: true });
+    } catch (error) {
+      // The clipboard or the share sheet refused: say so, and report it.
+      setCopied({ id: dump.id, ok: false });
+      block.report(error, "copy");
     }
   };
   return (
@@ -79,10 +84,19 @@ export function AgentTicketDiagnostics({ ticketId, me, copy: copyText, formatTim
                   <NativeText preset="label" className="flex-1" testID={`${testID}-heading`}>
                     {dumpHeading(dump, copy, formatTime)}
                   </NativeText>
-                  <NativeButton size="sm" variant="ghost" onPress={() => void copyDump(dump)} testID={`${testID}-copy-${dump.id}`}>
-                    {copied === dump.id ? copy.agentInbox.diagnosticsCopied : copy.agentInbox.diagnosticsCopy}
+                  <NativeButton
+                    size="sm"
+                    variant="ghost"
+                    onPress={() => void copyDump(dump)}
+                    accessibilityLabel={`${copy.agentInbox.diagnosticsCopy}: ${fill(copy.agentInbox.diagnosticsDump, { id: dump.shortId })}`}
+                    testID={`${testID}-copy-${dump.id}`}
+                  >
+                    {copied?.id === dump.id && copied.ok ? copy.agentInbox.diagnosticsCopied : copy.agentInbox.diagnosticsCopy}
                   </NativeButton>
                 </Inline>
+                {copied?.id === dump.id && !copied.ok ? (
+                  <NativeInlineAlert variant="destructive" description={copy.agentInbox.diagnosticsCopyFailed} testID={`${testID}-copy-failed`} />
+                ) : null}
                 {diagnosticsViewSections(dump.report).map((section) => (
                   <Stack key={section.key} gap="xs">
                     <NativeText preset="caption" accessibilityRole="header">

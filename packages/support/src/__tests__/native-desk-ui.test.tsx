@@ -8,7 +8,7 @@ import { describe, expect, it, vi } from "vitest";
 import { Linking, Share } from "react-native";
 import { ThreadPage } from "@marktiderman/genesis-ui-native/layouts";
 import { emptyReport, resolveSupportCopy } from "..";
-import { createHealthChecks } from "../diagnostics";
+import { createDiagnostics, createHealthChecks } from "../diagnostics";
 import {
   AgentTicketDiagnostics,
   createSupport,
@@ -146,25 +146,18 @@ function AgentThread() {
 describe("the agent thread's controls on the phone", () => {
   it("links the requester's email and offers an assignee picker from the desk's agents", async () => {
     const { fake, wrap } = harness(desk);
-    let assign: ((id: string | null) => Promise<void>) | undefined;
-    let assignees: { id: string; name: string }[] = [];
-    function Thread() {
-      const thread = useAgentThread(T1, { tenantId: "ta" });
-      assign = thread.assign;
-      assignees = thread.assignees;
-      return <ThreadPage {...thread} />;
-    }
-    render(wrap(<Thread />));
+    render(wrap(<AgentThread />));
     const email = await screen.findByTestId("genesis-support-agent-requester-email");
     fireEvent.click(email);
     expect(vi.mocked(Linking.openURL)).toHaveBeenCalledWith("mailto:alex@example.com");
-    // The picker's list is a modal; its trigger names who has it now.
     await waitFor(() => expect(screen.getByTestId("genesis-support-agent-assignee").textContent).toContain("Assign to: Nobody"));
-    expect(assignees.map((a) => a.name)).toEqual(["Sam", "You"]);
-    await act(async () => {
-      await assign!(SAM);
-    });
-    expect(fake.rpcs).toContainEqual({ fn: "support_assign_report", args: { report: T1, assignee: SAM } });
+    fireEvent.click(screen.getByTestId("genesis-support-agent-assignee"));
+    expect(screen.getByTestId(`genesis-support-agent-assignee-${ME}`).textContent).toBe("You");
+    fireEvent.click(screen.getByTestId(`genesis-support-agent-assignee-${SAM}`));
+    await waitFor(() => expect(fake.rpcs).toContainEqual({ fn: "support_assign_report", args: { report: T1, assignee: SAM } }));
+    fireEvent.click(screen.getByTestId("genesis-support-agent-assignee"));
+    fireEvent.click(screen.getByTestId("genesis-support-agent-assignee-none"));
+    await waitFor(() => expect(fake.rpcs).toContainEqual({ fn: "support_assign_report", args: { report: T1, assignee: null } }));
   });
 
   it("sends a ticket up to the app's own desk with a reason, then leaves it", async () => {
@@ -249,6 +242,29 @@ describe("support follows live settings", () => {
     expect(block.reportProblem).toBeTypeOf("function");
   });
 
+  it("updates an open Settings screen when subscribeSettings says the settings changed", () => {
+    let values: Record<string, unknown> = {};
+    const listeners = new Set<() => void>();
+    const { block, wrap } = harness(undefined, undefined, {
+      appSettings: () => values,
+      subscribeSettings: (onChange) => (listeners.add(onChange), () => listeners.delete(onChange)),
+    });
+    render(wrap(<Rows rows={block.contributes!.settings!} />));
+    expect(shownRows().map((r) => r.id)).toEqual(["support-send-feedback", "support-help"]);
+    act(() => {
+      values = { "support.inbox": false };
+      listeners.forEach((l) => l());
+    });
+    expect(shownRows().map((r) => r.id)).toEqual(["support-send-feedback"]);
+  });
+
+  it("doesn't ask whether the person is an agent, nor poll the unread count, while the agent desk is off", async () => {
+    const { block, wrap, fake } = harness(desk, undefined, { appSettings: { "support.agentDesk": false } });
+    render(wrap(<Rows rows={block.contributes!.settings!} />));
+    await waitFor(() => expect(shownRows().map((r) => r.id)).toEqual(["support-send-feedback", "support-help"]));
+    expect(fake.rpcs.some((r) => r.fn === "support_is_staff" || r.fn === "support_agent_unread_count")).toBe(false);
+  });
+
   it("lets an ideas option the app gave win over the live setting", () => {
     const { block } = harness(undefined, undefined, { ideas: false, appSettings: () => ({ "support.ideas": true }) });
     expect(block.options.ideas).toBe(false);
@@ -291,6 +307,28 @@ describe("the dump viewer on the phone", () => {
     void Share;
   });
 
+  it("says so when a copy fails, and reports it", async () => {
+    const fake = fakeSupabase({ userId: ME });
+    const onError = vi.fn();
+    const block = createSupport({ supabase: fake.client, navigate: vi.fn(), platform: "ios", onError });
+    const client = { ...block.client, ticketDiagnostics: async () => [{ id: "d1", shortId: "AB12CD34", createdAt: dump.created_at, trigger: "shake", report: dump.report }] };
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <SupportProvider block={{ ...block, client }}>
+          <AgentTicketDiagnostics ticketId={T1} me={ME} copy={() => Promise.reject(new Error("no clipboard"))} />
+        </SupportProvider>
+      </QueryClientProvider>,
+    );
+    fireEvent.click(await screen.findByTestId("genesis-support-agent-diagnostics-toggle"));
+    const button = screen.getByTestId("genesis-support-agent-diagnostics-copy-d1");
+    expect(button.getAttribute("aria-label")).toBe("Copy: Dump AB12CD34");
+    await act(async () => {
+      fireEvent.click(button);
+    });
+    expect(screen.getByTestId("genesis-support-agent-diagnostics-copy-failed")).toBeTruthy();
+    expect(onError).toHaveBeenCalledWith(expect.any(Error), "copy");
+  });
+
   it("keeps an unknown trigger and an unreadable time as they came", () => {
     expect(dumpHeading({ shortId: "X", trigger: "custom", createdAt: "not a date" }, resolveSupportCopy())).toBe("Dump X · custom · not a date");
   });
@@ -316,6 +354,21 @@ describe("Report this, and About on the feedback form", () => {
     view.rerender(<QueryClientProvider client={new QueryClient()}><Root><span>screens</span></Root></QueryClientProvider>);
     await waitFor(() => expect(navigate).toHaveBeenCalledWith("/s/new"));
     expect(navigate).toHaveBeenCalledTimes(1);
+  });
+
+  it("doesn't open the form long after the press when the app stays down", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      const { block, navigate } = harness();
+      block.reportProblem!(new Error("x"), { kind: "app" });
+      vi.setSystemTime(Date.now() + 60_000);
+      const Root = block.Root;
+      render(<QueryClientProvider client={new QueryClient()}><Root><span>screens</span></Root></QueryClientProvider>);
+      await act(async () => {});
+      expect(navigate).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("takes no reports with feedback off", () => {
@@ -355,6 +408,23 @@ describe("Report this, and About on the feedback form", () => {
     await waitFor(() => expect(fake.calls.some((c) => c.table === "support_reports")).toBe(true));
     const sent = arg(fake.calls.find((c) => c.table === "support_reports"), "insert") as { context: Record<string, unknown> };
     expect(sent.context).toMatchObject({ about_label: "Billing", feature: "billing" });
+  });
+});
+
+describe("sign-out", () => {
+  it("forgets the queued dumps and feedback, and a report waiting for the form", async () => {
+    const fake = fakeSupabase({ userId: ME });
+    let signal: (event: string) => void = () => {};
+    Object.assign(fake.client.auth, { onAuthStateChange: (cb: (event: string) => void) => ((signal = cb), { data: { subscription: { unsubscribe() {} } } }) });
+    const diagnostics = createDiagnostics({ app: { id: "acme" }, transport: { name: "x", send: async () => ({ id: "1", shortId: "1" }) } });
+    const clear = vi.spyOn(diagnostics, "clearQueue");
+    const block = createSupport({ supabase: fake.client, navigate: vi.fn(), platform: "ios", diagnostics });
+    await block.openFeedback({ screenshot: false });
+    signal("TOKEN_REFRESHED");
+    expect(clear).not.toHaveBeenCalled();
+    signal("SIGNED_OUT");
+    expect(clear).toHaveBeenCalledTimes(1);
+    expect(block.peekPending()).toBeNull();
   });
 });
 

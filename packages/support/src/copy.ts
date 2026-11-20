@@ -180,6 +180,7 @@ export const supportCopy = {
     diagnosticsLoading: "Loading the diagnostics",
     diagnosticsCopy: "Copy",
     diagnosticsCopied: "Copied",
+    diagnosticsCopyFailed: "That wasn't copied. Try again, or select the text.",
     /** What made a dump, by its trigger. */
     diagnosticsTriggers: { manual: "Sent from the app", shake: "Shake", feedback: "With feedback", crash: "After a crash" },
     /** The assignee picker's label. */

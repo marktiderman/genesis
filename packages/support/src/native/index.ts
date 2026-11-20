@@ -20,6 +20,7 @@ export {
   type PendingFeedback,
   type PendingScreenshot,
   type SupportBlock,
+  type SupportErrorSource,
   type SupportOptions,
 } from "./support";
 export { FeedbackForm, type FeedbackFormProps } from "./feedback-form";

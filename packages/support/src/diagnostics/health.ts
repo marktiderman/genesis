@@ -48,8 +48,8 @@ export interface HealthChecks {
   list(): readonly HealthCheck[];
   /** Run every check at once and keep the results. */
   run(): Promise<HealthResult[]>;
-  /** Run one check again (a devtools "Try again") and keep its result with the others. Null when no check has that name. */
-  runCheck(name: string): Promise<HealthResult | null>;
+  /** Run one check again (a devtools "Try again") and keep its result with the others. Null when no check has that name. `createHealthChecks` has it; a registry of your own may leave it out. */
+  runCheck?(name: string): Promise<HealthResult | null>;
   /** The last results, empty before the first run. */
   latest(): readonly HealthResult[];
   /** Called after each run. */
@@ -64,7 +64,7 @@ export const HEALTH_RESULTS_MAX_AGE_MS = 5 * 60_000;
 const statusOf = (value: unknown): HealthStatus => (HEALTH_STATUSES.includes(value as HealthStatus) ? (value as HealthStatus) : "fail");
 
 /** A registry of its own (tests, a second app in one process). Most apps use `healthChecks`. */
-export function createHealthChecks(options: { now?: () => number } = {}): HealthChecks {
+export function createHealthChecks(options: { now?: () => number } = {}): HealthChecks & Required<Pick<HealthChecks, "runCheck">> {
   const now = options.now ?? Date.now;
   const checks = new Map<string, HealthCheck>();
   const listeners = new Set<() => void>();
@@ -121,7 +121,7 @@ export function createHealthChecks(options: { now?: () => number } = {}): Health
 }
 
 /** The app's registry: packages and the app register into it. */
-export const healthChecks: HealthChecks = /* @__PURE__ */ createHealthChecks();
+export const healthChecks = /* @__PURE__ */ createHealthChecks();
 
 /** A result as the dump keeps it. */
 export function toDiagnosticCheck(result: HealthResult): DiagnosticCheck {

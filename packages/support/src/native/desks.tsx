@@ -33,16 +33,29 @@ import {
 import { deskTitle, lastMoveLine, type DeskTarget } from "../desks";
 import { fill } from "../copy";
 import { SUPPORT_QUERY_ROOT, useSupport } from "./support";
-import { supportAgentKeys, useSignedInId } from "./agent";
+import { required, supportAgentKeys, useSignedInId } from "./agent";
 
 /** The desks the signed-in person works (`client.myDesks`). */
 function useMyDesks(enabled: boolean) {
   const { client } = useSupport();
   const me = useSignedInId(undefined);
-  return useQuery({ queryKey: supportAgentKeys.desks(me ?? null), queryFn: () => client.myDesks!(), enabled: enabled && me !== undefined && Boolean(client.myDesks), staleTime: 60_000 });
+  return useQuery({
+    queryKey: supportAgentKeys.desks(me ?? null),
+    queryFn: () => required(client.myDesks, "myDesks")(),
+    enabled: enabled && me !== undefined && Boolean(client.myDesks),
+    staleTime: 60_000,
+  });
 }
 
-type MoveKind = "escalate" | "return" | "move";
+/** One way a ticket can leave its desk, as the dialog offers it. */
+interface Move {
+  kind: "escalate" | "return" | "move";
+  title: string;
+  body: string;
+  /** For a move: the desks to pick from. */
+  targets: readonly DeskTarget[];
+  send: (reason: string | null, target: string) => Promise<void>;
+}
 
 export interface AgentDeskControlsProps {
   ticketId: string;
@@ -64,14 +77,18 @@ export function AgentDeskControls({ ticketId, onMoved, allowMove = true, testID 
   const on = block.settings().support.desks;
   const me = useSignedInId(undefined);
   const ready = on && me !== undefined;
-  const desk = useQuery({ queryKey: supportAgentKeys.ticketDesk(me ?? null, ticketId), queryFn: () => client.ticketDesk!(ticketId), enabled: ready && Boolean(client.ticketDesk) });
+  const desk = useQuery({
+    queryKey: supportAgentKeys.ticketDesk(me ?? null, ticketId),
+    queryFn: () => required(client.ticketDesk, "ticketDesk")(ticketId),
+    enabled: ready && Boolean(client.ticketDesk),
+  });
   const targets = useQuery({
     queryKey: supportAgentKeys.deskTargets(me ?? null, ticketId),
-    queryFn: () => client.deskMoveTargets!(ticketId),
+    queryFn: () => required(client.deskMoveTargets, "deskMoveTargets")(ticketId),
     enabled: ready && allowMove && Boolean(client.deskMoveTargets),
   });
   const mine = useMyDesks(on);
-  const [open, setOpen] = useState<MoveKind | null>(null);
+  const [open, setOpen] = useState<Move | null>(null);
   const d = desk.data;
   if (!on || !d) return null;
   const known = new Map<string, string>();
@@ -81,11 +98,22 @@ export function AgentDeskControls({ ticketId, onMoved, allowMove = true, testID 
   const appDesk = deskTitle({ label: (targets.data ?? []).find((t) => t.isDefault)?.label ?? null, isDefault: true }, copy);
   const others = (targets.data ?? []).filter((t) => !t.isDefault && t.tenantId !== d.returnsTo);
   const moved = lastMoveLine(d, copy, nameOf);
-  const canEscalate = d.canEscalate && Boolean(client.escalateTicket);
-  const canReturn = d.canReturn && Boolean(client.returnTicket);
-  const canMove = allowMove && Boolean(client.moveTicket) && others.length > 0;
   const returnsToName = d.returnsTo ? nameOf(d.returnsTo) : null;
-  if (!moved && !canEscalate && !canReturn && !returnsToName && !canMove) return null;
+  const { escalateTicket, returnTicket, moveTicket } = client;
+  // Each way out, only where the desk allows it and the client can do it.
+  const escalate: Move | null =
+    d.canEscalate && escalateTicket
+      ? { kind: "escalate", title: fill(copy.desks.moveTitle, { name: appDesk }), body: fill(copy.desks.escalateBody, { name: appDesk }), targets: [], send: (why) => escalateTicket(ticketId, why) }
+      : null;
+  const giveBack: Move | null =
+    d.canReturn && returnsToName && returnTicket
+      ? { kind: "return", title: fill(copy.desks.moveTitle, { name: returnsToName }), body: fill(copy.desks.returnBody, { name: returnsToName }), targets: [], send: (why) => returnTicket(ticketId, why) }
+      : null;
+  const move: Move | null =
+    allowMove && others.length > 0 && moveTicket
+      ? { kind: "move", title: copy.desks.moveTo, body: copy.desks.moveBody, targets: others, send: (why, target) => moveTicket(ticketId, target, why) }
+      : null;
+  if (!moved && !escalate && !giveBack && !returnsToName && !move) return null;
   const leave = onMoved ?? (() => block.options.navigate(block.paths.agent));
   return (
     <Stack gap="xs" testID={testID}>
@@ -102,88 +130,59 @@ export function AgentDeskControls({ ticketId, onMoved, allowMove = true, testID 
         </NativeText>
       ) : null}
       <Inline gap="sm" wrap>
-        {canEscalate ? (
-          <NativeButton size="sm" variant="outline" onPress={() => setOpen("escalate")} testID={`${testID}-escalate`}>
+        {escalate ? (
+          <NativeButton size="sm" variant="outline" onPress={() => setOpen(escalate)} testID={`${testID}-escalate`}>
             {fill(copy.desks.escalate, { name: appDesk })}
           </NativeButton>
         ) : null}
-        {canReturn && returnsToName ? (
-          <NativeButton size="sm" variant="outline" onPress={() => setOpen("return")} testID={`${testID}-return`}>
+        {giveBack && returnsToName ? (
+          <NativeButton size="sm" variant="outline" onPress={() => setOpen(giveBack)} testID={`${testID}-return`}>
             {fill(copy.desks.returnTo, { name: returnsToName })}
           </NativeButton>
         ) : null}
-        {canMove ? (
-          <NativeButton size="sm" variant="ghost" onPress={() => setOpen("move")} testID={`${testID}-move`}>
+        {move ? (
+          <NativeButton size="sm" variant="ghost" onPress={() => setOpen(move)} testID={`${testID}-move`}>
             {copy.desks.moveTo}
           </NativeButton>
         ) : null}
       </Inline>
-      {open ? (
-        <MoveDialog
-          ticketId={ticketId}
-          kind={open}
-          to={open === "escalate" ? appDesk : open === "return" ? (returnsToName ?? "") : null}
-          targets={others}
-          onClose={() => setOpen(null)}
-          onMoved={() => leave(ticketId)}
-          testID={`${testID}-dialog`}
-        />
-      ) : null}
+      {open ? <MoveDialog move={open} onClose={() => setOpen(null)} onMoved={() => leave(ticketId)} testID={`${testID}-dialog`} /> : null}
     </Stack>
   );
 }
 
-function MoveDialog({
-  ticketId,
-  kind,
-  to,
-  targets,
-  onClose,
-  onMoved,
-  testID,
-}: {
-  ticketId: string;
-  kind: MoveKind;
-  /** The desk's name, for escalate and return. */
-  to: string | null;
-  targets: readonly DeskTarget[];
-  onClose: () => void;
-  onMoved: () => void;
-  testID: string;
-}) {
-  const { client, copy } = useSupport();
+function MoveDialog({ move, onClose, onMoved, testID }: { move: Move; onClose: () => void; onMoved: () => void; testID: string }) {
+  const block = useSupport();
+  const { copy } = block;
   const queryClient = useQueryClient();
+  const targets = move.targets;
   const [reason, setReason] = useState("");
   const [target, setTarget] = useState(targets[0]?.tenantId ?? "");
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
-  const name = to ?? deskTitle(targets.find((t) => t.tenantId === target), copy);
   const send = async () => {
     setBusy(true);
     setFailed(false);
     try {
-      const why = reason.trim() || null;
-      if (kind === "escalate") await client.escalateTicket!(ticketId, why);
-      else if (kind === "return") await client.returnTicket!(ticketId, why);
-      else await client.moveTicket!(ticketId, target, why);
+      await move.send(reason.trim() || null, target);
       void queryClient.invalidateQueries({ queryKey: [SUPPORT_QUERY_ROOT] });
       onClose();
       onMoved();
-    } catch {
+    } catch (error) {
       setFailed(true);
+      block.report(error, "desks");
     } finally {
       setBusy(false);
     }
   };
-  const body = kind === "escalate" ? copy.desks.escalateBody : kind === "return" ? copy.desks.returnBody : copy.desks.moveBody;
   return (
     <NativeDialog open onOpenChange={(next) => (next ? undefined : onClose())}>
       <NativeDialogContent testID={testID}>
         <NativeDialogHeader>
-          <NativeDialogTitle>{kind === "move" ? copy.desks.moveTo : fill(copy.desks.moveTitle, { name })}</NativeDialogTitle>
-          <NativeDialogDescription>{fill(body, { name })}</NativeDialogDescription>
+          <NativeDialogTitle>{move.title}</NativeDialogTitle>
+          <NativeDialogDescription>{move.body}</NativeDialogDescription>
         </NativeDialogHeader>
-        {kind === "move" ? (
+        {move.kind === "move" ? (
           <Stack gap="xs">
             <NativeText preset="label">{copy.desks.moveTarget}</NativeText>
             <NativeChipGroup mode="single" value={target} onChange={(v) => setTarget(String(v))} testID={`${testID}-target`}>
@@ -201,7 +200,7 @@ function MoveDialog({
           <NativeButton variant="outline" onPress={onClose} disabled={busy} testID={`${testID}-cancel`}>
             {copy.desks.cancel}
           </NativeButton>
-          <NativeButton onPress={() => void send()} loading={busy} disabled={busy || (kind === "move" && !target)} testID={`${testID}-send`}>
+          <NativeButton onPress={() => void send()} loading={busy} disabled={busy || (move.kind === "move" && !target)} testID={`${testID}-send`}>
             {copy.desks.send}
           </NativeButton>
         </NativeDialogFooter>
@@ -232,15 +231,18 @@ export function AgentDeskSwitch({ tenantId, onChanged, testID = "genesis-support
   const [failed, setFailed] = useState(false);
   const desk = desks.data?.find((d) => d.tenantId === tenantId && !d.isDefault);
   if (!on || !desk) return null;
+  const setDesk = client.setDesk;
   const change = async (enabled: boolean) => {
+    if (!setDesk) return;
     setBusy(true);
     setFailed(false);
     try {
-      await client.setDesk!(tenantId, enabled);
+      await setDesk(tenantId, enabled);
       await queryClient.invalidateQueries({ queryKey: supportAgentKeys.all });
       onChanged?.(enabled);
-    } catch {
+    } catch (error) {
       setFailed(true);
+      block.report(error, "desks");
     } finally {
       setBusy(false);
     }
@@ -251,7 +253,7 @@ export function AgentDeskSwitch({ tenantId, onChanged, testID = "genesis-support
         label={copy.desks.switchLabel}
         description={desk.enabled ? copy.desks.switchOn : copy.desks.switchOff}
         checked={desk.enabled}
-        disabled={busy || !desk.manage || !client.setDesk}
+        disabled={busy || !desk.manage || !setDesk}
         onCheckedChange={(next) => void change(next)}
         testID={`${testID}-toggle`}
         rowTestID={`${testID}-row`}
