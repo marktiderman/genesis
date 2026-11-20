@@ -47,6 +47,16 @@ $$;
 revoke execute on function private.genesis_support_requester_labels(uuid[]) from public, anon, authenticated;
 ```
 
+🔴 **`SupportClientOptions.settings` is removed** (`createSupportClient`). The server now decides
+whether threads run on chat: with `support.chatThreads` off, `support_chat_conversation` (0034)
+answers none, so every client stays on support_replies whatever `chat` it was given. Drop `settings`
+from the options, apply 0034, and set `support.chatThreads` in genesis.config.json or the settings
+screen where you passed it before (and write the manifest on deploy).
+
+🟡 **`client.staffList` returns `SupportStaffMember[]`**: `id` (the login) is null for an agent row
+whose person has no login, listed so it can be seen and removed by its `personId`. Check for null
+before using `id` as a login.
+
 🟡 **Agents by person record** (support 0034). `ticket_agents` holds the tenant's person record, so
 `support_set_agent` takes a person id, and a null tenant is now the app's own desk there too (it was
 refused). `support_agents_list` returns `user_id`, `person_id`, `full_name`, `role` and `removable`;

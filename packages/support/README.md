@@ -1012,7 +1012,13 @@ help desk something its admins run, and lets a ticket move between desks:
   tenant admins and admin agents; the app's staff for the app's own desk, which a null tenant means
   everywhere) is one rule: `client.canManageAgents` answers exactly as `client.setAgent` decides.
   `ticket_agents` holds the tenant's person record: `client.staffList` gives each agent's login
-  (`id`), `personId`, `role` and `removable`, and `setAgent` takes the `personId`.
+  (`id`), `personId`, `role` and `removable`, and `setAgent` takes the `personId`. Every agent row is
+  listed: one whose person has no login comes with a null `id` (`SupportStaffMember`), so it can
+  still be seen and removed; it is never offered as an assignee. Which records a login is in a
+  tenant is one rule (`private.genesis_support_people_in`): its records through
+  `private.genesis_viewer_people`, or, at the app's own desk with no record there, the login itself.
+  So under zero config a login added at the app's own desk is an agent there, and an admin row
+  there manages its agents.
 - **Finding people.** A desk's agents (who also link an email ticket to its person) search people in
   its tenant by name or email with `client.searchPeople` (`support_people_search`, at most 25): each
   match has its `personId` (for `setAgent`) and `userId` (for `linkRequester`). Define
@@ -1020,7 +1026,10 @@ help desk something its admins run, and lets a ticket move between desks:
   login uuid)` to search all your people with your own indexes; without it, the search covers the
   people support knows at that desk (its agents, the staff and tenant admin lists, the 500 most
   recent requesters). Only the tenant's people (through `private.genesis_viewer_people`), never an
-  anonymous login.
+  anonymous login. **Deliberately open to every agent of the desk**, not only those who manage its
+  agents, since linking an email ticket needs it: any agent can read the names and emails of the
+  tenant's people who match a query, 25 per query. An app that wants fewer people to see that list
+  narrows who is an agent, or answers `private.genesis_people_search` with less.
 - **On the web** (`/web-chat`). `<SupportAgentsAdmin client tenantId />` lists a desk's agents with
   their roles for whoever manages them, adds someone found with `searchPeople` as an agent or an
   admin, and removes a removable one; anyone else is told it isn't theirs. The requester card offers
