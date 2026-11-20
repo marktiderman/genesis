@@ -4,7 +4,7 @@
  * always sent, never refused: the last resort empties the app sections and the
  * logs rather than drop the report.
  */
-import { DIAGNOSTICS_DEFAULTS, jsonByteLength, type DiagnosticReport } from "./report";
+import { DIAGNOSTICS_DEFAULTS, jsonByteLength, storedByteLength, type DiagnosticReport } from "./report";
 
 export interface CapLimits {
   maxBytes?: number;
@@ -161,7 +161,8 @@ export function capReport(input: DiagnosticReport, limits: CapLimits = {}): Diag
 
   // The whole dump. Oldest first: console, then breadcrumbs, then errors, in halves; then the
   // largest app sections; then the flags. Never refused.
-  const size = () => jsonByteLength({ ...report, truncated: [...truncated] });
+  // Measured as the database stores it (jsonb text), so a dump at the cap is never refused.
+  const size = () => storedByteLength({ ...report, truncated: [...truncated] });
   const halve = (path: "console" | "breadcrumbs" | "errors") => {
     const items = report.logs[path] as unknown[];
     if (!items.length) return false;

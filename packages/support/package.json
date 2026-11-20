@@ -1,6 +1,6 @@
 {
   "name": "@marktiderman/genesis-support",
-  "version": "0.10.0",
+  "version": "0.11.1",
   "private": false,
   "type": "module",
   "sideEffects": false,
@@ -103,7 +103,8 @@
     "react-native": ">=0.76.0",
     "react-native-safe-area-context": ">=4.0.0",
     "zod": "^3.25.0 || ^4.0.0",
-    "@marktiderman/genesis-core": "workspace:>=2.13.0 <3.0.0"
+    "@marktiderman/genesis-core": "workspace:>=2.13.0 <3.0.0",
+    "lucide-react": "^1.0.0"
   },
   "peerDependenciesMeta": {
     "@marktiderman/genesis-ai": {
@@ -147,6 +148,9 @@
     },
     "@marktiderman/genesis-core": {
       "optional": true
+    },
+    "lucide-react": {
+      "optional": true
     }
   },
   "devDependencies": {
@@ -162,6 +166,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "happy-dom": "^21.0.4",
+    "lucide-react": "^1.0.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "tsup": "^8.3.0",
@@ -260,6 +265,10 @@
           {
             "file": "migrations/0026_genesis_support_diagnostics_access.sql",
             "test": "migrations/tests/0026_genesis_support_diagnostics_access.test.sql"
+          },
+          {
+            "file": "migrations/0028_genesis_support_diagnostics_fixes.sql",
+            "test": "migrations/tests/0028_genesis_support_diagnostics_fixes.test.sql"
           }
         ],
         "functions": [
@@ -364,7 +373,7 @@
             "Feedback is sent only when the person taps Send, and a screenshot only when they include it, after they can hide parts of it.",
             "Reports, screenshots and replies are visible only to the person, the app's support staff and anyone the app names to handle the report, and go when the person deletes them or their account.",
             "Feedback includes the app version, the screen's path (never its query string; private-looking segments are replaced), the platform and basic device facts.",
-            "With diagnostics on, a context dump goes with each piece of feedback, on a shake and when the person taps Send diagnostics: the build and update, device facts (model, OS, locale, time zone, screen, network type, permission states), the recent screens as paths, flags in effect, and recent errors, breadcrumbs and console lines. The person is an id and a role only; emails, phone numbers, tokens, keys and query strings are removed on the device and again on the server. A dump never carries a screenshot. Dumps are capped at 256 KB, limited to 10 an hour, readable only by the person and the app's support staff, and deleted after 90 days."
+            "With diagnostics on, a context dump goes with each piece of feedback, on a shake and when the person taps Send diagnostics: the build and update, device facts (model, OS, locale, time zone, screen, network type, permission states), the recent screens as paths, flags in effect, and recent errors, breadcrumbs and console lines. The person is an id and a role only; emails, phone numbers, tokens, keys and query strings are removed on the device and again on the server. A dump never carries a screenshot. Dumps are capped at 256 KB, limited to 10 an hour and deleted after 90 days by default (the app's diagnostics settings can change these), and are readable only by the person and the app's support staff."
           ]
         }
       },
@@ -656,6 +665,7 @@
             "requires": [
               "support.inbox"
             ],
+            "planned": true,
             "summary": "Planned (nothing reads it yet): The messenger (Home, Messages, Help) on web and phone."
           },
           "agentDesk": {
@@ -668,6 +678,7 @@
             "requires": [
               "support.inbox"
             ],
+            "planned": true,
             "summary": "Planned (nothing reads it yet): The staff side: the agent inbox on the web and the phone."
           },
           "helpCenter": {
@@ -678,6 +689,7 @@
               "min": false
             },
             "scope": "tenant",
+            "planned": true,
             "summary": "Planned (nothing reads it yet): Help articles in collections, searchable, with an admin editor."
           },
           "aiAnswers": {
@@ -694,6 +706,7 @@
             "feature": "support-helpdesk-ai",
             "needs": "secret:ANTHROPIC_API_KEY",
             "store": "edge",
+            "planned": true,
             "summary": "Planned (nothing reads it yet): AI answers that cite the help center and hand off to a person (needs the person's consent and a provider key)."
           },
           "ideas": {
@@ -713,6 +726,7 @@
               "min": false
             },
             "feature": "support-chat",
+            "planned": true,
             "summary": "Planned (nothing reads it yet): A report's thread runs on genesis-chat: live, with files, an assignee and internal notes."
           },
           "email": {
@@ -725,6 +739,7 @@
             "feature": "support-email",
             "needs": "secret:RESEND_API_KEY",
             "store": "edge",
+            "planned": true,
             "summary": "Planned (nothing reads it yet): Email is a ticket channel: inbound mail opens or continues a ticket, replies go out threaded."
           },
           "replyByEmail": {
@@ -739,6 +754,7 @@
             ],
             "needs": "secret:SUPPORT_REPLY_SIGNING_SECRET",
             "store": "server-env",
+            "planned": true,
             "summary": "Planned (nothing reads it yet): Reply by email: a signed Reply-To per recipient, quoted text stripped, auto-replies ignored."
           },
           "desks": {
@@ -751,6 +767,7 @@
             "requires": [
               "support.agentDesk"
             ],
+            "planned": true,
             "summary": "Planned (nothing reads it yet): Desks: each tenant's own help desk, switched on per tenant, with escalate, return and move between desks."
           },
           "staffAlerts": {
@@ -760,6 +777,7 @@
               "standard": true,
               "min": false
             },
+            "planned": true,
             "summary": "Planned (nothing reads it yet): Tell staff about a new report (the app's notifiers: email, push, webhook)."
           },
           "githubRepo": {
@@ -767,6 +785,7 @@
             "default": null,
             "needs": "secret:GITHUB_TOKEN",
             "store": "edge",
+            "planned": true,
             "summary": "Planned (nothing reads it yet): owner/name: open a GitHub issue for each new report. Not set, no issues."
           },
           "githubIssueDetail": {
@@ -776,6 +795,7 @@
               "summary",
               "full"
             ],
+            "planned": true,
             "summary": "Planned (nothing reads it yet): What an issue carries: the summary only, or (private repositories only) the dump's detail too."
           },
           "webhookUrl": {
@@ -783,16 +803,19 @@
             "default": null,
             "needs": "secret:SUPPORT_WEBHOOK_SIGNING_SECRET",
             "store": "edge",
+            "planned": true,
             "summary": "Planned (nothing reads it yet): A signed POST for each new report. Not set, no webhook."
           },
           "contactEmail": {
             "type": "string",
             "default": null,
+            "planned": true,
             "summary": "Planned (nothing reads it yet): Where people can write when the app can't help (shown in Help and on error screens)."
           },
           "contactUrl": {
             "type": "string",
             "default": null,
+            "planned": true,
             "summary": "Planned (nothing reads it yet): A support page, shown beside the contact email."
           },
           "agentListScan": {
@@ -853,8 +876,8 @@
             "integer": true,
             "default": 262144,
             "min": 65536,
-            "max": 1048576,
-            "summary": "A dump's size, JSON before gzip; over it the oldest entries go first."
+            "max": 524288,
+            "summary": "A dump's size, JSON before gzip; over it the oldest entries go first. At most 512 KB, the most the database stores."
           },
           "perHour": {
             "type": "number",

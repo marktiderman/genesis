@@ -390,7 +390,7 @@ const settingSetup: Fix = {
     const lines = keys.map((key) => {
       const def = r?.catalogue.keys[key];
       const by = `set settings.${key} in ${CONFIG_FILE}${def?.secret ? ` and its secret ${def.secret.name} (genesis fix secrets.set, once the doctor reports it missing)` : ""}`;
-      return def?.setup ? `- ${key}: genesis setup --step ${def.setup} (or ${by})` : `- ${key}: ${by}`;
+      return def?.setup ? `- ${key}: ${by} (its guided step, ${def.setup}, comes with genesis setup, which isn't available yet)` : `- ${key}: ${by}`;
     });
     return {
       summary: keys.length ? `${plural(keys.length, "feature")} to set up: each stays off until it is` : "nothing to set up",

@@ -1,5 +1,37 @@
 # @marktiderman/genesis
 
+## 0.11.3
+
+### Patch Changes
+
+- Updated dependencies [06d4caa]
+- Updated dependencies [5c9653e]
+  - @marktiderman/genesis-config@0.11.1
+
+## 0.11.2
+
+### Patch Changes
+
+- 4b7af48: Depends on `@marktiderman/genesis-config` (the new name of `@marktiderman/genesis-features`)
+  instead of genesis-features. No change to what the package exports. `@marktiderman/genesis/features`
+  now re-exports genesis-config.
+- Updated dependencies [818908b]
+- Updated dependencies [4b7af48]
+- Updated dependencies [4b7af48]
+- Updated dependencies [f4e39b1]
+- Updated dependencies [6c40ccc]
+- Updated dependencies [95bab84]
+- Updated dependencies [71cb0e2]
+- Updated dependencies [33b8d83]
+- Updated dependencies [5d6b970]
+- Updated dependencies [5d6b970]
+- Updated dependencies [6ae0571]
+  - @marktiderman/genesis-config@0.11.0
+  - @marktiderman/genesis-native@0.12.0
+  - @marktiderman/genesis-core@2.19.0
+  - @marktiderman/genesis-ui@3.2.0
+  - @marktiderman/genesis-forms@0.11.1
+
 ## 0.11.1
 
 ### Patch Changes

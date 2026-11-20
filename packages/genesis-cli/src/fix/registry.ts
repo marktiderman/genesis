@@ -37,9 +37,15 @@ export interface LoadedFixes {
   problems: Array<{ package: string; message: string }>;
 }
 
-/** The fixes every installed and local package declares (`genesis.doctor.fixes`). A broken module is reported, never thrown. */
-export async function loadFixes(packages: readonly DeclaringPackage[]): Promise<LoadedFixes> {
+/**
+ * The fixes every installed and local package declares (`genesis.doctor.fixes`). A broken module is
+ * reported, never thrown. A fix whose id (after namespacing) is already taken, by a built-in in
+ * `taken` or an earlier fix, is reported and left out: one id names one fix, so a finding can't
+ * open another fix's plan.
+ */
+export async function loadFixes(packages: readonly DeclaringPackage[], taken: ReadonlySet<string> = new Set()): Promise<LoadedFixes> {
   const fixes: Fix[] = [];
+  const ids = new Set(taken);
   const problems: LoadedFixes["problems"] = [];
   for (const p of packages) {
     const file = p.declaration?.fixes;
@@ -61,7 +67,13 @@ export async function loadFixes(packages: readonly DeclaringPackage[]): Promise<
       }
       const fix = one as Fix;
       const ns = (id: string) => (id.startsWith(`${p.namespace}/`) ? id : `${p.namespace}/${id}`);
-      fixes.push({ ...fix, id: ns(fix.id), rules: fix.rules.map(ns) });
+      const id = ns(fix.id);
+      if (ids.has(id)) {
+        problems.push({ package: p.name, message: `declares the fix ${id}, an id already taken; left out (give it its own id)` });
+        continue;
+      }
+      ids.add(id);
+      fixes.push({ ...fix, id, rules: fix.rules.map(ns) });
     }
   }
   return { fixes, problems };
@@ -69,6 +81,7 @@ export async function loadFixes(packages: readonly DeclaringPackage[]): Promise<
 
 /** Every fix: the built-ins, then the packages'. */
 export async function allFixes(packages: readonly DeclaringPackage[], deps: BuiltinDeps = {}): Promise<LoadedFixes> {
-  const loaded = await loadFixes(packages);
-  return { fixes: [...builtinFixes(deps), ...loaded.fixes], problems: loaded.problems };
+  const builtins = builtinFixes(deps);
+  const loaded = await loadFixes(packages, new Set(builtins.map((f) => f.id)));
+  return { fixes: [...builtins, ...loaded.fixes], problems: loaded.problems };
 }

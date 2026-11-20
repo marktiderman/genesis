@@ -167,7 +167,7 @@ export function initNative(options: InitNativeOptions): InitNativeResult {
   if (!SLUG.test(slug)) throw new Error(`"${slug}" isn't an app slug: lowercase letters, digits and -, starting with a letter.`);
   const bundleId = options.bundleId ?? `com.example.${slug.replace(/-/g, "")}`;
   const scheme = options.scheme ?? slug;
-  const display = options.displayName ?? slug.split("-").map((w) => w[0]!.toUpperCase() + w.slice(1)).join(" ");
+  const display = options.displayName ?? slug.split("-").filter(Boolean).map((w) => w[0]!.toUpperCase() + w.slice(1)).join(" ");
   if (!BUNDLE.test(bundleId)) throw new Error(`"${bundleId}" isn't a bundle id like com.example.app.`);
   if (!SCHEME.test(scheme)) throw new Error(`"${scheme}" isn't a URL scheme.`);
   if (/["\\\n]/.test(display)) throw new Error("The display name can't contain quotes, backslashes or new lines.");

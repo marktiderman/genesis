@@ -15,7 +15,9 @@
  * which go into a vault held for that one apply and reach a tool on stdin only (the S2 setters).
  * No answer, event or log line holds a value: each is redacted against the vault before it leaves.
  */
+import { createHash } from "node:crypto";
 import * as fs from "node:fs";
+import { parse as parseYaml } from "yaml";
 import { existsSync } from "node:fs";
 import * as path from "node:path";
 import {
@@ -84,6 +86,9 @@ export const CLI_CAPABILITIES: SettingsCapabilities = Object.freeze({
   proposeChanges: false,
 }) as SettingsCapabilities;
 
+/** The most of a planned file `plan.file` returns at once. */
+export const PLAN_FILE_PAGE = 64_000;
+
 const STALE_MESSAGE = "The app changed after this plan was made, so nothing was written. Plan it again and read the new plan before applying.";
 
 class HostError extends Error {
@@ -97,7 +102,7 @@ class HostError extends Error {
 }
 
 /** The ops the wizard adds to the protocol's. */
-export const WIZARD_OPS = ["wizard.info", "settings.plan", "init.plan", "install.plan", "step.list", "step.start", "step.submit", "step.verify", "agent.start", "agent.approve", "agent.discard"] as const;
+export const WIZARD_OPS = ["wizard.info", "settings.plan", "init.plan", "install.plan", "plan.file", "step.list", "step.start", "step.submit", "step.verify", "agent.start", "agent.approve", "agent.discard"] as const;
 
 /** How a plan was made, so `apply` can make the same one again. Never written to disk, never holds a secret. */
 type Recipe = { kind: "install" } | { kind: "step"; id: string; fields: unknown } | { kind: "fix"; fixId: string; subject?: string } | { kind: "set"; key: string; value: unknown; locked?: boolean } | { kind: "clear"; key: string } | { kind: "init"; choices: InitChoices };
@@ -159,10 +164,52 @@ function readPackageJson(dir: string): Record<string, unknown> | null {
   }
 }
 
-/** The workspace root an app sits in: the nearest folder above it with pnpm-workspace.yaml or a package.json `workspaces`. */
-function workspaceRoot(root: string): string | null {
-  for (let dir = path.dirname(path.resolve(root)); ; dir = path.dirname(dir)) {
-    if (fs.existsSync(path.join(dir, "pnpm-workspace.yaml")) || readPackageJson(dir)?.workspaces !== undefined) return dir;
+/** A workspace's package globs: pnpm-workspace.yaml `packages`, else package.json `workspaces` (a list, or `{ packages }`). */
+function workspaceGlobs(dir: string): string[] | null {
+  const yamlFile = path.join(dir, "pnpm-workspace.yaml");
+  if (fs.existsSync(yamlFile)) {
+    try {
+      const parsed = parseYaml(fs.readFileSync(yamlFile, "utf8")) as { packages?: unknown } | null;
+      return Array.isArray(parsed?.packages) ? parsed.packages.filter((p): p is string => typeof p === "string") : [];
+    } catch {
+      return [];
+    }
+  }
+  const ws = readPackageJson(dir)?.workspaces;
+  if (Array.isArray(ws)) return ws.filter((p): p is string => typeof p === "string");
+  if (ws && typeof ws === "object" && Array.isArray((ws as { packages?: unknown }).packages)) return ((ws as { packages: unknown[] }).packages).filter((p): p is string => typeof p === "string");
+  return null;
+}
+
+/** A workspace glob (`apps/*`, `packages/**`) as a regex over a POSIX relative path. */
+function globRegex(glob: string): RegExp {
+  const parts = glob.replace(/^\.\//, "").replace(/\/+$/, "").split("/");
+  let body = "";
+  parts.forEach((part, i) => {
+    const last = i === parts.length - 1;
+    if (part === "**") body += last ? ".*" : "(?:[^/]+/)*";
+    else body += part.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, "[^/]*").replace(/\?/g, "[^/]") + (last ? "" : "/");
+  });
+  return new RegExp(`^${body}$`);
+}
+
+/** Whether a workspace's globs take in this app (an excluded `!glob` wins). */
+function isMember(globs: readonly string[], rel: string): boolean {
+  const included = globs.filter((g) => !g.startsWith("!")).some((g) => globRegex(g).test(rel));
+  const excluded = globs.filter((g) => g.startsWith("!")).some((g) => globRegex(g.slice(1)).test(rel));
+  return included && !excluded;
+}
+
+/**
+ * The workspace root an app is a member of: the nearest folder above it with pnpm-workspace.yaml
+ * or a package.json `workspaces` whose globs take the app in. A folder that declares a workspace
+ * the app isn't part of stops the search: the app stands on its own.
+ */
+export function workspaceRoot(root: string): string | null {
+  const app = path.resolve(root);
+  for (let dir = path.dirname(app); ; dir = path.dirname(dir)) {
+    const globs = workspaceGlobs(dir);
+    if (globs) return isMember(globs, path.relative(dir, app).split(path.sep).join("/")) ? dir : null;
     if (path.dirname(dir) === dir) return null;
   }
 }
@@ -192,6 +239,31 @@ export function appPackageManager(root: string): PackageManager {
   return fs.existsSync(path.join(root, "pnpm-workspace.yaml")) ? "pnpm" : "npm";
 }
 
+const LOCKFILES = ["pnpm-lock.yaml", "bun.lock", "bun.lockb", "yarn.lock", "package-lock.json", "npm-shrinkwrap.json"];
+
+/**
+ * What an install reads, as one sha256: the app's package.json, and the lockfiles and workspace
+ * settings in the app and its workspace root. It is in the approved plan, so a manifest changed
+ * between the plan and the apply makes the plan stale instead of installing what nobody read.
+ */
+export function installInputsDigest(root: string): string {
+  const ws = workspaceRoot(root);
+  const files = [path.join(root, "package.json"), path.join(root, "pnpm-workspace.yaml"), ...LOCKFILES.map((f) => path.join(root, f))];
+  if (ws) files.push(path.join(ws, "package.json"), path.join(ws, "pnpm-workspace.yaml"), ...LOCKFILES.map((f) => path.join(ws, f)));
+  const hash = createHash("sha256");
+  for (const file of files) {
+    hash.update(`${path.relative(root, file)}\0`);
+    hash.update(fs.existsSync(file) ? fs.readFileSync(file) : "(none)");
+    hash.update("\0");
+  }
+  return hash.digest("hex");
+}
+
+/** The app's packages are installed: node_modules, or Yarn Plug'n'Play's .pnp.cjs. */
+export function packagesInstalled(root: string): boolean {
+  return fs.existsSync(path.join(root, "node_modules")) || fs.existsSync(path.join(root, ".pnp.cjs"));
+}
+
 /** Install the app's packages with its package manager (R5: the CLI does the installs). */
 export function installFix(): Fix {
   return {
@@ -201,9 +273,13 @@ export function installFix(): Fix {
     title: "install the app's packages",
     plan(ctx): FixPlanDraft {
       const [tool, ...args] = installCommand(appPackageManager(ctx.root));
-      return { summary: `runs ${[tool, ...args].join(" ")} in the app`, commands: [{ tool: tool!, args, why: "installs what package.json lists, so the doctor and the app can run" }] };
+      const digest = installInputsDigest(ctx.root).slice(0, 16);
+      return {
+        summary: `runs ${[tool, ...args].join(" ")} in the app`,
+        commands: [{ tool: tool!, args, why: `installs what package.json and the lockfile list (as read for this plan: ${digest}), so the doctor and the app can run` }],
+      };
     },
-    verify: (ctx) => (fs.existsSync(path.join(ctx.root, "node_modules")) ? { ok: true } : { ok: false, message: "node_modules wasn't made" }),
+    verify: (ctx) => (packagesInstalled(ctx.root) ? { ok: true } : { ok: false, message: "the install made neither node_modules nor .pnp.cjs" }),
   };
 }
 
@@ -241,6 +317,8 @@ export function createWizardHost(options: WizardHostOptions): WizardHost {
   const publish = options.publish ?? (() => {});
   const recipes = new Map<string, Recipe>();
   const stepDeps = { network, ...(deps.run ? { run: deps.run } : {}), ...(deps.fetch ? { fetch: deps.fetch } : {}) };
+  /** The last plans made, whole, so the page can read every planned file before approving (`plan.file`). */
+  const plans = new Map<string, FixPlan>();
   /** One apply at a time: two writes never interleave. */
   let queue: Promise<unknown> = Promise.resolve();
 
@@ -268,8 +346,9 @@ export function createWizardHost(options: WizardHostOptions): WizardHost {
     }
   };
 
-  const context = (findings: Finding[], log?: (m: string) => void): FixContext => ({
-    root: mode === "init" ? initRoot : root,
+  /** An init plans and writes beneath the folder init was opened in, whatever the wizard is on now. */
+  const context = (findings: Finding[], log?: (m: string) => void, recipe?: Recipe): FixContext => ({
+    root: recipe?.kind === "init" ? initRoot : mode === "init" ? initRoot : root,
     findings,
     network,
     ...(log ? { log } : {}),
@@ -278,7 +357,7 @@ export function createWizardHost(options: WizardHostOptions): WizardHost {
 
   /** The fix a recipe stands for, and the findings it covers now. */
   const resolveRecipe = async (recipe: Recipe): Promise<{ fix: Fix; findings: Finding[] }> => {
-    if (recipe.kind === "set") return { fix: settingsProposalFix(recipe.key, recipe.value), findings: [] };
+    if (recipe.kind === "set") return { fix: settingsProposalFix(recipe.key, recipe.value, recipe.locked), findings: [] };
     if (recipe.kind === "clear") return { fix: settingsClearFix(recipe.key), findings: [] };
     if (recipe.kind === "init") return { fix: initAppFix(recipe.choices), findings: [] };
     if (recipe.kind === "install") return { fix: installFix(), findings: [] };
@@ -313,7 +392,7 @@ export function createWizardHost(options: WizardHostOptions): WizardHost {
     const { fix, findings } = await resolveRecipe(recipe);
     let plan: FixPlan;
     try {
-      plan = await planFix(fix, context(findings));
+      plan = await planFix(fix, context(findings, undefined, recipe));
     } catch (err) {
       if (err instanceof ProposalError || err instanceof InitChoiceError || err instanceof SetupStepError || err instanceof StepError) throw new HostError("bad_request", err.message);
       if (err instanceof FixError) throw new HostError("error", err.message, 500);
@@ -322,12 +401,19 @@ export function createWizardHost(options: WizardHostOptions): WizardHost {
       throw err;
     }
     recipes.set(plan.hash, recipe);
+    plans.set(plan.hash, plan);
     while (recipes.size > 200) recipes.delete(recipes.keys().next().value!);
+    while (plans.size > 20) plans.delete(plans.keys().next().value!);
     return toPlan(fix, plan);
   };
 
   const apply = async (fixId: string, expect: string, secretValues: Record<string, unknown> | undefined): Promise<SettingsApplyResult> => {
     const recipe = recipes.get(expect);
+    // An app was made since this init was planned: the wizard is on it now, so another init is stale.
+    if (recipe?.kind === "init" && mode !== "init") {
+      recipes.delete(expect);
+      throw new HostError("stale_plan", "An app was already made in this run; the wizard is on it now. Nothing was written. Run genesis init again to make another.", 409);
+    }
     if (!recipe) throw new HostError("stale_plan", "This plan is no longer current (it was applied, expired or made elsewhere). Nothing was written: plan it again and read the new plan.", 409);
     const vault = new SecretVault();
     const log = (m: string) => publish("log", { fixId, line: vault.redact(m) });
@@ -335,7 +421,7 @@ export function createWizardHost(options: WizardHostOptions): WizardHost {
       const { fix, findings } = await resolveRecipe(recipe);
       if (fix.id !== fixId) throw new HostError("bad_request", `that plan is ${fix.id}'s, not ${fixId}'s`);
       if (fix.kind === "manual") throw new HostError("unsupported", `${fix.id} is done by hand: nothing runs`, 501);
-      const ctx = context(findings, log);
+      const ctx = context(findings, log, recipe);
       // Values for the secrets the plan names, and only those.
       const fresh = await planFix(fix, ctx);
       for (const [name, value] of Object.entries(secretValues ?? {})) {
@@ -348,6 +434,7 @@ export function createWizardHost(options: WizardHostOptions): WizardHost {
       publish("apply", { fixId, state: "running" });
       const result = await applyPlan(fix, fresh, { ...ctx, secrets: vault }, { expect, keepSecrets: true, ...(deps.run ? { run: deps.run } : {}) });
       recipes.delete(expect);
+      plans.delete(expect);
       if (fix.id === INIT_FIX_ID && result.verify.ok && recipe.kind === "init") {
         root = path.join(initRoot, recipe.choices.folder ?? recipe.choices.slug);
         mode = "setup";
@@ -444,7 +531,7 @@ export function createWizardHost(options: WizardHostOptions): WizardHost {
     capabilities: CLI_CAPABILITIES,
     ...(mode === "init"
       ? { switches: starterSwitches(), folderEmpty: !existsSync(initRoot) || fs.readdirSync(initRoot).length === 0, ...(options.initial ? { initial: options.initial } : {}) }
-      : { steps: stepList(root), needsInstall: existsSync(path.join(root, "package.json")) && !existsSync(path.join(root, "node_modules")) }),
+      : { steps: stepList(root), needsInstall: existsSync(path.join(root, "package.json")) && !packagesInstalled(root) }),
   });
 
   const str = (body: Record<string, unknown>, key: string, max = 200): string => {
@@ -475,10 +562,12 @@ export function createWizardHost(options: WizardHostOptions): WizardHost {
       case "settings.plan": {
         if (mode === "init") throw new HostError("unsupported", "There's no app yet: make one first.", 501);
         const key = str(body, "key");
-        if (body.clear === true) return { plan: await makePlan({ kind: "clear", key }) };
+        // The layer first, for a clear as for a set: a database clear must never remove the file's value.
         if (body.layer !== undefined && body.layer !== "file") throw new HostError("unsupported", "The wizard writes the file layer; the database layer is the app's Settings screen.", 501);
+        if (body.clear === true) return { plan: await makePlan({ kind: "clear", key }) };
+        if (body.locked !== undefined && typeof body.locked !== "boolean") throw new HostError("bad_request", `"locked" must be true or false`);
         if (!("value" in body)) throw new HostError("bad_request", `"value" is required`);
-        return { plan: await makePlan({ kind: "set", key, value: body.value }) };
+        return { plan: await makePlan({ kind: "set", key, value: body.value, ...(typeof body.locked === "boolean" ? { locked: body.locked } : {}) }) };
       }
       case "plan": {
         if (mode === "init") throw new HostError("unsupported", "There's no app yet: make one first.", 501);
@@ -504,6 +593,20 @@ export function createWizardHost(options: WizardHostOptions): WizardHost {
         const run = queue.then(() => apply(fixId, expect, secrets as Record<string, unknown> | undefined));
         queue = run.catch(() => undefined);
         return { result: await run };
+      }
+      case "plan.file": {
+        // A planned file's full text, a page at a time, from the plan with that hash (what apply would write).
+        const hash = str(body, "hash", 64);
+        const file = str(body, "path", 1_000);
+        const offset = body.offset === undefined ? 0 : body.offset;
+        if (typeof offset !== "number" || !Number.isInteger(offset) || offset < 0) throw new HostError("bad_request", `"offset" must be a whole number`);
+        const plan = plans.get(hash);
+        if (!plan) throw new HostError("stale_plan", "That plan is no longer here: plan it again.", 409);
+        const planned = plan.files.find((f) => f.path === file);
+        if (!planned) throw new HostError("not_found", `the plan writes no ${file}`, 404);
+        const content = planned.content.slice(offset, offset + PLAN_FILE_PAGE);
+        const next = offset + content.length;
+        return { path: planned.path, why: planned.why, created: planned.beforeHash === null, offset, total: planned.content.length, content, ...(next < planned.content.length ? { next } : {}) };
       }
       case "install.plan":
         if (mode === "init") throw new HostError("unsupported", "There's no app yet: make one first.", 501);

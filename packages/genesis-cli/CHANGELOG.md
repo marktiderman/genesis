@@ -1,5 +1,190 @@
 # @marktiderman/genesis-cli
 
+## 1.30.1
+
+### Patch Changes
+
+- 5c9653e: Release 1 review fixes.
+
+  - The Expo config plugin loads again under `require` (genesis-config's `/settings` is CommonJS-loadable);
+    a test `require()`s the built plugin under `tsx/cjs`.
+  - The doctor treats a `planned` setting as dormant: no `secret-missing` and no `setup-incomplete` for
+    it, so a zero-config app on `max` passes `genesis doctor --strict`.
+  - `genesis fix <rule> --expect <hash>` reads every plan first and refuses, writing nothing, when the
+    target has more than one fix to apply. A package fix whose id is already taken is reported and left out.
+  - The genesis-features → genesis-config codemod keeps a production dependency a production one
+    when genesis-config is only a dev dependency, never doubles a key genesis-config already has in
+    `overrides`, `resolutions` or a pnpm-workspace.yaml catalog (flow mappings too), points an npm
+    override of a direct dependency at it (`$@marktiderman/genesis-config`, no `EOVERRIDE`), and
+    `genesis upgrade` runs it only for a release that has genesis-config (an older `--to` never gets
+    npm's latest).
+  - `genesis-behind` honours `NPM_CONFIG_REGISTRY` in any case, and still checks advisories when
+    `npm view` fails.
+  - Under `--base` with `doctor.ratchet: true`, a new `invalid-setting` keeps its level (the base pass
+    no longer reads the head's genesis.config.json).
+  - Findings and `genesis fix settings.setup` no longer point to `genesis setup --step`, which isn't
+    available yet: they name the setting and secret to set.
+  - The fix engine removes a partial new file or staging file a failed write leaves, and `verify`
+    counts a finding it ran for that now names another fix as not fixed. `genesis mcp` keeps a
+    result valid JSON after redaction and refuses an approval when a planned file changed since the plan.
+  - An invalid `release.environment` (or `release.easEnvironment`) is reported ("not checked: … isn't an
+    environment name") instead of being dropped, which made gh read the repository's secrets instead.
+
+- 06d4caa: #848 review findings.
+
+  - genesis-cli: `genesis fix --expect` writes nothing when one of the target's fixes can't be
+    planned. The fix engine removes only a file its own `wx` open created (an `EMFILE` open never
+    deletes another process's file). `genesis settings sync` passes `--yes` to `supabase db query`
+    after its own confirmation, so supabase's prompt can't default to No. `genesis-behind` keeps
+    advisories read while npm failed (through the hour of backoff, at their level), apart from a
+    cached release distance, which stays a note. The rename codemod dedupes pnpm-workspace.yaml
+    entries only within one mapping, so a named catalog keeps its own renamed entry.
+  - genesis-config: `SettingsClientMessages.badAnswer` is optional (a complete messages object from
+    before still typechecks). On the Settings screen a refreshed snapshot supersedes an upgrade
+    check or an audit page still in flight (its busy state cleared). `resolveSettings` never throws on
+    a value neither JSON nor `String` can write.
+  - genesis-support: the dump checks `diagnostics.enabled` again after collecting (a feedback goes
+    alone when it turned off meanwhile); a dump made earlier is capped with the limits in force when
+    sent, and no dump is capped above what the table stores; a shake's dump left unclaimed follows
+    support's own `diagnostics.enabled`, and leaving the feedback screen while its report is being
+    sent no longer sends the dump twice; the HTTP handler shares one settings read between requests.
+
+- 7481a71: `genesis settings sync` writes the app manifest (genesis-supabase's `genesis_app_manifest`: the Genesis packages and versions, the preset, genesis.config.json `settings` and the settings catalogue) through the linked Supabase project (`supabase db query --linked`, or `--project-ref`), after naming the project and asking (`--yes` skips the question and is required without a terminal; an invalid `preset` is refused, not stored as `max`; on Windows the SQL goes through a temp file); `--print` gives the SQL for a pipeline that runs it with psql, and `--app-id` names the app when its package.json name isn't an id. Run it on every deploy, after the migrations: until the manifest is written, `set_genesis_setting` refuses every value, and nothing wrote it. The settings block's setup step and the genesis-supabase README say so; a server can still write it at start with `writeAppManifest`.
+- Updated dependencies [06d4caa]
+- Updated dependencies [5c9653e]
+  - @marktiderman/genesis-config@0.11.1
+
+## 1.30.0
+
+### Minor Changes
+
+- 2c6c8b3: `genesis fix [rule|fixId] [--plan] [--yes] [--expect <hash>] [--json]`: every doctor finding now
+  declares its fix (`fix` in `--json`, `→ genesis fix <id>` in the report; `manual:<rule>` when
+  nothing runs). A plan lists the files it writes with the hash of the text each expects, the
+  commands it runs (allowlisted tools as argument lists, never a shell; secrets by name, on stdin),
+  and what is left to you, with a hash of the whole plan. Applying plans again and refuses a stale
+  plan or a file that changed, never writes through a symbolic link or outside the app, rolls every
+  file back when a later step fails, then re-runs the doctor for the fix's rules. The first fixes wrap the
+  scope-names, genesis-features and eslint-config codemods, `genesis agents` (and `--hooks`),
+  `genesis introspect`, `genesis migrate` (and `--forward`), `genesis upgrade --pr` (never merged) and
+  removing undeclared settings. Packages add fixes for their own rules with `genesis.doctor.fixes`.
+
+  New doctor rules: `migration-pending` and `migration-drift` (what `genesis migrate --dry-run`
+  reports), and `genesis-behind`: the installed `@marktiderman/genesis` release against npm's latest
+  (info a patch behind; a warning one or two minors behind that never fails `--strict`; a
+  strict-failing warning further, a major or 90 days behind; in CI never failing) and a published
+  advisory on an installed Genesis package (an error when high or critical, else a warning; npm's
+  bulk advisory endpoint, `gh api /advisories` as a fallback or for a private registry), cached in
+  `node_modules/.cache/genesis/behind.json` for a day (a failure for an hour), with a deadline
+  of about 20 seconds. Only the Genesis packages' names and versions are sent.
+
+  **`genesis doctor` now reaches the network** in the CLI. To keep it offline: `--offline`,
+  `npm_config_offline=true`, or `"network": false` in the doctor settings; `"rules": {
+"genesis-behind": "off" }` skips the rule. The Vite plugin never reaches it, and offline the rule
+  reports what its cache last knew as one info finding. `doctor.network` is a new setting.
+
+  `genesis-config-unknown-key` now adds "or upgrade @marktiderman/genesis-cli if this is a newer key".
+
+  `invalid-setting`'s "no installed package declares this setting" now says "not certain" when the
+  catalogue couldn't be read completely (a Genesis package not installed, a declaration that can't be
+  read), and `settings.remove-unknown` then removes nothing; it never removes a locked key.
+
+- 818908b: `genesis doctor` checks setup and secrets, and `genesis fix` sets secrets safely.
+
+  - New rules from the `settings` check: `setting-requires` (a key on while one it requires is off,
+    moved out of `invalid-setting`), `setup-incomplete` (a feature that needs an outside service and
+    isn't set up yet: info, naming `genesis setup --step <id>`) and `secret-missing` (a secret an on
+    key or a deployed Edge Function needs isn't in its store). Secrets are checked by name only,
+    through the developer's own signed-in `supabase`, `gh` and `eas`, and only when the network is
+    on; a store that can't be checked is an info.
+  - `genesis doctor --database` also checks the settings' database layer through the linked project
+    (read anyway when the app is linked).
+  - New guided fixes: `settings.reset`, `settings.requires`, `settings.setup` and `secrets.set`
+    (replacing the manual `settings.review`). `secrets.set` asks for each value at the terminal
+    without echoing it (one line; a multi-line paste or a control character is refused), holds it
+    in memory only, sends it on stdin (never in argv) to `supabase secrets set --env-file
+/dev/stdin` or `gh secret set`, and redacts it from everything printed. It prints the
+    `eas env:create` command for you to run, and the dashboard step for a Vault secret (SQL
+    carrying the value would be kept in `pg_stat_statements`).
+  - genesis-config: a settings key may name the guided `setup` step that configures it
+    (`setup: "github.issues"`).
+
+- 95bab84: genesis.config.json takes `preset` (`max`, `standard` or `min`) and `settings` (`"namespace.key":
+value`, or `{ "value": …, "locked": true }`), checked strictly when the config is read. The doctor's
+  new `invalid-setting` rule checks them against the settings the installed Genesis packages declare
+  (package.json `genesis.settings`): an unknown key or a value that doesn't fit is an error, a key on
+  while one it requires is off is a warning, and a package declaration that can't be used is an error. It reads every Genesis package
+  installed, transitive ones too. `genesis-config-unknown-key` (warn) flags a top-level key in
+  genesis.config.json that nothing reads, naming the one probably meant. An app that already used a
+  top-level `preset` or `settings` key for something else isn't stopped: a value that isn't the new
+  shape is ignored and reported by `invalid-setting`, with how to rename it.
+- 4b7af48: The `genesis-features-renamed-genesis-config` codemod (`genesis codemod
+genesis-features-renamed-genesis-config`; `genesis upgrade` runs it when genesis-features crosses
+  0.10.0 and whenever a package.json still lists genesis-features) moves an app from
+  `@marktiderman/genesis-features` to `@marktiderman/genesis-config`: every mention as a module name in
+  its scripts, the dependency in each package.json (with the release's genesis-config range, or dropped
+  when genesis-config is already listed), `overrides` / `pnpm.overrides` / `resolutions` keys,
+  `tsconfig*.json` paths and `pnpm-workspace.yaml`; it prints what still mentions the old name as a
+  checklist. Codemods now get the release's pinned versions (`wanted`) and can say they still apply
+  (`applies`), and the install note covers a workspace package's package.json.
+
+  The doctor's `deprecated-import` rule now flags a whole deprecated package as well as tagged
+  exports: any import of a package Genesis renamed (genesis-features), or of one whose package.json
+  carries npm's `deprecated` notice, is reported once per import with the advice to run the codemod.
+
+- 823ff46: `genesis mcp`: the doctor, the settings and fix plans as MCP tools over stdio, for an agent
+  session in the app. Read-only tools: `doctor_run`, `doctor_explain`, `settings_catalogue`,
+  `settings_get` (values with their sources; secrets by name as set, missing or unknown, never a
+  value), `upgrades_status`, `catalog_search`, `fix_plan` and `settings_propose` (each a plan and its
+  hash; nothing written). The one write tool, `fix_apply {fixId, hash}`, refuses a stale hash and
+  applies only after the person accepts an MCP elicitation that shows the plan; a client without
+  elicitation gets `genesis fix <id> --expect <hash>` to run instead, and a fix that needs a secret
+  returns `genesis fix <id>` for the person (`genesis setup --step <id>` and a `setup_steps` tool
+  arrive with the setup wizard). Every result and error is bounded in size and scrubbed of
+  secret-looking values, and while it serves no child process can write into the protocol. `genesis agents --mcp` writes the server's `.mcp.json`
+  entry (`npx --no genesis mcp`), keeping every other server.
+
+  New dependency: `@modelcontextprotocol/sdk` (1.32.2, pinned), the protocol's reference SDK.
+
+- 9f2a5dd: The native release lane is a versioned Genesis part, customised in `genesis.config.json` `release` instead of edited copies (docs/NATIVE-RELEASE.md).
+
+  - **New lane.** `templates/ci/native-release.yml` (GitHub Actions, every push to main that changes the app) publishes an over-the-air update per platform when a finished production build has the commit's runtime version and no EAS release run is open, and otherwise starts `deploy-production.yml` for that commit and platform. `deploy-production.yml` is now dispatch-only (its `ios`/`android` inputs are choices compared as text, since `eas workflow:run -F` sends strings): it builds and submits, or waits for a build in progress and publishes on it; EAS's concurrency keeps runs in commit order. Both paths publish with the same steps: the build profile's `env` for the platform (`<platform>.env` included), the runtime version checked before and after `eas update`. A platform whose channel already carries the commit (or a later one) is skipped, out loud. `EXPO_TOKEN` is never in the job's env. Each platform of each commit takes one path, and a failure on one platform doesn't hold the other back. New owned files: `.eas/scripts/native-release.mjs` (the lane's tested decisions), and `fingerprint.config.js` and `.fingerprintignore` (`templates/expo/`), which hash config plugins by their files and genesis-native's Swift by its path inside the package, so a Genesis release alone no longer forces a store build in a hoisted install.
+  - **`release` block**: `platforms`, `environment` (the GitHub environment with the secrets), `paths` (folders outside the app the bundle reads, one list for native-release and pr-preview), `sentry`, `pushHook` (a script run after each release, with the release facts in `RELEASE_*`), `profile`, `channel`, `easEnvironment`, `packageManager`, and `runtimeVersion` (`"fingerprint"`, or a command that prints each platform's runtime version, matched against builds by runtime version). Validated; an app that sets nothing gets the default lane.
+  - **`genesis add template <set|template…>`** (and `genesis add release`): writes `release`, `eas`, `expo`, `maestro`, `ci`, `database` or `vercel` templates into an existing app and records them in the lock. A file the app already has gets `<file>.genesis-next`, never overwritten unless `--replace`; `native-release.yml` is held back (exit 1) while another workflow still releases on push to main (an EAS workflow, or a GitHub workflow running `eas update`, `eas build` or `eas workflow:run`), unless `--replace-rival` (for a change that removes it too). Run again after changing `release` to apply it.
+  - **`genesis upgrade`**: renders owned templates with `release`; with `appFolder`, refreshes and merges `native-release.yml` in the repository's `.github/workflows` (other workflows there are still only named); writes the release's commit into the owned workflows' Genesis pins (`@<commit> # @marktiderman/genesis@<version>`), recorded as the lock's `pin`, and moves a shared workflow's pin in place only when its template didn't change; doesn't switch an app on the old push-triggered lane (its `deploy-production.yml` is held, and the summary says how to adopt the new lane with `genesis add release`), so existing apps keep releasing as before; lists template sets the app doesn't have.
+  - **`genesis init --template native`** writes the release lane and pins the CI callers to the release; it no longer copies the web-only Vercel templates. `templateTarget` reads a template's `# Copy to` line anywhere in its opening comment, so `templates/vercel/` lands at `vercel.json` and `scripts/vercel-ignore-build.sh`.
+  - **Doctor:** `fingerprint-plugin-files` (native pack, warn) when an app on the fingerprint runtime version loads genesis-native's config plugin without a fingerprint config that hashes plugins by their files; `release-lane-twice` (error) when native-release.yml sits beside another workflow that releases. The lane supports one native app per repository.
+  - genesis-cli now depends on `yaml`, to read workflow triggers as YAML.
+  - The release lane's EAS workflow templates moved to `templates/release/` (`deploy-production.yml`, `pr-preview.yml`), so a previous genesis-cli refreshing an app from this release leaves those files as they are; this CLI maps the lock over.
+
+### Patch Changes
+
+- f4e39b1: Docs: two settings linked to one feature switch it off when either is false; the settings results
+  have no prototype, so read them directly or with `Object.prototype.hasOwnProperty.call` (their own
+  `hasOwnProperty` throws); a direct database login counts as server code for Genesis settings; and
+  `GENESIS_CONFIG_KEYS` is kept by hand, so a new top-level genesis.config.json key is added there.
+- bd2d2e2: `genesis mcp`: the approval a person sees is now exactly what applies. A plan whose message would
+  hold a secret's value or a secret-shaped literal, or whose changed lines pass 12,000 characters,
+  isn't offered for approval (`fix_apply` says why and gives the command); invisible and
+  direction-changing characters show as their codes; an unterminated private-key header no longer
+  redacts the rest of a text. Results are scrubbed before they're clipped, a file's own hashes aren't
+  returned, `*PASSPHRASE*`, `*_PWD` and `*SALT*` count as secret names, stderr is scrubbed, `fork`
+  and `spawn(cmd, null, …)` are guarded too, and `genesis agents --mcp` keeps `.mcp.json`'s mode.
+- 7d5b8d7: `genesis fix` secrets, second review: the hidden prompt refuses (and throws away) the rest of a
+  multi-line paste however slowly it arrives, input already waiting when it starts, and zero-width,
+  bidi and separator characters; it backspaces over whole characters, accepts a CRLF Enter split
+  across two reads, puts the terminal back on an external SIGINT, and stdin is drained before exit.
+  Redaction catches every JSON-escaped form of a value (Go's `&`-style escapes, either case),
+  and `--json` keeps a Date as its ISO string. genesis-supabase's README adds the jobs secret to Vault
+  in the dashboard rather than with SQL.
+- Updated dependencies [818908b]
+- Updated dependencies [4b7af48]
+- Updated dependencies [f4e39b1]
+- Updated dependencies [6c40ccc]
+- Updated dependencies [95bab84]
+- Updated dependencies [71cb0e2]
+  - @marktiderman/genesis-config@0.11.0
+
 ## 1.29.0
 
 ### Minor Changes

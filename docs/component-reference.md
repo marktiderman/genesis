@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 845 components · 4861 other exports · 4092 standalone types across 215 entry points in 31 packages.
+**Totals:** 858 components · 5244 other exports · 4464 standalone types across 227 entry points in 32 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -1962,13 +1962,14 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`splitTabBarItems`](../packages/core/src/navigation.ts) | function | Beta | A phone bottom tab bar's split: up to `max` items fit; beyond that, the first `max - 1` show and the rest go under "More" in the last slot. Pure, so the web `TabBar`, AppShell's phone bottom nav and genesis-ui-native's `NativeTabBar` all... |
 | [`TAB_BAR_MAX`](../packages/core/src/navigation.ts) | const | Beta | Most slots a phone bottom tab bar shows before the rest go under "More". |
 
-### Types (5)
+### Types (6)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
 export type { IsPathActiveOptions };
 export type { NavigationNode };
+export type { NavigationSubNav };
 export type { NavigationZone };
 export type { ResolvedNavigation };
 export type { ResolvedNavigationZones };
@@ -3321,13 +3322,13 @@ export type { NativeHostScript };
 
 ---
 
-## @marktiderman/genesis-features
+## @marktiderman/genesis-config
 
-A typed feature registry: `defineFeatures` and `defineFlags` in one `features.ts` that running code imports, plus the AGENTS.md and JSON generators. `genesis features build|check` keeps the generated output in step. See packages/features/README.md.
+Genesis configuration (formerly genesis-features): a typed feature registry, `defineFeatures` and `defineFlags` in one `features.ts` that running code imports, plus the AGENTS.md and JSON generators. `genesis features build|check` keeps the generated output in step. See packages/features/README.md.
 
 **Barrel:** [`packages/features/src/index.ts`](../packages/features/src/index.ts)
 
-### Other exports (58)
+### Other exports (79)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -3335,17 +3336,21 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | --- | --- | --- | --- |
 | [`AGENTS_BLOCK_END`](../packages/features/src/generate.ts) | const | — | Marks the end of the generated block in AGENTS.md. |
 | [`AGENTS_BLOCK_START`](../packages/features/src/generate.ts) | const | — | Marks the start of the generated block in AGENTS.md. |
+| [`APP_LOCK_LAYERS`](../packages/features/src/settings.ts) | const | Beta | The layers whose locks outrank the gate context: the app's own. @stability Beta |
 | [`BlockError`](../packages/features/src/blocks.ts) | class | Beta | Thrown by {@link defineBlock} and {@link resolveBlocks}; lists every problem at once. @stability Beta |
 | [`BrokenBlockError`](../packages/features/src/generate.ts) | class | — | Thrown when a generated block's markers are broken: one is missing, repeated or out of order. |
+| [`catalogueManifest`](../packages/features/src/settings.ts) | function | Beta | The catalogue as the database's manifest stores it, so `set_genesis_setting` can check a value (type, bounds, runtime only) without the packages' code. Written on deploy with the manifest. |
 | [`CONTENT_PACK_FIELD_TARGETS`](../packages/features/src/content-packs-legacy.ts) | const | Beta | Where a custom field lives, and the block that owns that table. |
 | [`contentPackBlocks`](../packages/features/src/content-packs.ts) | function | Beta | The block ids a pack's sections need, whatever it declares. @stability Beta |
 | [`ContentPackError`](../packages/features/src/content-packs.ts) | class | Beta | Thrown by {@link defineContentPack}; lists every problem at once. @stability Beta |
 | [`contentPackProblems`](../packages/features/src/content-packs.ts) | function | Beta | Every problem with a pack: its shape, each section's items (through the validator its block registers, when given) and, given the installed blocks, any block it fills that isn't installed. An empty list means it can be installed. The sec... |
 | [`cycleProblems`](../packages/features/src/graph.ts) | function | Beta | Cycles through `requires`, each reported once, from where the depth-first search found it. @stability Beta |
+| [`DEFAULT_PRESET`](../packages/features/src/settings.ts) | const | Beta | Genesis's default preset: zero config is everything on. @stability Beta |
 | [`defineBlock`](../packages/features/src/blocks.ts) | function | Beta | Declare a block. Validates it (id, requirements, platforms, contribution keys and duplicate ids within the block) and returns it frozen, so a typo fails where the block is written rather than where it is used: |
 | [`defineContentPack`](../packages/features/src/content-packs.ts) | function | Beta | Declare a content pack: returns it unchanged, typed, after checking its shape (throws a {@link ContentPackError} listing every problem). Give the blocks it fills, or validators by block id, to check each section's items too. Whether its ... |
 | [`defineFeatures`](../packages/features/src/model.ts) | function | Beta | The one source of truth for a repo's features. Validates every entry and returns the same object, so running code reads it directly and the key type becomes the repo's `FeatureId`: |
 | [`defineFlags`](../packages/features/src/model.ts) | function | Beta | Flags, each tied to a feature of `features`. An unknown `feature` is a type error, and at runtime: - every flag needs an `owner`, a `kind`, a `default` and its `scopes`; - `release` and `experiment` flags need an `expires` date, `ops` fl... |
+| [`defineSettings`](../packages/features/src/settings.ts) | function | Beta | A package's settings, declared next to its `defineBlock`. Keys are `namespace.key`. |
 | [`dependencyOrder`](../packages/features/src/graph.ts) | function | — | The ids in dependency order (what a node requires comes first), ties kept in the given order. Requirements outside `nodes` are ignored. Assumes no cycles ({@link requiresProblems} reports them). |
 | [`expiredFlags`](../packages/features/src/model.ts) | function | Beta | Flags whose `expires` date is before `today` (`YYYY-MM-DD`, default today in UTC): remove the code path, then the flag. |
 | [`FEATURE_HORIZONS`](../packages/features/src/model.ts) | const | Beta | When a planned or building feature is due, without dates: the roadmap's three columns. |
@@ -3366,6 +3371,8 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`flagsForFeature`](../packages/features/src/model.ts) | function | Beta | The names of the flags that belong to a feature, in declaration order. |
 | [`fromSnapshot`](../packages/features/src/gate.ts) | function | Beta | One feature's answer from a snapshot. An id missing from it is off, as an unknown feature. @stability Beta |
 | [`gateSnapshot`](../packages/features/src/gate.ts) | function | Beta | _(no summary)_ |
+| [`isLockedEntry`](../packages/features/src/settings.ts) | function | Beta | `{ value, locked }` exactly, with a boolean lock: the file's way to lock a value. @stability Beta |
+| [`isPresetDefaults`](../packages/features/src/settings.ts) | function | — | A per-preset default: an object with exactly `max`, `standard` and `min`. |
 | [`isSnapshotStale`](../packages/features/src/gate.ts) | function | Beta | Whether a snapshot is older than `maxAgeMs`: refresh it then. A client (an extension worker, a tab left open) keeps a snapshot, replaces it when it is stale, after sign-in or a tenant switch, and right after a refusal. |
 | [`MARKETING_BLOCK_END`](../packages/features/src/generate.ts) | const | — | Marks the end of the generated marketing block. |
 | [`MARKETING_BLOCK_START`](../packages/features/src/generate.ts) | const | — | Marks the start of the generated marketing block (e.g. in README.md). |
@@ -3383,6 +3390,20 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`requirementProblem`](../packages/features/src/graph.ts) | function | Beta | One requirement's problem (itself, or an unknown id), or undefined when it is fine. @stability Beta |
 | [`requiresProblems`](../packages/features/src/graph.ts) | function | Beta | Self-requirements, unknown requirements and cycles through `requires`, as problem strings (`a.requires: …`). Each cycle is reported once, from where the depth-first search found it: `a.requires: a cycle: a → b → a`. |
 | [`resolveBlocks`](../packages/features/src/blocks.ts) | function | Beta | The blocks that are on, checked and merged: |
+| [`resolveSettings`](../packages/features/src/settings.ts) | function | Beta | Resolve every key in the catalogue through the layers. Later layers win unless an earlier one locked the value. Problems never throw: a bad entry is reported and skipped, so one typo in a table never takes the app down. |
+| [`SCOPE_LAYERS`](../packages/features/src/settings.ts) | const | Beta | The scope rule, in one place: which override layers may set a key of each scope. The app's own layers (file, database) set every key; the tenant layer only keys declared `scope: "tenant"`, the person layer only keys declared `scope: "per... |
+| [`SETTING_KEY`](../packages/features/src/settings.ts) | const | — | A full key: `namespace.key`, or `namespace.group.key` is not allowed (one level). |
+| [`SETTING_TYPES`](../packages/features/src/settings.ts) | const | Beta | _(no summary)_ |
+| [`SETTINGS_LAYERS`](../packages/features/src/settings.ts) | const | Beta | The layers, low to high. @stability Beta |
+| [`SETTINGS_PRESETS`](../packages/features/src/settings.ts) | const | Beta | The presets: `max` (the default) turns everything on. @stability Beta |
+| [`settingsCatalogue`](../packages/features/src/settings.ts) | function | Beta | One catalogue from every package's declarations (the way features.ts builds the registry). Throws a {@link SettingsError} when two declarations share a namespace or a key, or a key requires one no declaration has. |
+| [`SettingsError`](../packages/features/src/settings.ts) | class | Beta | A declaration or catalogue that can't be used. @stability Beta |
+| [`settingsFromManifest`](../packages/features/src/settings.ts) | function | Beta | A package's settings as its package.json declares them (`genesis.settings`: `{ namespace, keys }`), for tools that read packages without running them (the CLI's doctor). The same checks as {@link defineSettings}. |
+| [`settingsGateContext`](../packages/features/src/settings.ts) | function | Beta | What the resolved settings say to the gate: the features switched off (a boolean key linked with `feature` that resolved to false), flag values (a key linked with `flag`, when set), and which of those are locked. |
+| [`settingsLayerFromFile`](../packages/features/src/settings.ts) | function | Beta | genesis.config.json's `settings`, as a layer. Each key holds its value, or `{ "value": …, "locked": true }` to lock it: an object with exactly `value` and `locked` (a boolean) is that wrapper; any other object is the value itself. |
+| [`settingsLayerFromRows`](../packages/features/src/settings.ts) | function | Beta | Rows (`{ key, value, locked }`, as the database returns them) as a layer. @stability Beta |
+| [`settingsSecrets`](../packages/features/src/settings.ts) | function | Beta | The secrets the catalogue's keys need, by name and store, never by value. @stability Beta |
+| [`settingValueProblem`](../packages/features/src/settings.ts) | function | — | Why a value doesn't fit a key's type and bounds, or null when it does. `null` ("not set") fits only a key whose default is `null` (`nullable`). |
 | [`SHIPPED_STATUSES`](../packages/features/src/gate.ts) | const | Beta | The statuses in which a feature is on. A deprecated feature still works until it is retired. @stability Beta |
 | [`statusOn`](../packages/features/src/status.ts) | function | Beta | A feature's status on one platform, or undefined when it isn't there. Zod-free so the gate can use it on phones and in browsers. |
 | [`toAgentsMarkdown`](../packages/features/src/generate.ts) | function | Beta | The marker-delimited block for AGENTS.md: deliberately short. It points agents at `find` and the skill and gives counts, never the whole list, so AGENTS.md stays small however many features there are. |
@@ -3391,8 +3412,9 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`toOpenFeatureManifest`](../packages/features/src/generate.ts) | function | Beta | The flags as an OpenFeature CLI flag manifest (`flags.json`), so `openfeature generate` can make typed accessors from the same registry. |
 | [`toRecords`](../packages/features/src/model.ts) | function | Beta | Features as records, in declaration order, each with its flags attached. |
 | [`toSkillMarkdown`](../packages/features/src/generate.ts) | function | Beta | The agent skill for working with the registry, written to `.claude/skills/features/SKILL.md` by `genesis features build`. `outputs` names what the build writes in this repo, so the skill never claims a file the repo turned off. |
+| [`withSettings`](../packages/features/src/settings.ts) | function | Beta | A gate context with the resolved settings folded in. The gate itself doesn't change: |
 
-### Types (60)
+### Types (81)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -3453,15 +3475,36 @@ export type { OverlayMarker };
 export type { PackageGroup };
 export type { PackageLayer };
 export type { PackageMeta };
+export type { PresetDefaults };
 export type { RequiresNode };
 export type { RequiresProblemsOptions };
 export type { ResolveBlocksOptions };
 export type { ResolvedBlocks };
+export type { ResolvedSettings };
+export type { SecretStore };
+export type { SettingApplies };
+export type { SettingDef };
+export type { SettingEntry };
+export type { SettingManifestEntry };
+export type { SettingScope };
+export type { SettingSource };
+export type { SettingSpec };
+export type { SettingType };
+export type { SettingValueOf };
+export type { SettingsCatalogue };
+export type { SettingsDeclaration };
+export type { SettingsGate };
+export type { SettingsLayer };
+export type { SettingsLayerValues };
+export type { SettingsLayers };
+export type { SettingsPreset };
+export type { SettingsProblem };
+export type { SettingsProblemKind };
 ```
 
 ---
 
-## @marktiderman/genesis-features/blocks
+## @marktiderman/genesis-config/blocks
 
 **Barrel:** [`packages/features/src/blocks.ts`](../packages/features/src/blocks.ts)
 
@@ -3496,7 +3539,7 @@ export type { ResolvedBlocks };
 
 ---
 
-## @marktiderman/genesis-features/gate
+## @marktiderman/genesis-config/gate
 
 **Barrel:** [`packages/features/src/gate.ts`](../packages/features/src/gate.ts)
 
@@ -3532,7 +3575,7 @@ export type { IdSet };
 
 ---
 
-## @marktiderman/genesis-features/gate/react
+## @marktiderman/genesis-config/gate/react
 
 **Barrel:** [`packages/features/src/gate-react.tsx`](../packages/features/src/gate-react.tsx)
 
@@ -3553,7 +3596,168 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 
 ---
 
-## @marktiderman/genesis-features/node
+## @marktiderman/genesis-config/settings
+
+**Barrel:** [`packages/features/src/settings.ts`](../packages/features/src/settings.ts)
+
+### Other exports (22)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`APP_LOCK_LAYERS`](../packages/features/src/settings.ts) | const | Beta | The layers whose locks outrank the gate context: the app's own. @stability Beta |
+| [`catalogueManifest`](../packages/features/src/settings.ts) | function | Beta | The catalogue as the database's manifest stores it, so `set_genesis_setting` can check a value (type, bounds, runtime only) without the packages' code. Written on deploy with the manifest. |
+| [`DEFAULT_PRESET`](../packages/features/src/settings.ts) | const | Beta | Genesis's default preset: zero config is everything on. @stability Beta |
+| [`defineSettings`](../packages/features/src/settings.ts) | function | Beta | A package's settings, declared next to its `defineBlock`. Keys are `namespace.key`. |
+| [`isLockedEntry`](../packages/features/src/settings.ts) | function | Beta | `{ value, locked }` exactly, with a boolean lock: the file's way to lock a value. @stability Beta |
+| [`isPresetDefaults`](../packages/features/src/settings.ts) | function | — | A per-preset default: an object with exactly `max`, `standard` and `min`. |
+| [`resolveSettings`](../packages/features/src/settings.ts) | function | Beta | Resolve every key in the catalogue through the layers. Later layers win unless an earlier one locked the value. Problems never throw: a bad entry is reported and skipped, so one typo in a table never takes the app down. |
+| [`SCOPE_LAYERS`](../packages/features/src/settings.ts) | const | Beta | The scope rule, in one place: which override layers may set a key of each scope. The app's own layers (file, database) set every key; the tenant layer only keys declared `scope: "tenant"`, the person layer only keys declared `scope: "per... |
+| [`SETTING_KEY`](../packages/features/src/settings.ts) | const | — | A full key: `namespace.key`, or `namespace.group.key` is not allowed (one level). |
+| [`SETTING_TYPES`](../packages/features/src/settings.ts) | const | Beta | _(no summary)_ |
+| [`SETTINGS_LAYERS`](../packages/features/src/settings.ts) | const | Beta | The layers, low to high. @stability Beta |
+| [`SETTINGS_PRESETS`](../packages/features/src/settings.ts) | const | Beta | The presets: `max` (the default) turns everything on. @stability Beta |
+| [`settingsCatalogue`](../packages/features/src/settings.ts) | function | Beta | One catalogue from every package's declarations (the way features.ts builds the registry). Throws a {@link SettingsError} when two declarations share a namespace or a key, or a key requires one no declaration has. |
+| [`SettingsError`](../packages/features/src/settings.ts) | class | Beta | A declaration or catalogue that can't be used. @stability Beta |
+| [`settingsFromManifest`](../packages/features/src/settings.ts) | function | Beta | A package's settings as its package.json declares them (`genesis.settings`: `{ namespace, keys }`), for tools that read packages without running them (the CLI's doctor). The same checks as {@link defineSettings}. |
+| [`settingsGateContext`](../packages/features/src/settings.ts) | function | Beta | What the resolved settings say to the gate: the features switched off (a boolean key linked with `feature` that resolved to false), flag values (a key linked with `flag`, when set), and which of those are locked. |
+| [`settingsLayerFromFile`](../packages/features/src/settings.ts) | function | Beta | genesis.config.json's `settings`, as a layer. Each key holds its value, or `{ "value": …, "locked": true }` to lock it: an object with exactly `value` and `locked` (a boolean) is that wrapper; any other object is the value itself. |
+| [`settingsLayerFromRows`](../packages/features/src/settings.ts) | function | Beta | Rows (`{ key, value, locked }`, as the database returns them) as a layer. @stability Beta |
+| [`settingsSecrets`](../packages/features/src/settings.ts) | function | Beta | The secrets the catalogue's keys need, by name and store, never by value. @stability Beta |
+| [`settingValueProblem`](../packages/features/src/settings.ts) | function | — | Why a value doesn't fit a key's type and bounds, or null when it does. `null` ("not set") fits only a key whose default is `null` (`nullable`). |
+| [`SETUP_STEP_ID`](../packages/features/src/settings.ts) | const | — | A setup step id: `github.issues`, `ai.key-budget`. |
+| [`withSettings`](../packages/features/src/settings.ts) | function | Beta | A gate context with the resolved settings folded in. The gate itself doesn't change: |
+
+### Types (21)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { PresetDefaults };
+export type { ResolvedSettings };
+export type { SecretStore };
+export type { SettingApplies };
+export type { SettingDef };
+export type { SettingEntry };
+export type { SettingManifestEntry };
+export type { SettingScope };
+export type { SettingSource };
+export type { SettingSpec };
+export type { SettingType };
+export type { SettingValueOf };
+export type { SettingsCatalogue };
+export type { SettingsDeclaration };
+export type { SettingsGate };
+export type { SettingsLayer };
+export type { SettingsLayerValues };
+export type { SettingsLayers };
+export type { SettingsPreset };
+export type { SettingsProblem };
+export type { SettingsProblemKind };
+```
+
+---
+
+## @marktiderman/genesis-config/settings/react
+
+**Barrel:** [`packages/features/src/settings-react.tsx`](../packages/features/src/settings-react.tsx)
+
+### Components (1)
+
+| Name | Props | Stability | Summary |
+| --- | --- | --- | --- |
+| [`GenesisSettings`](../packages/features/src/settings-react.tsx) | `GenesisSettingsProps` | Beta | The Settings screen. See the module header. |
+
+### Other exports (1)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`GENESIS_SETTINGS_COPY`](../packages/features/src/settings-react.tsx) | const | Beta | The default copy. @stability Beta |
+
+### Types (2)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { GenesisSettingsCopy };
+export type { GenesisSettingsTab };
+```
+
+---
+
+## @marktiderman/genesis-config/settings-protocol
+
+**Barrel:** [`packages/features/src/settings-protocol.ts`](../packages/features/src/settings-protocol.ts)
+
+### Other exports (15)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`APP_HOST_CAPABILITIES`](../packages/features/src/settings-protocol.ts) | const | Beta | The most the app host may do: the database layer, and Vault secrets when the host reports it can. Pass it as the screen's `capabilities` prop: it is a mask, so Vault is offered only when the host itself says `setSecrets: { vault: true }`. |
+| [`auditValuesVisible`](../packages/features/src/settings-protocol.ts) | function | Beta | Whether an audit entry's `before` and `after` may be drawn: only for a `set` or `clear` of a catalogue key that needs no secret and isn't itself a secret's name. Everything else (a fix, an upgrade, a secret, a subject the catalogue doesn... |
+| [`canSetSecret`](../packages/features/src/settings-protocol.ts) | function | Beta | Whether the host can write a secret in this store. @stability Beta |
+| [`createSettingsClient`](../packages/features/src/settings-protocol.ts) | function | Beta | A {@link SettingsClient} over `fetch`. JSON only: a response that isn't JSON is an error, so a login page or a proxy's HTML never reaches the screen as data. |
+| [`intersectCapabilities`](../packages/features/src/settings-protocol.ts) | function | Beta | Both sets at once: a write is allowed only when both allow it. The screen narrows the host's capabilities with its own `capabilities` prop this way; a prop can never widen what the host reports. A key the prop leaves out doesn't narrow; ... |
+| [`NO_SETTINGS_CAPABILITIES`](../packages/features/src/settings-protocol.ts) | const | Beta | Nothing: a read-only screen. @stability Beta |
+| [`preferredWriteLayer`](../packages/features/src/settings-protocol.ts) | function | Beta | The layer the screen writes by default: the database when the value already comes from there (and the screen can write it), else the file layer when it can (reviewed like code), else the database. Otherwise, writing the database from the... |
+| [`safeHref`](../packages/features/src/settings-protocol.ts) | function | Beta | A link the screen may follow: `http:`, `https:` or a path on the same site (`/…`, `./…`, `../…`, `#…`, `?…`), never `javascript:`, `data:` or a protocol-relative `//host`. Undefined otherwise. |
+| [`secretNames`](../packages/features/src/settings-protocol.ts) | function | Beta | Every secret name the app knows: the state's secrets and each catalogue key's `needs`. @stability Beta |
+| [`settingFileSnippet`](../packages/features/src/settings-protocol.ts) | function | Beta | The genesis.config.json fragment for one key: its value, or `{ value, locked: true }`. What "change in repo" shows, and what `propose` commits. |
+| [`SETTINGS_CLIENT_MESSAGES`](../packages/features/src/settings-protocol.ts) | const | Beta | _(no summary)_ |
+| [`SETTINGS_OPS`](../packages/features/src/settings-protocol.ts) | const | Beta | The ops, for a host's router. @stability Beta |
+| [`SETTINGS_PROTOCOL_VERSION`](../packages/features/src/settings-protocol.ts) | const | Beta | Bumped on any incompatible change; a host rejects other versions with `version`. @stability Beta |
+| [`SettingsProtocolError`](../packages/features/src/settings-protocol.ts) | class | Beta | A failed request, as the client throws it. @stability Beta |
+| [`settingWritability`](../packages/features/src/settings-protocol.ts) | function | Beta | The write rules, in one place, for the screen and a host's handler alike: |
+
+### Types (34)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { SecretState };
+export type { SecretStoreCapabilities };
+export type { SettingWritability };
+export type { SettingWriteRefusal };
+export type { SettingsAppFacts };
+export type { SettingsApplyResult };
+export type { SettingsAuditAction };
+export type { SettingsAuditEntry };
+export type { SettingsAuditPage };
+export type { SettingsCapabilities };
+export type { SettingsClient };
+export type { SettingsClientMessages };
+export type { SettingsClientOptions };
+export type { SettingsErrorCode };
+export type { SettingsErrorResponse };
+export type { SettingsFinding };
+export type { SettingsFindingLevel };
+export type { SettingsFixKind };
+export type { SettingsFixRef };
+export type { SettingsHost };
+export type { SettingsOp };
+export type { SettingsPackageUpgrade };
+export type { SettingsPlan };
+export type { SettingsPlanCommand };
+export type { SettingsPlanFile };
+export type { SettingsProposal };
+export type { SettingsRequest };
+export type { SettingsResponses };
+export type { SettingsSecretStatus };
+export type { SettingsState };
+export type { SettingsUpgrades };
+export type { SettingsWireRequest };
+export type { SettingsWriteLayer };
+export type { UpgradeDistance };
+```
+
+---
+
+## @marktiderman/genesis-config/node
 
 `buildFeatureOutputs` and `checkFeatureOutputs`, the file-system half that `genesis features build|check` runs.
 
@@ -3586,11 +3790,447 @@ export type { PlannedButShipped };
 
 ---
 
-## @marktiderman/genesis-features/react
+## @marktiderman/genesis-config/react
 
 `FeatureList`: the registry as a genesis-ui ResourcePage — a table, a board grouped by status, filters by app and audience. genesis-ui, React and lucide-react are optional peers, loaded only by this subpath.
 
 **Barrel:** [`packages/features/src/react.tsx`](../packages/features/src/react.tsx)
+
+### Components (1)
+
+| Name | Props | Stability | Summary |
+| --- | --- | --- | --- |
+| [`FeatureList`](../packages/features/src/react.tsx) | `FeatureListProps` | Beta | A repo's features as a page. The default (`variant="admin"`) is a ResourcePage over static data: a table, and in its grid view a board grouped by status, with status chips, filters by app, audience and visibility, search, and a detail pa... |
+
+### Other exports (1)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`FeatureStatusBadge`](../packages/features/src/react.tsx) | function | Beta | A feature's status as a badge. `StatusBadge` covers the active states and deprecated; idea, planned and retired have no status there, so they use the secondary and outline `Badge`. |
+
+---
+
+## @marktiderman/genesis-features
+
+Deprecated: renamed to @marktiderman/genesis-config. A thin re-export of genesis-config with the same subpaths, kept for two minor versions. Part of the Genesis framework.
+
+**Barrel:** [`packages/features-alias/src/index.ts`](../packages/features-alias/src/index.ts)
+
+### Other exports (79)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`AGENTS_BLOCK_END`](../packages/features/src/generate.ts) | const | — | Marks the end of the generated block in AGENTS.md. |
+| [`AGENTS_BLOCK_START`](../packages/features/src/generate.ts) | const | — | Marks the start of the generated block in AGENTS.md. |
+| [`APP_LOCK_LAYERS`](../packages/features/src/settings.ts) | const | Beta | The layers whose locks outrank the gate context: the app's own. @stability Beta |
+| [`BlockError`](../packages/features/src/blocks.ts) | class | Beta | Thrown by {@link defineBlock} and {@link resolveBlocks}; lists every problem at once. @stability Beta |
+| [`BrokenBlockError`](../packages/features/src/generate.ts) | class | — | Thrown when a generated block's markers are broken: one is missing, repeated or out of order. |
+| [`catalogueManifest`](../packages/features/src/settings.ts) | function | Beta | The catalogue as the database's manifest stores it, so `set_genesis_setting` can check a value (type, bounds, runtime only) without the packages' code. Written on deploy with the manifest. |
+| [`CONTENT_PACK_FIELD_TARGETS`](../packages/features/src/content-packs-legacy.ts) | const | Beta | Where a custom field lives, and the block that owns that table. |
+| [`contentPackBlocks`](../packages/features/src/content-packs.ts) | function | Beta | The block ids a pack's sections need, whatever it declares. @stability Beta |
+| [`ContentPackError`](../packages/features/src/content-packs.ts) | class | Beta | Thrown by {@link defineContentPack}; lists every problem at once. @stability Beta |
+| [`contentPackProblems`](../packages/features/src/content-packs.ts) | function | Beta | Every problem with a pack: its shape, each section's items (through the validator its block registers, when given) and, given the installed blocks, any block it fills that isn't installed. An empty list means it can be installed. The sec... |
+| [`cycleProblems`](../packages/features/src/graph.ts) | function | Beta | Cycles through `requires`, each reported once, from where the depth-first search found it. @stability Beta |
+| [`DEFAULT_PRESET`](../packages/features/src/settings.ts) | const | Beta | Genesis's default preset: zero config is everything on. @stability Beta |
+| [`defineBlock`](../packages/features/src/blocks.ts) | function | Beta | Declare a block. Validates it (id, requirements, platforms, contribution keys and duplicate ids within the block) and returns it frozen, so a typo fails where the block is written rather than where it is used: |
+| [`defineContentPack`](../packages/features/src/content-packs.ts) | function | Beta | Declare a content pack: returns it unchanged, typed, after checking its shape (throws a {@link ContentPackError} listing every problem). Give the blocks it fills, or validators by block id, to check each section's items too. Whether its ... |
+| [`defineFeatures`](../packages/features/src/model.ts) | function | Beta | The one source of truth for a repo's features. Validates every entry and returns the same object, so running code reads it directly and the key type becomes the repo's `FeatureId`: |
+| [`defineFlags`](../packages/features/src/model.ts) | function | Beta | Flags, each tied to a feature of `features`. An unknown `feature` is a type error, and at runtime: - every flag needs an `owner`, a `kind`, a `default` and its `scopes`; - `release` and `experiment` flags need an `expires` date, `ops` fl... |
+| [`defineSettings`](../packages/features/src/settings.ts) | function | Beta | A package's settings, declared next to its `defineBlock`. Keys are `namespace.key`. |
+| [`dependencyOrder`](../packages/features/src/graph.ts) | function | — | The ids in dependency order (what a node requires comes first), ties kept in the given order. Requirements outside `nodes` are ignored. Assumes no cycles ({@link requiresProblems} reports them). |
+| [`expiredFlags`](../packages/features/src/model.ts) | function | Beta | Flags whose `expires` date is before `today` (`YYYY-MM-DD`, default today in UTC): remove the code path, then the flag. |
+| [`FEATURE_HORIZONS`](../packages/features/src/model.ts) | const | Beta | When a planned or building feature is due, without dates: the roadmap's three columns. |
+| [`FEATURE_KINDS`](../packages/features/src/model.ts) | const | Beta | What kind of thing a feature is, from smallest to largest, so an agent looking for a building block can tell an element from a whole block: `token`, `element` (one component), `pattern` (a composed component with slots), `layout` (a page... |
+| [`FEATURE_LAYERS`](../packages/features/src/model.ts) | const | — | _(no summary)_ |
+| [`FEATURE_PLATFORMS`](../packages/features/src/platforms.ts) | const | Beta | Where a feature runs. `server` covers Node, edge functions and the database. |
+| [`FEATURE_STATUSES`](../packages/features/src/types.ts) | const | Beta | Where a feature is in its life. The order is the board's column order. `idea` is captured but not agreed: it is in the list so `find` turns it up before someone builds the same thing twice. |
+| [`featureKind`](../packages/features/src/model.ts) | function | Beta | A feature's kind: `kind`, or else the deprecated `layer` field (read until the next major). |
+| [`featureLayer`](../packages/features/src/model.ts) | function | Beta | A kind written in the deprecated `layer` field, with its old name `"primitive"` mapped to `"element"`. |
+| [`FeatureOff`](../packages/features/src/gate.ts) | class | Beta | Thrown by {@link requireFeature} when a feature is off. Servers map it to a refusal that carries the reason (HTTP 403, or 402 for `entitlement`). |
+| [`featureOn`](../packages/features/src/gate.ts) | function | Beta | Is feature `id` on for this context? Returns the first check that said no as `reason`, and for a paid feature the plan that unlocks it. An unknown id is off with reason `unknown`; it never throws for one. |
+| [`featurePackageLayer`](../packages/features/src/model.ts) | function | Beta | A feature's layer, derived from the package that owns it: the first `entry` import whose package is known, else the first `links.code` path inside a known package folder. Undefined when no package owns it (an app's own feature, a tool in... |
+| [`FeatureRegistryError`](../packages/features/src/model.ts) | class | — | Thrown by {@link defineFeatures} and {@link defineFlags}; lists every problem at once. |
+| [`featureSchema`](../packages/features/src/model.ts) | const | — | The Zod schema for one {@link FeatureDef}, field by field. Cross-field rules live in {@link featureProblems}. |
+| [`findFeatures`](../packages/features/src/model.ts) | function | Beta | Features matching `term` in their id, aliases, name, keywords, summary, tagline, category, import paths, slots, contributions or code paths, best matches (id, name and keywords) first. With `options` and an empty `term`, every feature th... |
+| [`FLAG_KINDS`](../packages/features/src/types.ts) | const | Beta | Why a flag exists. `release` and `experiment` flags need `expires`, `ops` flags need a `runbook`, and `permission` flags fail `check`: paid access belongs in entitlements (`access`), not flags. |
+| [`flagSchema`](../packages/features/src/model.ts) | const | — | The Zod schema for one {@link FlagDef}. Cross-flag rules live in {@link defineFlags}. |
+| [`flagsForFeature`](../packages/features/src/model.ts) | function | Beta | The names of the flags that belong to a feature, in declaration order. |
+| [`fromSnapshot`](../packages/features/src/gate.ts) | function | Beta | One feature's answer from a snapshot. An id missing from it is off, as an unknown feature. @stability Beta |
+| [`gateSnapshot`](../packages/features/src/gate.ts) | function | Beta | _(no summary)_ |
+| [`isLockedEntry`](../packages/features/src/settings.ts) | function | Beta | `{ value, locked }` exactly, with a boolean lock: the file's way to lock a value. @stability Beta |
+| [`isPresetDefaults`](../packages/features/src/settings.ts) | function | — | A per-preset default: an object with exactly `max`, `standard` and `min`. |
+| [`isSnapshotStale`](../packages/features/src/gate.ts) | function | Beta | Whether a snapshot is older than `maxAgeMs`: refresh it then. A client (an extension worker, a tab left open) keeps a snapshot, replaces it when it is stale, after sign-in or a tenant switch, and right after a refusal. |
+| [`MARKETING_BLOCK_END`](../packages/features/src/generate.ts) | const | — | Marks the end of the generated marketing block. |
+| [`MARKETING_BLOCK_START`](../packages/features/src/generate.ts) | const | — | Marks the start of the generated marketing block (e.g. in README.md). |
+| [`marketingRecords`](../packages/features/src/generate.ts) | function | — | The public, shipped features a marketing page shows: visibility public, a tagline, live or beta. |
+| [`OPENFEATURE_MANIFEST_SCHEMA`](../packages/features/src/generate.ts) | const | — | The schema an OpenFeature CLI flag manifest points at. |
+| [`overlayUpstream`](../packages/features/src/overlay.ts) | function | Beta | The upstream package name and version of a marker: `{ name, version }`. |
+| [`PACKAGE_GROUPS`](../packages/features/src/packages.ts) | const | Beta | Where a package appears on the site and in Storybook. `modules` holds every module. |
+| [`PACKAGE_LAYERS`](../packages/features/src/packages.ts) | const | Beta | The package layers, bottom to top, with tooling beside them. |
+| [`packageLayerProblems`](../packages/features/src/packages.ts) | function | Beta | Every layering problem across a set of packages, as strings: |
+| [`readAgentsBlock`](../packages/features/src/generate.ts) | const | — | The generated AGENTS.md block inside `doc`, or null. |
+| [`readOverlayMarker`](../packages/features/src/overlay.ts) | function | Beta | A package's `genesis.overlay` marker, or null when it doesn't validate. Problems go in `problems`, each prefixed with the package name. |
+| [`readPackageMeta`](../packages/features/src/packages.ts) | function | Beta | A package's layer metadata, or null when it has none valid. Problems go in `problems`, each prefixed with the package name. |
+| [`replaceAgentsBlock`](../packages/features/src/generate.ts) | const | Beta | `doc` with its generated AGENTS.md block replaced by `block`, or with `block` appended when it has none yet. |
+| [`requireFeature`](../packages/features/src/gate.ts) | function | Beta | Refuse unless the feature is on: call it at the top of every server function and route that belongs to a feature. |
+| [`requirementProblem`](../packages/features/src/graph.ts) | function | Beta | One requirement's problem (itself, or an unknown id), or undefined when it is fine. @stability Beta |
+| [`requiresProblems`](../packages/features/src/graph.ts) | function | Beta | Self-requirements, unknown requirements and cycles through `requires`, as problem strings (`a.requires: …`). Each cycle is reported once, from where the depth-first search found it: `a.requires: a cycle: a → b → a`. |
+| [`resolveBlocks`](../packages/features/src/blocks.ts) | function | Beta | The blocks that are on, checked and merged: |
+| [`resolveSettings`](../packages/features/src/settings.ts) | function | Beta | Resolve every key in the catalogue through the layers. Later layers win unless an earlier one locked the value. Problems never throw: a bad entry is reported and skipped, so one typo in a table never takes the app down. |
+| [`SCOPE_LAYERS`](../packages/features/src/settings.ts) | const | Beta | The scope rule, in one place: which override layers may set a key of each scope. The app's own layers (file, database) set every key; the tenant layer only keys declared `scope: "tenant"`, the person layer only keys declared `scope: "per... |
+| [`SETTING_KEY`](../packages/features/src/settings.ts) | const | — | A full key: `namespace.key`, or `namespace.group.key` is not allowed (one level). |
+| [`SETTING_TYPES`](../packages/features/src/settings.ts) | const | Beta | _(no summary)_ |
+| [`SETTINGS_LAYERS`](../packages/features/src/settings.ts) | const | Beta | The layers, low to high. @stability Beta |
+| [`SETTINGS_PRESETS`](../packages/features/src/settings.ts) | const | Beta | The presets: `max` (the default) turns everything on. @stability Beta |
+| [`settingsCatalogue`](../packages/features/src/settings.ts) | function | Beta | One catalogue from every package's declarations (the way features.ts builds the registry). Throws a {@link SettingsError} when two declarations share a namespace or a key, or a key requires one no declaration has. |
+| [`SettingsError`](../packages/features/src/settings.ts) | class | Beta | A declaration or catalogue that can't be used. @stability Beta |
+| [`settingsFromManifest`](../packages/features/src/settings.ts) | function | Beta | A package's settings as its package.json declares them (`genesis.settings`: `{ namespace, keys }`), for tools that read packages without running them (the CLI's doctor). The same checks as {@link defineSettings}. |
+| [`settingsGateContext`](../packages/features/src/settings.ts) | function | Beta | What the resolved settings say to the gate: the features switched off (a boolean key linked with `feature` that resolved to false), flag values (a key linked with `flag`, when set), and which of those are locked. |
+| [`settingsLayerFromFile`](../packages/features/src/settings.ts) | function | Beta | genesis.config.json's `settings`, as a layer. Each key holds its value, or `{ "value": …, "locked": true }` to lock it: an object with exactly `value` and `locked` (a boolean) is that wrapper; any other object is the value itself. |
+| [`settingsLayerFromRows`](../packages/features/src/settings.ts) | function | Beta | Rows (`{ key, value, locked }`, as the database returns them) as a layer. @stability Beta |
+| [`settingsSecrets`](../packages/features/src/settings.ts) | function | Beta | The secrets the catalogue's keys need, by name and store, never by value. @stability Beta |
+| [`settingValueProblem`](../packages/features/src/settings.ts) | function | — | Why a value doesn't fit a key's type and bounds, or null when it does. `null` ("not set") fits only a key whose default is `null` (`nullable`). |
+| [`SHIPPED_STATUSES`](../packages/features/src/gate.ts) | const | Beta | The statuses in which a feature is on. A deprecated feature still works until it is retired. @stability Beta |
+| [`statusOn`](../packages/features/src/status.ts) | function | Beta | A feature's status on one platform, or undefined when it isn't there. Zod-free so the gate can use it on phones and in browsers. |
+| [`toAgentsMarkdown`](../packages/features/src/generate.ts) | function | Beta | The marker-delimited block for AGENTS.md: deliberately short. It points agents at `find` and the skill and gives counts, never the whole list, so AGENTS.md stays small however many features there are. |
+| [`toJson`](../packages/features/src/generate.ts) | function | Beta | The registry as JSON, for tools that can't import TypeScript. Stable: no timestamps, features in declaration order, so `check` can compare it. It is also the record of every id ever used, which keeps ids permanent. |
+| [`toMarketingMarkdown`](../packages/features/src/generate.ts) | function | Beta | A benefit-led feature list for a README or a marketing page: public, shipped features with a tagline, highlights first, grouped by category. |
+| [`toOpenFeatureManifest`](../packages/features/src/generate.ts) | function | Beta | The flags as an OpenFeature CLI flag manifest (`flags.json`), so `openfeature generate` can make typed accessors from the same registry. |
+| [`toRecords`](../packages/features/src/model.ts) | function | Beta | Features as records, in declaration order, each with its flags attached. |
+| [`toSkillMarkdown`](../packages/features/src/generate.ts) | function | Beta | The agent skill for working with the registry, written to `.claude/skills/features/SKILL.md` by `genesis features build`. `outputs` names what the build writes in this repo, so the skill never claims a file the repo turned off. |
+| [`withSettings`](../packages/features/src/settings.ts) | function | Beta | A gate context with the resolved settings folded in. The gate itself doesn't change: |
+
+### Types (81)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { BlockContributions };
+export type { BlockDataUse };
+export type { BlockDef };
+export type { BlockMigration };
+export type { BlockNavItem };
+export type { BlockPrivacy };
+export type { BlockRoute };
+export type { BlockSettingsRow };
+export type { ContentPackCheckOptions };
+export type { ContentPackDef };
+export type { ContentPackFieldDefinition };
+export type { ContentPackFieldTarget };
+export type { ContentPackForm };
+export type { ContentPackMetricTemplate };
+export type { ContentPackRoadmapTemplate };
+export type { ContentPackSectionValidator };
+export type { ContentPackSections };
+export type { ContentPackSessionType };
+export type { Contributed };
+export type { DeprecatedFeatureLayer };
+export type { EnabledBlocks };
+export type { FeatureAccess };
+export type { FeatureDef };
+export type { FeatureHorizon };
+export type { FeatureIdOf };
+export type { FeatureKind };
+export type { FeatureLayer };
+export type { FeatureLinks };
+export type { FeatureMedia };
+export type { FeaturePackage };
+export type { FeaturePlatform };
+export type { FeatureRecord };
+export type { FeatureStatus };
+export type { FeatureVisibility };
+export type { Features };
+export type { FindOptions };
+export type { FlagDef };
+export type { FlagKind };
+export type { FlagValue };
+export type { Flags };
+export type { GateAnswer };
+export type { GateContext };
+export type { GateFeature };
+export type { GateFlag };
+export type { GateReason };
+export type { GateRegistry };
+export type { GateSnapshot };
+export type { GateSnapshotOptions };
+export type { GenerateOptions };
+export type { IdSet };
+export type { LayerPackage };
+export type { ModuleMeta };
+export type { OverlayMarker };
+export type { PackageGroup };
+export type { PackageLayer };
+export type { PackageMeta };
+export type { PresetDefaults };
+export type { RequiresNode };
+export type { RequiresProblemsOptions };
+export type { ResolveBlocksOptions };
+export type { ResolvedBlocks };
+export type { ResolvedSettings };
+export type { SecretStore };
+export type { SettingApplies };
+export type { SettingDef };
+export type { SettingEntry };
+export type { SettingManifestEntry };
+export type { SettingScope };
+export type { SettingSource };
+export type { SettingSpec };
+export type { SettingType };
+export type { SettingValueOf };
+export type { SettingsCatalogue };
+export type { SettingsDeclaration };
+export type { SettingsGate };
+export type { SettingsLayer };
+export type { SettingsLayerValues };
+export type { SettingsLayers };
+export type { SettingsPreset };
+export type { SettingsProblem };
+export type { SettingsProblemKind };
+```
+
+---
+
+## @marktiderman/genesis-features/blocks
+
+**Barrel:** [`packages/features-alias/src/blocks.ts`](../packages/features-alias/src/blocks.ts)
+
+### Other exports (3)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`BlockError`](../packages/features/src/blocks.ts) | class | Beta | Thrown by {@link defineBlock} and {@link resolveBlocks}; lists every problem at once. @stability Beta |
+| [`defineBlock`](../packages/features/src/blocks.ts) | function | Beta | Declare a block. Validates it (id, requirements, platforms, contribution keys and duplicate ids within the block) and returns it frozen, so a typo fails where the block is written rather than where it is used: |
+| [`resolveBlocks`](../packages/features/src/blocks.ts) | function | Beta | The blocks that are on, checked and merged: |
+
+### Types (12)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { BlockContributions };
+export type { BlockDataUse };
+export type { BlockDef };
+export type { BlockMigration };
+export type { BlockNavItem };
+export type { BlockPrivacy };
+export type { BlockRoute };
+export type { BlockSettingsRow };
+export type { Contributed };
+export type { EnabledBlocks };
+export type { ResolveBlocksOptions };
+export type { ResolvedBlocks };
+```
+
+---
+
+## @marktiderman/genesis-features/gate
+
+**Barrel:** [`packages/features-alias/src/gate.ts`](../packages/features-alias/src/gate.ts)
+
+### Other exports (7)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`FeatureOff`](../packages/features/src/gate.ts) | class | Beta | Thrown by {@link requireFeature} when a feature is off. Servers map it to a refusal that carries the reason (HTTP 403, or 402 for `entitlement`). |
+| [`featureOn`](../packages/features/src/gate.ts) | function | Beta | Is feature `id` on for this context? Returns the first check that said no as `reason`, and for a paid feature the plan that unlocks it. An unknown id is off with reason `unknown`; it never throws for one. |
+| [`fromSnapshot`](../packages/features/src/gate.ts) | function | Beta | One feature's answer from a snapshot. An id missing from it is off, as an unknown feature. @stability Beta |
+| [`gateSnapshot`](../packages/features/src/gate.ts) | function | Beta | _(no summary)_ |
+| [`isSnapshotStale`](../packages/features/src/gate.ts) | function | Beta | Whether a snapshot is older than `maxAgeMs`: refresh it then. A client (an extension worker, a tab left open) keeps a snapshot, replaces it when it is stale, after sign-in or a tenant switch, and right after a refusal. |
+| [`requireFeature`](../packages/features/src/gate.ts) | function | Beta | Refuse unless the feature is on: call it at the top of every server function and route that belongs to a feature. |
+| [`SHIPPED_STATUSES`](../packages/features/src/gate.ts) | const | Beta | The statuses in which a feature is on. A deprecated feature still works until it is retired. @stability Beta |
+
+### Types (9)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { GateAnswer };
+export type { GateContext };
+export type { GateFeature };
+export type { GateFlag };
+export type { GateReason };
+export type { GateRegistry };
+export type { GateSnapshot };
+export type { GateSnapshotOptions };
+export type { IdSet };
+```
+
+---
+
+## @marktiderman/genesis-features/settings
+
+**Barrel:** [`packages/features-alias/src/settings.ts`](../packages/features-alias/src/settings.ts)
+
+### Other exports (22)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`APP_LOCK_LAYERS`](../packages/features/src/settings.ts) | const | Beta | The layers whose locks outrank the gate context: the app's own. @stability Beta |
+| [`catalogueManifest`](../packages/features/src/settings.ts) | function | Beta | The catalogue as the database's manifest stores it, so `set_genesis_setting` can check a value (type, bounds, runtime only) without the packages' code. Written on deploy with the manifest. |
+| [`DEFAULT_PRESET`](../packages/features/src/settings.ts) | const | Beta | Genesis's default preset: zero config is everything on. @stability Beta |
+| [`defineSettings`](../packages/features/src/settings.ts) | function | Beta | A package's settings, declared next to its `defineBlock`. Keys are `namespace.key`. |
+| [`isLockedEntry`](../packages/features/src/settings.ts) | function | Beta | `{ value, locked }` exactly, with a boolean lock: the file's way to lock a value. @stability Beta |
+| [`isPresetDefaults`](../packages/features/src/settings.ts) | function | — | A per-preset default: an object with exactly `max`, `standard` and `min`. |
+| [`resolveSettings`](../packages/features/src/settings.ts) | function | Beta | Resolve every key in the catalogue through the layers. Later layers win unless an earlier one locked the value. Problems never throw: a bad entry is reported and skipped, so one typo in a table never takes the app down. |
+| [`SCOPE_LAYERS`](../packages/features/src/settings.ts) | const | Beta | The scope rule, in one place: which override layers may set a key of each scope. The app's own layers (file, database) set every key; the tenant layer only keys declared `scope: "tenant"`, the person layer only keys declared `scope: "per... |
+| [`SETTING_KEY`](../packages/features/src/settings.ts) | const | — | A full key: `namespace.key`, or `namespace.group.key` is not allowed (one level). |
+| [`SETTING_TYPES`](../packages/features/src/settings.ts) | const | Beta | _(no summary)_ |
+| [`SETTINGS_LAYERS`](../packages/features/src/settings.ts) | const | Beta | The layers, low to high. @stability Beta |
+| [`SETTINGS_PRESETS`](../packages/features/src/settings.ts) | const | Beta | The presets: `max` (the default) turns everything on. @stability Beta |
+| [`settingsCatalogue`](../packages/features/src/settings.ts) | function | Beta | One catalogue from every package's declarations (the way features.ts builds the registry). Throws a {@link SettingsError} when two declarations share a namespace or a key, or a key requires one no declaration has. |
+| [`SettingsError`](../packages/features/src/settings.ts) | class | Beta | A declaration or catalogue that can't be used. @stability Beta |
+| [`settingsFromManifest`](../packages/features/src/settings.ts) | function | Beta | A package's settings as its package.json declares them (`genesis.settings`: `{ namespace, keys }`), for tools that read packages without running them (the CLI's doctor). The same checks as {@link defineSettings}. |
+| [`settingsGateContext`](../packages/features/src/settings.ts) | function | Beta | What the resolved settings say to the gate: the features switched off (a boolean key linked with `feature` that resolved to false), flag values (a key linked with `flag`, when set), and which of those are locked. |
+| [`settingsLayerFromFile`](../packages/features/src/settings.ts) | function | Beta | genesis.config.json's `settings`, as a layer. Each key holds its value, or `{ "value": …, "locked": true }` to lock it: an object with exactly `value` and `locked` (a boolean) is that wrapper; any other object is the value itself. |
+| [`settingsLayerFromRows`](../packages/features/src/settings.ts) | function | Beta | Rows (`{ key, value, locked }`, as the database returns them) as a layer. @stability Beta |
+| [`settingsSecrets`](../packages/features/src/settings.ts) | function | Beta | The secrets the catalogue's keys need, by name and store, never by value. @stability Beta |
+| [`settingValueProblem`](../packages/features/src/settings.ts) | function | — | Why a value doesn't fit a key's type and bounds, or null when it does. `null` ("not set") fits only a key whose default is `null` (`nullable`). |
+| [`SETUP_STEP_ID`](../packages/features/src/settings.ts) | const | — | A setup step id: `github.issues`, `ai.key-budget`. |
+| [`withSettings`](../packages/features/src/settings.ts) | function | Beta | A gate context with the resolved settings folded in. The gate itself doesn't change: |
+
+### Types (21)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { PresetDefaults };
+export type { ResolvedSettings };
+export type { SecretStore };
+export type { SettingApplies };
+export type { SettingDef };
+export type { SettingEntry };
+export type { SettingManifestEntry };
+export type { SettingScope };
+export type { SettingSource };
+export type { SettingSpec };
+export type { SettingType };
+export type { SettingValueOf };
+export type { SettingsCatalogue };
+export type { SettingsDeclaration };
+export type { SettingsGate };
+export type { SettingsLayer };
+export type { SettingsLayerValues };
+export type { SettingsLayers };
+export type { SettingsPreset };
+export type { SettingsProblem };
+export type { SettingsProblemKind };
+```
+
+---
+
+## @marktiderman/genesis-features/settings-protocol
+
+**Barrel:** [`packages/features-alias/src/settings-protocol.ts`](../packages/features-alias/src/settings-protocol.ts)
+
+### Other exports (15)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`APP_HOST_CAPABILITIES`](../packages/features/src/settings-protocol.ts) | const | Beta | The most the app host may do: the database layer, and Vault secrets when the host reports it can. Pass it as the screen's `capabilities` prop: it is a mask, so Vault is offered only when the host itself says `setSecrets: { vault: true }`. |
+| [`auditValuesVisible`](../packages/features/src/settings-protocol.ts) | function | Beta | Whether an audit entry's `before` and `after` may be drawn: only for a `set` or `clear` of a catalogue key that needs no secret and isn't itself a secret's name. Everything else (a fix, an upgrade, a secret, a subject the catalogue doesn... |
+| [`canSetSecret`](../packages/features/src/settings-protocol.ts) | function | Beta | Whether the host can write a secret in this store. @stability Beta |
+| [`createSettingsClient`](../packages/features/src/settings-protocol.ts) | function | Beta | A {@link SettingsClient} over `fetch`. JSON only: a response that isn't JSON is an error, so a login page or a proxy's HTML never reaches the screen as data. |
+| [`intersectCapabilities`](../packages/features/src/settings-protocol.ts) | function | Beta | Both sets at once: a write is allowed only when both allow it. The screen narrows the host's capabilities with its own `capabilities` prop this way; a prop can never widen what the host reports. A key the prop leaves out doesn't narrow; ... |
+| [`NO_SETTINGS_CAPABILITIES`](../packages/features/src/settings-protocol.ts) | const | Beta | Nothing: a read-only screen. @stability Beta |
+| [`preferredWriteLayer`](../packages/features/src/settings-protocol.ts) | function | Beta | The layer the screen writes by default: the database when the value already comes from there (and the screen can write it), else the file layer when it can (reviewed like code), else the database. Otherwise, writing the database from the... |
+| [`safeHref`](../packages/features/src/settings-protocol.ts) | function | Beta | A link the screen may follow: `http:`, `https:` or a path on the same site (`/…`, `./…`, `../…`, `#…`, `?…`), never `javascript:`, `data:` or a protocol-relative `//host`. Undefined otherwise. |
+| [`secretNames`](../packages/features/src/settings-protocol.ts) | function | Beta | Every secret name the app knows: the state's secrets and each catalogue key's `needs`. @stability Beta |
+| [`settingFileSnippet`](../packages/features/src/settings-protocol.ts) | function | Beta | The genesis.config.json fragment for one key: its value, or `{ value, locked: true }`. What "change in repo" shows, and what `propose` commits. |
+| [`SETTINGS_CLIENT_MESSAGES`](../packages/features/src/settings-protocol.ts) | const | Beta | _(no summary)_ |
+| [`SETTINGS_OPS`](../packages/features/src/settings-protocol.ts) | const | Beta | The ops, for a host's router. @stability Beta |
+| [`SETTINGS_PROTOCOL_VERSION`](../packages/features/src/settings-protocol.ts) | const | Beta | Bumped on any incompatible change; a host rejects other versions with `version`. @stability Beta |
+| [`SettingsProtocolError`](../packages/features/src/settings-protocol.ts) | class | Beta | A failed request, as the client throws it. @stability Beta |
+| [`settingWritability`](../packages/features/src/settings-protocol.ts) | function | Beta | The write rules, in one place, for the screen and a host's handler alike: |
+
+### Types (34)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { SecretState };
+export type { SecretStoreCapabilities };
+export type { SettingWritability };
+export type { SettingWriteRefusal };
+export type { SettingsAppFacts };
+export type { SettingsApplyResult };
+export type { SettingsAuditAction };
+export type { SettingsAuditEntry };
+export type { SettingsAuditPage };
+export type { SettingsCapabilities };
+export type { SettingsClient };
+export type { SettingsClientMessages };
+export type { SettingsClientOptions };
+export type { SettingsErrorCode };
+export type { SettingsErrorResponse };
+export type { SettingsFinding };
+export type { SettingsFindingLevel };
+export type { SettingsFixKind };
+export type { SettingsFixRef };
+export type { SettingsHost };
+export type { SettingsOp };
+export type { SettingsPackageUpgrade };
+export type { SettingsPlan };
+export type { SettingsPlanCommand };
+export type { SettingsPlanFile };
+export type { SettingsProposal };
+export type { SettingsRequest };
+export type { SettingsResponses };
+export type { SettingsSecretStatus };
+export type { SettingsState };
+export type { SettingsUpgrades };
+export type { SettingsWireRequest };
+export type { SettingsWriteLayer };
+export type { UpgradeDistance };
+```
+
+---
+
+## @marktiderman/genesis-features/node
+
+**Barrel:** [`packages/features-alias/src/node.ts`](../packages/features-alias/src/node.ts)
+
+### Other exports (6)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`blankComments`](../packages/features/src/node.ts) | function | — | `text` with its comments blanked to spaces (newlines kept), so a flag named in a comment isn't read as a flag read and line numbers stay right. Strings, regex literals and template text are left alone; a template's `${…}` is code. With `... |
+| [`buildFeatureOutputs`](../packages/features/src/node.ts) | function | Beta | Writes every generated output (the AGENTS.md block, the JSON, the flag manifest, the skill, the marketing block) and adds `@AGENTS.md` to CLAUDE.md when it's missing. Refuses, writing nothing, when an id recorded in the JSON has disappea... |
+| [`checkFeatureOutputs`](../packages/features/src/node.ts) | function | Beta | Checks the registry against the repo. Errors (exit 1): generated output that is stale, `links.code` paths that don't exist, the flag rules (a permission flag, an expired flag, a dynamic key, a key read but not defined or defined but neve... |
+| [`globToRegExp`](../packages/features/src/node.ts) | function | — | A glob (`*`, `**`, `?`, `{a,b}`) as a RegExp over `/`-separated relative paths. |
+| [`scanFlagReads`](../packages/features/src/node.ts) | function | — | Flag reads in `text`: each key read through an accessor with a literal, and each read whose key isn't a literal (`dynamic`), as `path:line`. Comments don't count. |
+| [`summarizeCheck`](../packages/features/src/node.ts) | function | Beta | A few lines for a session's start: counts, stale output, expired flags, planned features with shipped work and open claims. Meant for a SessionStart hook (`genesis features check --summary`). |
+
+### Types (5)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { FeatureCheckResult };
+export type { FeatureEvidence };
+export type { FeaturePrEvidence };
+export type { FeatureProjectOptions };
+export type { PlannedButShipped };
+```
+
+---
+
+## @marktiderman/genesis-features/react
+
+**Barrel:** [`packages/features-alias/src/react.ts`](../packages/features-alias/src/react.ts)
 
 ### Components (1)
 
@@ -5589,7 +6229,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`userAvatarVariants`](../packages/ui/src/components/patterns/user-avatar.tsx) | value | — | _(no summary)_ |
 | [`useUiMessages`](../packages/ui/src/messages.tsx) | function | — | The catalogue in effect: English unless a `UiMessagesProvider` says otherwise. |
 
-### Types (81)
+### Types (82)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -5641,6 +6281,7 @@ export type { LiveIndicatorState };
 export type { MessageTone };
 export type { NavigateFn };
 export type { NavigationNode };
+export type { NavigationSubNav };
 export type { NavigationZone };
 export type { NotificationItem };
 export type { PrefillChoice };
@@ -7392,7 +8033,7 @@ export type { UploadHost };
 
 **Barrel:** [`packages/genesis/src/features.ts`](../packages/genesis/src/features.ts)
 
-### Other exports (58)
+### Other exports (79)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -7400,17 +8041,21 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | --- | --- | --- | --- |
 | [`AGENTS_BLOCK_END`](../packages/features/src/generate.ts) | const | — | Marks the end of the generated block in AGENTS.md. |
 | [`AGENTS_BLOCK_START`](../packages/features/src/generate.ts) | const | — | Marks the start of the generated block in AGENTS.md. |
+| [`APP_LOCK_LAYERS`](../packages/features/src/settings.ts) | const | Beta | The layers whose locks outrank the gate context: the app's own. @stability Beta |
 | [`BlockError`](../packages/features/src/blocks.ts) | class | Beta | Thrown by {@link defineBlock} and {@link resolveBlocks}; lists every problem at once. @stability Beta |
 | [`BrokenBlockError`](../packages/features/src/generate.ts) | class | — | Thrown when a generated block's markers are broken: one is missing, repeated or out of order. |
+| [`catalogueManifest`](../packages/features/src/settings.ts) | function | Beta | The catalogue as the database's manifest stores it, so `set_genesis_setting` can check a value (type, bounds, runtime only) without the packages' code. Written on deploy with the manifest. |
 | [`CONTENT_PACK_FIELD_TARGETS`](../packages/features/src/content-packs-legacy.ts) | const | Beta | Where a custom field lives, and the block that owns that table. |
 | [`contentPackBlocks`](../packages/features/src/content-packs.ts) | function | Beta | The block ids a pack's sections need, whatever it declares. @stability Beta |
 | [`ContentPackError`](../packages/features/src/content-packs.ts) | class | Beta | Thrown by {@link defineContentPack}; lists every problem at once. @stability Beta |
 | [`contentPackProblems`](../packages/features/src/content-packs.ts) | function | Beta | Every problem with a pack: its shape, each section's items (through the validator its block registers, when given) and, given the installed blocks, any block it fills that isn't installed. An empty list means it can be installed. The sec... |
 | [`cycleProblems`](../packages/features/src/graph.ts) | function | Beta | Cycles through `requires`, each reported once, from where the depth-first search found it. @stability Beta |
+| [`DEFAULT_PRESET`](../packages/features/src/settings.ts) | const | Beta | Genesis's default preset: zero config is everything on. @stability Beta |
 | [`defineBlock`](../packages/features/src/blocks.ts) | function | Beta | Declare a block. Validates it (id, requirements, platforms, contribution keys and duplicate ids within the block) and returns it frozen, so a typo fails where the block is written rather than where it is used: |
 | [`defineContentPack`](../packages/features/src/content-packs.ts) | function | Beta | Declare a content pack: returns it unchanged, typed, after checking its shape (throws a {@link ContentPackError} listing every problem). Give the blocks it fills, or validators by block id, to check each section's items too. Whether its ... |
 | [`defineFeatures`](../packages/features/src/model.ts) | function | Beta | The one source of truth for a repo's features. Validates every entry and returns the same object, so running code reads it directly and the key type becomes the repo's `FeatureId`: |
 | [`defineFlags`](../packages/features/src/model.ts) | function | Beta | Flags, each tied to a feature of `features`. An unknown `feature` is a type error, and at runtime: - every flag needs an `owner`, a `kind`, a `default` and its `scopes`; - `release` and `experiment` flags need an `expires` date, `ops` fl... |
+| [`defineSettings`](../packages/features/src/settings.ts) | function | Beta | A package's settings, declared next to its `defineBlock`. Keys are `namespace.key`. |
 | [`dependencyOrder`](../packages/features/src/graph.ts) | function | — | The ids in dependency order (what a node requires comes first), ties kept in the given order. Requirements outside `nodes` are ignored. Assumes no cycles ({@link requiresProblems} reports them). |
 | [`expiredFlags`](../packages/features/src/model.ts) | function | Beta | Flags whose `expires` date is before `today` (`YYYY-MM-DD`, default today in UTC): remove the code path, then the flag. |
 | [`FEATURE_HORIZONS`](../packages/features/src/model.ts) | const | Beta | When a planned or building feature is due, without dates: the roadmap's three columns. |
@@ -7431,6 +8076,8 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`flagsForFeature`](../packages/features/src/model.ts) | function | Beta | The names of the flags that belong to a feature, in declaration order. |
 | [`fromSnapshot`](../packages/features/src/gate.ts) | function | Beta | One feature's answer from a snapshot. An id missing from it is off, as an unknown feature. @stability Beta |
 | [`gateSnapshot`](../packages/features/src/gate.ts) | function | Beta | _(no summary)_ |
+| [`isLockedEntry`](../packages/features/src/settings.ts) | function | Beta | `{ value, locked }` exactly, with a boolean lock: the file's way to lock a value. @stability Beta |
+| [`isPresetDefaults`](../packages/features/src/settings.ts) | function | — | A per-preset default: an object with exactly `max`, `standard` and `min`. |
 | [`isSnapshotStale`](../packages/features/src/gate.ts) | function | Beta | Whether a snapshot is older than `maxAgeMs`: refresh it then. A client (an extension worker, a tab left open) keeps a snapshot, replaces it when it is stale, after sign-in or a tenant switch, and right after a refusal. |
 | [`MARKETING_BLOCK_END`](../packages/features/src/generate.ts) | const | — | Marks the end of the generated marketing block. |
 | [`MARKETING_BLOCK_START`](../packages/features/src/generate.ts) | const | — | Marks the start of the generated marketing block (e.g. in README.md). |
@@ -7448,6 +8095,20 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`requirementProblem`](../packages/features/src/graph.ts) | function | Beta | One requirement's problem (itself, or an unknown id), or undefined when it is fine. @stability Beta |
 | [`requiresProblems`](../packages/features/src/graph.ts) | function | Beta | Self-requirements, unknown requirements and cycles through `requires`, as problem strings (`a.requires: …`). Each cycle is reported once, from where the depth-first search found it: `a.requires: a cycle: a → b → a`. |
 | [`resolveBlocks`](../packages/features/src/blocks.ts) | function | Beta | The blocks that are on, checked and merged: |
+| [`resolveSettings`](../packages/features/src/settings.ts) | function | Beta | Resolve every key in the catalogue through the layers. Later layers win unless an earlier one locked the value. Problems never throw: a bad entry is reported and skipped, so one typo in a table never takes the app down. |
+| [`SCOPE_LAYERS`](../packages/features/src/settings.ts) | const | Beta | The scope rule, in one place: which override layers may set a key of each scope. The app's own layers (file, database) set every key; the tenant layer only keys declared `scope: "tenant"`, the person layer only keys declared `scope: "per... |
+| [`SETTING_KEY`](../packages/features/src/settings.ts) | const | — | A full key: `namespace.key`, or `namespace.group.key` is not allowed (one level). |
+| [`SETTING_TYPES`](../packages/features/src/settings.ts) | const | Beta | _(no summary)_ |
+| [`SETTINGS_LAYERS`](../packages/features/src/settings.ts) | const | Beta | The layers, low to high. @stability Beta |
+| [`SETTINGS_PRESETS`](../packages/features/src/settings.ts) | const | Beta | The presets: `max` (the default) turns everything on. @stability Beta |
+| [`settingsCatalogue`](../packages/features/src/settings.ts) | function | Beta | One catalogue from every package's declarations (the way features.ts builds the registry). Throws a {@link SettingsError} when two declarations share a namespace or a key, or a key requires one no declaration has. |
+| [`SettingsError`](../packages/features/src/settings.ts) | class | Beta | A declaration or catalogue that can't be used. @stability Beta |
+| [`settingsFromManifest`](../packages/features/src/settings.ts) | function | Beta | A package's settings as its package.json declares them (`genesis.settings`: `{ namespace, keys }`), for tools that read packages without running them (the CLI's doctor). The same checks as {@link defineSettings}. |
+| [`settingsGateContext`](../packages/features/src/settings.ts) | function | Beta | What the resolved settings say to the gate: the features switched off (a boolean key linked with `feature` that resolved to false), flag values (a key linked with `flag`, when set), and which of those are locked. |
+| [`settingsLayerFromFile`](../packages/features/src/settings.ts) | function | Beta | genesis.config.json's `settings`, as a layer. Each key holds its value, or `{ "value": …, "locked": true }` to lock it: an object with exactly `value` and `locked` (a boolean) is that wrapper; any other object is the value itself. |
+| [`settingsLayerFromRows`](../packages/features/src/settings.ts) | function | Beta | Rows (`{ key, value, locked }`, as the database returns them) as a layer. @stability Beta |
+| [`settingsSecrets`](../packages/features/src/settings.ts) | function | Beta | The secrets the catalogue's keys need, by name and store, never by value. @stability Beta |
+| [`settingValueProblem`](../packages/features/src/settings.ts) | function | — | Why a value doesn't fit a key's type and bounds, or null when it does. `null` ("not set") fits only a key whose default is `null` (`nullable`). |
 | [`SHIPPED_STATUSES`](../packages/features/src/gate.ts) | const | Beta | The statuses in which a feature is on. A deprecated feature still works until it is retired. @stability Beta |
 | [`statusOn`](../packages/features/src/status.ts) | function | Beta | A feature's status on one platform, or undefined when it isn't there. Zod-free so the gate can use it on phones and in browsers. |
 | [`toAgentsMarkdown`](../packages/features/src/generate.ts) | function | Beta | The marker-delimited block for AGENTS.md: deliberately short. It points agents at `find` and the skill and gives counts, never the whole list, so AGENTS.md stays small however many features there are. |
@@ -7456,8 +8117,9 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`toOpenFeatureManifest`](../packages/features/src/generate.ts) | function | Beta | The flags as an OpenFeature CLI flag manifest (`flags.json`), so `openfeature generate` can make typed accessors from the same registry. |
 | [`toRecords`](../packages/features/src/model.ts) | function | Beta | Features as records, in declaration order, each with its flags attached. |
 | [`toSkillMarkdown`](../packages/features/src/generate.ts) | function | Beta | The agent skill for working with the registry, written to `.claude/skills/features/SKILL.md` by `genesis features build`. `outputs` names what the build writes in this repo, so the skill never claims a file the repo turned off. |
+| [`withSettings`](../packages/features/src/settings.ts) | function | Beta | A gate context with the resolved settings folded in. The gate itself doesn't change: |
 
-### Types (60)
+### Types (81)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -7518,10 +8180,31 @@ export type { OverlayMarker };
 export type { PackageGroup };
 export type { PackageLayer };
 export type { PackageMeta };
+export type { PresetDefaults };
 export type { RequiresNode };
 export type { RequiresProblemsOptions };
 export type { ResolveBlocksOptions };
 export type { ResolvedBlocks };
+export type { ResolvedSettings };
+export type { SecretStore };
+export type { SettingApplies };
+export type { SettingDef };
+export type { SettingEntry };
+export type { SettingManifestEntry };
+export type { SettingScope };
+export type { SettingSource };
+export type { SettingSpec };
+export type { SettingType };
+export type { SettingValueOf };
+export type { SettingsCatalogue };
+export type { SettingsDeclaration };
+export type { SettingsGate };
+export type { SettingsLayer };
+export type { SettingsLayerValues };
+export type { SettingsLayers };
+export type { SettingsPreset };
+export type { SettingsProblem };
+export type { SettingsProblemKind };
 ```
 
 ---
@@ -7643,30 +8326,39 @@ export type { ScaffoldResult };
 
 **Barrel:** [`packages/genesis-cli/src/doctor/index.ts`](../packages/genesis-cli/src/doctor/index.ts)
 
-### Other exports (61)
+### Other exports (74)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
+| `agentGuideEdits` | value | — | _(no summary)_ |
 | `agentGuideState` | value | — | _(no summary)_ |
+| `agentHooksEdit` | value | — | _(no summary)_ |
 | `agentHooksState` | value | — | _(no summary)_ |
 | `agentRules` | value | — | _(no summary)_ |
+| `allFixes` | value | — | _(no summary)_ |
 | `applyExtensions` | value | — | _(no summary)_ |
+| `applyPlan` | value | — | _(no summary)_ |
+| `attachFixes` | value | — | _(no summary)_ |
 | `BLOCKED_FIX` | value | — | _(no summary)_ |
 | `BUILTIN_RULES` | value | — | _(no summary)_ |
 | [`builtinChecks`](../packages/genesis-cli/src/doctor/index.ts) | function | — | The built-in checks, in the order they run. A new built-in rule is a check here plus its ids in BUILTIN_RULES (rules.ts); a pack's checks run only when `packs` lists it. |
+| `builtinFixes` | value | — | _(no summary)_ |
 | `catalogTable` | value | — | _(no summary)_ |
 | `changedSince` | value | — | _(no summary)_ |
 | `CLAUDE_IMPORT` | value | — | _(no summary)_ |
 | `clearPackageRulesCache` | value | — | _(no summary)_ |
 | `dedupeFindings` | value | — | _(no summary)_ |
 | `defineDoctorPlugin` | value | — | _(no summary)_ |
+| `defineFix` | value | — | _(no summary)_ |
 | `DENY_RULES` | value | — | _(no summary)_ |
 | `discoverPackages` | value | — | _(no summary)_ |
 | `DoctorConfigError` | value | — | _(no summary)_ |
 | `extensionProblem` | value | — | _(no summary)_ |
+| `FileConflictError` | value | — | _(no summary)_ |
 | `findPackageDir` | value | — | _(no summary)_ |
+| `FixError` | value | — | _(no summary)_ |
 | `formatPrimitives` | value | — | _(no summary)_ |
 | [`formatReport`](../packages/genesis-cli/src/doctor/index.ts) | function | — | The human-readable report. `verbose` lists the components no file imports; otherwise only their count. |
 | `GenesisConfigError` | value | — | _(no summary)_ |
@@ -7674,6 +8366,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`genesisSummary`](../packages/genesis-cli/src/doctor/index.ts) | function | — | What `--print-genesis` shows: the facts every rule is derived from. |
 | `globToRegExp` | value | — | _(no summary)_ |
 | `loadConfig` | value | — | _(no summary)_ |
+| `loadFixes` | value | — | _(no summary)_ |
 | `loadGenesis` | value | — | _(no summary)_ |
 | `mergeAgentHooks` | value | — | _(no summary)_ |
 | `nativeLayouts` | value | — | _(no summary)_ |
@@ -7681,6 +8374,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | `packageGuides` | value | — | _(no summary)_ |
 | `parseExportNames` | value | — | _(no summary)_ |
 | `parseRulesMarkdown` | value | — | _(no summary)_ |
+| `planFix` | value | — | _(no summary)_ |
 | `postgresContract` | value | — | _(no summary)_ |
 | `postgresSource` | value | — | _(no summary)_ |
 | `preferRules` | value | — | _(no summary)_ |
@@ -7689,6 +8383,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | `readGenesisConfig` | value | — | _(no summary)_ |
 | `readPackageExports` | value | — | _(no summary)_ |
 | `readReleaseManifest` | value | — | _(no summary)_ |
+| `readUpgradeStatus` | value | — | _(no summary)_ |
 | `renderAgentsBlock` | value | — | _(no summary)_ |
 | `renderSkill` | value | — | _(no summary)_ |
 | `routesDir` | value | — | _(no summary)_ |
@@ -7699,6 +8394,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | `SKILL_PATH` | value | — | _(no summary)_ |
 | `skillDescription` | value | — | _(no summary)_ |
 | `sqlStatements` | value | — | _(no summary)_ |
+| `StalePlanError` | value | — | _(no summary)_ |
 | `SUBAGENT_HOOK_COMMAND` | value | — | _(no summary)_ |
 | `subagentContext` | value | — | _(no summary)_ |
 | `subagentHookOutput` | value | — | _(no summary)_ |
@@ -7711,25 +8407,36 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | `writeAgentGuide` | value | — | _(no summary)_ |
 | `writeAgentHooks` | value | — | _(no summary)_ |
 
-### Types (14)
+### Types (25)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
+export type { Advisory };
+export type { ApplyContext };
 export type { DeclaringPackage };
+export type { Fix };
+export type { FixContext };
+export type { FixPlan };
+export type { FixPlanDraft };
 export type { GenesisConfigFile };
 export type { GenesisInstall };
 export type { GenesisLinks };
 export type { GenesisSupabase };
 export type { PackageDeclaration };
 export type { PackageGuide };
+export type { PlannedCommand };
+export type { PlannedFile };
 export type { PreferRule };
 export type { PrimitiveEntry };
 export type { PrimitiveRow };
+export type { RegistryDeps };
 export type { ReleaseManifest };
 export type { ResolvedPreferRule };
 export type { RouteFile };
 export type { RunDoctorOptions };
+export type { UpgradeStatus };
+export type { VerifyResult };
 ```
 
 ---
@@ -8460,12 +9167,13 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`WEEK_MS`](../packages/native/src/updates/policy.ts) | const | — | _(no summary)_ |
 | [`WhatsNewSheet`](../packages/native/src/updates/screens.tsx) | function | — | The release notes for this version, once, in a sheet: the updates block's slot, drawn by genesis-ui-native's `NativeWhatsNewSheet` (the same sheet genesis-product's uses). |
 
-### Types (37)
+### Types (38)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
 export type { ApplicationLike };
+export type { BuildMetadata };
 export type { ChannelSwitchResult };
 export type { ChannelSwitcher };
 export type { ChannelSwitcherOptions };
@@ -8627,7 +9335,7 @@ export type { SubscriptionLike };
 
 **Barrel:** [`packages/native/src/observability/index.ts`](../packages/native/src/observability/index.ts)
 
-### Other exports (23)
+### Other exports (24)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -8651,6 +9359,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`scrubString`](../packages/native/src/observability/scrub.ts) | function | — | A string with every URL query, email, phone number, JWT, Supabase key, bearer token and query-string token replaced. |
 | [`scrubUrl`](../packages/native/src/observability/scrub.ts) | function | — | A URL without its query string and fragment, then scrubbed (an email in a path). |
 | [`scrubValue`](../packages/native/src/observability/scrub.ts) | function | — | A deep copy of `value` with every string scrubbed and every value under a secret key replaced. Cycles become `"[Circular]"`; past 8 levels, `"[Truncated]"`. Errors become `{ name, message }`. Header lists (`[["authorization", "…"]]`) are... |
+| [`scrubValueStrict`](../packages/native/src/observability/scrub.ts) | function | — | `scrubValue` without the pass for Sentry's own id fields (`release`, `environment`, `event_id`, …): for data that isn't a Sentry envelope (a support dump, an app's own object), where a key named like one can hold anything. |
 | [`sentryRelease`](../packages/native/src/observability/sentry.ts) | function | — | Sentry's release format: `<applicationId>@<version>+<build>`, with `dist` the build; `undefined` parts when unknown. |
 | [`sentrySink`](../packages/native/src/observability/sentry.ts) | function | Beta | Start Sentry and return a sink for it. Without a DSN it starts nothing and returns a sink that does nothing (a warning outside development says so). |
 | [`signatureTags`](../packages/native/src/observability/sentry.ts) | function | — | The tags each event carries from the signature. Unknown values are written `unknown`, never left out. |
@@ -8693,7 +9402,7 @@ export type { TimingTags };
 
 **Barrel:** [`packages/native/src/devtools/index.ts`](../packages/native/src/devtools/index.ts)
 
-### Other exports (5)
+### Other exports (8)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -8704,8 +9413,11 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`createHoldDetector`](../packages/native/src/devtools/gestures.ts) | function | — | _(no summary)_ |
 | [`createShakeDetector`](../packages/native/src/devtools/gestures.ts) | function | — | _(no summary)_ |
 | [`DEVTOOLS_BLOCK_ID`](../packages/native/src/devtools/block.tsx) | const | — | The FeatureId of the devtools overlay. |
+| [`DEVTOOLS_SETTING_SPECS`](../packages/native/src/devtools/settings.ts) | const | Beta | `devtools.*`, as declared. @stability Beta |
+| [`devtoolsSettings`](../packages/native/src/devtools/settings.ts) | const | Beta | _(no summary)_ |
+| [`devtoolsSettingValues`](../packages/native/src/devtools/settings.ts) | function | Beta | The overlay's settings from `resolveSettings`' result (or the values alone, by full key). A key that's missing, or whose value doesn't fit, takes its default (every one on). |
 
-### Types (12)
+### Types (14)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -8714,8 +9426,10 @@ export type { AccelerometerLike };
 export type { DebugInfoInput };
 export type { DevSettingsLike };
 export type { DevtoolsBlock };
+export type { DevtoolsDiagnosticsProps };
 export type { DevtoolsFeedbackProps };
 export type { DevtoolsOptions };
+export type { DevtoolsSettingValues };
 export type { DevtoolsSlots };
 export type { DevtoolsState };
 export type { HoldDetector };
@@ -10435,7 +11149,7 @@ Supabase for Genesis apps on web and React Native: a client with PKCE and safe d
 
 **Barrel:** [`packages/supabase/src/index.ts`](../packages/supabase/src/index.ts)
 
-### Other exports (22)
+### Other exports (29)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -10443,6 +11157,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | --- | --- | --- | --- |
 | [`accountBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The account block: sign-in, profile and in-app account deletion. Its screens are the app's (or genesis-ui-native's `AuthScreen`); this names its migrations and its data. |
 | [`APPLE_REVOKE_FUNCTION`](../packages/supabase/src/apple-tokens.ts) | const | — | The Edge Function's default name, as shipped in `functions/genesis-apple-revoke`. |
+| [`clearGenesisSetting`](../packages/supabase/src/settings.ts) | function | Beta | Remove a setting from the database layer, so the file, preset or default applies again: `clear_genesis_setting`. Platform admins only. @stability Beta |
 | [`createAuthFormClient`](../packages/supabase/src/auth-form-client.ts) | function | Beta | genesis-ui's `AuthForm` client on Supabase Auth: password sign-in, magic link and emailed code (`signInWithOtp`, the code checked with `verifyOtp`), sign-up (`confirmEmail` when the project confirms emails), the reset email, the new pass... |
 | [`createGenesisSupabase`](../packages/supabase/src/index.ts) | function | Beta | A Supabase client with Genesis's defaults: PKCE sign-in (the code flow, not tokens in a redirect URL, with an S256 challenge: pass `crypto` on native), a persisted session that refreshes itself, and the session storage you pass. |
 | [`deleteMyAccount`](../packages/supabase/src/index.ts) | function | Beta | In-app account deletion (App Store Review Guideline 5.1.1(v)), on web and native: calls the `delete_my_account` RPC (this package's `migrations/0001_genesis_account_deletion.sql`), which deletes the login and, through the app's `on delet... |
@@ -10450,10 +11165,15 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`featureGateState`](../packages/supabase/src/feature-registry.ts) | function | Beta | A tenant's switches, entitlements and flag values: `feature_gate_state`. Works with a signed-in person's client (for tenants they belong to; their own person entitlements are included) or the service key. Throws a `SupabaseQueryError` (`... |
 | [`featureMirrorBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The feature registry block: the registry mirrored into the app's database on deploy, entitlements, per-tenant and platform flag values and SQL `feature_on()`, for the feature gate. Needs the tenant features block. |
 | [`fetchAuthSettings`](../packages/supabase/src/auth-form-client.ts) | function | Beta | Reads a project's public Auth settings (`GET <url>/auth/v1/settings` with the publishable key): which OAuth providers are on, whether email and phone sign-in are, and whether sign-up is closed. Throws when the request fails, takes over 5... |
+| [`genesisSettingHistory`](../packages/supabase/src/settings.ts) | function | Beta | The database layer's history, newest first (at most `maxRows`, 1 to 1000, default 100). Platform admins only. @stability Beta |
 | [`jobsBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The jobs block: a background-job queue and named schedules that call the app's job route. Server only; the route is `createJobsHandler` from `/jobs`. |
 | [`must`](../packages/supabase/src/index.ts) | function | Beta | The data, or a thrown {@link SupabaseQueryError}: for query results where an error should fail the caller (a TanStack Query `queryFn`). The return type keeps `null` when the query can return no row (`.maybeSingle()`). |
+| [`readSettingsLayers`](../packages/supabase/src/settings.ts) | function | Beta | The preset, the file's settings and the database layer, for any signed-in person or server code: `genesis_settings_layers`. Throws a `SupabaseQueryError` (`42501`) when nobody is signed in. |
 | [`requestAppleRevocation`](../packages/supabase/src/apple-tokens.ts) | function | — | Asks the Edge Function to revoke the tokens of deleted accounts now, rather than at its next scheduled run. Never throws and never fails the caller: the account is already gone and the queue keeps the token until a run succeeds. |
+| [`resolveAppSettings`](../packages/supabase/src/settings.ts) | function | Beta | Read the stored layers and resolve them with the app's catalogue: values, where each came from, and what was wrong. |
+| [`setGenesisSetting`](../packages/supabase/src/settings.ts) | function | Beta | Set a runtime setting in the database layer: `set_genesis_setting`. Only platform admins (the app's `private.genesis_platform_admin` hook); throws a `SupabaseQueryError` otherwise (`42501`), or for a value the synced catalogue refuses (`... |
 | [`setTenantFeature`](../packages/supabase/src/tenant-features.ts) | function | Beta | Turn a feature on or off for a tenant: `set_tenant_feature`. Only the tenant's admins (the app's `private.genesis_tenant_admin` hook); throws a `SupabaseQueryError` otherwise (`42501`), for a blank reason (`22023`) or a malformed feature... |
+| [`settingsBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The settings block: the database layer of Genesis settings (genesis-config's `resolveSettings`), its history and the app manifest, with platform admins changing runtime settings through `set_genesis_setting`. |
 | [`storeAppleToken`](../packages/supabase/src/apple-tokens.ts) | function | Beta | After a Sign in with Apple, sends the authorization code to the Edge Function, which exchanges it for Apple's refresh token and keeps it where only the server reads it, so deleting the account can revoke it. Call it with the session from... |
 | [`SUPABASE_OAUTH_PROVIDERS`](../packages/supabase/src/auth-form-client.ts) | const | Beta | The OAuth providers `fetchAuthSettings` reports: the ones `signInWithOAuth` takes and genesis-ui's `AUTH_PROVIDER_NAMES` names. Any other key of the settings' `external` (`email`, `phone`, `saml`, `web3_*`…) isn't a button. |
 | [`SupabaseQueryError`](../packages/supabase/src/index.ts) | class | Beta | A failed query, with the database's `code` (`23505` unique violation, `42501` permission denied, `PGRST116` no rows…), `details` and `hint`, so a caller can tell an RLS refusal from a conflict. The original error is the `cause`. |
@@ -10463,12 +11183,14 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`tenantFeaturesBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The tenant features block: per-tenant on/off switches for shipped features, set by the tenant's admins with a reason. |
 | [`tenantFeatureSettings`](../packages/supabase/src/tenant-features.ts) | function | Beta | Every switch a tenant has set, with its reason, for its admins: `tenant_feature_settings`. @stability Beta |
 | [`versionedWritesBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The versioned-writes block: `genesis_version_bump`, the trigger that advances a row's version on every update, so the Supabase data provider's `version` rule can refuse an edit made on a stale copy as a `conflict`. |
+| [`writeAppManifest`](../packages/supabase/src/settings.ts) | function | Beta | Write the app manifest (one row) with the service-role client, on deploy and at app start. It carries the catalogue `set_genesis_setting` validates against: until it's written, no setting can be changed. Server only: never with a browser... |
 
-### Types (26)
+### Types (33)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
+export type { AppManifestInput };
 export type { AuthCallError };
 export type { AuthCallResult };
 export type { AuthFormSupabase };
@@ -10484,12 +11206,18 @@ export type { FeatureRegistryClient };
 export type { FeatureRegistryDocument };
 export type { FlagStateValue };
 export type { FunctionsClient };
+export type { GenesisSettingChange };
 export type { GenesisSupabaseOptions };
+export type { ManifestClient };
 export type { PostgrestErrorLike };
+export type { ResolveAppSettingsOptions };
 export type { SessionStorage };
+export type { SetGenesisSettingInput };
 export type { SetTenantFeatureInput };
+export type { SettingsClient };
 export type { StoreAppleTokenOptions };
 export type { StoreAppleTokenResult };
+export type { StoredSettingsLayers };
 export type { SyncFeatureRegistryOptions };
 export type { TenantFeatureChange };
 export type { TenantFeatureSetting };
@@ -10553,7 +11281,7 @@ export type { WipeOnReinstallOptions };
 
 **Barrel:** [`packages/supabase/src/blocks.ts`](../packages/supabase/src/blocks.ts)
 
-### Other exports (7)
+### Other exports (8)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -10563,6 +11291,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`eventsBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The product events block: the app's own events table and its tracking functions (ADR 0010). The client is `createEventTracker` from `/events`; on native, `createEventsSink` plugs it into the observability sinks. |
 | [`featureMirrorBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The feature registry block: the registry mirrored into the app's database on deploy, entitlements, per-tenant and platform flag values and SQL `feature_on()`, for the feature gate. Needs the tenant features block. |
 | [`jobsBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The jobs block: a background-job queue and named schedules that call the app's job route. Server only; the route is `createJobsHandler` from `/jobs`. |
+| [`settingsBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The settings block: the database layer of Genesis settings (genesis-config's `resolveSettings`), its history and the app manifest, with platform admins changing runtime settings through `set_genesis_setting`. |
 | [`tenantFeaturesBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The tenant features block: per-tenant on/off switches for shipped features, set by the tenant's admins with a reason. |
 | [`versionedWritesBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The versioned-writes block: `genesis_version_bump`, the trigger that advances a row's version on every update, so the Supabase data provider's `version` rule can refuse an edit made on a stale copy as a `conflict`. |
 | [`webHandoffBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The web handoff block: continue on the web, already signed in. The routes are `createWebHandoff` from `/web-handoff/server`, the page uses `/web-handoff`, and the native app calls `openOnWeb` from genesis-native. |
@@ -10744,67 +11473,158 @@ Support and feedback for Genesis apps, in the app's own Supabase: a feedback rec
 
 **Barrel:** [`packages/support/src/index.ts`](../packages/support/src/index.ts)
 
-### Other exports (53)
+### Other exports (144)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
 | [`attachmentBytes`](../packages/support/src/record.ts) | function | — | The bytes of an attachment, from `bytes` or `base64`. |
+| [`attachmentBytes`](../packages/support/src/record.ts) | function | — | The bytes of an attachment, from `bytes` or `base64`. |
 | [`base64ToBytes`](../packages/support/src/record.ts) | function | — | Base64 (or a `data:` URI) to bytes, without `atob` (Hermes, workers, Node all agree). |
+| [`base64ToBytes`](../packages/support/src/record.ts) | function | — | Base64 (or a `data:` URI) to bytes, without `atob` (Hermes, workers, Node all agree). |
+| [`capReport`](../packages/support/src/diagnostics/cap.ts) | function | — | The report within every cap. Returns a new report; the input is left as it was. |
+| [`captureConsole`](../packages/support/src/diagnostics/console.ts) | function | — | Keep the last console lines. Calling it again while a capture runs returns that capture. |
 | [`cleanLabel`](../packages/support/src/client.ts) | function | — | An about label as it can be shown: the reporter's (so untrusted), on one line, at most 80 characters, without control or direction-changing (bidi) characters. Null when nothing is left. |
-| [`cleanRoute`](../packages/support/src/contract.ts) | function | — | A route as a path only, safe to store and send: the query string and fragment (tokens, codes, emails) are dropped, and path segments that look private (an email, an id, a long token) become `:email`, `:id` or `:token` (`/users/jane@x.tes... |
+| [`cleanLabel`](../packages/support/src/client.ts) | function | — | An about label as it can be shown: the reporter's (so untrusted), on one line, at most 80 characters, without control or direction-changing (bidi) characters. Null when nothing is left. |
+| [`cleanRoute`](../packages/support/src/contract.ts) | function | — | A route as a path only, safe to store and send: the query string and fragment (tokens, codes, emails), written or percent-encoded, are dropped, and path segments that look private (an email, an id, a phone or card number, a token or shor... |
+| [`cleanRoute`](../packages/support/src/contract.ts) | function | — | A route as a path only, safe to store and send: the query string and fragment (tokens, codes, emails), written or percent-encoded, are dropped, and path segments that look private (an email, an id, a phone or card number, a token or shor... |
+| [`composeCollectors`](../packages/support/src/record.ts) | function | — | Collectors merged left to right (a later one's values win; `device` and `extra` merge by key). |
 | [`composeCollectors`](../packages/support/src/record.ts) | function | — | Collectors merged left to right (a later one's values win; `device` and `extra` merge by key). |
 | [`CONTRACT_VERSION`](../packages/support/src/contract.ts) | const | — | Bumped only on a shape change. Old clients must keep working. |
+| [`CONTRACT_VERSION`](../packages/support/src/contract.ts) | const | — | Bumped only on a shape change. Old clients must keep working. |
+| [`CORE_SECTIONS`](../packages/support/src/diagnostics/report.ts) | const | — | The report's own keys a section can fill. Any other name goes under `sections`. |
 | [`createContextCollector`](../packages/support/src/record.ts) | function | — | The default collector: reads each value when feedback is sent, cleans the route, and drops a device or extra bag over its size cap rather than sending a report the database would refuse. |
+| [`createContextCollector`](../packages/support/src/record.ts) | function | — | The default collector: reads each value when feedback is sent, cleans the route, and drops a device or extra bag over its size cap rather than sending a report the database would refuse. |
+| [`createDiagnostics`](../packages/support/src/diagnostics/create.ts) | function | — | _(no summary)_ |
 | [`createIntakeClient`](../packages/support/src/intake.ts) | function | — | _(no summary)_ |
-| [`createIntakeSink`](../packages/support/src/intake.ts) | function | — | A sink over the intake function. The function takes no screenshots (they go to storage with a session), so attachments are reported as dropped. |
+| [`createIntakeClient`](../packages/support/src/intake.ts) | function | — | _(no summary)_ |
+| [`createIntakeSink`](../packages/support/src/intake.ts) | function | — | A sink over the intake function. The function takes no screenshots (they go to storage with a session), so attachments are reported as dropped. For an app whose feedback goes to its own API with screenshots, use `httpTransport({ url }).f... |
+| [`createIntakeSink`](../packages/support/src/intake.ts) | function | — | A sink over the intake function. The function takes no screenshots (they go to storage with a session), so attachments are reported as dropped. For an app whose feedback goes to its own API with screenshots, use `httpTransport({ url }).f... |
+| [`createOfflineQueue`](../packages/support/src/diagnostics/queue.ts) | function | — | _(no summary)_ |
+| [`createSupabaseSink`](../packages/support/src/client.ts) | function | — | The Supabase sink on its own (the support client is one). |
 | [`createSupabaseSink`](../packages/support/src/client.ts) | function | — | The Supabase sink on its own (the support client is one). |
 | [`createSupportClient`](../packages/support/src/client.ts) | function | — | The support client over the app's Supabase client. |
+| [`createSupportClient`](../packages/support/src/client.ts) | function | — | The support client over the app's Supabase client. |
+| [`cutToBytes`](../packages/support/src/diagnostics/cap.ts) | function | — | A string cut to `maxBytes` UTF-8 bytes without splitting a character. |
+| [`DEFAULT_QUEUE_KEY`](../packages/support/src/diagnostics/queue.ts) | const | — | _(no summary)_ |
+| [`defineDiagnosticSection`](../packages/support/src/diagnostics/report.ts) | function | — | A section of the dump. A core name (`build`, `device`, `session`, `flags`, `blocks`, `logs`, `sentry`, `server`, `checks`, `app`) fills that part of the report, merged over what other sections gave; any other name is an app section under... |
+| [`defineSupportBlock`](../packages/support/src/block.ts) | function | — | The platform-neutral declaration. |
 | [`defineSupportBlock`](../packages/support/src/block.ts) | function | — | The platform-neutral declaration. |
 | [`defineSupportChatBlock`](../packages/support/src/block.ts) | function | — | The support-chat block: a report's conversation runs on genesis-chat. It adds no screens of its own (the support block's thread route renders the conversation); it brings migrations `0005_genesis_support_chat_on_tickets.sql`, `0006_genes... |
+| [`defineSupportChatBlock`](../packages/support/src/block.ts) | function | — | The support-chat block: a report's conversation runs on genesis-chat. It adds no screens of its own (the support block's thread route renders the conversation); it brings migrations `0005_genesis_support_chat_on_tickets.sql`, `0006_genes... |
+| [`defineSupportEmailBlock`](../packages/support/src/block.ts) | function | — | The support-email block: email is a ticket channel (ADR 0011). It brings migration `0002_genesis_support_email.sql` from this package, after 0006; the server half is `@marktiderman/genesis-support/email` with genesis-notifications' inbou... |
 | [`defineSupportEmailBlock`](../packages/support/src/block.ts) | function | — | The support-email block: email is a ticket channel (ADR 0011). It brings migration `0002_genesis_support_email.sql` from this package, after 0006; the server half is `@marktiderman/genesis-support/email` with genesis-notifications' inbou... |
 | [`defineSupportHelpdeskBlock`](../packages/support/src/block.ts) | function | — | The support-helpdesk block: what a tenant's help desk adds to support and its chat threads. It brings migration `0010_genesis_support_help_center.sql`. Its screens are components and hooks the app routes to: `SupportMessengerLauncher`, `... |
+| [`defineSupportHelpdeskBlock`](../packages/support/src/block.ts) | function | — | The support-helpdesk block: what a tenant's help desk adds to support and its chat threads. It brings migration `0010_genesis_support_help_center.sql`. Its screens are components and hooks the app routes to: `SupportMessengerLauncher`, `... |
 | [`DEVICE_MAX_BYTES`](../packages/support/src/record.ts) | const | — | _(no summary)_ |
+| [`DEVICE_MAX_BYTES`](../packages/support/src/record.ts) | const | — | _(no summary)_ |
+| [`DIAGNOSTIC_TRIGGERS`](../packages/support/src/diagnostics/report.ts) | const | — | _(no summary)_ |
+| [`DIAGNOSTICS_DEFAULTS`](../packages/support/src/diagnostics/report.ts) | const | — | Every option of the diagnostics layer and its default, in one place, so genesis-config can declare them as settings (`diagnostics.*`) without renaming anything. The caps are the design's size table. |
+| [`DIAGNOSTICS_SCHEMA`](../packages/support/src/diagnostics/report.ts) | const | — | The format's name and version. A reader refuses any other. |
+| [`DIAGNOSTICS_SETTING_SPECS`](../packages/support/src/settings.ts) | const | Beta | `diagnostics.*`: the context dump. @stability Beta |
+| [`DIAGNOSTICS_TABLE`](../packages/support/src/diagnostics/transports.ts) | const | — | The table migration 0019 creates. |
+| [`DiagnosticsSendError`](../packages/support/src/diagnostics/queue.ts) | class | — | A send that failed. `retryable` decides whether the queue keeps it. |
+| [`diagnosticsSettings`](../packages/support/src/settings.ts) | const | Beta | _(no summary)_ |
+| [`diagnosticsShortId`](../packages/support/src/diagnostics/report.ts) | function | — | The short id a person quotes to support: the first 8 hex digits of the dump's id, upper case (`3F2A9C1B`). The database's `short_id` column is the same expression. |
+| [`emptyReport`](../packages/support/src/diagnostics/report.ts) | function | — | An empty report: every section null, the lists empty. |
 | [`EXTRA_MAX_BYTES`](../packages/support/src/record.ts) | const | — | _(no summary)_ |
+| [`EXTRA_MAX_BYTES`](../packages/support/src/record.ts) | const | — | _(no summary)_ |
+| [`FEEDBACK_FORM_FIELDS`](../packages/support/src/diagnostics/transports.ts) | const | — | The multipart field names `createDiagnosticsHandler` reads. |
+| [`FEEDBACK_REPORT_TYPES`](../packages/support/src/contract.ts) | const | — | _(no summary)_ |
 | [`FEEDBACK_REPORT_TYPES`](../packages/support/src/contract.ts) | const | — | _(no summary)_ |
 | [`FEEDBACK_STATUSES`](../packages/support/src/contract.ts) | const | — | _(no summary)_ |
+| [`FEEDBACK_STATUSES`](../packages/support/src/contract.ts) | const | — | _(no summary)_ |
+| [`FEEDBACK_TYPES`](../packages/support/src/record.ts) | const | — | _(no summary)_ |
 | [`FEEDBACK_TYPES`](../packages/support/src/record.ts) | const | — | _(no summary)_ |
 | [`fill`](../packages/support/src/copy.ts) | function | — | Fills `{name}` placeholders. |
+| [`fill`](../packages/support/src/copy.ts) | function | — | Fills `{name}` placeholders. |
+| [`helpArticleDoc`](../packages/support/src/help-pages.ts) | function | — | Plain text as rich text: a blank line parts paragraphs, a single line break stays one. |
 | [`helpArticleDoc`](../packages/support/src/help-pages.ts) | function | — | Plain text as rich text: a blank line parts paragraphs, a single line break stays one. |
 | [`helpCenterPages`](../packages/support/src/help-pages.ts) | function | — | The index page and one page per published article, ready for a site's `createSite` or page saves. |
+| [`helpCenterPages`](../packages/support/src/help-pages.ts) | function | — | The index page and one page per published article, ready for a site's `createSite` or page saves. |
+| [`httpTransport`](../packages/support/src/diagnostics/transports.ts) | function | — | Dumps and feedback over HTTP to the app's own API. Feedback is `multipart/form-data`: a `feedback` part (the record as JSON, without the images) and one `screenshot` part per image, so a server that isn't Supabase stores the screenshots ... |
+| [`IntakeError`](../packages/support/src/intake.ts) | class | — | A non-2xx answer (`status` 0: it never arrived). `code` is the function's `error`. |
 | [`IntakeError`](../packages/support/src/intake.ts) | class | — | A non-2xx answer (`status` 0: it never arrived). `code` is the function's `error`. |
 | [`isMissingFunction`](../packages/support/src/chat.ts) | function | — | PostgREST's "no such function" (PGRST202) or Postgres's (42883): the block's migration isn't applied. |
+| [`isMissingFunction`](../packages/support/src/chat.ts) | function | — | PostgREST's "no such function" (PGRST202) or Postgres's (42883): the block's migration isn't applied. |
+| [`isRetryableError`](../packages/support/src/diagnostics/queue.ts) | function | — | True when trying again later may work: no answer, a timeout, a rate limit or a server error. |
+| [`isSitePath`](../packages/support/src/routes.ts) | function | — | Whether a report's route is a path on this site, safe to link: one leading "/", not "//" or "/\\" (another host), no scheme, no whitespace or control characters, and no placeholder segment (":id") where cleanRoute took an id out. |
 | [`isSitePath`](../packages/support/src/routes.ts) | function | — | Whether a report's route is a path on this site, safe to link: one leading "/", not "//" or "/\\" (another host), no scheme, no whitespace or control characters, and no placeholder segment (":id") where cleanRoute took an id out. |
 | [`isUnread`](../packages/support/src/client.ts) | function | — | True when there is a staff reply newer than the person's last read. |
+| [`isUnread`](../packages/support/src/client.ts) | function | — | True when there is a staff reply newer than the person's last read. |
+| [`isUuid`](../packages/support/src/diagnostics/report.ts) | function | — | True for a UUID (any version). |
+| [`jsonByteLength`](../packages/support/src/diagnostics/report.ts) | function | — | JSON size in UTF-8 bytes. |
 | [`LIMITS`](../packages/support/src/contract.ts) | const | — | Text limits, the same as the database's checks. |
+| [`LIMITS`](../packages/support/src/contract.ts) | const | — | Text limits, the same as the database's checks. |
+| [`memoryQueueStorage`](../packages/support/src/diagnostics/queue.ts) | function | — | A storage in memory: tests, or a platform with nothing persistent. |
+| [`officeHoursState`](../packages/support/src/office-hours.ts) | function | — | Whether someone is in at `now`, and if not, when they're next in. |
 | [`officeHoursState`](../packages/support/src/office-hours.ts) | function | — | Whether someone is in at `now`, and if not, when they're next in. |
 | [`pageOf`](../packages/support/src/client.ts) | function | — | A report's page for people: the about label with the route, else the route. |
+| [`pageOf`](../packages/support/src/client.ts) | function | — | A report's page for people: the about label with the route, else the route. |
+| [`randomUuid`](../packages/support/src/diagnostics/report.ts) | function | — | A random UUID v4: `crypto.randomUUID` where there is one, else from `getRandomValues`, else Math.random. |
+| [`redactReport`](../packages/support/src/diagnostics/redact.ts) | function | — | The report with every rule applied. Accepts any object (the server passes what arrived) and returns the report's exact shape: unknown top-level keys are dropped, missing sections are null. |
 | [`reportHeading`](../packages/support/src/client.ts) | function | — | A report's heading: its title, else its words (the first line, shortened), never just its kind. |
+| [`reportHeading`](../packages/support/src/client.ts) | function | — | A report's heading: its title, else its words (the first line, shortened), never just its kind. |
+| [`reportVersionLine`](../packages/support/src/diagnostics/transports.ts) | function | — | A short line for the row's `app_version`: `1.4.0 (37)`, or null. |
+| [`requesterTenantsLabel`](../packages/support/src/client.ts) | function | — | How to show a requester's tenants on one line: the labels, joined ("Acme, Northside"), or null when none has one. |
+| [`requesterTenantsLabel`](../packages/support/src/client.ts) | function | — | How to show a requester's tenants on one line: the labels, joined ("Acme, Northside"), or null when none has one. |
 | [`resolveSupportCopy`](../packages/support/src/copy.ts) | function | — | The catalog with overrides merged over the English. |
+| [`resolveSupportCopy`](../packages/support/src/copy.ts) | function | — | The catalog with overrides merged over the English. |
+| [`resolveSupportSettings`](../packages/support/src/settings.ts) | function | Beta | Resolve support's keys alone, through the given layers. No layers: the `max` preset. @stability Beta |
 | [`sanitizeContext`](../packages/support/src/record.ts) | function | — | The context as the database takes it: a clean route, short strings, bags under their caps. |
+| [`sanitizeContext`](../packages/support/src/record.ts) | function | — | The context as the database takes it: a clean route, short strings, bags under their caps. |
+| [`SHAKE_SETTING_SPECS`](../packages/support/src/settings.ts) | const | Beta | `shake.*`: shake to report. @stability Beta |
+| [`shakeSettings`](../packages/support/src/settings.ts) | const | Beta | _(no summary)_ |
+| [`storedByteLength`](../packages/support/src/diagnostics/report.ts) | function | — | A dump's size as the database measures it (`octet_length(report::text)` in migration 0019): Postgres writes jsonb with a space after every `,` and `:`, a few percent over compact JSON. The whole-dump cap counts this, so a dump at the cap... |
+| [`supabaseTransport`](../packages/support/src/diagnostics/transports.ts) | function | — | Dumps into the app's own Supabase (migration 0019 applied). The person comes from the session; the database refuses more than 10 dumps an hour (`GS429`, kept by the offline queue to try later). |
+| [`SUPPORT_BLOCK_ID`](../packages/support/src/block.ts) | const | — | The FeatureId of the support block (features.ts). |
 | [`SUPPORT_BLOCK_ID`](../packages/support/src/block.ts) | const | — | The FeatureId of the support block (features.ts). |
 | [`SUPPORT_BUCKET`](../packages/support/src/client.ts) | const | — | The storage bucket migration 0006 creates. |
+| [`SUPPORT_BUCKET`](../packages/support/src/client.ts) | const | — | The storage bucket migration 0006 creates. |
+| [`SUPPORT_CHAT_BLOCK_ID`](../packages/support/src/chat.ts) | const | — | The block's FeatureId. |
 | [`SUPPORT_CHAT_BLOCK_ID`](../packages/support/src/chat.ts) | const | — | The block's FeatureId. |
 | [`SUPPORT_CHAT_KIND`](../packages/support/src/chat.ts) | const | — | The genesis_chat kind a report's conversation is, and its subject type. |
+| [`SUPPORT_CHAT_KIND`](../packages/support/src/chat.ts) | const | — | The genesis_chat kind a report's conversation is, and its subject type. |
+| [`SUPPORT_CHAT_SUBJECT`](../packages/support/src/chat.ts) | const | — | _(no summary)_ |
 | [`SUPPORT_CHAT_SUBJECT`](../packages/support/src/chat.ts) | const | — | _(no summary)_ |
 | [`SUPPORT_EMAIL_BLOCK_ID`](../packages/support/src/block.ts) | const | — | The support-email block's id. |
+| [`SUPPORT_EMAIL_BLOCK_ID`](../packages/support/src/block.ts) | const | — | The support-email block's id. |
 | [`SUPPORT_HELPDESK_BLOCK_ID`](../packages/support/src/block.ts) | const | — | The help desk block's id: the messenger, the help center and its AI answers, with the agent inbox. |
+| [`SUPPORT_HELPDESK_BLOCK_ID`](../packages/support/src/block.ts) | const | — | The help desk block's id: the messenger, the help center and its AI answers, with the agent inbox. |
+| [`SUPPORT_SETTING_SPECS`](../packages/support/src/settings.ts) | const | Beta | `support.*`, as declared (and as package.json `genesis.settings` repeats it). @stability Beta |
+| [`SUPPORT_SETTINGS_DECLARATIONS`](../packages/support/src/settings.ts) | const | Beta | Every declaration this package makes, for the app's catalogue. @stability Beta |
+| [`SUPPORT_TO_CHAT_STATUS`](../packages/support/src/chat.ts) | const | — | A support report's status, as genesis-chat's conversation status (the migration's mapping). |
 | [`SUPPORT_TO_CHAT_STATUS`](../packages/support/src/chat.ts) | const | — | A support report's status, as genesis-chat's conversation status (the migration's mapping). |
 | [`supportContributions`](../packages/support/src/block.ts) | function | — | The block's contributions, for any platform. |
+| [`supportContributions`](../packages/support/src/block.ts) | function | — | The block's contributions, for any platform. |
+| [`supportCopy`](../packages/support/src/copy.ts) | const | — | Every string the support block shows, in English. Pass `copy` (any part of this shape) to translate or reword; what you leave out stays English. |
 | [`supportCopy`](../packages/support/src/copy.ts) | const | — | Every string the support block shows, in English. Pass `copy` (any part of this shape) to translate or reword; what you leave out stays English. |
 | [`SupportError`](../packages/support/src/client.ts) | class | — | A Supabase refusal, with its code (`GS429` rate limited, `42501` not allowed, …). |
+| [`SupportError`](../packages/support/src/client.ts) | class | — | A Supabase refusal, with its code (`GS429` rate limited, `42501` not allowed, …). |
+| [`supportPaths`](../packages/support/src/block.ts) | function | — | _(no summary)_ |
 | [`supportPaths`](../packages/support/src/block.ts) | function | — | _(no summary)_ |
 | [`supportQueueSource`](../packages/support/src/inbox.ts) | function | — | A provider `source` for the agent queue: migration 0018's `support_agent_queue`, which returns every ticket (no limit of its own) so the provider pages, counts and filters it. The queue (`mine`, `unassigned`, `pending`, `closed`, `all`, ... |
+| [`supportQueueSource`](../packages/support/src/inbox.ts) | function | — | A provider `source` for the agent queue: migration 0018's `support_agent_queue`, which returns every ticket (no limit of its own) so the provider pages, counts and filters it. The queue (`mine`, `unassigned`, `pending`, `closed`, `all`, ... |
+| [`supportSettings`](../packages/support/src/settings.ts) | const | Beta | _(no summary)_ |
+| [`supportSettingsCatalogue`](../packages/support/src/settings.ts) | function | Beta | Support's keys alone as a catalogue (an app builds one catalogue from every package's declarations). @stability Beta |
+| [`supportSettingValues`](../packages/support/src/settings.ts) | function | Beta | Support's settings as typed values. A key the input doesn't have, or has with a value that doesn't fit (a hand-written map), takes its `max` default, so a partial map is safe. No input: every key at `max` (zero config). |
+| [`TICKET_STATUS_TONES`](../packages/support/src/inbox.ts) | const | — | A ticket's status tones, for a view's `fields.status.tones`. |
 | [`TICKET_STATUS_TONES`](../packages/support/src/inbox.ts) | const | — | A ticket's status tones, for a view's `fields.status.tones`. |
 | [`TICKET_SUBJECT`](../packages/support/src/chat.ts) | const | — | The chat subject type of a ticket's conversation. Compare against this, never the literal. The stored value stays `support_report`, so existing conversations keep working (ADR 0015). |
+| [`TICKET_SUBJECT`](../packages/support/src/chat.ts) | const | — | The chat subject type of a ticket's conversation. Compare against this, never the literal. The stored value stays `support_report`, so existing conversations keep working (ADR 0015). |
+| [`ticketInbox`](../packages/support/src/inbox.ts) | const | — | The queue's rows as an inbox: the title, the latest message, when, who, unread for agents, the status. |
 | [`ticketInbox`](../packages/support/src/inbox.ts) | const | — | The queue's rows as an inbox: the title, the latest message, when, who, unread for agents, the status. |
 | [`ticketSegments`](../packages/support/src/inbox.ts) | const | — | The queue's segments, the inbox's rail, with the agent inbox's (SupportAgentInbox's) meanings: Mine and Unassigned hold active tickets (not pending, not closed); Open every active one; Pending those waiting on the requester; Closed the a... |
+| [`ticketSegments`](../packages/support/src/inbox.ts) | const | — | The queue's segments, the inbox's rail, with the agent inbox's (SupportAgentInbox's) meanings: Mine and Unassigned hold active tickets (not pending, not closed); Open every active one; Pending those waiting on the requester; Closed the a... |
+| [`validateSubmitInput`](../packages/support/src/contract.ts) | function | — | Checks a `submit` body the way the server does: known keys only, every limit. |
 | [`validateSubmitInput`](../packages/support/src/contract.ts) | function | — | Checks a `submit` body the way the server does: known keys only, every limit. |
 | [`waitingSinceOf`](../packages/support/src/client.ts) | function | — | Since when a ticket's requester has waited, from its reply times: for a queue read before migration 0013. |
+| [`waitingSinceOf`](../packages/support/src/client.ts) | function | — | Since when a ticket's requester has waited, from its reply times: for a queue read before migration 0013. |
+| [`WIDGET_HEADERS`](../packages/support/src/contract.ts) | const | — | Headers a client sends. The person's access token goes in `Authorization: Bearer …`. |
 | [`WIDGET_HEADERS`](../packages/support/src/contract.ts) | const | — | Headers a client sends. The person's access token goes in `Authorization: Bearer …`. |
 
-### Types (65)
+### Types (107)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -10814,8 +11634,37 @@ export type { AgentReport };
 export type { AgentTicket };
 export type { AgentTicketCounts };
 export type { BootConfig };
+export type { CapLimits };
+export type { CaptureConsoleOptions };
+export type { CollectOptions };
+export type { ConsoleBuffer };
+export type { ConsoleLevel };
 export type { ContextCollector };
 export type { ContextCollectorOptions };
+export type { CoreSectionName };
+export type { DiagnosticApp };
+export type { DiagnosticBreadcrumb };
+export type { DiagnosticBuild };
+export type { DiagnosticCheck };
+export type { DiagnosticConsoleLine };
+export type { DiagnosticDevice };
+export type { DiagnosticError };
+export type { DiagnosticLogs };
+export type { DiagnosticReport };
+export type { DiagnosticSection };
+export type { DiagnosticSectionOptions };
+export type { DiagnosticSentry };
+export type { DiagnosticServer };
+export type { DiagnosticSession };
+export type { DiagnosticTrigger };
+export type { DiagnosticUser };
+export type { Diagnostics };
+export type { DiagnosticsDefaults };
+export type { DiagnosticsDelivery };
+export type { DiagnosticsOptions };
+export type { DiagnosticsReceipt };
+export type { DiagnosticsTransport };
+export type { DiagnosticsUser };
 export type { EarlierTicket };
 export type { FeedbackAttachment };
 export type { FeedbackContext };
@@ -10838,6 +11687,7 @@ export type { HelpCenterPage };
 export type { HelpCenterPagesInput };
 export type { HelpCollection };
 export type { HelpSearchHit };
+export type { HttpTransportOptions };
 export type { IdeaStatus };
 export type { IdentityMode };
 export type { IntakeClient };
@@ -10846,8 +11696,16 @@ export type { LauncherPosition };
 export type { Lazy };
 export type { OfficeHours };
 export type { OfficeHoursState };
+export type { OfflineQueue };
+export type { OfflineQueueOptions };
+export type { QueueFlushResult };
+export type { QueueStorage };
+export type { RedactOptions };
+export type { RequesterTenant };
 export type { SavedReply };
 export type { ScreenshotContentType };
+export type { SectionValue };
+export type { SendDiagnosticsOptions };
 export type { SubmitFeedbackInput };
 export type { SubmitFeedbackResult };
 export type { SubmitValidation };
@@ -10862,9 +11720,13 @@ export type { SupportCopy };
 export type { SupportCopyOverrides };
 export type { SupportIdea };
 export type { SupportPaths };
+export type { SupportPerson };
 export type { SupportReply };
 export type { SupportReplyAttachment };
 export type { SupportReport };
+export type { SupportReporter };
+export type { SupportSettingValues };
+export type { SupportSettingsInput };
 export type { SupportSupabase };
 export type { SupportThreadInfo };
 export type { ThemeTokens };
@@ -10889,7 +11751,7 @@ export type { WidgetTypeWire };
 | [`FeedbackLauncher`](../packages/support/src/web/launcher.tsx) | `FeedbackLauncherProps` | — | _(no summary)_ |
 | [`FeedbackPanel`](../packages/support/src/web/feedback-panel.tsx) | `FeedbackPanelProps` | — | _(no summary)_ |
 
-### Other exports (14)
+### Other exports (16)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -10900,6 +11762,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`captureScreenshot`](../packages/support/src/web/capture.ts) | function | — | One frame of the current tab, or `null` when the person declined or the browser can't. |
 | [`createPinOverlay`](../packages/support/src/web/pin.ts) | function | — | Numbered pins for reports sent from the current path. Re-drawn on navigation, scroll and resize. |
 | [`FEEDBACK_SHORTCUT`](../packages/support/src/web/shortcut.ts) | const | — | The default: ⌘⇧. on a Mac, Ctrl+Shift+. elsewhere. |
+| [`flushDiagnosticsOnReconnect`](../packages/support/src/web/diagnostics.ts) | function | — | Send queued dumps when the browser is back online or the tab comes to the front, and keep `session.foreground` in step. Returns the stop. |
 | [`matchesShortcut`](../packages/support/src/web/shortcut.ts) | function | — | Does this key press match the shortcut? |
 | [`mountSupportWidget`](../packages/support/src/web/launcher.tsx) | function | — | Mount the launcher into the page: into `container`, or a new element at the end of `<body>`. Returns the unmount. The page needs Genesis UI's styles. |
 | [`pickPin`](../packages/support/src/web/pin.ts) | function | — | Waits for one click anywhere on the page and returns the pin, or `null` on Escape. The click doesn't reach the page. |
@@ -10909,8 +11772,9 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useFeedbackDraft`](../packages/support/src/web/feedback-panel.tsx) | function | — | A feedback draft for a host to hold outside the panel (see `FeedbackPanelProps.draft`). |
 | [`useFeedbackShortcut`](../packages/support/src/web/shortcut.ts) | function | — | Opens feedback from anywhere on the page with a key press (default ⌘⇧. / Ctrl+Shift+.). The press counts as the person's gesture, so the panel may ask to capture the tab right away. |
 | [`webContextCollector`](../packages/support/src/web/feedback-panel.tsx) | function | — | The default web collector: the path (never the query string), `web`, and the viewport and language. |
+| [`webSections`](../packages/support/src/web/diagnostics.ts) | function | — | The browser's sections: `device`, `session`, `logs.console`, and `flags`, `build`, `server` when given. |
 
-### Types (11)
+### Types (12)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -10926,6 +11790,7 @@ export type { PinnedReport };
 export type { Redaction };
 export type { Stroke };
 export type { WebCapture };
+export type { WebSectionsOptions };
 ```
 
 ---
@@ -10969,38 +11834,85 @@ export type { MessengerSpace };
 
 ---
 
+## @marktiderman/genesis-support/web-boards
+
+**Barrel:** [`packages/support/src/web-boards/index.ts`](../packages/support/src/web-boards/index.ts)
+
+### Components (6)
+
+| Name | Props | Stability | Summary |
+| --- | --- | --- | --- |
+| [`SupportHelpArticle`](../packages/support/src/web-boards/boards.tsx) | `SupportHelpArticleProps` | — | One help article by its slug: its title, summary and body (plain text; blank lines part its paragraphs). A draft, an article the person can't read, or a client without a help center is "not found". |
+| [`SupportIdeaBoard`](../packages/support/src/web-boards/boards.tsx) | `SupportIdeaBoardProps` | — | The idea board: anyone signed in suggests ideas and votes (one each); staff set an idea's status in its peek. |
+| [`SupportIdeaStatusControl`](../packages/support/src/web-boards/boards.tsx) | `SupportIdeaStatusControlProps` | — | Staff: an idea's status, and the FeatureId that delivers it once shipped (blank clears it). Draws nothing when the client has no `setIdeaStatus`. |
+| [`SupportMyReports`](../packages/support/src/web-boards/boards.tsx) | `SupportMyReportsProps` | — | The signed-in person's own reports: unread and status badges, delete with a confirm, and the thread in each peek. |
+| [`SupportReportFeatureControl`](../packages/support/src/web-boards/boards.tsx) | `SupportReportFeatureControlProps` | — | Staff: the FeatureId a report is about (blank clears it). Status is set in the report's thread; saving here reads the report fresh and keeps the status it has now. |
+| [`SupportShippedIdeas`](../packages/support/src/web-boards/boards.tsx) | `SupportShippedIdeasProps` | — | "You asked, we shipped": shipped ideas the signed-in person suggested or voted for. Read only. |
+
+### Other exports (3)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`ideaVotable`](../packages/support/src/web-boards/boards.tsx) | function | — | Only an idea still in play takes votes. |
+| [`ideaVotesLabel`](../packages/support/src/web-boards/boards.tsx) | function | — | "1 vote", "12 votes", in the copy's words. |
+| [`supportBoardKeys`](../packages/support/src/web-boards/boards.tsx) | const | — | Query keys the lists read under, to invalidate from elsewhere (after sending feedback, say). |
+
+### Types (2)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { SupportIdeaRow };
+export type { SupportReportRow };
+```
+
+---
+
 ## @marktiderman/genesis-support/native
 
 **Barrel:** [`packages/support/src/native/index.ts`](../packages/support/src/native/index.ts)
 
-### Components (3)
+### Components (4)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
 | [`FeedbackForm`](../packages/support/src/native/feedback-form.tsx) | `FeedbackFormProps` | — | _(no summary)_ |
 | [`HelpAnswerCard`](../packages/support/src/native/help.tsx) | `HelpAnswerCardProps` | — | The AI's answer, or that it has none, always with the way to a person. |
 | [`ScreenshotAnnotator`](../packages/support/src/native/annotator.tsx) | `ScreenshotAnnotatorProps` | — | _(no summary)_ |
+| [`SendDiagnosticsRow`](../packages/support/src/native/diagnostics.tsx) | `SendDiagnosticsRowProps` | — | A "Send diagnostics" row for a Development or About screen: sends the dump, then shows the short id to quote to support, with "Copy id". |
 
-### Other exports (22)
+### Other exports (32)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
+| [`AGENT_INBOX_VIEWS`](../packages/support/src/native/agent.tsx) | const | — | The queues, in the order the switcher shows them. |
+| [`AGENT_TICKET_STATUSES`](../packages/support/src/native/agent.tsx) | const | — | The statuses an agent sets a ticket to, in the order the thread's controls show them. |
 | [`boxOf`](../packages/support/src/native/annotator.tsx) | function | — | _(no summary)_ |
 | [`createSupport`](../packages/support/src/native/support.tsx) | function | — | _(no summary)_ |
 | [`HelpArticleBody`](../packages/support/src/native/help.tsx) | function | — | An article's words, and the way to a person. |
 | [`listenForShake`](../packages/support/src/native/modules.ts) | function | — | Calls `onShake` when the phone is shaken: a few strong jolts close together, then a cooldown. Returns the stop. |
+| [`nativeSections`](../packages/support/src/native/diagnostics.tsx) | function | — | The phone's sections (support-features 4.2): `build` (version, update, channel, commit, OTA number, release), `device` (OS, model, locale, time zone, screen, font scale, network, permission states, each probed with a timeout), `session` ... |
+| [`observabilitySection`](../packages/support/src/native/diagnostics.tsx) | function | — | The observability block's recent errors and breadcrumbs (already scrubbed there; scrubbed again here) and Sentry's last event id and replay id, so a dump links to the Sentry event. |
 | [`SendFeedbackButton`](../packages/support/src/native/screens.tsx) | function | — | "Send feedback", for a devtools panel's slot or any screen: captures the screen, then opens the feedback screen. Renders nothing when support is off. |
 | [`strokeDots`](../packages/support/src/native/annotator.tsx) | function | — | The dots along a stroke, close enough to read as a line. |
 | [`SUPPORT_QUERY_ROOT`](../packages/support/src/native/support.tsx) | const | — | _(no summary)_ |
+| [`supportAgentKeys`](../packages/support/src/native/agent.tsx) | const | — | The agent desk's query keys, scoped by the signed-in login (`user`) so a sign-in as someone else on the same phone never reads the last person's queue from the cache. `tenant` is the tenant id, null for the app's own. |
 | [`SupportProvider`](../packages/support/src/native/support.tsx) | function | — | _(no summary)_ |
+| [`useAgentInbox`](../packages/support/src/native/agent.tsx) | function | — | One queue of a help desk's tickets as `InboxPage` props: latest activity first, unread in bold, the requester, status, assignee and how long they've waited on each row, a switcher between the queues with their counts (`header`), and the ... |
+| [`useAgentThread`](../packages/support/src/native/agent.tsx) | function | — | One ticket for an agent as `ThreadPage` props: what the requester wrote, then the conversation (live on genesis-chat, else re-read every `pollMs`); a composer that replies or, on chat, writes an internal note; the ticket's status and ass... |
+| [`useAgentUnreadCount`](../packages/support/src/native/agent.tsx) | function | — | How many active tickets in the help desk hold a requester's message no agent has read (`client.agentUnreadCount`), for a badge. 0 for anyone who isn't an agent there, and while it's read. |
 | [`useHelpArticle`](../packages/support/src/native/help.tsx) | function | — | One article, by its slug. |
 | [`useHelpCenter`](../packages/support/src/native/help.tsx) | function | — | The help center: its collections and articles, or within one collection, with search. With the tenant's AI on and `askAi` given to `createSupport`, searching also asks it. |
 | [`useIdeaBoard`](../packages/support/src/native/screens.tsx) | function | — | The idea board: most votes first, a vote button on each, and a field to suggest one. |
+| [`useIsSupportAgent`](../packages/support/src/native/agent.tsx) | function | — | Does the signed-in person handle this help desk's tickets? `client.isAgent(tenantId)` for a business's, `client.isStaff()` for the app's own (null or left out). False while it's read, when signed out, and when the read fails. |
 | [`useMessengerHome`](../packages/support/src/native/help.tsx) | function | — | Home: a greeting, search, the way to send a message; the latest conversation and articles as rows. |
 | [`useOptionalSupport`](../packages/support/src/native/support.tsx) | function | — | The same block, or `null` when support is off (for a button that hides itself). |
 | [`usePendingFeedback`](../packages/support/src/native/support.tsx) | function | — | The pending feedback, re-rendering when it changes. |
+| [`useSendDiagnostics`](../packages/support/src/native/diagnostics.tsx) | function | — | "Send diagnostics": the dump from `diagnostics`, or the support block's (`createSupport({ diagnostics })`). |
 | [`useShippedIdeas`](../packages/support/src/native/screens.tsx) | function | — | "You asked, we shipped": the shipped ideas the person suggested or voted for, with the FeatureId each shipped as. |
 | [`useStartConversation`](../packages/support/src/native/help.tsx) | function | — | Start a conversation: an empty thread whose first message becomes a ticket, then its thread opens. With `replyExpectation` or `officeHours` given to `createSupport`, it says how soon people hear back, or when someone's back. |
 | [`useSupport`](../packages/support/src/native/support.tsx) | function | — | The support block, from `GenesisNativeApp blocks` (or `SupportProvider`). Throws outside one. |
@@ -11010,18 +11922,32 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useUnreadReplies`](../packages/support/src/native/support.tsx) | function | — | How many reports have a staff reply the person hasn't read. |
 | [`VoteButton`](../packages/support/src/native/screens.tsx) | function | — | A vote toggle for an idea row. |
 
-### Types (11)
+### Types (25)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
 export type { AccelerometerLike };
 export type { AccelerometerMeasurement };
+export type { AgentDeskLabels };
+export type { AgentInboxOptions };
+export type { AgentInboxProps };
+export type { AgentThreadOptions };
+export type { AgentThreadProps };
 export type { CaptureOptions };
+export type { DiagnosticsApplicationLike };
+export type { DiagnosticsBuildMetadata };
+export type { DiagnosticsDeviceLike };
+export type { DiagnosticsNetInfoLike };
+export type { DiagnosticsUpdatesLike };
 export type { HelpAnswerResponse };
 export type { HelpAskState };
+export type { NativeSectionsOptions };
+export type { ObservabilityLike };
 export type { PendingFeedback };
 export type { PendingScreenshot };
+export type { SendDiagnosticsState };
+export type { SendDiagnosticsStatus };
 export type { ShakeOptions };
 export type { SupportBlock };
 export type { SupportOptions };
@@ -11034,21 +11960,36 @@ export type { ViewShotLike };
 
 **Barrel:** [`packages/support/src/email.ts`](../packages/support/src/email.ts)
 
-### Other exports (2)
+### Other exports (14)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
+| [`claimsFromAddresses`](../packages/support/src/email-reply.ts) | function | Beta | The claims of the first address on `domain` that is a reply address the ring signed and that hasn't expired, else null. Takes bare addresses or `Name <address>`. Check the claims again at use (see the module's notes): a token says who th... |
+| [`createReplyToken`](../packages/support/src/email-reply.ts) | function | Beta | The token for a ticket and a recipient, signed with the ring's current key. @stability Beta |
+| [`htmlToText`](../packages/support/src/email-reply.ts) | function | Beta | HTML to text, after Gmail's, Apple Mail's and Outlook's quote blocks are removed. Linear in the input, which is cut to `MAX_EMAIL_CHARS`. @stability Beta |
+| [`MAX_EMAIL_CHARS`](../packages/support/src/email-reply.ts) | const | Beta | An email body (text or HTML) is cut to this before it is read. @stability Beta |
+| [`MAX_REPLY_CHARS`](../packages/support/src/email-reply.ts) | const | Beta | Longest reply kept (the conversation's own limit). @stability Beta |
+| [`REPLY_KEY_LABEL`](../packages/support/src/email-reply.ts) | const | Beta | The label Genesis derives reply keys under. @stability Beta |
+| [`REPLY_MARKER`](../packages/support/src/email-reply.ts) | const | Beta | Our marker, at the top of every support email that takes replies: anything from it down is quoted. @stability Beta |
+| [`replyAddress`](../packages/support/src/email-reply.ts) | function | Beta | The reply address for a ticket and a recipient on the reply domain. @stability Beta |
+| [`replyKey`](../packages/support/src/email-reply.ts) | function | Beta | The signing key for reply addresses, derived from a server secret (SUPPORT_REPLY_SIGNING_SECRET) under `label` (default `REPLY_KEY_LABEL`). An app that made reply addresses before passes its own old label for the `legacy` key, so its add... |
+| [`replyKeyring`](../packages/support/src/email-reply.ts) | function | Beta | A keyring with one key, letter `a`. @stability Beta |
 | [`runSupportEmail`](../packages/support/src/email.ts) | function | Beta | Sends the queued staff replies on email tickets. Returns how many were sent and failed; a failed one is queued again (up to 5 attempts). Never throws for one email. |
+| [`stripReply`](../packages/support/src/email-reply.ts) | function | Beta | The reply's own text: no quoted history, no marker, no signature; trimmed and capped. @stability Beta |
 | [`supportEmailRoute`](../packages/support/src/email.ts) | function | Beta | A route that files support email as tickets. It takes an email when one of its recipients is a support address or a ticket's reply address, or (with `threads`) when it answers an email. |
+| [`verifyReplyToken`](../packages/support/src/email-reply.ts) | function | Beta | The ticket and recipient a token names, when a key in the ring signed it and it hasn't expired; else null. @stability Beta |
 
-### Types (6)
+### Types (9)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
 export type { ReceivedEmail };
+export type { ReplyClaims };
+export type { ReplyKeyring };
+export type { ReplyTokenOptions };
 export type { RunSupportEmailOptions };
 export type { SupportEmailClient };
 export type { SupportEmailMessage };
@@ -11083,6 +12024,77 @@ export type { HelpAiAdmin };
 export type { HelpAiDb };
 export type { HelpAnswerTaskOptions };
 export type { LoadedHelpQuestion };
+```
+
+---
+
+## @marktiderman/genesis-support/server
+
+**Barrel:** [`packages/support/src/server/index.ts`](../packages/support/src/server/index.ts)
+
+### Other exports (27)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`capReport`](../packages/support/src/diagnostics/cap.ts) | function | — | The report within every cap. Returns a new report; the input is left as it was. |
+| [`createDiagnosticsHandler`](../packages/support/src/server/handler.ts) | function | — | _(no summary)_ |
+| [`DIAGNOSTICS_DEFAULTS`](../packages/support/src/diagnostics/index.ts) | value | — | _(no summary)_ |
+| [`DIAGNOSTICS_SCHEMA`](../packages/support/src/diagnostics/index.ts) | value | — | _(no summary)_ |
+| [`DiagnosticsStoreError`](../packages/support/src/server/handler.ts) | class | — | A refusal from the store the handler passes on (`429` for the database's rate limit). |
+| [`eventSummaryLines`](../packages/support/src/server/events.ts) | function | — | A few plain lines about an event: no person beyond the id, no device or logs. |
+| [`eventTitle`](../packages/support/src/server/events.ts) | function | — | A short title for an event. |
+| [`fenced`](../packages/support/src/server/events.ts) | function | — | A fenced code block the text can't break out of: the fence is longer than the longest run of backticks in it (at least four). Inside a fence, mentions, links and images don't render. |
+| [`githubIssueNotifier`](../packages/support/src/server/notifiers.ts) | function | — | _(no summary)_ |
+| [`hmacSha256Hex`](../packages/support/src/server/notifiers.ts) | function | — | HMAC-SHA256 of `body` with `secret`, as hex (Web Crypto: Node 18+, Deno, workers). |
+| [`issueBody`](../packages/support/src/server/notifiers.ts) | function | — | The issue's body: the title and summary inside one fence, so nothing the person typed can mention, link or embed anything. |
+| [`issueDetail`](../packages/support/src/server/notifiers.ts) | function | — | The dump's detail for a private repository's issue: build, device, route, recent errors and breadcrumbs. |
+| [`looksLikeImage`](../packages/support/src/server/handler.ts) | function | — | The file starts like the image type it says it is. |
+| [`memoryRateLimiter`](../packages/support/src/server/handler.ts) | function | — | A rate limiter in memory: enough for one server process. Behind several instances (or on an Edge Function, which starts fresh), pass one backed by a shared store, or rely on the database's own limit (migration 0019 holds 10 dumps an hour... |
+| [`messengerNotifier`](../packages/support/src/server/notifiers.ts) | function | — | Staff alerts and reporter thanks through the app's own email or push. `notificationsNotifier` is the same function, under the name the design uses for the genesis-notifications hookup. |
+| [`neutralise`](../packages/support/src/server/events.ts) | function | — | Text safe outside a fence (an issue title): no mention, link, image or HTML can form. |
+| [`notificationsNotifier`](../packages/support/src/server/notifiers.ts) | const | — | The same as `messengerNotifier`: staff alerts and reporter thanks, through `SupportMessenger`. |
+| [`parseDiagnosticReport`](../packages/support/src/server/parse.ts) | function | — | Takes the body as text (preferred: its size is checked before parsing) or as a parsed value. Refuses over 512 KB; anything smaller is capped to 256 KB, never refused for size. |
+| [`parseFeedbackSubmission`](../packages/support/src/server/handler.ts) | function | — | The feedback part, checked the way the database checks it. The message and title are what the person typed and are kept as typed (staff read them); everything else is scrubbed. |
+| [`readBodyLimited`](../packages/support/src/server/handler.ts) | function | — | The body, read through a byte counter: null when it passes `max` (the read stops there). |
+| [`redactReport`](../packages/support/src/diagnostics/redact.ts) | function | — | The report with every rule applied. Accepts any object (the server passes what arrived) and returns the report's exact shape: unknown top-level keys are dropped, missing sections are null. |
+| [`supabaseAuthenticate`](../packages/support/src/server/supabase.ts) | function | — | The person from `Authorization: Bearer <Supabase access token>`, checked with Supabase Auth. |
+| [`supabaseDiagnosticsFiles`](../packages/support/src/server/supabase.ts) | function | — | Screenshots into the private `genesis-support` bucket (migration 0006), under `<user>/<report>/`. |
+| [`supabaseDiagnosticsStore`](../packages/support/src/server/supabase.ts) | function | — | The store over the service-role client. Each row is written for the authenticated person. |
+| [`verifyWebhookSignature`](../packages/support/src/server/notifiers.ts) | function | — | For the receiving end of `webhookNotifier`: true when `signature` (`sha256=<hex>`) is the HMAC of `<timestamp>.<body>` with `secret` (compared in constant time) and the timestamp (Unix seconds) is within `toleranceSec` (default 300) of n... |
+| [`WEBHOOK_HEADERS`](../packages/support/src/server/notifiers.ts) | const | — | The headers a signed webhook carries. |
+| [`webhookNotifier`](../packages/support/src/server/notifiers.ts) | function | — | _(no summary)_ |
+
+### Types (24)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { DiagnosticReport };
+export type { DiagnosticsCaller };
+export type { DiagnosticsCors };
+export type { DiagnosticsCreatedEvent };
+export type { DiagnosticsFiles };
+export type { DiagnosticsHandler };
+export type { DiagnosticsHandlerOptions };
+export type { DiagnosticsStore };
+export type { FeedbackCreatedEvent };
+export type { FeedbackSubmission };
+export type { FeedbackSummary };
+export type { GithubIssueNotifierOptions };
+export type { MessengerNotifierOptions };
+export type { ParseDiagnosticsError };
+export type { ParseDiagnosticsOptions };
+export type { ParsedDiagnostics };
+export type { RateLimiter };
+export type { ReporterThanks };
+export type { StaffAlert };
+export type { StoredFile };
+export type { SupportEvent };
+export type { SupportMessenger };
+export type { SupportNotifier };
+export type { WebhookNotifierOptions };
 ```
 
 ---
@@ -11644,7 +12656,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`userAvatarVariants`](../packages/ui/src/components/patterns/user-avatar.tsx) | value | — | _(no summary)_ |
 | [`useUiMessages`](../packages/ui/src/messages.tsx) | function | — | The catalogue in effect: English unless a `UiMessagesProvider` says otherwise. |
 
-### Types (81)
+### Types (82)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -11696,6 +12708,7 @@ export type { LiveIndicatorState };
 export type { MessageTone };
 export type { NavigateFn };
 export type { NavigationNode };
+export type { NavigationSubNav };
 export type { NavigationZone };
 export type { NotificationItem };
 export type { PrefillChoice };
@@ -12065,7 +13078,7 @@ export type { WhatsNewNote };
 
 **Barrel:** [`packages/ui/src/components/layout/index.ts`](../packages/ui/src/components/layout/index.ts)
 
-### Components (22)
+### Components (26)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
@@ -12088,6 +13101,10 @@ export type { WhatsNewNote };
 | [`SettingsPage`](../packages/ui/src/components/layout/settings-page.tsx) | `SettingsPageProps` | — | _(no summary)_ |
 | [`Split`](../packages/ui/src/components/layout/split.tsx) | `SplitProps` | Beta | Split — the master-detail layout: two panes side by side above a breakpoint, stacked below it. |
 | [`Stack`](../packages/ui/src/components/layout/stack.tsx) | `StackProps` | Beta | Stack — one-dimensional flow. The single most-repeated shape in any application: a run of things in a line, evenly spaced. |
+| [`SubNavBreadcrumb`](../packages/ui/src/components/layout/sub-nav.tsx) | `SubNavBreadcrumbProps` | Beta | The outer tab levels folded into a breadcrumb: one picker per level, showing its current item and opening the level's other items. AppShell draws it above the two tab rows when a third tabbed level is open. |
+| [`SubNavHub`](../packages/ui/src/components/layout/sub-nav.tsx) | `SubNavHubProps` | Beta | A level's children as cards, one per child (icon, label, badge): a section's landing page. One column on a phone, more as the width allows. |
+| [`SubNavList`](../packages/ui/src/components/layout/sub-nav.tsx) | `SubNavListProps` | Beta | A level's children as a vertical list of links: a column beside the content on a wide screen, or full-width rows (a phone's list page). |
+| [`SubNavSegmented`](../packages/ui/src/components/layout/sub-nav.tsx) | `SubNavSegmentedProps` | Beta | A segmented control of links: the phone form of a second tab row. Each segment is a real link with `aria-current` on the active one, at least 44px tall on touch; the control scrolls sideways when it doesn't fit. |
 | [`SubNavTabs`](../packages/ui/src/components/layout/sub-nav.tsx) | `SubNavTabsProps` | Beta | A row of navigation tabs: real links (deep links and middle-click work), `aria-current="page"` on the active one, badges as chips, the active tab underlined in the brand colour. AppShell renders it in `tabs` mode; an app using `subNav: "... |
 | [`TabBar`](../packages/ui/src/components/layout/tab-bar.tsx) | `TabBarProps` | Beta | A bottom tab bar for a phone-width web screen, the twin of genesis-ui-native's `NativeTabBar`: any number of items, and past `max` (5) the last slot is "More", which opens a bottom sheet with the rest. AppShell's own phone bottom nav (li... |
 | [`WorkspaceSwitcher`](../packages/ui/src/components/layout/workspace-switcher.tsx) | `WorkspaceSwitcherProps` | Beta | The workspace switcher. Put it in AppShell's `headerSlot`, and the `rail` and `bar` variants in `collapsedHeaderSlot` and `mobileHeaderSlot`. |
@@ -12127,7 +13144,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`WORKSPACE_SWITCHER_SEARCH_THRESHOLD`](../packages/core/src/workspaces.ts) | const | — | With a switcher's `search="auto"`, past this many workspaces it opens with a search box. On the web and the phone. |
 | [`workspaceThemeStyle`](../packages/ui/src/components/layout/workspace-switcher.tsx) | function | Beta | The CSS variables for a workspace's brand (`workspace.theme.accent`): `--primary`, `--primary-foreground` and `--ring` pointed at an accessible shade of the accent, as `brandThemeStyle` does for a public page. Empty without a valid accen... |
 
-### Types (43)
+### Types (44)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -12145,6 +13162,7 @@ export type { GenesisLinkProps };
 export type { LinkComponent };
 export type { NavItem };
 export type { NavigationNode };
+export type { NavigationSubNav };
 export type { NavigationZone };
 export type { NotificationItem };
 export type { PageHeaderOptions };

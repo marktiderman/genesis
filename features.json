@@ -8367,6 +8367,7 @@
         "settings-screen"
       ],
       "owner": "mark",
+      "claimedBy": "feat/setup-wizard",
       "apps": [
         "cli"
       ],

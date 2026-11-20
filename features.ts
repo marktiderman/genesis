@@ -3647,6 +3647,7 @@ export const features = defineFeatures({
     keywords: ["wizard", "setup", "init", "localhost", "settings", "secrets", "preset", "guided setup", "onboarding"],
     requires: ["doctor-fixes", "settings-screen"],
     owner: "mark",
+    claimedBy: "feat/setup-wizard",
     apps: ["cli"],
     audience: ["developer"],
     visibility: "internal",

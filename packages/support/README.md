@@ -76,11 +76,24 @@ const settings = resolveSupportSettings({ preset: "standard", person: { "shake.e
 supportSettingValues(settings).support.aiAnswers; // false
 ```
 
-`createSupport({ appSettings })` also takes a function, read again at each shake, so a person who
-turns `shake.enabled` off stops shake to report at once. The database reads two of them itself
-(migration `0020_genesis_support_settings.sql`): the dumps a person may send an hour
-(`diagnostics.perHour`) and how long a dump is kept (`diagnostics.retentionDays`), from
-genesis-supabase's settings tables when they're there, else 10 and 90 as before.
+`createSupport`, `createDiagnostics` and `createDiagnosticsHandler` also take a function, read when
+a setting is used, so a change in the database applies without a restart: `createSupport` reads
+`shake.enabled` and the dump's switches (`diagnostics.enabled`, `dumpOnShake`, `dumpOnFeedback`,
+`sendFromSettings`) each time, `createDiagnostics` reads `enabled` and `maxBytes` each time a dump
+is made or sent, and `createDiagnosticsHandler` reads its function (it may be async, such as
+`resolveAppSettings`) at most once every `settingsCacheMs` (30 seconds by default). With
+`diagnostics.enabled` off, the handler refuses a dump (403 `diagnostics_off`) and stores feedback
+without its dump. The rest (the idea board, the Settings rows, shake thresholds, the offline
+queue) is read when support is created. `diagnostics.maxBytes` goes up to 512 KB, the most the
+database stores. The database reads two of them itself (migration
+`0020_genesis_support_settings.sql`, and `0028_genesis_support_diagnostics_fixes.sql`, which reads
+`10.0` as 10): the dumps a person may send an hour (`diagnostics.perHour`) and how long a dump is
+kept (`diagnostics.retentionDays`), from genesis-supabase's settings tables when they're there,
+else 10 and 90 as before.
+
+A shake makes a dump at once and hands it to the feedback screen it opens: sent with the report
+(one dump, linked both ways), or on its own when the person leaves without sending one (or after
+15 seconds, if no feedback screen takes it).
 
 **Who reads a dump** (migration `0026_genesis_support_diagnostics_access.sql`): its sender; for a
 dump sent with a ticket, whoever handles that ticket (a business's dumps stay with its agents); for

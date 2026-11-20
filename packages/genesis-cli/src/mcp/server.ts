@@ -29,7 +29,7 @@ import { GenesisConfigError } from "../doctor/config.js";
 import { runDoctor } from "../doctor/index.js";
 import { discoverPackages } from "../doctor/package-rules.js";
 import type { DoctorResult, Finding } from "../doctor/types.js";
-import { applyPlan, FixError, planFix, StalePlanError } from "../fix/engine.js";
+import { applyPlan, FixError, planFix, sha256, StalePlanError } from "../fix/engine.js";
 import { allFixes, type BuiltinDeps } from "../fix/registry.js";
 import type { Fix, FixContext, FixPlan } from "../fix/types.js";
 import { distance, readUpgradeStatus, type RegistryDeps } from "../upgrade/registry.js";
@@ -271,6 +271,9 @@ export function createGenesisMcpServer(options: GenesisMcpOptions): Server {
       } catch {
         before = "";
       }
+      // The diff is drawn against the file the plan read: one that changed since would show lines
+      // the plan doesn't write (and applying would refuse it anyway).
+      if (f.beforeHash !== null && sha256(before) !== f.beforeHash) return { refused: `${f.path} changed since the plan was made: plan again` };
       const lines = changedLines(before, f.content);
       const text = lines.join("\n");
       if (text.length > budget) return { refused: `the plan changes more lines than an approval can show whole (over ${MAX_DIFF_CHARS} characters)` };

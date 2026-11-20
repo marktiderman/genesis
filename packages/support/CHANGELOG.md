@@ -1,5 +1,157 @@
 # @marktiderman/genesis-support
 
+## 0.11.1
+
+### Patch Changes
+
+- 06d4caa: #848 review findings.
+
+  - genesis-cli: `genesis fix --expect` writes nothing when one of the target's fixes can't be
+    planned. The fix engine removes only a file its own `wx` open created (an `EMFILE` open never
+    deletes another process's file). `genesis settings sync` passes `--yes` to `supabase db query`
+    after its own confirmation, so supabase's prompt can't default to No. `genesis-behind` keeps
+    advisories read while npm failed (through the hour of backoff, at their level), apart from a
+    cached release distance, which stays a note. The rename codemod dedupes pnpm-workspace.yaml
+    entries only within one mapping, so a named catalog keeps its own renamed entry.
+  - genesis-config: `SettingsClientMessages.badAnswer` is optional (a complete messages object from
+    before still typechecks). On the Settings screen a refreshed snapshot supersedes an upgrade
+    check or an audit page still in flight (its busy state cleared). `resolveSettings` never throws on
+    a value neither JSON nor `String` can write.
+  - genesis-support: the dump checks `diagnostics.enabled` again after collecting (a feedback goes
+    alone when it turned off meanwhile); a dump made earlier is capped with the limits in force when
+    sent, and no dump is capped above what the table stores; a shake's dump left unclaimed follows
+    support's own `diagnostics.enabled`, and leaving the feedback screen while its report is being
+    sent no longer sends the dump twice; the HTTP handler shares one settings read between requests.
+
+- 7481a71: The dump follows its settings while the app runs, and never sends two dumps for one shake.
+
+  - New migration `0028_genesis_support_diagnostics_fixes.sql` (copy it with `genesis migrate`): a whole number stored as `10.0` in `diagnostics.perHour` or `diagnostics.retentionDays` reads as 10 (0020 cast it straight to integer, so every dump insert, or the purge, failed); and a dump must say its schema (`{}` and `{"schema": null}` passed 0019's check). The new check is `NOT VALID`: rows already stored aren't re-read.
+  - `diagnostics.maxBytes` goes up to 524,288 (512 KB), the most the database stores; it allowed 1 MiB, and dumps between the two were refused.
+  - `createDiagnosticsHandler` honours `diagnostics.enabled`: off, a dump is refused (403 `diagnostics_off`) and feedback is stored without its dump. `appSettings` takes a function (async too, such as `resolveAppSettings`), read at most once every `settingsCacheMs` (default 30 s); one that fails keeps the last values. `diagnostics.perHour` follows it.
+  - `createSupport` reads `diagnostics.enabled`, `dumpOnShake`, `dumpOnFeedback` and `sendFromSettings` each time they're used (with an `appSettings` function), not once at creation; `block.diagnostics` and `block.options.diagnostics` are null/undefined while diagnostics are off. The devtools "Send diagnostics" row is always registered when the app passes `diagnostics`, and draws nothing while it is off. `createDiagnostics` also takes an `appSettings` function and reads `enabled` and `maxBytes` when a dump is made or sent; `submitFeedback` takes `report` to send a dump made earlier.
+  - A shake makes one dump and hands it to the feedback screen it opens: it goes with the report (linked both ways), or on its own if the person leaves without sending one, or after 15 seconds if no screen takes it. Before, the shake's dump went at once, unlinked, and the report sent a second one; both counted against the hourly limit.
+  - The native agent desk (`useAgentThread`) reads the thread, the ticket and the queues again after a reply, a status change or a live message on a cold start too: `refresh` now follows the signed-in login, so it no longer invalidates the keys of nobody.
+
+- 7481a71: Support fixes from the release review:
+
+  - The server handler's screenshot allowlist is a `Map`, so a part typed `constructor` (or any `Object` member) is never an allowed type.
+  - When the store refuses the dump brought with a piece of feedback, the notification names no dump (it named one that doesn't exist).
+  - Without `waitUntil`, the handler waits at most 5 seconds for its notifiers before answering, so a hung notifier can't make the client retry and file the report twice.
+  - GitHub issues: the admin link's `(`, `)`, `<` and `>` are percent-encoded, so an `adminUrl` can't close the link early; a long title is cut to GitHub's 256 characters after neutralising (the issue was refused with 422 and lost).
+  - Reply by email: an HTML-only reply laid out in `<header>` is read whole (`<head` inside `<header>` dropped everything after it).
+  - `lucide-react` is declared (an optional peer, as genesis-notifications does): `/web-boards` and `/web-chat` import it.
+  - The privacy note says the dump's size, hourly limit and retention are defaults the app's settings can change.
+  - genesis-supabase README: a direct database login's setting writes are recorded as `database`, not `server` (the service role's are `server`).
+
+- 5c9653e: The 14 support settings nothing reads yet (labelled "Planned") are declared `planned: true`, so
+  the doctor no longer asks for their secrets (`ANTHROPIC_API_KEY`, `RESEND_API_KEY` on `max`) or
+  their setup.
+- 7481a71: `cleanRoute` redacts long digit runs and grouped codes written as slugs again: `/order/card-4111111111111111` and `/invite/ABCD-EFGH-1234-5678` become `/order/:token` and `/invite/:token`, as they did before the slug rule kept them whole. A slug part of 7 digits or more, or three or more parts of one length with letters and digits, is a token; ordinary slugs, dates and versions (`top-10-tips-2024`, `release-2024-11-19`) stay readable. The support intake function's copy of the contract matches.
+- 462af35: Support fixes from the #848 review:
+
+  - `cleanRoute` judges each segment after percent-decoding and redacts more: a slug with 9 or more digits in all (`order-4111-1111-1111-1111`, `call-555-555-0101`; a date like `release-2024-11-19` has 8 and stays), card and IBAN numbers in groups joined by spaces (`%20`) or `+`, phone numbers without a `+` (`555-555-0101`, `555.555.0101`, `(555) 555-0101`, `tel:` links), SSNs (`123-45-6789` → `:id`) and base64 with `=` padding. A percent-encoded `?` or `#` (`%3F`, `%23`) ends the path like a written one. The intake function's copy matches.
+  - The whole-dump cap measures the dump as the database stores it (jsonb text, a space after every `,` and `:`), so a dump trimmed to `diagnostics.maxBytes` (up to 512 KB) is never refused by migration 0019's size check.
+  - A settings function that has never answered means no dumps (fail closed) in `createDiagnosticsHandler`, `createSupport` and `createDiagnostics`; after one answer, a failing read keeps the last values. Queued dumps wait while diagnostics are off instead of being dropped.
+  - The handler names a dump brought with feedback on the feedback only after the store saved it, through the new optional `DiagnosticsStore.linkDiagnostics` (`supabaseDiagnosticsStore` has it). A store without it leaves the feedback unnamed; the dump still names the feedback.
+  - No routes are recorded for the dump while diagnostics are off.
+  - Under React's StrictMode, which mounts the feedback screen twice, a shake's dump is still sent once: `ShakeDump.release` waits a tick before sending, so a remount takes it back.
+  - Migration 0028 sets `lock_timeout` to 5 seconds before adding its check.
+
+- Updated dependencies [06d4caa]
+- Updated dependencies [5c9653e]
+  - @marktiderman/genesis-config@0.11.1
+
+## 0.11.0
+
+### Minor Changes
+
+- 33b8d83: **Support settings and zero config.** genesis-support declares its settings with genesis-config:
+  `support.*` (the feedback form, the person's inbox, messenger, agent desk, help center, AI answers,
+  idea board, chat threads, email, reply by email, desks, staff alerts, the GitHub sink, the webhook,
+  the contact fallback), `diagnostics.*` (on, when a dump goes, its size, the hourly limit, retention)
+  and `shake.*` (a person's own switch, and how hard), each with `max` / `standard` / `min` defaults,
+  secrets by name and store, and in package.json `genesis.settings` for `genesis doctor`. New:
+  `supportSettings`, `diagnosticsSettings`, `shakeSettings`, `supportSettingsCatalogue`,
+  `resolveSupportSettings`, `supportSettingValues`. `createSupport`, `createDiagnostics`,
+  `FeedbackPanel` and `createDiagnosticsHandler` take `appSettings` (explicit options still win;
+  without either, the `max` preset). `Diagnostics.enabled` says whether dumps are on. Migration
+  `0020_genesis_support_settings.sql` reads `diagnostics.perHour` and `diagnostics.retentionDays` in
+  the database; `0021_genesis_support_default_hooks.sql` (a stand-in default tenant for 0004) and
+  `0023_genesis_support_hook_defaults.sql` (Genesis's own wrappers answer with the reserved tenant
+  `bda1457d-053b-422c-8887-e046e54b8344` and the platform admins as staff when the app has no hooks)
+  let support run with no SQL of the app's own; Genesis keeps no function of the app's hook names and
+  defines no viewer-people hook. The CommonJS server build bundles genesis-config's
+  settings resolver.
+
+  genesis-native's devtools overlay declares `devtools.*` (`overlay`, `shakeToOpen`, `hold`, `flags`,
+  `signOut`); `createDevtools({ appSettings })` takes parts away, never turns the overlay on in a
+  production build. genesis-supabase's `genesis-support-cleanup` leaves the dumps' age to the database
+  (the setting) unless `GENESIS_SUPPORT_DIAGNOSTICS_RETENTION_DAYS` is set.
+
+- 1ce922b: **Staff tools, boards and the phone's agent desk.** Migration `0022_genesis_support_staff_tools.sql`
+  (support-chat block) adds `support_agents_list`, `support_ticket_requesters` and
+  `support_requester_tenants`, with optional `private.genesis_person_name` and
+  `private.genesis_tenant_label` hooks. The client gains `staffList`, `reporters`, `requesterTenants`
+  (`requesterTenantsLabel`) and `setIdeaStatus`. A new entry, `/web-boards`, has `SupportMyReports`, `SupportIdeaBoard`,
+  `SupportIdeaStatusControl`, `SupportShippedIdeas`, `SupportReportFeatureControl` and
+  `SupportHelpArticle` (copy under `boards`); it uses genesis-core's resource views (an optional
+  peer), so `/web` itself is unchanged. `/native` gains `useIsSupportAgent`, `useAgentUnreadCount`, `useAgentInbox`, `useAgentThread`
+  and `supportAgentKeys`.
+
+  `/email` gains reply by email's building blocks: `replyKey`, `replyKeyring`, `createReplyToken`,
+  `verifyReplyToken`, `replyAddress` and `claimsFromAddresses` (a signed, stateless Reply-To per
+  ticket and recipient, with key rotation by letter and an issued week so addresses expire), and `stripReply` / `htmlToText` / `REPLY_MARKER` / `MAX_EMAIL_CHARS` (the reply without quoted
+  history or signature, linear on hostile input).
+
+  Review fixes: Genesis defines no `private.genesis_viewer_people` and keeps no function of the app's
+  hook names (0021 is a stand-in that 0023 drops; Genesis's wrappers answer with the reserved tenant
+  `bda1457d-053b-422c-8887-e046e54b8344` and the platform admins), so an app's own hooks can come in
+  any later migration. `support_agents_list` checks candidates only (an optional
+  `private.genesis_support_staff_list()` hook; `support.agentListScan` opts into every login), and
+  the requester functions check the ticket's handler. The settings readers in SQL skip a value that
+  doesn't fit for the layer below, as `resolveSettings` does, and the dump trigger refuses dumps
+  while `diagnostics.enabled` is false; a client with diagnostics off clears its offline queue.
+  Settings no screen reads yet say **Planned**; `support.severity` is off by default; the email and
+  AI keys are Edge Function secrets. Reply keys take a label (`REPLY_KEY_LABEL` by default) and a
+  keyring's `legacy` keys verify addresses an app made in the earlier format; email bodies are cut to
+  `MAX_EMAIL_CHARS` and read without backtracking. The phone's agent query keys are scoped by login.
+
+  **Platform admins become ticket staff.** In an app with no `private.genesis_support_staff` hook,
+  migration 0023 makes the app's platform admins (`private.genesis_platform_admin`) support staff:
+  they read and answer the app's own tickets. Define the staff hook to choose others. Migration
+  `0026_genesis_support_diagnostics_access.sql` keeps a dump sent with a ticket to whoever handles
+  that ticket, so staff (platform admins included) read only dumps with no ticket and those of the
+  app's own tickets. 0023 drops 0021's stand-in only while its body is still exactly the stand-in's.
+  Reply tokens keep 12 bits of the issued week (no wraparound for about 78 years) beside a 44-bit
+  MAC, and a keyring with a letter in both `keys` and `legacy` throws. The dump settings counted in
+  whole numbers are declared `integer`.
+
+- 6ae0571: The context dump (`genesis.diagnostics/1`): everything a developer wants to see about the app at a moment, sent to the app's own server on demand, on a shake and with every piece of feedback.
+
+  - **Core:** `createDiagnostics({ app, transport, sections, user, offline })` with `collect`, `send({ trigger, feedbackId })` → `{ id, shortId, queued }`, `submitFeedback` (the report and its dump, linked both ways) and `recordRoute`; `defineDiagnosticSection(name, collect, { maxBytes, timeoutMs, pii, merge })`; `redactReport` (the person is an id and a role; the same scrubber as genesis-native's observability, kept byte-identical by a test); `capReport` (256 KB, 4,096 characters a string, the last 50 errors, 100 breadcrumbs and 200 console lines of 1 KB, 32 KB an app section, `truncated`, never refused); `captureConsole`; `DIAGNOSTICS_DEFAULTS` holds every option and default. `FeedbackRecord.diagnosticsId`, stored in the report's context.
+  - **Transports:** `supabaseTransport(supabase)` (migration 0019's table; feedback through the support client) and `httpTransport({ url, auth })`: dumps as JSON, feedback as multipart with its screenshots as files and its dump, so feedback to an app's own API no longer loses its screenshots (the intake sink still takes none). An offline queue (`offline: { storage }`, or `createOfflineQueue`) keeps sends that may pass and retries them with backoff; storage is injected (localStorage, AsyncStorage, MMKV).
+  - **`@marktiderman/genesis-support/server` (new):** `parseDiagnosticReport` (checks, scrubs and caps again; refuses over 512 KB), `createDiagnosticsHandler({ authenticate, store, files, notify, rateLimit })` as a Fetch `Request → Response` handler for NestJS, Supabase Edge Functions or TanStack Start, the store and files seams with Supabase adapters (`supabaseDiagnosticsStore`, `supabaseDiagnosticsFiles`, `supabaseAuthenticate`), and notifiers: `githubIssueNotifier` (summary only by default; `detail: "full"` only on a repository GitHub says is private), `webhookNotifier` (HMAC signed) and `messengerNotifier` (staff alert and reporter thanks through the app's email or push).
+  - **Native:** `nativeSections` (build with commit, OTA number and release; device with network and permission states probed with a timeout; foreground; flags; blocks; server), `observabilitySection` (recent errors, breadcrumbs, Sentry's event and replay ids), `useSendDiagnostics` and `<SendDiagnosticsRow/>` (the short id, with Copy id). `createSupport({ diagnostics })` records the route, sends a dump on a shake (`dumpOnShake`) and with every piece of feedback (`dumpOnFeedback`), takes `feedbackSink`, and fills the devtools overlay's "Send diagnostics".
+  - **Web:** `webSections()` (user agent, viewport, language, time zone, connection, the path, a console ring buffer) and `FeedbackPanel`'s `diagnostics` prop.
+  - **Migration `0019_genesis_support_diagnostics.sql`** (in the `support-feedback` block): `support_diagnostics` with the person's own rows, staff read, a 512 KB check, 10 dumps an hour, and `support_purge_diagnostics` (90 days). The block's privacy notes say what a dump holds.
+  - **Hardening after review.** The server handler counts the body as it arrives (a chunked or mislabelled body stops at the limit), has no per-IP limit unless the app passes `clientIp` (forwarded headers are client-controlled), never takes a role from the dump, asks the store's `ownsFeedback` / `ownsReport` before linking, removes a stored screenshot whose record failed (`DiagnosticsFiles.remove`), and takes a `cors` option. The Supabase store sends the attachment's `user_id` (screenshots were refused under the service role) and checks a ticket's tenant with `support_ticket_tenant_allowed` (a ticket could land in a foreign tenant). Dumps scrub every key, Sentry id names included (`scrubValueStrict`); console objects are scrubbed key by key before they become text; the cap also trims extras beside the build, server and session, long block lists and check details. Queued dumps remember who was signed in and are dropped under someone else, `clearQueue()` empties the queue, it is capped at 1 MB of storage, and it is tried on create, on foreground and reconnect (`createSupport({ appState, netInfo })`, `flushDiagnosticsOnReconnect` on the web). GitHub issues put the title and summary in one fence longer than any backtick run, neutralise the issue title, and re-check that the repository is private every 10 minutes. `webhookNotifier` signs `<timestamp>.<body>` and sends `x-genesis-timestamp`; `verifyWebhookSignature` checks both. `notificationsNotifier` is `messengerNotifier`'s design name. `/server` also ships CommonJS. Migration 0019 adds `support_diagnostics_by_short_id` (staff, with the owner) and `support_ticket_tenant_allowed`.
+  - `cleanRoute` also replaces phone numbers (`:phone`) and short codes such as invite codes (`:token`) in a path.
+  - A queued dump waits, rather than being dropped, while nobody is signed in yet (a session restored late at launch), and is matched to its person by the raw id from `user`. A route's short-code rule now needs letters and digits interleaved (6 to 12, no separator), and hyphenated slugs (`top-10-tips-2024`) stay as written.
+
+### Patch Changes
+
+- 4b7af48: Depends on `@marktiderman/genesis-config` (the new name of `@marktiderman/genesis-features`)
+  instead of genesis-features. No change to what the package exports. `@marktiderman/genesis/features`
+  now re-exports genesis-config.
+- 4ecdce8: `SUPPORT_TO_CHAT_STATUS` maps `pending` (migration 0013) to chat's `pending`, as the database does, and the map is checked against every ticket status at compile time.
+- Updated dependencies [818908b]
+- Updated dependencies [4b7af48]
+- Updated dependencies [f4e39b1]
+- Updated dependencies [6c40ccc]
+- Updated dependencies [95bab84]
+- Updated dependencies [71cb0e2]
+  - @marktiderman/genesis-config@0.11.0
+
 ## 0.10.0
 
 ### Minor Changes

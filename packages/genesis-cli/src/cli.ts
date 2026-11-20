@@ -27,6 +27,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import type { FindOptions } from "@marktiderman/genesis-config";
+import { atTerminal } from "./wizard/interactive.js";
 
 /** The installed CLI's version, from its own package.json (dist/ sits beside it). */
 function cliVersion(): string {
@@ -92,7 +93,7 @@ program
   }) => {
     if (consumer === undefined) {
       const root = path.resolve(opts.target ?? process.cwd());
-      const interactive = process.stdin.isTTY && process.stdout.isTTY;
+      const interactive = isInteractive();
       const hasApp = existsSync(path.join(root, "package.json")) || existsSync(path.join(root, "genesis.config.json"));
       if (!opts.yes && interactive) {
         // A new app's wizard starts from --preset and --without; an existing app's changes them only with --yes.
@@ -115,6 +116,12 @@ program
       process.exitCode = await runSetupHeadless({ root, apply: opts.yes === true, network: networkOn(opts.offline ?? false), ...(opts.preset ? { preset: opts.preset } : {}), ...(opts.without ? { without: splitList(opts.without) } : {}), out: (l) => console.log(l), err: (l) => console.error(l) });
       return;
     }
+    if (opts.preset !== undefined) {
+      // Checked before anything is written, and only where it can be written.
+      if (opts.template === undefined) throw new Error("--preset applies to a new app from a template (--template native) or to the wizard (genesis init with no name); a consumer scaffold has no genesis.config.json.");
+      const { SETTINGS_PRESETS } = await import("@marktiderman/genesis-config/settings");
+      if (!(SETTINGS_PRESETS as readonly string[]).includes(opts.preset)) throw new Error(`--preset must be ${SETTINGS_PRESETS.join(", ")}, not "${opts.preset}".`);
+    }
     if (opts.template !== undefined) {
       if (opts.template !== "native") throw new Error(`--template must be native, not "${opts.template}".`);
       const { runInitNative, releasePinFor } = await import("./blocks/init-native.js");
@@ -130,8 +137,6 @@ program
         ...(opts.beside ? { beside: opts.beside } : {}),
       });
       if (opts.preset !== undefined) {
-        const { SETTINGS_PRESETS } = await import("@marktiderman/genesis-config/settings");
-        if (!(SETTINGS_PRESETS as readonly string[]).includes(opts.preset)) throw new Error(`--preset must be ${SETTINGS_PRESETS.join(", ")}, not "${opts.preset}".`);
         const { withPreset } = await import("./wizard/init.js");
         const configFile = path.join(result.target, "genesis.config.json");
         if (existsSync(configFile)) await fs.writeFile(configFile, withPreset(readFileSync(configFile, "utf8"), opts.preset as "max" | "standard" | "min"));
@@ -284,6 +289,11 @@ function networkOn(offline: boolean): boolean {
   return !offline && process.env.npm_config_offline !== "true";
 }
 
+/** A person at a terminal (src/wizard/interactive.ts): never in CI. */
+function isInteractive(): boolean {
+  return atTerminal({ stdin: process.stdin.isTTY, stdout: process.stdout.isTTY }, process.env);
+}
+
 function splitList(text: string): string[] {
   return text.split(",").map((s) => s.trim()).filter(Boolean);
 }
@@ -309,7 +319,7 @@ program
   .option("--offline", "Don't reach npm, the advisory endpoints or the secret stores", false)
   .action(async (opts: { step?: string; port?: string; open: boolean; yes: boolean; preset?: string; without?: string; config?: string; dir: string; offline: boolean }) => {
     const root = path.resolve(opts.dir);
-    const interactive = process.stdin.isTTY && process.stdout.isTTY;
+    const interactive = isInteractive();
     const network = networkOn(opts.offline);
     // --preset and --without never imply --yes: at a terminal they need it; without one, they are planned and printed.
     if (interactive && !opts.yes && (opts.preset !== undefined || opts.without !== undefined)) {
@@ -872,6 +882,25 @@ program
       console.log(opts.forward ? "Fill in the forward migrations, review them, then apply them." : "Some migrations need you (above): an applied migration is never rewritten. Run genesis migrate --forward to add a forward migration for each.");
       process.exitCode = 1;
     }
+  });
+
+const settingsCommand = program.command("settings").description("Genesis settings in the app's database (genesis-supabase's settings block)");
+settingsCommand
+  .command("sync")
+  .description(
+    "Write the app manifest (genesis_app_manifest: packages, preset, file settings and the settings catalogue) through the linked Supabase project. Run it on every deploy, after the migrations: until it is written, set_genesis_setting refuses every value",
+  )
+  .option("-d, --dir <dir>", "The app's folder", process.cwd())
+  .option("--app-id <id>", "The app's id (default: its package.json name, without a scope)")
+  .option("--print", "Print the SQL instead of running it (for a pipeline that runs it with psql)", false)
+  .option("--project-ref <ref>", "The Supabase project to write to (default: the linked one)")
+  .option("-y, --yes", "Write without asking (required without a terminal)", false)
+  .action(async (opts: { dir: string; appId?: string; print: boolean; projectRef?: string; yes: boolean }) => {
+    const { runSettingsSync } = await import("./settings-manifest.js");
+    process.exitCode = await runSettingsSync(
+      { dir: opts.dir, print: opts.print, yes: opts.yes, ...(opts.appId !== undefined ? { appId: opts.appId } : {}), ...(opts.projectRef !== undefined ? { projectRef: opts.projectRef } : {}) },
+      { out: (l) => (opts.print ? process.stdout.write(l) : console.log(l)), err: (l) => console.error(l), isTTY: Boolean(process.stdin.isTTY), confirm },
+    );
   });
 
 program
