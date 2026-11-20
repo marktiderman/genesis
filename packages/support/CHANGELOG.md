@@ -1,5 +1,214 @@
 # @marktiderman/genesis-support
 
+## 0.12.0
+
+### Minor Changes
+
+- dfd6577: `genesis build-stamp` writes `build-metadata.json` (version, git commit and branch, build time, channel) for the app to pass as `buildMetadata`. `BuildMetadata` gains `version`, `channel` and `builtAt`: the version signature (and so the devtools overlay) names when and for which channel it was built, and `nativeSections` puts `builtAt` (and the stamped version and channel when the binary gives none) in the dump's `build`.
+- 402bce3: **Desks, notifications and reply by email, after review.**
+  - The SQL reads `support.desks`, `support.staffAlerts`, `support.agentDesk` and `support.helpCenter`
+    through support 0020's `genesis_support_setting_bool`, with the preset's default: a value set to
+    false is honoured. `support.agentDesk` off refuses every agent read (0009's inbox check),
+    `support.helpCenter` off the help center's reads, and desks need the agent desk.
+  - Moving a ticket between two tenants' desks is for the app's staff or an agent of both;
+    `support_desk_move_targets` offers only those desks, and a move's words (and who moved it) stay
+    with the desk it came from, in its history, its desk card and the alert. The ticket's chat
+    conversation moves with it. `can_escalate` is false with desks off; the routing hook doesn't run.
+  - Whom `support.message` tells comes from the tenant's agent rows and the app's staff list and
+    tenant admin list hooks (`genesis_support_staff_list()`, `genesis_tenant_admin_list(tenant)`),
+    never a scan of every login; notifications carry the ticket's tenant.
+  - `senderAuthenticated` trusts DMARC only (a DKIM pass from another domain isn't the sender).
+    `support_email_reply` keeps Message-IDs 60 days. 0029 and 0031 stop with a clear message over an
+    app's own `support_desks` or `support_email_reply`.
+  - From CodeRabbit's review: switching a desk is serialized; escalation history follows the log's
+    own order; `support.agentDesk` off also empties `support_my_desks` and the desk card; names that
+    are email addresses show as Someone in notifications; an agent row's person resolves to its login
+    through an optional `genesis_person_login` hook (its answer as given: null is a person with no login,
+    left out of alerts and listed with no login; a hook that raises raises); the email-posts table has row level security; the
+    same Message-ID on two tickets is two messages; the verify email doesn't ask for a reply; a retry
+    in a later week gets another idempotency key with its other Reply-To; an uppercase `HTTPS://`
+    webhook works; a contact page needs a host and `mailtoHref` encodes the mailbox; desk query keys
+    are per client and login (`useSupportDeskScope`), the desk card resets on another ticket and offers only what
+    the client can do; Home shows no articles with the help center off; the native route keeps the
+    zone of a path passed to `SupportRoute`, puts the zone in front of support's own hrefs, checks
+    paths at a segment boundary (`isUnderPath`), keeps an explicit `ideas` option over its setting and
+    reads a thread named `constructor` as a thread; paths and addresses are checked in one pass
+    (CodeQL).
+- 953040f: **Desks.** Migration `0029_genesis_support_desks.sql` (support-helpdesk block): each tenant's own
+  help desk, switched on by its tenant admins (`support_set_desk`, logged), questions routed to the
+  sender's one desk that is on (or the app's `genesis_support_desk_for` hook), and tickets escalated
+  to the app's own desk, returned or moved between desks with a log (`support_escalate_ticket`,
+  `support_return_ticket`, `support_move_ticket`, `support_ticket_desk`, `support_desk_move_targets`,
+  `support_my_desks`, `support_desk_history`); `support_requester_tenants` gains each tenant's role
+  (the app's `genesis_tenant_role` hook). The `support.desks` setting off keeps 0004's rule. The client
+  gains `myDesks`, `setDesk`, `ticketDesk`, `deskMoveTargets`, `escalateTicket`, `returnTicket`,
+  `moveTicket` and `deskHistory`, with `chooseDesk`, `pickerDesks`, `workedDesks` and `deskTenant`.
+  `/web-chat` gains `SupportRequesterPanel`, `SupportDeskControls`, `SupportDeskPicker`,
+  `SupportDeskSwitch` and `useSupportDesks`; `SupportAgentInbox` shows the requester and desk cards
+  (`requesterPanel`, `deskControls`, `onTicketMoved`), and `SupportMessenger` takes `allTenants`.
+- 386b576: **Reply by email, end to end.** Migration `0031_genesis_support_email_reply.sql` (support-email
+  block) adds `support_email_reply` (service role): a reply posted as the login the email went to,
+  the ticket's person or a handler, from that login's own address, once per Message-ID, at most 20 a
+  ticket an hour. A new `/email-notifications` entry (it imports genesis-notifications; `/email` still doesn't) has `supportReplyRoute` (token, automatic mail, `senderAuthenticated`,
+  `stripReply`), `handleSupportInbound` (the whole inbound endpoint on genesis-notifications'
+  `createInboundEmailHandler`), `supportEmailOptions` and `supportReplyProvider` (each support
+  email's own Reply-To and thread header through the runner's `providerFor`), `supportReplyConfig`
+  (environment and the `support.replyByEmail` setting, with `legacyLabel` for earlier addresses) and
+  `supportJobClaims`.
+- c04b992: **Support's notifications.** Migration `0030_genesis_support_notifications.sql` (support block)
+  sends `support.message` to a ticket's desk (a new ticket, the person's next message, a ticket moved
+  there; while `support.staffAlerts` is on and nobody who handles it has it), `support.reply` to the
+  person when support answers, and `support.verify` with the verify prompt, through
+  genesis-notifications' `genesis_notify`, with an optional `private.genesis_support_staff_to_notify`
+  hook. `supportNotificationTypes` adds the three types to the app's `defineNotifications`;
+  the new `/email-notifications` entry's `supportEmailTemplates` and `supportEmailTemplate` are their emails. genesis-notifications
+  is a new optional peer.
+- 07512e9: **One route file per zone on the phone.** `/native` gains `SupportRoute`: two one-line files under
+  `basePath` (`index.tsx` and `[...route].tsx`) render every support screen (reports, feedback,
+  thread, ideas, shipped, the messenger's home, message, help and article, and an agent's queues and
+  ticket), with the header through `createSupport`'s new `router` (`Stack.Screen`,
+  `useLocalSearchParams`), and `screens` for the app's own. `createSupport` takes `zones`: every link
+  support opens stays in the zone the person is in, so an app with several navigation zones mounts
+  support once per zone without a re-export file per screen. The core gains `supportScreenOf`,
+  `zoneOf`, `stripZone` and `inZone`; `supportPaths` gains `agent` and `agentThread`.
+- 02a51b9: **One settings resolver on the server.** genesis-supabase 0023 adds `private.genesis_setting(key,
+tenant)` (and `private.genesis_setting_entry`, which also says the layer and the lock): a key's
+  value as `resolveSettings` gives it (default and preset from the synced catalogue, the file, the
+  database, a tenant-scoped key's tenant value, with locks). One function checks values
+  (`genesis_setting_value_problem`), for writes and the resolver alike; a catalogue entry whose `min`
+  or `max` isn't a number is reported as malformed there, never a cast error in a server gate. `catalogueManifest` now writes
+  each key's `defaults` by preset (write the manifest again on deploy). Support's gates read it with
+  the tenant where there is one, so a tenant's `support.helpCenter` closes its help center on the
+  server too; support 0020's own resolver and its readers are dropped (0033).
+
+  **Support's unreleased migrations come after 0028**, so apps that applied 0026 and 0028 apply them
+  in order: desks 0029, notifications 0030, reply by email 0031, staff from the admin list 0032, the
+  resolver 0033 (support block) and agent admin 0034 (support-chat block).
+
+  **Every setting is read, on the server where it matters.** `SupportSettingValues` is derived from
+  the specs. No key is planned: `support.email` opens and closes the email channel
+  (`support_receive_email` files nothing, `support_claim_outbound_emails` sends nothing while it is
+  off), `support.aiAnswers` gates a tenant's AI answers (0029), `support.chatThreads` off makes
+  `support_chat_conversation` answer none, so every client stays on support_replies (0034), and
+  `support.verifyPrompt` turns on the verify prompt. `support.githubRepo` names its `github.issues`
+  setup step; the `sentry` step no longer saves its DSN as a setting and `ai.key-budget` drops its
+  budget field (no package reads either).
+
+  **Agents and people** (0034). Who manages a desk's agents is one rule, and a null tenant is the
+  app's own desk everywhere: `support_set_agent` and the new `support_can_manage_agents` /
+  `client.canManageAgents` agree. `support_agents_list` gives each agent's login, person record,
+  `role` and `removable`. `support_people_search` / `client.searchPeople` lets a desk's agents (who
+  also link email tickets) find people in its tenant by name or email, with their person record and
+  login: through the app's optional `private.genesis_people_search` hook, else the people support
+  knows at that desk, so the cost never follows the number of logins; only the tenant's people, no
+  anonymous logins. People search is deliberately open to every agent of the desk, not only those who
+  manage its agents (linking an email ticket needs it): any agent can read the names and emails of the
+  tenant's people who match, 25 per query. Which records a login is in a tenant is one rule
+  (`private.genesis_support_people_in`), which 0004's `genesis_support_agent`, the admin agent check
+  and the search share: under zero config a login added at the app's own desk is an agent there (it
+  shows in the list and sees the desk's tickets), and an admin row there manages its agents.
+  `support_agents_list` lists every agent row, one whose person has no login with a null `user_id`,
+  so it can be seen and removed. 0029's `support_my_ticket_desks` / `client.myTicketDesks` gives each of the
+  person's own tickets its desk, the desk's name and whether it is the app's own.
+
+  **Breaking: `SupportClientOptions.settings` is removed.** The server decides whether threads run on
+  chat: with `support.chatThreads` off, `support_chat_conversation` (0034) answers none, so every
+  client stays on support_replies whatever `chat` it was given. Migrate: drop `settings` from
+  `createSupportClient(supabase, { … })` (TypeScript flags it), apply support 0034 and set
+  `support.chatThreads` where you set it before (genesis.config.json or the settings screen); write
+  the manifest on deploy so the server reads it.
+
+  **Breaking (types): `client.staffList` returns `SupportStaffMember[]`**, whose `id` (the login) is
+  null for an agent row whose person has no login. Code that reads `id` as a string checks for null
+  first; such a row can't be assigned a ticket, but it can be removed by its `personId`.
+
+  **Requester labels from one hook** (0034): the report asks only
+  `genesis_support_requester_labels`; the one-ticket `genesis_support_requester_label` is no longer
+  called (the report warns while it is the only one), and `byRequesterCapped` is gone. See
+  docs/MIGRATION.md.
+
+  **Removed in the next minor:** the deprecated `private.genesis_support_verify_prompt_enabled()` hook.
+  Set `support.verifyPrompt` instead; a value set or locked in any layer already wins over the hook.
+
+- 06ccee9: **Support's declared settings are read.** `support.messenger` (the messenger and its launcher, and
+  the phone's Home and new message), `support.helpCenter` (Help, help and article routes),
+  `support.agentDesk` (`SupportAgentInbox`, the phone's agent routes), `support.desks` (the desk card,
+  picker and switch, and migration 0029), `support.staffAlerts` (migration 0030, the webhook),
+  `support.githubRepo` / `support.githubIssueDetail` / `support.webhookUrl` (`/server`'s new
+  `supportNotifiersFromSettings`), `support.replyByEmail` (`/email-notifications`), and `support.contactEmail` /
+  `support.contactUrl` (`supportContact`, `SupportContact` on the web, `SupportContactRow` and
+  `block.contact()` on the phone, shown in Help and on error screens). The web components take
+  `settings`; their summaries no longer say Planned.
+- 2bc3c38: **Support on the web: "Is it fixed?", agent management, the dump viewer and Genesis primitives.**
+  - With `support.verifyPrompt` on, the messenger asks "Is it fixed?" on a conversation marked fixed
+    that the person hasn't confirmed (`asksVerification`, the same rule as the phone's thread), and answers through `client.verify`: confirm, or reopen with
+    what's still wrong, with focus moving to the note and back. Its spaces are genesis-ui's `TabBar`,
+    with the unread count on Messages, and with `allTenants` each row names its desk
+    (`myTicketDesks`). It answers once: a second press sends nothing. A desk-log action this version
+    doesn't know shows as "changed this desk" (`DeskLogEntry.action` "other").
+  - Agent management, for whoever manages a desk's agents (`canManageAgents`): `SupportAgentsAdmin`
+    lists the agents with their roles, adds someone found in the desk's tenant (`searchPeople`) as an
+    agent or admin, and removes a removable one (`setAgent`, which now takes null for the app's own
+    desk); the requester card offers "Make an agent". `SupportLinkRequester`, in the agent inbox, finds
+    the person and, after a confirm naming the email and the person, links an email ticket to their
+    login through the new `client.linkRequester`. `SupportMyMentions` lists `agentMentions`.
+  - Reads that differ by who asks (dumps, mentions, people search, who manages a desk, and every
+    desk key) are keyed by the client, the signed-in login (the new `client.signedInId`) and the
+    tenant, and read the login again when someone signs in or out (`client.onSignedInChange`).
+    `supportDeskScope` is now the hook `useSupportDeskScope`. A login that can't be read shows an
+    error, not a placeholder.
+  - The dump viewer: a loading state, an accordion per dump and section, the trigger and a formatted
+    date, "Copy text", Sentry and GitHub issue links from the app's `links` (https only), a `role=alert`
+    error, a trigger label for every trigger ("Other" for an unknown one), and keys by login (`supportDiagnosticsKeys`). The inbox passes
+    `diagnosticsLinks` on.
+  - The desk card and requester card show loading and error states; a move and a switch confirm with
+    a toast (`desks.sent`, `switchedOn`, `switchedOff`); the desk card opens the desk's log
+    (`deskHistory`); the inbox shows "Your help desk is off" and "No help desk to answer".
+  - genesis-ui primitives in place of hand-built pieces: `InlineAlert` for every error and notice,
+    `Button asChild variant="link"` for contact links, and views (`ResourceView`) for the help
+    center's collections, open tickets by customer and earlier conversations, over rows the client
+    read: they need no data provider, so a QueryClientProvider is still all the screens need.
+  - The feedback panel shows the dump's reference after sending, and its choice rows are labelled.
+  - Copy: `off.agentDeskBody` no longer names the setting key, and `notifications.someone` names an
+    unnamed writer.
+- c2161cf: Zero config has a platform admin list.
+
+  - genesis-supabase: new migration `0022_genesis_platform_admins.sql` in the settings block (copy it with `genesis migrate`). `public.genesis_platform_admins` starts empty and only the service role reads or writes it. While the app has no `private.genesis_platform_admin` hook, Genesis's own wrappers (`private.genesis_person_is_platform_admin`, 0020's `private.genesis_is_platform_admin`, `set_genesis_setting`) read the list; no function under the app's hook name is Genesis's, so the app adds its own hook whenever and however it likes and the list is then unused. Nobody is an admin until added; never every signed-in person.
+  - genesis-support: new migration `0032_genesis_support_staff_admin_list.sql`: with no staff hook, support staff are the platform admins through that wrapper, so the people in the list are staff too.
+  - genesis-cli: new doctor rule `platform-admin-missing` (warn, read with the database layer through the linked project): the app has the list, no hook of its own, and the list is empty. Its guided fix, `settings.first-admin`, prints the SQL that adds the first admin by a confirmed email (`email_confirmed_at is not null`) and adds nobody when no confirmed person, or more than one, has it.
+  - The RN starter ships the settings block (genesis-supabase 0020, 0021 and 0022) and support's 0032, so `genesis init --template native` records it. Its README and the README `genesis init` writes say to run `genesis settings sync` on every deploy, after the migrations, and to add the first admin.
+
+- dfd6577: A staff dump viewer: the web agent inbox's details panel and the phone's agent thread show a ticket's context dumps as sections of plain text (`SupportTicketDiagnostics`, `AgentTicketDiagnostics`, `diagnosticsViewSections`), read through the new `client.ticketDiagnostics` under migration 0026's access rule.
+- dfd6577: A health-check registry: `healthChecks` (genesis-support) takes named checks that answer ok, warn or fail with a message; `supabaseHealthChecks` adds Supabase reachable and auth session present; `healthChecksSection()` puts the latest results in the dump's `checks` (now with a `status`). genesis-native's devtools overlay runs and shows them with `createDevtools({ checks })`.
+- 22bfd48: Support on the phone, after the final review. The person's thread asks "Is it fixed?" once support marks a report addressed (`client.verify`; reports carry `verifiedAt`). The agent thread links the requester's email, has an assignee picker and the desk controls (`AgentDeskControls`: send up, hand back, move), and the agent inbox has a tenant admin's desk switch (`AgentDeskSwitch`). Settings has a "Support inbox" row into the agent desk for the app's agents. The dump viewer says when it is loading, heads each dump with its trigger and local time (`dumpHeading`), shows it in the mono font and copies it (saying so when a copy fails). The feedback form shows "About: …" (`openFeedback({ about })`, else the screen's path) with "Not this". The native screens use genesis-ui-native's layout primitives and text presets, and errors show in `NativeInlineAlert`. `healthChecks.runCheck(name)` runs one check again.
+
+  `createSupport` follows live settings (`appSettings` as a function, and `subscribeSettings` to update an open Settings screen): its Settings rows, the idea board, shake to report and "Report this". It forgets queued dumps and feedback on sign-out. `SupportRoute` never throws without a support block: it shows `unavailable` (default an empty state), and `onFeedbackSent` replaces the feedback screen's alert (a toast). Caught errors from a desk move or switch and a failed copy go to `onError` (`SupportErrorSource`).
+
+  A block's Settings row can take a `useShown` hook (genesis-config), and genesis-native's `useBlockSettings` leaves out a row it hides. genesis-native's error screens take `labels` ("Contact support" included, `DEFAULT_FATAL_SCREEN_LABELS`) and offer "Report this" when a block takes reports (`NativeBlock.reportProblem`: the support block opens its feedback form with the error attached). The devtools overlay is a `NativeSheet`, shows health checks in words (`checkLabels`) with a "Try again" for each where the registry has `runCheck`, and its values wrap and can be selected.
+
+  genesis-ui-native: `NativeSettingsRow` takes `descriptionLines` (`null` wraps the description whole) and `selectable`, and `NativeListItem` `subtitleLines` and `subtitleSelectable`.
+
+- dfd6577: Feedback written offline is kept in the diagnostics offline queue (with `offline`, `diagnostics.enabled` and `diagnostics.offlineQueue` on) and sent later through the transport with its dump, without its screenshots; `submitFeedback` answers `{ queued: true }` and the native and web forms say it goes when the person is back online.
+
+### Patch Changes
+
+- c2161cf: Support nits from the #848 review:
+
+  - `createDiagnostics` empties the offline queue when a settings answer turns `diagnostics.enabled` or `diagnostics.offlineQueue` off after the queue was made; before, queued dumps waited and could go out once it was turned back on.
+  - `cleanRoute` redacts secret keys with no digits: a known prefix with a body of letters and digits (`sk_live_…`, `sk_test_…`, `whsec_…`, `ghp_…`, Supabase's `sb_secret_…` and `sb_publishable_…`, and `github_pat_…`), and 32 or more letters with no separator that read as random (capitals side by side in mixed case, few vowels, or 7 consonants in a row); and `whatsapp:` links (`:phone`). Slugs stay: `whsec_rotation_guide`, `sk_test_driven_development_basics`, `MyAppHomeTabFeedItemDetailViewScreen`, `whyhttpsmattersforyoursmallbusinesssite`. The intake function's copy matches.
+
+- de7512b: `createSupport` hears sign-out from its creation, not only while its root is mounted, so a sign-out during boot or behind the fatal screen still clears the diagnostics queue and a waiting report. `dispose()` stops listening, for a block that is thrown away.
+
+  `block.diagnostics` and `block.reportProblem` are defined on the block after it is made, so they stay live under Babel's object-spread transform (it copied a getter written beside a spread once). `createSupport({ onFeedbackSent })` hears a report sent from `SupportRoute`'s feedback screen, for a one-line route file.
+
+- Updated dependencies [02a51b9]
+- Updated dependencies [11219ef]
+- Updated dependencies [8f49de2]
+- Updated dependencies [4acea0b]
+- Updated dependencies [ec8a3ba]
+- Updated dependencies [22bfd48]
+  - @marktiderman/genesis-config@0.12.0
+
 ## 0.11.1
 
 ### Patch Changes

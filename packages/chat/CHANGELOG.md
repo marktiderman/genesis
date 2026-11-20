@@ -1,5 +1,18 @@
 # @marktiderman/genesis-chat
 
+## 0.11.3
+
+### Patch Changes
+
+- c1b2ac0: The photo viewer's notice and buttons take their colours from `media-colors.ts` (`MEDIA_NOTICE`, `MEDIA_SCRIM`, `ON_MEDIA`) instead of literals of their own. Its buttons' backdrop is `MEDIA_SCRIM` (50% black, was 45%).
+- Updated dependencies [02a51b9]
+- Updated dependencies [11219ef]
+- Updated dependencies [8f49de2]
+- Updated dependencies [4acea0b]
+- Updated dependencies [ec8a3ba]
+- Updated dependencies [22bfd48]
+  - @marktiderman/genesis-config@0.12.0
+
 ## 0.11.2
 
 ### Patch Changes

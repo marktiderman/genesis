@@ -1,6 +1,6 @@
 {
   "name": "@marktiderman/genesis-notifications",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "private": false,
   "type": "module",
   "sideEffects": false,

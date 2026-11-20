@@ -1,5 +1,36 @@
 # @marktiderman/genesis-native
 
+## 0.13.0
+
+### Minor Changes
+
+- dfd6577: `genesis build-stamp` writes `build-metadata.json` (version, git commit and branch, build time, channel) for the app to pass as `buildMetadata`. `BuildMetadata` gains `version`, `channel` and `builtAt`: the version signature (and so the devtools overlay) names when and for which channel it was built, and `nativeSections` puts `builtAt` (and the stamped version and channel when the binary gives none) in the dump's `build`.
+- 06ccee9: `FatalScreen` takes `contact` (an email and/or an https support page) and shows "Contact support"
+  under "Try again"; `createScreenErrorBoundary` takes `contact` (a value or a function) for its default
+  fallback. `contactHref` and the `FatalScreenContact` type are exported.
+
+  The contact page needs an https URL with a host, the mailbox is encoded in the `mailto:` link, and
+  the address is checked in one pass (no backtracking on a hostile value).
+
+- dfd6577: A health-check registry: `healthChecks` (genesis-support) takes named checks that answer ok, warn or fail with a message; `supabaseHealthChecks` adds Supabase reachable and auth session present; `healthChecksSection()` puts the latest results in the dump's `checks` (now with a `status`). genesis-native's devtools overlay runs and shows them with `createDevtools({ checks })`.
+- 22bfd48: Support on the phone, after the final review. The person's thread asks "Is it fixed?" once support marks a report addressed (`client.verify`; reports carry `verifiedAt`). The agent thread links the requester's email, has an assignee picker and the desk controls (`AgentDeskControls`: send up, hand back, move), and the agent inbox has a tenant admin's desk switch (`AgentDeskSwitch`). Settings has a "Support inbox" row into the agent desk for the app's agents. The dump viewer says when it is loading, heads each dump with its trigger and local time (`dumpHeading`), shows it in the mono font and copies it (saying so when a copy fails). The feedback form shows "About: …" (`openFeedback({ about })`, else the screen's path) with "Not this". The native screens use genesis-ui-native's layout primitives and text presets, and errors show in `NativeInlineAlert`. `healthChecks.runCheck(name)` runs one check again.
+
+  `createSupport` follows live settings (`appSettings` as a function, and `subscribeSettings` to update an open Settings screen): its Settings rows, the idea board, shake to report and "Report this". It forgets queued dumps and feedback on sign-out. `SupportRoute` never throws without a support block: it shows `unavailable` (default an empty state), and `onFeedbackSent` replaces the feedback screen's alert (a toast). Caught errors from a desk move or switch and a failed copy go to `onError` (`SupportErrorSource`).
+
+  A block's Settings row can take a `useShown` hook (genesis-config), and genesis-native's `useBlockSettings` leaves out a row it hides. genesis-native's error screens take `labels` ("Contact support" included, `DEFAULT_FATAL_SCREEN_LABELS`) and offer "Report this" when a block takes reports (`NativeBlock.reportProblem`: the support block opens its feedback form with the error attached). The devtools overlay is a `NativeSheet`, shows health checks in words (`checkLabels`) with a "Try again" for each where the registry has `runCheck`, and its values wrap and can be selected.
+
+  genesis-ui-native: `NativeSettingsRow` takes `descriptionLines` (`null` wraps the description whole) and `selectable`, and `NativeListItem` `subtitleLines` and `subtitleSelectable`.
+
+### Patch Changes
+
+- Updated dependencies [02a51b9]
+- Updated dependencies [11219ef]
+- Updated dependencies [8f49de2]
+- Updated dependencies [4acea0b]
+- Updated dependencies [ec8a3ba]
+- Updated dependencies [22bfd48]
+  - @marktiderman/genesis-config@0.12.0
+
 ## 0.12.0
 
 ### Minor Changes

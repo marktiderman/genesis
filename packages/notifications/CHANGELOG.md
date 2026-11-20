@@ -1,5 +1,20 @@
 # @marktiderman/genesis-notifications
 
+## 0.4.6
+
+### Patch Changes
+
+- 402bce3: `parseAddress` is linear in the header's length (a hostile `From:` no longer takes seconds), and
+  takes one address only: a header naming several (`a@x.test, b@y.test`, or an address in an
+  unquoted display name) is no sender, so `inboundEmailOf` returns null for it.
+- Updated dependencies [02a51b9]
+- Updated dependencies [11219ef]
+- Updated dependencies [8f49de2]
+- Updated dependencies [4acea0b]
+- Updated dependencies [ec8a3ba]
+- Updated dependencies [22bfd48]
+  - @marktiderman/genesis-config@0.12.0
+
 ## 0.4.5
 
 ### Patch Changes

@@ -5357,6 +5357,20 @@
               "description": ""
             },
             {
+              "name": "subtitleLines",
+              "type": "number | null",
+              "required": false,
+              "defaultValue": "2",
+              "description": "How many lines the subtitle shows before it's cut short. Default 2; `null` wraps it whole (a value to read, an id)."
+            },
+            {
+              "name": "subtitleSelectable",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "The subtitle can be selected and copied (a value: an id, a URL). Default false."
+            },
+            {
               "name": "testID",
               "type": "string",
               "required": false,
@@ -9905,6 +9919,13 @@
               "description": ""
             },
             {
+              "name": "descriptionLines",
+              "type": "number | null",
+              "required": false,
+              "defaultValue": null,
+              "description": "How many lines the description shows. Default 2; `null` wraps it whole (a value: an id, a URL, a message)."
+            },
+            {
               "name": "disabled",
               "type": "boolean",
               "required": false,
@@ -9917,6 +9938,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Makes the row a button (a row that opens a sub-page)."
+            },
+            {
+              "name": "selectable",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "The description can be selected and copied. Default false."
             },
             {
               "name": "showChevron",
@@ -33472,7 +33500,7 @@
               "type": "boolean",
               "required": false,
               "defaultValue": null,
-              "description": "Dims the row to indicate the control it wraps is disabled."
+              "description": "Marks the row disabled: the label steps down to the muted colour and the\nrow carries `data-disabled`. The text keeps its contrast (it isn't faded\nwith opacity); the control it wraps dims itself."
             },
             {
               "name": "htmlFor",
