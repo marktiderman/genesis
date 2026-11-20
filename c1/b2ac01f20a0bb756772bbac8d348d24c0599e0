@@ -1,0 +1,94 @@
+apps/genesis-rn-starter/__tests__/components/support.test.tsx
+  s_ca8e075e853203::t_381720d60ad7f5 1-115
+  s_ca8e075e853203::t_a64b4e2b90fa80 116-117
+apps/genesis-rn-starter/src/lib/settings.ts
+  s_ca8e075e853203::t_f7875e5ef961f0 1-78
+.changeset/chat-photo-viewer-colors.md
+  s_ca8e075e853203::t_a3aa00457b5c90 1-5
+.changeset/supabase-settings-rejoin.md
+  s_ca8e075e853203::t_805a7eb35e7b24 1-5
+.github/workflows/genesis-lint.yml
+  s_ca8e075e853203::t_39110ae023a376 71-74,339
+.github/workflows/self-lint.yml
+  s_ca8e075e853203::t_a325a4e7568455 73-75
+apps/genesis-rn-starter/.eas/scripts/native-release.mjs
+  s_ca8e075e853203::t_f60bfe98cf5889 65-68,522-529,609-612,618
+apps/genesis-rn-starter/.eas/workflows/deploy-production.yml
+  s_ca8e075e853203::t_050fc393f62ab3 254-257,369-372
+apps/genesis-rn-starter/.eas/workflows/pr-preview.yml
+  s_ca8e075e853203::t_2f050f33e909e4 154-170
+apps/genesis-rn-starter/.gitignore
+  s_ca8e075e853203::t_3718eb1c9f02f5 14-17
+apps/genesis-rn-starter/__tests__/components/fake-supabase.ts
+  s_ca8e075e853203::t_abe1018fe219b4 28-41,121-128,133-148,151-154,163-164,180-181
+apps/genesis-rn-starter/__tests__/release.test.ts
+  s_ca8e075e853203::t_5fe7a072bd2a29 6,33,182-185,188,235-237,303-336
+apps/genesis-rn-starter/eas.json
+  s_ca8e075e853203::t_3d10c80527b9de 11,18,31
+apps/genesis-rn-starter/package.json
+  s_ca8e075e853203::t_9906c939aef654 7-10,12-16
+apps/genesis-rn-starter/src/app/(app)/settings/index.tsx
+  s_ca8e075e853203::t_6eca80a92f78ba 16,99-104,113
+apps/genesis-rn-starter/src/app/_layout.tsx
+  s_ca8e075e853203::t_8362cf06a891ba 7-8,14-15
+apps/genesis-rn-starter/src/lib/devtools-overlay.ts
+  s_ca8e075e853203::t_6c77f4eb2912e1 14
+apps/genesis-rn-starter/src/lib/errors.ts
+  s_ca8e075e853203::t_c3479f3cd8ba0a 3-4,9,14-19,22,26
+apps/genesis-rn-starter/src/lib/health.ts
+  s_ca8e075e853203::t_a7330956769a96 1-11
+apps/genesis-rn-starter/src/lib/support.ts
+  s_ca8e075e853203::t_6dabb045a9a6c7 12,30,36,38,59,79
+genesis.config.yml
+  s_ca8e075e853203::t_3e1061c9085c7e 5-6
+packages/chat/src/native/media-colors.ts
+  s_ca8e075e853203::t_8b60227657690b 13-14
+packages/chat/src/native/photo-viewer.tsx
+  s_ca8e075e853203::t_7cc4de75fd9179 31,160-161,180,182
+packages/genesis-cli/test/release.test.ts
+  s_ca8e075e853203::t_063cf186a9330e 633-634,790
+packages/supabase/src/__tests__/settings.test.ts
+  s_ca8e075e853203::t_36919667513e87 205-206,211,215-217,220,223,227-229,234,237,239-246,279-302
+packages/supabase/src/index.ts
+  s_ca8e075e853203::t_a46064933fcc90 194
+packages/supabase/src/settings.ts
+  s_ca8e075e853203::t_dcf63ff7860576 158-166,172,213-220,234-240,244-260,264-271
+packages/support/README.md
+  s_ca8e075e853203::t_2d68088b4d9233 115-116,129-133,138-140
+scripts/__tests__/design-system-coverage.test.mjs
+  s_ca8e075e853203::t_c16d9415db2918 292-307
+scripts/check-testid-coverage.mjs
+  s_ca8e075e853203::t_bd1303eb703117 42,44,1027
+scripts/design-system-coverage.mjs
+  s_ca8e075e853203::t_379d21bf478658 105-107,276-279
+scripts/lib/ui-scan-roots.mjs
+  s_ca8e075e853203::t_7267751a6a6acf 2-5
+scripts/token-usage-baseline.json
+  s_ca8e075e853203::t_eb277fd37f8760 2
+templates/ci/native-release.yml
+  s_ca8e075e853203::t_61c4058ddec275 264-267,373-376
+templates/eas/eas.json
+  s_ca8e075e853203::t_91cf3684b43255 11,18,31
+templates/eas/scripts/native-release.mjs
+  s_ca8e075e853203::t_bd02e87be99e4f 65-68,522-529,609-612,618
+templates/release/deploy-production.yml
+  s_ca8e075e853203::t_2a1019cdeeb5c5 291-294,504-507
+templates/release/pr-preview.yml
+  s_ca8e075e853203::t_fe74028d537aea 167-183
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c1b2ac01f20a0bb756772bbac8d348d24c0599e0",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
