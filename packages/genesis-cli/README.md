@@ -851,7 +851,8 @@ setting, like an unknown `widget`, fails to compile), with a row type and a fiel
 `genesis build-stamp [--out build-metadata.json] [--channel <name>] [--app-version <v>]` writes the
 build's metadata as JSON: `version` (the app's package.json), `commit` and `branch` (GitHub
 Actions' or EAS Build's environment, else git), `builtAt` and `channel` (`--channel`, else
-`GENESIS_CHANNEL`); anything unknown is null. The app passes it to genesis-native's
+`GENESIS_CHANNEL`); anything unknown is null. On a pull request the commit is the PR's head (from
+GitHub's event), not the temporary merge commit. The OTA number and release aren't stamped yet. The app passes it to genesis-native's
 `createUpdates({ buildMetadata })` and genesis-support's `nativeSections({ buildMetadata })`, so the
 devtools overlay and the context dump show it. Run it before the bundle is made: an app's
 `eas-build-post-install` script (EAS Build runs it in every build), and before `eas update`. It is

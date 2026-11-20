@@ -104,7 +104,7 @@ function redactCheck(value: unknown): DiagnosticCheck | null {
   const c = record(value);
   if (!c || typeof c["name"] !== "string") return null;
   const status = c["status"] === "ok" || c["status"] === "warn" || c["status"] === "fail" ? c["status"] : undefined;
-  return { name: scrubString(c["name"]), ...(status ? { status } : {}), ok: c["ok"] === true, ms: num(c["ms"]), detail: str(c["detail"]) };
+  return { name: scrubString(c["name"]), ...(status ? { status } : {}), ok: c["ok"] === true, ms: num(c["ms"]), detail: str(c["detail"]), ...(typeof c["at"] === "string" ? { at: str(c["at"]) } : {}) };
 }
 
 const list = <T,>(value: unknown, each: (item: unknown) => T | null): T[] => (Array.isArray(value) ? value.map(each).filter((x): x is T => x !== null) : []);

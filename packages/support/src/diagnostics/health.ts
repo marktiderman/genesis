@@ -56,6 +56,9 @@ export interface HealthChecks {
 
 export const HEALTH_CHECK_TIMEOUT_MS = 5000;
 
+/** Results older than this are run again before they go in a dump. */
+export const HEALTH_RESULTS_MAX_AGE_MS = 5 * 60_000;
+
 const statusOf = (value: unknown): HealthStatus => (HEALTH_STATUSES.includes(value as HealthStatus) ? (value as HealthStatus) : "fail");
 
 /** A registry of its own (tests, a second app in one process). Most apps use `healthChecks`. */
@@ -112,19 +115,23 @@ export const healthChecks: HealthChecks = /* @__PURE__ */ createHealthChecks();
 
 /** A result as the dump keeps it. */
 export function toDiagnosticCheck(result: HealthResult): DiagnosticCheck {
-  return { name: result.name, status: result.status, ok: result.status !== "fail", ms: result.ms, detail: result.message };
+  return { name: result.name, status: result.status, ok: result.status !== "fail", ms: result.ms, detail: result.message, at: result.at };
 }
 
 /**
- * The dump's `checks` section: the latest results. When nothing has run yet, it runs the checks
- * once (within its timeout) so a shake dump has them too. No checks registered: nothing.
+ * The dump's `checks` section: the latest results, each with when it ran. When nothing has run yet,
+ * or the last run is over 5 minutes old, it runs the checks first (within its timeout). No checks
+ * registered: nothing.
  */
-export function healthChecksSection(checks: HealthChecks = healthChecks): DiagnosticSection {
+export function healthChecksSection(checks: HealthChecks = healthChecks, options: { now?: () => number } = {}): DiagnosticSection {
+  const now = options.now ?? Date.now;
   return defineDiagnosticSection(
     "checks",
     async () => {
       if (!checks.list().length) return null;
-      const results = checks.latest().length ? checks.latest() : await checks.run();
+      const latest = checks.latest();
+      const stale = !latest.length || latest.some((r) => !(now() - Date.parse(r.at) <= HEALTH_RESULTS_MAX_AGE_MS));
+      const results = stale ? await checks.run() : latest;
       return results.slice(0, DIAGNOSTICS_DEFAULTS.maxChecks).map(toDiagnosticCheck);
     },
     { timeoutMs: HEALTH_CHECK_TIMEOUT_MS + 1000 },

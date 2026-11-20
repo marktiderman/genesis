@@ -13,7 +13,8 @@
  *
  * Not in the Expo config: `withGenesis()` stays deterministic (no clock, no git), so the runtime
  * fingerprint doesn't change on every build. Commit and branch come from CI's environment first
- * (GitHub Actions, EAS Build), then from git; anything unknown is written as null.
+ * (GitHub Actions, EAS Build), then from git; anything unknown is written as null. The OTA number
+ * and release aren't stamped yet: an app that has them adds them to `buildMetadata` itself.
  */
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -56,6 +57,17 @@ function runGit(cwd: string) {
   };
 }
 
+/** The pull request's head commit, from GitHub's event payload; null when it can't be read. */
+function pullRequestHead(eventPath: string | undefined): string | null {
+  if (!eventPath) return null;
+  try {
+    const event = JSON.parse(readFileSync(eventPath, "utf8")) as { pull_request?: { head?: { sha?: string } } };
+    return nonEmpty(event.pull_request?.head?.sha);
+  } catch {
+    return null;
+  }
+}
+
 /** The stamp, without writing it. */
 export function resolveBuildStamp(options: BuildStampOptions = {}): BuildStamp {
   const cwd = options.cwd ?? process.cwd();
@@ -69,7 +81,9 @@ export function resolveBuildStamp(options: BuildStampOptions = {}): BuildStamp {
       version = null;
     }
   }
-  const commit = nonEmpty(env["GITHUB_SHA"]) ?? nonEmpty(env["EAS_BUILD_GIT_COMMIT_HASH"]) ?? git(["rev-parse", "HEAD"]);
+  // On a pull request GITHUB_SHA (and the default checkout) is a temporary merge commit: take the
+  // PR's head from the event instead.
+  const commit = (nonEmpty(env["GITHUB_HEAD_REF"]) ? pullRequestHead(env["GITHUB_EVENT_PATH"]) : nonEmpty(env["GITHUB_SHA"])) ?? nonEmpty(env["EAS_BUILD_GIT_COMMIT_HASH"]) ?? git(["rev-parse", "HEAD"]);
   // GitHub's head ref on a pull request, its ref name otherwise; then git (not on a detached HEAD).
   const branch = nonEmpty(env["GITHUB_HEAD_REF"]) ?? nonEmpty(env["GITHUB_REF_NAME"]) ?? ((b) => (b === "HEAD" ? null : b))(git(["rev-parse", "--abbrev-ref", "HEAD"]));
   const channel = options.channel === undefined ? nonEmpty(env["GENESIS_CHANNEL"]) : nonEmpty(options.channel);

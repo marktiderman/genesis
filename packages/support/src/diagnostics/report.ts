@@ -104,6 +104,8 @@ export interface DiagnosticCheck {
   ok: boolean;
   ms: number | null;
   detail: string | null;
+  /** When it ran, ISO (health checks). */
+  at?: string | null;
 }
 
 export interface DiagnosticApp {

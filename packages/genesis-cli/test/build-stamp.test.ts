@@ -34,6 +34,14 @@ describe("genesis build-stamp", () => {
     expect(JSON.parse(readFileSync(file, "utf8"))).toEqual(stamp);
   });
 
+  it("takes a pull request's head commit, not GitHub's temporary merge commit", () => {
+    dir = mkdtempSync(path.join(tmpdir(), "stamp-"));
+    const event = path.join(dir, "event.json");
+    writeFileSync(event, JSON.stringify({ pull_request: { head: { sha: "head123" } } }));
+    const env = { GITHUB_SHA: "merge999", GITHUB_HEAD_REF: "feat/x", GITHUB_EVENT_PATH: event };
+    expect(resolveBuildStamp({ cwd: dir, env, version: "1.0.0", now, git: () => "merge999" })).toMatchObject({ commit: "head123", branch: "feat/x" });
+  });
+
   it("never names a detached HEAD as the branch", () => {
     expect(resolveBuildStamp({ cwd: "/nowhere", env: {}, version: "1.0.0", now, git: (args) => (args.includes("--abbrev-ref") ? "HEAD" : "sha") }).branch).toBeNull();
   });

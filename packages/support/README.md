@@ -347,7 +347,13 @@ import { createDiagnostics, httpTransport } from "@marktiderman/genesis-support"
 import { createSupport, nativeSections } from "@marktiderman/genesis-support/native";
 
 const transport = httpTransport({ url: `${API}/support/diagnostics`, auth: () => token() });
-export const diagnostics = createDiagnostics({ app: { id: "acme" }, transport, sections: nativeSections({ application: Application }) });
+export const diagnostics = createDiagnostics({
+  app: { id: "acme" },
+  transport,
+  sections: nativeSections({ application: Application }),
+  user: () => ({ id: currentUserId() }), // who made a dump or a report: queued ones go only under them
+  offline: { storage: AsyncStorage },
+});
 export const support = createSupport({ supabase, navigate: router.push, diagnostics, feedbackSink: transport.feedbackSink });
 ```
 
@@ -486,7 +492,19 @@ and answers `{ queued: true, id: "" }`; the forms say it goes when the person is
 kept without its screenshots (they don't fit the queue), and sent later through the transport's own
 sink. So it follows the dump's switches: no queue without `offline`, `diagnostics.enabled` or
 `diagnostics.offlineQueue`, and with `diagnostics.dumpOnFeedback` off the forms send feedback
-directly and nothing is queued.
+directly and nothing is queued. Feedback is queued only when:
+
+- its author is known (`user`, or the Supabase transport's session), so a flush never files it as
+  whoever signs in next (someone else signed in: it is dropped). Without one, the send fails as it
+  always did. Still call `diagnostics.clearQueue()` on sign-out: a person's reports shouldn't wait
+  on a shared device;
+- it lands in the same help desk: the form's sink is the transport's own, or it names its tenant
+  (a support client's `currentTenant`, which the queued record then carries), or the record names
+  one. The severity column (`severityColumn`) follows the transport's options; severity is always
+  in the report's context.
+
+A queued report goes last when the queue is full, and is kept (not dropped with the dumps) when
+diagnostics are switched off; it goes when they are back on.
 
 ### Finding a dump by its short id
 
@@ -520,6 +538,7 @@ export const diagnostics = createDiagnostics({
   app: { id: "acme" },
   transport: supabaseTransport(supabase),
   sections: [healthChecksSection()],
+  user: () => ({ id: session?.user.id }),
 });
 ```
 

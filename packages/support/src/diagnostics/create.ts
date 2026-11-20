@@ -261,6 +261,17 @@ export function createDiagnostics(options: DiagnosticsOptions): Diagnostics {
     }
   };
 
+  // Who is signed in: the app's `user`, else what the transport's session says (Supabase).
+  const signedIn = async (): Promise<string | null> => {
+    const id = await currentUserId();
+    if (id || !transport.userId) return id;
+    try {
+      return (await withTimeout(() => transport.userId!(), DIAGNOSTICS_DEFAULTS.sectionTimeoutMs)) ?? null;
+    } catch {
+      return null;
+    }
+  };
+
   // Settings that couldn't be read yet keep the queue (its sends wait for diagnostics to be on);
   // only an answer that says off drops it.
   const queue: OfflineQueue<Queued> | null = options.offline && (settings.enabled || !answered) && settings.offlineQueue
@@ -274,7 +285,7 @@ export function createDiagnostics(options: DiagnosticsOptions): Diagnostics {
           // Diagnostics off (or not known yet): it waits in the queue.
           if (!enabledNow()) throw new DiagnosticsSendError("diagnostics are off for now", 0, true);
           if (item.userId) {
-            const current = await currentUserId();
+            const current = await signedIn();
             // Nobody signed in yet (the session is still being restored at launch): keep it for later.
             if (!current) throw new DiagnosticsSendError("waiting for the person who made it to be signed in", 0, true);
             // A shared device, someone else signed in: it goes nowhere. clearQueue() covers sign-out.
@@ -284,6 +295,8 @@ export function createDiagnostics(options: DiagnosticsOptions): Diagnostics {
           return sendQueuedFeedback(item.record, item.report);
         },
         isRetryable: isFeedbackRetryable,
+        // Feedback the person was told is saved goes last when the queue is full.
+        keep: (item) => item.kind === "feedback",
         now,
         onProblem: problem,
       })
@@ -305,12 +318,19 @@ export function createDiagnostics(options: DiagnosticsOptions): Diagnostics {
     return delivery;
   }
 
-  // Diagnostics (or the queue) switched off: what an earlier run queued is dropped, never sent later.
+  // Diagnostics (or the queue) switched off: the dumps an earlier run queued are dropped, never sent
+  // later. Feedback stays stored (the person was told it's saved) and goes when the queue is back.
   if (options.offline && !queue) {
     const storage = options.offline.storage;
     const key = options.offline.key ?? DEFAULT_QUEUE_KEY;
     void Promise.resolve()
-      .then(() => storage.removeItem(key))
+      .then(async () => {
+        const raw = await storage.getItem(key);
+        const parsed: unknown = raw ? JSON.parse(raw) : [];
+        const kept = Array.isArray(parsed) ? parsed.filter((e: { item?: { kind?: string } } | null) => e?.item?.kind === "feedback") : [];
+        if (kept.length) await storage.setItem(key, JSON.stringify(kept));
+        else await storage.removeItem(key);
+      })
       .catch((error: unknown) => problem("diagnostics: clearing the queue failed", error));
   }
   // Anything left from the last run goes as soon as it can.
@@ -404,10 +424,26 @@ export function createDiagnostics(options: DiagnosticsOptions): Diagnostics {
       // Switched off while the dump was made: the feedback goes alone.
       if (!enabledNow()) report = null;
       // Offline: keep it (without screenshots) to send later through the transport, with its dump.
+      // Only with a known author (a flush never files it as someone else), and only where the
+      // transport's sink files it in the same help desk: the form's own sink, or one that names
+      // its tenant (a support client's `currentTenant`), which the record then carries.
       const keep = async (error: unknown): Promise<FeedbackSubmission> => {
         if (!queue || !isFeedbackRetryable(error) || (!transport.feedbackSink && !transport.submitFeedback)) throw error;
+        const own = !sink || sink === transport.feedbackSink;
+        const named = (sink as { currentTenant?: () => Promise<string | null> } | undefined)?.currentTenant;
+        if (!own && !named && record.tenantId === undefined) throw error;
+        const userId = await signedIn();
+        if (!userId) throw error;
+        let tenantId = record.tenantId;
+        if (tenantId === undefined && !own && named) {
+          try {
+            tenantId = await named.call(sink);
+          } catch {
+            throw error;
+          }
+        }
         const { attachments = [], ...rest } = record;
-        await queue.add({ kind: "feedback", record: rest, report, userId: await currentUserId() });
+        await queue.add({ kind: "feedback", record: tenantId === undefined ? rest : { ...rest, tenantId }, report, userId });
         return {
           id: "",
           attachmentsDropped: attachments.length,

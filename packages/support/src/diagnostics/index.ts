@@ -36,6 +36,7 @@ export {
   supabaseHealthChecks,
   toDiagnosticCheck,
   HEALTH_CHECK_TIMEOUT_MS,
+  HEALTH_RESULTS_MAX_AGE_MS,
   HEALTH_STATUSES,
   type HealthAnswer,
   type HealthCheck,
