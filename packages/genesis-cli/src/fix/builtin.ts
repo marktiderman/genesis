@@ -389,9 +389,16 @@ const firstAdmin: Fix = {
     return {
       summary: "add the first platform admin: only you know who it is",
       manual: [
-        "With your email in place of you@example.com (the person must have signed up already), run in the Supabase SQL editor, or with supabase db query --linked:",
-        "  insert into public.genesis_platform_admins (person) select id from auth.users where lower(email) = lower('you@example.com') on conflict do nothing;",
-        "Or replace the default hook with your own model: create or replace function private.genesis_platform_admin(person uuid) returns boolean (genesis-supabase README, Settings).",
+        "With your email in place of you@example.com (the person must have signed up and confirmed that email), run in the Supabase SQL editor, or with supabase db query --linked. It adds nobody when no confirmed person, or more than one, has that email:",
+        "  do $$ begin",
+        "    if (select count(*) from auth.users where lower(email) = lower('you@example.com') and email_confirmed_at is not null) <> 1 then",
+        "      raise exception 'no single confirmed person has that email: nobody was added';",
+        "    end if;",
+        "    insert into public.genesis_platform_admins (person)",
+        "    select id from auth.users where lower(email) = lower('you@example.com') and email_confirmed_at is not null",
+        "    on conflict do nothing;",
+        "  end $$;",
+        "Or give the app its own hook: create function private.genesis_platform_admin(person uuid) returns boolean (genesis-supabase README, Settings); the list is then unused.",
       ].join("\n"),
     };
   },

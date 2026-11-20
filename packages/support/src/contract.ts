@@ -139,8 +139,9 @@ function privateSegment(segment: string): string | null {
   if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)) return ":id";
   if (/^\d+$/.test(s)) return ":id";
   if (/^(?:tel|whatsapp):/i.test(s)) return ":phone";
-  // A secret by its prefix (`sk_live_…`, `whsec_…`, `ghp_…`), digits or none.
-  if (/^(?:(?:sk|pk|rk)_(?:live|test)|whsec|ghp|gho|ghs|ghu|github_pat)_[A-Za-z0-9_]{8,}$/.test(s)) return ":token";
+  // A secret by its prefix (`sk_live_…`, `whsec_…`, `ghp_…`, `sb_secret_…`), digits or none. Its body
+  // has no `_` (only GitHub's fine-grained tokens do), so `whsec_rotation_guide` is a slug.
+  if (/^(?:(?:sk|pk|rk)_(?:live|test)|whsec|ghp|gho|ghs|ghu|sb_secret|sb_publishable)_[A-Za-z0-9]{8,}$|^github_pat_[A-Za-z0-9_]{8,}$/.test(s)) return ":token";
   const digits = (s.match(/\d/g) ?? []).length;
   // Digits and separators only: a phone number (`555-555-0101`, `(555) 555-0101`, `+44 20 7946
   // 0958`), a card or account number in groups (`4111 1111 1111 1111`, `4111+1111+…`) or an SSN
@@ -171,12 +172,16 @@ function privateSegment(segment: string): string | null {
   if (/[\s+]/.test(s) && digits >= 9 && /^[A-Za-z0-9\s+.-]+$/.test(s)) return ":token";
   // Base64 with its padding (`dG9rZW4xMjM0NQ==`).
   if (/^[A-Za-z0-9+/_-]{8,}={1,2}$/.test(s)) return ":token";
-  // 32 or more letters with no separator: a random key when its case is mixed throughout, or when
-  // it has too few vowels to be words run together (`settingsNotificationsPreferences` stays).
+  // 32 or more letters with no separator: a random key when its case is mixed throughout (capitals
+  // side by side, as words in PascalCase never are), or when it reads as no words run together (few
+  // vowels, or 7 consonants in a row). `MyAppHomeTabFeedItemDetailViewScreen` and
+  // `whyhttpsmattersforyoursmallbusinesssite` stay.
   if (/^[A-Za-z]{32,}$/.test(s)) {
-    const upper = (s.match(/[A-Z]/g) ?? []).length / s.length;
-    const vowels = (s.match(/[aeiou]/gi) ?? []).length / s.length;
-    if ((upper >= 0.25 && upper <= 0.75) || vowels < 0.3) return ":token";
+    const upper = (s.match(/[A-Z]/g) ?? []).length;
+    const paired = (s.match(/[A-Z](?=[A-Z])/g) ?? []).length;
+    const vowels = (s.match(/[aeiouy]/gi) ?? []).length / s.length;
+    const mixed = upper >= s.length / 4 && upper <= (s.length * 3) / 4 && paired * 5 >= upper;
+    if (mixed || vowels < 0.2 || /[b-df-hj-np-tv-xz]{7,}/i.test(s)) return ":token";
   }
   // A long run of letters and digits with a digit in it reads as a token or a code, not a word.
   if (s.length >= 16 && /\d/.test(s) && /^[A-Za-z0-9_.~+=-]+$/.test(s)) return ":token";

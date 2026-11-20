@@ -48,8 +48,8 @@ Until then, or to work on Genesis itself, make new apps inside the monorepo:
    local stack) and enable the providers you use in Supabase Auth (below). After the migrations,
    on every deploy, run `genesis settings sync` (it writes the app manifest the Settings screen
    checks values against). Then add yourself as the first platform admin (settings and the
-   support inbox): `insert into public.genesis_platform_admins (person) select id from auth.users
-   where lower(email) = lower('you@example.com');` in the SQL editor. `genesis doctor` warns
+   support inbox), by your confirmed email, in the SQL editor: the snippet is in the genesis-supabase
+   README ("Settings"), and `genesis fix settings.first-admin` prints it. `genesis doctor` warns
    (`platform-admin-missing`) while the list is empty.
 6. `pnpm install`, `pnpm build:packages` at the root, then `pnpm --filter my-app ios`.
 

@@ -282,6 +282,10 @@
           {
             "file": "migrations/0028_genesis_support_diagnostics_fixes.sql",
             "test": "migrations/tests/0028_genesis_support_diagnostics_fixes.test.sql"
+          },
+          {
+            "file": "migrations/0029_genesis_support_staff_admin_list.sql",
+            "test": "migrations/tests/0029_genesis_support_staff_admin_list.test.sql"
           }
         ],
         "functions": [

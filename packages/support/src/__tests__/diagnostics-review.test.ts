@@ -168,7 +168,11 @@ describe("routes and text", () => {
       [`/hooks/${live}`, "/hooks/:token"],
       [`/hooks/${test}/edit`, "/hooks/:token/edit"],
       ["/hooks/whsec_QWERTYasdfghZXCVBN", "/hooks/:token"],
-      ["/keys/aZbYcXdWeVfUgThSiRjQkPlOmNnMoLpK", "/keys/:token"],
+      [`/keys/${["sb", "secret", "AbCdEfGh12345678"].join("_")}`, "/keys/:token"],
+      [`/keys/${["sb", "publishable", "QwErTyUiOpAsDfGh"].join("_")}`, "/keys/:token"],
+      [`/keys/${["github", "pat", "11ABCDEFG_abcdefghijk"].join("_")}`, "/keys/:token"],
+      ["/keys/ujzPdeIgxLdGncfBAepfJBdKhoOOLdKL", "/keys/:token"],
+      ["/keys/zdocJisAjIhKtJRlgLKOmxgJTeKdNnFRIBXuDLDx", "/keys/:token"],
       ["/keys/qwrtzpsdfghjklxcvbnmqwrtzpsdfghj", "/keys/:token"],
       ["/chat/whatsapp:+15555550101", "/chat/:phone"],
       ["/chat/whatsapp%3A15555550101", "/chat/:phone"],
@@ -180,6 +184,11 @@ describe("routes and text", () => {
       "/settings/settingsNotificationsPreferencesScreen",
       "/words/supercalifragilisticexpialidocious",
       "/skills/sk_basics",
+      "/hooks/whsec_rotation_guide",
+      "/repos/ghs_internal_tools",
+      "/skills/sk_test_driven_development_basics",
+      "/screens/MyAppHomeTabFeedItemDetailViewScreen",
+      "/blog/whyhttpsmattersforyoursmallbusinesssite",
     ]) expect(cleanRoute(route), route).toBe(route);
   });
 

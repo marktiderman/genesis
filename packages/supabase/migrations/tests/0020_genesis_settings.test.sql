@@ -30,6 +30,10 @@ end $$;
 grant execute on function pg_temp.person(text), pg_temp.sign_in(text), pg_temp.sign_out() to anon, authenticated, service_role;
 
 drop function if exists private.genesis_platform_admin(uuid);
+-- And 0022's list, when the app has it: without the hook, nobody may change anything.
+do $$ begin
+  if to_regclass('public.genesis_platform_admins') is not null then execute 'delete from public.genesis_platform_admins'; end if;
+end $$;
 delete from public.genesis_settings;
 delete from public.genesis_app_manifest;
 

@@ -745,21 +745,29 @@ preset and genesis.config.json.
   `genesis settings sync` (genesis-cli, through the linked project), or from your server at start with
   the service role (`writeAppManifest`). `set_genesis_setting` checks values against its catalogue
   (declared, runtime, the right type, in bounds); until it is written, every write is refused.
-- **Who may change settings** is the hook `private.genesis_platform_admin(person uuid) returns
-  boolean` (ADR 0003's platform zone). Without one nobody can (`42501`, with a hint): a fresh install
-  fails closed, as tenant features do. Migration `0022_genesis_platform_admins.sql` gives an app with
-  no hook of its own a default: the people in **`genesis_platform_admins`**, a list that starts
-  empty (never every signed-in person) and only the service role reads or writes. Add the first
-  admin by email in the SQL editor (`genesis doctor` warns `platform-admin-missing` while it is empty):
+- **Who may change settings** is the app's hook `private.genesis_platform_admin(person uuid) returns
+  boolean` (ADR 0003's platform zone). Migration `0022_genesis_platform_admins.sql` gives an app with
+  no hook a default inside Genesis's own wrappers (never under the hook's name): the people in
+  **`genesis_platform_admins`**, a list that starts empty (never every signed-in person) and only the
+  service role reads or writes. Until the app has a hook or the list has a person, nobody can
+  (`42501`, with a hint): a fresh install fails closed, as tenant features do. Add the first admin by a
+  confirmed email in the SQL editor (`genesis doctor` warns `platform-admin-missing` while it is
+  empty); it adds nobody when no confirmed person, or more than one, has that email:
 
   ```sql
-  insert into public.genesis_platform_admins (person)
-  select id from auth.users where lower(email) = lower('you@example.com') on conflict do nothing;
+  do $$ begin
+    if (select count(*) from auth.users where lower(email) = lower('you@example.com') and email_confirmed_at is not null) <> 1 then
+      raise exception 'no single confirmed person has that email: nobody was added';
+    end if;
+    insert into public.genesis_platform_admins (person)
+    select id from auth.users where lower(email) = lower('you@example.com') and email_confirmed_at is not null
+    on conflict do nothing;
+  end $$;
   ```
 
-  An app that already has the hook keeps it. To use another model later, replace the default with
-  `create or replace function private.genesis_platform_admin(…)` (a plain `create function` fails:
-  the default exists). With genesis-support, platform admins are also support staff.
+  The app's own hook, added whenever and however it likes (`create function`, its own parameter
+  name), takes over from the list. With genesis-support (0029), the platform admins are also support
+  staff.
 - **Server code** is told apart from a person by the request's role, never by a JWT claim: the
   service role, any role that bypasses row security, or a connection that never switched role. So a
   direct database login (`psql`, a migration, a BI tool on its own login) counts as server code: it

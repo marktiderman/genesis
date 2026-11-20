@@ -390,19 +390,20 @@ describe("platform-admin-missing", () => {
     findings.filter((f) => f.rule === "platform-admin-missing").map((f) => `${f.level} ${f.file} [${f.fix?.id}]: ${f.message.split(":")[0]}`);
 
   it("warns, with the first-admin fix, when the default list is in use and empty", async () => {
-    writeFileSync(path.join(stubs, "admins.json"), JSON.stringify([{ admins: 0, default_hook: true }]));
+    writeFileSync(path.join(stubs, "admins.json"), JSON.stringify([{ admins: 0, app_hook: false }]));
     const result = await runDoctor({ root: secretsApp({}, ADMINS), database: true });
     expect(admins(result.findings)).toEqual(["warn genesis_platform_admins [settings.first-admin]: nobody is a platform admin"]);
     const plan = await planFix(builtinFixes().find((f) => f.id === "settings.first-admin")!, { root: secretsApp({}, ADMINS), findings: [] });
-    expect(plan.manual).toContain("insert into public.genesis_platform_admins (person) select id from auth.users where lower(email)");
+    expect(plan.manual).toContain("and email_confirmed_at is not null) <> 1 then");
+    expect(plan.manual).toContain("insert into public.genesis_platform_admins (person)");
   });
 
   it("is quiet with an admin, with the app's own hook, or without the migration", async () => {
-    writeFileSync(path.join(stubs, "admins.json"), JSON.stringify([{ admins: 1, default_hook: true }]));
+    writeFileSync(path.join(stubs, "admins.json"), JSON.stringify([{ admins: 1, app_hook: false }]));
     expect(admins((await runDoctor({ root: secretsApp({}, ADMINS), database: true })).findings)).toEqual([]);
-    writeFileSync(path.join(stubs, "admins.json"), JSON.stringify([{ admins: 0, default_hook: false }]));
+    writeFileSync(path.join(stubs, "admins.json"), JSON.stringify([{ admins: 0, app_hook: true }]));
     expect(admins((await runDoctor({ root: secretsApp({}, ADMINS), database: true })).findings)).toEqual([]);
-    writeFileSync(path.join(stubs, "admins.json"), JSON.stringify([{ admins: 0, default_hook: true }]));
+    writeFileSync(path.join(stubs, "admins.json"), JSON.stringify([{ admins: 0, app_hook: false }]));
     rmSync(path.join(stubs, "calls.log"), { force: true });
     expect(admins((await runDoctor({ root: secretsApp(), database: true })).findings)).toEqual([]);
     expect(calls()).not.toContain("genesis_platform_admins");
