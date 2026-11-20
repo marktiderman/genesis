@@ -8,7 +8,7 @@
 -- agent of ta; b8 ta's tenant admin; e6 the app's staff; a7 an anonymous login in ta.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(32);
+select plan(49);
 
 create function pg_temp.tenant(n text) returns uuid language sql immutable as $$
   select case n when 'd' then '00000000-0000-4000-8000-00000000000f'::uuid
@@ -257,6 +257,59 @@ set local role authenticated;
 select is((select array_agg(email) from public.support_people_search(pg_temp.tenant('ta'), 'genesis-labels')),
   array['genesis-labels-b8@example.test'], 'with the app''s search hook: its matches, only those who are the tenant''s people');
 reset role;
+
+-- Zero config at the app's own desk: no genesis_viewer_people, so a login is its own person ------
+-- d1 and d2 are logins that aren't the app's staff; d3 wrote to the app's own desk; d4 is added by d2.
+drop function private.genesis_viewer_people(uuid);
+drop function private.genesis_person_login(uuid);
+drop function private.genesis_people_search(uuid, text, integer);
+insert into auth.users (id, aud, role, email, instance_id)
+select pg_temp.person(n), 'authenticated', 'authenticated', 'genesis-labels-' || n || '@example.test', '00000000-0000-0000-0000-000000000000'
+from unnest(array['d1', 'd2', 'd3', 'd4']) n;
+insert into public.tickets (type, title, message, tenant_id, user_id) values
+  ('question', 'own desk', 'Hi', pg_temp.tenant('d'), pg_temp.person('d3'));
+
+select pg_temp.sign_in('e6');
+set local role authenticated;
+select lives_ok($$select public.support_set_agent(null, pg_temp.person('d1'), 'agent')$$, 'zero config: the app''s staff add a login at the app''s own desk');
+select is((select row(person_id, role, removable)::text from public.support_agents_list(null) where user_id = pg_temp.person('d1')),
+  row(pg_temp.person('d1'), 'agent', true)::text, '... who shows in the desk''s list, as their own person, removable');
+reset role;
+select ok(private.genesis_support_agent(pg_temp.tenant('d'), pg_temp.person('d1')), '... and is an agent there');
+select pg_temp.sign_in('d1');
+set local role authenticated;
+select ok(public.support_is_agent(pg_temp.tenant('d')), '... as they see it too');
+select is((select count(*)::int from public.tickets where tenant_id = pg_temp.tenant('d') and title = 'own desk'), 1, '... and they see the desk''s tickets');
+select ok(exists (select 1 from public.support_agents_list(null) where user_id = pg_temp.person('d1')), '... and read the desk''s agents');
+select is(public.support_can_manage_agents(null), false, 'an agent row doesn''t manage agents');
+reset role;
+
+-- An admin row there manages the desk's agents.
+select pg_temp.sign_in('e6');
+set local role authenticated;
+select lives_ok($$select public.support_set_agent(null, pg_temp.person('d2'), 'admin')$$, 'zero config: the app''s staff add an admin at the app''s own desk');
+reset role;
+select is(pg_temp.manages('d2', null), true, '... who manages the desk''s agents');
+select pg_temp.sign_in('d2');
+set local role authenticated;
+select lives_ok($$select public.support_set_agent(null, pg_temp.person('d4'), 'agent')$$, '... and adds one');
+select is((select row(role, removable)::text from public.support_agents_list(null) where user_id = pg_temp.person('d2')),
+  row('admin', true)::text, 'the admin row: admin, removable');
+select is((select row(role, removable)::text from public.support_agents_list(null) where user_id = pg_temp.person('d4')),
+  row('agent', true)::text, 'the agent the admin added: listed, removable by them');
+select lives_ok($$select public.support_set_agent(null, pg_temp.person('d4'), null)$$, '... and removes them');
+reset role;
+select is(private.genesis_support_agent(pg_temp.tenant('d'), pg_temp.person('d4')), false, '... who is no longer an agent');
+
+-- An agent row whose person has no login: listed with a null login, and removable ---------------
+insert into public.ticket_agents (tenant_id, person_id, role) values (pg_temp.tenant('ta'), pg_temp.person('ee'), 'agent');
+select pg_temp.sign_in('b8');
+set local role authenticated;
+select is((select row(user_id, role, removable)::text from public.support_agents_list(pg_temp.tenant('ta')) where person_id = pg_temp.person('ee')),
+  row(null::uuid, 'agent', true)::text, 'an agent row with no login is listed, with a null login, removable');
+select lives_ok($$select public.support_set_agent(pg_temp.tenant('ta'), pg_temp.person('ee'), null)$$, '... and removed by its person record');
+reset role;
+select is((select count(*)::int from public.ticket_agents where person_id = pg_temp.person('ee')), 0, '... which really removes the row');
 
 select * from finish();
 rollback;

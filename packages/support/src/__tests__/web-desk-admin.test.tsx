@@ -88,6 +88,19 @@ describe("agents", () => {
     expect(client.setAgent).not.toHaveBeenCalledWith("acme", "u1", null);
   });
 
+  it("lists an agent row whose person has no login, and removes it by its person record", async () => {
+    const client = manager({
+      staffList: vi.fn(async () => [
+        { id: "u2", name: "Bo", personId: "p2", role: "agent" as const, removable: true },
+        { id: null, name: null, personId: "p7", role: "agent" as const, removable: true },
+      ]),
+    });
+    show(<SupportAgentsAdmin client={client} tenantId="acme" />);
+    await waitFor(() => expect(screen.getByTestId("genesis-support-agents-list").textContent).toContain("Unnamed"));
+    await removeRow("Unnamed");
+    await waitFor(() => expect(client.setAgent).toHaveBeenCalledWith("acme", "p7", null));
+  });
+
   it("works the app's own desk by a null tenant", async () => {
     const client = manager();
     show(<SupportAgentsAdmin client={client} tenantId={null} />);

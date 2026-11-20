@@ -39,7 +39,10 @@ describe("the client's desk calls", () => {
     support_desk_move_targets: [{ tenant_id: "acme", label: "Acme", is_default: false }],
     support_people_search: [{ person_id: "p2", user_id: "u2", full_name: "Bea", email: "bea@acme.test" }],
     support_can_manage_agents: true,
-    support_agents_list: [{ user_id: "u3", person_id: "p3", full_name: "Cy", role: "admin", removable: false }],
+    support_agents_list: [
+      { user_id: "u3", person_id: "p3", full_name: "Cy", role: "admin", removable: false },
+      { user_id: null, person_id: "p7", full_name: null, role: "agent", removable: true },
+    ],
     support_my_ticket_desks: [{ ticket_id: "t1", tenant_id: "acme", label: "Acme", is_default: false }],
     support_desk_history: [{ id: 7, tenant_id: "acme", ticket_id: null, to_tenant: null, action: "turned_on", reason: null, actor: "u1", actor_name: "Ana", at: "2026-11-19T09:00:00Z" }],
   };
@@ -69,7 +72,11 @@ describe("the client's desk calls", () => {
     expect(fake.rpcs.at(-1)).toEqual({ fn: "support_can_manage_agents", args: { tenant: "acme" } });
     await scoped.staffList!();
     expect(fake.rpcs.at(-1)).toEqual({ fn: "support_agents_list", args: { tenant: "acme" } });
-    expect(await client.staffList!({ tenantId: "acme" })).toEqual([{ id: "u3", name: "Cy", personId: "p3", role: "admin", removable: false }]);
+    // An agent row whose person has no login comes with a null id, by its person record.
+    expect(await client.staffList!({ tenantId: "acme" })).toEqual([
+      { id: "u3", name: "Cy", personId: "p3", role: "admin", removable: false },
+      { id: null, name: null, personId: "p7", role: "agent", removable: true },
+    ]);
   });
 
   it("reads where a ticket is and its last move", async () => {

@@ -481,7 +481,11 @@ function AgentsAdmin({ client, tenantId = null, copy: copyOverrides, onError, cl
     <section data-testid="genesis-support-agents" aria-label={copy.agents.title} className={cn("flex flex-col gap-3", className)}>
       <ViewList
         view={view}
-        rows={agents.data?.map((a): AgentRow => ({ id: a.personId ?? a.id, name: a.name?.trim() || copy.agents.unnamed, role: copy.agents.roles[a.role ?? "agent"], removable: a.removable === true }))}
+        rows={agents.data?.flatMap((a): AgentRow[] => {
+          // By person record (what setAgent takes), so a row whose person has no login is listed and removable too.
+          const id = a.personId ?? a.id;
+          return id === null ? [] : [{ id, name: a.name?.trim() || copy.agents.unnamed, role: copy.agents.roles[a.role ?? "agent"], removable: a.removable === true }];
+        })}
         loading={agents.isPending}
         error={agents.isError}
         errorMessage={copy.agents.loadFailed}

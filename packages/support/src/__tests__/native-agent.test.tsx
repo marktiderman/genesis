@@ -45,7 +45,8 @@ const desk: Rpc = (fn, args) => {
     return { data: [ticket(T1), ticket(T2, { assignee_id: ME, agent_unread: false, user_id: null, requester_email: "pat@example.com", channel: "email" })], error: null };
   }
   if (fn === "support_ticket_requesters") return { data: [{ user_id: ALEX, full_name: "Alex Doe", email: "alex@example.com" }], error: null };
-  if (fn === "support_agents_list") return { data: [{ user_id: SAM, full_name: "Sam" }, { user_id: ME, full_name: "Me" }], error: null };
+  // An agent row whose person has no login (null user_id) can't be assigned: the picker leaves it out.
+  if (fn === "support_agents_list") return { data: [{ user_id: SAM, full_name: "Sam" }, { user_id: ME, full_name: "Me" }, { user_id: null, person_id: "p-none", full_name: null }], error: null };
   if (fn === "support_requester_tenants") return { data: [{ tenant_id: "ta", label: "Acme" }, { tenant_id: "tb", label: "Northside" }], error: null };
   return { data: null, error: null };
 };

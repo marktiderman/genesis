@@ -363,8 +363,9 @@ export interface SupportClient extends FeedbackSink {
   /**
    * Agents: who handles a tenant's tickets (null, the app's own: its staff), with a name, for an
    * assignee picker. Refused (`42501`) unless the signed-in person is an agent there. Needs migration 0022.
+   * With migration 0034, an agent row whose person has no login comes with a null `id` (see `SupportStaffMember`).
    */
-  staffList?(options?: { tenantId?: string | null }): Promise<SupportPerson[]>;
+  staffList?(options?: { tenantId?: string | null }): Promise<SupportStaffMember[]>;
   /** Whether the signed-in person may add or remove the desk's agents (null: the app's own desk), as `setAgent` decides. Needs migration 0034. */
   canManageAgents?(options?: { tenantId?: string | null }): Promise<boolean>;
   /** Agents: the name and email of the people among `ids` who wrote a ticket they handle; anyone else is left out. Needs migration 0022. */
@@ -440,6 +441,15 @@ export interface SupportPerson {
   removable?: boolean;
   /** From `staffList` with migration 0034: their person record at the desk, which `setAgent` takes (the login's own id where the app has no records). */
   personId?: string;
+}
+
+/**
+ * One of a desk's agents from `staffList`: `id` is their login, or null for an agent row (migration
+ * 0034) whose person has no login. Such a row can't be assigned a ticket, but it is listed so whoever
+ * manages agents can see it and remove it by its `personId`.
+ */
+export interface SupportStaffMember extends Omit<SupportPerson, "id"> {
+  id: string | null;
 }
 
 /** Who wrote a ticket, as an agent sees them (migration 0022). */
@@ -1072,7 +1082,7 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
     async staffList({ tenantId } = {}) {
       const rows = must<Row[]>("staffList", await supabase.rpc("support_agents_list", { tenant: await scope(tenantId) }));
       return (rows ?? []).map((r) => ({
-        id: String(r["user_id"]),
+        id: typeof r["user_id"] === "string" ? r["user_id"] : null,
         name: (r["full_name"] as string | null) ?? null,
         ...(typeof r["person_id"] === "string" ? { personId: r["person_id"] as string } : {}),
         ...agentRoleOf(r["role"]),
