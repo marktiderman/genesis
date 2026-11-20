@@ -34,6 +34,9 @@ describe("reply addresses", () => {
     expect(verifyReplyToken(ring, token, { now: now + 20 * WEEK })).not.toBeNull();
     expect(verifyReplyToken(ring, token, { now: now + 30 * WEEK })).toBeNull();
     expect(verifyReplyToken(ring, token, { now: now + 30 * WEEK, maxAgeWeeks: 52 })).not.toBeNull();
+    // An expired address stays expired when the old 8-bit week would have wrapped round.
+    expect(verifyReplyToken(ring, token, { now: now + 256 * WEEK })).toBeNull();
+    expect(verifyReplyToken(ring, token, { now: now + 283 * WEEK })).toBeNull();
   });
 
   it("rotate: a new current key signs, an old one still verifies until it's removed", () => {
@@ -114,5 +117,6 @@ describe("addresses made before adoption", () => {
     expect(verifyReplyToken({ current: "b", keys: ring.keys }, old, { now })).toBeNull();
     expect(createReplyToken(ring, { ticketId, userId }, { now })[0]).toBe("b");
     expect(() => replyKey(secret, { label: "" })).toThrow();
+    expect(() => verifyReplyToken({ current: "a", keys: { a: replyKey(secret) }, legacy: { a: replyKey(secret, { label: LABEL }) } }, old, { now })).toThrow(/both/);
   });
 });

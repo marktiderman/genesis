@@ -305,6 +305,12 @@ describe("native pack", () => {
     });
     expect(brief(twice.findings, "release-lane-twice")).toEqual(["release-lane-twice .eas/workflows/deploy-production.yml:0 .eas/workflows/deploy-production.yml", "release-lane-twice .github/workflows/ota.yml:0 .github/workflows/ota.yml"]);
     expect(levels(twice.findings, "release-lane-twice")).toEqual(["error", "error"]);
+    // The lane dispatches to deploy-production.yml: its finding says to merge it, never to remove it; another rival's says to remove it.
+    const message = (subject: string) => twice.findings.find((f) => f.rule === "release-lane-twice" && f.subject === subject)!.message;
+    expect(message(".eas/workflows/deploy-production.yml")).toMatch(/merge its \.genesis-next/);
+    expect(message(".eas/workflows/deploy-production.yml")).toContain("--replace");
+    expect(message(".eas/workflows/deploy-production.yml")).not.toMatch(/remove/i);
+    expect(message(".github/workflows/ota.yml")).toContain("Remove it");
     // The lane's own dispatch-only file, or no native-release.yml at all: nothing to say.
     expect(brief((await nativeApp({ ...lane, ".eas/workflows/deploy-production.yml": "on:\n  workflow_dispatch: {}\njobs:\n  u:\n    type: update\n" })).findings, "release-lane-twice")).toEqual([]);
     expect(brief((await nativeApp(pushEas)).findings, "release-lane-twice")).toEqual([]);

@@ -5,10 +5,11 @@
 -- defined it, this file defines it for 0004's sake, returning Genesis's reserved zero-config
 -- tenant:
 --
---   00000000-0000-0000-0000-000000000001   never an organisation's id; reserved by Genesis
+--   bda1457d-053b-422c-8887-e046e54b8344   never an organisation's id; reserved by Genesis
 --
 -- It is a stand-in, not the app's hook: its comment says 'Genesis default:', and 0023 (right
--- after 0004) drops it again and answers from the same reserved id itself. So an app's own
+-- after 0004) drops it again while its body is still exactly this one, and answers from the same
+-- reserved id itself. An app that writes its own over it with `create or replace` first keeps it. So an app's own
 -- definition later, with a plain `create function` and any parameter or column names it likes,
 -- never collides with it. An app that has defined the hook already keeps it: nothing is created.
 --
@@ -33,7 +34,7 @@ begin
       language sql
       stable
       set search_path = ''
-      as $body$ select '00000000-0000-0000-0000-000000000001'::uuid $body$
+      as $body$ select 'bda1457d-053b-422c-8887-e046e54b8344'::uuid $body$
     $f$;
     execute 'revoke execute on function private.genesis_support_default_tenant() from public, anon, authenticated';
     execute $c$comment on function private.genesis_support_default_tenant() is

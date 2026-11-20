@@ -8,7 +8,7 @@
 import { CLI_PACKAGE } from "./discover.js";
 import { readLock } from "./lock.js";
 import { pinnedVersion } from "./pm.js";
-import { adoptTemplates, competingReleaseWorkflows, lookupPin, missingTemplateSets, releaseContext, resolveTemplateNames, TEMPLATE_SETS, type AdoptResult, type ReleasePin } from "./release.js";
+import { adoptTemplates, competingReleaseWorkflows, LANE_DISPATCH_TARGET, lookupPin, missingTemplateSets, releaseContext, resolveTemplateNames, TEMPLATE_SETS, type AdoptResult, type ReleasePin } from "./release.js";
 
 export interface AddTemplateOptions {
   list?: boolean;
@@ -61,8 +61,10 @@ export async function addTemplates(root: string, names: string[], options: AddTe
   if (results.some((r) => r.path === ".github/workflows/native-release.yml" && r.outcome !== "held")) {
     const ctx = releaseContext(root);
     steps.push(`Add EXPO_TOKEN (an Expo robot token)${ctx.release.sentry ? ", SENTRY_AUTH_TOKEN" : ""}${ctx.release.pushHook?.secrets.length ? `, ${ctx.release.pushHook.secrets.join(", ")}` : ""} to the GitHub environment "${ctx.release.environment}", limited to main (docs/NATIVE-RELEASE.md, "One-time setup").`);
-    const rivals = competingReleaseWorkflows(root, ctx.appFolder);
     // Only reached with --replace-rival (otherwise native-release.yml is held while one is there).
+    // Never deploy-production.yml: native-release.yml dispatches to it (an old push-triggered one
+    // holds native-release.yml back until its .genesis-next is merged).
+    const rivals = competingReleaseWorkflows(root, ctx.appFolder).filter((rel) => rel !== LANE_DISPATCH_TARGET);
     if (rivals.length) steps.push(`Remove ${rivals.join(", ")} in the same change, before it merges: ${rivals.length === 1 ? "it publishes" : "they publish"} EAS updates or start EAS runs too, and beside native-release.yml a release would go out twice (genesis doctor fails with release-lane-twice until then).`);
   }
   if (results.some((r) => r.outcome === "next")) steps.push("Merge each .genesis-next into its file and delete it; or move your edits into genesis.config.json `release` and run again with --replace.");

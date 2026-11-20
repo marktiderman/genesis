@@ -363,6 +363,10 @@
           {
             "file": "migrations/0020_genesis_settings.sql",
             "test": "migrations/tests/0020_genesis_settings.test.sql"
+          },
+          {
+            "file": "migrations/0021_genesis_settings_integer.sql",
+            "test": "migrations/tests/0021_genesis_settings_integer.test.sql"
           }
         ],
         "install": [

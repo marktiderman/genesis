@@ -237,7 +237,7 @@
             "needs": [
               {
                 "function": "private.genesis_support_default_tenant",
-                "how": "0021_genesis_support_default_hooks.sql (copied before 0004) defines a stand-in that 0023 drops again, after which Genesis answers with its reserved tenant 00000000-0000-0000-0000-000000000001. An app with its own tenant defines private.genesis_support_default_tenant() returns uuid in a migration of its own, before 0004 or any time after 0023. See 0004's header."
+                "how": "0021_genesis_support_default_hooks.sql (copied before 0004) defines a stand-in; 0023 drops it again while it is still exactly that stand-in (its body and 'Genesis default:' comment), after which Genesis answers with its reserved tenant bda1457d-053b-422c-8887-e046e54b8344. An app with its own tenant defines private.genesis_support_default_tenant() returns uuid in a migration of its own: before 0004, over the stand-in with create or replace (kept, because its body differs), or with a plain create any time after 0023. See 0004's header."
               }
             ]
           },
@@ -256,6 +256,10 @@
           {
             "file": "migrations/0020_genesis_support_settings.sql",
             "test": "migrations/tests/0020_genesis_support_settings.test.sql"
+          },
+          {
+            "file": "migrations/0026_genesis_support_diagnostics_access.sql",
+            "test": "migrations/tests/0026_genesis_support_diagnostics_access.test.sql"
           }
         ],
         "functions": [
@@ -846,6 +850,7 @@
           },
           "maxBytes": {
             "type": "number",
+            "integer": true,
             "default": 262144,
             "min": 65536,
             "max": 1048576,
@@ -853,6 +858,7 @@
           },
           "perHour": {
             "type": "number",
+            "integer": true,
             "default": 10,
             "min": 1,
             "max": 100,
@@ -860,6 +866,7 @@
           },
           "retentionDays": {
             "type": "number",
+            "integer": true,
             "default": 90,
             "min": 7,
             "max": 365,
@@ -885,6 +892,7 @@
           },
           "jolts": {
             "type": "number",
+            "integer": true,
             "default": 2,
             "min": 1,
             "max": 10,
@@ -892,6 +900,7 @@
           },
           "windowMs": {
             "type": "number",
+            "integer": true,
             "default": 1000,
             "min": 200,
             "max": 5000,
@@ -899,6 +908,7 @@
           },
           "cooldownMs": {
             "type": "number",
+            "integer": true,
             "default": 3000,
             "min": 500,
             "max": 60000,

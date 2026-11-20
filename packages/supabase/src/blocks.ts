@@ -133,7 +133,11 @@ export const settingsBlock = defineBlock({
   id: "settings",
   platforms: ["web", "native"],
   contributes: {
-    migrations: [{ package: PACKAGE, file: "migrations/0020_genesis_settings.sql", test: "migrations/tests/0020_genesis_settings.test.sql" }],
+    migrations: [
+      { package: PACKAGE, file: "migrations/0020_genesis_settings.sql", test: "migrations/tests/0020_genesis_settings.test.sql" },
+      // Whole numbers: a fraction is refused for a key declared `integer`.
+      { package: PACKAGE, file: "migrations/0021_genesis_settings_integer.sql", test: "migrations/tests/0021_genesis_settings_integer.test.sql" },
+    ],
     privacy: {
       notes: ["Keeps who changed an app setting, when and from what to what; a deleted person's changes stay, without the person. No setting holds a secret."],
     },

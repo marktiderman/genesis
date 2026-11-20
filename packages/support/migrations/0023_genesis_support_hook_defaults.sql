@@ -8,15 +8,16 @@
 --
 --   private.genesis_support_default_tenant_id()   the app's private.genesis_support_default_tenant()
 --                                                 when it has one, else Genesis's reserved
---                                                 zero-config tenant 00000000-0000-0000-0000-000000000001
+--                                                 zero-config tenant bda1457d-053b-422c-8887-e046e54b8344
 --                                                 (never an organisation's id).
 --   private.genesis_support_staff_hook(person)    the app's private.genesis_support_staff(person)
 --                                                 when it has one, else the app's platform admins
 --                                                 (genesis-supabase 0020's private.genesis_platform_admin);
 --                                                 without either, nobody.
 --
--- 0021's stand-in default tenant (its comment starts 'Genesis default:') is dropped here; an app's
--- own hook is never touched. Tickets written before an app adds its own default tenant stay in the
+-- 0021's stand-in default tenant is dropped here only while it is still exactly the stand-in (its
+-- body and its 'Genesis default:' comment); an app's own hook, even one written over the stand-in
+-- with `create or replace`, is never touched. Tickets written before an app adds its own default tenant stay in the
 -- reserved one: move them in the same migration that adds the hook, if it should own them.
 --
 -- private.genesis_viewer_people is not given a default: it is the app's tenancy boundary for
@@ -29,15 +30,33 @@
 
 create schema if not exists private;
 
--- 0021's stand-in goes; an app's own hook stays.
-do $do$
+-- 0021's stand-in goes; an app's own hook stays. It is the stand-in only when its body is still
+-- exactly 0021's: an app that replaced it with `create or replace` (which keeps the comment) between
+-- 0021 and here keeps its own. Returns whether it dropped one.
+create or replace function private.genesis_support_drop_tenant_standin()
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  fn regprocedure := to_regprocedure('private.genesis_support_default_tenant()');
 begin
-  if to_regprocedure('private.genesis_support_default_tenant()') is not null
-     and coalesce(obj_description('private.genesis_support_default_tenant()'::regprocedure, 'pg_proc'), '') like 'Genesis default:%' then
-    execute 'drop function private.genesis_support_default_tenant()';
+  if fn is null then
+    return false;
   end if;
+  if btrim((select p.prosrc from pg_catalog.pg_proc p where p.oid = fn)) <> 'select ''bda1457d-053b-422c-8887-e046e54b8344''::uuid'
+     or coalesce(obj_description(fn, 'pg_proc'), '') not like 'Genesis default:%' then
+    return false;
+  end if;
+  execute 'drop function private.genesis_support_default_tenant()';
+  return true;
 end;
-$do$;
+$$;
+
+revoke execute on function private.genesis_support_drop_tenant_standin() from public, anon, authenticated;
+
+select private.genesis_support_drop_tenant_standin();
 
 -- The app's own tenant: its hook, else Genesis's reserved one. A hook that errors raises.
 create or replace function private.genesis_support_default_tenant_id()
@@ -49,7 +68,7 @@ set search_path = ''
 as $$
 begin
   if to_regprocedure('private.genesis_support_default_tenant()') is null then
-    return '00000000-0000-0000-0000-000000000001'::uuid;
+    return 'bda1457d-053b-422c-8887-e046e54b8344'::uuid;
   end if;
   return private.genesis_support_default_tenant();
 end;
