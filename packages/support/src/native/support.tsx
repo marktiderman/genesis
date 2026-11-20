@@ -236,6 +236,11 @@ export interface SupportBlock extends NativeBlock<typeof SUPPORT_BLOCK_ID> {
   contact(): SupportContactInfo | null;
   /** Hands a caught error to `onError` (a reporter that throws is ignored), for support's own screens. */
   report(error: unknown, where: SupportErrorSource): void;
+  /**
+   * Stops what the block listens to for its whole life (sign-out, to clear what the device keeps):
+   * for a block made per test, or an app that throws one away. Calling it again does nothing.
+   */
+  dispose(): void;
   readonly Root: ComponentType<NativeBlockRootProps>;
 }
 
@@ -387,12 +392,20 @@ export function createSupport(given: SupportOptions): SupportBlock {
   };
 
   // Sign-out forgets what this device held for the person: the dumps and feedback queued offline,
-  // and a report (and a shake's dump) waiting for the feedback screen. The root listens; apps needn't.
-  const forgetOnSignOut = (event: string) => {
+  // and a report (and a shake's dump) waiting for the feedback screen. Listened to from creation,
+  // not by the root: a sign-out during boot or behind the fatal screen (no root mounted) counts too.
+  // `dispose` stops it.
+  const signOut = options.supabase.auth.onAuthStateChange((event) => {
     if (event !== "SIGNED_OUT") return;
     pending?.shakeDump?.discard();
     setPending(null);
     void given.diagnostics?.clearQueue().catch((error: unknown) => report(error, "diagnostics"));
+  });
+  let disposed = false;
+  const dispose = () => {
+    if (disposed) return;
+    disposed = true;
+    signOut.data.subscription.unsubscribe();
   };
 
   // Where to go once the app's screens are back (the fatal screen's "Report this"): taken by the
@@ -548,6 +561,7 @@ export function createSupport(given: SupportOptions): SupportBlock {
     },
     platforms: ["native"],
     report,
+    dispose,
     options,
     settings: readSettings,
     useSettings: useLiveSettings,
@@ -617,10 +631,6 @@ export function createSupport(given: SupportOptions): SupportBlock {
         // Diagnostics off: the screens visited aren't kept either.
         if (current) liveDiagnostics()?.recordRoute(current);
       }, [current]);
-      useEffect(() => {
-        const { data } = options.supabase.auth.onAuthStateChange((event) => forgetOnSignOut(event));
-        return () => data.subscription.unsubscribe();
-      }, []);
       useEffect(() => {
         const diagnostics = given.diagnostics;
         if (!diagnostics) return;

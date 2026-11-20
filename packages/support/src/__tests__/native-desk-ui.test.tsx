@@ -18,6 +18,8 @@ import {
   SupportRoute,
   useAgentThread,
   useSupportThread,
+  type AccelerometerLike,
+  type AccelerometerMeasurement,
 } from "../native";
 import { fakeSupabase, arg, type Answer, type Call } from "./fake-supabase";
 
@@ -411,40 +413,76 @@ describe("Report this, and About on the feedback form", () => {
   });
 });
 
+/** An accelerometer to shake: `jolt(g)` is one reading across every listener. */
+function fakeAccelerometer() {
+  const listeners = new Set<(measurement: AccelerometerMeasurement) => void>();
+  const accelerometer: AccelerometerLike = {
+    addListener: (listener) => {
+      listeners.add(listener);
+      return { remove: () => void listeners.delete(listener) };
+    },
+  };
+  return { accelerometer, jolt: (g: number) => listeners.forEach((listener) => listener({ x: g, y: 0, z: 0 })) };
+}
+
 describe("sign-out", () => {
   const transport = () => ({ name: "x", send: vi.fn(async () => ({ id: "1", shortId: "1" })) });
-
-  it("forgets the queued dumps and feedback, and a report waiting for the form, and stops listening when the root goes", async () => {
+  const signedOutBlock = () => {
     const fake = fakeSupabase({ userId: ME });
     const diagnostics = createDiagnostics({ app: { id: "acme" }, transport: transport() });
     const clear = vi.spyOn(diagnostics, "clearQueue");
     const block = createSupport({ supabase: fake.client, navigate: vi.fn(), platform: "ios", diagnostics });
+    return { fake, clear, block };
+  };
+
+  it("forgets the queued dumps and feedback, and a report waiting for the form, with the root mounted", async () => {
+    const { fake, clear, block } = signedOutBlock();
     const Root = block.Root;
-    const view = render(<QueryClientProvider client={new QueryClient()}><Root>{null}</Root></QueryClientProvider>);
+    render(<QueryClientProvider client={new QueryClient()}><Root>{null}</Root></QueryClientProvider>);
     await block.openFeedback({ screenshot: false });
     fake.emitAuth("TOKEN_REFRESHED");
     expect(clear).not.toHaveBeenCalled();
     fake.emitAuth("SIGNED_OUT");
     expect(clear).toHaveBeenCalledTimes(1);
     expect(block.peekPending()).toBeNull();
-    view.unmount();
+    block.dispose();
+  });
+
+  it("clears the queue on a sign-out with no root mounted (during boot, behind the fatal screen)", async () => {
+    const { fake, clear, block } = signedOutBlock();
+    const Root = block.Root;
+    // The root came and went (the fatal screen replaced the app): support still listens.
+    render(<QueryClientProvider client={new QueryClient()}><Root>{null}</Root></QueryClientProvider>).unmount();
+    await block.openFeedback({ screenshot: false });
+    fake.emitAuth("SIGNED_OUT");
+    expect(clear).toHaveBeenCalledTimes(1);
+    expect(block.peekPending()).toBeNull();
+    block.dispose();
+  });
+
+  it("stops listening once disposed, and disposing twice is harmless", () => {
+    const { fake, clear, block } = signedOutBlock();
+    expect(fake.authListeners.size).toBe(1);
+    block.dispose();
+    block.dispose();
     expect(fake.authListeners.size).toBe(0);
+    fake.emitAuth("SIGNED_OUT");
+    expect(clear).not.toHaveBeenCalled();
   });
 
   it("never sends a shake's dump once the person signs out", async () => {
     vi.useFakeTimers();
     try {
-      let listener: ((m: { x: number; y: number; z: number }) => void) | null = null;
-      const accelerometer = { addListener: (l: typeof listener) => ((listener = l), { remove() {} }), setUpdateInterval: vi.fn() };
+      const shake = fakeAccelerometer();
       const send = transport();
       const fake = fakeSupabase({ userId: ME });
       const diagnostics = createDiagnostics({ app: { id: "acme" }, transport: send });
-      const block = createSupport({ supabase: fake.client, navigate: vi.fn(), platform: "ios", diagnostics, accelerometer: accelerometer as never });
+      const block = createSupport({ supabase: fake.client, navigate: vi.fn(), platform: "ios", diagnostics, accelerometer: shake.accelerometer });
       const Root = block.Root;
       render(<QueryClientProvider client={new QueryClient()}><Root>{null}</Root></QueryClientProvider>);
-      listener!({ x: 3, y: 0, z: 0 });
+      shake.jolt(3);
       vi.advanceTimersByTime(100);
-      listener!({ x: 3, y: 0, z: 0 });
+      shake.jolt(3);
       await act(async () => {
         await vi.advanceTimersByTimeAsync(10);
       });
@@ -455,6 +493,7 @@ describe("sign-out", () => {
         await vi.advanceTimersByTimeAsync(20_000);
       });
       expect(send.send).not.toHaveBeenCalled();
+      block.dispose();
     } finally {
       vi.useRealTimers();
     }
