@@ -245,7 +245,8 @@ opens its next screen there too. A screen of the app's own replaces one of Genes
 shows `unavailable`, by default an empty state that says support isn't available
 (`<SupportRoute unavailable={<Redirect href="/settings" />} />` sends people back instead).
 `onFeedbackSent={(delivery) => …}` hears a report sent from its feedback screen, in place of the
-form's own alert: show a toast and leave the screen there.
+form's own alert: show a toast and leave the screen there. A one-line route file can't pass it, so
+`createSupport({ onFeedbackSent })` takes it too (the route's own wins).
 
 **Settings that change while the app runs.** With `appSettings` as a function, support reads it
 each time: the Settings rows (`support.feedback`, `support.inbox`, `support.agentDesk`), the idea

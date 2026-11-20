@@ -532,6 +532,47 @@ describe("SupportRoute without support, and its feedback screen", () => {
   });
 });
 
+describe("createSupport's own onFeedbackSent and live diagnostics", () => {
+  it("hands a report sent from SupportRoute's feedback screen to createSupport's onFeedbackSent", async () => {
+    const fake = fakeSupabase({ userId: ME, respond: (call) => (call.table === "support_reports" ? { data: { id: T1 }, error: null } : undefined) });
+    const sent = vi.fn();
+    const block = createSupport({ supabase: fake.client, navigate: vi.fn(), platform: "ios", basePath: "/s", useCurrentRoute: () => "/s/new", onFeedbackSent: sent });
+    const { Alert } = await import("react-native");
+    vi.mocked(Alert.alert).mockClear();
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <SupportProvider block={block}>
+          <SupportRoute />
+        </SupportProvider>
+      </QueryClientProvider>,
+    );
+    fireEvent.change(screen.getByTestId("genesis-support-feedback-message"), { target: { value: "Thanks" } });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("genesis-support-feedback-send"));
+    });
+    await waitFor(() => expect(sent).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(Alert.alert)).not.toHaveBeenCalled();
+    block.dispose();
+  });
+
+  it("reads diagnostics and Report this each time, from properties defined on the block itself", () => {
+    let values: Record<string, unknown> = {};
+    const fake = fakeSupabase({ userId: ME });
+    const diagnostics = createDiagnostics({ app: { id: "acme" }, transport: { name: "x", send: async () => ({ id: "1", shortId: "1" }) } });
+    const block = createSupport({ supabase: fake.client, navigate: vi.fn(), platform: "ios", diagnostics, appSettings: () => values });
+    // An accessor on the block, not a value copied when it was made (Babel's object spread would copy one).
+    expect(typeof Object.getOwnPropertyDescriptor(block, "diagnostics")?.get).toBe("function");
+    expect(typeof Object.getOwnPropertyDescriptor(block, "reportProblem")?.get).toBe("function");
+    expect(block.diagnostics).toBe(diagnostics);
+    values = { "diagnostics.enabled": false, "support.feedback": false };
+    expect(block.diagnostics).toBeNull();
+    expect(block.reportProblem).toBeUndefined();
+    values = {};
+    expect(block.diagnostics).toBe(diagnostics);
+    block.dispose();
+  });
+});
+
 describe("SupportRoute shows what the hooks say", () => {
   it("shows a failed first message on the new-message screen", async () => {
     const fake = fakeSupabase({ userId: ME, respond: () => ({ data: null, error: { message: "down", code: "08006" } }) });

@@ -25,8 +25,8 @@ import type { HelpAnswerResponse } from "../help-ask";
 import type { OfficeHours } from "../office-hours";
 import type { SupportChatClient } from "../chat";
 import { fill, resolveSupportCopy, type SupportCopy, type SupportCopyOverrides } from "../copy";
-import { composeCollectors, createContextCollector, type ContextCollector, type FeedbackSink, type ScreenshotContentType } from "../record";
-import type { Diagnostics } from "../diagnostics/create";
+import { composeCollectors, createContextCollector, type ContextCollector, type FeedbackDelivery, type FeedbackSink, type ScreenshotContentType } from "../record";
+import type { Diagnostics, DiagnosticsDelivery } from "../diagnostics/create";
 import type { DiagnosticReport } from "../diagnostics/report";
 import { scrubString } from "../diagnostics/scrub";
 import { listenForShake, type AccelerometerLike, type ShakeOptions, type ViewShotLike } from "./modules";
@@ -173,6 +173,12 @@ export interface SupportOptions {
    * feedback goes to its own API (`httpTransport`), screenshots and dump in one request.
    */
   feedbackSink?: FeedbackSink;
+  /**
+   * A report was sent from `SupportRoute`'s feedback screen: say so your way (a toast) and leave the
+   * screen (`router.back()`). With it, the form shows no alert of its own. `SupportRoute`'s own
+   * `onFeedbackSent` wins, for a route file that sets it.
+   */
+  onFeedbackSent?: (delivery: FeedbackDelivery & { diagnostics?: DiagnosticsDelivery | null; queued?: boolean }) => void;
   /** Every caught error, for reporting. None of them reaches the person as a crash. */
   onError?: (error: Error, where: SupportErrorSource) => void;
   /**
@@ -522,7 +528,14 @@ export function createSupport(given: SupportOptions): SupportBlock {
     };
   }
 
-  const block: SupportBlock = {
+  // Read each time: the context dump while `diagnostics.enabled` is on, and genesis-native's
+  // "Report this" while feedback is (the form opens with the error attached).
+  const live = {
+    diagnostics: (): Diagnostics | null => liveDiagnostics() ?? null,
+    reportProblem: (): typeof reportProblem | undefined => (readSettings().support.feedback ? reportProblem : undefined),
+  };
+  const block: SupportBlock = withLive<Omit<SupportBlock, keyof typeof live>, typeof live>(
+    {
     ...declaration,
     contributes: {
       ...declaration.contributes,
@@ -551,13 +564,6 @@ export function createSupport(given: SupportOptions): SupportBlock {
         devtoolsFeedback: DevtoolsFeedback as ComponentType<never>,
         ...(given.diagnostics ? { devtoolsDiagnostics: DevtoolsDiagnostics as ComponentType<never> } : {}),
       },
-    },
-    get diagnostics() {
-      return liveDiagnostics() ?? null;
-    },
-    // genesis-native's error screens offer "Report this" while feedback is on: the form opens with the error attached.
-    get reportProblem() {
-      return readSettings().support.feedback ? reportProblem : undefined;
     },
     platforms: ["native"],
     report,
@@ -677,8 +683,21 @@ export function createSupport(given: SupportOptions): SupportBlock {
       }, []);
       return <SupportProvider block={block}>{children}</SupportProvider>;
     },
-  };
+    },
+    live,
+  );
   return block;
+}
+
+/**
+ * `target` with properties read each time they're read. Defined on the object itself, after it is
+ * made: a getter written in an object literal beside a spread (`{ ...declaration, get x() {} }`) is
+ * read once and copied as a plain value under Babel's object-spread transform, as React Native
+ * builds compile it.
+ */
+function withLive<T extends object, L extends Record<string, () => unknown>>(target: T, live: L): T & { readonly [K in keyof L]: ReturnType<L[K]> } {
+  for (const [key, read] of Object.entries(live)) Object.defineProperty(target, key, { get: read, enumerable: true, configurable: true });
+  return target as T & { readonly [K in keyof L]: ReturnType<L[K]> };
 }
 
 /** How long after a fatal screen's "Report this" the remounted app may still open the form. */
