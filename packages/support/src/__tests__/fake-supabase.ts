@@ -18,7 +18,8 @@ export interface FakeOptions {
   rpc?: (fn: string, args: unknown) => Answer;
 }
 
-export function fakeSupabase({ userId = "00000000-0000-4000-8000-0000000000a1", respond, upload, rpc }: FakeOptions = {}) {
+export function fakeSupabase({ userId: firstUser = "00000000-0000-4000-8000-0000000000a1", respond, upload, rpc }: FakeOptions = {}) {
+  let userId = firstUser;
   const calls: Call[] = [];
   const uploads: Array<{ bucket: string; path: string; body: unknown; options: unknown }> = [];
   const rpcs: Array<{ fn: string; args: unknown }> = [];
@@ -67,7 +68,12 @@ export function fakeSupabase({ userId = "00000000-0000-4000-8000-0000000000a1", 
   };
   /** Tell the client's auth listeners an event happened ("SIGNED_OUT"), as supabase-js does. */
   const emitAuth = (event: string) => authListeners.forEach((listener) => listener(event, null));
-  return { client: client as unknown as SupportSupabase, calls, uploads, rpcs, emitAuth, authListeners };
+  /** Signs another login in (or, with null, signs out), as Supabase's auth tells its listeners. */
+  const signIn = (next: string | null) => {
+    userId = next;
+    emitAuth(next ? "SIGNED_IN" : "SIGNED_OUT");
+  };
+  return { client: client as unknown as SupportSupabase, calls, uploads, rpcs, emitAuth, authListeners, signIn };
 }
 
 /** The first argument of the first `op` in a call. */

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
-import { useDataProvider } from "../provider/context";
+import { requireDataProvider, useOptionalDataProvider } from "../provider/context";
 import type { BaseRecord, FilterParam, Identifier } from "../provider/types";
 import { useLiveInvalidation, type LiveOptions } from "./use-live";
 import { resourceKeys } from "../query-keys";
@@ -43,7 +43,8 @@ export function useOne<T extends BaseRecord = BaseRecord>(
   id: Identifier | undefined | null,
   options: UseOneOptions = {},
 ): UseQueryResult<T> {
-  const provider = useDataProvider();
+  // Needed only to read: a disabled read (ResourcePage over rows it was given) has none.
+  const provider = useOptionalDataProvider();
 
   const { select, enabled, live } = options;
   // The list's filters as a function source's `args` gets them (`filters`, `take`), less a text
@@ -52,6 +53,8 @@ export function useOne<T extends BaseRecord = BaseRecord>(
   const scopeKey = JSON.stringify((options.scope ?? []).filter((f) => f.operator !== "contains"));
   const scope = useMemo(() => JSON.parse(scopeKey) as FilterParam[], [scopeKey]);
   const isEnabled = enabled ?? !!id;
+  // A read still fails loudly without one, as it renders.
+  if (isEnabled) requireDataProvider(provider);
 
   // Only this record's events; `changed` (events may have been missed) too.
   useLiveInvalidation(
@@ -75,7 +78,7 @@ export function useOne<T extends BaseRecord = BaseRecord>(
     queryKey: scope?.length ? [...resourceKeys(resource).detail(id, select), { scope }] : resourceKeys(resource).detail(id, select),
     queryFn: async () => {
       if (id == null) throw new Error("Missing id");
-      const result = await provider.getOne<T>(resource, { id, select, ...(scope?.length ? { scope } : {}) });
+      const result = await requireDataProvider(provider).getOne<T>(resource, { id, select, ...(scope?.length ? { scope } : {}) });
       return result.data;
     },
     enabled: isEnabled,

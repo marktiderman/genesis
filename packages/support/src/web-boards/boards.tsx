@@ -20,6 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
   EmptyState,
+  InlineAlert,
   Input,
   Label,
   Select,
@@ -436,9 +437,7 @@ function SuggestIdeaDialog({
             <Textarea id={ids.body} value={body} maxLength={4000} onChange={(e) => setBody(e.target.value)} data-testid="support-idea-suggest-body" />
           </div>
           {failed ? (
-            <p role="alert" className="text-sm text-destructive" data-testid="support-idea-suggest-failed">
-              {failed}
-            </p>
+            <InlineAlert variant="destructive" description={failed} testID="support-idea-suggest-failed" />
           ) : null}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} data-testid="support-idea-suggest-cancel">
@@ -516,9 +515,7 @@ export function SupportIdeaStatusControl({ client, idea, onChanged, copy: overri
         {saving ? words.saving : words.save}
       </Button>
       {message ? (
-        <p role={message.failed ? "alert" : "status"} className={message.failed ? "text-sm text-destructive" : "text-sm text-muted-foreground"} data-testid="support-idea-status-message">
-          {message.text}
-        </p>
+        <InlineAlert variant={message.failed ? "destructive" : "success"} description={message.text} testID="support-idea-status-message" />
       ) : null}
     </div>
   );
@@ -571,9 +568,7 @@ export function SupportReportFeatureControl({ client, report, onChanged, copy: o
         {saving ? words.saving : words.save}
       </Button>
       {message ? (
-        <p role={message.failed ? "alert" : "status"} className={message.failed ? "text-sm text-destructive" : "text-sm text-muted-foreground"} data-testid="support-report-feature-message">
-          {message.text}
-        </p>
+        <InlineAlert variant={message.failed ? "destructive" : "success"} description={message.text} testID="support-report-feature-message" />
       ) : null}
     </div>
   );

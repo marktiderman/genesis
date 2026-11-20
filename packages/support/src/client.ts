@@ -75,6 +75,8 @@ export interface SupportReport {
   unread: boolean;
   /** Who sent it (the person's own id, or for staff the reporter's). */
   userId?: string | null;
+  /** Its help desk's tenant (migration 0004): which desk it is at. Absent where the read doesn't carry it. */
+  tenantId?: string | null;
   /**
    * When the person confirmed the fix (migration 0003): null while it isn't confirmed. The support
    * client always reads it; a client of your own that doesn't leaves it out, and then nothing asks
@@ -322,8 +324,17 @@ export interface SupportClient extends FeedbackSink {
   askHelp?(question: string, options?: { tenantId?: string | null }): Promise<string>;
   /** How it ended: the answer helped (the usage count), or it went to a person, with their ticket. */
   closeHelpQuestion?(questionId: string, outcome: "resolved" | "handed_off", ticketId?: string | null): Promise<void>;
-  /** Tenant admins: make a tenant's person an agent or agent admin, or remove them (`null`). Needs migration 0004. */
-  setAgent?(tenantId: string, personId: string, role: TicketAgentRole | null): Promise<void>;
+  /**
+   * Whoever manages a desk's agents (`canManageAgents`): make a person an agent or agent admin of it,
+   * or remove them (`null`). A null tenant is the app's own desk. Needs migration 0004.
+   */
+  setAgent?(tenantId: string | null, personId: string, role: TicketAgentRole | null): Promise<void>;
+  /** The signed-in login's id, or null when nobody is signed in: what a screen's cache is keyed by. */
+  signedInId?(): Promise<string | null>;
+  /** Calls `listener` when someone signs in or out (the app's Supabase auth). Returns the stop. */
+  onSignedInChange?(listener: () => void): () => void;
+  /** A ticket's handlers: link an email ticket with no login to the person's login (`support_link_requester`, the support-email block). Refused unless they handle it and the person is in its tenant. */
+  linkRequester?(reportId: string, personId: string): Promise<void>;
   report(id: string): Promise<SupportReport | null>;
   replies(reportId: string): Promise<SupportReply[]>;
   /** `internal`: a staff-only note (support-chat block, staff only). */
@@ -489,7 +500,7 @@ export interface SupportClientOptions {
 }
 
 const REPORT_COLUMNS =
-  "id, user_id, type, title, message, status, feature_id, route, app_version, created_at, updated_at, last_staff_reply_at, last_user_reply_at, user_read_at, staff_read_at, verified_at, pin:context->pin, about_label:context->>about_label";
+  "id, user_id, type, title, message, status, feature_id, route, app_version, created_at, updated_at, last_staff_reply_at, last_user_reply_at, user_read_at, staff_read_at, verified_at, pin:context->pin, about_label:context->>about_label, tenant_id";
 const IDEA_COLUMNS = "id, title, body, status, feature_id, shipped_at, vote_count, created_at";
 
 type Row = Record<string, unknown>;
@@ -554,8 +565,15 @@ function toReport(r: Row): SupportReport {
     staffReadAt: (r["staff_read_at"] as string | null) ?? null,
     verifiedAt: (r["verified_at"] as string | null) ?? null,
     userId: (r["user_id"] as string | null) ?? null,
+    ...("tenant_id" in r ? { tenantId: (r["tenant_id"] as string | null) ?? null } : {}),
   };
   return { ...report, unread: isUnread(report) };
+}
+
+/** A report marked fixed that the person hasn't confirmed yet: the "Is it fixed?" question is theirs to answer (`verify`). */
+export function awaitsVerification(t: Pick<SupportReport, "status" | "verifiedAt">): boolean {
+  // Only where the read says when it was confirmed: `verifiedAt` null, not left out.
+  return t.status === "addressed" && t.verifiedAt === null;
 }
 
 /** Since when a ticket's requester has waited, from its reply times: for a queue read before migration 0013. */
@@ -635,6 +653,16 @@ function defaultRandomId(): string {
   const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
   if (c?.randomUUID) return c.randomUUID();
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/** `support_agents_list`'s role, when it sends one this version knows. */
+function agentRoleOf(value: unknown): { role?: TicketAgentRole } {
+  return value === "agent" ? { role: "agent" } : value === "admin" ? { role: "admin" } : {};
+}
+
+/** `support_agents_list`'s `removable`, when it sends one. */
+function removableOf(value: unknown): { removable?: boolean } {
+  return typeof value === "boolean" ? { removable: value } : {};
 }
 
 /** The support client over the app's Supabase client. */
@@ -862,7 +890,16 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
       return must<boolean | null>("isAgent", await supabase.rpc("support_is_agent", { tenant: tenantId })) === true;
     },
     async setAgent(tenantId, personId, role) {
-      must("setAgent", await supabase.rpc("support_set_agent", { tenant: tenantId, person: personId, role }));
+      // The app's own desk by its tenant: `support_set_agent` takes the id.
+      const tenant = tenantId ?? must<string>("setAgent", await supabase.rpc("support_default_tenant"));
+      must("setAgent", await supabase.rpc("support_set_agent", { tenant, person: personId, role }));
+    },
+    signedInId: () => me(),
+    onSignedInChange(listener) {
+      const { data } = supabase.auth.onAuthStateChange((event) => {
+        if (event === "SIGNED_IN" || event === "SIGNED_OUT") listener();
+      });
+      return () => data.subscription.unsubscribe();
     },
 
     async agentTickets({ tenantId = null, view = "all", before = null, limit = 50 } = {}) {
@@ -1003,6 +1040,9 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
       must("closeHelpQuestion", await supabase.rpc("support_close_question", { question: questionId, outcome, ticket: ticketId }));
     },
 
+    async linkRequester(reportId, personId) {
+      must("linkRequester", await supabase.rpc("support_link_requester", { report: reportId, person: personId }));
+    },
     async verify(reportId, fixed, note) {
       must("verify", await supabase.rpc("support_verify_report", { report: reportId, fixed, note: note ?? null }));
     },
@@ -1021,8 +1061,8 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
       return (rows ?? []).map((r) => ({
         id: String(r["user_id"]),
         name: (r["full_name"] as string | null) ?? null,
-        ...(r["role"] === "agent" || r["role"] === "admin" ? { role: r["role"] as TicketAgentRole } : {}),
-        ...(typeof r["removable"] === "boolean" ? { removable: r["removable"] as boolean } : {}),
+        ...agentRoleOf(r["role"]),
+        ...removableOf(r["removable"]),
       }));
     },
     async canManageAgents({ tenantId = null } = {}) {

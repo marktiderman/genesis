@@ -7,7 +7,7 @@ import {
   type UseQueryResult,
   type UseMutationResult,
 } from "@tanstack/react-query";
-import { useDataProvider } from "../provider/context";
+import { requireDataProvider, useOptionalDataProvider } from "../provider/context";
 import type {
   BaseRecord,
   Identifier,
@@ -201,7 +201,10 @@ export function useResource<T extends BaseRecord = BaseRecord>(
     onUndoable,
   } = options;
 
-  const provider = useDataProvider();
+  // Needed only to read or write: a disabled hook (ResourcePage over rows it was given) has none.
+  const provider = useOptionalDataProvider();
+  // A hook that reads still fails loudly without one, as it renders.
+  if (enabled) requireDataProvider(provider);
   const queryClient = useQueryClient();
 
   // -------------------------------------------------------------------------
@@ -289,7 +292,7 @@ export function useResource<T extends BaseRecord = BaseRecord>(
 
   const list = useQuery<ListResult<T>>({
     queryKey: listQueryKey,
-    queryFn: () => provider.getList<T>(resource, params),
+    queryFn: () => requireDataProvider(provider).getList<T>(resource, params),
     enabled,
     placeholderData: keepPreviousData ? keepPreviousPlaceholder : undefined,
   });
@@ -306,7 +309,7 @@ export function useResource<T extends BaseRecord = BaseRecord>(
     (event: WriteEvent) => {
       // Pending optimistic/undoable patches are re-applied to the refetch.
       void invalidateResource(queryClient, resource);
-      for (const queryKey of relatedKeys(provider, event, invalidates)) {
+      for (const queryKey of relatedKeys(requireDataProvider(provider), event, invalidates)) {
         void queryClient.invalidateQueries({ queryKey: [...queryKey] });
       }
     },
@@ -323,24 +326,25 @@ export function useResource<T extends BaseRecord = BaseRecord>(
   );
   const reportError = onError ?? defaultOnError;
 
-  const modeArgs = {
+  const modeArgs = () => ({
     queryClient,
-    provider,
+    provider: requireDataProvider(provider),
     resource,
     mode: mutationMode,
     undoDelayMs,
     onUndoable,
     failedLater: reportError,
-  };
+  });
 
   const createMutation = useMutation<T, Error, Partial<T>>({
     mutationFn: async (data) => {
+      const writeArgs = modeArgs();
       const outcome = await executeWrite<T>({
-        ...modeArgs,
+        ...writeArgs,
         kind: "create",
         data: data as Record<string, unknown>,
         send: async ({ keepalive }) => {
-          const result = await provider.create<T>(resource, { data, ...(keepalive ? { keepalive } : {}) });
+          const result = await writeArgs.provider.create<T>(resource, { data, ...(keepalive ? { keepalive } : {}) });
           return { record: result.data, audit: result.audit };
         },
         committed: (record) => {
@@ -360,14 +364,15 @@ export function useResource<T extends BaseRecord = BaseRecord>(
   >({
     mutationFn: async ({ id, data, options }) => {
       const before = cachedRecord(queryClient, resource, id);
+      const writeArgs = modeArgs();
       const outcome = await executeWrite<T>({
-        ...modeArgs,
+        ...writeArgs,
         kind: "update",
         id,
         data: data as Record<string, unknown>,
         ...(options?.expectedVersion !== undefined ? { expectedVersion: options.expectedVersion } : {}),
         send: async (ctx) => {
-          const result = await provider.update<T>(resource, {
+          const result = await writeArgs.provider.update<T>(resource, {
             id,
             data: (ctx.data ?? data) as Partial<T>,
             ...(ctx.keepalive ? { keepalive: true } : {}),
@@ -394,12 +399,13 @@ export function useResource<T extends BaseRecord = BaseRecord>(
 
   const deleteMutation = useMutation<void, Error, Identifier>({
     mutationFn: async (id) => {
+      const writeArgs = modeArgs();
       await executeWrite<void>({
-        ...modeArgs,
+        ...writeArgs,
         kind: "delete",
         id,
         send: async ({ keepalive, expectedVersion }) => {
-          const result = await provider.deleteOne(resource, {
+          const result = await writeArgs.provider.deleteOne(resource, {
             id,
             ...(keepalive ? { keepalive } : {}),
             ...(expectedVersion !== undefined ? { expectedVersion } : {}),

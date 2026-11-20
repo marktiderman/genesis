@@ -12,12 +12,13 @@
  * @stability Beta
  */
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, MessageCircle } from "lucide-react";
+import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query";
+import { BookOpen, ChevronLeft, House, MessageCircle } from "lucide-react";
 import {
   Button,
   EmptyState,
   InboxPage,
+  InlineAlert,
   Input,
   Label,
   Sheet,
@@ -28,17 +29,19 @@ import {
   Textarea,
   ThreadPage,
   cn,
+  toast,
   type InboxItem,
   type ThreadMessage,
 } from "@marktiderman/genesis-ui";
+import { TabBar } from "@marktiderman/genesis-ui/layout";
 import { useOptionalChatDock, type ResolveUser } from "@marktiderman/genesis-chat/web";
-import { reportHeading, SupportError, type HelpArticleSummary, type HelpSearchHit, type SupportClient, type Ticket } from "../client";
+import { awaitsVerification, reportHeading, SupportError, type HelpArticleSummary, type HelpSearchHit, type SupportClient, type Ticket } from "../client";
 import { fill, resolveSupportCopy, type SupportCopy, type SupportCopyOverrides } from "../copy";
 import { useHelpAsk, type HelpAnswerResponse, type UseHelpAsk } from "../help-ask";
 import type { OfficeHours } from "../office-hours";
 import { awaitingReplyLine, composeExpectationLine, useReplyExpectation, type ReplyExpectation } from "../reply-expectation";
 import type { FeedbackContext } from "../record";
-import { scopeOf, useResolvedTenant } from "./tenant";
+import { scopeOf, useLoginScope, useResolvedTenant } from "./tenant";
 import { SupportContact } from "./contact";
 import { supportContact, supportSettingValues, type SupportContactInfo, type SupportSettingsInput } from "../settings";
 import { threadAttachments } from "./thread-files";
@@ -55,6 +58,7 @@ export const supportMessengerKeys = {
   article: (scope: string, slug: string) => ["genesis-support", "messenger", "article", scope, slug] as const,
   search: (scope: string, query: string) => ["genesis-support", "messenger", "search", scope, query] as const,
   ai: (scope: string) => ["genesis-support", "messenger", "ai", scope] as const,
+  desks: (loginScope: string) => ["genesis-support", "messenger", "desks", loginScope] as const,
 };
 
 export interface SupportMessengerProps {
@@ -136,17 +140,22 @@ interface Shared {
   here: Screen;
   report: (error: unknown) => void;
   expectation: ReplyExpectation;
+  /** A ticket's desk name, when Messages lists every desk's. */
+  deskOf: (t: Ticket) => string | null;
 }
 
-function ticketItems(tickets: readonly Ticket[], copy: SupportCopy, open: (id: string) => void): InboxItem[] {
-  return tickets.map((t) => ({
-    id: t.id,
-    title: reportHeading(t),
-    timestamp: t.lastStaffReplyAt ?? t.createdAt,
-    unread: t.unread,
-    meta: copy.status[t.status],
-    onPress: () => open(t.id),
-  }));
+function ticketItems(tickets: readonly Ticket[], copy: SupportCopy, open: (id: string) => void, deskOf: (t: Ticket) => string | null = () => null): InboxItem[] {
+  return tickets.map((t) => {
+    const desk = deskOf(t);
+    return {
+      id: t.id,
+      title: reportHeading(t),
+      timestamp: t.lastStaffReplyAt ?? t.createdAt,
+      unread: t.unread,
+      meta: desk ? fill(copy.messenger.rowAtDesk, { status: copy.status[t.status], desk }) : copy.status[t.status],
+      onPress: () => open(t.id),
+    };
+  });
 }
 
 function articleItems(articles: readonly (HelpArticleSummary | HelpSearchHit)[], open: (slug: string) => void): InboxItem[] {
@@ -176,7 +185,7 @@ function SearchForm({ copy, initial, onSearch }: { copy: SupportCopy; initial: s
   );
 }
 
-function Home({ client, tenantId, scope, tickets: ticketsQuery, copy, go, here, report, greeting, onSearch, help }: Shared & { greeting: string | undefined; onSearch: ((query: string) => void) | null; help: boolean }) {
+function Home({ client, tenantId, scope, tickets: ticketsQuery, copy, go, here, report, deskOf, greeting, onSearch, help }: Shared & { greeting: string | undefined; onSearch: ((query: string) => void) | null; help: boolean }) {
   const tickets = useQuery(ticketsQuery);
   // support.helpCenter off: no articles on Home either.
   const articles = useQuery({ queryKey: supportMessengerKeys.articles(scope, null), queryFn: () => required(client.helpArticles)({ tenantId }), enabled: help });
@@ -198,7 +207,7 @@ function Home({ client, tenantId, scope, tickets: ticketsQuery, copy, go, here, 
           sectionTitleLevel={3}
           label={copy.messenger.recent}
           hasMore={false}
-          items={ticketItems([latest], copy, (id) => go({ name: "ticket", id, from: here }))}
+          items={ticketItems([latest], copy, (id) => go({ name: "ticket", id, from: here }), deskOf)}
         />
       ) : null}
       {help && articles.data?.length ? (
@@ -216,10 +225,10 @@ function Home({ client, tenantId, scope, tickets: ticketsQuery, copy, go, here, 
   );
 }
 
-function Messages({ tickets: ticketsQuery, copy, go, here, report }: Shared) {
+function Messages({ tickets: ticketsQuery, copy, go, here, report, deskOf }: Shared) {
   const tickets = useQuery(ticketsQuery);
   useReported(tickets.error, report);
-  const items = useMemo(() => ticketItems(tickets.data ?? [], copy, (id) => go({ name: "ticket", id, from: here })), [tickets.data, copy, go, here]);
+  const items = useMemo(() => ticketItems(tickets.data ?? [], copy, (id) => go({ name: "ticket", id, from: here }), deskOf), [tickets.data, copy, go, here, deskOf]);
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <InboxPage
@@ -323,11 +332,7 @@ function AnswerCard({ ask, query, titles, onConsent, copy, go, here, report }: {
           </Button>
         </div>
       )}
-      {failed ? (
-        <p role="alert" className="text-sm text-destructive">
-          {copy.messenger.aiFailed}
-        </p>
-      ) : null}
+      {failed ? <InlineAlert variant="destructive" description={copy.messenger.aiFailed} testID="genesis-support-messenger-ai-failed" /> : null}
     </section>
   );
 }
@@ -526,11 +531,7 @@ function Compose({ client, tenantId, scope, tickets, copy, go, report, expectati
         <Label htmlFor={id}>{copy.messenger.composeLabel}</Label>
         <Textarea id={id} value={message} onChange={(e) => setMessage(e.target.value)} placeholder={copy.messenger.composePlaceholder} rows={6} maxLength={10000} data-testid="genesis-support-messenger-compose-input" />
       </div>
-      {failed ? (
-        <p role="alert" className="text-sm text-destructive">
-          {copy.messenger.composeFailed}
-        </p>
-      ) : null}
+      {failed ? <InlineAlert variant="destructive" description={copy.messenger.composeFailed} testID="genesis-support-messenger-compose-failed" /> : null}
       <Button type="submit" disabled={sending || !message.trim()} data-testid="genesis-support-messenger-compose-send">
         {sending ? copy.feedback.sending : copy.feedback.send}
       </Button>
@@ -541,6 +542,7 @@ function Compose({ client, tenantId, scope, tickets, copy, go, report, expectati
 /** A person's conversation. Keyed by ticket, so a draft never follows them to another one. */
 function Conversation({ client, tenantId, scope, contact, tickets, copy, report, expectation, id, resolveUser, active }: Shared & { id: string; resolveUser: ResolveUser | undefined; active: boolean }) {
   const queryClient = useQueryClient();
+  const frame = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -623,7 +625,7 @@ function Conversation({ client, tenantId, scope, contact, tickets, copy, report,
       })
       .finally(() => setSending(false));
   };
-  return (
+  const thread = (
     <ThreadPage
         conversationId={id}
         testID="genesis-support-messenger-thread"
@@ -652,11 +654,7 @@ function Conversation({ client, tenantId, scope, contact, tickets, copy, report,
                 maxLength: 10000,
                 ...(failed
                   ? {
-                      above: (
-                        <p role="alert" className="px-3 pt-2 text-sm text-destructive">
-                          {copy.messenger.composeFailed}
-                        </p>
-                      ),
+                      above: <InlineAlert variant="destructive" className="mx-3 mt-2" description={copy.messenger.composeFailed} testID="genesis-support-messenger-reply-failed" />,
                     }
                   : awaiting
                     ? {
@@ -670,6 +668,108 @@ function Conversation({ client, tenantId, scope, contact, tickets, copy, report,
               }
         }
       />
+  );
+  // Marked fixed: the person answers "Is it fixed?" here (the `support.verify` notification lands on this thread).
+  const verify = client.verify?.bind(client);
+  return (
+    <div ref={frame} tabIndex={-1} className="flex min-h-0 flex-1 flex-col focus-visible:outline-none" data-testid="genesis-support-messenger-conversation">
+      {verify && awaitsVerification(t) ? (
+        <VerifyCard
+          verify={verify}
+          ticketId={id}
+          copy={copy}
+          report={report}
+          onDone={() => {
+            refresh();
+            // The card goes once it's answered: focus stays in the conversation.
+            frame.current?.focus();
+          }}
+        />
+      ) : null}
+      {thread}
+    </div>
+  );
+}
+
+/** "Is it fixed?": confirm the fix, or reopen it with what's still wrong (`client.verify`). */
+function VerifyCard({
+  verify,
+  ticketId,
+  copy,
+  report,
+  onDone,
+}: {
+  verify: NonNullable<SupportClient["verify"]>;
+  ticketId: string;
+  copy: SupportCopy;
+  report: (error: unknown) => void;
+  onDone: () => void;
+}) {
+  const noteId = useId();
+  const noteRef = useRef<HTMLTextAreaElement>(null);
+  const reopenRef = useRef<HTMLButtonElement>(null);
+  const [reopening, setReopening] = useState(false);
+  // Reopen moves to the note; Cancel back to Reopen.
+  const opened = useRef(false);
+  useEffect(() => {
+    if (reopening) noteRef.current?.focus();
+    else if (opened.current) reopenRef.current?.focus();
+    opened.current = reopening;
+  }, [reopening]);
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const answer = (fixed: boolean) => {
+    setBusy(true);
+    setFailed(false);
+    verify(ticketId, fixed, fixed ? undefined : note.trim() || undefined)
+      .then(() => {
+        toast.success(fixed ? copy.messenger.verifyThanks : copy.messenger.verifyReopened);
+        onDone();
+      })
+      .catch((error: unknown) => {
+        setFailed(true);
+        report(error);
+      })
+      .finally(() => setBusy(false));
+  };
+  return (
+    <div className="flex flex-col gap-2 p-3">
+      <InlineAlert
+        title={copy.messenger.verifyTitle}
+        description={copy.messenger.verifyBody}
+        testID="genesis-support-messenger-verify"
+        actions={
+          reopening ? (
+            <>
+              <Button size="sm" disabled={busy} onClick={() => answer(false)} data-testid="genesis-support-messenger-verify-reopen-send">
+                {copy.messenger.verifySend}
+              </Button>
+              <Button size="sm" variant="outline" disabled={busy} onClick={() => setReopening(false)} data-testid="genesis-support-messenger-verify-cancel">
+                {copy.messenger.verifyCancel}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button size="sm" disabled={busy} onClick={() => answer(true)} data-testid="genesis-support-messenger-verify-fixed">
+                {copy.messenger.verifyFixed}
+              </Button>
+              <Button ref={reopenRef} size="sm" variant="outline" disabled={busy} onClick={() => setReopening(true)} data-testid="genesis-support-messenger-verify-reopen">
+                {copy.messenger.verifyReopen}
+              </Button>
+            </>
+          )
+        }
+      >
+        {reopening ? (
+          <div className="flex flex-col gap-1">
+            <Label htmlFor={noteId}>{copy.messenger.verifyNoteLabel}</Label>
+            <Textarea ref={noteRef} id={noteId} value={note} rows={3} maxLength={10000} onChange={(e) => setNote(e.target.value)} data-testid="genesis-support-messenger-verify-note" />
+          </div>
+        ) : null}
+      </InlineAlert>
+      {failed ? <InlineAlert variant="destructive" description={copy.messenger.verifyFailed} testID="genesis-support-messenger-verify-failed" /> : null}
+    </div>
   );
 }
 
@@ -708,6 +808,8 @@ function ticketsQueryOf(client: SupportClient, tenantId: string | null, allTenan
     : { queryKey: supportMessengerKeys.tickets(scope), queryFn: () => required(client.ticketsInTenant)({ tenantId }) };
 }
 
+const SPACE_ICONS: Record<MessengerSpace, ReactNode> = { home: <House />, messages: <MessageCircle />, help: <BookOpen /> };
+
 function Messenger({ client, tenantId: tenantProp, allTenants = false, settings, spaces: spacesProp = SPACES, greeting, askAi, onAiConsent, active = true, resolveUser, context = defaultContext, replyExpectation, officeHours, copy: copyOverrides, onError, className }: SupportMessengerProps) {
   const copy = useMemo(() => resolveSupportCopy(copyOverrides), [copyOverrides]);
   const tenantId = tenantProp ?? null;
@@ -732,7 +834,15 @@ function Messenger({ client, tenantId: tenantProp, allTenants = false, settings,
   const aiOn = Boolean(askAi && ai.data);
   const expectation = useReplyExpectation(replyExpectation, officeHours);
   const tickets = useMemo(() => ticketsQueryOf(client, tenantId, allTenants), [client, tenantId, allTenants]);
-  const shared: Shared = { client, tenantId, scope, contact, tickets, copy, go: setScreen, here: screen, report, expectation };
+  // With every desk's conversations, each row names its desk (`myTicketDesks`); the app's own has no name to show.
+  const { scope: loginScope } = useLoginScope(client, null);
+  const readDesks = client.myTicketDesks?.bind(client);
+  const desks = useQuery({ queryKey: supportMessengerKeys.desks(loginScope ?? ""), queryFn: allTenants && readDesks && loginScope ? () => readDesks() : skipToken, staleTime: 60_000 });
+  useReported(desks.error, report);
+  const deskNames = useMemo(() => new Map((desks.data ?? []).map((d) => [d.ticketId, d.label?.trim() || null])), [desks.data]);
+  const deskOf = useCallback((t: Ticket) => deskNames.get(t.id) ?? null, [deskNames]);
+  const shared: Shared = { client, tenantId, scope, contact, tickets, copy, go: setScreen, here: screen, report, expectation, deskOf };
+  const unread = useQuery({ ...tickets, enabled: spaces.includes("messages") }).data?.filter((t) => t.unread).length ?? 0;
 
   const search = (next: string) => {
     setQuery(next);
@@ -779,23 +889,17 @@ function Messenger({ client, tenantId: tenantProp, allTenants = false, settings,
       ) : null}
       <div className="flex min-h-0 flex-1 flex-col">{body}</div>
       {screen.name === "space" && spaces.length > 1 ? (
-        <nav aria-label={copy.messenger.spacesLabel} className="flex shrink-0 border-t">
-          {spaces.map((s) => (
-            <button
-              key={s}
-              type="button"
-              aria-current={screen.space === s ? "page" : undefined}
-              onClick={() => setScreen({ name: "space", space: s })}
-              data-testid={`genesis-support-messenger-space-${s}`}
-              className={cn(
-                "min-h-11 flex-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
-                screen.space === s ? "font-semibold text-foreground" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {copy.messenger.spaces[s]}
-            </button>
-          ))}
-        </nav>
+        <TabBar
+          className="shrink-0"
+          label={copy.messenger.spacesLabel}
+          items={spaces.map((s) => ({ key: s, label: copy.messenger.spaces[s], icon: SPACE_ICONS[s], ...(s === "messages" && unread ? { badge: unread } : {}) }))}
+          value={screen.space}
+          onChange={(key) => {
+            const space = spaces.find((s) => s === key);
+            if (space) setScreen({ name: "space", space });
+          }}
+          testID="genesis-support-messenger-space"
+        />
       ) : null}
     </div>
   );
