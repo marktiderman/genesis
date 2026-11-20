@@ -173,9 +173,10 @@ export function nativeSections(options: NativeSectionsOptions = {}): DiagnosticS
         // no Intl here
       }
       let network: { type: string | null; connected: boolean | null; reachable: boolean | null } | null = null;
-      if (options.netInfo) {
+      const netInfo = options.netInfo;
+      if (netInfo) {
         try {
-          const state = await timed(() => options.netInfo!.fetch(), options.permissionTimeoutMs ?? 1000);
+          const state = await timed(() => netInfo.fetch(), options.permissionTimeoutMs ?? 1000);
           network = state === "timeout" ? { type: "timeout", connected: null, reachable: null } : { type: state.type ?? null, connected: state.isConnected ?? null, reachable: state.isInternetReachable ?? null };
         } catch {
           network = { type: "error", connected: null, reachable: null };

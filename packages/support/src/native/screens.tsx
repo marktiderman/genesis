@@ -210,9 +210,9 @@ export function useSupportThread(reportId: string, options: { pollMs?: number } 
       body: r.message,
       mine: true,
       timestamp: r.createdAt,
-      attachments: (attachments.data ?? [])
-        .filter((a) => a.url)
-        .map((a) => ({ id: a.id, uri: a.url!, width: a.width ?? undefined, height: a.height ?? undefined, accessibilityLabel: copy.thread.screenshot })),
+      attachments: (attachments.data ?? []).flatMap((a) =>
+        a.url ? [{ id: a.id, uri: a.url, width: a.width ?? undefined, height: a.height ?? undefined, accessibilityLabel: copy.thread.screenshot }] : [],
+      ),
     };
     // The person never receives internal notes; a staff member using this screen doesn't see them either.
     const rest: ThreadMessage[] = (replies.data ?? [])
@@ -223,9 +223,11 @@ export function useSupportThread(reportId: string, options: { pollMs?: number } 
         mine: reply.mine,
         authorName: reply.fromStaff ? copy.thread.support : undefined,
         timestamp: reply.createdAt,
-        attachments: (reply.attachments ?? [])
-          .filter((a) => a.kind === "image" && a.stored && a.url)
-          .map((a) => ({ id: a.id, uri: a.url!, width: a.width ?? undefined, height: a.height ?? undefined, accessibilityLabel: copy.thread.screenshot })),
+        attachments: (reply.attachments ?? []).flatMap((a) =>
+          a.kind === "image" && a.stored && a.url
+            ? [{ id: a.id, uri: a.url, width: a.width ?? undefined, height: a.height ?? undefined, accessibilityLabel: copy.thread.screenshot }]
+            : [],
+        ),
       }));
     const pending: ThreadMessage[] = send.isPending && send.variables ? [{ id: "sending", body: send.variables, mine: true, timestamp: new Date().toISOString(), status: "sending" }] : [];
     const failedMessages: ThreadMessage[] = failed.map((f) => ({

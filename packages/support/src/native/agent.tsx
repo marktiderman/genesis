@@ -15,7 +15,7 @@
  */
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Linking } from "react-native";
-import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
+import { skipToken, useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Box,
   Inline,
@@ -83,9 +83,8 @@ export function useSignedInId(given: string | null | undefined): string | null |
   const queryClient = useQueryClient();
   // A sign-in or sign-out reads the id again at once, so the keys move to the new login.
   useEffect(() => {
-    const auth = options.supabase.auth as { onAuthStateChange?: (cb: () => void) => { data?: { subscription?: { unsubscribe(): void } } } };
-    const sub = auth.onAuthStateChange?.(() => void queryClient.invalidateQueries({ queryKey: [SUPPORT_QUERY_ROOT, "agent", "me"] }));
-    return () => sub?.data?.subscription?.unsubscribe();
+    const { data } = options.supabase.auth.onAuthStateChange(() => void queryClient.invalidateQueries({ queryKey: [SUPPORT_QUERY_ROOT, "agent", "me"] }));
+    return () => data.subscription.unsubscribe();
   }, [options.supabase, queryClient]);
   const session = useQuery({
     queryKey: [SUPPORT_QUERY_ROOT, "agent", "me"],
@@ -447,13 +446,16 @@ function toMessage(r: SupportReply, requester: string, requesterId: string | nul
       : r.fromStaff
         ? copy.thread.support
         : requester;
-  const attachments: ThreadAttachment[] = (r.attachments ?? [])
-    .filter((a) => a.url)
-    .map((a) =>
+  // A file with no address to open is left out.
+  const attachments: ThreadAttachment[] = (r.attachments ?? []).flatMap((a): ThreadAttachment[] => {
+    const uri = a.url;
+    if (!uri) return [];
+    return [
       a.kind === "image" && a.stored
-        ? { id: a.id, kind: "image" as const, uri: a.url!, ...(a.width ? { width: a.width } : {}), ...(a.height ? { height: a.height } : {}), accessibilityLabel: copy.thread.screenshot }
-        : { id: a.id, kind: "file" as const, uri: a.url!, name: a.name || (a.kind === "voice" ? copy.thread.voiceNote : a.kind === "video" ? copy.thread.video : copy.thread.file) },
-    );
+        ? { id: a.id, kind: "image" as const, uri, ...(a.width ? { width: a.width } : {}), ...(a.height ? { height: a.height } : {}), accessibilityLabel: copy.thread.screenshot }
+        : { id: a.id, kind: "file" as const, uri, name: a.name || (a.kind === "voice" ? copy.thread.voiceNote : a.kind === "video" ? copy.thread.video : copy.thread.file) },
+    ];
+  });
   return {
     id: r.id,
     body: showMentions(r.body),
@@ -499,10 +501,12 @@ export function useAgentThread(ticketId: string, options: AgentThreadOptions = {
   const notAllowed = isRefused(ticket.error);
   const staff = useStaff(tenant, !notAllowed);
   const reporters = useReporters(useMemo(() => (t?.userId ? [t.userId] : []), [t?.userId]));
+  const requesterId = t?.userId ?? null;
   const tenants = useQuery({
-    queryKey: supportAgentKeys.requesterTenants(me ?? null, t?.userId ?? ""),
-    queryFn: () => required(client.requesterTenants, "requesterTenants")(t!.userId!),
-    enabled: Boolean(client.requesterTenants && t?.userId),
+    queryKey: supportAgentKeys.requesterTenants(me ?? null, requesterId ?? ""),
+    // Nothing to ask without a requester (an email ticket).
+    queryFn: requesterId ? () => required(client.requesterTenants, "requesterTenants")(requesterId) : skipToken,
+    enabled: Boolean(client.requesterTenants),
     staleTime: 5 * 60_000,
     retry: retryUnlessRefused,
   });

@@ -513,8 +513,10 @@ at most, and 1 MB of storage in all); `send` answers `{ queued: true }` with the
 The queue is tried when `createDiagnostics` runs, and on reconnect and coming to the front:
 `createSupport({ appState: AppState, netInfo: NetInfo })` on the phone, `flushDiagnosticsOnReconnect(diagnostics)`
 on the web. A refusal (403, a bad dump) isn't kept. Each queued dump remembers who was signed in,
-and is dropped rather than sent under someone else (a shared device); call `diagnostics.clearQueue()`
-on sign-out.
+and is dropped rather than sent under someone else (a shared device). On sign-out the queue is
+cleared: on the phone `createSupport` does it itself (the Supabase client's `SIGNED_OUT`, which also
+drops a shake's dump and a report waiting for the form); on the web (`FeedbackPanel`,
+`flushDiagnosticsOnReconnect`) call `diagnostics.clearQueue()` when the person signs out.
 
 Feedback goes in the same queue: `diagnostics.submitFeedback` (what `FeedbackForm` and
 `FeedbackPanel` call when a dump goes with feedback) keeps a report written offline, with its dump,
@@ -526,8 +528,8 @@ directly and nothing is queued. Feedback is queued only when:
 
 - its author is known (`user`, or the Supabase transport's session), so a flush never files it as
   whoever signs in next (someone else signed in: it is dropped). Without one, the send fails as it
-  always did. Still call `diagnostics.clearQueue()` on sign-out: a person's reports shouldn't wait
-  on a shared device;
+  always did. The queue is still cleared on sign-out (by `createSupport` on the phone, by your
+  `diagnostics.clearQueue()` on the web): a person's reports shouldn't wait on a shared device;
 - it lands in the same help desk: the form's sink is the transport's own, or it names its tenant
   (a support client's `currentTenant`, which the queued record then carries), or the record names
   one. The severity column (`severityColumn`) follows the transport's options; severity is always

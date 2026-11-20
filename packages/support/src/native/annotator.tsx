@@ -25,14 +25,14 @@ const MAX_DOTS = 3000;
 /** The dots along a stroke, close enough to read as a line. */
 export function strokeDots(points: readonly Point[], spacing = DOT / 2): Point[] {
   const dots: Point[] = [];
-  for (let i = 0; i < points.length; i++) {
-    const p = points[i]!;
-    const prev = points[i - 1];
+  let prev: Point | undefined;
+  for (const p of points) {
     if (prev) {
       const dist = Math.hypot(p.x - prev.x, p.y - prev.y);
       for (let d = spacing; d < dist; d += spacing) dots.push({ x: prev.x + ((p.x - prev.x) * d) / dist, y: prev.y + ((p.y - prev.y) * d) / dist });
     }
     dots.push(p);
+    prev = p;
   }
   return dots;
 }

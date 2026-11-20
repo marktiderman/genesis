@@ -386,14 +386,13 @@ export function createSupport(given: SupportOptions): SupportBlock {
   };
 
   // Sign-out forgets what this device held for the person: the dumps and feedback queued offline,
-  // and a report waiting for the feedback screen. Apps needn't remember to.
-  const auth = options.supabase.auth as { onAuthStateChange?: (cb: (event: string) => void) => unknown };
-  auth.onAuthStateChange?.((event) => {
+  // and a report (and a shake's dump) waiting for the feedback screen. The root listens; apps needn't.
+  const forgetOnSignOut = (event: string) => {
     if (event !== "SIGNED_OUT") return;
     pending?.shakeDump?.discard();
     setPending(null);
     void given.diagnostics?.clearQueue().catch((error: unknown) => report(error, "diagnostics"));
-  });
+  };
 
   // Where to go once the app's screens are back (the fatal screen's "Report this"): taken by the
   // support root's very next commit, and only within REPORT_WINDOW_MS of the press, so an app that
@@ -617,6 +616,10 @@ export function createSupport(given: SupportOptions): SupportBlock {
         // Diagnostics off: the screens visited aren't kept either.
         if (current) liveDiagnostics()?.recordRoute(current);
       }, [current]);
+      useEffect(() => {
+        const { data } = options.supabase.auth.onAuthStateChange((event) => forgetOnSignOut(event));
+        return () => data.subscription.unsubscribe();
+      }, []);
       useEffect(() => {
         const diagnostics = given.diagnostics;
         if (!diagnostics) return;

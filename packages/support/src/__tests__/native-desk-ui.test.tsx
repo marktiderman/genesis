@@ -412,19 +412,52 @@ describe("Report this, and About on the feedback form", () => {
 });
 
 describe("sign-out", () => {
-  it("forgets the queued dumps and feedback, and a report waiting for the form", async () => {
+  const transport = () => ({ name: "x", send: vi.fn(async () => ({ id: "1", shortId: "1" })) });
+
+  it("forgets the queued dumps and feedback, and a report waiting for the form, and stops listening when the root goes", async () => {
     const fake = fakeSupabase({ userId: ME });
-    let signal: (event: string) => void = () => {};
-    Object.assign(fake.client.auth, { onAuthStateChange: (cb: (event: string) => void) => ((signal = cb), { data: { subscription: { unsubscribe() {} } } }) });
-    const diagnostics = createDiagnostics({ app: { id: "acme" }, transport: { name: "x", send: async () => ({ id: "1", shortId: "1" }) } });
+    const diagnostics = createDiagnostics({ app: { id: "acme" }, transport: transport() });
     const clear = vi.spyOn(diagnostics, "clearQueue");
     const block = createSupport({ supabase: fake.client, navigate: vi.fn(), platform: "ios", diagnostics });
+    const Root = block.Root;
+    const view = render(<QueryClientProvider client={new QueryClient()}><Root>{null}</Root></QueryClientProvider>);
     await block.openFeedback({ screenshot: false });
-    signal("TOKEN_REFRESHED");
+    fake.emitAuth("TOKEN_REFRESHED");
     expect(clear).not.toHaveBeenCalled();
-    signal("SIGNED_OUT");
+    fake.emitAuth("SIGNED_OUT");
     expect(clear).toHaveBeenCalledTimes(1);
     expect(block.peekPending()).toBeNull();
+    view.unmount();
+    expect(fake.authListeners.size).toBe(0);
+  });
+
+  it("never sends a shake's dump once the person signs out", async () => {
+    vi.useFakeTimers();
+    try {
+      let listener: ((m: { x: number; y: number; z: number }) => void) | null = null;
+      const accelerometer = { addListener: (l: typeof listener) => ((listener = l), { remove() {} }), setUpdateInterval: vi.fn() };
+      const send = transport();
+      const fake = fakeSupabase({ userId: ME });
+      const diagnostics = createDiagnostics({ app: { id: "acme" }, transport: send });
+      const block = createSupport({ supabase: fake.client, navigate: vi.fn(), platform: "ios", diagnostics, accelerometer: accelerometer as never });
+      const Root = block.Root;
+      render(<QueryClientProvider client={new QueryClient()}><Root>{null}</Root></QueryClientProvider>);
+      listener!({ x: 3, y: 0, z: 0 });
+      vi.advanceTimersByTime(100);
+      listener!({ x: 3, y: 0, z: 0 });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(10);
+      });
+      expect(block.peekPending()?.shakeDump).toBeTruthy();
+      fake.emitAuth("SIGNED_OUT");
+      // Past the wait for the feedback screen to claim it, when an unclaimed dump would go alone.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(20_000);
+      });
+      expect(send.send).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
