@@ -128,7 +128,8 @@ describe("feedback in the offline queue", () => {
     await expect(d.submitFeedback(record, { sink: offlineSink })).rejects.toBeInstanceOf(SupportError);
     expect(await d.pending()).toBe(0);
     // A support client names it: the queued record carries it.
-    expect((await d.submitFeedback(record, { sink: { ...offlineSink, currentTenant: async () => "acme-desk" } })).queued).toBe(true);
+    const named = { ...offlineSink, currentTenant: async () => "acme-desk" };
+    expect((await d.submitFeedback(record, { sink: named })).queued).toBe(true);
     expect(JSON.parse(storage.data.get(KEY)!)[0].item.record.tenantId).toBe("acme-desk");
   });
 
