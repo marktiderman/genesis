@@ -30,7 +30,7 @@ export const nativeColors = {
           "dark": "#92400E"
       },
       "error": {
-          "DEFAULT": "#EF4444",
+          "DEFAULT": "#CA2121",
           "light": "#FEE2E2",
           "dark": "#991B1B"
       },
@@ -44,12 +44,12 @@ export const nativeColors = {
       "active": "#10B981",
       "inactive": "#A1A1AA",
       "pending": "#F59E0B",
-      "blocked": "#EF4444",
+      "blocked": "#CA2121",
       "draft": "#71717A",
       "archived": "#D4D8DD",
       "onTrack": "#10B981",
       "atRisk": "#F59E0B",
-      "offTrack": "#EF4444",
+      "offTrack": "#CA2121",
       "done": "#10B981",
       "inProgress": "#3B82F6"
   },

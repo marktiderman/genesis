@@ -64,7 +64,15 @@ export const pretty = (value: unknown, options: PrettyOptions = {}): string => {
 };
 
 export function JsonView({ value, className }: { value: unknown; className?: string | undefined }) {
-  return <pre className={cn("max-h-96 overflow-auto rounded-md bg-muted p-3 text-xs", className)}>{pretty(value)}</pre>;
+  // It scrolls, so the keyboard can reach it (WCAG 2.1.1; axe scrollable-region-focusable).
+  return (
+    <pre
+      tabIndex={0}
+      className={cn("max-h-96 overflow-auto rounded-md bg-muted p-3 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", className)}
+    >
+      {pretty(value)}
+    </pre>
+  );
 }
 
 function Row({ label, children }: { label: string; children: ReactNode }) {

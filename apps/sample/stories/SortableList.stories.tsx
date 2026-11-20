@@ -37,7 +37,7 @@ function CourseSteps({ moveMenu = true }: { moveMenu?: boolean }) {
               <div className="text-xs text-muted-foreground">{s.detail}</div>
             </div>
             {!moveMenu && (
-              <button type="button" className="text-xs underline" onClick={moveDown}>
+              <button type="button" className="text-xs underline pointer-coarse:min-h-11" onClick={moveDown}>
                 Move {s.name} down
               </button>
             )}

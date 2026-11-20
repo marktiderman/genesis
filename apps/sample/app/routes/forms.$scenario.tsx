@@ -203,7 +203,7 @@ export default function FormsScenario() {
         </p>
       ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-[auto_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[auto_minmax(0,1fr)]">
         <div className="overflow-auto">
           <iframe
             key={frameSrc}

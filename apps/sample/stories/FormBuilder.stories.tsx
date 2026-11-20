@@ -61,7 +61,8 @@ export const HostedWithoutToolbar: Story = {
           </Button>
         </div>
         <Tabs defaultValue="questions" value={tab} onValueChange={(v) => setTab(v as BuilderTab)}>
-          <TabsList>
+          {/* Scrolls sideways on a phone rather than widen the page (rule 2), as GenesisSettings' does. */}
+          <TabsList className="max-w-full justify-start overflow-x-auto">
             <TabsTrigger value="questions">Questions</TabsTrigger>
             <TabsTrigger value="logic">Logic and endings</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>

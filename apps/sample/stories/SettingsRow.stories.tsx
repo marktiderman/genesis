@@ -15,7 +15,7 @@ type Story = StoryObj<typeof SettingsRow>;
  */
 export const WithSwitch: Story = {
   render: () => (
-    <div className="w-96">
+    <div className="w-full max-w-96">
       <SettingsRow
         label="Two-factor authentication"
         description="Require a verification code at sign-in."
@@ -34,7 +34,7 @@ export const WithSwitch: Story = {
 
 export const WithBadgeControl: Story = {
   render: () => (
-    <div className="w-96">
+    <div className="w-full max-w-96">
       <SettingsRow label="Plan" description="Your current billing plan.">
         <Badge variant="secondary">Pro</Badge>
       </SettingsRow>
@@ -44,7 +44,7 @@ export const WithBadgeControl: Story = {
 
 export const WithButtonControl: Story = {
   render: () => (
-    <div className="w-96">
+    <div className="w-full max-w-96">
       {/* A button names itself from its content, so no htmlFor — only the
           description needs wiring. */}
       <SettingsRow
@@ -67,7 +67,7 @@ export const WithButtonControl: Story = {
 
 export const Disabled: Story = {
   render: () => (
-    <div className="w-96">
+    <div className="w-full max-w-96">
       <SettingsRow
         label="Beta features"
         description="Not available on your current plan."
@@ -87,7 +87,7 @@ export const Disabled: Story = {
 
 export const List: Story = {
   render: () => (
-    <div className="w-96 divide-y divide-border rounded-lg border border-border px-4">
+    <div className="w-full max-w-96 divide-y divide-border rounded-lg border border-border px-4">
       <SettingsRow
         label="Email notifications"
         description="A daily summary every morning."

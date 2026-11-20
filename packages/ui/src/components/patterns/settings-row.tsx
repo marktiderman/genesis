@@ -25,7 +25,11 @@ export interface SettingsRowProps {
    * wires this automatically; pass it yourself when supplying your own control.
    */
   descriptionId?: string | undefined;
-  /** Dims the row to indicate the control it wraps is disabled. */
+  /**
+   * Marks the row disabled: the label steps down to the muted colour and the
+   * row carries `data-disabled`. The text keeps its contrast (it isn't faded
+   * with opacity); the control it wraps dims itself.
+   */
   disabled?: boolean | undefined;
   className?: string | undefined;
   /** Stable test/automation selector (emitted as `data-testid`). */
@@ -54,15 +58,20 @@ export function SettingsRow({
     <div
       data-slot="settings-row"
       data-testid={testID}
+      data-disabled={disabled || undefined}
       className={cn(
         "flex items-center justify-between gap-4 py-3",
-        disabled && "opacity-50",
         className,
       )}
     >
+      {/* Disabled, the label steps down to the muted colour rather than the
+          whole row fading: the description stays readable (WCAG 1.4.3 contrast),
+          and the control dims itself. */}
       <div className="min-w-0 space-y-0.5">
         {htmlFor ? (
-          <Label htmlFor={htmlFor}>{label}</Label>
+          <Label htmlFor={htmlFor} className={cn(disabled && "text-muted-foreground")}>
+            {label}
+          </Label>
         ) : (
           // A <label> with no `for` and no control nested inside it associates
           // with nothing — it renders identically and is an accessibility
@@ -70,7 +79,10 @@ export function SettingsRow({
           // at all (Badge, a version string) take this branch.
           <span
             data-slot="settings-row-label"
-            className="block text-sm font-medium leading-none"
+            className={cn(
+              "block text-sm font-medium leading-none",
+              disabled && "text-muted-foreground",
+            )}
           >
             {label}
           </span>

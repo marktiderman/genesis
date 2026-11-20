@@ -24,7 +24,7 @@
         "dark": { "$type": "color", "$value": "#92400E" }
       },
       "error": {
-        "DEFAULT": { "$type": "color", "$value": "#EF4444" },
+        "DEFAULT": { "$type": "color", "$value": "#CA2121" },
         "light": { "$type": "color", "$value": "#FEE2E2" },
         "dark": { "$type": "color", "$value": "#991B1B" }
       },

@@ -134,8 +134,8 @@ export const NarrowPanel: Story = {
     <WithTasks>
       <ResourceViewDefaultsProvider phoneMode="list">
         {/* A fixed 72rem stage, scrolling inside its frame on a smaller screen, so the wide
-            column stays over 40rem (a table). */}
-        <div className="overflow-x-auto">
+            column stays over 40rem (a table). The frame says so (data-scroll-frame, rule 2). */}
+        <div className="overflow-x-auto" data-scroll-frame>
         <div className="flex w-[72rem] gap-4 p-4">
           <section aria-label="Side panel" className="w-[360px] shrink-0 rounded-lg border p-3" data-testid="narrow-panel">
             <ResourceView

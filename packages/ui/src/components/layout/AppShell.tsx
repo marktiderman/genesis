@@ -139,7 +139,9 @@ export type AppShellDensity = DensityLevel;
 
 /** A sidebar row's padding for a density. */
 function rowPadding(density: AppShellDensity): string {
-  return density === "compact" ? "px-2.5 py-1.5" : density === "spacious" ? "px-3 py-2.5" : "px-3 py-2";
+  const pad = density === "compact" ? "px-2.5 py-1.5" : density === "spacious" ? "px-3 py-2.5" : "px-3 py-2";
+  // On touch, every sidebar row is at least 44px tall (docs/RESPONSIVE.md rule 3), whatever the density.
+  return `${pad} pointer-coarse:min-h-11`;
 }
 
 /**
@@ -954,7 +956,8 @@ function NavGroup({
           <button
             type="button"
             className={cn(
-              "shrink-0 rounded-lg p-1.5 text-sidebar-foreground transition-colors hover:bg-sidebar-accent",
+              // 44×44 on touch, like the row beside it (docs/RESPONSIVE.md rule 3).
+              "inline-flex shrink-0 items-center justify-center rounded-lg p-1.5 text-sidebar-foreground transition-colors hover:bg-sidebar-accent pointer-coarse:size-11",
               groupHighlight && "text-sidebar-primary",
               item.disabled && "pointer-events-none opacity-40",
             )}
@@ -2359,9 +2362,13 @@ export function AppShell({
 
         <main
           data-slot="shell-main"
+          // When the page scrolls inside <main> (not the window), the keyboard
+          // has to be able to reach the scroller even on a page with nothing
+          // focusable in it (WCAG 2.1.1; axe scrollable-region-focusable).
+          tabIndex={scrollWindow ? undefined : 0}
           className={cn(
             "flex-1",
-            !scrollWindow && "overflow-y-auto",
+            !scrollWindow && "overflow-y-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
             showMobileBottom
               ? cn(
                   "pb-[calc(4rem+env(safe-area-inset-bottom))]",
@@ -2588,11 +2595,9 @@ export function AppShell({
                   key={item.to + item.label}
                   href={item.to}
                   title={item.label}
-                  aria-label={
-                    subNavOn && item.badge != null
-                      ? `${item.label} (${item.badge})`
-                      : item.label
-                  }
+                  // Named by its content, not an aria-label: the visible label
+                  // is then always part of the name (WCAG 2.5.3), with the
+                  // count read after it.
                   aria-current={active && !bottomNotCurrent ? "page" : undefined}
                   className={cn(
                     "flex flex-1 flex-col items-center gap-1 py-2 text-xs font-medium transition-colors",
@@ -2616,6 +2621,9 @@ export function AppShell({
                   )}
                   <span className="max-w-full truncate px-0.5">
                     {item.label}
+                    {subNavOn && item.badge != null ? (
+                      <span className="sr-only"> ({item.badge})</span>
+                    ) : null}
                   </span>
                 </LinkComp>
               );

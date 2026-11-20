@@ -103,7 +103,9 @@ export const THEME_SECTIONS: readonly ThemeSection[] = [
       color("muted-foreground", "240 5.2% 33.9%", "240 5% 64.9%"),
       color("accent", "240 4.8% 95.9%", "240 3.7% 15.9%"),
       color("accent-foreground", "240 5.9% 10%", "0 0% 98%"),
-      color("destructive", "0 84.2% 60.2%", "0 62.8% 30.6%"),
+      // Light: a red that reads at 4.5:1 or more as text on the background, on muted and on its own
+      // 10% tint, and under its foreground as a fill (WCAG 1.4.3). shadcn's #ef4444 measured 3.6:1.
+      color("destructive", "0 72.2% 46%", "0 62.8% 30.6%"),
       color("destructive-foreground", "0 0% 98%"),
       color("border", "240 5.9% 90%", "240 3.7% 15.9%"),
       color("input", "240 5.9% 90%", "240 3.7% 15.9%"),

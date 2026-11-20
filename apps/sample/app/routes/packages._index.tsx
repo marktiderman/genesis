@@ -25,13 +25,14 @@ export default function Packages({ loaderData }: Route.ComponentProps) {
           its entry points and everything they export.
         </p>
       </header>
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {loaderData.map((p) => (
           <Link key={p.name} to={`/packages/${p.dir}`} className="block" data-testid={`package-${p.dir}`}>
             <Card className="h-full transition hover:border-primary/50">
               <CardHeader>
-                <div className="flex items-center justify-between gap-2">
-                  <CardTitle className="font-mono text-base">{p.name.replace("@marktiderman/", "")}</CardTitle>
+                {/* A long name (genesis-features-alias) breaks, and the version wraps under it on a phone. */}
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <CardTitle className="min-w-0 font-mono text-base [overflow-wrap:anywhere]">{p.name.replace("@marktiderman/", "")}</CardTitle>
                   <Badge variant="outline">{p.version}</Badge>
                 </div>
                 <CardDescription className="line-clamp-3">{p.description}</CardDescription>

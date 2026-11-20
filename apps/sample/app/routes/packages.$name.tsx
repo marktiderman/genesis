@@ -57,7 +57,8 @@ export default function PackagePage({ loaderData: pkg }: Route.ComponentProps) {
         {pkg.intro.map((p, i) => (
           <p key={i} className="text-sm text-muted-foreground">{p}</p>
         ))}
-        <pre className="overflow-x-auto rounded-md border border-border bg-muted/40 px-3 py-2 text-sm"><code>{pkg.layer?.install ? `${pkg.layer.install}\n` : ""}pnpm add {pkg.name}</code></pre>
+        {/* Scrolls sideways on a phone: focusable, so the keyboard can scroll it too. */}
+        <pre tabIndex={0} aria-label={`Install ${pkg.name}`} className="overflow-x-auto rounded-md border border-border bg-muted/40 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><code>{pkg.layer?.install ? `${pkg.layer.install}\n` : ""}pnpm add {pkg.name}</code></pre>
         <p className="flex flex-wrap gap-x-4 text-sm">
           <a className="underline-offset-2 hover:underline" href={`${REPO_URL}/tree/main/packages/${pkg.dir}#readme`}>README</a>
           <a className="underline-offset-2 hover:underline" href={`${REPO_URL}/blob/main/packages/${pkg.dir}/CHANGELOG.md`}>Changelog</a>

@@ -50,7 +50,8 @@ export const genesisBrand: CanonicalBrand = {
     // success mirrors colors.json color.semantic.success.DEFAULT (#10b981).
     success: { DEFAULT: "#10b981" },
     warning: { DEFAULT: "#f59e0b" },
-    error: { DEFAULT: "#ef4444" },
+    // error is the destructive role (genesis.css --destructive, 0 72.2% 46%): text-safe on the page.
+    error: { DEFAULT: "#ca2121" },
     info: { DEFAULT: "#3b82f6" },
   },
 };
