@@ -1,0 +1,31 @@
+packages/features/src/__tests__/settings-protocol.test.ts
+  s_ca8e075e853203::t_029c21e335d9ae 300-301
+packages/features/src/__tests__/settings-react-slice.test.tsx
+  s_ca8e075e853203::t_7801d0950fb3da 169-190
+packages/features/src/settings-protocol.ts
+  s_ca8e075e853203::t_f512fac752edbf 273-275,287-288,292-295,415,507,694-695
+packages/features/src/settings-react.tsx
+  s_ca8e075e853203::t_6a4898286f1bb3 154-159,267-270,272,656,661,693,695-699,708-712
+packages/supabase/README.md
+  s_ca8e075e853203::t_fef57b3cc8495a 871-876,882-888,898-902
+packages/supabase/src/__tests__/settings-server.test.ts
+  s_ca8e075e853203::t_205f751958c883 18-21,42,47-48,92,94-99,120-127,151-156,160-161,169-176,246,276-278,284-294,367-386,425-446,455,458-460,465-478
+packages/supabase/src/settings-server.ts
+  s_ca8e075e853203::t_607bac2c2a71db 135-155,168,172-185,238,241,244,257,381,443,446-447,454,466,561,567-569,587-589,597-599,651-657,660-663
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f4b5621294fe53cea4816a4cdb516557137c7f65",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
