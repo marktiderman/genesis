@@ -73,6 +73,8 @@ export interface OfflineQueueOptions<T> {
   baseDelayMs?: number;
   maxDelayMs?: number;
   maxAttempts?: number;
+  /** Items to evict last when the queue is over its count or size (the oldest other item goes first). */
+  keep?: (item: T) => boolean;
   /** Try again by itself at the next due time (a timer). Default true; tests pass false and call `flush`. */
   autoRetry?: boolean;
   now?: () => number;
@@ -110,6 +112,11 @@ export function createOfflineQueue<T>(options: OfflineQueueOptions<T>): OfflineQ
   const maxDelay = options.maxDelayMs ?? DIAGNOSTICS_DEFAULTS.queueMaxDelayMs;
   const maxAttempts = options.maxAttempts ?? DIAGNOSTICS_DEFAULTS.queueMaxAttempts;
   const retryable = options.isRetryable ?? isRetryableError;
+  // The oldest item that isn't kept, else the oldest.
+  const evict = (entries: Entry<T>[]) => {
+    const at = options.keep ? entries.findIndex((e) => !options.keep!(e.item)) : 0;
+    entries.splice(at < 0 ? 0 : at, 1);
+  };
   const problem = (message: string, error?: unknown) => {
     try {
       options.onProblem?.(message, error);
@@ -144,7 +151,7 @@ export function createOfflineQueue<T>(options: OfflineQueueOptions<T>): OfflineQ
     try {
       let text = JSON.stringify(entries);
       while (entries.length && new TextEncoder().encode(text).length > maxBytes) {
-        entries.shift();
+        evict(entries);
         problem("the queue was over its size: the oldest item was dropped");
         text = JSON.stringify(entries);
       }
@@ -177,7 +184,7 @@ export function createOfflineQueue<T>(options: OfflineQueueOptions<T>): OfflineQ
         const t = now();
         entries.push({ item, attempts: 1, nextAt: t + delay(1), addedAt: t });
         while (entries.length > maxItems) {
-          entries.shift();
+          evict(entries);
           problem("the queue was full: the oldest item was dropped");
         }
         await write(entries);

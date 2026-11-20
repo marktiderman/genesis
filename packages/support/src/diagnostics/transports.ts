@@ -37,6 +37,8 @@ export interface DiagnosticsTransport {
    * goes first and the dump after it, with the report's id.
    */
   submitFeedback?(record: FeedbackRecord, report: DiagnosticReport): Promise<FeedbackDelivery & { diagnostics: DiagnosticsReceipt | null }>;
+  /** Who the destination's session says is signed in: the offline queue files feedback only under its author. */
+  userId?(): Promise<string | null>;
 }
 
 /** The table migration 0019 creates. */
@@ -60,6 +62,10 @@ export function supabaseTransport(supabase: SupportSupabase, options: SupportCli
   return {
     name: "supabase",
     feedbackSink: createSupabaseSink(supabase, options),
+    async userId() {
+      const { data } = await supabase.auth.getSession();
+      return data.session?.user?.id ?? null;
+    },
     async send(report) {
       let result: { error: { message: string; code?: string } | null };
       try {

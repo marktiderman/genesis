@@ -24,7 +24,7 @@ import { SUPPORT_QUERY_ROOT, useSupport, type PendingFeedback, type PendingScree
 export interface FeedbackFormProps {
   defaultType?: FeedbackType;
   /** After a report is saved (go back, say thanks). The form has already shown its own confirmation, unless `sentAlert` is false. */
-  onSent?: (delivery: FeedbackDelivery & { diagnostics?: DiagnosticsDelivery | null }) => void;
+  onSent?: (delivery: FeedbackDelivery & { diagnostics?: DiagnosticsDelivery | null; queued?: boolean }) => void;
   /** Confirm a sent report with an alert. Default true; false when `onSent` says so itself (a toast). */
   sentAlert?: boolean;
   testID?: string;
@@ -94,7 +94,7 @@ export function FeedbackForm({ defaultType = "bug", onSent, sentAlert = true, te
       // Held for this report from here: an unmount while it is sent doesn't send the dump alone too.
       withShake?.begin();
       const made = withShake ? await withShake.report() : null;
-      const delivery: FeedbackDelivery & { diagnostics?: DiagnosticsDelivery | null } =
+      const delivery: FeedbackDelivery & { diagnostics?: DiagnosticsDelivery | null; queued?: boolean } =
         diagnostics && dumpOnFeedback ? await diagnostics.submitFeedback(record, { sink, report: made }) : await sink.submit(record);
       if (withShake) {
         withShake.end(true);
@@ -104,7 +104,7 @@ export function FeedbackForm({ defaultType = "bug", onSent, sentAlert = true, te
       setMessage("");
       setScreenshot(null);
       if (sentAlert) {
-        const body = delivery.attachmentsDropped ? copy.feedback.sentWithoutScreenshot : copy.feedback.sentBody;
+        const body = delivery.queued ? copy.feedback.queuedBody : delivery.attachmentsDropped ? copy.feedback.sentWithoutScreenshot : copy.feedback.sentBody;
         const reference = delivery.diagnostics ? `\n\n${fill(copy.diagnostics.feedbackReference, { id: delivery.diagnostics.shortId })}` : "";
         Alert.alert(copy.feedback.sentTitle, `${body}${reference}`);
       }

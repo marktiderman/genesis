@@ -846,6 +846,18 @@ Each resource is emitted as its own `as const satisfies ResourceContract<Row>` c
 setting, like an unknown `widget`, fails to compile), with a row type and a field-name union
 (`PublicBrandsField`), and `contracts` collects them by `schema.table`.
 
+## genesis build-stamp
+
+`genesis build-stamp [--out build-metadata.json] [--channel <name>] [--app-version <v>]` writes the
+build's metadata as JSON: `version` (the app's package.json), `commit` and `branch` (GitHub
+Actions' or EAS Build's environment, else git), `builtAt` and `channel` (`--channel`, else
+`GENESIS_CHANNEL`); anything unknown is null. On a pull request the commit is the PR's head (from
+GitHub's event), not the temporary merge commit. The OTA number and release aren't stamped yet. The app passes it to genesis-native's
+`createUpdates({ buildMetadata })` and genesis-support's `nativeSections({ buildMetadata })`, so the
+devtools overlay and the context dump show it. Run it before the bundle is made: an app's
+`eas-build-post-install` script (EAS Build runs it in every build), and before `eas update`. It is
+not part of `withGenesis()`, which stays deterministic so the runtime fingerprint holds.
+
 ## genesis settings sync
 
 Writes the app manifest (genesis-supabase's settings block, `genesis_app_manifest`) through the

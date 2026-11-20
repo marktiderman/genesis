@@ -38,6 +38,8 @@ export interface VersionSignature {
   otaNumber?: string | null;
   /** The release's name (`buildMetadata`), or null. */
   release?: string | null;
+  /** When it was built (`buildMetadata`), ISO, or null. */
+  builtAt?: string | null;
   /** One line, for an About row. */
   short: string;
   /** Several lines, for a support report. */
@@ -49,6 +51,12 @@ export interface VersionSignature {
  * every field optional.
  */
 export interface BuildMetadata {
+  /** The app's version at build time (`genesis build-stamp`). */
+  version?: string | null;
+  /** The channel it was built or published for. */
+  channel?: string | null;
+  /** When it was built, ISO. */
+  builtAt?: string | null;
   /** The commit the bundle was built from, full or short. */
   commit?: string | null;
   commitMessage?: string | null;
@@ -79,7 +87,7 @@ const given = (value: string | null | undefined): string | null => (typeof value
 const metaText = (value: string | number | null | undefined): string | null => (typeof value === "number" && Number.isFinite(value) ? String(value) : given(typeof value === "string" ? value : null));
 
 export function versionSignature({ application, updates, platform, requestedChannel = null, buildMetadata = null }: VersionSignatureInput): VersionSignature {
-  const version = given(application?.nativeApplicationVersion);
+  const version = given(application?.nativeApplicationVersion) ?? metaText(buildMetadata?.version);
   const build = given(application?.nativeBuildVersion);
   const on = Boolean(updates?.isEnabled);
   const channel = on ? given(updates?.channel) : null;
@@ -114,5 +122,8 @@ export function versionSignature({ application, updates, platform, requestedChan
   if (commit) lines.push(`Commit ${commit}`);
   if (otaNumber) lines.push(`OTA ${otaNumber}`);
   if (release) lines.push(`Release ${release}`);
-  return { version, build, platform, channel, requestedChannel, runtimeVersion, updateId, launch, emergency, commit, otaNumber, release, short, text: lines.join("\n") };
+  const builtAt = metaText(buildMetadata?.builtAt);
+  const builtFor = metaText(buildMetadata?.channel);
+  if (builtAt || builtFor) lines.push(`Built ${builtAt ?? UNKNOWN}${builtFor ? ` for ${builtFor}` : ""}`);
+  return { version, build, platform, channel, requestedChannel, runtimeVersion, updateId, launch, emergency, commit, otaNumber, release, builtAt, short, text: lines.join("\n") };
 }

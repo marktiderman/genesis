@@ -79,3 +79,5 @@ export {
   type FigmaFacts,
   type NavTarget,
 } from "./figma/routes.js";
+
+export { resolveBuildStamp, writeBuildStamp, BUILD_STAMP_FILE, type BuildStamp, type BuildStampOptions } from "./build-stamp.js";

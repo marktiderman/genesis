@@ -50,6 +50,8 @@ export const supportCopy = {
     sentTitle: "Thanks for the feedback",
     sentBody: "We read every report. You'll find it, and our replies, under Help.",
     sentWithoutScreenshot: "Your report was sent, but its screenshot couldn't be.",
+    /** Written offline: kept on this device and sent when the connection is back (without its screenshot). */
+    queuedBody: "You're offline. Your report is saved on this device and goes when you're back online, without its screenshot.",
     sendAnother: "Send another",
     openHelp: "See it in Help",
     failedTitle: "Your feedback wasn't sent",
@@ -157,6 +159,12 @@ export const supportCopy = {
     page: "Page",
     appVersion: "App version",
     screenshots: "Screenshots",
+    /** The ticket's context dumps (`genesis.diagnostics/1`), as text. `{id}`: a dump's short id. */
+    diagnostics: "Diagnostics",
+    diagnosticsDump: "Dump {id}",
+    diagnosticsShow: "Show diagnostics",
+    diagnosticsHide: "Hide diagnostics",
+    diagnosticsFailed: "Couldn't load the diagnostics.",
     openFile: "Open file",
     /** A row's status line: `{requester}`, `{status}`, `{assignee}`. */
     rowMeta: "{requester} · {status} · {assignee}",
