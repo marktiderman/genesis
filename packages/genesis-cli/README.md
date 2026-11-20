@@ -14,6 +14,15 @@ Makes a new Expo app from the Genesis RN starter, in `./<app>` (or `--target`), 
 or empty. See [A new native app](#a-new-native-app).
 
 ```bash
+npx @marktiderman/genesis-cli setup [--step <id>] [--port 4400] [--no-open]
+npx @marktiderman/genesis-cli init            # no name: the wizard makes a new app
+```
+
+Opens the setup wizard on localhost: the doctor's findings with their fixes, the settings, the
+secrets and the guided setup steps, where every change is a plan you approve. With `--yes` (or no
+terminal) it runs headless. See [genesis setup](#genesis-setup).
+
+```bash
 npx @marktiderman/genesis-cli add <block> [--dry-run] [--yes] [--no-install]
 npx @marktiderman/genesis-cli migrate [--dry-run] [--forward]
 npx @marktiderman/genesis-cli upgrade [--version <v>] [--dry-run] [--keep-mine] [--pr]
@@ -1616,6 +1625,68 @@ app's own installed CLI and never downloads a package of that name. A `.mcp.json
 JSON object is left alone and the command exits 1. With `--check`, it exits 1 when the entry is
 missing or out of date.
 
+## genesis setup
+
+```bash
+genesis setup [--step <id>] [--port 4400] [--no-open] [-d <dir>] [--offline]
+genesis setup --yes [--preset max|standard|min] [--without chat,support] [--step <id>]
+genesis init [--target <dir>] [--preset …] [--yes]      # no app name
+```
+
+The setup wizard: a page served by the CLI on this computer, on the same engine as
+[genesis doctor](#genesis-doctor) and [genesis fix](#genesis-fix). The doctor finds the gaps; the
+wizard shows them with their fixes and walks you through them.
+
+- **`genesis setup`** opens it on the app in the folder: the shared Settings screen
+  (`<GenesisSettings>` from `@marktiderman/genesis-config/settings/react`, the one an app's platform
+  admin mounts too) on its Health tab, with the Values, Secrets and Upgrades tabs beside it, and the
+  **Guided steps**: every `setup` step the installed packages' settings name (`github.issues`, …),
+  the keys each configures, the secrets they need and whether they are set. `--step <id>` opens on
+  one.
+- **`genesis init`** with no name, at a terminal, opens it on an empty folder: **App** (slug, name,
+  bundle id, folder), **Preset** (max, the default, needs no configuration), **Packages** (the
+  starter's feature switches) and **Review** (every file it writes). It makes the same app as
+  `genesis init <slug> --template native`, then carries on in setup, starting with the install.
+  `genesis init <name>` is unchanged; `--preset` sets the new app's preset there too.
+- **Every write is a plan you approve.** A fix, a setting, the install and a new app are each
+  planned first (the files with their changed lines, the commands, the secrets by name) and
+  written by the [fix engine](#genesis-fix) only when you apply that plan: the wizard sends back
+  the plan's hash, and a plan it didn't make in this run, or one that went stale (a file changed
+  after you read it), is refused and planned again. The wizard writes `genesis.config.json`; the
+  database layer is the app's own Settings screen.
+- **Secrets.** A plan that needs one asks for it in a password field. The value goes to the CLI in
+  that one request, into the [secret vault](#genesis-fix) for that apply, and to your signed-in
+  `supabase` or `gh` on stdin only; the page forgets it once sent. No page, answer, event or log
+  line holds it: each is redacted against the vault, even when the tool echoes it or fails. Vault
+  and `eas env` secrets are set by hand, as `genesis fix secrets.set` says.
+
+**The server.** Plain `node:http`, listening on 127.0.0.1 only, on the first free port from 4400
+(`--port`; it tries ten). It prints the link and opens your browser (`--no-open` doesn't).
+
+- **A per-run key.** 32 random bytes in the link's fragment (`#t=…`), which a browser never sends
+  to a server; the page moves it to sessionStorage, clears the address bar, and sends it as
+  `Authorization: Bearer` (compared in constant time). Don't share the link while it runs.
+- **Host** must be `127.0.0.1:<port>` or `localhost:<port>` on every request, so a site that
+  points its own name at 127.0.0.1 (DNS rebinding) is refused. A request that isn't a GET must
+  carry the server's own `Origin`, and `Sec-Fetch-Site: cross-site` is refused outright.
+- **JSON only**, up to 1 MB, at `POST /api {v, op, …}` (the settings protocol's ops, plus the
+  wizard's `wizard.info`, `settings.plan`, `init.plan`, `install.plan` and `step.list`). No CORS
+  headers; a CSP of `default-src 'self'`; nothing cached. `GET /events` streams a fix's output, redacted.
+- It stops on Ctrl-C, or after 30 minutes without a request.
+
+**Headless.** `genesis setup --yes` (the default without a terminal, and `genesis init --yes` in an
+existing app) sets `--preset` and turns `--without` switches off, each as a plan; applies every
+automatic fix the doctor's findings name (except `upgrade.release`, which opens a pull request: it
+is listed); and prints the rest: `genesis fix <id>` for each guided fix, and the dormant checklist,
+`genesis setup --step <id>` for each setup step not done. A dormant feature fails nothing. It exits
+0, or 1 when a fix it applied failed or didn't verify. With `--step <id>` it prints that step's
+checklist only.
+
+Not yet: each guided step's runner, which walks the outside service and verifies it live (link
+Supabase, a GitHub token, a Resend domain, Sentry, an AI key, EAS push), the Brand and Data
+screens, and Fix with Claude. Until a step's runner arrives, it is set up by its keys and secrets
+in the wizard (`step.start`, `step.submit` and `step.verify` answer `unsupported`).
+
 ## genesis mcp
 
 `genesis mcp` serves the doctor, the settings and fix plans as [MCP](https://modelcontextprotocol.io)
@@ -1632,6 +1703,7 @@ secret's value.
 | `upgrades_status {offline?}` | yes | The installed release, npm's latest, how far behind, and advisories (as [genesis-behind](#genesis-behind) reads them). |
 | `catalog_search {need}` | yes | What Genesis has for a need, from `genesis catalog`. |
 | `fix_plan {fixId \| rule, file?, subject?}` | yes | The fix's plan (as `genesis fix --plan`: files with the hash of the text each expects and their new content, commands, secrets by name, what is left to a person) and its hash. Writes nothing. |
+| `setup_steps` | yes | The guided setup steps the settings name: the keys each configures and whether they are set, the secrets they need by name, and `genesis setup --step <id>`. |
 | `settings_propose {key, value}` | yes | A plan that sets one key in `genesis.config.json` (checked against the catalogue; a locked value stays locked), and its hash. Writes nothing. |
 | `fix_apply {fixId, hash}` | no | Applies a plan from either, only after the person approves it. |
 
@@ -1645,8 +1717,7 @@ the plan is refused). Nothing is written otherwise. One apply runs at a time.
   run at a terminal (for a settings proposal, the key and value to set by hand).
 - A fix that needs a secret (a command fed one on stdin), or a guided fix with a wizard step, never
   runs over MCP: it returns `genesis fix <id>` for the person to run at a terminal, and the step's
-  id. `genesis setup --step <id>`, and a `setup_steps` tool listing the steps, arrive with the setup
-  wizard; until then the command is `genesis fix <id>`.
+  id: `genesis setup --step <id>` when the fix has a step, else `genesis fix <id>`.
 - The approval shows a proposed setting's value in full and each file's changed lines (up to
   12,000 characters; past that it says how to read the rest). A message too long to show whole is
   refused, never cut.

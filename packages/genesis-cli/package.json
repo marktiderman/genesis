@@ -81,9 +81,9 @@
     "README.md"
   ],
   "scripts": {
-    "build": "rm -rf dist && tsup",
+    "build": "rm -rf dist && tsup && vite build --config wizard/vite.config.ts",
     "clean": "rm -rf dist",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p wizard",
     "test": "vitest run"
   },
   "dependencies": {
@@ -101,8 +101,18 @@
     "@expo/config-plugins": "^55.0.11",
     "@expo/config-types": "^55.0.6",
     "@marktiderman/genesis-core": "workspace:^",
+    "@marktiderman/genesis-design-system": "workspace:^",
+    "@marktiderman/genesis-ui": "workspace:^",
     "@playwright/test": "~1.65.1",
+    "@tailwindcss/vite": "^4.2.2",
     "@types/node": "^22.9.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "lucide-react": "^1.0.0",
+    "radix-ui": "^1.6.7",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwindcss": "^4.2.2",
     "tsup": "^8.3.0",
     "typescript": "~6.0.3",
     "vite": "^8.2.4",
