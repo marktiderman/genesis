@@ -28,8 +28,11 @@ export const SECRET_NAME = /^[A-Z][A-Z0-9_]*$/;
 /** A value shorter than this couldn't be redacted without mangling ordinary text, so it is refused (no real token is this short). */
 export const MIN_SECRET_LENGTH = 8;
 
-/** A value longer than this is refused (a PEM key or a service-account JSON fits; redaction scans every output for it). */
+/** A value `set` takes is at most this long (a PEM key fits): it is typed in and handed to a tool. */
 export const MAX_SECRET_LENGTH = 65_536;
+
+/** A value `hide` takes is at most this long: redaction is linear, so a large service-account key is fine. */
+export const MAX_HIDDEN_LENGTH = 4 * 1024 * 1024;
 
 export const REDACTED = "[redacted]";
 
@@ -43,6 +46,8 @@ export function assertSecretName(name: string): void {
 
 export class SecretVault {
   readonly #values = new Map<string, string>();
+  /** Held for redaction only: no name, never handed to a tool. */
+  readonly #hidden = new Set<string>();
 
   /** A vault holding these values (the engine's older `Record` form). */
   static from(source: SecretVault | Readonly<Record<string, string>> | undefined): SecretVault {
@@ -58,6 +63,17 @@ export class SecretVault {
     if (value.length > MAX_SECRET_LENGTH) throw new SecretError(`${name}: the value is longer than ${MAX_SECRET_LENGTH} characters`);
     if (value.includes("\0")) throw new SecretError(`${name}: the value has a NUL byte`);
     this.#values.set(name, value);
+  }
+
+  /**
+   * Hold a value for redaction only (one found in the environment, say): it is never handed to a
+   * tool. Same rules as `set`, but up to MAX_HIDDEN_LENGTH characters.
+   */
+  hide(value: string): void {
+    if (typeof value !== "string" || value.trim().length < MIN_SECRET_LENGTH) throw new SecretError(`the value is empty or shorter than ${MIN_SECRET_LENGTH} characters`);
+    if (value.length > MAX_HIDDEN_LENGTH) throw new SecretError(`the value is longer than ${MAX_HIDDEN_LENGTH} characters`);
+    if (value.includes("\0")) throw new SecretError("the value has a NUL byte");
+    this.#hidden.add(value);
   }
 
   has(name: string): boolean {
@@ -82,12 +98,13 @@ export class SecretVault {
 
   clear(): void {
     this.#values.clear();
+    this.#hidden.clear();
   }
 
   /** Every string that must never be shown: each value and each line of 8+ characters of a multi-line one. */
   #needles(): string[] {
     const out = new Set<string>();
-    for (const value of this.#values.values()) {
+    for (const value of [...this.#values.values(), ...this.#hidden]) {
       out.add(value);
       if (/[\r\n]/.test(value)) for (const line of value.split(/\r?\n/)) if (line.trim().length >= 8) out.add(line);
     }

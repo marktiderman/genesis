@@ -4,7 +4,7 @@
  * them), so this is the last line: an error from a database driver, a tool's stderr or a
  * finding's message that happened to carry a credential is redacted before a client sees it.
  */
-import { MAX_SECRET_LENGTH, MIN_SECRET_LENGTH, SecretError, SecretVault } from "../exec/secret-vault.js";
+import { MAX_HIDDEN_LENGTH, MIN_SECRET_LENGTH, SecretError, SecretVault } from "../exec/secret-vault.js";
 
 /** The most text one tool result carries. */
 export const MAX_RESULT_CHARS = 60_000;
@@ -37,14 +37,14 @@ const SECRET_NAME = /SECRET|TOKEN|PASSWORD|PASSWD|PRIVATE|CREDENTIAL|API_?KEY|AC
  * The values to redact: every environment variable with a secret-looking name, plus the
  * environment values of the secret names the settings catalogue declares, longest first. A value
  * under MIN_SECRET_LENGTH characters (trimmed) is left alone: it would redact ordinary words, and
- * the vault refuses it. One over MAX_SECRET_LENGTH can't be redacted, so it is an error naming the
+ * the vault refuses it. One over MAX_HIDDEN_LENGTH can't be held, so it is an error naming the
  * variable (never the value).
  */
 export function secretValues(env: Readonly<Record<string, string | undefined>>, declaredNames: readonly string[] = []): string[] {
   const out = new Set<string>();
   const take = (name: string, value: string | undefined) => {
     if (!value || value.trim().length < MIN_SECRET_LENGTH) return;
-    if (value.length > MAX_SECRET_LENGTH) throw new SecretError(`${name} is longer than ${MAX_SECRET_LENGTH} characters, too long to redact: unset it or shorten it before running genesis mcp`);
+    if (value.length > MAX_HIDDEN_LENGTH) throw new SecretError(`${name} is longer than ${MAX_HIDDEN_LENGTH} characters, too long to redact: unset it or shorten it before running genesis mcp`);
     out.add(value);
   };
   for (const [name, value] of Object.entries(env)) if (SECRET_NAME.test(name)) take(name, value);
@@ -53,12 +53,12 @@ export function secretValues(env: Readonly<Record<string, string | undefined>>, 
 }
 
 /**
- * A vault holding these values (from `secretValues`), so MCP output is redacted by the fix
- * engine's matcher: every JSON-escaped form, and overlapping values.
+ * A vault holding these values (from `secretValues`) for redaction only, so MCP output is redacted
+ * by the fix engine's matcher: every JSON-escaped form, and overlapping values.
  */
 export function secretVault(values: readonly string[]): SecretVault {
   const vault = new SecretVault();
-  values.forEach((value, i) => vault.set(`ENV_SECRET_${i + 1}`, value));
+  for (const value of values) vault.hide(value);
   return vault;
 }
 

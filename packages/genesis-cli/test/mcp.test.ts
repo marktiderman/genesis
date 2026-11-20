@@ -389,7 +389,6 @@ describe("genesis mcp: secrets", () => {
     expect(scrub("failed: postgres://app:hunter2hunter2@db:5432/x", secretVault(values))).toBe("failed: [redacted]");
     expect(scrub("connect https://user:pa55word@host/x", secretVault([]))).toBe("connect https://user:[redacted]@host/x");
     expect(secretValues({ DB_PASS: "longpassword1", GITHUB_PAT: "patpatpatpat", STRIPE_SK: "sksksksksk", PATH: "/usr/bin:/bin" })).toEqual(["longpassword1", "patpatpatpat", "sksksksksk"]);
-    expect(() => secretValues({ API_TOKEN: "x".repeat(65_537) })).toThrow(/^API_TOKEN is longer than 65536 characters/);
   });
 });
 
@@ -560,11 +559,13 @@ describe("genesis mcp: adversarial review", () => {
     expect(secretValues({ PWD: "/Users/someone/app", OLDPWD: "/Users/someone" })).toEqual([]);
   });
 
-  it("withholds every result when a secret is too long to redact, and drops short values by the vault's trimmed rule", async () => {
+  it("starts with a large service-account key in the environment, and redacts it", async () => {
     const big = `{"private_key":"${"k".repeat(70_000)}"}`;
     const { call, seen } = await connect(app(), { server: { env: { SERVICE_ACCOUNT_JSON_SECRET: big } } });
-    await expect(call("settings_get")).rejects.toThrow(/SERVICE_ACCOUNT_JSON_SECRET is longer than 65536 characters/);
+    expect(await call("settings_get")).toBeTypeOf("object");
+    expect(boundedJson({ leaked: big }, secretVault([big]))).not.toContain("kkkkkkkk");
     expect(seen.join("\n")).not.toContain("kkkkkkkk");
+    expect(() => secretValues({ API_TOKEN: "x".repeat(4 * 1024 * 1024 + 1) })).toThrow(/^API_TOKEN is longer than 4194304 characters/);
     expect(secretValues({ API_TOKEN: "  abc12  ", DB_PASS: "longpassword1" })).toEqual(["longpassword1"]);
   });
 

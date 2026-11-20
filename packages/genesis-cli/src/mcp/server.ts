@@ -548,7 +548,7 @@ export function createGenesisMcpServer(options: GenesisMcpOptions): Server {
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const tool = byName.get(request.params.name);
     if (!tool) throw new McpError(ErrorCode.InvalidParams, `no tool "${clip(request.params.name, 100)}" (tools/list has them)`);
-    // Fails closed: a secret the vault can't hold (secretValues says which variable) stops the call before the tool runs.
+    // Built before the tool runs: a secret too long to hold (over 4 MiB; secretValues names it) stops the call.
     const secrets = vault();
     const started = Date.now();
     try {
