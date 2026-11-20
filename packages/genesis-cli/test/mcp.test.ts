@@ -11,7 +11,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { ElicitRequestSchema, McpError, type ElicitRequest, type ElicitResult } from "@modelcontextprotocol/sdk/types.js";
 import { createGenesisMcpServer, type GenesisMcpOptions } from "../src/mcp/server.js";
 import { GENESIS_MCP_ENTRY, mcpJsonEdit, mcpJsonState, McpJsonError, writeMcpJson } from "../src/mcp/config.js";
-import { boundedJson, scrub, scrubStream, secretValues, showInvisible } from "../src/mcp/bounds.js";
+import { boundedJson, scrub, scrubStream, secretValues, secretVault, showInvisible } from "../src/mcp/bounds.js";
 import { slimFinding } from "../src/mcp/doctor.js";
 import { guardArgs, guardChildStdio, safeStdio } from "../src/mcp/stdio.js";
 import { removeTempDir } from "./temp.js";
@@ -380,22 +380,23 @@ describe("genesis mcp: secrets", () => {
     const proposed = await call("settings_propose", { key: "support.dumpRetentionDays", value: 60 });
     expect(proposed.plan.files[0].content).toContain("[redacted]");
     expect(JSON.stringify(proposed)).not.toContain(token);
-    expect(boundedJson({ k: PEM }, [])).not.toContain("MIIEvQ");
+    expect(boundedJson({ k: PEM }, secretVault([]))).not.toContain("MIIEvQ");
   });
 
   it("scrubs secret-looking environment values and URL passwords", () => {
     const values = secretValues({ DATABASE_URL: "postgres://app:hunter2hunter2@db:5432/x", HOME: "/Users/someone", SHORT_TOKEN: "abc" }, []);
     expect(values).toEqual(["postgres://app:hunter2hunter2@db:5432/x"]);
-    expect(scrub("failed: postgres://app:hunter2hunter2@db:5432/x", values)).toBe("failed: [redacted]");
-    expect(scrub("connect https://user:pa55word@host/x", [])).toBe("connect https://user:[redacted]@host/x");
+    expect(scrub("failed: postgres://app:hunter2hunter2@db:5432/x", secretVault(values))).toBe("failed: [redacted]");
+    expect(scrub("connect https://user:pa55word@host/x", secretVault([]))).toBe("connect https://user:[redacted]@host/x");
     expect(secretValues({ DB_PASS: "longpassword1", GITHUB_PAT: "patpatpatpat", STRIPE_SK: "sksksksksk", PATH: "/usr/bin:/bin" })).toEqual(["longpassword1", "patpatpatpat", "sksksksksk"]);
+    expect(() => secretValues({ API_TOKEN: "x".repeat(65_537) })).toThrow(/^API_TOKEN is longer than 65536 characters/);
   });
 });
 
 describe("genesis mcp: errors and stdio", () => {
   it("strips repeated MCP error prefixes", () => {
     const inner = new McpError(-32602, new McpError(-32602, "bad thing").message);
-    expect(toMcpError(inner, "t", []).message).toBe("MCP error -32602: bad thing");
+    expect(toMcpError(inner, "t", secretVault([])).message).toBe("MCP error -32602: bad thing");
   });
 
   it("gives every child process a stdio that can't touch the protocol's fds", async () => {
@@ -458,8 +459,8 @@ describe("genesis mcp: adversarial review", () => {
   const accept = () => ({ action: "accept" as const, content: { approve: true } });
 
   it("an unterminated key header ends at its line: it never hides the rest of a text", () => {
-    expect(scrub("-----BEGIN PRIVATE KEY----- x\nthe rest stays", [])).toBe("[redacted]\nthe rest stays");
-    expect(scrub("a\n-----BEGIN RSA PRIVATE KEY-----\nMIIB\n-----END RSA PRIVATE KEY-----\nb", [])).toBe("a\n[redacted]\nb");
+    expect(scrub("-----BEGIN PRIVATE KEY----- x\nthe rest stays", secretVault([]))).toBe("[redacted]\nthe rest stays");
+    expect(scrub("a\n-----BEGIN RSA PRIVATE KEY-----\nMIIB\n-----END RSA PRIVATE KEY-----\nb", secretVault([]))).toBe("a\n[redacted]\nb");
   });
 
   it.each([
@@ -517,7 +518,7 @@ describe("genesis mcp: adversarial review", () => {
     // The value `abcdefgh\` shows only in the escaped text (`"abcdefgh\""`): redacting it there would leave `"[redacted]""`.
     // (At least 8 characters: the vault refuses a shorter value.)
     const values = ["abcdefgh\\"];
-    const text = boundedJson({ k: 'abcdefgh"' }, values);
+    const text = boundedJson({ k: 'abcdefgh"' }, secretVault(values));
     expect(() => JSON.parse(text)).not.toThrow();
     expect(text).not.toContain("abcdefgh\\\\");
     expect(JSON.parse(text)).toMatchObject({ redacted: true });
@@ -536,7 +537,7 @@ describe("genesis mcp: adversarial review", () => {
   it("scrubs before clipping: a secret cut by the clip leaves nothing of it", async () => {
     const message = `${"x".repeat(580)} token ${SECRET} tail`;
     expect(message.indexOf(SECRET)).toBe(587);
-    const values = secretValues({ SUPPORT_GITHUB_TOKEN: SECRET });
+    const values = secretVault(secretValues({ SUPPORT_GITHUB_TOKEN: SECRET }));
     expect(boundedJson(slimFinding({ rule: "r", level: "warn", file: "f", line: 1, message }, (t) => scrub(t, values)), values)).not.toContain("ghp_");
     const root = app();
     const finding = { rule: "r", level: "warn" as const, file: "f", line: 1, message };
@@ -559,10 +560,18 @@ describe("genesis mcp: adversarial review", () => {
     expect(secretValues({ PWD: "/Users/someone/app", OLDPWD: "/Users/someone" })).toEqual([]);
   });
 
+  it("withholds every result when a secret is too long to redact, and drops short values by the vault's trimmed rule", async () => {
+    const big = `{"private_key":"${"k".repeat(70_000)}"}`;
+    const { call, seen } = await connect(app(), { server: { env: { SERVICE_ACCOUNT_JSON_SECRET: big } } });
+    await expect(call("settings_get")).rejects.toThrow(/SERVICE_ACCOUNT_JSON_SECRET is longer than 65536 characters/);
+    expect(seen.join("\n")).not.toContain("kkkkkkkk");
+    expect(secretValues({ API_TOKEN: "  abc12  ", DB_PASS: "longpassword1" })).toEqual(["longpassword1"]);
+  });
+
   it("scrubs what is written to stderr", () => {
     const written: unknown[] = [];
     const stream = { write: (chunk: unknown) => (written.push(chunk), true) } as unknown as NodeJS.WriteStream;
-    const restore = scrubStream(stream, [SECRET]);
+    const restore = scrubStream(stream, secretVault([SECRET]));
     stream.write(`log ${SECRET}\n`);
     stream.write(Buffer.from(`buf ${SECRET}\n`));
     restore();

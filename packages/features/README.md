@@ -284,7 +284,10 @@ When `state` carries no `audit`, the tab fetches the first page itself.
 **The protocol.** One endpoint, `POST`, JSON only, a bearer token and no cookies
 (`credentials: "omit"`), every request `{ v, op, … }` (`SETTINGS_PROTOCOL_VERSION`). The ops are
 `state`, `setValue`, `clearValue`, `plan`, `apply`, `upgrades`, `audit`, `propose` and `setSecret`
-(`SETTINGS_OPS`, answers in `SettingsResponses`). A failure is `{ error: { code, message } }`,
+(`SETTINGS_OPS`, answers in `SettingsResponses`). `setValue` and `clearValue` name their `layer`:
+`file`, `database`, `tenant` (with `tenant`, the tenant's id) or `person` (the signed-in person's
+own); `state` with `tenant` returns that tenant's layer and the person's in `layers`. The screen
+itself writes `file` and `database` only. A failure is `{ error: { code, message } }`,
 thrown by the client as a `SettingsProtocolError` whose `code` is `bad_request`, `unauthenticated`,
 `forbidden`, `unsupported`, `locked`, `stale_plan`, `not_found`, `version` or `error`. A host
 answers an op it doesn't know (one a newer screen sends) with `unsupported`, so the screen can tell

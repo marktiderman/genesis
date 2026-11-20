@@ -4,7 +4,7 @@
  * them), so this is the last line: an error from a database driver, a tool's stderr or a
  * finding's message that happened to carry a credential is redacted before a client sees it.
  */
-import { SecretVault } from "../exec/secret-vault.js";
+import { MAX_SECRET_LENGTH, MIN_SECRET_LENGTH, SecretError, SecretVault } from "../exec/secret-vault.js";
 
 /** The most text one tool result carries. */
 export const MAX_RESULT_CHARS = 60_000;
@@ -35,39 +35,30 @@ const SECRET_NAME = /SECRET|TOKEN|PASSWORD|PASSWD|PRIVATE|CREDENTIAL|API_?KEY|AC
 
 /**
  * The values to redact: every environment variable with a secret-looking name, plus the
- * environment values of the secret names the settings catalogue declares. Short values (under 8
- * characters) are left alone: they would redact ordinary words. Longest first.
+ * environment values of the secret names the settings catalogue declares, longest first. A value
+ * under MIN_SECRET_LENGTH characters (trimmed) is left alone: it would redact ordinary words, and
+ * the vault refuses it. One over MAX_SECRET_LENGTH can't be redacted, so it is an error naming the
+ * variable (never the value).
  */
 export function secretValues(env: Readonly<Record<string, string | undefined>>, declaredNames: readonly string[] = []): string[] {
   const out = new Set<string>();
-  for (const [name, value] of Object.entries(env)) {
-    if (value && value.length >= 8 && SECRET_NAME.test(name)) out.add(value);
-  }
-  for (const name of declaredNames) {
-    const value = env[name];
-    if (value && value.length >= 8) out.add(value);
-  }
+  const take = (name: string, value: string | undefined) => {
+    if (!value || value.trim().length < MIN_SECRET_LENGTH) return;
+    if (value.length > MAX_SECRET_LENGTH) throw new SecretError(`${name} is longer than ${MAX_SECRET_LENGTH} characters, too long to redact: unset it or shorten it before running genesis mcp`);
+    out.add(value);
+  };
+  for (const [name, value] of Object.entries(env)) if (SECRET_NAME.test(name)) take(name, value);
+  for (const name of declaredNames) take(name, env[name]);
   return [...out].sort((a, b) => b.length - a.length);
 }
 
-/** What the scrubbers redact against: a vault, or the values to put in one. */
-export type Secrets = SecretVault | readonly string[];
-
 /**
- * A vault holding these values, so MCP output is redacted by the same matcher as the fix engine's
- * (every JSON-escaped form, overlapping values). A value the vault refuses (under 8 characters
- * once trimmed, or over 64 KiB) is left out.
+ * A vault holding these values (from `secretValues`), so MCP output is redacted by the fix
+ * engine's matcher: every JSON-escaped form, and overlapping values.
  */
-export function secretVault(secrets: Secrets): SecretVault {
-  if (secrets instanceof SecretVault) return secrets;
+export function secretVault(values: readonly string[]): SecretVault {
   const vault = new SecretVault();
-  secrets.forEach((value, i) => {
-    try {
-      vault.set(`MCP_${i}`, value);
-    } catch {
-      // Refused: see above.
-    }
-  });
+  values.forEach((value, i) => vault.set(`ENV_SECRET_${i + 1}`, value));
   return vault;
 }
 
@@ -97,15 +88,14 @@ export function hasSecretLiteral(text: string): boolean {
 }
 
 /** Text with each secret value, every secret-looking literal, and the password of any `scheme://user:password@` URL, redacted. */
-export function scrub(text: string, secrets: Secrets): string {
-  let out = secretVault(secrets).redact(text);
+export function scrub(text: string, vault: SecretVault): string {
+  let out = vault.redact(text);
   for (const pattern of SECRET_LITERALS) out = out.replace(pattern, "[redacted]");
   return out.replace(/([a-z][a-z0-9+.-]*:\/\/)([^\s/@:"'`]+):([^\s/@"'`]+)@/gi, "$1$2:[redacted]@");
 }
 
 /** A value with every string in it (keys included) scrubbed: done before it becomes JSON, so no escaping hides a secret. */
-export function scrubDeep(value: unknown, secrets: Secrets): unknown {
-  const vault = secretVault(secrets);
+export function scrubDeep(value: unknown, vault: SecretVault): unknown {
   if (typeof value === "string") return scrub(value, vault);
   if (Array.isArray(value)) return value.map((v) => scrubDeep(v, vault));
   if (value && typeof value === "object") return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([k, v]) => [scrub(k, vault), scrubDeep(v, vault)]));
@@ -117,8 +107,7 @@ export function scrubDeep(value: unknown, secrets: Secrets): unknown {
  * this is the backstop, and it returns valid JSON that says it was cut. Every string is scrubbed
  * before serialising, then the text once more.
  */
-export function boundedJson(value: unknown, secrets: Secrets): string {
-  const vault = secretVault(secrets);
+export function boundedJson(value: unknown, vault: SecretVault): string {
   const json = JSON.stringify(scrubDeep(value, vault), null, 2);
   let text = scrub(json, vault);
   if (text !== json) {
@@ -139,8 +128,7 @@ export function boundedJson(value: unknown, secrets: Secrets): string {
  * commands print). Returns the function that restores the stream's own write. A child process
  * writing to the same fd directly isn't seen.
  */
-export function scrubStream(stream: NodeJS.WriteStream, secrets: Secrets): () => void {
-  const vault = secretVault(secrets);
+export function scrubStream(stream: NodeJS.WriteStream, vault: SecretVault): () => void {
   const original = stream.write;
   const write = original.bind(stream) as (...a: unknown[]) => boolean;
   stream.write = ((chunk: unknown, ...rest: unknown[]) => {

@@ -32,8 +32,9 @@ import type { DoctorResult, Finding } from "../doctor/types.js";
 import { applyPlan, FixError, planFix, sha256, StalePlanError } from "../fix/engine.js";
 import { allFixes, type BuiltinDeps } from "../fix/registry.js";
 import type { Fix, FixContext, FixPlan } from "../fix/types.js";
+import type { SecretVault } from "../exec/secret-vault.js";
 import { distance, readUpgradeStatus, type RegistryDeps } from "../upgrade/registry.js";
-import { boundedJson, clip, hasSecretLiteral, scrub, scrubStream, secretValues, secretVault, showInvisible, type Secrets } from "./bounds.js";
+import { boundedJson, clip, hasSecretLiteral, scrub, scrubStream, secretValues, secretVault, showInvisible } from "./bounds.js";
 import { guardChildStdio } from "./stdio.js";
 import { boundedPlan, catalogSearch, cliPackageDir, explainRule, findingsReport, resolveFixTarget, slimFinding, ToolInputError, type FixTarget } from "./doctor.js";
 import {
@@ -547,14 +548,16 @@ export function createGenesisMcpServer(options: GenesisMcpOptions): Server {
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const tool = byName.get(request.params.name);
     if (!tool) throw new McpError(ErrorCode.InvalidParams, `no tool "${clip(request.params.name, 100)}" (tools/list has them)`);
+    // Fails closed: a secret the vault can't hold (secretValues says which variable) stops the call before the tool runs.
+    const secrets = vault();
     const started = Date.now();
     try {
       const args = checkArgs(tool, (request.params.arguments ?? {}) as Record<string, unknown>);
       const value = await tool.run(args);
       log(`genesis mcp: ${tool.name} (${Date.now() - started} ms)`);
-      return { content: [{ type: "text" as const, text: boundedJson(value, vault()) }] };
+      return { content: [{ type: "text" as const, text: boundedJson(value, secrets) }] };
     } catch (err) {
-      const e = toMcpError(err, tool.name, vault());
+      const e = toMcpError(err, tool.name, secrets);
       log(`genesis mcp: ${tool.name} failed: ${e.message}`);
       throw e;
     }
@@ -564,8 +567,7 @@ export function createGenesisMcpServer(options: GenesisMcpOptions): Server {
 }
 
 /** Any failure as an MCP error: a message (scrubbed, bounded), never a stack. */
-export function toMcpError(err: unknown, tool: string, secrets: Secrets): McpError {
-  const vault = secretVault(secrets);
+export function toMcpError(err: unknown, tool: string, vault: SecretVault): McpError {
   const message = (text: string) => clip(scrub(text, vault), 2_000);
   // McpError's constructor prefixes "MCP error <code>: "; strip every one so a re-thrown error doesn't stack them.
   if (err instanceof McpError) return new McpError(err.code, message(err.message.replace(/^(?:MCP error -?\d+: )+/, "")));
