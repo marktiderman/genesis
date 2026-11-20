@@ -4,6 +4,7 @@
  * them), so this is the last line: an error from a database driver, a tool's stderr or a
  * finding's message that happened to carry a credential is redacted before a client sees it.
  */
+import { SecretVault } from "../exec/secret-vault.js";
 
 /** The most text one tool result carries. */
 export const MAX_RESULT_CHARS = 60_000;
@@ -35,7 +36,7 @@ const SECRET_NAME = /SECRET|TOKEN|PASSWORD|PASSWD|PRIVATE|CREDENTIAL|API_?KEY|AC
 /**
  * The values to redact: every environment variable with a secret-looking name, plus the
  * environment values of the secret names the settings catalogue declares. Short values (under 8
- * characters) are left alone: they would redact ordinary words.
+ * characters) are left alone: they would redact ordinary words. Longest first.
  */
 export function secretValues(env: Readonly<Record<string, string | undefined>>, declaredNames: readonly string[] = []): string[] {
   const out = new Set<string>();
@@ -46,14 +47,28 @@ export function secretValues(env: Readonly<Record<string, string | undefined>>, 
     const value = env[name];
     if (value && value.length >= 8) out.add(value);
   }
-  // Each value as JSON escapes it too (a PEM's newlines, a quote, a backslash), for text that is
-  // already JSON. Results are scrubbed before they're serialised; this covers the rest.
-  for (const value of [...out]) {
-    const escaped = JSON.stringify(value).slice(1, -1);
-    if (escaped !== value) out.add(escaped);
-  }
-  // Longest first, so a value that contains another is redacted whole.
   return [...out].sort((a, b) => b.length - a.length);
+}
+
+/** What the scrubbers redact against: a vault, or the values to put in one. */
+export type Secrets = SecretVault | readonly string[];
+
+/**
+ * A vault holding these values, so MCP output is redacted by the same matcher as the fix engine's
+ * (every JSON-escaped form, overlapping values). A value the vault refuses (under 8 characters
+ * once trimmed, or over 64 KiB) is left out.
+ */
+export function secretVault(secrets: Secrets): SecretVault {
+  if (secrets instanceof SecretVault) return secrets;
+  const vault = new SecretVault();
+  secrets.forEach((value, i) => {
+    try {
+      vault.set(`MCP_${i}`, value);
+    } catch {
+      // Refused: see above.
+    }
+  });
+  return vault;
 }
 
 /**
@@ -73,13 +88,6 @@ const SECRET_LITERALS: readonly RegExp[] = [
   /\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g,
 ];
 
-/** Text with each known secret value redacted, and nothing else changed. */
-export function scrubValues(text: string, values: readonly string[]): string {
-  let out = text;
-  for (const value of values) out = out.split(value).join("[redacted]");
-  return out;
-}
-
 /** Whether text holds a secret-shaped literal (a key block, a provider token). */
 export function hasSecretLiteral(text: string): boolean {
   return SECRET_LITERALS.some((pattern) => {
@@ -89,17 +97,18 @@ export function hasSecretLiteral(text: string): boolean {
 }
 
 /** Text with each secret value, every secret-looking literal, and the password of any `scheme://user:password@` URL, redacted. */
-export function scrub(text: string, values: readonly string[]): string {
-  let out = scrubValues(text, values);
+export function scrub(text: string, secrets: Secrets): string {
+  let out = secretVault(secrets).redact(text);
   for (const pattern of SECRET_LITERALS) out = out.replace(pattern, "[redacted]");
   return out.replace(/([a-z][a-z0-9+.-]*:\/\/)([^\s/@:"'`]+):([^\s/@"'`]+)@/gi, "$1$2:[redacted]@");
 }
 
 /** A value with every string in it (keys included) scrubbed: done before it becomes JSON, so no escaping hides a secret. */
-export function scrubDeep(value: unknown, values: readonly string[]): unknown {
-  if (typeof value === "string") return scrub(value, values);
-  if (Array.isArray(value)) return value.map((v) => scrubDeep(v, values));
-  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([k, v]) => [scrub(k, values), scrubDeep(v, values)]));
+export function scrubDeep(value: unknown, secrets: Secrets): unknown {
+  const vault = secretVault(secrets);
+  if (typeof value === "string") return scrub(value, vault);
+  if (Array.isArray(value)) return value.map((v) => scrubDeep(v, vault));
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([k, v]) => [scrub(k, vault), scrubDeep(v, vault)]));
   return value;
 }
 
@@ -108,9 +117,10 @@ export function scrubDeep(value: unknown, values: readonly string[]): unknown {
  * this is the backstop, and it returns valid JSON that says it was cut. Every string is scrubbed
  * before serialising, then the text once more.
  */
-export function boundedJson(value: unknown, values: readonly string[]): string {
-  const json = JSON.stringify(scrubDeep(value, values), null, 2);
-  let text = scrub(json, values);
+export function boundedJson(value: unknown, secrets: Secrets): string {
+  const vault = secretVault(secrets);
+  const json = JSON.stringify(scrubDeep(value, vault), null, 2);
+  let text = scrub(json, vault);
   if (text !== json) {
     // The second pass found something only the escaped form showed; its redaction may have cut an
     // escape or a quote, so the result is checked, and wrapped as a string when it isn't JSON.
@@ -129,14 +139,15 @@ export function boundedJson(value: unknown, values: readonly string[]): string {
  * commands print). Returns the function that restores the stream's own write. A child process
  * writing to the same fd directly isn't seen.
  */
-export function scrubStream(stream: NodeJS.WriteStream, values: readonly string[]): () => void {
+export function scrubStream(stream: NodeJS.WriteStream, secrets: Secrets): () => void {
+  const vault = secretVault(secrets);
   const original = stream.write;
   const write = original.bind(stream) as (...a: unknown[]) => boolean;
   stream.write = ((chunk: unknown, ...rest: unknown[]) => {
     const text = typeof chunk === "string" ? chunk : chunk instanceof Uint8Array ? Buffer.from(chunk).toString("utf8") : null;
     if (text === null) return write(chunk, ...rest);
     // A string chunk keeps its encoding argument; a buffer's text is written as utf8.
-    return write(scrub(text, values), ...(typeof chunk === "string" ? rest : rest.map((r) => (typeof r === "string" ? "utf8" : r))));
+    return write(scrub(text, vault), ...(typeof chunk === "string" ? rest : rest.map((r) => (typeof r === "string" ? "utf8" : r))));
   }) as typeof stream.write;
   return () => {
     stream.write = original;

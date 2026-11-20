@@ -5,7 +5,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import * as path from "node:path";
-import { defineSetupStep } from "@marktiderman/genesis-config/setup";
+import { defineSetupStep } from "./define.js";
 import { TOOL_AUTH_ENV } from "../../exec/run.js";
 import { supabaseLinked } from "../../exec/secret-stores.js";
 import type { PlannedCommand } from "../../fix/types.js";

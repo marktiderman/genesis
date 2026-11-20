@@ -1,5 +1,5 @@
 /**
- * `@marktiderman/genesis-config/setup`: what a guided setup step is (config-layer design §3.2, R5).
+ * What a guided setup step is (config-layer design §3.2, R5). Only the CLI declares and runs steps.
  * A step walks a person through an outside service (Supabase, GitHub, Sentry, Resend, an AI
  * provider, EAS): what to do there, the values it needs, the secrets it needs by name, and the
  * links to open. The CLI's runners (`genesis setup --step <id>`, the wizard's Guided steps tab) do
@@ -7,14 +7,12 @@
  *
  * Data only: no zod, no React, no Node built-ins. A secret is named here, never held: the value
  * is typed into the CLI or the wizard when the step runs, and reaches a tool on stdin only.
- *
- * @stability Beta
  */
 
-/** A setup step id: `github.issues`, `ai.key-budget`. @stability Beta */
+/** A setup step id: `github.issues`, `ai.key-budget`. */
 export const SETUP_STEP_ID_PATTERN = /^[a-z][a-z0-9-]*(?:\.[a-z0-9][a-z0-9-]*)*$/;
 
-/** One value a step asks for. Never a secret: those are {@link SetupStepDef.needs}. @stability Beta */
+/** One value a step asks for. Never a secret: those are {@link SetupStepDef.needs}. */
 export interface SetupField {
   /** `repo`, `projectRef`. */
   name: string;
@@ -33,13 +31,13 @@ export interface SetupField {
   setting?: string;
 }
 
-/** A page the person opens in the outside service. @stability Beta */
+/** A page the person opens in the outside service. */
 export interface SetupLink {
   label: string;
   url: string;
 }
 
-/** A secret the step needs, by name, and where it is kept. @stability Beta */
+/** A secret the step needs, by name, and where it is kept. */
 export interface SetupSecret {
   name: string;
   /** `edge` (Supabase Edge Function secrets) or `ci` (GitHub Actions; EAS by hand). */
@@ -48,7 +46,7 @@ export interface SetupSecret {
   help?: string;
 }
 
-/** A guided setup step. @stability Beta */
+/** A guided setup step. */
 export interface SetupStepDef {
   readonly id: string;
   readonly title: string;
@@ -66,7 +64,7 @@ export interface SetupStepDef {
   readonly manual?: boolean;
 }
 
-/** What {@link defineSetupStep} takes. @stability Beta */
+/** What {@link defineSetupStep} takes. */
 export interface SetupStepSpec {
   id: string;
   title: string;
@@ -79,7 +77,7 @@ export interface SetupStepSpec {
   manual?: boolean;
 }
 
-/** A step definition that can't be used. @stability Beta */
+/** A step definition that can't be used. */
 export class SetupStepError extends Error {
   constructor(message: string) {
     super(message);
@@ -105,7 +103,7 @@ const TOOL = /^[a-z][a-z0-9-]*$/;
  * });
  * ```
  *
- * @stability Beta
+ *
  */
 export function defineSetupStep(spec: SetupStepSpec): SetupStepDef {
   const fail = (msg: string): never => {
@@ -154,7 +152,7 @@ export function defineSetupStep(spec: SetupStepSpec): SetupStepDef {
  * Check the values a person typed for a step's fields: each known, each matching its pattern
  * (whole value), each required one present. Returns the trimmed values; throws {@link SetupStepError}.
  *
- * @stability Beta
+ *
  */
 export function checkSetupFields(step: SetupStepDef, input: unknown): Record<string, string> {
   if (input !== undefined && (input === null || typeof input !== "object" || Array.isArray(input))) throw new SetupStepError(`${step.id}: the fields must be an object`);

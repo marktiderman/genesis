@@ -5,7 +5,7 @@
  * sending one test event to the DSN when it is given.
  */
 import { randomUUID } from "node:crypto";
-import { defineSetupStep } from "@marktiderman/genesis-config/setup";
+import { defineSetupStep } from "./define.js";
 import { needsSecret, OFFLINE, request, secretSetters, type StepContext, type StepRunner } from "./framework.js";
 
 const SLUG = "[a-z0-9][a-z0-9_-]{0,99}";

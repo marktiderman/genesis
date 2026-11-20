@@ -514,11 +514,12 @@ describe("genesis mcp: adversarial review", () => {
   });
 
   it("keeps a result valid JSON when the second redaction pass cuts an escape", () => {
-    // The value `ab\` shows only in the escaped text (`"ab\""`): redacting it there would leave `"[redacted]""`.
-    const values = ["ab\\"];
-    const text = boundedJson({ k: 'ab"' }, values);
+    // The value `abcdefgh\` shows only in the escaped text (`"abcdefgh\""`): redacting it there would leave `"[redacted]""`.
+    // (At least 8 characters: the vault refuses a shorter value.)
+    const values = ["abcdefgh\\"];
+    const text = boundedJson({ k: 'abcdefgh"' }, values);
     expect(() => JSON.parse(text)).not.toThrow();
-    expect(text).not.toContain("ab\\\\");
+    expect(text).not.toContain("abcdefgh\\\\");
     expect(JSON.parse(text)).toMatchObject({ redacted: true });
   });
 

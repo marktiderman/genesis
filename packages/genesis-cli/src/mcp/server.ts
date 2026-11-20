@@ -33,7 +33,7 @@ import { applyPlan, FixError, planFix, sha256, StalePlanError } from "../fix/eng
 import { allFixes, type BuiltinDeps } from "../fix/registry.js";
 import type { Fix, FixContext, FixPlan } from "../fix/types.js";
 import { distance, readUpgradeStatus, type RegistryDeps } from "../upgrade/registry.js";
-import { boundedJson, clip, hasSecretLiteral, scrub, scrubStream, scrubValues, secretValues, showInvisible } from "./bounds.js";
+import { boundedJson, clip, hasSecretLiteral, scrub, scrubStream, secretValues, secretVault, showInvisible, type Secrets } from "./bounds.js";
 import { guardChildStdio } from "./stdio.js";
 import { boundedPlan, catalogSearch, cliPackageDir, explainRule, findingsReport, resolveFixTarget, slimFinding, ToolInputError, type FixTarget } from "./doctor.js";
 import {
@@ -215,11 +215,13 @@ export function createGenesisMcpServer(options: GenesisMcpOptions): Server {
     }
   };
 
+  /** The environment's secret values, in a vault: read afresh each time, as the catalogue may change. */
+  const vault = () => secretVault(secretValues(env, declaredSecretNames()));
   /** Scrub, then clip: a clip first could cut a secret in half and leave its start unredacted. */
-  const sc = (text: string, max?: number) => clip(scrub(text, secretValues(env, declaredSecretNames())), max);
+  const sc = (text: string, max?: number) => clip(scrub(text, vault()), max);
   const scrubber = () => {
-    const values = secretValues(env, declaredSecretNames());
-    return (text: string) => scrub(text, values);
+    const secrets = vault();
+    return (text: string) => scrub(text, secrets);
   };
 
   /** The command the person runs to apply this plan themselves, or what to do by hand. */
@@ -293,7 +295,7 @@ export function createGenesisMcpServer(options: GenesisMcpOptions): Server {
       `Plan ${plan.hash.slice(0, 12)}. Nothing is written unless you approve; a plan that changed since is refused.`,
     ].join("\n");
     if (message.length > MAX_APPROVAL_CHARS) return { refused: `the plan is too large to show whole for approval (${message.length} characters)` };
-    if (scrubValues(message, secretValues(env, declaredSecretNames())) !== message) return { refused: "the plan holds the value of a secret from the environment; a secret is never written by an agent" };
+    if (vault().redact(message) !== message) return { refused: "the plan holds the value of a secret from the environment; a secret is never written by an agent" };
     if (hasSecretLiteral(message)) return { refused: "the plan holds text shaped like a secret (a private key block or a provider token), which an approval would have to hide" };
     return { message: showInvisible(message) };
   };
@@ -545,15 +547,14 @@ export function createGenesisMcpServer(options: GenesisMcpOptions): Server {
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const tool = byName.get(request.params.name);
     if (!tool) throw new McpError(ErrorCode.InvalidParams, `no tool "${clip(request.params.name, 100)}" (tools/list has them)`);
-    const values = () => secretValues(env, declaredSecretNames());
     const started = Date.now();
     try {
       const args = checkArgs(tool, (request.params.arguments ?? {}) as Record<string, unknown>);
       const value = await tool.run(args);
       log(`genesis mcp: ${tool.name} (${Date.now() - started} ms)`);
-      return { content: [{ type: "text" as const, text: boundedJson(value, values()) }] };
+      return { content: [{ type: "text" as const, text: boundedJson(value, vault()) }] };
     } catch (err) {
-      const e = toMcpError(err, tool.name, values());
+      const e = toMcpError(err, tool.name, vault());
       log(`genesis mcp: ${tool.name} failed: ${e.message}`);
       throw e;
     }
@@ -563,8 +564,9 @@ export function createGenesisMcpServer(options: GenesisMcpOptions): Server {
 }
 
 /** Any failure as an MCP error: a message (scrubbed, bounded), never a stack. */
-export function toMcpError(err: unknown, tool: string, values: readonly string[]): McpError {
-  const message = (text: string) => clip(scrub(text, values), 2_000);
+export function toMcpError(err: unknown, tool: string, secrets: Secrets): McpError {
+  const vault = secretVault(secrets);
+  const message = (text: string) => clip(scrub(text, vault), 2_000);
   // McpError's constructor prefixes "MCP error <code>: "; strip every one so a re-thrown error doesn't stack them.
   if (err instanceof McpError) return new McpError(err.code, message(err.message.replace(/^(?:MCP error -?\d+: )+/, "")));
   const raw = err instanceof Error ? err.message : String(err);
@@ -593,7 +595,7 @@ export async function runMcpStdio(options: GenesisMcpOptions): Promise<Server> {
   } catch {
     declared = [];
   }
-  scrubStream(process.stderr, secretValues(options.env ?? process.env, declared));
+  scrubStream(process.stderr, secretVault(secretValues(options.env ?? process.env, declared)));
   stdout.write = ((chunk: unknown, ...rest: unknown[]) => (process.stderr.write as (...a: unknown[]) => boolean)(chunk, ...rest)) as typeof stdout.write;
   // A child that inherits the terminal would write to fd 1: route its stdout to stderr, its stdin away.
   guardChildStdio();
