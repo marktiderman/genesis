@@ -92,7 +92,7 @@ export const supabaseLink: StepRunner = {
     const migrations = localMigrations(ctx.root);
     if (migrations.length && supabaseLinked(ctx.root)) {
       const dry = await supabase(ctx, ["db", "push", "--dry-run"]).catch((err: Error) => ({ code: 1, stdout: "", stderr: err.message }));
-      lines.push("", `supabase db push --dry-run (against ${printable(linkedRef(ctx.root))}, the project linked now):`, ...printable(`${dry.stdout}${dry.stderr}`.trim()).split("\n").slice(-20));
+      lines.push("", `supabase db push --dry-run (against ${printable(linkedRef(ctx.root))}, the project linked now):`, ...`${dry.stdout}${dry.stderr}`.trim().split("\n").slice(-20).map(printable));
     } else if (migrations.length) {
       // A first link: supabase can't compare with a database it isn't linked to yet.
       lines.push("", `No dry run: the app isn't linked yet, so supabase can't say which of its ${migrations.length} migration${migrations.length === 1 ? "" : "s"} the database already has. db push applies each one it doesn't have, from this list (the plan names them too):`, ...migrations.map((m) => `  ${m.file}`));

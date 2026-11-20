@@ -197,9 +197,10 @@ export async function request(ctx: StepContext, url: string, init: { method?: st
 }
 
 /**
- * Remote text made safe to print at a terminal: ANSI and OSC escape sequences and every other
- * control character removed (a tab becomes a space), so a project name or a DNS record can't move
- * the cursor, retitle the window or hide a line.
+ * One line of remote text made safe to print at a terminal: ANSI and OSC escape sequences, every
+ * other control character (newlines too: split lines first), bidi controls and zero-width
+ * characters removed (a tab becomes a space), so a project name or a DNS record can't move the
+ * cursor, retitle the window, hide a line or reorder what it shows.
  */
 export function printable(text: unknown): string {
   if (typeof text !== "string") return "";
@@ -208,7 +209,7 @@ export function printable(text: unknown): string {
     .replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, "") // CSI (colours, cursor)
     .replace(/\u009b[0-?]*[ -/]*[@-~]/g, "") // 8-bit CSI
     .replace(/\t/g, " ")
-    .replace(/[\u0000-\u001f\u007f-\u009f]/g, "");
+    .replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2066-\u2069]/g, "");
 }
 
 /** The verify answer when the network is off. */

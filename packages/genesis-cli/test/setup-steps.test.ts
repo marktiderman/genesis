@@ -167,6 +167,13 @@ describe("supabase.link", () => {
     expect((await planFix(fix, { root, findings: [] })).commands.find((c) => c.args[1] === "push")!.why).toMatch(/no dry run/);
   });
 
+  it("shows the dry run line by line, each line stripped of control characters", async () => {
+    const root = app({ "supabase/migrations/20260101000000_init.sql": "select 1;" });
+    const { run } = tools({ "supabase projects list": { stdout: "[]" }, "supabase db push --dry-run": { stdout: "Would push these migrations:\n \u001b[1m• 20260101000000_init.sql\u001b[0m\n" } });
+    const detected = await runnerFor("supabase.link")!.detect!({ root, fields: {}, run, fetch: web({}).fetch, network: true });
+    expect(detected.slice(-2)).toEqual(["Would push these migrations:", " • 20260101000000_init.sql"]);
+  });
+
   it("isn't verified when the app is linked to another project than the one typed in", async () => {
     const root = app();
     const { run } = tools();
@@ -180,6 +187,7 @@ describe("supabase.link", () => {
     const detected = await runnerFor("supabase.link")!.detect!({ root, fields: {}, run, fetch: web({}).fetch, network: true });
     expect(detected[0]).toBe("abcdefghijklmnopqrst  appx (us-east)");
     expect(printable("a\u009b31mb\tc\r\n")).toBe("ab c");
+    expect(printable("x\u202eevil\u202c\u2066y\u2069\u200bz\u200f")).toBe("xevilyz");
   });
 
   it("reads pending migrations from the migration list", () => {
@@ -351,7 +359,7 @@ describe("a long secret (1,520 characters)", () => {
     expect(LONG).toHaveLength(1520);
     const vault = new SecretVault();
     vault.set("ANTHROPIC_API_KEY", LONG);
-    const text = `a ${LONG} b ${JSON.stringify(LONG)} c ${LONG.replace(/\//g, "\\/")} d ${LONG.replace(/A/g, "\\u0041")}`;
+    const text = `a ${LONG} b ${JSON.stringify(LONG)} c ${LONG.split("/").join("\\/")} d ${LONG.replace(/A/g, "\\u0041")}`;
     expect(() => vault.redact(text)).not.toThrow();
     expect(vault.redact(text)).toBe('a [redacted] b "[redacted]" c [redacted] d [redacted]');
   });
@@ -377,6 +385,20 @@ describe("a long secret (1,520 characters)", () => {
     expect(code).toBe(0);
     expect(calls[0]!.stdin).toContain(LONG);
     expect(leaks(out.join("\n"))).toBe(false);
+  });
+
+  it("stays linear when the value and the text share long runs of one character", () => {
+    const vault = new SecretVault();
+    vault.set("RUN_KEY", "a".repeat(4096));
+    const near = new SecretVault();
+    near.set("NEAR_KEY", `${"a".repeat(4095)}b`);
+    const started = performance.now();
+    expect(vault.redact("a".repeat(40_960))).toBe("[redacted]".repeat(10));
+    expect(vault.redact(`${"a".repeat(40_960)}\\n`)).toBe(`${"[redacted]".repeat(10)}\\n`);
+    expect(near.redact("a".repeat(40_000))).toBe("a".repeat(40_000));
+    expect(near.redact(`\\n${"a".repeat(40_000)}`)).toBe(`\\n${"a".repeat(40_000)}`);
+    expect(near.redact(`${"a".repeat(40_000)}\\n`)).toBe(`${"a".repeat(40_000)}\\n`);
+    expect(performance.now() - started).toBeLessThan(1000);
   });
 
   it("is refused past the cap, without the value in the error", () => {
