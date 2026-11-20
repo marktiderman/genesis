@@ -164,6 +164,28 @@ describe("createSupport with settings", () => {
     expect(Row({ copy: () => undefined })).toBeNull();
   });
 
+  it("sends no dump while a settings function has never answered, and keeps the last answer after", () => {
+    let fails = true;
+    let values: Record<string, unknown> = {};
+    const read = () => {
+      if (fails) throw new Error("not loaded");
+      return values;
+    };
+    const diagnostics = createDiagnostics({ app: { id: "acme" }, transport: { name: "x", send: async () => ({ id: "1", shortId: "1" }) }, appSettings: read });
+    const { block } = make(read, { diagnostics });
+    expect(block.diagnostics).toBeNull();
+    expect(diagnostics.enabled).toBe(false);
+    fails = false;
+    expect(block.diagnostics).toBe(diagnostics);
+    expect(diagnostics.enabled).toBe(true);
+    values = { "diagnostics.enabled": false };
+    expect(block.diagnostics).toBeNull();
+    expect(diagnostics.enabled).toBe(false);
+    fails = true;
+    expect(block.diagnostics).toBeNull();
+    expect(diagnostics.enabled).toBe(false);
+  });
+
   it("reads diagnostics.* when a dump would go, not once at creation", () => {
     let values: Record<string, unknown> = { "diagnostics.enabled": false, "diagnostics.dumpOnFeedback": false };
     const diagnostics = createDiagnostics({ app: { id: "acme" }, transport: { name: "x", send: async () => ({ id: "1", shortId: "1" }) }, appSettings: () => values });

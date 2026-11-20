@@ -123,8 +123,9 @@ export const LIMITS = { title: 300, body: 20000, route: 2000, appVersion: 200, t
 
 /**
  * A path segment that names someone or something private: an email, a UUID, a number, a phone
- * number, a token or a short code. A name written as a slug (`jane-doe`) reads like any word and
- * isn't caught: keep names out of paths.
+ * number, a card or account number, a token or a short code. It is judged after percent-decoding,
+ * so `%20` and `+` separators don't hide a number. A name written as a slug (`jane-doe`) reads like
+ * any word and isn't caught: keep names out of paths.
  */
 function privateSegment(segment: string): string | null {
   let s = segment;
@@ -133,43 +134,60 @@ function privateSegment(segment: string): string | null {
   } catch {
     // a malformed escape: judge it as written
   }
+  s = s.trim();
   if (s.includes("@")) return ":email";
   if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)) return ":id";
   if (/^\d+$/.test(s)) return ":id";
-  // A phone number: `+15555550101`, `+44-20-7946-0958`.
-  if (/^\+\d[\d().\s-]{5,}$/.test(s)) return ":phone";
+  if (/^tel:/i.test(s)) return ":phone";
+  const digits = (s.match(/\d/g) ?? []).length;
+  // Digits and separators only: a phone number (`555-555-0101`, `(555) 555-0101`, `+44 20 7946
+  // 0958`), a card or account number in groups (`4111 1111 1111 1111`, `4111+1111+…`) or an SSN
+  // (`123-45-6789`). A date (`2024-11-19`) and short numbers (`1.4.0`) stay.
+  if (/^[\d().\s+-]+$/.test(s) && digits >= 7) {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+    if (s.startsWith("+")) return ":phone";
+    return digits >= 13 ? ":token" : /^\d{3}-\d{2}-\d{4}$/.test(s) ? ":id" : ":phone";
+  }
   // A short code (an invite, a coupon): 6 to 12 letters and digits with no separator, the two
   // interleaved (`ab12cd`, `x7k9q2`). A slug that ends in a number (`round42`, `ios17-setup`,
   // `top-10-tips-2024`) switches once or has separators, and stays.
   if (/^[A-Za-z0-9]{6,12}$/.test(s) && (s.match(/[A-Za-z](?=\d)|\d(?=[A-Za-z])/g) ?? []).length >= 2) return ":token";
   // A slug: words and numbers joined by `-` (`top-10-tips-2024`), each part all letters or all
-  // digits. A token's parts mix them. Two shapes look like slugs and aren't: a long run of digits
-  // (`card-4111111111111111`: a card, an account, a phone) and a grouped code, three or more parts
-  // of one length with both letters and digits (`ABCD-EFGH-1234-5678`).
+  // digits. A token's parts mix them. Three shapes look like slugs and aren't: 9 or more digits in
+  // all (`card-4111-1111-1111-1111`, `call-555-555-0101`: a card, an account, a phone; a date
+  // `release-2024-11-19` has 8), a long run of digits in one part (`acct-12345678`), and a grouped
+  // code, three or more parts of one length with both letters and digits (`ABCD-EFGH-1234-5678`).
   if (/^[A-Za-z]+(?:-(?:[A-Za-z]+|\d+))+$/.test(s)) {
     const parts = s.split("-");
-    if (parts.some((part) => /^\d{7,}$/.test(part))) return ":token";
+    if (digits >= 9 || parts.some((part) => /^\d{7,}$/.test(part))) return ":token";
     const width = parts[0]?.length ?? 0;
     const grouped = parts.length >= 3 && width >= 3 && parts.every((part) => part.length === width);
     if (grouped && parts.some((part) => /^\d+$/.test(part))) return ":token";
     return null;
   }
+  // Letters and digits in spaced or `+`-joined groups: an IBAN (`DE89 3704 0044 0532 0130 00`).
+  if (/[\s+]/.test(s) && digits >= 9 && /^[A-Za-z0-9\s+.-]+$/.test(s)) return ":token";
+  // Base64 with its padding (`dG9rZW4xMjM0NQ==`).
+  if (/^[A-Za-z0-9+/_-]{8,}={1,2}$/.test(s)) return ":token";
   // A long run of letters and digits with a digit in it reads as a token or a code, not a word.
-  if (s.length >= 16 && /\d/.test(s) && /^[A-Za-z0-9_.~-]+$/.test(s)) return ":token";
+  if (s.length >= 16 && /\d/.test(s) && /^[A-Za-z0-9_.~+=-]+$/.test(s)) return ":token";
   return null;
 }
 
+/** Where the path ends: a `?` or `#`, written or percent-encoded (`%3F`, `%23`). */
+const PATH_END = /[?#]|%3[fF]|%23/;
+
 /**
  * A route as a path only, safe to store and send: the query string and
- * fragment (tokens, codes, emails) are dropped, and path segments that look
- * private (an email, an id, a phone number, a token or short code) become `:email`, `:id`,
- * `:phone` or `:token`
+ * fragment (tokens, codes, emails), written or percent-encoded, are dropped, and path segments
+ * that look private (an email, an id, a phone or card number, a token or short code) become
+ * `:email`, `:id`, `:phone` or `:token`
  * (`/users/jane@x.test/reset/abc123…` → `/users/:email/reset/:token`).
  */
 export function cleanRoute(route: string | null | undefined): string | undefined {
   if (typeof route !== "string") return undefined;
-  // A plain search, not a regex: `[?#].*$` retries at every `#` and goes quadratic on `###…`.
-  const cut = route.search(/[?#]/);
+  // A plain search, not a regex over the rest: `[?#].*$` retries at every `#` and goes quadratic on `###…`.
+  const cut = route.search(PATH_END);
   const path = (cut === -1 ? route : route.slice(0, cut)).trim();
   if (!path) return undefined;
   const safe = path

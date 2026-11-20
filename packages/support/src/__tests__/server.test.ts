@@ -34,6 +34,10 @@ function memoryStore() {
     saveReport: async (input) => (reports.push(input), { id: input.report.id }),
     saveFeedback: async (input) => (feedback.push(input), { id: TICKET }),
     attachFile: async (file) => void files.push(file),
+    linkDiagnostics: async ({ feedbackId, diagnosticsId }) => {
+      const saved = feedback.find((f) => f.feedback && feedbackId === TICKET);
+      if (saved) saved.feedback = { ...saved.feedback, diagnosticsId };
+    },
   };
   return { store, reports, feedback, files };
 }
@@ -245,6 +249,26 @@ describe("createDiagnosticsHandler: settings", () => {
     expect((await handle(post(JSON.stringify(dump())))).status).toBe(201);
   });
 
+  it("takes no dumps while a settings function has never answered (fails closed)", async () => {
+    let t = 0;
+    let fails = true;
+    const handle = createDiagnosticsHandler({
+      authenticate: auth,
+      store: memoryStore().store,
+      appSettings: async () => {
+        if (fails) throw new Error("db down");
+        return {};
+      },
+      settingsCacheMs: 0,
+      now: () => t,
+      onError: () => {},
+    });
+    expect((await handle(post(JSON.stringify(dump())))).status).toBe(403);
+    fails = false;
+    t = 1;
+    expect((await handle(post(JSON.stringify(dump())))).status).toBe(201);
+  });
+
   it("keeps the last values when the settings function fails", async () => {
     let fails = false;
     let t = 0;
@@ -265,8 +289,8 @@ describe("createDiagnosticsHandler: settings", () => {
     expect((await handle(post(JSON.stringify(dump())))).status).toBe(403);
   });
 
-  it("names no dump in the notification when the store refused the dump brought with the feedback", async () => {
-    const { store } = memoryStore();
+  it("names no dump, on the feedback or in the notification, when the store refused the dump brought with it", async () => {
+    const { store, feedback } = memoryStore();
     const events: SupportEvent[] = [];
     const handle = createDiagnosticsHandler({
       authenticate: auth,
@@ -275,6 +299,7 @@ describe("createDiagnosticsHandler: settings", () => {
       onError: () => {},
     });
     expect((await handle(feedbackWithDump())).status).toBe(201);
+    expect(feedback[0]?.feedback.diagnosticsId).toBeNull();
     expect(events[0]).toMatchObject({ kind: "feedback", diagnosticsId: null, diagnosticsShortId: null });
   });
 
@@ -555,6 +580,14 @@ describe("supabaseDiagnosticsStore", () => {
     expect(arg(calls[0], "insert")).toMatchObject({ id: ID, user_id: USER, feedback_id: TICKET, trigger: "manual" });
     const limited = fakeSupabase({ respond: () => ({ data: null, error: { message: "too many", code: "GS429" } }) }).client;
     await expect(supabaseDiagnosticsStore(limited).saveReport({ report: dump(), userId: USER, feedbackId: null })).rejects.toMatchObject({ status: 429 });
+  });
+
+  it("names a stored dump on its ticket, keeping the ticket's context", async () => {
+    const { client, calls } = fakeSupabase({ respond: (call) => (arg(call, "update") === undefined ? { data: { context: { a: 1 } }, error: null } : { data: null, error: null }) });
+    await supabaseDiagnosticsStore(client).linkDiagnostics!({ feedbackId: TICKET, diagnosticsId: ID, userId: USER });
+    const update = calls.find((c) => arg(c, "update") !== undefined);
+    expect(update?.table).toBe("tickets");
+    expect(arg(update, "update")).toEqual({ context: { a: 1, diagnosticsId: ID } });
   });
 
   it("writes feedback as a ticket with the dump's id in its context", async () => {

@@ -30,6 +30,9 @@ $$;
 
 revoke execute on function private.genesis_support_setting_int(text, integer, integer, integer) from public, anon, authenticated;
 
+-- Adding the check takes a brief exclusive lock: don't queue behind a long transaction (and block
+-- every dump behind this one); fail after 5 seconds instead, and run the migration again.
+set local lock_timeout = '5s';
 alter table public.support_diagnostics
   add constraint support_diagnostics_report_schema
   check (report ->> 'schema' is not distinct from 'genesis.diagnostics/1') not valid;
