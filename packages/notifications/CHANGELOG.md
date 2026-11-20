@@ -1,5 +1,20 @@
 # @marktiderman/genesis-notifications
 
+## 0.4.5
+
+### Patch Changes
+
+- 4b7af48: Depends on `@marktiderman/genesis-config` (the new name of `@marktiderman/genesis-features`)
+  instead of genesis-features. No change to what the package exports. `@marktiderman/genesis/features`
+  now re-exports genesis-config.
+- Updated dependencies [818908b]
+- Updated dependencies [4b7af48]
+- Updated dependencies [f4e39b1]
+- Updated dependencies [6c40ccc]
+- Updated dependencies [95bab84]
+- Updated dependencies [71cb0e2]
+  - @marktiderman/genesis-config@0.11.0
+
 ## 0.4.4
 
 ### Patch Changes

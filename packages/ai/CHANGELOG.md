@@ -1,5 +1,11 @@
 # @marktiderman/genesis-ai
 
+## 0.3.1
+
+### Patch Changes
+
+- bed8811: A doc comment names genesis-config, the new name of genesis-features. No change to the API.
+
 ## 0.3.0
 
 ### Minor Changes
