@@ -41,9 +41,26 @@ GitHub sink's `githubRepo` and `githubIssueDetail`, `webhookUrl`, `contactEmail`
 `sendFromSettings`, `offlineQueue`, `maxBytes`, `perHour`, `retentionDays`) and `shake.*`
 (`enabled`, a person's own switch, and `threshold`, `jolts`, `windowMs`, `cooldownMs`). Each has a
 default per preset. Keys whose summary says **Planned** are declared, with their defaults, but no
-screen or function reads them yet (`messenger`, `agentDesk`, `helpCenter`, `aiAnswers`,
-`chatThreads`, `email`, `replyByEmail`, `desks`, `staffAlerts`, `githubRepo`, `githubIssueDetail`,
-`webhookUrl`, `contactEmail`, `contactUrl`): changing one changes nothing until it's wired.
+screen or function reads them yet (`aiAnswers`, `chatThreads`, and `email` as a channel switch):
+changing one changes nothing until it's wired. The rest are read where they apply:
+
+- `support.messenger`: `SupportMessenger` and its launcher (`settings`) show nothing when off; on
+  the phone `SupportRoute` leaves out the messenger's Home and new message.
+- `support.helpCenter`: the messenger leaves Help out; `SupportRoute` leaves out help and articles.
+- `support.agentDesk`: `SupportAgentInbox` says the agent desk is off; `SupportRoute` leaves out
+  `agent` and `agent/<id>`.
+- `support.desks`: migration 0024 (desks off is 0004's rule), and the desk card, picker and switch.
+- `support.staffAlerts`: migration 0025 (no `support.message` to staff), the notify Edge Function and
+  `supportNotifiersFromSettings` (no webhook).
+- `support.githubRepo`, `support.githubIssueDetail`, `support.webhookUrl`: the notify Edge Function
+  and `supportNotifiersFromSettings` (`/server`) when the environment doesn't set them; the
+  tokens and signing secrets stay in the environment.
+- `support.replyByEmail` (with `support.email`): `supportReplyConfig`, `supportEmailOptions` and
+  `handleSupportInbound`.
+- `support.contactEmail`, `support.contactUrl`: `supportContact(settings)`; the messenger's Help and
+  error states (`SupportContact`), the phone's help center (`SupportContactRow`), and
+  genesis-native's fatal screens through `contact: support.contact()`.
+
 `support.severity` is off by default: the form asks a bug's severity only when it is turned on (or
 `FeedbackPanel`'s `severity` prop says so).
 
@@ -157,6 +174,38 @@ route files, each a genesis-ui-native layout fed by a hook:
 
 The hooks return the layout's props plus `headerTitle` for `<Stack.Screen>`. Data is cached with
 TanStack Query under the `genesis-support` key root; leave it out of query persistence.
+
+**Every screen from one route file, in every zone** (`SupportRoute`). Instead of a file per
+screen, put two one-line files under `basePath`, and the same two under each other navigation
+zone's copy of it:
+
+```tsx
+// src/app/(tabs)/settings/support/index.tsx and src/app/(tabs)/settings/support/[...route].tsx
+// (and src/app/admin/settings/support/index.tsx, src/app/admin/settings/support/[...route].tsx, …)
+export { SupportRoute as default } from "@marktiderman/genesis-support/native";
+```
+
+```ts
+export const support = createSupport({
+  // …as above, plus:
+  zones: ["/admin", "/coach"], // the route prefixes of the app's other zones (each its own Stack)
+  router: { Screen: Stack.Screen, useSearchParams: useLocalSearchParams },
+});
+```
+
+`SupportRoute` reads the path, takes the zone off (`zoneOf`, `stripZone`), works out the screen
+(`supportScreenOf`: the inbox, `new`, a report's thread, `ideas`, `shipped`, the messenger's
+`home`, `message`, `help` and `help/<slug>`, and an agent's `agent` and `agent/<id>`) and renders
+Genesis's screen for it, with its header through `router.Screen`. Every link support opens
+(`navigate`) stays in the zone the person is in (`inZone`), so a screen opened from the admin zone
+opens its next screen there too. A screen of the app's own replaces one of Genesis's with
+`<SupportRoute screens={{ thread: MyThread }} />` (it gets `{ screen, params }`).
+
+*Moving from re-export files.* An app that copied each screen into every zone (`admin/…/support/
+ideas.tsx` re-exporting `(tabs)/…/support/ideas.tsx`, and so on) deletes those copies, and its own
+`zonePath` wrapper around `navigate`, and adds `zones` and `router` to `createSupport`. Its own
+screens that differ from Genesis's go in `screens`, once, rather than in each zone. Keep a file
+only for a route outside support that the zone needs.
 
 **Shake to report.** With an accelerometer, a shake (two strong jolts within a second, then a
 three second rest) captures the screen and opens the feedback screen with it. The screenshot is
@@ -769,6 +818,77 @@ Unassigned, All, Pending, Closed with counts, paged) and `useAgentThread(ticketI
 props: reply or internal note, status, take it / hand it back, the requester's name, email and
 tenants; it marks the ticket read). Query keys are `supportAgentKeys`.
 
+## Desks: each tenant's own help desk (migration 0024)
+
+`0024_genesis_support_desks.sql` (in the `support-helpdesk` block, after 0022) makes a tenant's
+help desk something its admins run, and lets a ticket move between desks:
+
+- **The switch.** `client.setDesk(tenantId, enabled, reason)` (its tenant admins only, never the
+  app's own desk, which is always on). A desk's row decides; without one, `tenant_features`'
+  `support-helpdesk` row does, as before. Every change is in its log (`client.deskHistory`).
+  `<SupportDeskSwitch client tenantId />` (`/web-chat`) is the switch for a tenant's settings.
+- **Routing.** A question sent to no tenant in particular, by someone who belongs to exactly one
+  tenant whose desk is on and handles no desk themselves, goes to that desk. The app can decide
+  instead with `private.genesis_support_desk_for(person uuid, ticket_type text) returns uuid`.
+- **Moving.** A handler sends a ticket up to the app's own desk (`client.escalateTicket`), the
+  app's desk hands it back to the desk that sent it up (`client.returnTicket`), or a handler moves
+  it to another desk its person belongs to (`client.moveTicket`, among `client.deskMoveTargets`).
+  The same ticket and thread; nobody has it at the new desk, it is unread there, and a pending one
+  opens again. Each move is logged; `client.ticketDesk(id)` says where it is and its last move.
+- **The inbox.** `client.myDesks()` lists the desks the signed-in person works; `chooseDesk`,
+  `pickerDesks`, `workedDesks` and `deskTenant` pick among them, and `<SupportDeskPicker>` is the
+  picker for someone who works more than one. `SupportAgentInbox`'s details panel shows
+  `SupportRequesterPanel` (name, email, tenants with the person's role there) and
+  `SupportDeskControls` (where it is, its last move, escalate / return / move with a reason);
+  turn them off with `requesterPanel={false}` / `deskControls={false}`, and `onTicketMoved` hears a
+  move. Roles come from `private.genesis_tenant_role(tenant uuid, person uuid) returns text`, else
+  `admin`, `agent` or `member`.
+- **The messenger across desks.** `<SupportMessenger allTenants>` (and the launcher) lists the
+  person's conversations at every desk; a new one still goes to `tenantId`, or where routing sends it.
+
+With the `support.desks` setting off (the `standard` and `min` presets) it is 0004 exactly:
+`tenant_features` alone decides, and nothing is switched, routed or moved.
+
+## Notifications: support.message, support.reply, support.verify (migration 0025)
+
+`0025_genesis_support_notifications.sql` (in the support block) tells people through
+genesis-notifications' `genesis_notify`, with no code of the app's own:
+
+- **`support.message`** to the ticket's desk's agents: a new ticket, the person writing again, a
+  ticket moved to the desk (`escalated`, `returned`, `moved`). Nobody else once someone who still
+  handles it has it (genesis-chat tells them). Only while `support.staffAlerts` is on. Whom it tells
+  is the app's `private.genesis_support_staff_to_notify(ticket uuid) returns uuid[]` when it has one
+  (the app answers for that list: it is used as given). Without it, the logins that are agents of the
+  ticket's tenant among (never a scan of every login, unless `support.agentListScan` is on):
+  - the tenant's `ticket_agents` rows, each person resolved to its login through the optional
+    `private.genesis_person_login(person uuid) returns uuid` (without it, the person id is the login,
+    as in zero config);
+  - for the app's own desk, `private.genesis_support_staff_list() returns setof uuid` (the app's
+    staff; a staff predicate alone can't be listed, so an app whose staff are only
+    `genesis_support_staff` names them here);
+  - `private.genesis_tenant_admin_list(tenant uuid) returns setof uuid`, the tenant's admins.
+  At most 200; never the ticket's own person or an anonymous login.
+- **`support.reply`** to the person when support answers (not on an email ticket, whose answers go
+  out as email already), one email per ticket however many replies.
+- **`support.verify`** to the person with the verify prompt.
+
+Add the types to the app's registry and sync them as every type is:
+
+```ts
+import { defineNotifications } from "@marktiderman/genesis-notifications";
+import { supportNotificationTypes } from "@marktiderman/genesis-support";
+
+const support = supportNotificationTypes({ basePath: "/support" });
+export const notifications = defineNotifications({ categories: { ...support.categories }, types: { ...support.types } });
+```
+
+Their links open the agent's ticket (`/support/agent/<id>`, with `?desk=` at a tenant's desk) and
+the person's thread; `agentUrl` and `personUrl` change them. `support.reply` offers no push while
+threads run on genesis-chat (`chatPushes: false` for an app without it). The emails:
+`supportEmailTemplates({ replies })` from `/email-notifications`, as the runner's `templates`, put the whole
+message in under a subject the ticket's emails share. A notification that can't be sent (no
+genesis-notifications, a type not synced) is a warning, never a failed ticket or message.
+
 ## Email tickets (the `support-email` block)
 
 Email is a ticket channel (ADR 0011). `genesis add support-email` copies
@@ -819,11 +939,40 @@ addresses never expire and are never made again.
 `claimsFromAddresses(ring, replyDomain, recipients)` reads it back from an inbound email (bare or
 `Name <address>`). **A valid token says who the email went to, not who answered:** the inbound route
 must check, when the reply arrives, that `userId` is still the ticket's requester or a handler, and
-that the sender is that login's email with SPF and DKIM passing. And
+that the sender is that login's email with DMARC passing (aligned with the From domain). And
 `stripReply(text, html)` keeps what the person wrote, without the quoted history, the
 `REPLY_MARKER` line or their signature. Auto-replies are already dropped by genesis-notifications'
-inbound router. Wiring these into the support notification emails is **Planned**
-(`support-email`).
+inbound router.
+
+**Wired end to end** (migration `0027_genesis_support_email_reply.sql`, in the support-email block,
+and `/email-notifications`, which imports genesis-notifications; `/email` doesn't):
+
+```ts
+import { supportEmailRoute } from "@marktiderman/genesis-support/email";
+import { handleSupportInbound, supportEmailOptions } from "@marktiderman/genesis-support/email-notifications";
+
+// POST /api/support/email-inbound (Resend's `email.received` webhook)
+export const POST = ({ request }: { request: Request }) =>
+  handleSupportInbound(request, { env: process.env, client: admin, settings, routes: [supportEmailRoute(admin, { addresses: ["support@acme.test"] })] });
+
+// The notifications job: support's templates, and each support email's own Reply-To
+createNotificationRunner({ store, registry, email: { provider, appName: "Acme", domains, ...supportEmailOptions({ env: process.env, provider, settings }) } });
+```
+
+- **Out.** `supportEmailOptions` gives `support.message` and `support.reply` emails their
+  recipient's signed address as Reply-To (`replyAddress`) and a References header naming the
+  ticket, through the runner's `providerFor`, and puts `REPLY_MARKER` at the top.
+- **In.** `supportReplyRoute` (inside `handleSupportInbound`) verifies the token, drops automatic
+  mail and senders the receiving server didn't authenticate (`senderAuthenticated`: DMARC, aligned
+  with the From domain; a From naming several addresses is no sender), strips the quote (`stripReply`: Gmail, Outlook and Apple Mail forms, signatures) and calls
+  `support_email_reply`, which posts it as the login the email went to: the ticket's person, or one
+  of its handlers (as support), only from that login's own address, once per Message-ID, at most 20 a
+  ticket an hour. A refusal is logged and dropped; a failure worth retrying makes Resend retry.
+- **Set-up.** `SUPPORT_REPLY_DOMAIN` (receiving through Resend, only for these replies; its MX at
+  Resend), `SUPPORT_REPLY_SIGNING_SECRET`, `RESEND_INBOUND_WEBHOOK_SECRET` and `RESEND_API_KEY` (a key
+  that reads received email). `supportReplyConfig(env, { settings })` says what is missing; until it
+  is all set, emails carry no reply address and the endpoint answers 503. The `support.replyByEmail`
+  setting (with `support.email`) turns it off. An app with earlier addresses passes `legacyLabel`.
 
 ## Access, in the database
 

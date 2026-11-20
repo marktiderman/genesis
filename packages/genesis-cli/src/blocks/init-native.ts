@@ -32,7 +32,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 
 import * as path from "node:path";
 import { catalogBlocks, CLI_PACKAGE } from "./discover.js";
 import { sha256 } from "./files.js";
-import { emptyLock, migrationKey, substitute, writeLock, type GenesisLock } from "./lock.js";
+import { emptyLock, LOCK_FILE, lockText, migrationKey, substitute, writeLock, type GenesisLock } from "./lock.js";
 import type { BlockManifest } from "./manifest.js";
 import { nextStamp, stemOf, MIGRATIONS_DIR, TESTS_DIR } from "./migrations.js";
 import { addThereLine, blocksMissingThere, isSupabasePath, orderForAdding } from "./database.js";
@@ -62,6 +62,11 @@ export interface InitNativeOptions {
   beside?: string;
   /** The Genesis release the CI callers pin (`GENESIS_SHA`); null or absent leaves the placeholder. */
   pin?: ReleasePin | null;
+  /**
+   * Write nothing: put every file it would write (genesis.lock.json included) here instead, by
+   * app-relative path. The setup wizard plans an init this way, and the fix engine writes it.
+   */
+  capture?: Map<string, string>;
 }
 
 export interface InitNativeResult {
@@ -162,7 +167,7 @@ export function initNative(options: InitNativeOptions): InitNativeResult {
   if (!SLUG.test(slug)) throw new Error(`"${slug}" isn't an app slug: lowercase letters, digits and -, starting with a letter.`);
   const bundleId = options.bundleId ?? `com.example.${slug.replace(/-/g, "")}`;
   const scheme = options.scheme ?? slug;
-  const display = options.displayName ?? slug.split("-").map((w) => w[0]!.toUpperCase() + w.slice(1)).join(" ");
+  const display = options.displayName ?? slug.split("-").filter(Boolean).map((w) => w[0]!.toUpperCase() + w.slice(1)).join(" ");
   if (!BUNDLE.test(bundleId)) throw new Error(`"${bundleId}" isn't a bundle id like com.example.app.`);
   if (!SCHEME.test(scheme)) throw new Error(`"${scheme}" isn't a URL scheme.`);
   if (/["\\\n]/.test(display)) throw new Error("The display name can't contain quotes, backslashes or new lines.");
@@ -304,13 +309,18 @@ export function initNative(options: InitNativeOptions): InitNativeResult {
         }
       }
     }
-    mkdirSync(target, { recursive: true });
-    for (const [rel, content] of [...files].sort(([a], [b]) => a.localeCompare(b))) {
-      const file = path.join(target, ...rel.split("/"));
-      mkdirSync(path.dirname(file), { recursive: true });
-      writeFileSync(file, content, { encoding: "utf8", flag: "wx" });
+    if (options.capture) {
+      for (const [rel, content] of [...files].sort(([a], [b]) => a.localeCompare(b))) options.capture.set(rel, content);
+      options.capture.set(LOCK_FILE, lockText(lock));
+    } else {
+      mkdirSync(target, { recursive: true });
+      for (const [rel, content] of [...files].sort(([a], [b]) => a.localeCompare(b))) {
+        const file = path.join(target, ...rel.split("/"));
+        mkdirSync(path.dirname(file), { recursive: true });
+        writeFileSync(file, content, { encoding: "utf8", flag: "wx" });
+      }
+      writeLock(target, lock);
     }
-    writeLock(target, lock);
     steps.push(
       ...(options.pin ? [] : ["Replace GENESIS_SHA in .github/workflows/*.yml with the commit of the Genesis release you run (genesis upgrade writes it from then on)."]),
       "Set up the release lane's secrets: EXPO_TOKEN in the GitHub environment production (docs/NATIVE-RELEASE.md, \"One-time setup\"); change the lane in genesis.config.json `release`.",

@@ -212,3 +212,29 @@ describe("PlainFatalScreen", () => {
     expect(retry).toHaveBeenCalled();
   });
 });
+
+describe("a support contact on the fatal screens", () => {
+  it("offers Contact support with a support page or an email, and nothing without one", async () => {
+    const { contactHref } = await import("../errors");
+    expect(contactHref({ url: "https://acme.test/help", email: "help@acme.test" })).toBe("https://acme.test/help");
+    expect(contactHref({ email: "help@acme.test" })).toBe("mailto:help@acme.test");
+    expect(contactHref({ url: "javascript:alert(1)" })).toBeNull();
+    expect(contactHref(null)).toBeNull();
+    render(<FatalScreen error={new Error("x")} retry={() => {}} kind="screen" contact={{ email: "help@acme.test" }} />);
+    expect(screen.getByTestId("genesis-screen-error-contact")).toBeTruthy();
+  });
+
+  it("shows no contact button when the app gives none", () => {
+    render(<FatalScreen error={new Error("x")} retry={() => {}} />);
+    expect(screen.queryByTestId("genesis-fatal-contact")).toBeNull();
+  });
+});
+
+describe("contactHref, after review", async () => {
+  const { contactHref } = await import("../errors");
+  it("needs a host for a page, and encodes the mailbox", () => {
+    expect(contactHref({ url: "https://", email: "help@acme.test" })).toBe("mailto:help@acme.test");
+    expect(contactHref({ email: "help?desk@acme.test" })).toBe("mailto:help%3Fdesk@acme.test");
+    expect(contactHref({ email: "!@!." + "!.".repeat(20000) })).toBeNull();
+  });
+});

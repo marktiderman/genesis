@@ -29,6 +29,10 @@ export interface SupportPaths {
   help: string;
   /** One article: `article(slug)`. */
   article: (slug: string) => string;
+  /** An agent's queues (the help desk, on the phone). */
+  agent: string;
+  /** One ticket, as an agent: `agentThread(id)`. */
+  agentThread: (id: string) => string;
 }
 
 export function supportPaths(basePath = "/support"): SupportPaths {
@@ -43,6 +47,8 @@ export function supportPaths(basePath = "/support"): SupportPaths {
     newMessage: `${base}/message`,
     help: `${base}/help`,
     article: (slug) => `${base}/help/${encodeURIComponent(slug)}`,
+    agent: `${base}/agent`,
+    agentThread: (id) => `${base}/agent/${encodeURIComponent(id)}`,
   };
 }
 
@@ -109,6 +115,8 @@ export function supportContributions(options: SupportBlockOptions = {}): BlockCo
       { package: "@marktiderman/genesis-support", file: "migrations/0019_genesis_support_diagnostics.sql", test: "migrations/tests/0019_genesis_support_diagnostics.test.sql" },
       // The dump's hourly limit and retention from the diagnostics.* settings.
       { package: "@marktiderman/genesis-support", file: "migrations/0020_genesis_support_settings.sql", test: "migrations/tests/0020_genesis_support_settings.test.sql" },
+      // support.message, support.reply and support.verify through genesis-notifications (support.staffAlerts).
+      { package: "@marktiderman/genesis-support", file: "migrations/0025_genesis_support_notifications.sql", test: "migrations/tests/0025_genesis_support_notifications.test.sql" },
       // A dump sent with a ticket is read by whoever handles that ticket; staff read only dumps with none.
       { package: "@marktiderman/genesis-support", file: "migrations/0026_genesis_support_diagnostics_access.sql", test: "migrations/tests/0026_genesis_support_diagnostics_access.test.sql" },
       // A whole number stored as 10.0 reads as 10 in the dump's settings readers.
@@ -191,6 +199,8 @@ export function defineSupportEmailBlock(options: { requires?: readonly string[] 
         // 0002 written for public.tickets and safe to re-run (apps that applied 0002 keep it), then tenancy.
         { package: "@marktiderman/genesis-support", file: "migrations/0007_genesis_support_email_on_tickets.sql", test: "migrations/tests/0002_genesis_support_email.test.sql" },
         { package: "@marktiderman/genesis-support", file: "migrations/0008_genesis_support_email_tenants.sql", test: "migrations/tests/0008_genesis_support_email_tenants.test.sql" },
+        // Reply by email: support_email_reply, as the login the email went to (the route is /email-notifications' supportReplyRoute).
+        { package: "@marktiderman/genesis-support", file: "migrations/0027_genesis_support_email_reply.sql", test: "migrations/tests/0027_genesis_support_email_reply.test.sql" },
       ],
       privacy: {
         notes: [
@@ -206,7 +216,8 @@ export const SUPPORT_HELPDESK_BLOCK_ID = "support-helpdesk" as const;
 
 /**
  * The support-helpdesk block: what a tenant's help desk adds to support and its chat threads. It
- * brings migration `0010_genesis_support_help_center.sql`. Its screens are components and hooks the
+ * brings migrations `0010_genesis_support_help_center.sql`, `0017_genesis_support_help_answers.sql`
+ * and `0024_genesis_support_desks.sql` (desks). Its screens are components and hooks the
  * app routes to: `SupportMessengerLauncher`, `SupportAgentInbox` and `SupportHelpCenterAdmin` on the
  * web (`/web-chat`), the messenger's hooks on the phone (`/native`).
  */
@@ -226,6 +237,8 @@ export function defineSupportHelpdeskBlock(options: { basePath?: string; require
         { package: "@marktiderman/genesis-support", file: "migrations/0010_genesis_support_help_center.sql", test: "migrations/tests/0010_genesis_support_help_center.test.sql" },
         // A question routed elsewhere keeps no answer.
         { package: "@marktiderman/genesis-support", file: "migrations/0017_genesis_support_help_answers.sql", test: "migrations/tests/0017_genesis_support_help_answers.test.sql" },
+        // Desks: each tenant's own help desk, switched on by its admins; escalate, return and move (after the chat block's 0022).
+        { package: "@marktiderman/genesis-support", file: "migrations/0024_genesis_support_desks.sql", test: "migrations/tests/0024_genesis_support_desks.test.sql" },
       ],
       privacy: {
         notes: ["With AI answers on, a question the person chooses to ask and its answer are kept with their account and readable by the tenant's agents, and the question and the tenant's published articles go to the AI vendor. People agree first, unless the app's terms cover it. A question the app's safety protocol routes elsewhere isn't kept."],

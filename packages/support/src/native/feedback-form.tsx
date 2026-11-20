@@ -13,6 +13,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { NativeButton, NativeLabel, NativeSegmentedControl, NativeSwitch, NativeText, NativeTextarea } from "@marktiderman/genesis-ui-native/components";
 import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
 import { SupportError } from "../client";
+import { isUnderPath, stripZone } from "../routes";
 import { FEEDBACK_TYPES, type FeedbackDelivery, type FeedbackRecord, type FeedbackType } from "../record";
 import { DiagnosticsSendError } from "../diagnostics/queue";
 import type { DiagnosticsDelivery } from "../diagnostics/create";
@@ -75,7 +76,7 @@ export function FeedbackForm({ defaultType = "bug", onSent, sentAlert = true, te
     try {
       const context = await block.collector.collect();
       // Where the person was when they asked for the form, never the form itself.
-      const route = origin?.route && !origin.route.startsWith(block.paths.inbox) ? origin.route : undefined;
+      const route = origin?.route && !isUnderPath(stripZone(origin.route, block.options.zones), block.paths.inbox) ? origin.route : undefined;
       if (route) context.route = route;
       else delete context.route;
       if (origin?.extra) context.extra = { ...context.extra, ...origin.extra };

@@ -15,7 +15,7 @@ const external: Options["external"] = [
 
 export default defineConfig([
   {
-    entry: { index: "src/index.ts", web: "src/web/index.ts", "web-chat": "src/web-chat/index.ts", "web-boards": "src/web-boards/index.ts", native: "src/native/index.ts", email: "src/email.ts", ai: "src/ai.ts", server: "src/server/index.ts" },
+    entry: { index: "src/index.ts", web: "src/web/index.ts", "web-chat": "src/web-chat/index.ts", "web-boards": "src/web-boards/index.ts", native: "src/native/index.ts", email: "src/email.ts", "email-notifications": "src/email-notifications.ts", ai: "src/ai.ts", server: "src/server/index.ts" },
     format: ["esm"],
     dts: true,
     sourcemap: true,

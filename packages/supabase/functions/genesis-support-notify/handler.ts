@@ -15,6 +15,11 @@
  *   - a webhook: SUPPORT_WEBHOOK_URL, the body signed with
  *     SUPPORT_WEBHOOK_SIGNING_SECRET as `x-genesis-signature: sha256=<hex>`.
  *
+ * Where GITHUB_REPO or SUPPORT_WEBHOOK_URL isn't set, the app's settings are read
+ * (`support.githubRepo`, `support.webhookUrl`, from genesis-config: a platform admin
+ * sets them in the app). The tokens and signing secrets stay secrets, here only. With
+ * `support.staffAlerts` off, no webhook is posted (a GitHub issue still is).
+ *
  * What leaves the database is the summary only: the report id, type, title,
  * message (cut to 2000 characters), route, app version, platform and time.
  * Never the person's id or email, the device or context bags, or a
@@ -46,6 +51,8 @@ export interface ReportSummary {
 
 export interface NotifyDeps {
   env: (name: string) => string | undefined;
+  /** The app's settings by full key (`settingsFromLayers` over `genesis_settings_layers`), read only when needed. */
+  settings?: () => Promise<Readonly<Record<string, unknown>>>;
   fetch: typeof fetch;
   log: (message: string) => void;
 }
@@ -123,6 +130,27 @@ export function issueBody(s: ReportSummary): string {
   );
 }
 
+/** The keys this function reads from the app's settings. */
+export const NOTIFY_SETTING_KEYS = ["support.githubRepo", "support.webhookUrl", "support.staffAlerts"] as const;
+
+/**
+ * Values by full key from `genesis_settings_layers()` (genesis-supabase 0020): a value the file
+ * locks, else the database layer's, else the file's. Only the keys asked for.
+ */
+export function settingsFromLayers(layers: unknown, keys: readonly string[] = NOTIFY_SETTING_KEYS): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (!layers || typeof layers !== "object") return out;
+  const { file, database } = layers as { file?: Record<string, unknown>; database?: Record<string, { value?: unknown }> };
+  for (const key of keys) {
+    const entry = file?.[key];
+    const locked = entry && typeof entry === "object" && !Array.isArray(entry) && Object.keys(entry).sort().join() === "locked,value" && (entry as { locked: unknown }).locked === true;
+    if (locked) out[key] = (entry as { value: unknown }).value;
+    else if (database && Object.prototype.hasOwnProperty.call(database, key)) out[key] = database[key]?.value;
+    else if (entry !== undefined) out[key] = entry && typeof entry === "object" && !Array.isArray(entry) && "value" in entry ? (entry as { value: unknown }).value : entry;
+  }
+  return out;
+}
+
 export async function handle(req: Request, deps: NotifyDeps): Promise<Response> {
   if (req.method !== "POST") return json(405, { error: "method_not_allowed" });
   const secret = deps.env("GENESIS_SUPPORT_WEBHOOK_SECRET") ?? "";
@@ -145,7 +173,21 @@ export async function handle(req: Request, deps: NotifyDeps): Promise<Response> 
   const sent: string[] = [];
   const failed: string[] = [];
 
-  const repo = deps.env("GITHUB_REPO");
+  let settings: Readonly<Record<string, unknown>> | null = null;
+  const setting = async (key: string): Promise<unknown> => {
+    if (!deps.settings) return undefined;
+    if (!settings) {
+      try {
+        settings = await deps.settings();
+      } catch {
+        deps.log("[genesis-support-notify] couldn't read the app's settings; using the environment only");
+        settings = {};
+      }
+    }
+    return settings[key];
+  };
+  const text = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : undefined);
+  const repo = deps.env("GITHUB_REPO") || text(await setting("support.githubRepo"));
   const token = deps.env("GITHUB_TOKEN");
   if (repo && token) {
     if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) {
@@ -166,8 +208,10 @@ export async function handle(req: Request, deps: NotifyDeps): Promise<Response> 
     }
   }
 
-  const hook = deps.env("SUPPORT_WEBHOOK_URL");
-  if (hook) {
+  const hook = deps.env("SUPPORT_WEBHOOK_URL") || text(await setting("support.webhookUrl"));
+  if (hook && (await setting("support.staffAlerts")) === false) {
+    deps.log("[genesis-support-notify] support.staffAlerts is off; no webhook");
+  } else if (hook) {
     if (!hook.startsWith("https://")) {
       deps.log("[genesis-support-notify] SUPPORT_WEBHOOK_URL must be https");
       failed.push("webhook");
