@@ -1,0 +1,321 @@
+packages/data/test-utils/setup.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 1-29
+packages/data/src/lib/form-config.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 1-35
+packages/studio-server/src/auth.cjs
+  s_ee1136e5d8692a::t_b1cb2ddc881b84 1-2
+docs/AI.md
+  s_ee1136e5d8692a::t_cb84e5a5037180 207,420
+packages/data-server/src/write.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 1-455
+packages/studio-server/src/auth.d.cts
+  s_ee1136e5d8692a::t_b1cb2ddc881b84 1-2
+packages/genesis-cli/src/doctor/api-usage.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 10
+  s_ee1136e5d8692a::t_91e305e355d0b3 113-114,116,118,138,145-146,155-156
+packages/data-server/src/cli.ts
+  s_ee1136e5d8692a::t_e5ac0e2100d330 1-24
+packages/data/figma/ViewsPanel.figma.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 1-11
+packages/studio/src/index.ts
+  s_ee1136e5d8692a::t_b1cb2ddc881b84 1-7
+.changeset/genesis-data-renamed.md
+  s_ee1136e5d8692a::t_f1db796c91e546 1-14
+.github/CODEOWNERS
+  s_ee1136e5d8692a::t_cb84e5a5037180 29-30
+packages/data/figma/ImportDialog.figma.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 1-11
+packages/ui/scripts/gen-exports.mjs
+  s_ee1136e5d8692a::t_cb84e5a5037180 228
+packages/studio-server/src/auth.ts
+  s_ee1136e5d8692a::t_b1cb2ddc881b84 2-5,7
+docs/PACKAGE-STRATEGY.md
+  s_ee1136e5d8692a::t_cb84e5a5037180 50,308
+packages/data/src/toolbar/ImportDialog.tsx
+  s_ee1136e5d8692a::t_cb84e5a5037180 1-192
+packages/genesis-cli/test/doctor-package-rules.test.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 506,508,512
+  s_ee1136e5d8692a::t_bc9de665b38ec6 501,504,515,518-519
+packages/genesis-cli/test/doctor-structure.test.ts
+  s_ee1136e5d8692a::t_8f4e94dd981854 311,318
+  s_ee1136e5d8692a::t_cb84e5a5037180 241-242,245,253-254,316,324,434,438,626,630-631
+apps/sample/studio/supabase-demo/supabase/config.toml
+  s_ee1136e5d8692a::t_cb84e5a5037180 1
+apps/sample/studio/vite-plugin.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 1,3,22
+packages/data-server/src/setup-sql.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 1-4,6-338
+  s_ee1136e5d8692a::t_e5ac0e2100d330 5
+packages/switchboard/src/types.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 57
+packages/studio/src/alias.test.ts
+  s_ee1136e5d8692a::t_b1cb2ddc881b84 1-12
+scripts/check-code-connect.mjs
+  s_ee1136e5d8692a::t_cb84e5a5037180 167-168
+apps/sample/README.md
+  s_ee1136e5d8692a::t_cb84e5a5037180 22,26,58
+docs/README.md
+  s_ee1136e5d8692a::t_cb84e5a5037180 54
+packages/studio/src/styles.css
+  s_ee1136e5d8692a::t_b1cb2ddc881b84 1-2
+packages/data/src/standalone.css
+  s_ee1136e5d8692a::t_cb84e5a5037180 1-96
+packages/studio-server/src/client.ts
+  s_ee1136e5d8692a::t_b1cb2ddc881b84 2,4-5,7
+packages/data/figma/ViewSwitch.figma.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 1-11
+apps/sample/app/routes/_index.tsx
+  s_ee1136e5d8692a::t_cb84e5a5037180 50
+apps/sample/app/routes/demo.tsx
+  s_ee1136e5d8692a::t_cb84e5a5037180 75
+packages/data/src/sheet/SheetView.tsx
+  s_ee1136e5d8692a::t_cb84e5a5037180 1-206
+packages/data-server/src/index.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 1-90
+docs/agents/RULES.md
+  s_ee1136e5d8692a::t_cb84e5a5037180 20
+packages/ui/tsup.config.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 69
+packages/studio/vitest.config.ts
+  s_ee1136e5d8692a::t_b1cb2ddc881b84 5
+packages/data/figma/BulkEditDialog.figma.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 1-11
+packages/data/src/index.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 1-49
+packages/data-server/src/handler.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 1-475
+packages/core/README.md
+  s_ee1136e5d8692a::t_cb84e5a5037180 230
+packages/studio-server/vitest.config.ts
+  s_ee1136e5d8692a::t_b1cb2ddc881b84 5
+figma.config.json
+  s_ee1136e5d8692a::t_cb84e5a5037180 13
+packages/data/figma/FieldIcon.figma.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 1-11
+apps/sample/app/routes/demo.$ws.data.tsx
+  s_ee1136e5d8692a::t_cb84e5a5037180 1,6,26
+docs/REFERENCES.md
+  s_ee1136e5d8692a::t_cb84e5a5037180 21,39,70
+packages/data/README.md
+  s_ee1136e5d8692a::t_f804b8d5d66010 41
+  s_ee1136e5d8692a::t_cb84e5a5037180 1-40,42-135
+packages/data/figma/KanbanView.figma.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 1-11
+packages/data-server/test/fixtures.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 1-421
+packages/studio/package.json
+  s_ee1136e5d8692a::t_b1cb2ddc881b84 9-10,14,47,52-54,68,70,77-78
+apps/genesis-rn-starter/supabase/tests/database/genesis_support_ticket_fixes.test.sql
+  s_ee1136e5d8692a::t_cb84e5a5037180 2,56
+packages/ui/src/components/data/__tests__/resource-page-capabilities.test.tsx
+  s_ee1136e5d8692a::t_cb84e5a5037180 3
+packages/switchboard/src/core-schema.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 3
+packages/studio/tsconfig.json
+  s_ee1136e5d8692a::t_b1cb2ddc881b84 4,6,11-13,15-16
+apps/sample/app/demo/tenants.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 40
+packages/genesis-cli/package.json
+  s_ee1136e5d8692a::t_cb84e5a5037180 6,91
+apps/sample/scripts/smoke-site.mjs
+  s_ee1136e5d8692a::t_cb84e5a5037180 113,157
+packages/data/figma/GroupPicker.figma.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 1-11
+apps/sample/conformance/allow.json
+  s_ee1136e5d8692a::t_cb84e5a5037180 439-440,826-827,904-905,982-983,1092-1093,1390-1391,1569-1570,1692-1693,2659-2660,3421-3422,4210-4211,5835-5836,11004-11005
+docs/RESOURCE-VIEW.md
+  s_ee1136e5d8692a::t_cb84e5a5037180 1437
+packages/core/src/schema/keys.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 2
+packages/studio/src/standalone.css
+  s_ee1136e5d8692a::t_b1cb2ddc881b84 1-2
+.github/workflows/code-connect.yml
+  s_ee1136e5d8692a::t_cb84e5a5037180 24,40
+packages/studio-server/package.json
+  s_ee1136e5d8692a::t_b1cb2ddc881b84 7-8,12,39,70,73,76,79,88-89,91-93
+packages/genesis-cli/README.md
+  s_ee1136e5d8692a::t_f804b8d5d66010 41
+  s_ee1136e5d8692a::t_cb84e5a5037180 68,956
+  s_ee1136e5d8692a::t_25bbe8dfbe8799 44-45,392
+packages/data/figma/FilterBuilder.figma.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 1-11
+docs/GLOSSARY.md
+  s_ee1136e5d8692a::t_cb84e5a5037180 67,92
+features.ts
+  s_ee1136e5d8692a::t_e00178c40cea8e 1654
+  s_ee1136e5d8692a::t_0826c8fb58fbb9 902
+  s_ee1136e5d8692a::t_cb84e5a5037180 674,885,1655,3401
+  s_ee1136e5d8692a::t_e5ac0e2100d330 891
+packages/data-server/src/auth-entry.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 1-25
+apps/sample/app/demo/features.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 30
+packages/data/package.json
+  s_ee1136e5d8692a::t_cb84e5a5037180 1-122
+packages/studio-server/src/alias.test.ts
+  s_ee1136e5d8692a::t_b1cb2ddc881b84 1-18
+docs/FORMS.md
+  s_ee1136e5d8692a::t_cb84e5a5037180 748,861
+apps/sample/app/routes/_layout.tsx
+  s_ee1136e5d8692a::t_cb84e5a5037180 34
+scripts/__tests__/check-code-connect.test.mjs
+  s_ee1136e5d8692a::t_cb84e5a5037180 429
+packages/data/src/DataStudio.tsx
+  s_ee1136e5d8692a::t_cb84e5a5037180 1-1133
+packages/studio-server/README.md
+  s_ee1136e5d8692a::t_b1cb2ddc881b84 1,3-4,6-9
+packages/studio-server/src/index.ts
+  s_ee1136e5d8692a::t_b1cb2ddc881b84 1-7
+packages/genesis-cli/test/doctor-api-usage.test.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 17-19,63-65,73,78-81,83-84
+packages/data/figma/NewRowButton.figma.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 1-11
+packages/data/src/router.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 1-150
+packages/data/figma/SheetView.figma.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 1-11
+docs/DATA.md
+  s_ee1136e5d8692a::t_d9fc910cee19a2 1-2,108-109
+  s_ee1136e5d8692a::t_f1db796c91e546 3-6
+  s_ee1136e5d8692a::t_f804b8d5d66010 9,34
+features.json
+  s_ee1136e5d8692a::t_cb84e5a5037180 1523,1996,2028,2034,3737,7810
+  s_ee1136e5d8692a::t_0826c8fb58fbb9 2007-2008,2029,3736
+packages/data/figma/Pill.figma.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 1-11
+packages/data-server/src/bulk.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 1-213
+scripts/__tests__/check-glossary.test.mjs
+  s_ee1136e5d8692a::t_cb84e5a5037180 14
+apps/sample/app/lib/site.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 52-53
+packages/data/src/styles.css
+  s_ee1136e5d8692a::t_cb84e5a5037180 1-12
+packages/studio/README.md
+  s_ee1136e5d8692a::t_b1cb2ddc881b84 1,3-4,6-9
+packages/studio/scripts/build.mjs
+  s_ee1136e5d8692a::t_b1cb2ddc881b84 1-30
+apps/sample/studio/supabase-demo/adopt.mjs
+  s_ee1136e5d8692a::t_cb84e5a5037180 2,12
+README.md
+  s_ee1136e5d8692a::t_cb84e5a5037180 62,160
+packages/data/figma/SortBuilder.figma.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 1-11
+packages/genesis-cli/src/cli.ts
+  s_ee1136e5d8692a::t_f804b8d5d66010 711-722,790-802
+  s_ee1136e5d8692a::t_cb84e5a5037180 786
+packages/data/figma/RelationPicker.figma.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 1-11
+scripts/gen-component-reference.mjs
+  s_ee1136e5d8692a::t_cb84e5a5037180 128-130,132,135-137,139
+packages/data/figma/ExportButton.figma.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 1-11
+packages/data-server/src/outbox.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 1-296
+apps/sample/app/app.css
+  s_ee1136e5d8692a::t_cb84e5a5037180 6
+packages/genesis-cli/src/doctor/stability.ts
+  s_ee1136e5d8692a::t_c554f69163a11e 110-116,146-150
+packages/ui/src/components/data/ResourcePage.tsx
+  s_ee1136e5d8692a::t_cb84e5a5037180 534
+packages/studio-server/tsconfig.json
+  s_ee1136e5d8692a::t_b1cb2ddc881b84 7,11-13,15
+apps/sample/app/routes/studio.tsx
+  s_ee1136e5d8692a::t_cb84e5a5037180 1,6-7,42,84
+packages/data/figma/TableTabs.figma.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 1-11
+packages/genesis-cli/src/studio/init.ts
+  s_ee1136e5d8692a::t_f804b8d5d66010 1,105,109,135,154,184,227,269,324
+  s_ee1136e5d8692a::t_cb84e5a5037180 7,58,61-62,104,136,157-159,183,186,229-231,281,328-330,346
+packages/support/README.md
+  s_ee1136e5d8692a::t_cb84e5a5037180 1216
+packages/studio-server/src/cli.mjs
+  s_ee1136e5d8692a::t_b1cb2ddc881b84 1-8
+packages/data/figma/SearchBox.figma.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 1-11
+packages/data/src/lib/form-schema.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 1-67
+packages/support/src/block.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 128
+apps/sample/app/demo/provider.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 3,23
+packages/data/figma/RecordPanel.figma.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 1-11
+docs/DESIGN-LIBRARY.md
+  s_ee1136e5d8692a::t_cb84e5a5037180 215
+packages/core/src/schema/write-outcome.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 2
+packages/data/figma/ActivityPanel.figma.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 1-11
+packages/data/figma/CalendarView.figma.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 1-11
+packages/ui/src/components/data/resource-view/ResourceSheet.tsx
+  s_ee1136e5d8692a::t_cb84e5a5037180 4
+packages/data/figma/HideFields.figma.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 1-11
+packages/core/src/schema/types.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 2,303
+packages/data-server/README.md
+  s_ee1136e5d8692a::t_f804b8d5d66010 27
+  s_ee1136e5d8692a::t_e5ac0e2100d330 81
+  s_ee1136e5d8692a::t_cb84e5a5037180 1-26,28-80,82-417
+packages/data-server/src/options.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 1-56,58-188
+  s_ee1136e5d8692a::t_e5ac0e2100d330 57
+packages/genesis-cli/test/studio-init.test.ts
+  s_ee1136e5d8692a::t_cb84e5a5037180 38,44,46,168,172,178
+apps/sample/studio/setup-db.mjs
+  s_ee1136e5d8692a::t_cb84e5a5037180 8,16
+packages/data-server/src/supabase.ts
+  s_ee1136e5d8692a::t_e5ac0e2100d330 14,33
+  s_ee1136e5d8692a::t_cb84e5a5037180 1-13,15-32,34-53
+packages/studio-server/scripts/build.mjs
+  s_ee1136e5d8692a::t_b1cb2ddc881b84 1-30
+apps/sample/package.json
+  s_ee1136e5d8692a::t_cb84e5a5037180 40-41
+packages/data-server/package.json
+  s_ee1136e5d8692a::t_cb84e5a5037180 1-40,42-129
+  s_ee1136e5d8692a::t_76023170987285 41
+pnpm-lock.yaml
+  s_ee1136e5d8692a::t_d4a91f0b0ebe6a 328-333,811-901,1405,1407,1827,1829,1832,1834,1836,1838,1841,1844,1856,1858-1864,1875-1877,1879-1880,1882,3915-3923,13965-13972
+packages/data-server/LICENSE
+  s_000ae622f96bfb::t_925b66751bde0b 1-21
+packages/data-server/src/auth.ts
+  s_000ae622f96bfb::t_23b0e0e305d824 1-141
+packages/data-server/src/client.ts
+  s_000ae622f96bfb::t_7c9f122a29d3e0 1-365
+packages/data-server/tsconfig.json
+  s_000ae622f96bfb::t_77b9539b3b97af 1-18
+packages/data-server/vitest.config.ts
+  s_000ae622f96bfb::t_9231d08d7d8936 1-13
+packages/data/LICENSE
+  s_000ae622f96bfb::t_9188bee06ff333 1-21
+packages/data/tsconfig.json
+  s_000ae622f96bfb::t_cdcb0051eb832b 1-15
+packages/data/vitest.config.ts
+  s_000ae622f96bfb::t_a1d750a7cfac9f 1-10
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "514b5686cc40d4177a2d3a856bff7ecdeeca281c",
+  "prompts": {},
+  "sessions": {
+    "s_000ae622f96bfb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-ada9823c781cd96d5",
+        "model": "unknown"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_ee1136e5d8692a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7ae1bc89-ab61-49a4-ad8e-066febd5d1ba",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
