@@ -151,6 +151,12 @@ export interface GenesisSettingsCopy {
   proposalsTitle: string;
   myProposalsTitle: string;
   proposalBy: (who: string, when: string) => string;
+  /** Whose request a proposal is: a tenant's (its id) or the person's own. */
+  proposalFor: (tenant: string | undefined) => string;
+  /** Said on every pending proposal a platform admin decides. */
+  approveWritesAppWide: string;
+  approveForTenant: string;
+  approveForTenantLabel: (key: string) => string;
   proposalStatus: Record<SettingsProposalEntry["status"], string>;
   approve: string;
   approveLabel: (key: string) => string;
@@ -258,8 +264,12 @@ export const GENESIS_SETTINGS_COPY: GenesisSettingsCopy = {
   proposalsTitle: "Proposals waiting for a decision",
   myProposalsTitle: "Your proposals",
   proposalBy: (who, when) => `${who} · ${when}`,
+  proposalFor: (tenant) => (tenant ? `Asked for tenant ${tenant}` : "Asked for themselves"),
+  approveWritesAppWide: "Approve for everyone writes the app-wide value: every tenant and person gets it unless they set their own.",
+  approveForTenant: "Approve for this tenant only",
+  approveForTenantLabel: (key) => `Approve the proposal for ${key} for the asking tenant only`,
   proposalStatus: { pending: "Waiting", approved: "Approved", declined: "Declined" },
-  approve: "Approve",
+  approve: "Approve for everyone",
   approveLabel: (key) => `Approve the proposal for ${key}`,
   decline: "Decline",
   declineLabel: (key) => `Decline the proposal for ${key}`,
@@ -643,12 +653,12 @@ function ProposalsSection({ state, caps, client, copy, testID, onChanged }: TabP
   const shown = platform ? proposals.filter((p) => p.status === "pending") : proposals;
   if (!shown.length) return null;
   const canDecide = platform && caps.writeDatabase && typeof client.decideProposal === "function";
-  const decide = async (p: SettingsProposalEntry, approve: boolean) => {
+  const decide = async (p: SettingsProposalEntry, approve: boolean, layer?: "tenant") => {
     if (!client.decideProposal) return;
     setBusy(p.id);
     setError(null);
     try {
-      await client.decideProposal({ id: p.id, approve });
+      await client.decideProposal({ id: p.id, approve, ...(layer ? { layer } : {}) });
       await onChanged();
     } catch (e) {
       setError(errorMessage(e));
@@ -680,7 +690,13 @@ function ProposalsSection({ state, caps, client, copy, testID, onChanged }: TabP
                 <span className="flex flex-col gap-0.5">
                   {p.reason ? <span className="whitespace-pre-wrap" data-testid={tid(rowId, "reason")}>{p.reason}</span> : null}
                   <span>{copy.proposalBy(p.proposedBy ?? "", copy.formatTime(p.proposedAt))}</span>
+                  <span data-testid={tid(rowId, "for")}>{copy.proposalFor(p.tenant)}</span>
                   {def(p.key)?.summary ? <span>{def(p.key)!.summary}</span> : null}
+                  {canDecide && p.status === "pending" ? (
+                    <span className="text-foreground" data-testid={tid(rowId, "app-wide")}>
+                      {copy.approveWritesAppWide}
+                    </span>
+                  ) : null}
                 </span>
               }
             >
@@ -689,6 +705,11 @@ function ProposalsSection({ state, caps, client, copy, testID, onChanged }: TabP
                   <Button size="sm" variant="outline" onClick={() => void decide(p, false)} disabled={busy !== null} aria-label={copy.declineLabel(p.key)} testID={tid(rowId, "decline")}>
                     {copy.decline}
                   </Button>
+                  {p.tenant && p.canApproveForTenant ? (
+                    <Button size="sm" variant="outline" onClick={() => void decide(p, true, "tenant")} disabled={busy !== null} aria-label={copy.approveForTenantLabel(p.key)} testID={tid(rowId, "approve-tenant")}>
+                      {copy.approveForTenant}
+                    </Button>
+                  ) : null}
                   <Button size="sm" onClick={() => void decide(p, true)} disabled={busy !== null} aria-label={copy.approveLabel(p.key)} testID={tid(rowId, "approve")}>
                     {copy.approve}
                   </Button>

@@ -297,6 +297,8 @@ describe("proposals on the wire", () => {
     expect(JSON.parse(fetchFn.mock.calls[0]![1].body)).toEqual({ v: SETTINGS_PROTOCOL_VERSION, op: "propose", key: "demo.seats", value: 40, reason: "We hired" });
     await client.decideProposal!({ id: "12", approve: false });
     expect(JSON.parse(fetchFn.mock.calls[1]![1].body)).toEqual({ v: SETTINGS_PROTOCOL_VERSION, op: "decideProposal", id: "12", approve: false });
+    await client.decideProposal!({ id: "12", approve: true, layer: "tenant" });
+    expect(JSON.parse(fetchFn.mock.calls[2]![1].body)).toEqual({ v: SETTINGS_PROTOCOL_VERSION, op: "decideProposal", id: "12", approve: true, layer: "tenant" });
   });
 
   it("refuses a proposal answer with neither a snippet nor an id", async () => {

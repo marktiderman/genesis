@@ -166,5 +166,27 @@ describe("GenesisSettings: the platform admin", () => {
       fireEvent.click(screen.getByTestId("genesis-settings-proposal-5-decline"));
     });
     expect(c.decideProposal).toHaveBeenLastCalledWith({ id: "5", approve: false });
+    // A person's own request: no tenant to approve it for alone.
+    expect(screen.getByTestId("genesis-settings-proposal-5-for").textContent).toBe("Asked for themselves");
+    expect(screen.queryByTestId("genesis-settings-proposal-5-approve-tenant")).toBeNull();
+  });
+
+  it("says whose request it is, that approving is app-wide, and approves for the asking tenant alone when allowed", async () => {
+    const TENANT_B = "00000000-0000-4000-9000-00000000000b";
+    const proposals: SettingsProposalEntry[] = [
+      { id: "6", key: "demo.banner", value: false, proposedBy: "ta@acme.test", tenant: TENANT, proposedAt: "2026-11-20T00:00:00Z", status: "pending", canApproveForTenant: true },
+      { id: "7", key: "demo.seats", value: 40, proposedBy: "tb@acme.test", tenant: TENANT_B, proposedAt: "2026-11-20T00:00:00Z", status: "pending" },
+    ];
+    const c = client(stateFor({ scope: "platform" }, proposals));
+    render(<GenesisSettings client={c} />);
+    await screen.findByTestId("genesis-settings-tab-values");
+    expect(screen.getByTestId("genesis-settings-proposal-6-for").textContent).toBe(`Asked for tenant ${TENANT}`);
+    expect(screen.getByTestId("genesis-settings-proposal-6-app-wide").textContent).toMatch(/app-wide value/);
+    // demo.seats is locked in the database layer: only an app-wide approval can change it.
+    expect(screen.queryByTestId("genesis-settings-proposal-7-approve-tenant")).toBeNull();
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("genesis-settings-proposal-6-approve-tenant"));
+    });
+    expect(c.decideProposal).toHaveBeenCalledWith({ id: "6", approve: true, layer: "tenant" });
   });
 });

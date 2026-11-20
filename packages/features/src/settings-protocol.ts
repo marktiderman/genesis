@@ -270,8 +270,9 @@ export interface SettingsViewer {
 export type SettingsProposalStatus = "pending" | "approved" | "declined";
 
 /**
- * A stored proposal for the database layer: who asked for which value and why. A platform admin
- * approves it (the value is written, as by `setValue`) or declines it.
+ * A stored proposal: who asked for which value and why, for their tenant (a tenant's admin) or for
+ * themselves. A platform admin approves it for everyone (the database layer, as by `setValue`),
+ * approves it for the asking tenant only (its layer, when `canApproveForTenant`), or declines it.
  *
  * @stability Beta
  */
@@ -283,9 +284,15 @@ export interface SettingsProposalEntry {
   reason?: string;
   /** Who proposed it: an email or a user id. */
   proposedBy?: string;
+  /** The tenant whose admin asked; absent when a person asked for themselves. */
+  tenant?: string;
   /** ISO time. */
   proposedAt: string;
   status: SettingsProposalStatus;
+  /** Approving for the asking tenant alone passes the tenant layer's checks now (its scope, no lock). */
+  canApproveForTenant?: boolean;
+  /** Where an approved proposal's value was written. */
+  approvedLayer?: "database" | "tenant";
   decidedBy?: string;
   decidedAt?: string;
 }
@@ -405,7 +412,7 @@ export type SettingsRequest =
   | { op: "upgrades"; refresh?: boolean }
   | { op: "audit"; cursor?: string; limit?: number; tenant?: string }
   | { op: "propose"; key: string; value: unknown; locked?: boolean; reason?: string; tenant?: string }
-  | { op: "decideProposal"; id: string; approve: boolean }
+  | { op: "decideProposal"; id: string; approve: boolean; layer?: "database" | "tenant" }
   | { op: "setSecret"; name: string; store: "vault"; value: string };
 
 /** A request on the wire. @stability Beta */
@@ -497,7 +504,7 @@ export interface SettingsClient {
   audit(params?: { cursor?: string; limit?: number; tenant?: string }): Promise<SettingsAuditPage>;
   propose(params: { key: string; value: unknown; locked?: boolean; reason?: string; tenant?: string }): Promise<SettingsProposal>;
   /** Approve (write the value) or decline a stored proposal. Platform admins. Optional: a host without proposals leaves it out. */
-  decideProposal?(params: { id: string; approve: boolean }): Promise<void>;
+  decideProposal?(params: { id: string; approve: boolean; layer?: "database" | "tenant" }): Promise<void>;
   /**
    * Set or rotate a Vault secret. Write-only: the host stores it and never returns it, and the
    * screen forgets it once sent. Optional: a host without it can't set secrets from the screen.
@@ -684,8 +691,8 @@ export function createSettingsClient(fetchFn: FetchLike, options: SettingsClient
       checkAnswer(typeof proposal.snippet === "string" || typeof proposal.id === "string" ? null : "snippet or id", "propose", m);
       return proposal;
     },
-    async decideProposal({ id, approve }) {
-      await call({ op: "decideProposal", id, approve });
+    async decideProposal({ id, approve, layer }) {
+      await call({ op: "decideProposal", id, approve, ...(layer !== undefined ? { layer } : {}) });
     },
     async setSecret({ name, value }) {
       await call({ op: "setSecret", name, store: "vault", value });

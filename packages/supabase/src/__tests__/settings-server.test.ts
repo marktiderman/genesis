@@ -15,6 +15,10 @@ const manifest = catalogueManifest(
       retention: { type: "number", default: 90, min: 7, max: 365, integer: true },
       region: { type: "string", default: "us", applies: "build" },
       banner: { type: "boolean", default: true, scope: "tenant" },
+      // A tenant key that requires an app key, which requires another: the slice needs both to resolve it.
+      promo: { type: "boolean", default: true, scope: "tenant", requires: ["demo.campaigns"] },
+      campaigns: { type: "boolean", default: true, requires: ["demo.marketing"] },
+      marketing: { type: "boolean", default: false },
       shake: { type: "boolean", default: true, scope: "person" },
       webhook: { type: "string", default: null, needs: "secret:DEMO_WEBHOOK", store: "vault" },
       github: { type: "string", default: null, needs: "secret:DEMO_GITHUB" },
@@ -35,11 +39,13 @@ interface Db {
   person: Record<string, unknown>;
   vault: Record<string, string>;
   rotations: Array<{ name: string; at: string }>;
-  proposals: Array<{ id: number; key: string; value: unknown; locked: boolean; reason: string | null; by: string; status: string }>;
+  proposals: Array<{ id: number; key: string; value: unknown; locked: boolean; reason: string | null; by: string; tenant: string | null; status: string; layer?: string }>;
   audit: Array<Record<string, unknown>>;
   reportedAt: string | null;
   catalogue: Record<string, unknown>;
   packages: Record<string, string>;
+  /** The stored value changes between apply's hash check and its clear (a concurrent write). */
+  valueChangesBeforeClear?: boolean;
   /** An RPC answers with this error once. */
   failNext?: { fn: string; error: { message: string; code: string } };
 }
@@ -83,8 +89,14 @@ function fakeSupabase(db: Db) {
         const tenantAdmin = me?.who === "tenantAdmin" && args.tenant === TENANT;
         switch (fn) {
           case "genesis_settings_viewer": {
+            // As 0024 does: the keys of the viewer's scope and every key they require, to any depth.
             const scope = admin ? null : tenantAdmin ? "tenant" : "person";
-            const catalogue = Object.fromEntries(Object.entries(db.catalogue).filter(([, e]) => scope === null || (e as { scope: string }).scope === scope));
+            const wanted = new Set(Object.keys(db.catalogue).filter((k) => scope === null || (db.catalogue[k] as { scope: string }).scope === scope));
+            for (let grew = true; grew; ) {
+              grew = false;
+              for (const k of [...wanted]) for (const r of ((db.catalogue[k] as { requires?: string[] }).requires ?? [])) if (r in db.catalogue && !wanted.has(r)) wanted.add(r), (grew = true);
+            }
+            const catalogue = Object.fromEntries([...wanted].map((k) => [k, db.catalogue[k]]));
             return ok({ platformAdmin: admin, tenantAdmin, preset: "max", reportedAt: db.reportedAt, catalogue, packages: admin ? db.packages : {} });
           }
           case "genesis_settings_layers":
@@ -105,6 +117,14 @@ function fakeSupabase(db: Db) {
             if (!admin) return refuse("clear_genesis_setting: only platform admins can change settings");
             delete db.database[args.key as string];
             return ok(null);
+          case "clear_genesis_setting_if": {
+            if (!admin) return refuse("clear_genesis_setting_if: only platform admins can change settings");
+            if (db.valueChangesBeforeClear) db.database[args.key as string] = { value: 4, locked: false };
+            const row = db.database[args.key as string];
+            if (!row || JSON.stringify(row.value) !== JSON.stringify(args.value) || row.locked !== args.locked) return ok(false);
+            delete db.database[args.key as string];
+            return ok(true);
+          }
           case "set_genesis_tenant_setting":
             if (!(me?.who === "tenantAdmin" && args.tenant === TENANT)) return refuse("set_genesis_tenant_setting: only the tenant's admins can change its settings");
             db.tenant[args.key as string] = args.value;
@@ -128,11 +148,17 @@ function fakeSupabase(db: Db) {
             return ok(
               db.proposals
                 .filter((p) => (admin && p.status === "pending") || p.by === me?.id)
-                .map((p) => ({ id: p.id, key: p.key, value: p.value, locked: p.locked, reason: p.reason, proposed_by: p.by, proposed_by_email: admin ? `${p.by}@example.test` : null, proposed_at: "2026-11-20T00:00:00Z", status: p.status, decided_by: null, decided_at: null })),
+                .map((p) => ({
+                  id: p.id, key: p.key, value: p.value, locked: p.locked, reason: p.reason, proposed_by: p.by, proposed_by_email: admin ? `${p.by}@example.test` : null,
+                  tenant_id: p.tenant, proposed_at: "2026-11-20T00:00:00Z", status: p.status, approved_layer: p.layer ?? null, decided_by: null, decided_at: null,
+                  // demo.banner isn't locked anywhere, so it may be approved for the asking tenant alone.
+                  tenant_layer_ok: p.status === "pending" && p.tenant !== null && p.key === "demo.banner",
+                })),
             );
           case "propose_genesis_setting": {
             const id = db.proposals.length + 1;
-            db.proposals.push({ id, key: args.key as string, value: args.value, locked: args.locked as boolean, reason: args.reason as string | null, by: me!.id, status: "pending" });
+            if (args.tenant !== null && !(me?.who === "tenantAdmin" && args.tenant === TENANT)) return refuse("propose_genesis_setting: only the tenant's admins propose for it");
+            db.proposals.push({ id, key: args.key as string, value: args.value, locked: args.locked as boolean, reason: args.reason as string | null, by: me!.id, tenant: args.tenant as string | null, status: "pending" });
             return ok(id);
           }
           case "decide_genesis_setting_proposal": {
@@ -140,7 +166,14 @@ function fakeSupabase(db: Db) {
             const p = db.proposals.find((x) => x.id === args.proposal);
             if (!p) return refuse(`decide_genesis_setting_proposal: no proposal ${String(args.proposal)}`, "P0002");
             p.status = args.approve ? "approved" : "declined";
-            if (args.approve) db.database[p.key] = { value: p.value, locked: p.locked };
+            if (args.approve && args.layer === "tenant") {
+              if (!p.tenant) return refuse(`decide_genesis_setting_proposal: proposal ${p.id} wasn't made for a tenant`, "22023");
+              db.tenant[p.key] = p.value;
+              p.layer = "tenant";
+            } else if (args.approve) {
+              db.database[p.key] = { value: p.value, locked: p.locked };
+              p.layer = "database";
+            }
             return ok(null);
           }
         }
@@ -210,7 +243,7 @@ describe("createSettingsHandler: state", () => {
     const state = body as unknown as SettingsState;
     expect(state.viewer).toEqual({ scope: "platform" });
     expect(state.app).toMatchObject({ name: "Acme", host: "app" });
-    expect(state.catalogue.map((d) => d.key)).toEqual(["demo.banner", "demo.github", "demo.region", "demo.retention", "demo.shake", "demo.theme", "demo.webhook"]);
+    expect(state.catalogue.map((d) => d.key)).toEqual(["demo.banner", "demo.campaigns", "demo.github", "demo.marketing", "demo.promo", "demo.region", "demo.retention", "demo.shake", "demo.theme", "demo.webhook"]);
     expect(state.capabilities).toMatchObject({ writeDatabase: true, writeFiles: false, setSecrets: { vault: true }, proposeChanges: false });
     expect(state.resolved.values["demo.region"]).toBe("eu");
     expect(state.resolved.sources["demo.theme"]).toEqual({ layer: "database", lockedBy: "database" });
@@ -240,11 +273,23 @@ describe("createSettingsHandler: state", () => {
     const { send } = setup();
     const state = (await send("t-ta", { op: "state", tenant: TENANT })).body as unknown as SettingsState;
     expect(state.viewer).toEqual({ scope: "tenant", tenant: TENANT });
-    expect(state.catalogue.map((d) => d.key)).toEqual(["demo.banner"]);
-    expect(state.resolved.values).toEqual({ "demo.banner": false });
+    // Their tenant keys, with the app keys those require (read-only to them), so none goes missing.
+    expect(state.catalogue.map((d) => d.key)).toEqual(["demo.banner", "demo.campaigns", "demo.marketing", "demo.promo"]);
+    expect(state.resolved.values).toEqual({ "demo.banner": false, "demo.promo": true, "demo.campaigns": true, "demo.marketing": false });
     expect(state.layers).toEqual({ tenant: { "demo.banner": { value: false } } });
     expect(state).toMatchObject({ findings: [], secrets: [], capabilities: { writeDatabase: true, setSecrets: false, proposeChanges: true } });
     expect(state.upgrades).toBeUndefined();
+  });
+
+  it("keeps a tenant key whose requires reach outside the slice, and says what it needs", async () => {
+    const { send } = setup();
+    const state = (await send("t-ta", { op: "state", tenant: TENANT })).body as unknown as SettingsState;
+    expect(state.catalogue.find((d) => d.key === "demo.promo")).toMatchObject({ scope: "tenant", requires: ["demo.campaigns"] });
+    // The resolver sees the whole chain: campaigns is on but needs marketing, which is off.
+    expect(state.resolved.problems).toEqual([expect.objectContaining({ kind: "requires", key: "demo.campaigns" })]);
+    const { settingWritability } = await import("@marktiderman/genesis-config/settings-protocol");
+    const campaigns = state.catalogue.find((d) => d.key === "demo.campaigns")!;
+    expect(settingWritability(campaigns, state.resolved.sources["demo.campaigns"], state.capabilities, state.viewer)).toEqual({ layers: [], refused: { tenant: "scope" } });
   });
 
   it("gives anyone else their own person keys", async () => {
@@ -319,6 +364,26 @@ describe("createSettingsHandler: plan and apply", () => {
     expect((await send("t-admin", { op: "apply", fixId: "database.clear:demo.retention", expect: plan.hash })).body.error?.code).toBe("stale_plan");
   });
 
+  it("clears only the value the plan was made for, in the database", async () => {
+    const { send, db, calls } = setup();
+    const plan = (await send("t-admin", { op: "plan", fixId: "database.clear:demo.retention" })).body.plan as { hash: string };
+    const original = db.database["demo.retention"]!;
+    const result = await send("t-admin", { op: "apply", fixId: "database.clear:demo.retention", expect: plan.hash });
+    expect(result.body.result).toMatchObject({ verified: true });
+    expect(calls.find((c) => c.fn === "clear_genesis_setting_if")?.args).toEqual({ key: "demo.retention", value: original.value, locked: original.locked });
+    expect(calls.some((c) => c.fn === "clear_genesis_setting")).toBe(false);
+  });
+
+  it("answers stale_plan when the database finds the value changed at the clear", async () => {
+    const { send, db } = setup();
+    const plan = (await send("t-admin", { op: "plan", fixId: "database.clear:demo.retention" })).body.plan as { hash: string };
+    // Another admin changed the value after the hash was checked: the conditional clear removes nothing.
+    db.valueChangesBeforeClear = true;
+    const res = await send("t-admin", { op: "apply", fixId: "database.clear:demo.retention", expect: plan.hash });
+    expect(res.body.error?.code).toBe("stale_plan");
+    expect(db.database["demo.retention"]).toBeDefined();
+  });
+
   it("refuses a plan for a value that has nothing wrong, a fix it doesn't have, or a non-admin", async () => {
     const { send } = setup();
     expect((await send("t-admin", { op: "plan", fixId: "database.clear:demo.theme" })).status).toBe(404);
@@ -357,7 +422,28 @@ describe("createSettingsHandler: Vault secrets", () => {
     db.failNext = { fn: "set_genesis_vault_secret", error: { message: "connection lost while sending leaky-value-78", code: "08006" } };
     const failed = await send("t-admin", { op: "setSecret", name: "DEMO_WEBHOOK", store: "vault", value: "leaky-value-78" });
     expect(failed.body.error).toEqual({ code: "error", message: "The settings host failed." });
-    expect(JSON.stringify(onError.mock.calls)).not.toContain("leaky-value-78");
+    // The fault reaches onError, with the database's code and without the value.
+    expect(onError).toHaveBeenCalledTimes(1);
+    const reported = onError.mock.calls[0]![0] as Error & { code?: string };
+    expect(reported).toMatchObject({ name: "DatabaseFault", code: "08006" });
+    expect(reported.message).toContain("connection lost");
+    expect(JSON.stringify([reported.message, reported.stack, onError.mock.calls])).not.toContain("leaky-value-78");
+  });
+
+  it("turns Postgres's own permission refusal into a plain message, and reports it", async () => {
+    const onError = vi.fn();
+    const { send, db } = setup({}, { onError });
+    db.failNext = { fn: "set_genesis_vault_secret", error: { message: "permission denied for table secrets", code: "42501" } };
+    const res = await send("t-admin", { op: "setSecret", name: "DEMO_WEBHOOK", store: "vault", value: "a-value-123" });
+    expect(res.status).toBe(403);
+    expect(res.body.error?.code).toBe("forbidden");
+    expect(res.body.error?.message).not.toMatch(/permission denied|secrets/);
+    expect(onError).toHaveBeenCalledWith(expect.objectContaining({ code: "42501", message: "permission denied for table secrets" }));
+    // A Genesis function's own refusal is shown as written, and isn't a fault.
+    db.failNext = { fn: "set_genesis_setting", error: { message: "set_genesis_setting: only platform admins can change settings", code: "42501" } };
+    const own = await send("t-admin", { op: "setValue", key: "demo.retention", value: 30, layer: "database" });
+    expect(own.body.error).toEqual({ code: "forbidden", message: "only platform admins can change settings" });
+    expect(onError).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -366,13 +452,29 @@ describe("createSettingsHandler: proposals", () => {
     const { send, db } = setup();
     const proposed = await send("t-ta", { op: "propose", key: "demo.banner", value: true, reason: "We run a promotion", tenant: TENANT });
     expect(proposed.body).toEqual({ id: "1" });
-    expect(db.proposals[0]).toMatchObject({ key: "demo.banner", value: true, reason: "We run a promotion", by: "u-ta" });
+    expect(db.proposals[0]).toMatchObject({ key: "demo.banner", value: true, reason: "We run a promotion", by: "u-ta", tenant: TENANT });
     expect((await send("t-ta", { op: "decideProposal", id: "1", approve: true, tenant: TENANT })).status).toBe(403);
     const state = (await send("t-admin", { op: "state" })).body as unknown as SettingsState;
-    expect(state.proposals).toEqual([{ id: "1", key: "demo.banner", value: true, reason: "We run a promotion", proposedBy: "u-ta@example.test", proposedAt: "2026-11-20T00:00:00Z", status: "pending" }]);
+    expect(state.proposals).toEqual([
+      { id: "1", key: "demo.banner", value: true, reason: "We run a promotion", proposedBy: "u-ta@example.test", tenant: TENANT, proposedAt: "2026-11-20T00:00:00Z", status: "pending", canApproveForTenant: true },
+    ]);
     expect((await send("t-admin", { op: "decideProposal", id: "1", approve: true })).body).toEqual({ ok: true });
     expect(db.database["demo.banner"]).toEqual({ value: true, locked: false });
     expect((await send("t-admin", { op: "decideProposal", id: "9", approve: false })).body.error?.code).toBe("not_found");
+  });
+
+  it("records a person's proposal for themselves, and approves a tenant's for that tenant alone", async () => {
+    const { send, db, calls } = setup();
+    await send("t-p", { op: "propose", key: "demo.shake", value: true });
+    expect(calls.find((c) => c.fn === "propose_genesis_setting")?.args).toMatchObject({ tenant: null });
+    await send("t-ta", { op: "propose", key: "demo.banner", value: true, tenant: TENANT });
+    expect((await send("t-admin", { op: "decideProposal", id: "2", approve: true, layer: "everywhere" })).status).toBe(400);
+    expect((await send("t-admin", { op: "decideProposal", id: "2", approve: true, layer: "tenant" })).body).toEqual({ ok: true });
+    expect(calls.filter((c) => c.fn === "decide_genesis_setting_proposal").at(-1)?.args).toEqual({ proposal: 2, approve: true, layer: "tenant" });
+    expect(db.tenant["demo.banner"]).toBe(true);
+    expect(db.database["demo.banner"]).toBeUndefined();
+    // A person's own proposal has no tenant to approve it for.
+    expect((await send("t-admin", { op: "decideProposal", id: "1", approve: true, layer: "tenant" })).body.error?.code).toBe("bad_request");
   });
 });
 

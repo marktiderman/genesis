@@ -132,9 +132,27 @@ function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" } });
 }
 
-/** A database refusal as the protocol's error: the RPCs' own messages are written for people. */
-function fromDatabase(error: SupabaseQueryError): HostError {
-  const message = error.message.replace(/^[a-z_]+: /, "");
+/**
+ * A database error no Genesis function raised on purpose (Postgres's own "permission denied for
+ * table …", a lost connection, a bug): the person sees a plain message, `onError` sees the error.
+ */
+class DatabaseFault extends Error {
+  constructor(readonly cause: SupabaseQueryError) {
+    super(cause.message);
+    this.name = "DatabaseFault";
+  }
+}
+
+/** A Genesis settings function's own refusal starts with its name (`set_genesis_setting: …`). */
+const GENESIS_MESSAGE = /^[a-z_]*genesis[a-z_]*: /;
+
+/**
+ * A database refusal as the protocol's error. Only a Genesis function's own refusal, written for
+ * people, is shown as it is; anything else is a {@link DatabaseFault}.
+ */
+function fromDatabase(error: SupabaseQueryError): HostError | DatabaseFault {
+  if (!GENESIS_MESSAGE.test(error.message)) return new DatabaseFault(error);
+  const message = error.message.replace(GENESIS_MESSAGE, "");
   switch (error.code) {
     case "42501":
       return new HostError("forbidden", message, 403);
@@ -147,8 +165,22 @@ function fromDatabase(error: SupabaseQueryError): HostError {
     case "55000":
       return new HostError("error", message, 503);
     default:
-      return new HostError("error", "The settings host failed.", 500);
+      return new DatabaseFault(error);
   }
+}
+
+/** What the person sees for a {@link DatabaseFault}: by its code, never its text. */
+function faultAnswer(fault: DatabaseFault): { status: number; code: "forbidden" | "error"; message: string } {
+  return fault.cause.code === "42501"
+    ? { status: 403, code: "forbidden", message: "The database refused this. Ask a platform admin to check the app's settings migrations and grants." }
+    : { status: 500, code: "error", message: "The settings host failed." };
+}
+
+/** `url` without its trailing slashes, in one pass. */
+function withoutTrailingSlashes(url: string): string {
+  let end = url.length;
+  while (end > 0 && url.charCodeAt(end - 1) === 47) end--;
+  return url.slice(0, end);
 }
 
 async function sha256(text: string): Promise<string> {
@@ -203,10 +235,13 @@ interface ProposalRow {
   reason: string | null;
   proposed_by: string;
   proposed_by_email: string | null;
+  tenant_id: string | null;
   proposed_at: string;
   status: SettingsProposalEntry["status"];
+  approved_layer: "database" | "tenant" | null;
   decided_by: string | null;
   decided_at: string | null;
+  tenant_layer_ok: boolean;
 }
 
 /** The handler for the Settings screen's endpoint. See the module header. @stability Beta */
@@ -219,7 +254,7 @@ export function createSettingsHandler(options: SettingsHandlerOptions): (request
         auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
       }) as unknown as SettingsHostClient);
   const fetchFn: FetchLike = options.fetch ?? ((input, init) => fetch(input, init));
-  const registry = (options.registry ?? "https://registry.npmjs.org").replace(/\/+$/, "");
+  const registry = withoutTrailingSlashes(options.registry ?? "https://registry.npmjs.org");
   let upgradesCache: { at: number; key: string; value: SettingsUpgrades } | null = null;
 
   /** One RPC: its data, or the database's refusal as the protocol's error. */
@@ -343,7 +378,7 @@ export function createSettingsHandler(options: SettingsHandlerOptions): (request
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 5000);
         try {
-          const res = await fetchFn(`${registry}/${name.replace("/", "%2F")}/latest`, { headers: { accept: "application/json" }, signal: controller.signal });
+          const res = await fetchFn(`${registry}/${encodeURIComponent(name)}/latest`, { headers: { accept: "application/json" }, signal: controller.signal });
           const body = res.ok ? ((await res.json()) as { version?: unknown }) : null;
           const latest = typeof body?.version === "string" ? body.version : undefined;
           return { name, current, ...(latest ? { latest } : {}), distance: latest ? upgradeDistance(current, latest) : ("unknown" as const) };
@@ -405,15 +440,18 @@ export function createSettingsHandler(options: SettingsHandlerOptions): (request
       ...(r.locked ? { locked: true } : {}),
       ...(r.reason ? { reason: r.reason } : {}),
       proposedBy: r.proposed_by_email ?? r.proposed_by,
+      ...(r.tenant_id ? { tenant: r.tenant_id } : {}),
       proposedAt: r.proposed_at,
       status: r.status,
+      ...(r.approved_layer ? { approvedLayer: r.approved_layer } : {}),
+      ...(r.tenant_layer_ok ? { canApproveForTenant: true } : {}),
       ...(r.decided_by ? { decidedBy: r.decided_by } : {}),
       ...(r.decided_at ? { decidedAt: r.decided_at } : {}),
     }));
   }
 
   /** The plan for clearing one bad database-layer value; its hash covers what is stored now. */
-  async function clearPlan(client: SettingsHostClient, v: Viewer, fixId: string): Promise<{ plan: SettingsPlan; key: string }> {
+  async function clearPlan(client: SettingsHostClient, v: Viewer, fixId: string): Promise<{ plan: SettingsPlan; key: string; entry: { value: unknown; locked?: boolean } }> {
     const key = fixId.slice(CLEAR_FIX.length);
     if (!fixId.startsWith(CLEAR_FIX) || !Object.prototype.hasOwnProperty.call(v.catalogue.keys, key)) {
       throw new HostError("not_found", `This host has no fix ${fixId}: it applies only fixes that clear a bad value from the database layer.`, 404);
@@ -425,6 +463,7 @@ export function createSettingsHandler(options: SettingsHandlerOptions): (request
     const hash = await sha256(JSON.stringify({ fixId, entry }));
     return {
       key,
+      entry,
       plan: {
         fixId,
         summary: `Removes ${key} from the database layer (${problem.message}). It takes its value from the layers below again.`,
@@ -519,13 +558,15 @@ export function createSettingsHandler(options: SettingsHandlerOptions): (request
         platformOnly(v, "apply fixes");
         const fixId = text(body, "fixId");
         const expect = text(body, "expect", 64);
-        const { plan, key } = await clearPlan(client, v, fixId).catch((err: unknown) => {
+        const { plan, key, entry } = await clearPlan(client, v, fixId).catch((err: unknown) => {
           // The bad value went since the plan was made: what was approved no longer matches.
           if (err instanceof HostError && err.code === "not_found" && fixId.startsWith(CLEAR_FIX)) throw new HostError("stale_plan", "The database layer changed after this plan was made, so nothing was written. Plan it again.", 409);
           throw err;
         });
         if (plan.hash !== expect) throw new HostError("stale_plan", "The database layer changed after this plan was made, so nothing was written. Plan it again.", 409);
-        await db(() => clearGenesisSetting(client, key, { layer: "database" }));
+        // Cleared only while the stored value is still the planned one, in the same statement.
+        const cleared = await call<boolean>(client, "clear_genesis_setting_if", { key, value: entry.value === undefined ? null : entry.value, locked: entry.locked === true });
+        if (cleared !== true) throw new HostError("stale_plan", "The database layer changed after this plan was made, so nothing was written. Plan it again.", 409);
         const after = await db(() => readSettingsLayers(client));
         const verified = !Object.prototype.hasOwnProperty.call(after.database, key);
         return { result: { fixId, verified, message: verified ? `Removed ${key} from the database layer.` : `${key} is still in the database layer.` } };
@@ -543,7 +584,9 @@ export function createSettingsHandler(options: SettingsHandlerOptions): (request
         if (!("value" in body)) throw new HostError("bad_request", `"value" is required`, 400);
         if (body.locked !== undefined && typeof body.locked !== "boolean") throw new HostError("bad_request", `"locked" must be true or false`, 400);
         const reason = body.reason === undefined ? null : text(body, "reason", 1000);
-        const id = await call<number | string>(client, "propose_genesis_setting", { key, value: body.value === undefined ? null : body.value, locked: body.locked === true, reason });
+        // A tenant's admin asks for their tenant; anyone else for themselves.
+        const forTenant = v.viewer.scope === "tenant" ? v.viewer.tenant! : null;
+        const id = await call<number | string>(client, "propose_genesis_setting", { key, value: body.value === undefined ? null : body.value, locked: body.locked === true, reason, tenant: forTenant });
         return { id: String(id) };
       }
       case "decideProposal": {
@@ -551,7 +594,9 @@ export function createSettingsHandler(options: SettingsHandlerOptions): (request
         const id = text(body, "id", 20);
         if (!/^\d+$/.test(id)) throw new HostError("bad_request", `"id" must be a proposal id`, 400);
         if (typeof body.approve !== "boolean") throw new HostError("bad_request", `"approve" must be true or false`, 400);
-        await call(client, "decide_genesis_setting_proposal", { proposal: Number(id), approve: body.approve });
+        const layer = body.layer ?? "database";
+        if (layer !== "database" && layer !== "tenant") throw new HostError("bad_request", `"layer" must be database or tenant`, 400);
+        await call(client, "decide_genesis_setting_proposal", { proposal: Number(id), approve: body.approve, layer });
         return { ok: true };
       }
       case "setSecret": {
@@ -603,8 +648,18 @@ export function createSettingsHandler(options: SettingsHandlerOptions): (request
     } catch (err) {
       if (err instanceof HostError) return json(err.status, { error: { code: err.code, message: redact(err.message) } });
       if (options.onError) {
-        const safe = err instanceof Error ? Object.assign(new Error(redact(err.message)), { name: err.name }) : new Error(redact(String(err)));
+        // A copy with the message redacted (never the value of a secret this request carried), and the
+        // database's code when it has one; not the original, whose cause may hold the request.
+        const code = err instanceof DatabaseFault ? err.cause.code : undefined;
+        const safe =
+          err instanceof Error
+            ? Object.assign(new Error(redact(err.message)), { name: err.name }, code !== undefined ? { code } : {})
+            : new Error(redact(String(err)));
         options.onError(safe);
+      }
+      if (err instanceof DatabaseFault) {
+        const answer = faultAnswer(err);
+        return json(answer.status, { error: { code: answer.code, message: answer.message } });
       }
       return json(500, { error: { code: "error", message: "The settings host failed." } });
     } finally {
