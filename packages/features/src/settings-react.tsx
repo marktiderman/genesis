@@ -130,6 +130,7 @@ export interface GenesisSettingsCopy {
   clearLayer: (layer: string) => string;
   invalidJson: string;
   changeInRepo: string;
+  /** The "Change in repo" button's name: it must contain `changeInRepo`, the text the button shows (WCAG 2.5.3). */
   changeInRepoLabel: (key: string) => string;
   changeInRepoTitle: (key: string) => string;
   changeInRepoDescription: string;
@@ -246,7 +247,8 @@ export const GENESIS_SETTINGS_COPY: GenesisSettingsCopy = {
   clearLayer: (layer) => `Clear the ${layer} value`,
   invalidJson: "That isn't valid JSON.",
   changeInRepo: "Change in repo",
-  changeInRepoLabel: (key) => `Change ${key} in the repo`,
+  // Starts with the button's visible text, so the name contains it (WCAG 2.5.3), as `Edit ${key}` does.
+  changeInRepoLabel: (key) => `Change in repo: ${key}`,
   changeInRepoTitle: (key) => `Change ${key} in the repo`,
   changeInRepoDescription: "This key is set in genesis.config.json and reviewed like code. Commit this change:",
   openPullRequest: "Open pull request",

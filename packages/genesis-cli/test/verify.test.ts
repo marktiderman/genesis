@@ -430,6 +430,26 @@ describe("verify in the browser (Chromium)", async () => {
     expect(found.filter((f) => f.check === "hit-area").map((f) => f.target)).toEqual(['button#a "a"']);
   });
 
+  run("doesn't measure a disabled control: it takes no taps", async () => {
+    const found = await check(`${META}<body><button id="off" disabled style="width:24px;height:24px">x</button><button id="on" style="width:24px;height:24px">y</button></body>`);
+    expect(found.filter((f) => f.check === "hit-area").map((f) => f.target)).toEqual(['button#on "y"']);
+  });
+
+  run("hit-tests a control half under a bottom bar where a person would scroll it, and still finds one the bar always covers", async () => {
+    const bar = `<nav style="position:fixed;bottom:0;left:0;right:0;height:64px;background:#fff"><a href="#" style="display:block;height:64px">Home</a></nav>`;
+    // In the 256px-tall test viewport: its top above the 64px bar, its middle under it, where the
+    // page loads; the page scrolls on, so it isn't stuck there.
+    const scrolls = await check(
+      `${META}<body style="margin:0"><div style="height:176px"></div><a id="card" href="#" style="display:block;height:120px">card</a><div style="height:800px"></div>${bar}</body>`,
+    );
+    expect(scrolls.filter((f) => f.check === "hit-area" && f.target?.startsWith("a#card"))).toEqual([]);
+    // The last thing on the page with no room after it: the bar covers it wherever the page scrolls.
+    const stuck = await check(
+      `${META}<body style="margin:0"><div style="height:512px"></div><a id="last" href="#" style="display:block;height:60px">last</a>${bar}</body>`,
+    );
+    expect(stuck.filter((f) => f.check === "hit-area").map((f) => f.target)).toContain('a#last "last"');
+  });
+
   run("finds text cut off at 200% text, not an ellipsis", async () => {
     const found = await check(
       `${META}<body><div id="cut" style="height:20px;overflow:hidden"><p style="margin:0">line one</p><p style="margin:0">line two</p></div>` +

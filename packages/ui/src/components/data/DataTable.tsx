@@ -1261,12 +1261,13 @@ export function DataTable<T>({
                             }
                           },
                         };
-                        // Plain text: the button wraps it and is named by it.
+                        // Plain text: the button wraps it and is named by it. On
+                        // touch it is 44px tall (docs/RESPONSIVE.md rule 3).
                         if (!col.editable && !col.render) {
                           return (
                             <button
                               {...openProps}
-                              className="-mx-1 block w-[calc(100%+0.5rem)] min-w-0 rounded px-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                              className="-mx-1 block w-[calc(100%+0.5rem)] min-w-0 rounded px-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring pointer-coarse:min-h-11 pointer-coarse:py-3"
                             >
                               {content}
                             </button>
@@ -1351,7 +1352,7 @@ export function DataTable<T>({
               type="button"
               aria-expanded={open}
               onClick={() => toggleGroup(g.key)}
-              className="flex w-full min-w-0 items-center gap-2 rounded px-1 text-left text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex w-full min-w-0 items-center gap-2 rounded px-1 text-left text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:min-h-11"
             >
               <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 transition-transform", !open && "-rotate-90")} aria-hidden="true" />
               <span className="truncate">{g.label}</span>
@@ -1388,7 +1389,19 @@ export function DataTable<T>({
       : minWidth;
 
   return (
-    <div className="border rounded-lg animate-fade-in flex flex-col">
+    <div
+      // Focus scrolled into view anywhere in the table (the toolbar, the header, the rows) stops
+      // above the sticky pager, never under it (WCAG 2.4.11).
+      className="border rounded-lg animate-fade-in flex flex-col [&_*]:scroll-mb-[var(--data-table-pager-height,0px)]"
+      style={
+        pagerHeight || headHeight
+          ? ({
+              "--data-table-pager-height": `${pagerHeight}px`,
+              "--data-table-head-height": `${headHeight}px`,
+            } as CSSProperties)
+          : undefined
+      }
+    >
       {/* ── Toolbar ── */}
       {columnVisibility && (
         <div className="flex items-center justify-end px-3 py-2 border-b bg-muted/30">
@@ -1627,17 +1640,9 @@ export function DataTable<T>({
           </TableHeader>
           <TableBody
             ref={bodyRef}
-            // Focus scrolled into view stops above the sticky pager, never under it (WCAG 2.4.11).
-            // …and below the sticky header when scrolling up.
-            className="[&_*]:scroll-mb-[var(--data-table-pager-height,0px)] [&_*]:scroll-mt-[var(--data-table-head-height,0px)]"
-            style={
-              pagerHeight || headHeight
-                ? ({
-                    "--data-table-pager-height": `${pagerHeight}px`,
-                    "--data-table-head-height": `${headHeight}px`,
-                  } as CSSProperties)
-                : undefined
-            }
+            // Rows scrolled into view going up stop below the sticky header (the pager's margin is
+            // the table's, above).
+            className="[&_*]:scroll-mt-[var(--data-table-head-height,0px)]"
           >
             {displayItems.length === 0 ? (
               <TableRow>

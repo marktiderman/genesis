@@ -158,6 +158,9 @@ export async function domChecks(opts: DomCheckOptions): Promise<DomFinding[]> {
         break;
       }
     }
+    // Inside a frame a component marks as scrolling on purpose (rule 2), however deep: the frame's to scroll.
+    const marked = el.closest("[data-scroll-frame]");
+    if (marked && marked !== el && scrolls(marked)) continue;
     if (frame && scrolls(frame)) {
       const wide = el.closest(WIDE_CONTENT);
       if ((wide && frame.contains(wide)) || frame.matches("[data-scroll-frame]")) continue; // wide content, scrolling in its own frame
@@ -222,6 +225,9 @@ export async function domChecks(opts: DomCheckOptions): Promise<DomFinding[]> {
         }
       }
       if (hidden(el)) continue;
+      // A disabled control takes no taps, so it isn't a target (WCAG 2.5.8); its hit area doesn't
+      // receive them either (pointer-events: none), which would read as a neighbour taking them.
+      if ((el as HTMLButtonElement).disabled) continue;
       if (el.tagName === "A") {
         // A link in running text is exempt (WCAG 2.5.8's inline exception): its block holds other text.
         const block = el.parentElement;
@@ -247,25 +253,39 @@ export async function domChecks(opts: DomCheckOptions): Promise<DomFinding[]> {
       }
       // The area is 44px on paper; hit-test it in view: a clipping ancestor or a neighbour on top
       // takes taps. One that can't be brought into view (a scroller that won't move) is sized only.
-      const r = intoView(el);
+      let r = intoView(el);
       if (r.right <= 0 || r.left >= vw || r.bottom <= 0 || r.top >= vh) continue;
-      const cx = r.left + r.width / 2;
-      const cy = r.top + r.height / 2;
-      const stolen = [
-        [cx - 21, cy],
-        [cx + 21, cy],
-        [cx, cy - 21],
-        [cx, cy + 21],
-      ].filter(([x, y]) => x >= 0 && y >= 0 && x < vw && y < vh).find(([x, y]) => {
-        const hit = document.elementFromPoint(x, y);
-        return !hit || !(el.contains(hit) || hit === el);
-      });
+      const probe = (box: DOMRect) => {
+        const cx = box.left + box.width / 2;
+        const cy = box.top + box.height / 2;
+        const point = [
+          [cx - 21, cy],
+          [cx + 21, cy],
+          [cx, cy - 21],
+          [cx, cy + 21],
+        ].filter(([x, y]) => x >= 0 && y >= 0 && x < vw && y < vh).find(([x, y]) => {
+          const hit = document.elementFromPoint(x, y);
+          return !hit || !(el.contains(hit) || hit === el);
+        });
+        return point ? { point, cx, cy } : null;
+      };
+      let stolen = probe(r);
+      // Measured where the last scroll left it, a control can sit half under a fixed bar at the
+      // screen's edge, or half out of a sideways strip: a tap there goes elsewhere, but a person
+      // scrolls it into view first. Hit-test it again scrolled to the middle (of the screen and of
+      // its strip); a neighbour, a bar or a clipping box that still takes taps there is a finding.
       if (stolen) {
-        const hit = document.elementFromPoint(stolen[0], stolen[1]);
+        el.scrollIntoView({ block: "center", inline: "center", behavior: "instant" });
+        r = el.getBoundingClientRect();
+        stolen = probe(r);
+      }
+      if (stolen) {
+        const { point, cx, cy } = stolen;
+        const hit = document.elementFromPoint(point[0], point[1]);
         findings.push({
           check: "hit-area",
           target: describe(el),
-          message: `44px hit area is cut back: a tap ${Math.round(stolen[0] - cx)},${Math.round(stolen[1] - cy)}px from its centre lands on ${hit ? describe(hit) : "nothing"}`,
+          message: `44px hit area is cut back: a tap ${Math.round(point[0] - cx)},${Math.round(point[1] - cy)}px from its centre lands on ${hit ? describe(hit) : "nothing"}`,
         });
       }
     }
