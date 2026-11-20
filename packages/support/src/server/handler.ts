@@ -18,7 +18,7 @@
  * never fails the request.
  */
 import { cleanRoute, LIMITS, type FindingSeverity } from "../contract";
-import { supportSettingValues, type SupportSettingsInput } from "../settings";
+import { supportSettingValues, type SupportSettingsInput, type SupportSettingValues } from "../settings";
 import { diagnosticsShortId, DIAGNOSTICS_DEFAULTS, isUuid, randomUuid, type DiagnosticReport } from "../diagnostics/report";
 import { FEEDBACK_FORM_FIELDS } from "../diagnostics/transports";
 import { scrubString, scrubValueStrict } from "../diagnostics/scrub";
@@ -178,13 +178,26 @@ export interface DiagnosticsHandlerOptions {
   onError?: (error: unknown, where: string) => void;
   now?: () => number;
   /**
-   * Genesis settings (`resolveSettings`' result, or the values alone): `diagnostics.perHour` is the
-   * dumps-per-person limit unless `limits.diagnosticsPerHour` is given. Without either, 10.
+   * Genesis settings (`resolveSettings`' result, the values alone, or a function that reads them,
+   * such as genesis-supabase's `resolveAppSettings`): with `diagnostics.enabled` off, dumps are
+   * refused (403 `diagnostics_off`) and feedback is stored without its dump; `diagnostics.perHour`
+   * is the dumps-per-person limit unless `limits.diagnosticsPerHour` is given. A function is read
+   * when a request needs it, at most once per `settingsCacheMs`; one that fails keeps the last
+   * values. Without settings, the `max` preset (on, 10 an hour).
    */
-  appSettings?: SupportSettingsInput;
+  appSettings?: SupportSettingsInput | (() => SupportSettingsInput | null | undefined | Promise<SupportSettingsInput | null | undefined>);
+  /** How long a settings function's answer is reused, in ms. Default 30 000; 0 reads it on every request. */
+  settingsCacheMs?: number;
 }
 
-const SCREENSHOT_TYPES: Record<string, ScreenshotContentType> = { "image/png": "image/png", "image/jpeg": "image/jpeg", "image/jpg": "image/jpeg", "image/webp": "image/webp" };
+const SCREENSHOT_TYPES: ReadonlyMap<string, ScreenshotContentType> = new Map([
+  ["image/png", "image/png"],
+  ["image/jpeg", "image/jpeg"],
+  ["image/jpg", "image/jpeg"],
+  ["image/webp", "image/webp"],
+]);
+/** How long the handler waits for notifiers before answering, without `waitUntil`. */
+const NOTIFY_WAIT_MS = 5_000;
 const EXT: Record<ScreenshotContentType, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" };
 const MAX_SCREENSHOT_BYTES = 5 * 1024 * 1024;
 const MAX_SCREENSHOTS = 5;
@@ -272,7 +285,21 @@ export type DiagnosticsHandler = (request: Request) => Promise<Response>;
 
 export function createDiagnosticsHandler(options: DiagnosticsHandlerOptions): DiagnosticsHandler {
   const limiter = options.rateLimit === false ? null : (options.rateLimit ?? memoryRateLimiter(options.now));
-  const perHour = options.limits?.diagnosticsPerHour ?? supportSettingValues(options.appSettings).diagnostics.perHour;
+  const settingsCacheMs = Math.max(0, options.settingsCacheMs ?? 30_000);
+  let cached: { at: number; values: SupportSettingValues } | null = null;
+  // The settings when a request needs them: a function is read again once the cache is stale.
+  async function settingsNow(): Promise<SupportSettingValues> {
+    const source = options.appSettings;
+    if (typeof source !== "function") return (cached ??= { at: 0, values: supportSettingValues(source) }).values;
+    if (cached && settingsCacheMs > 0 && now() - cached.at < settingsCacheMs) return cached.values;
+    try {
+      cached = { at: now(), values: supportSettingValues(await source()) };
+    } catch (error) {
+      fail(error, "appSettings");
+      cached = { at: now(), values: cached?.values ?? supportSettingValues(null) };
+    }
+    return cached.values;
+  }
   const feedbackPerHour = options.limits?.feedbackPerHour ?? 20;
   const ipPerMinute = options.limits?.ipPerMinute ?? DIAGNOSTICS_DEFAULTS.ipRatePerMinute;
   const maxBody = options.limits?.maxBodyBytes ?? DIAGNOSTICS_DEFAULTS.serverMaxBytes;
@@ -318,7 +345,16 @@ export function createDiagnosticsHandler(options: DiagnosticsHandlerOptions): Di
       options.waitUntil(work);
       return Promise.resolve();
     }
-    return work;
+    // Without waitUntil, wait a while, not forever: a hung notifier mustn't hold the answer back
+    // until the client gives up and sends the report again.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const late = new Promise<void>((resolve) => {
+      timer = setTimeout(() => {
+        fail(new Error(`notifiers still running after ${NOTIFY_WAIT_MS} ms; answering without them`), "notify");
+        resolve();
+      }, NOTIFY_WAIT_MS);
+    });
+    return Promise.race([work, late]).finally(() => clearTimeout(timer));
   }
 
   const storeFailure = (error: unknown, where: string): Response => {
@@ -346,6 +382,9 @@ export function createDiagnosticsHandler(options: DiagnosticsHandlerOptions): Di
     const text = new TextDecoder().decode(body);
     const parsed = parseDiagnosticReport(text, { maxBodyBytes: maxBody });
     if (!parsed.ok) return json(parsed.status, { error: parsed.error, ...(parsed.field ? { field: parsed.field } : {}) });
+    const settings = (await settingsNow()).diagnostics;
+    if (!settings.enabled) return json(403, { error: "diagnostics_off" });
+    const perHour = options.limits?.diagnosticsPerHour ?? settings.perHour;
     if (!(await allowed(`diagnostics:${caller.userId}`, perHour, 3_600_000))) return json(429, { error: "rate_limited" });
     if (parsed.report.feedbackId && (await owns(options.store.ownsFeedback, caller.userId, parsed.report.feedbackId, "store.ownsFeedback")) === false) {
       return json(403, { error: "not_your_feedback" });
@@ -381,7 +420,9 @@ export function createDiagnosticsHandler(options: DiagnosticsHandlerOptions): Di
 
     let report: DiagnosticReport | null = null;
     const dumpPart = form.get(FEEDBACK_FORM_FIELDS.diagnostics);
-    if (typeof dumpPart === "string" && dumpPart) {
+    // Diagnostics off: the feedback is stored, its dump isn't (nor named).
+    const dumpsOn = (await settingsNow()).diagnostics.enabled;
+    if (dumpsOn && typeof dumpPart === "string" && dumpPart) {
       const parsed = parseDiagnosticReport(dumpPart, { maxBodyBytes: maxBody });
       if (!parsed.ok) return json(parsed.status, { error: parsed.error, field: `diagnostics${parsed.field ? `.${parsed.field}` : ""}` });
       report = { ...parsed.report, trigger: "feedback", user: { id: caller.userId, role: caller.role ?? null } };
@@ -389,7 +430,7 @@ export function createDiagnosticsHandler(options: DiagnosticsHandlerOptions): Di
     if (!(await allowed(`feedback:${caller.userId}`, feedbackPerHour, 3_600_000))) return json(429, { error: "rate_limited" });
 
     // A dump named without being brought: kept only if it is the caller's own.
-    let named = feedback.value.diagnosticsId;
+    let named = dumpsOn ? feedback.value.diagnosticsId : null;
     if (!report && named && (await owns(options.store.ownsReport, caller.userId, named, "store.ownsReport")) !== true) named = null;
     const submission: FeedbackSubmission = { ...feedback.value, diagnosticsId: report?.id ?? named };
     let id: string;
@@ -406,7 +447,7 @@ export function createDiagnosticsHandler(options: DiagnosticsHandlerOptions): Di
     const declared = Array.isArray((raw as { attachments?: unknown }).attachments) ? ((raw as { attachments: Array<{ width?: unknown; height?: unknown }> }).attachments) : [];
     for (const [i, part] of parts.slice(0, MAX_SCREENSHOTS).entries()) {
       const file = part as Blob;
-      const type = typeof file === "object" && file && "type" in file ? SCREENSHOT_TYPES[file.type] : undefined;
+      const type = typeof file === "object" && file && "type" in file ? SCREENSHOT_TYPES.get(file.type) : undefined;
       if (!type || !options.files || !options.store.attachFile || file.size > MAX_SCREENSHOT_BYTES) {
         dropped += 1;
         continue;
@@ -464,8 +505,9 @@ export function createDiagnosticsHandler(options: DiagnosticsHandlerOptions): Di
         platform: submission.platform,
       },
       screenshots: saved,
-      diagnosticsId: diagnostics?.id ?? submission.diagnosticsId,
-      diagnosticsShortId: diagnostics?.shortId ?? (submission.diagnosticsId ? diagnosticsShortId(submission.diagnosticsId) : null),
+      // A dump brought with the feedback that the store refused doesn't exist: name none.
+      diagnosticsId: diagnostics?.id ?? (report ? null : submission.diagnosticsId),
+      diagnosticsShortId: diagnostics?.shortId ?? (!report && submission.diagnosticsId ? diagnosticsShortId(submission.diagnosticsId) : null),
       report: diagnostics && report ? { ...report, feedbackId: id } : null,
     });
     return json(201, { id, attachmentsDropped: dropped, diagnostics });

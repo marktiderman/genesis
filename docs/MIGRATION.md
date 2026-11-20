@@ -11,6 +11,29 @@ This file is appended to (never rewritten) at every release. Newest version on t
 
 ---
 
+## Support staff: platform admins handle tickets when the app names no staff — `@marktiderman/genesis-support` (migration `0023_genesis_support_hook_defaults.sql`; **minor**)
+
+🟡 **Check who your staff are** if your app defines `private.genesis_platform_admin(person)` (the
+settings block's hook, genesis-supabase 0020) and **not** `private.genesis_support_staff(person)`.
+Support asks `private.genesis_support_staff_hook(person)`, and from 0023 that answers with your
+platform admins when the app has no staff hook of its own. So the moment 0023 is applied (or the
+moment you add `genesis_platform_admin` after it), every platform admin can read, answer, assign
+and close every ticket, and read the context dumps sent with them. An app with neither hook has no
+staff, as before; an app with its own `genesis_support_staff` is not affected.
+
+If your platform admins shouldn't handle tickets, add the staff hook in a migration of your own,
+before or after 0023 (it wins over the default whenever it exists):
+
+```sql
+create or replace function private.genesis_support_staff(person uuid) returns boolean
+language sql stable set search_path = '' as $$
+  select exists (select 1 from public.support_team t where t.user_id = person)
+$$;
+revoke execute on function private.genesis_support_staff(uuid) from public, anon, authenticated;
+```
+
+---
+
 ## Settings: `preset` and `settings` in genesis.config.json — `@marktiderman/genesis-config` (settings), `@marktiderman/genesis-cli` (**minor**)
 
 🟢 **No action needed**, unless your genesis.config.json already has a top-level `preset` or

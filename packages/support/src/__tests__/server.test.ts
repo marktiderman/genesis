@@ -199,6 +199,98 @@ describe("createDiagnosticsHandler: dumps", () => {
   });
 });
 
+describe("createDiagnosticsHandler: settings", () => {
+  const feedbackWithDump = () => {
+    const f = new FormData();
+    f.append("feedback", JSON.stringify({ type: "bug", message: "x", diagnosticsId: ID }));
+    f.append("diagnostics", JSON.stringify(dump()));
+    return new Request("https://api.test", { method: "POST", headers: { authorization: "Bearer t" }, body: f });
+  };
+
+  it("refuses dumps while diagnostics.enabled is off, and stores feedback without its dump", async () => {
+    const { store, reports, feedback } = memoryStore();
+    const handle = createDiagnosticsHandler({ authenticate: auth, store, appSettings: { "diagnostics.enabled": false } });
+    const res = await handle(post(JSON.stringify(dump())));
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "diagnostics_off" });
+    const withFeedback = await handle(feedbackWithDump());
+    expect(withFeedback.status).toBe(201);
+    expect(await withFeedback.json()).toMatchObject({ id: TICKET, diagnostics: null });
+    expect(feedback[0]?.feedback.diagnosticsId).toBeNull();
+    expect(reports).toEqual([]);
+  });
+
+  it("reads a settings function per request, at most once per settingsCacheMs", async () => {
+    let t = 0;
+    let values: Record<string, unknown> = { "diagnostics.enabled": false };
+    const read = vi.fn(async () => values);
+    const handle = createDiagnosticsHandler({ authenticate: auth, store: memoryStore().store, appSettings: read, settingsCacheMs: 1000, now: () => t, rateLimit: false });
+    expect((await handle(post(JSON.stringify(dump())))).status).toBe(403);
+    values = { "diagnostics.enabled": true };
+    expect((await handle(post(JSON.stringify(dump())))).status).toBe(403);
+    expect(read).toHaveBeenCalledTimes(1);
+    t = 1500;
+    expect((await handle(post(JSON.stringify(dump())))).status).toBe(201);
+    expect(read).toHaveBeenCalledTimes(2);
+  });
+
+  it("follows diagnostics.perHour as it changes", async () => {
+    let t = 0;
+    let values: Record<string, unknown> = { "diagnostics.perHour": 1 };
+    const handle = createDiagnosticsHandler({ authenticate: auth, store: memoryStore().store, appSettings: () => values, settingsCacheMs: 0, now: () => t });
+    expect((await handle(post(JSON.stringify(dump())))).status).toBe(201);
+    expect((await handle(post(JSON.stringify(dump())))).status).toBe(429);
+    values = { "diagnostics.perHour": 5 };
+    t = 1;
+    expect((await handle(post(JSON.stringify(dump())))).status).toBe(201);
+  });
+
+  it("keeps the last values when the settings function fails", async () => {
+    let fails = false;
+    let t = 0;
+    const handle = createDiagnosticsHandler({
+      authenticate: auth,
+      store: memoryStore().store,
+      appSettings: async () => {
+        if (fails) throw new Error("db down");
+        return { "diagnostics.enabled": false };
+      },
+      settingsCacheMs: 0,
+      now: () => t,
+      onError: () => {},
+    });
+    expect((await handle(post(JSON.stringify(dump())))).status).toBe(403);
+    fails = true;
+    t = 1;
+    expect((await handle(post(JSON.stringify(dump())))).status).toBe(403);
+  });
+
+  it("names no dump in the notification when the store refused the dump brought with the feedback", async () => {
+    const { store } = memoryStore();
+    const events: SupportEvent[] = [];
+    const handle = createDiagnosticsHandler({
+      authenticate: auth,
+      store: { ...store, saveReport: async () => Promise.reject(new DiagnosticsStoreError("rate", 429)) },
+      notify: [{ name: "spy", notify: (e) => void events.push(e) }],
+      onError: () => {},
+    });
+    expect((await handle(feedbackWithDump())).status).toBe(201);
+    expect(events[0]).toMatchObject({ kind: "feedback", diagnosticsId: null, diagnosticsShortId: null });
+  });
+
+  it("answers without waiting forever for a notifier that hangs", async () => {
+    vi.useFakeTimers();
+    try {
+      const handle = createDiagnosticsHandler({ authenticate: auth, store: memoryStore().store, notify: [{ name: "hung", notify: () => new Promise<void>(() => {}) }], onError: () => {} });
+      const answer = handle(post(JSON.stringify(dump())));
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect((await answer).status).toBe(201);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 describe("createDiagnosticsHandler: feedback with screenshots", () => {
   it("round-trips httpTransport's multipart: the record, its dump and the screenshots", async () => {
     const { store, reports, feedback, files } = memoryStore();
@@ -283,8 +375,10 @@ describe("createDiagnosticsHandler: feedback with screenshots", () => {
     f.append("feedback", JSON.stringify({ type: "bug", message: "x" }));
     f.append("screenshot", new Blob(["<svg/>"], { type: "image/png" }), "a.png");
     f.append("screenshot", new Blob(["x"], { type: "image/gif" }), "b.gif");
+    // A type named like an Object prototype member isn't an allowed type.
+    f.append("screenshot", new Blob([PNG], { type: "constructor" }), "c.png");
     const res = await handle(new Request("https://api.test", { method: "POST", headers: { authorization: "Bearer t" }, body: f }));
-    expect(await res.json()).toEqual({ id: TICKET, attachmentsDropped: 2, diagnostics: null });
+    expect(await res.json()).toEqual({ id: TICKET, attachmentsDropped: 3, diagnostics: null });
     expect(files).toEqual([]);
   });
 });
@@ -329,6 +423,16 @@ describe("notifiers", () => {
     expect(lines.slice(1, -1).some((l: string) => /^`{8,}$/.test(l))).toBe(false);
     expect(sent.title).not.toMatch(/@everyone|\[click\]|!\[|#1/);
     expect(sent.title.replace(/\u200b/g, "")).toContain("@everyone [click](https://evil)");
+  });
+
+  it("GitHub: a long title stays within GitHub's 256, and the admin link can't be closed early", async () => {
+    const fetch = vi.fn(async () => new Response("{}", { status: 201 }));
+    const event = feedbackEvent();
+    event.feedback = { ...event.feedback, title: "@".repeat(250) };
+    await githubIssueNotifier({ token: "t", repo: "a/b", fetch: fetch as never, adminUrl: () => "https://admin.test/t/1) [evil](https://evil" }).notify(event);
+    const sent = JSON.parse(String((fetch.mock.calls[0] as unknown as [string, RequestInit])[1].body));
+    expect(Array.from(sent.title as string).length).toBeLessThanOrEqual(256);
+    expect(sent.body).toContain("[Open in the admin view](https://admin.test/t/1%29%20[evil]%28https://evil)");
   });
 
   it("GitHub: asks again whether the repository is private after the TTL", async () => {

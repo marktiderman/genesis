@@ -84,6 +84,24 @@ describe("routes and text", () => {
     for (const route of ["/game/round42", "/docs/ios17-setup", "/blog/top-10-tips-2024", "/release/v2024"]) expect(cleanRoute(route)).toBe(route);
   });
 
+  it("redacts long digit runs and grouped codes written as slugs", () => {
+    expect(cleanRoute("/order/card-4111111111111111")).toBe("/order/:token");
+    expect(cleanRoute("/account/acct-12345678/edit")).toBe("/account/:token/edit");
+    expect(cleanRoute("/invite/ABCD-EFGH-1234-5678")).toBe("/invite/:token");
+    expect(cleanRoute("/redeem/abc-def-123")).toBe("/redeem/:token");
+    // Ordinary slugs, dates and versions stay readable.
+    for (const route of [
+      "/blog/top-10-tips-2024",
+      "/news/release-2024-11-19",
+      "/docs/getting-started",
+      "/help/how-to-reset-your-password",
+      "/plans/pro-100",
+      "/guides/ios-17-setup",
+      "/ranking/top-100-apps",
+      "/news/what-is-new",
+    ]) expect(cleanRoute(route)).toBe(route);
+  });
+
   it("scrubs phone numbers written without a separator or in spaced groups", () => {
     expect(scrubString("call +15555550101 now")).toBe("call [phone] now");
     expect(scrubString("ring 44 20 7946 0958")).toBe("ring [phone]");

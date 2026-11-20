@@ -766,6 +766,33 @@ program
     }
   });
 
+const settingsCommand = program.command("settings").description("Genesis settings in the app's database (genesis-supabase's settings block)");
+settingsCommand
+  .command("sync")
+  .description(
+    "Write the app manifest (genesis_app_manifest: packages, preset, file settings and the settings catalogue) through the linked Supabase project. Run it on every deploy, after the migrations: until it is written, set_genesis_setting refuses every value",
+  )
+  .option("-d, --dir <dir>", "The app's folder", process.cwd())
+  .option("--app-id <id>", "The app's id (default: its package.json name, without a scope)")
+  .option("--print", "Print the SQL instead of running it (for a pipeline that runs it with psql)", false)
+  .action(async (opts: { dir: string; appId?: string; print: boolean }) => {
+    const { buildManifest, manifestSql, syncManifest, ManifestError } = await import("./settings-manifest.js");
+    const root = path.resolve(opts.dir);
+    try {
+      const row = buildManifest(root, opts.appId !== undefined ? { appId: opts.appId } : {});
+      if (opts.print) {
+        process.stdout.write(manifestSql(row));
+        return;
+      }
+      await syncManifest(root, row);
+      console.log(`✔ Wrote the manifest for ${row.app_id}: ${Object.keys(row.packages).length} Genesis packages, ${Object.keys(row.catalogue).length} settings, preset ${row.preset}.`);
+    } catch (err) {
+      if (!(err instanceof ManifestError)) throw err;
+      console.error(`✗ ${err.message}`);
+      process.exitCode = 1;
+    }
+  });
+
 program
   .command("upgrade")
   .description("Move every @marktiderman/genesis* dependency to one Genesis release, refresh the files Genesis owns and what's generated, run codemods and the doctor")
