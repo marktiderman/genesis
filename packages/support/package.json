@@ -755,7 +755,7 @@
               "min": false
             },
             "feature": "support-chat",
-            "summary": "A report's thread runs on genesis-chat (with a chat client and the support-chat block): live, with files, an assignee and internal notes. Off: support_replies."
+            "summary": "A report's thread runs on genesis-chat (with a chat client and the support-chat block): live, with files, an assignee and internal notes. Off: support_replies, decided on the server (migration 0034)."
           },
           "email": {
             "type": "boolean",

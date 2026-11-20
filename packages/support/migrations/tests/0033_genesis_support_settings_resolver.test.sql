@@ -5,7 +5,7 @@
 -- everything back.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(9);
+select plan(10);
 
 create function pg_temp.person(n text) returns uuid language sql immutable as $$
   select ('00000000-0000-4000-8000-0000000033' || n)::uuid $$;
@@ -65,7 +65,7 @@ reset role;
 select is((select count(*)::int from public.support_replies where prompt = 'verify'), 1, 'support.verifyPrompt on: the person is asked to check the fix');
 
 delete from public.support_replies where prompt = 'verify';
-update public.genesis_settings set value = 'false' where key = 'support.verifyPrompt';
+delete from public.genesis_settings where key = 'support.verifyPrompt';
 create function private.genesis_support_verify_prompt_enabled() returns boolean
 language sql stable set search_path = '' as $$ select true $$;
 revoke execute on function private.genesis_support_verify_prompt_enabled() from public, anon, authenticated;
@@ -74,7 +74,16 @@ set local role authenticated;
 select public.support_set_report_status((select id from public.tickets where user_id = pg_temp.person('a1')), 'in_progress');
 select public.support_set_report_status((select id from public.tickets where user_id = pg_temp.person('a1')), 'addressed');
 reset role;
-select is((select count(*)::int from public.support_replies where prompt = 'verify'), 1, 'the deprecated hook still turns it on, for one release');
+select is((select count(*)::int from public.support_replies where prompt = 'verify'), 1, 'where no layer sets it, the deprecated hook still turns it on, for one release');
+
+delete from public.support_replies where prompt = 'verify';
+insert into public.genesis_settings (key, value, locked) values ('support.verifyPrompt', 'false', true);
+select pg_temp.sign_in('c3');
+set local role authenticated;
+select public.support_set_report_status((select id from public.tickets where user_id = pg_temp.person('a1')), 'in_progress');
+select public.support_set_report_status((select id from public.tickets where user_id = pg_temp.person('a1')), 'addressed');
+reset role;
+select is((select count(*)::int from public.support_replies where prompt = 'verify'), 0, 'support.verifyPrompt locked false wins over the deprecated hook');
 
 select ok(not has_function_privilege('authenticated', 'private.genesis_setting(text, uuid)', 'execute'), 'people can''t call the resolver');
 
