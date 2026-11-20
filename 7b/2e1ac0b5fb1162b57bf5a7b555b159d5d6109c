@@ -1,0 +1,23 @@
+.changeset/cli-migrate-tracked-copy.md
+  s_200f253970ab9c::t_b7638bc8c36ea4 1-5
+packages/genesis-cli/src/blocks/migrations.ts
+  s_200f253970ab9c::t_95166d28d37163 314-318,322
+packages/genesis-cli/test/doctor-migration-drift.test.ts
+  s_200f253970ab9c::t_63a854e3703b35 59-72
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7b2e1ac0b5fb1162b57bf5a7b555b159d5d6109c",
+  "prompts": {},
+  "sessions": {
+    "s_200f253970ab9c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4f09a01c-1db0-40e0-9f05-42ee07759e38",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
