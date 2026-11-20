@@ -1062,7 +1062,8 @@ genesis-notifications' `genesis_notify`, with no code of the app's own:
   ticket's tenant among (never a scan of every login, unless `support.agentListScan` is on):
   - the tenant's `ticket_agents` rows, each person resolved to its login through the optional
     `private.genesis_person_login(person uuid) returns uuid` (without it, the person id is the login,
-    as in zero config);
+    as in zero config; with it, its answer is used as given: null leaves that row out, and a hook
+    that raises raises);
   - for the app's own desk, `private.genesis_support_staff_list() returns setof uuid` (the app's
     staff; a staff predicate alone can't be listed, so an app whose staff are only
     `genesis_support_staff` names them here);

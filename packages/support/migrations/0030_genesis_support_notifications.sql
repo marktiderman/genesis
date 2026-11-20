@@ -152,8 +152,9 @@ $$;
 revoke execute on function private.genesis_support_notify(text, uuid[], jsonb, text, uuid, text) from public, anon, authenticated;
 
 -- The login a tenant's person record belongs to: the app's optional hook
--- private.genesis_person_login(person uuid) returns uuid, else the person id itself (zero config,
--- where a login is its own person). A hook that errors gives the id itself.
+-- private.genesis_person_login(person uuid) returns uuid, whose answer is used as given (null: the
+-- person has no login); without the hook, the person id itself (zero config, where a login is its
+-- own person). A hook that errors raises. Callers handle a null login.
 create or replace function private.genesis_support_person_login(person uuid)
 returns uuid
 language plpgsql
@@ -165,9 +166,7 @@ begin
   if person is null or to_regprocedure('private.genesis_person_login(uuid)') is null then
     return person;
   end if;
-  return coalesce(private.genesis_person_login(person), person);
-exception when others then
-  return person;
+  return private.genesis_person_login(person);
 end;
 $$;
 
@@ -177,7 +176,8 @@ revoke execute on function private.genesis_support_person_login(uuid) from publi
 -- handles it has it (genesis-chat tells them). Never its own person, never an anonymous login.
 -- Candidates come from what names agents (never a scan of every login, in the writer's
 -- transaction): the tenant's ticket_agents rows (each person's login through the app's optional
--- private.genesis_person_login(person uuid) returns uuid, else the person id), the app's staff list (the optional hook
+-- private.genesis_person_login(person uuid) returns uuid, else the person id; one with no login is
+-- left out), the app's staff list (the optional hook
 -- private.genesis_support_staff_list() returns setof uuid, as 0022's agent list reads it) for the
 -- app's own desk, and its tenant admins (the optional hook
 -- private.genesis_tenant_admin_list(tenant uuid) returns setof uuid). Each is checked as an agent of
@@ -236,7 +236,10 @@ begin
         select u.id
           from auth.users u
          where u.id in (
-                 select private.genesis_support_person_login(a.person_id) from public.ticket_agents a where a.tenant_id = t.tenant_id
+                 -- A row whose person has no login (null) names nobody.
+                 select l.login from (select private.genesis_support_person_login(a.person_id) as login
+                                        from public.ticket_agents a where a.tenant_id = t.tenant_id) l
+                  where l.login is not null
                  union select unnest(listed)
                  union select unnest(admins)
                  union select x.id from auth.users x where scan
