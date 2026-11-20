@@ -317,7 +317,7 @@ describe("the settings check: setup and secrets", () => {
     const root = secretsApp();
     const result = await runDoctor({ root });
     expect(list(result.findings)).toEqual([
-      "setup-incomplete info genesis.config.json support.githubRepo [settings.setup]: support.githubRepo isn't set up yet (reports become GitHub issues), so it stays off: set settings.support.githubRepo in genesis.config.json, and the secret GITHUB_TOKEN (its guided step, github.issues, comes with genesis setup, which isn't available yet)",
+      "setup-incomplete info genesis.config.json support.githubRepo [settings.setup]: support.githubRepo isn't set up yet (reports become GitHub issues), so it stays off: genesis setup --step github.issues",
     ]);
     expect(calls()).toBe("");
   });
@@ -331,7 +331,7 @@ describe("the settings check: setup and secrets", () => {
       "secret-missing warn supabase secrets AI_PROVIDER_KEY [secrets.set]: AI_PROVIDER_KEY isn't set in supabase secrets; settings.support.aiAnswers needs it",
       "secret-missing warn supabase secrets SUPPORT_WEBHOOK_URL [secrets.set]: SUPPORT_WEBHOOK_URL isn't set in supabase secrets; function genesis-support-notify needs it",
       "secret-missing warn supabase vault GENESIS_SUPPORT_WEBHOOK_SECRET [secrets.set]: GENESIS_SUPPORT_WEBHOOK_SECRET isn't set in supabase vault; settings.support.webhooks needs it",
-      "setup-incomplete info genesis.config.json support.githubRepo [settings.setup]: support.githubRepo isn't set up yet (reports become GitHub issues), so it stays off: set settings.support.githubRepo in genesis.config.json, and the secret GITHUB_TOKEN (its guided step, github.issues, comes with genesis setup, which isn't available yet)",
+      "setup-incomplete info genesis.config.json support.githubRepo [settings.setup]: support.githubRepo isn't set up yet (reports become GitHub issues), so it stays off: genesis setup --step github.issues",
     ]);
     // GITHUB_TOKEN only a dormant key and a function need: setup-incomplete covers it. NEVER_ASKED's function isn't deployed.
     expect(JSON.stringify(result.findings)).not.toMatch(/GITHUB_TOKEN isn't|NEVER_ASKED/);
@@ -537,8 +537,8 @@ describe("the settings and secrets fixes", () => {
     const root = secretsApp();
     const t = io();
     expect(await runFixCommand({ root, target: "setup-incomplete", yes: true, network: false }, t.io)).toBe(0);
-    expect(t.out.join("\n")).toContain("- support.githubRepo: set settings.support.githubRepo in genesis.config.json and its secret GITHUB_TOKEN");
-    expect(t.out.join("\n")).not.toContain("genesis setup --step");
+    // The step's command first, the settings and secret by hand as the alternative.
+    expect(t.out.join("\n")).toContain("- support.githubRepo: genesis setup --step github.issues (or set settings.support.githubRepo in genesis.config.json and its secret GITHUB_TOKEN");
     expect(calls()).toBe("");
   });
 });

@@ -290,7 +290,7 @@ describe("GenesisSettings: Health", () => {
     state.upgrades = { packages: [{ name: "pkg", current: "1.0.0", distance: "current", notesUrl: "javascript:alert(1)" }] };
     await renderSettings({ client: fakeClient(state), defaultTab: "health" });
     expect(screen.queryByTestId("genesis-settings-finding-g1-step")).toBeNull();
-    expect(screen.getByTestId("genesis-settings-finding-g1-cli").textContent).toContain("genesis fix s");
+    expect(screen.getByTestId("genesis-settings-finding-g1-cli").textContent).toContain("genesis setup --step github.issues");
     expect(document.querySelector('a[href^="javascript"]')).toBeNull();
   });
 
@@ -298,7 +298,7 @@ describe("GenesisSettings: Health", () => {
     await renderSettings({ client: fakeClient(makeState(APP_CAPS)), defaultTab: "health" });
     expect(screen.queryByTestId("genesis-settings-finding-f1-fix")).toBeNull();
     expect(screen.getByTestId("genesis-settings-finding-f1-cli").textContent).toContain("genesis fix agents.guide");
-    expect(screen.getByTestId("genesis-settings-finding-f2-cli").textContent).toContain("genesis fix setup:github.issues");
+    expect(screen.getByTestId("genesis-settings-finding-f2-cli").textContent).toContain("genesis setup --step github.issues");
   });
 
   it("opens a guided step through onOpenStep, and shows a manual fix's instructions", async () => {

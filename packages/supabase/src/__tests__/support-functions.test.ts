@@ -1,7 +1,7 @@
 // @feat:support-feedback
 import { describe, expect, it, vi } from "vitest";
 import { handle as intake, bootConfig, type CallerClient } from "../../functions/genesis-support-intake/handler.ts";
-import { handle as notify, issueBody, sameSecret, summarize, hmacHex } from "../../functions/genesis-support-notify/handler.ts";
+import { handle as notify, issueBody, sameSecret, settingsFromLayers, summarize, hmacHex } from "../../functions/genesis-support-notify/handler.ts";
 import { handle as cleanup, type CleanupStore } from "../../functions/genesis-support-cleanup/handler.ts";
 
 const env = (values: Record<string, string>) => (name: string) => values[name];
@@ -135,6 +135,35 @@ describe("genesis-support-notify", () => {
       expect(await res.json()).toEqual({ ok: true, skipped: true });
     }
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("reads the repository and webhook from the app's settings when the environment has none", async () => {
+    const fetch = vi.fn(async () => new Response("{}", { status: 201 }));
+    const settings = vi.fn(async () => ({ "support.githubRepo": "acme/from-settings", "support.webhookUrl": "https://hooks.example/s" }));
+    const deps = { env: env({ GENESIS_SUPPORT_WEBHOOK_SECRET: "s", GITHUB_TOKEN: "ghp" }), fetch: fetch as unknown as typeof globalThis.fetch, log: vi.fn(), settings };
+    const res = await notify(new Request("https://fn.test", { method: "POST", headers: { "x-genesis-support-secret": "s" }, body: JSON.stringify(insert) }), deps);
+    expect(await res.json()).toEqual({ ok: true, sent: ["github", "webhook"], failed: [] });
+    expect((fetch.mock.calls as unknown as [string][]).map((c) => c[0])).toEqual(["https://api.github.com/repos/acme/from-settings/issues", "https://hooks.example/s"]);
+    expect(settings).toHaveBeenCalledTimes(1);
+  });
+
+  it("lets the environment win, and posts no webhook with staff alerts off", async () => {
+    const fetch = vi.fn(async () => new Response("{}", { status: 201 }));
+    const settings = async () => ({ "support.githubRepo": "acme/ignored", "support.staffAlerts": false });
+    const deps = { env: env({ GENESIS_SUPPORT_WEBHOOK_SECRET: "s", GITHUB_TOKEN: "ghp", GITHUB_REPO: "acme/env", SUPPORT_WEBHOOK_URL: "https://hooks.example/x" }), fetch: fetch as unknown as typeof globalThis.fetch, log: vi.fn(), settings };
+    const res = await notify(new Request("https://fn.test", { method: "POST", headers: { "x-genesis-support-secret": "s" }, body: JSON.stringify(insert) }), deps);
+    expect(await res.json()).toEqual({ ok: true, sent: ["github"], failed: [] });
+    expect((fetch.mock.calls as unknown as [string][])[0]![0]).toBe("https://api.github.com/repos/acme/env/issues");
+  });
+
+  it("reads settings layers: a locked file value, else the database's, else the file's", () => {
+    expect(
+      settingsFromLayers({
+        file: { "support.githubRepo": { value: "acme/locked", locked: true }, "support.webhookUrl": "https://file.example" },
+        database: { "support.githubRepo": { value: "acme/db" }, "support.staffAlerts": { value: false } },
+      }),
+    ).toEqual({ "support.githubRepo": "acme/locked", "support.webhookUrl": "https://file.example", "support.staffAlerts": false });
+    expect(settingsFromLayers(null)).toEqual({});
   });
 
   it("refuses a webhook URL that isn't https", async () => {

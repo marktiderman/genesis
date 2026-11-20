@@ -450,6 +450,9 @@ shows `fallback` (default `ScreenErrorScreen`, Genesis UI) with "Try again" (Exp
 reports the error itself (with the route attached), the block doesn't send it to Sentry twice.
 Without the block, `createScreenErrorBoundary()` reports through `reportError`. Outside Expo
 Router, wrap a subtree in `<ScreenErrorBoundary>`.
+  `createScreenErrorBoundary({ contact: () => support.contact() })` (and `<FatalScreen contact>`)
+  adds "Contact support" under "Try again": the support page, else a mailto (`contactHref`), from
+  genesis-support's `support.contactEmail` / `support.contactUrl` settings.
 - `useRecentActivity()` gives the last breadcrumbs and errors, scrubbed (the devtools overlay
   shows them).
 

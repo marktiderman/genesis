@@ -286,8 +286,8 @@ confirm, then applies it with the plan's `hash` (`apply(fixId, expect)`). A host
 that changed in between (`stale_plan`), and the screen offers to plan again. A plan needing more
 than the host can do shows its `genesis fix <id>` command instead. The app host applies a fix only
 when it writes the database layer and nothing else (`databaseOnly` on the fix, `layers` on the
-plan). A guided fix opens its setup step (`onOpenStep`), or shows its `genesis fix <id>` command (the
-wizard's `genesis setup --step <id>` isn't available yet); a manual
+plan). A guided fix opens its setup step (`onOpenStep`), or shows its command: `genesis setup --step <id>` when it has
+a step, else `genesis fix <id>`; a manual
 fix shows its instructions. Links (`href`, `notesUrl`) are followed only when `http:`, `https:` or
 on the same site (`safeHref`).
 

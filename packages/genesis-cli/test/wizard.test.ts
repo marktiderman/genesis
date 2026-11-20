@@ -622,6 +622,21 @@ describe("CodeRabbit review on #847", () => {
     expect((await call("settings.plan", { key: "support.inbox", value: true, locked: "yes" })).status).toBe(400);
   });
 
+  it("names the setup step in the doctor's setup-incomplete finding", async () => {
+    const { runDoctor } = await import("../src/doctor/index.js");
+    const { findings } = await runDoctor({ root: wizardApp() });
+    const f = findings.find((x) => x.rule === "setup-incomplete" && x.subject === "support.githubRepo");
+    expect(f?.message).toContain("genesis setup --step github.issues");
+  });
+
+  it("leaves an entry written as { value, locked } in that shape when the lock isn't given", async () => {
+    const root = wizardApp({ settings: { "support.githubRepo": { value: "o/a", locked: false } } });
+    const { call } = host(root);
+    const { plan } = (await call("settings.plan", { key: "support.githubRepo", value: "o/b" })).body as { plan: { fixId: string; hash: string } };
+    expect((await call("apply", { fixId: plan.fixId, expect: plan.hash })).body).toMatchObject({ result: { verified: true } });
+    expect(JSON.parse(readFileSync(path.join(root, "genesis.config.json"), "utf8")).settings["support.githubRepo"]).toEqual({ value: "o/b", locked: false });
+  });
+
   it("reads every planned file whole, a page at a time, from the plan with that hash", async () => {
     const root = tempDir();
     const { call } = host(root, { mode: "init" });

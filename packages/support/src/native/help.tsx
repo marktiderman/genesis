@@ -11,12 +11,13 @@
  * them (`useLocalSearchParams`) and passes `initialQuery` and `collectionId`, and keys the screen on them.
  */
 import { useCallback, useMemo, useState, type ReactNode } from "react";
-import { ScrollView, View } from "react-native";
+import { Linking, ScrollView, View } from "react-native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { NativeButton, NativeSearchBar, NativeText } from "@marktiderman/genesis-ui-native/components";
 import type { InboxItem, InboxPageProps, ThreadPageProps } from "@marktiderman/genesis-ui-native/layouts";
 import { reportHeading, SupportError, type HelpArticle } from "../client";
-import type { SupportCopy } from "../copy";
+import { fill, type SupportCopy } from "../copy";
+import { mailtoHref, type SupportContactInfo } from "../settings";
 import { useHelpAsk, type UseHelpAsk } from "../help-ask";
 import { composeExpectationLine, useReplyExpectation } from "../reply-expectation";
 import { SUPPORT_QUERY_ROOT, useSupport } from "./support";
@@ -232,6 +233,7 @@ export function useHelpCenter(options: { collectionId?: string | null; initialQu
         }}
       />
       {aiOn ? <HelpAnswerCard ask={ask} query={query} onConsent={block.options.onAiConsent} titles={titles} copy={copy} onArticle={(slug) => navigate(paths.article(slug))} onTicket={(id) => navigate(paths.thread(id))} /> : null}
+      <SupportContactRow contact={block.contact?.() ?? null} copy={copy} />
     </View>
   );
   return {
@@ -263,6 +265,36 @@ export interface HelpArticleProps {
   headerTitle: string;
   copy: SupportCopy;
   onNewMessage: () => void;
+}
+
+/**
+ * Where people can write when the app can't help (`support.contactEmail` / `contactUrl`): an email
+ * and a support-page button, or nothing. In Help, and for an app's own error screens.
+ *
+ * @stability Beta
+ */
+export function SupportContactRow({ contact, copy }: { contact: SupportContactInfo | null; copy: SupportCopy }) {
+  if (!contact || (!contact.email && !contact.url)) return null;
+  const open = (href: string) => () => void Linking.openURL(href).catch(() => undefined);
+  return (
+    <View testID="genesis-support-contact" style={{ gap: 4, paddingTop: 4 }}>
+      <NativeText preset="body-sm" className="text-muted-foreground">
+        {copy.contact.title}
+      </NativeText>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+        {contact.email ? (
+          <NativeButton size="sm" variant="outline" onPress={open(mailtoHref(contact.email))} testID="genesis-support-contact-email">
+            {fill(copy.contact.email, { email: contact.email })}
+          </NativeButton>
+        ) : null}
+        {contact.url ? (
+          <NativeButton size="sm" variant="outline" onPress={open(contact.url)} testID="genesis-support-contact-url">
+            {copy.contact.page}
+          </NativeButton>
+        ) : null}
+      </View>
+    </View>
+  );
 }
 
 /** One article, by its slug. */

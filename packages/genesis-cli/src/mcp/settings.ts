@@ -199,7 +199,8 @@ export function settingsProposalFix(key: string, value: unknown, locked?: boolea
       // `locked` left out keeps the key's lock as it is; true or false sets it.
       const wasLocked = isLockedEntry(current) && current.locked === true;
       const lock = locked ?? wasLocked;
-      const entry = lock ? { value, locked: true } : value;
+      // Left out, an entry written as { value, locked } keeps that shape (an explicit `locked: false` included).
+      const entry = locked === undefined && isLockedEntry(current) ? { value, locked: current.locked } : lock ? { value, locked: true } : value;
       const before = isLockedEntry(current) ? current.value : current;
       if (current !== undefined && canonicalJson(before) === canonicalJson(value) && lock === wasLocked) {
         return { summary: `settings.${key} is already ${clipJson(value)}${lock ? " (locked)" : ""} in ${CONFIG_FILE}` };
