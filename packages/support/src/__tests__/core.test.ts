@@ -285,6 +285,12 @@ describe("the block", () => {
       },
       {
         package: "@marktiderman/genesis-support",
+        file: "migrations/0025_genesis_support_notifications.sql",
+        test: "migrations/tests/0025_genesis_support_notifications.test.sql",
+        feature: SUPPORT_BLOCK_ID,
+      },
+      {
+        package: "@marktiderman/genesis-support",
         file: "migrations/0026_genesis_support_diagnostics_access.sql",
         test: "migrations/tests/0026_genesis_support_diagnostics_access.test.sql",
         feature: SUPPORT_BLOCK_ID,

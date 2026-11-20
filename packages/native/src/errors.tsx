@@ -6,7 +6,7 @@
  * tree with fresh state.
  */
 import { Component, type ComponentType, type ErrorInfo, type ReactNode } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Linking, Pressable, Text, View } from "react-native";
 import { NativeButton, NativeEmptyState } from "@marktiderman/genesis-ui-native/components";
 import { classifyError, reportError } from "@marktiderman/genesis-core/errors";
 import { toError } from "./boot";
@@ -45,7 +45,60 @@ export interface FatalScreenViewProps {
    * could not start, or when the `fatal` slot threw.
    */
   kind?: FatalScreenKind;
+  /**
+   * Where people can write when the app can't help (support's `contactEmail` / `contactUrl`
+   * settings: `support.contact()`): a "Contact support" button under "Try again". Left out, none.
+   */
+  contact?: FatalScreenContact | null;
 }
+
+/** A support contact for the fatal screens: an email address, a support page, or both. */
+export interface FatalScreenContact {
+  email?: string | null;
+  url?: string | null;
+}
+
+/** An https page with a host (`https://acme.test/help`), else null. */
+function httpsPage(text: string | null | undefined): string | null {
+  const t = text?.trim();
+  if (!t || t.length > 2048 || !/^https:\/\//i.test(t)) return null;
+  try {
+    const u = new URL(t);
+    return u.protocol === "https:" && u.hostname ? t : null;
+  } catch {
+    return null;
+  }
+}
+
+/** One address, checked in one pass (no backtracking): one "@", no spaces or brackets, a dot in the domain, not at its ends. */
+function looksLikeEmail(text: string): boolean {
+  if (text.length > 254) return false;
+  let at = -1;
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charCodeAt(i);
+    if (c <= 0x20 || c === 0x3c || c === 0x3e || c === 0x7f) return false;
+    if (c === 0x40) {
+      if (at !== -1) return false;
+      at = i;
+    }
+  }
+  const dot = text.lastIndexOf(".");
+  return at > 0 && dot > at + 1 && dot < text.length - 1;
+}
+
+/** The link a contact opens: the support page, else a mailto. Null with neither (or one that isn't safe). */
+export function contactHref(contact: FatalScreenContact | null | undefined): string | null {
+  const url = httpsPage(contact?.url);
+  if (url) return url;
+  const email = contact?.email?.trim();
+  // RFC 6068: "?", "#", "%", "&" and "/" in the mailbox are encoded, so they don't start a query.
+  if (email && looksLikeEmail(email)) return `mailto:${email.replace(/[%?#&/]/g, (c) => encodeURIComponent(c))}`;
+  return null;
+}
+
+const openContact = (href: string) => () => {
+  void Linking.openURL(href).catch((e: unknown) => reportError(e, "native:contact"));
+};
 
 const runRetry = (retry: FatalScreenViewProps["retry"], source: string) => () => {
   void Promise.resolve(retry()).catch((e: unknown) => reportError(e, source));
@@ -55,7 +108,8 @@ const runRetry = (retry: FatalScreenViewProps["retry"], source: string) => () =>
  * The fatal screen: what went wrong and "Try again", for the whole app, one screen, or (with
  * `kind="plain"`) the last resort that needs nothing above it.
  */
-export function FatalScreen({ error, retry, kind = "app" }: FatalScreenViewProps) {
+export function FatalScreen({ error, retry, kind = "app", contact }: FatalScreenViewProps) {
+  const href = contactHref(contact);
   if (kind === "plain") {
     return (
       <View testID="genesis-fatal-plain" style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 24, gap: 12 }}>
@@ -66,6 +120,11 @@ export function FatalScreen({ error, retry, kind = "app" }: FatalScreenViewProps
         <Pressable accessibilityRole="button" onPress={() => void retry()} testID="genesis-fatal-plain-retry" style={{ padding: 12 }}>
           <Text style={{ fontSize: 17 }}>Try again</Text>
         </Pressable>
+        {href ? (
+          <Pressable accessibilityRole="link" onPress={openContact(href)} testID="genesis-fatal-plain-contact" style={{ padding: 12 }}>
+            <Text style={{ fontSize: 15 }}>Contact support</Text>
+          </Pressable>
+        ) : null}
       </View>
     );
   }
@@ -88,6 +147,15 @@ export function FatalScreen({ error, retry, kind = "app" }: FatalScreenViewProps
           Try again
         </NativeButton>
       }
+      {...(href
+        ? {
+            secondaryAction: (
+              <NativeButton variant="outline" onPress={openContact(href)} testID={screen ? "genesis-screen-error-contact" : "genesis-fatal-contact"}>
+                Contact support
+              </NativeButton>
+            ),
+          }
+        : {})}
       testID={screen ? "genesis-screen-error" : "genesis-fatal"}
     />
   );
