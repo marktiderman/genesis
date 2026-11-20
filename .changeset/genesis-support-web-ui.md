@@ -7,7 +7,8 @@
   confirmed (`awaitsVerification`), and answers through `client.verify`: confirm, or reopen with
   what's still wrong, with focus moving to the note and back. Its spaces are genesis-ui's `TabBar`,
   with the unread count on Messages, and with `allTenants` each row names its desk
-  (`myTicketDesks`). Reports carry `tenantId` and `verifiedAt`.
+  (`myTicketDesks`). It answers once: a second press sends nothing. A desk-log action this version
+  doesn't know shows as "changed this desk" (`DeskLogEntry.action` "other").
 - Agent management, for whoever manages a desk's agents (`canManageAgents`): `SupportAgentsAdmin`
   lists the agents with their roles, adds someone found in the desk's tenant (`searchPeople`) as an
   agent or admin, and removes a removable one (`setAgent`, which now takes null for the app's own

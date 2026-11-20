@@ -702,8 +702,7 @@ function DeskState(props: SupportAgentInboxProps & { tenantId: string | null }) 
   const on = supportSettingValues(props.settings).support.desks;
   const desks = useSupportDesks(props.client, { enabled: on && props.tenantId !== null });
   const desk = props.tenantId ? desks.data?.find((d) => d.tenantId === props.tenantId && !d.isDefault) : undefined;
-  const inbox = <AgentInbox key={scopeOf(props.client, props.tenantId)} {...props} />;
-  if (!desk || desk.enabled) return inbox;
+  if (!desk || desk.enabled) return <AgentInbox key={scopeOf(props.client, props.tenantId)} {...props} />;
   const copy = resolveSupportCopy(props.copy);
   if (!desk.openTickets) {
     return (
@@ -715,7 +714,10 @@ function DeskState(props: SupportAgentInboxProps & { tenantId: string | null }) 
   return (
     <div className={cn("flex h-full min-h-0 flex-col", props.className)}>
       <InlineAlert className="m-2" title={copy.desks.offTitle} description={copy.desks.offBody} testID="genesis-support-agent-desk-is-off" />
-      <div className="min-h-0 flex-1">{inbox}</div>
+      {/* The outer box takes the app's className; the inbox inside fills what's left. */}
+      <div className="min-h-0 flex-1">
+        <AgentInbox key={scopeOf(props.client, props.tenantId)} {...props} className="h-full" />
+      </div>
     </div>
   );
 }

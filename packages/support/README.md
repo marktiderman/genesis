@@ -593,7 +593,11 @@ ticket. A dump is scrubbed on the device and again on the server; the viewers re
 only. `SupportTicketDiagnostics` (`/web-chat`) and `AgentTicketDiagnostics` (`/native`) work on
 their own too, and `diagnosticsViewSections(report)` gives the sections as text. On the phone each
 dump is headed with its trigger and local time (`dumpHeading`) and has "Copy" (`copy`, default the
-share sheet).
+share sheet). On the web each dump is headed with its trigger and local time and has "Copy"; give
+`SupportTicketDiagnostics` (or the inbox, as `diagnosticsLinks`) a `SupportDiagnosticsLinks` to link a
+dump to its Sentry event (`sentry({ eventId, replayId })`, shown when the dump carries an event id)
+and its GitHub issue (`githubIssue(dump)`). Only `https:` links show; a dump's own text never becomes
+a link. Its reads are keyed by `supportDiagnosticsKeys`, per client and login.
 
 ### Health checks
 
@@ -988,7 +992,10 @@ help desk something its admins run, and lets a ticket move between desks:
   move. Roles come from `private.genesis_tenant_role(tenant uuid, person uuid) returns text`, else
   `admin`, `agent` or `member`.
 - **The messenger across desks.** `<SupportMessenger allTenants>` (and the launcher) lists the
-  person's conversations at every desk; a new one still goes to `tenantId`, or where routing sends it.
+  person's conversations at every desk, each row with its desk's name; a new one still goes to
+  `tenantId`, or where routing sends it. A conversation marked fixed that the person hasn't
+  confirmed (`awaitsVerification`) asks "Is it fixed?" in its thread, and answers with
+  `client.verify`: confirm, or reopen with what's still wrong.
   `client.myTicketDesks()` (`support_my_ticket_desks`) gives each of the person's own tickets its
   desk and the desk's name from `private.genesis_tenant_label`.
 - **Managing agents** (migration 0034, the support-chat block). Whoever manages a desk's agents (its
@@ -999,6 +1006,21 @@ help desk something its admins run, and lets a ticket move between desks:
   (`support_people_search`, at most 25), to add an agent or link an email requester. A tenant's
   people are those `private.genesis_tenant_member(tenant, person)` names, else
   `private.genesis_viewer_people`; anonymous logins never show.
+- **On the web** (`/web-chat`). `<SupportAgentsAdmin client tenantId />` lists a desk's agents with
+  their roles for whoever manages them, adds someone found with `searchPeople` as an agent or an
+  admin, and removes a removable one; anyone else is told it isn't theirs. The requester card offers
+  "Make an agent" to them. `<SupportLinkRequester client ticket />` (the inbox shows it for an email
+  ticket with no login) finds the person and, after a confirm naming the email and the person, links
+  the ticket to their login with `client.linkRequester(ticketId, personId)`
+  (`support_link_requester`). `<SupportMyMentions client resolveUser onOpen />` lists where the
+  signed-in agent was mentioned in a note (`agentMentions`). Agent lists are keyed by
+  `supportAgentKeys`.
+- **Keys by login.** Desk reads are keyed by the client and the signed-in login: `supportDeskKeys`
+  take the scope `useSupportDeskScope(client)` returns (`{ scope, failed, error, retry }`; `scope` is
+  null until the login is known). The client says who is signed in (`client.signedInId()`) and when
+  that changes (`client.onSignedInChange(listener)`, from the app's Supabase auth); a sign-in or
+  sign-out reads the login again, and nothing keyed by the last one shows meanwhile. Migrating:
+  `supportDeskScope(client)` is gone; in a component, use `useSupportDeskScope(client).scope`.
 
 With the `support.desks` setting off (the `standard` and `min` presets) it is 0004 exactly:
 `tenant_features` alone decides, and nothing is switched, routed or moved.

@@ -9,7 +9,7 @@
  *
  * @stability Beta
  */
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertDialog,
@@ -521,10 +521,14 @@ function DeskLog({
   useEffect(() => {
     if (log.error) onError?.(log.error);
   }, [log.error, onError]);
-  const view = listView<DeskLogRow>("support_desk_log", { title: copy.desks.log, noun: copy.desks.logNoun, nounPlural: copy.desks.logNounPlural, emptyTitle: copy.desks.logEmpty }, [
-    { name: "what", label: copy.desks.logWhat },
-    { name: "at", label: copy.desks.logWhen, type: "datetime", display: "datetime" },
-  ]);
+  const view = useMemo(
+    () =>
+      listView<DeskLogRow>("support_desk_log", { title: copy.desks.log, noun: copy.desks.logNoun, nounPlural: copy.desks.logNounPlural, emptyTitle: copy.desks.logEmpty }, [
+        { name: "what", label: copy.desks.logWhat },
+        { name: "at", label: copy.desks.logWhen, type: "datetime", display: "datetime" },
+      ]),
+    [copy],
+  );
   const rows = log.data?.map((e: DeskLogEntry): DeskLogRow => ({
     id: e.id,
     what: fill(copy.desks.logActions[e.action], { by: e.actorName?.trim() || copy.desks.logSomeone, to: e.toTenantId ? nameOf(e.toTenantId) : "" }),

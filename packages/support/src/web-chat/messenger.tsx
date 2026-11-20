@@ -719,11 +719,17 @@ function VerifyCard({
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
+  // One answer: a second press while one is sent, or after it was taken, sends nothing.
+  const sending = useRef(false);
+  const [answered, setAnswered] = useState(false);
   const answer = (fixed: boolean) => {
+    if (sending.current || answered) return;
+    sending.current = true;
     setBusy(true);
     setFailed(false);
     verify(ticketId, fixed, fixed ? undefined : note.trim() || undefined)
       .then(() => {
+        setAnswered(true);
         toast.success(fixed ? copy.messenger.verifyThanks : copy.messenger.verifyReopened);
         onDone();
       })
@@ -731,8 +737,13 @@ function VerifyCard({
         setFailed(true);
         report(error);
       })
-      .finally(() => setBusy(false));
+      .finally(() => {
+        sending.current = false;
+        setBusy(false);
+      });
   };
+  // Answered: the card goes while the thread reads the ticket again.
+  if (answered) return null;
   return (
     <div className="flex flex-col gap-2 p-3">
       <InlineAlert
