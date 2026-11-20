@@ -1,4 +1,4 @@
--- An app with hooks of its own (as Growth90 has), applied after support's migrations, so the pgTAP
+-- A consumer app with hooks of its own, applied after support's migrations, so the pgTAP
 -- files an app copies are run where those hooks exist: each must set them aside itself. The
 -- `support-app-hooks` suite applies it. One app table's policy depends on a hook, as real ones do.
 create schema if not exists private;
