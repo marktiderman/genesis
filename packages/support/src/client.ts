@@ -13,6 +13,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { FeedbackStatus } from "./contract";
 import { attachmentBytes, sanitizeContext, type FeedbackDelivery, type FeedbackRecord, type FeedbackSink, type FeedbackType } from "./record";
 import { toDesk, toDeskLogEntry, toTicketDesk, type DeskLogEntry, type DeskTarget, type SupportDesk, type TicketDesk } from "./desks";
+import type { SupportSettingValues } from "./settings";
 import { isMissingFunction, type SupportChatAttachment, type SupportChatClient, type SupportChatMessage, type SupportThreadInfo } from "./chat";
 
 /** Any supabase-js client; the app's generated Database types don't need to list the support tables. */
@@ -577,6 +578,15 @@ function toReport(r: Row): SupportReport {
 export function awaitsVerification(t: Pick<SupportReport, "status" | "verifiedAt">): boolean {
   // Only where the read says when it was confirmed: `verifiedAt` null, not left out.
   return t.status === "addressed" && t.verifiedAt === null;
+}
+
+/**
+ * Whether a thread asks "Is it fixed?", on the web and the phone alike: the `support.verifyPrompt`
+ * setting (`supportSettingValues(…).support.verifyPrompt`, off in every preset) is on and the report
+ * awaits the person's answer.
+ */
+export function asksVerification(t: Pick<SupportReport, "status" | "verifiedAt">, verifyPrompt: SupportSettingValues["support"]["verifyPrompt"]): boolean {
+  return verifyPrompt && awaitsVerification(t);
 }
 
 /** Since when a ticket's requester has waited, from its reply times: for a queue read before migration 0013. */

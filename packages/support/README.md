@@ -1001,10 +1001,11 @@ help desk something its admins run, and lets a ticket move between desks:
   move. Roles come from `private.genesis_tenant_role(tenant uuid, person uuid) returns text`, else
   `admin`, `agent` or `member`.
 - **The messenger across desks.** `<SupportMessenger allTenants>` (and the launcher) lists the
-  person's conversations at every desk, each row with its desk's name; a new one still goes to
-  `tenantId`, or where routing sends it. A conversation marked fixed that the person hasn't
-  confirmed (`awaitsVerification`) asks "Is it fixed?" in its thread, and answers with
-  `client.verify`: confirm, or reopen with what's still wrong.
+  person's conversations at every desk, each row with its desk's name (the app's own by the copy's
+  "Support"); a new one still goes to `tenantId`, or where routing sends it. With the
+  `support.verifyPrompt` setting on, a conversation marked fixed that the person hasn't confirmed
+  asks "Is it fixed?" in its thread, on the web and the phone alike (`asksVerification`), and
+  answers with `client.verify`: confirm, or reopen with what's still wrong.
   `client.myTicketDesks()` (`support_my_ticket_desks`) gives each of the person's own tickets its
   desk, the desk's name from `private.genesis_tenant_label` and `isDefault` (the app's own desk).
 - **Managing agents** (migration 0034, the support-chat block). Who manages a desk's agents (its

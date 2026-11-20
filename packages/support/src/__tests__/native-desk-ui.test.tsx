@@ -30,6 +30,9 @@ const T1 = "11111111-1111-4111-8111-111111111111";
 
 type Rpc = (fn: string, args: Record<string, unknown>) => Answer | undefined;
 
+/** The "Is it fixed?" question is asked only with `support.verifyPrompt` on. */
+const VERIFY_ON = { appSettings: { "support.verifyPrompt": true } };
+
 function harness(rpc: Rpc = () => undefined, respond?: (call: Call) => Answer | undefined, extra: Partial<Parameters<typeof createSupport>[0]> = {}) {
   const fake = fakeSupabase({ userId: ME, rpc: (fn, args) => rpc(fn, args as Record<string, unknown>) ?? { data: null, error: null }, ...(respond ? { respond } : {}) });
   const navigate = vi.fn();
@@ -66,6 +69,7 @@ describe("Is it fixed? on the person's thread", () => {
     const { fake, wrap } = harness(
       (fn) => (fn === "support_verify_report" ? ((row = report({ verified_at: "2026-11-20T09:00:00Z" })), { data: null, error: null }) : undefined),
       (call) => (call.table === "support_reports" ? { data: row, error: null } : undefined),
+      VERIFY_ON,
     );
     render(wrap(<PersonThread />));
     expect(await screen.findByText("Is it fixed?")).toBeTruthy();
@@ -88,6 +92,7 @@ describe("Is it fixed? on the person's thread", () => {
         return { data: null, error: null };
       },
       (call) => (call.table === "support_reports" ? { data: row, error: null } : undefined),
+      VERIFY_ON,
     );
     render(wrap(<PersonThread />));
     fireEvent.click(await screen.findByTestId("genesis-support-thread-verify-reopen"));
@@ -98,9 +103,16 @@ describe("Is it fixed? on the person's thread", () => {
     expect((await screen.findByTestId("genesis-support-thread-verified")).textContent).toContain("reopened");
   });
 
+  it("doesn't ask with support.verifyPrompt off, as in every preset", async () => {
+    const { wrap } = harness(undefined, (call) => (call.table === "support_reports" ? { data: report(), error: null } : undefined));
+    render(wrap(<PersonThread />));
+    await screen.findByText("The export is empty");
+    expect(screen.queryByTestId("genesis-support-thread-verify")).toBeNull();
+  });
+
   it("doesn't ask once it is confirmed, or while it is open", async () => {
     for (const row of [report({ verified_at: "2026-11-20T09:00:00Z" }), report({ status: "in_progress" })]) {
-      const { wrap } = harness(undefined, (call) => (call.table === "support_reports" ? { data: row, error: null } : undefined));
+      const { wrap } = harness(undefined, (call) => (call.table === "support_reports" ? { data: row, error: null } : undefined), VERIFY_ON);
       const view = render(wrap(<PersonThread />));
       await screen.findByText("The export is empty");
       expect(screen.queryByTestId("genesis-support-thread-verify")).toBeNull();
@@ -593,7 +605,7 @@ describe("SupportRoute shows what the hooks say", () => {
 
   it("asks Is it fixed? on a report's thread", async () => {
     const fake = fakeSupabase({ userId: ME, respond: (call) => (call.table === "support_reports" ? { data: report(), error: null } : undefined) });
-    const block = createSupport({ supabase: fake.client, navigate: vi.fn(), platform: "ios", basePath: "/s", useCurrentRoute: () => `/s/${T1}` });
+    const block = createSupport({ supabase: fake.client, navigate: vi.fn(), platform: "ios", basePath: "/s", useCurrentRoute: () => `/s/${T1}`, ...VERIFY_ON });
     render(
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
         <SupportProvider block={block}>

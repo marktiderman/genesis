@@ -3,8 +3,8 @@
 ---
 
 **Support on the web: "Is it fixed?", agent management, the dump viewer and Genesis primitives.**
-- The messenger asks "Is it fixed?" on a conversation marked fixed that the person hasn't
-  confirmed (`awaitsVerification`), and answers through `client.verify`: confirm, or reopen with
+- With `support.verifyPrompt` on, the messenger asks "Is it fixed?" on a conversation marked fixed
+  that the person hasn't confirmed (`asksVerification`, the same rule as the phone's thread), and answers through `client.verify`: confirm, or reopen with
   what's still wrong, with focus moving to the note and back. Its spaces are genesis-ui's `TabBar`,
   with the unread count on Messages, and with `allTenants` each row names its desk
   (`myTicketDesks`). It answers once: a second press sends nothing. A desk-log action this version

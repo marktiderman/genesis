@@ -15,7 +15,7 @@ import { Alert, View } from "react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Box, Inline, NativeButton, NativeInlineAlert, NativeInput, NativeText } from "@marktiderman/genesis-ui-native/components";
 import type { InboxItem, InboxPageProps, ThreadMessage, ThreadPageProps } from "@marktiderman/genesis-ui-native/layouts";
-import type { SupportIdea, SupportReply, SupportReport } from "../client";
+import { asksVerification, type SupportIdea, type SupportReply, type SupportReport } from "../client";
 import type { SupportThreadInfo } from "../chat";
 import { fill } from "../copy";
 import { awaitingReplyLine, useReplyExpectation } from "../reply-expectation";
@@ -254,7 +254,8 @@ export function useSupportThread(reportId: string, options: { pollMs?: number } 
     },
   });
   // Addressed and not yet confirmed: only where the client reads when it was (`verifiedAt` null, not unknown).
-  const awaitingVerification = Boolean(client.verify && r && r.status === "addressed" && r.verifiedAt === null && answered === null);
+  const verifyPrompt = block.useSettings().support.verifyPrompt;
+  const awaitingVerification = Boolean(client.verify && r && asksVerification(r, verifyPrompt) && answered === null);
   const answer = (fixed: boolean) => {
     if (!verify.isPending) verify.mutate(fixed);
   };

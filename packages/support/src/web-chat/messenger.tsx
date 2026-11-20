@@ -35,12 +35,13 @@ import {
 } from "@marktiderman/genesis-ui";
 import { TabBar } from "@marktiderman/genesis-ui/layout";
 import { useOptionalChatDock, type ResolveUser } from "@marktiderman/genesis-chat/web";
-import { awaitsVerification, reportHeading, SupportError, type HelpArticleSummary, type HelpSearchHit, type SupportClient, type Ticket } from "../client";
+import { asksVerification, reportHeading, SupportError, type HelpArticleSummary, type HelpSearchHit, type SupportClient, type Ticket } from "../client";
 import { fill, resolveSupportCopy, type SupportCopy, type SupportCopyOverrides } from "../copy";
 import { useHelpAsk, type HelpAnswerResponse, type UseHelpAsk } from "../help-ask";
 import type { OfficeHours } from "../office-hours";
 import { awaitingReplyLine, composeExpectationLine, useReplyExpectation, type ReplyExpectation } from "../reply-expectation";
 import type { FeedbackContext } from "../record";
+import { deskName } from "./desks";
 import { scopeOf, useLoginScope, useResolvedTenant } from "./tenant";
 import { SupportContact } from "./contact";
 import { supportContact, supportSettingValues, type SupportContactInfo, type SupportSettingsInput } from "../settings";
@@ -140,6 +141,8 @@ interface Shared {
   here: Screen;
   report: (error: unknown) => void;
   expectation: ReplyExpectation;
+  /** `support.verifyPrompt`: a fixed conversation asks "Is it fixed?". */
+  verifyPrompt: boolean;
   /** A ticket's desk name, when Messages lists every desk's. */
   deskOf: (t: Ticket) => string | null;
 }
@@ -540,7 +543,7 @@ function Compose({ client, tenantId, scope, tickets, copy, go, report, expectati
 }
 
 /** A person's conversation. Keyed by ticket, so a draft never follows them to another one. */
-function Conversation({ client, tenantId, scope, contact, tickets, copy, report, expectation, id, resolveUser, active }: Shared & { id: string; resolveUser: ResolveUser | undefined; active: boolean }) {
+function Conversation({ client, tenantId, scope, contact, tickets, copy, report, expectation, verifyPrompt, id, resolveUser, active }: Shared & { id: string; resolveUser: ResolveUser | undefined; active: boolean }) {
   const queryClient = useQueryClient();
   const frame = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState("");
@@ -673,7 +676,7 @@ function Conversation({ client, tenantId, scope, contact, tickets, copy, report,
   const verify = client.verify?.bind(client);
   return (
     <div ref={frame} tabIndex={-1} className="flex min-h-0 flex-1 flex-col focus-visible:outline-none" data-testid="genesis-support-messenger-conversation">
-      {verify && awaitsVerification(t) ? (
+      {verify && asksVerification(t, verifyPrompt) ? (
         <VerifyCard
           verify={verify}
           ticketId={id}
@@ -845,14 +848,14 @@ function Messenger({ client, tenantId: tenantProp, allTenants = false, settings,
   const aiOn = Boolean(askAi && ai.data);
   const expectation = useReplyExpectation(replyExpectation, officeHours);
   const tickets = useMemo(() => ticketsQueryOf(client, tenantId, allTenants), [client, tenantId, allTenants]);
-  // With every desk's conversations, each row names its desk (`myTicketDesks`); the app's own has no name to show.
+  // With every desk's conversations, each row names its desk (`myTicketDesks`): the app's label, else the copy's ("Support" for the app's own).
   const { scope: loginScope } = useLoginScope(client, null);
   const readDesks = client.myTicketDesks?.bind(client);
   const desks = useQuery({ queryKey: supportMessengerKeys.desks(loginScope ?? ""), queryFn: allTenants && readDesks && loginScope ? () => readDesks() : skipToken, staleTime: 60_000 });
   useReported(desks.error, report);
-  const deskNames = useMemo(() => new Map((desks.data ?? []).map((d) => [d.ticketId, d.label?.trim() || null])), [desks.data]);
+  const deskNames = useMemo(() => new Map((desks.data ?? []).map((d) => [d.ticketId, deskName(d, copy)])), [desks.data, copy]);
   const deskOf = useCallback((t: Ticket) => deskNames.get(t.id) ?? null, [deskNames]);
-  const shared: Shared = { client, tenantId, scope, contact, tickets, copy, go: setScreen, here: screen, report, expectation, deskOf };
+  const shared: Shared = { client, tenantId, scope, contact, tickets, copy, go: setScreen, here: screen, report, expectation, deskOf, verifyPrompt: values.support.verifyPrompt };
   const unread = useQuery({ ...tickets, enabled: spaces.includes("messages") }).data?.filter((t) => t.unread).length ?? 0;
 
   const search = (next: string) => {
