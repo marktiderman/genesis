@@ -1,0 +1,37 @@
+.changeset/setup-wizard.md
+  s_ca8e075e853203::t_b8a08376ab2213 3,25-26
+packages/features/README.md
+  s_ca8e075e853203::t_1d3249c154e007 266-267
+packages/features/src/__tests__/settings-react.test.tsx
+  s_ca8e075e853203::t_707f9b6f3c22d6 293,301
+packages/features/src/settings-react.tsx
+  s_ca8e075e853203::t_12b5e63be4ae72 1001-1002
+packages/genesis-cli/README.md
+  s_ca8e075e853203::t_8d0870ba8441a5 942,1062
+packages/genesis-cli/src/doctor/settings.ts
+  s_ca8e075e853203::t_fbb5fdb92ae1b8 13-14,315
+packages/genesis-cli/src/fix/builtin.ts
+  s_ca8e075e853203::t_a9d5385bb59200 393
+packages/genesis-cli/src/mcp/settings.ts
+  s_ca8e075e853203::t_ff52cfd8cd0237 202-203
+packages/genesis-cli/test/doctor-secrets.test.ts
+  s_ca8e075e853203::t_fcf379a4be98c1 318,332,538-539
+packages/genesis-cli/test/wizard.test.ts
+  s_ca8e075e853203::t_009b7b0eb5da06 621-635
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ac3c80df4c7a37dff66ee1663ed92b471b74c966",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
