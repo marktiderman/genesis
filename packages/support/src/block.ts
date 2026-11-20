@@ -109,6 +109,8 @@ export function supportContributions(options: SupportBlockOptions = {}): BlockCo
       { package: "@marktiderman/genesis-support", file: "migrations/0019_genesis_support_diagnostics.sql", test: "migrations/tests/0019_genesis_support_diagnostics.test.sql" },
       // The dump's hourly limit and retention from the diagnostics.* settings.
       { package: "@marktiderman/genesis-support", file: "migrations/0020_genesis_support_settings.sql", test: "migrations/tests/0020_genesis_support_settings.test.sql" },
+      // A dump sent with a ticket is read by whoever handles that ticket; staff read only dumps with none.
+      { package: "@marktiderman/genesis-support", file: "migrations/0026_genesis_support_diagnostics_access.sql", test: "migrations/tests/0026_genesis_support_diagnostics_access.test.sql" },
     ],
     privacy: {
       collects: [

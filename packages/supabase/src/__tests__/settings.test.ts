@@ -152,13 +152,17 @@ describe("the settings block", () => {
     const resolved = resolveBlocks([settingsBlock], undefined, { platform: "web" });
     expect(resolved.migrations).toEqual([
       { package: "@marktiderman/genesis-supabase", file: "migrations/0020_genesis_settings.sql", test: "migrations/tests/0020_genesis_settings.test.sql", feature: "settings" },
+      { package: "@marktiderman/genesis-supabase", file: "migrations/0021_genesis_settings_integer.sql", test: "migrations/tests/0021_genesis_settings_integer.test.sql", feature: "settings" },
     ]);
     for (const m of resolved.migrations) {
       expect(existsSync(join(packageRoot, m.file)), m.file).toBe(true);
       expect(existsSync(join(packageRoot, m.test!)), m.test).toBe(true);
     }
     const manifest = JSON.parse(readFileSync(join(packageRoot, "package.json"), "utf8")).genesis.blocks.settings;
-    expect(manifest.migrations).toEqual([{ file: "migrations/0020_genesis_settings.sql", test: "migrations/tests/0020_genesis_settings.test.sql" }]);
+    expect(manifest.migrations).toEqual([
+      { file: "migrations/0020_genesis_settings.sql", test: "migrations/tests/0020_genesis_settings.test.sql" },
+      { file: "migrations/0021_genesis_settings_integer.sql", test: "migrations/tests/0021_genesis_settings_integer.test.sql" },
+    ]);
   });
 
   it("fails closed without the platform-admin hook, and never stores a secret", () => {
