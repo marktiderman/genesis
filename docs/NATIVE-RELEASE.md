@@ -269,8 +269,10 @@ push trigger limited to other branches (a preview lane, say) or one only for tag
 filters `*`, `**` and `[…]` classes such as `m[ae]in` match as on GitHub, but `?` is read as any one
 character and `+` as itself, not as GitHub's quantifiers. Merge the `.genesis-next` (or run with
 `--replace`) and remove the others, then run it again; or run it with `--replace-rival` to write
-`native-release.yml` now, in a change that also removes them (the command doesn't delete them, and
-names them in its summary). `genesis doctor` fails (`release-lane-twice`, an error) while one is
+`native-release.yml` now, in a change that also removes the others (the command doesn't delete
+them, and names them in its summary). `--replace-rival` never passes over your old
+`deploy-production.yml`: `native-release.yml` starts that file on EAS, so it is merged into the
+lane's version, never removed, and `native-release.yml` stays held until it is. `genesis doctor` fails (`release-lane-twice`, an error) while one is
 there beside `native-release.yml`. The check reads commands, not what they publish, so a push
 lane that only ships a staging update or a preview build (`eas update --branch staging`,
 `eas build --profile preview`) counts too: when it doesn't release to production, keep it, run
