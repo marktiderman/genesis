@@ -5,7 +5,7 @@
 -- already has the hooks or a manifest, they are replaced inside this transaction only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(88);
+select plan(93);
 
 -- People: a1 a platform admin; aa the admin of tenant A, ab a member of A; bb the admin of tenant B;
 -- c1 and c2 signed in, in no tenant.
@@ -326,6 +326,31 @@ select ok((select count(*) from realtime.messages) > 0, 'anyone signed in may li
 select pg_temp.sign_out();
 select is((select count(*)::int from realtime.messages), 0, '... nobody signed in may not');
 reset role;
+
+-- A value moved to another tenant: both tenants hear of it --------------------------------------
+delete from realtime.messages;
+update public.genesis_tenant_settings set tenant_id = pg_temp.tenant('b') where tenant_id = pg_temp.tenant('a') and key = 'demo.limit';
+select ok(
+  exists (select 1 from realtime.messages m where m.topic = 'genesis-settings:tenant:' || pg_temp.tenant('a') and m.payload = '{"layer": "tenant", "key": "demo.limit"}'),
+  'a value moved off a tenant is announced to the old tenant'
+);
+select ok(
+  exists (select 1 from realtime.messages m where m.topic = 'genesis-settings:tenant:' || pg_temp.tenant('b') and m.payload = '{"layer": "tenant", "key": "demo.limit"}'),
+  '... and to the new one'
+);
+
+-- A deleted tenant, with the foreign keys the header recommends ---------------------------------
+create table public.genesis_test_tenants (id uuid primary key);
+insert into public.genesis_test_tenants values (pg_temp.tenant('a')), (pg_temp.tenant('b'));
+alter table public.genesis_tenant_settings add foreign key (tenant_id) references public.genesis_test_tenants (id) on delete cascade;
+alter table public.genesis_scoped_setting_changes add foreign key (tenant_id) references public.genesis_test_tenants (id) on delete cascade;
+set local role authenticated;
+select pg_temp.sign_in('aa');
+select public.set_genesis_tenant_setting(pg_temp.tenant('a'), 'demo.banner', 'false');
+reset role;
+select lives_ok($$ delete from public.genesis_test_tenants where id = pg_temp.tenant('a') $$, 'a tenant with a setting can be deleted');
+select is((select count(*)::int from public.genesis_tenant_settings where tenant_id = pg_temp.tenant('a')), 0, 'its values went with it');
+select is((select count(*)::int from public.genesis_scoped_setting_changes where tenant_id = pg_temp.tenant('a')), 0, '... and its history');
 
 -- A deleted person takes their values and history with them ------------------------------------
 delete from auth.users where id = pg_temp.person('c2');

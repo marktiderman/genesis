@@ -784,8 +784,11 @@ preset and genesis.config.json.
 - **Realtime.** A change to any of the three settings tables is broadcast on a private channel
   (`genesis-settings`, `genesis-settings:tenant:<id>`, `genesis-settings:person:<id>`) with the layer
   and key, never the value, to those who may read it. `watchAppSettings` resolves now and again on
-  every change (and after a reconnect), and returns the function that stops it. To opt out, call
-  `resolveAppSettings` instead: nothing listens.
+  every change (and after a reconnect), and returns the function that stops it; a channel it can't
+  join or that times out goes to `onError`. To opt out, call `resolveAppSettings` instead: nothing
+  listens. The listen policy (`genesis_settings_listen` on `realtime.messages`) is created only if
+  Realtime is enabled when 0023 runs; enable Realtime later and copy 0023's `do $rt$ … $rt$` block
+  into a migration of your own.
 
 ```ts
 import { resolveAppSettings, setGenesisSetting, watchAppSettings, writeAppManifest } from "@marktiderman/genesis-supabase";

@@ -367,34 +367,50 @@ security definer
 set search_path = ''
 as $$
 declare
-  r jsonb;
-  topic text;
+  o jsonb;
+  n jsonb;
   layer text;
+  owner_col text;
+  prefix text;
+  topics text[];
+  topic text;
 begin
   if to_regprocedure('realtime.send(jsonb,text,text,boolean)') is null then
     return null;
   end if;
-  if tg_op = 'DELETE' then
-    r := to_jsonb(old);
-  else
-    r := to_jsonb(new);
+  if tg_op <> 'INSERT' then
+    o := to_jsonb(old);
+  end if;
+  if tg_op <> 'DELETE' then
+    n := to_jsonb(new);
   end if;
   if tg_table_name = 'genesis_tenant_settings' then
     layer := 'tenant';
-    topic := 'genesis-settings:tenant:' || (r ->> 'tenant_id');
+    owner_col := 'tenant_id';
+    prefix := 'genesis-settings:tenant:';
   elsif tg_table_name = 'genesis_person_settings' then
     layer := 'person';
-    topic := 'genesis-settings:person:' || (r ->> 'person_id');
+    owner_col := 'person_id';
+    prefix := 'genesis-settings:person:';
   else
     layer := 'database';
-    topic := 'genesis-settings';
   end if;
-  begin
-    execute 'select realtime.send($1, $2, $3, true)' using jsonb_build_object('layer', layer, 'key', r ->> 'key'), 'changed', topic;
-  exception
-    when others then
-      null;
-  end;
+  if owner_col is null then
+    topics := array['genesis-settings'];
+  else
+    -- A row moved to another tenant or person: both the old owner and the new one re-read.
+    select array_agg(distinct prefix || t) into topics
+    from unnest(array[o ->> owner_col, n ->> owner_col]) t
+    where t is not null;
+  end if;
+  foreach topic in array topics loop
+    begin
+      execute 'select realtime.send($1, $2, $3, true)' using jsonb_build_object('layer', layer, 'key', coalesce(n, o) ->> 'key'), 'changed', topic;
+    exception
+      when others then
+        null;
+    end;
+  end loop;
   return null;
 end;
 $$;
@@ -453,17 +469,27 @@ begin
     if layer = 'person' and not exists (select 1 from auth.users u where u.id = owner) then
       continue;
     end if;
-    insert into public.genesis_scoped_setting_changes (layer, tenant_id, person_id, key, old_value, new_value, changed_by, changed_role)
-    values (
-      layer,
-      case when layer = 'tenant' then owner end,
-      case when layer = 'person' then owner end,
-      e -> 'at' ->> 'key',
-      e -> 'old',
-      e -> 'new',
-      who,
-      who_role
-    );
+    begin
+      insert into public.genesis_scoped_setting_changes (layer, tenant_id, person_id, key, old_value, new_value, changed_by, changed_role)
+      values (
+        layer,
+        case when layer = 'tenant' then owner end,
+        case when layer = 'person' then owner end,
+        e -> 'at' ->> 'key',
+        e -> 'old',
+        e -> 'new',
+        who,
+        who_role
+      );
+    exception
+      -- The tenant is being deleted, with the foreign key the header suggests: its values go by
+      -- cascade and its history with it, so there is nothing to record. (Postgres fires the
+      -- cascade's triggers at the end of the outer statement, so no trigger depth tells it apart.)
+      when foreign_key_violation then
+        if not (tg_op = 'DELETE' and layer = 'tenant') then
+          raise;
+        end if;
+    end;
   end loop;
   return null;
 end;
@@ -489,7 +515,8 @@ create policy genesis_scoped_setting_changes_read on public.genesis_scoped_setti
   for select to authenticated using (public.genesis_settings_can_read(tenant_id, person_id, true));
 
 -- Who may listen on the settings channels: anyone signed in on `genesis-settings`, else whoever
--- may read that tenant's or person's settings.
+-- may read that tenant's or person's settings. Created only when Realtime (realtime.messages) is
+-- there when this runs; enable Realtime later and run this block again in a migration of your own.
 do $rt$
 begin
   if to_regclass('realtime.messages') is not null

@@ -82,6 +82,12 @@ describe("reading settings", () => {
     warn.mockRestore();
   });
 
+  it("doesn't fall back on a 42883 about another function (a bug in an app hook)", async () => {
+    const { client, rpc } = fakeClient({ data: null, error: { message: "function private.genesis_tenant_member(uuid, text) does not exist", code: "42883" } });
+    await expect(readSettingsLayers(client, { tenantId: "tenant-a" })).rejects.toBeInstanceOf(SupabaseQueryError);
+    expect(rpc).toHaveBeenCalledTimes(1);
+  });
+
   it("doesn't fall back on any other error", async () => {
     const { client, rpc } = fakeClient({ data: null, error: { message: "only the tenant's members can read its settings", code: "42501" } });
     await expect(readSettingsLayers(client, { tenantId: "tenant-b" })).rejects.toBeInstanceOf(SupabaseQueryError);
@@ -198,7 +204,7 @@ describe("changing settings", () => {
 describe("watching settings", () => {
   function realtimeClient(data: unknown) {
     const listeners = new Map<string, () => void>();
-    const joins = new Map<string, (status: string) => void>();
+    const joins = new Map<string, (status: string, error?: unknown) => void>();
     const removed: string[] = [];
     const rpc = vi.fn(async () => ({ data, error: null }));
     const channel = vi.fn((name: string, options: unknown) => {
@@ -210,7 +216,7 @@ describe("watching settings", () => {
           listeners.set(name, cb);
           return ch;
         },
-        subscribe: (cb: (status: string) => void) => {
+        subscribe: (cb: (status: string, error?: unknown) => void) => {
           joins.set(name, cb);
           return ch;
         },
@@ -249,6 +255,20 @@ describe("watching settings", () => {
     fake.listeners.get("genesis-settings")!();
     await flush();
     expect(onChange).toHaveBeenCalledTimes(3);
+  });
+
+  it("reports a channel that can't be joined or times out", async () => {
+    const fake = realtimeClient(stored);
+    const onError = vi.fn();
+    const stop = watchAppSettings(fake.client, catalogue, { tenantId: "t1", onChange: () => {}, onError });
+    const denied = new Error("unauthorized");
+    fake.joins.get("genesis-settings:tenant:t1")!("CHANNEL_ERROR", denied);
+    fake.joins.get("genesis-settings")!("TIMED_OUT");
+    expect(onError.mock.calls[0]![0]).toBe(denied);
+    expect(String(onError.mock.calls[1]![0])).toMatch(/genesis-settings: TIMED_OUT/);
+    stop();
+    fake.joins.get("genesis-settings")!("CHANNEL_ERROR");
+    expect(onError).toHaveBeenCalledTimes(2);
   });
 
   it("listens on the app channel alone without a tenant or person, and reports a failed read", async () => {

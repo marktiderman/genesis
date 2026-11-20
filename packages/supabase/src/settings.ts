@@ -79,8 +79,12 @@ function storedLayer(raw: unknown): SettingsLayerValues {
   return out;
 }
 
-// Postgres's "no such function" and PostgREST's: the database predates migration 0023.
-const MISSING_FUNCTION = new Set(["42883", "PGRST202"]);
+// The database predates migration 0023: PostgREST can't find genesis_settings_layers(tenant), or
+// Postgres says that function doesn't exist. A 42883 about anything else (a type bug in an app
+// hook, say) is a real error, not a missing migration.
+function layersFunctionMissing(error: PostgrestErrorLike): boolean {
+  return error.code === "PGRST202" || (error.code === "42883" && /genesis_settings_layers/.test(error.message ?? ""));
+}
 let warnedWithoutScopedLayers = false;
 
 /**
@@ -94,7 +98,7 @@ let warnedWithoutScopedLayers = false;
  */
 export async function readSettingsLayers(client: SettingsClient, options: { tenantId?: string } = {}): Promise<StoredSettingsLayers> {
   let result = (await client.rpc("genesis_settings_layers", { tenant: options.tenantId ?? null })) as RpcResult;
-  if (result.error && MISSING_FUNCTION.has(result.error.code ?? "")) {
+  if (result.error && layersFunctionMissing(result.error)) {
     if (!warnedWithoutScopedLayers) {
       warnedWithoutScopedLayers = true;
       // genesis-allow-console: a set-up hint, once: the app's database is missing a migration.
@@ -157,7 +161,11 @@ export interface WatchAppSettingsOptions extends ResolveAppSettingsOptions {
   personId?: string;
   /** Called with the resolved settings now, and again after every change. */
   onChange: (settings: ResolvedSettings) => void;
-  /** Called when a read fails (the last good settings stay where they are). */
+  /**
+   * Called when a read fails, or a channel can't be joined or times out (`CHANNEL_ERROR`,
+   * `TIMED_OUT`: for example Realtime is off, or the listen policy is missing). The last good
+   * settings stay where they are.
+   */
   onError?: (error: unknown) => void;
 }
 
@@ -198,7 +206,12 @@ export function watchAppSettings(client: RealtimeSettingsClient, catalogue: Sett
     return client
       .channel(topic, { config: { private: true } })
       .on("broadcast", { event: "changed" }, refresh)
-      .subscribe((status: string) => {
+      .subscribe((status: string, error?: unknown) => {
+        if (stopped) return;
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          options.onError?.(error instanceof Error ? error : new Error(`Genesis settings: Realtime channel ${topic}: ${status}`));
+          return;
+        }
         // The first join follows the read below; a later one is a reconnect, which may have missed changes.
         if (status !== "SUBSCRIBED") return;
         if (joined) refresh();
