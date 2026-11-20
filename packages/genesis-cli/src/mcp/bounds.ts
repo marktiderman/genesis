@@ -16,13 +16,21 @@ export const MAX_PLAN_CHARS = 30_000;
 /** The most findings doctor_run lists. */
 export const MAX_FINDINGS = 150;
 
+/** Characters that can make the text a person reads differ from what it says: line and paragraph separators, bidi controls, zero-width and other invisible format characters, C0/C1 controls other than tab and newline. */
+const INVISIBLE = /[\u0000-\u0008\u000B-\u001F\u007F-\u009F\u00AD\u061C\u115F\u1160\u180E\u200B-\u200F\u2028-\u202E\u2060-\u206F\u3164\uFE00-\uFE0F\uFEFF\uFFA0\uFFF9-\uFFFB]/g;
+
+/** Text with every invisible or direction-changing character shown as its code (`\u{202E}`), so a person reads what is there. */
+export function showInvisible(text: string): string {
+  return text.replace(INVISIBLE, (c) => `\\u{${c.codePointAt(0)!.toString(16).toUpperCase().padStart(4, "0")}}`);
+}
+
 /** A string cut to `max` characters, saying so. */
 export function clip(text: string, max = MAX_FIELD_CHARS): string {
   return text.length <= max ? text : `${text.slice(0, max)}… (${text.length - max} more characters)`;
 }
 
 /** Environment variable names whose values are treated as secrets. */
-const SECRET_NAME = /SECRET|TOKEN|PASSWORD|PASSWD|PRIVATE|CREDENTIAL|API_?KEY|ACCESS_?KEY|_KEY$|^KEY_|(?:^|_)(?:PASS|PAT|SK)(?:_|$)|DSN|AUTH|COOKIE|SESSION|DATABASE_URL|CONNECTION|_URL$/i;
+const SECRET_NAME = /SECRET|TOKEN|PASSWORD|PASSWD|PRIVATE|CREDENTIAL|API_?KEY|ACCESS_?KEY|_KEY$|^KEY_|(?:^|_)(?:PASS|PAT|SK)(?:_|$)|PASSPHRASE|_PWD$|SALT|DSN|AUTH|COOKIE|SESSION|DATABASE_URL|CONNECTION|_URL$/i;
 
 /**
  * The values to redact: every environment variable with a secret-looking name, plus the
@@ -54,7 +62,9 @@ export function secretValues(env: Readonly<Record<string, string | undefined>>, 
  * keys, JWTs). Found in a file a plan shows, they are redacted.
  */
 const SECRET_LITERALS: readonly RegExp[] = [
-  /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----[\s\S]*?(?:-----END [A-Z0-9 ]*PRIVATE KEY-----|$)/g,
+  // To its END line when there is one, else to the end of the header's line: an unterminated
+  // header never swallows the rest of the text.
+  /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----(?:[\s\S]*?-----END [A-Z0-9 ]*PRIVATE KEY-----|[^\n]*)/g,
   /\b(?:ghp|gho|ghu|ghs|ghr|github_pat)_[A-Za-z0-9_]{20,}/g,
   /\bxox[abposr]-[A-Za-z0-9-]{10,}/g,
   /\b(?:sk|rk|pk)_(?:live|test)_[A-Za-z0-9]{16,}/g,
@@ -63,10 +73,24 @@ const SECRET_LITERALS: readonly RegExp[] = [
   /\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g,
 ];
 
-/** Text with each secret value, every secret-looking literal, and the password of any `scheme://user:password@` URL, redacted. */
-export function scrub(text: string, values: readonly string[]): string {
+/** Text with each known secret value redacted, and nothing else changed. */
+export function scrubValues(text: string, values: readonly string[]): string {
   let out = text;
   for (const value of values) out = out.split(value).join("[redacted]");
+  return out;
+}
+
+/** Whether text holds a secret-shaped literal (a key block, a provider token). */
+export function hasSecretLiteral(text: string): boolean {
+  return SECRET_LITERALS.some((pattern) => {
+    pattern.lastIndex = 0;
+    return pattern.test(text);
+  });
+}
+
+/** Text with each secret value, every secret-looking literal, and the password of any `scheme://user:password@` URL, redacted. */
+export function scrub(text: string, values: readonly string[]): string {
+  let out = scrubValues(text, values);
   for (const pattern of SECRET_LITERALS) out = out.replace(pattern, "[redacted]");
   return out.replace(/([a-z][a-z0-9+.-]*:\/\/)([^\s/@:"'`]+):([^\s/@"'`]+)@/gi, "$1$2:[redacted]@");
 }
@@ -88,4 +112,23 @@ export function boundedJson(value: unknown, values: readonly string[]): string {
   const text = scrub(JSON.stringify(scrubDeep(value, values), null, 2), values);
   if (text.length <= MAX_RESULT_CHARS) return text;
   return JSON.stringify({ truncated: true, note: `The result was ${text.length} characters; it is cut to ${MAX_RESULT_CHARS}. Narrow the request.`, partial: text.slice(0, MAX_RESULT_CHARS - 500) });
+}
+
+/**
+ * Scrub what is written to a stream (stderr under `genesis mcp`: logs, and what in-process
+ * commands print). Returns the function that restores the stream's own write. A child process
+ * writing to the same fd directly isn't seen.
+ */
+export function scrubStream(stream: NodeJS.WriteStream, values: readonly string[]): () => void {
+  const original = stream.write;
+  const write = original.bind(stream) as (...a: unknown[]) => boolean;
+  stream.write = ((chunk: unknown, ...rest: unknown[]) => {
+    const text = typeof chunk === "string" ? chunk : chunk instanceof Uint8Array ? Buffer.from(chunk).toString("utf8") : null;
+    if (text === null) return write(chunk, ...rest);
+    // A string chunk keeps its encoding argument; a buffer's text is written as utf8.
+    return write(scrub(text, values), ...(typeof chunk === "string" ? rest : rest.map((r) => (typeof r === "string" ? "utf8" : r))));
+  }) as typeof stream.write;
+  return () => {
+    stream.write = original;
+  };
 }

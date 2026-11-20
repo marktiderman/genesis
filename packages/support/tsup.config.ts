@@ -15,7 +15,7 @@ const external: Options["external"] = [
 
 export default defineConfig([
   {
-    entry: { index: "src/index.ts", web: "src/web/index.ts", "web-chat": "src/web-chat/index.ts", native: "src/native/index.ts", email: "src/email.ts", ai: "src/ai.ts", server: "src/server/index.ts" },
+    entry: { index: "src/index.ts", web: "src/web/index.ts", "web-chat": "src/web-chat/index.ts", "web-boards": "src/web-boards/index.ts", native: "src/native/index.ts", email: "src/email.ts", ai: "src/ai.ts", server: "src/server/index.ts" },
     format: ["esm"],
     dts: true,
     sourcemap: true,
@@ -26,6 +26,7 @@ export default defineConfig([
   },
   {
     // The server entry also as CommonJS: a NestJS (or other CommonJS) backend `require`s it.
+    // genesis-config is ESM only, so its zod-free settings resolver is bundled in here.
     entry: { server: "src/server/index.ts" },
     format: ["cjs"],
     outExtension: () => ({ js: ".cjs" }),
@@ -34,6 +35,7 @@ export default defineConfig([
     clean: false,
     treeshake: true,
     target: "es2022",
-    external,
+    external: (external as (string | RegExp)[]).filter((e) => String(e) !== String(/^@marktiderman\/genesis-/)).concat(/^@marktiderman\/genesis-(?!config)/),
+    noExternal: ["@marktiderman/genesis-config"],
   },
 ]);

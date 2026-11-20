@@ -350,6 +350,71 @@ export const supportCopy = {
     /** `{feature}`: the FeatureId it shipped as. */
     shippedAs: "Shipped as {feature}",
   },
+  /** The web lists (`/web`): the person's reports, the idea board, what shipped, staff's controls and a help article. */
+  boards: {
+    reports: {
+      title: "Your reports",
+      noun: "report",
+      nounPlural: "reports",
+      message: "Report",
+      type: "Kind",
+      status: "Status",
+      page: "Page",
+      createdAt: "Sent",
+      loadFailed: "Couldn't load your reports. Check your connection and try again.",
+      deleteFailed: "That report wasn't deleted. Try again.",
+    },
+    ideas: {
+      noun: "idea",
+      nounPlural: "ideas",
+      title: "Idea",
+      body: "Why it would help",
+      status: "Status",
+      featureId: "Shipped as",
+      shippedAt: "Shipped",
+      voteCount: "Votes",
+      mine: "You",
+      createdAt: "Suggested",
+      /** On an idea the signed-in person suggested. */
+      yours: "Yours",
+      loadFailed: "Couldn't load the ideas. Check your connection and try again.",
+      voteFailed: "Your vote wasn't saved. Try again.",
+      suggestFailed: "Your idea wasn't sent. Try again.",
+      cancel: "Cancel",
+    },
+    shipped: {
+      noun: "shipped idea",
+      nounPlural: "shipped ideas",
+      suggestedIt: "Suggested it",
+      votedForIt: "Voted for it",
+      loadFailed: "Couldn't load what shipped. Check your connection and try again.",
+    },
+    ideaStatus: {
+      status: "Status",
+      featureId: "Feature id that delivers it",
+      featurePlaceholder: "e.g. billing-export",
+      save: "Save status",
+      saving: "Saving",
+      saved: "Saved the idea's status",
+      failed: "The status wasn't saved. Try again.",
+    },
+    reportFeature: {
+      featureId: "Feature id it is about",
+      featurePlaceholder: "e.g. billing-export",
+      save: "Save feature",
+      saving: "Saving",
+      saved: "Saved the feature",
+      failed: "The feature wasn't saved. Try again.",
+    },
+    article: {
+      loading: "Loading the article",
+      notFoundTitle: "We couldn't find that article",
+      notFoundBody: "It may have moved, or it isn't published yet.",
+      errorTitle: "This article didn't load",
+      errorBody: "Try again in a moment.",
+      retry: "Try again",
+    },
+  },
 };
 
 /** The shape a translation fills. */

@@ -28,9 +28,33 @@ export function safeStdio<T extends { stdio?: unknown } | undefined>(options: T)
 const METHODS = ["spawn", "spawnSync", "execFile", "execFileSync", "exec", "execSync", "fork"] as const;
 let installed: (() => void) | null = null;
 
-/** The options argument's index: after (command), or (command, args) when args is an array. */
-function optionsIndex(args: unknown[]): number {
-  return Array.isArray(args[1]) ? 2 : 1;
+const isOptions = (v: unknown): v is { stdio?: unknown; silent?: boolean } => !!v && typeof v === "object" && !Array.isArray(v);
+
+/**
+ * A call's arguments with safe stdio. The options follow the command, or its args list when there
+ * is one (an array, or `null`/`undefined` in that place: `spawn(cmd, null, { stdio })`). `fork`
+ * inherits stdio when it isn't given one, so it gets an options object either way, and keeps its
+ * ipc channel.
+ */
+export function guardArgs(name: string, args: readonly unknown[]): unknown[] {
+  const out = [...args];
+  const at = Array.isArray(out[1]) || (out[1] == null && out.length > 2) ? 2 : 1;
+  if (name === "fork") {
+    if (at === 2 && out[1] == null) out[1] = [];
+    const given = isOptions(out[at]) ? out[at] : undefined;
+    if (!given && out[at] !== undefined) return out;
+    const options = { ...(given ?? {}) };
+    if (options.stdio === undefined) {
+      if (!options.silent) options.stdio = ["ignore", 2, "inherit", "ipc"];
+    } else {
+      const safe = safeStdio(options).stdio as unknown[];
+      options.stdio = safe.includes("ipc") ? safe : [...safe, "ipc"];
+    }
+    out[at] = options;
+    return out;
+  }
+  if (isOptions(out[at])) out[at] = safeStdio(out[at] as { stdio?: unknown });
+  return out;
 }
 
 /**
@@ -45,9 +69,7 @@ export function guardChildStdio(): () => void {
     const original = cp[name]!;
     originals.set(name, original);
     cp[name] = function guarded(this: unknown, ...args: unknown[]) {
-      const at = optionsIndex(args);
-      if (args[at] && typeof args[at] === "object") args[at] = safeStdio(args[at] as { stdio?: unknown });
-      return original.apply(this, args);
+      return original.apply(this, guardArgs(name, args));
     };
   }
   syncBuiltinESMExports();

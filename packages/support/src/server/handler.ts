@@ -18,6 +18,7 @@
  * never fails the request.
  */
 import { cleanRoute, LIMITS, type FindingSeverity } from "../contract";
+import { supportSettingValues, type SupportSettingsInput } from "../settings";
 import { diagnosticsShortId, DIAGNOSTICS_DEFAULTS, isUuid, randomUuid, type DiagnosticReport } from "../diagnostics/report";
 import { FEEDBACK_FORM_FIELDS } from "../diagnostics/transports";
 import { scrubString, scrubValueStrict } from "../diagnostics/scrub";
@@ -176,6 +177,11 @@ export interface DiagnosticsHandlerOptions {
   /** A store, file or notifier failed. Default `console.error`. */
   onError?: (error: unknown, where: string) => void;
   now?: () => number;
+  /**
+   * Genesis settings (`resolveSettings`' result, or the values alone): `diagnostics.perHour` is the
+   * dumps-per-person limit unless `limits.diagnosticsPerHour` is given. Without either, 10.
+   */
+  appSettings?: SupportSettingsInput;
 }
 
 const SCREENSHOT_TYPES: Record<string, ScreenshotContentType> = { "image/png": "image/png", "image/jpeg": "image/jpeg", "image/jpg": "image/jpeg", "image/webp": "image/webp" };
@@ -266,7 +272,7 @@ export type DiagnosticsHandler = (request: Request) => Promise<Response>;
 
 export function createDiagnosticsHandler(options: DiagnosticsHandlerOptions): DiagnosticsHandler {
   const limiter = options.rateLimit === false ? null : (options.rateLimit ?? memoryRateLimiter(options.now));
-  const perHour = options.limits?.diagnosticsPerHour ?? DIAGNOSTICS_DEFAULTS.ratePerHour;
+  const perHour = options.limits?.diagnosticsPerHour ?? supportSettingValues(options.appSettings).diagnostics.perHour;
   const feedbackPerHour = options.limits?.feedbackPerHour ?? 20;
   const ipPerMinute = options.limits?.ipPerMinute ?? DIAGNOSTICS_DEFAULTS.ipRatePerMinute;
   const maxBody = options.limits?.maxBodyBytes ?? DIAGNOSTICS_DEFAULTS.serverMaxBytes;

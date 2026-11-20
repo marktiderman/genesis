@@ -23,4 +23,5 @@ export * from "./help-pages";
 export * from "./inbox";
 export * from "./office-hours";
 export * from "./diagnostics";
+export * from "./settings";
 export type { HelpAnswerResponse, HelpAskState } from "./help-ask";

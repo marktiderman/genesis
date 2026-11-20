@@ -346,6 +346,17 @@ export interface SupportClient extends FeedbackSink {
   isStaff(): Promise<boolean>;
   /** Staff: the report's status, and the FeatureId it is about (null keeps it, "" clears it). */
   setStatus(reportId: string, status: FeedbackStatus, featureId?: string | null): Promise<void>;
+  /** Staff: an idea's status (shipped stamps when) and the FeatureId that delivers it (null keeps it, "" clears it). */
+  setIdeaStatus?(ideaId: string, status: IdeaStatus, featureId?: string | null): Promise<void>;
+  /**
+   * Agents: who handles a tenant's tickets (null, the app's own: its staff), with a name, for an
+   * assignee picker. Refused (`42501`) unless the signed-in person is an agent there. Needs migration 0022.
+   */
+  staffList?(options?: { tenantId?: string | null }): Promise<SupportPerson[]>;
+  /** Agents: the name and email of the people among `ids` who wrote a ticket they handle; anyone else is left out. Needs migration 0022. */
+  reporters?(ids: readonly string[]): Promise<SupportReporter[]>;
+  /** Agents: the tenants (with the app's label) a requester belongs to, for the details panel. Needs migration 0022. */
+  requesterTenants?(personId: string): Promise<RequesterTenant[]>;
   /**
    * The person's answer once a report is marked addressed: fixed (confirmed) or not (reopened).
    * Needs migration 0003. Optional: a custom client may leave it out, so check before calling.
@@ -368,6 +379,29 @@ export interface SupportClient extends FeedbackSink {
   unvote(ideaId: string): Promise<void>;
   /** "You asked, we shipped": shipped ideas the person suggested or voted for. */
   shippedForMe(): Promise<SupportIdea[]>;
+}
+
+/** A person an agent can name (migration 0022). `name` is null when the app has none for them. */
+export interface SupportPerson {
+  id: string;
+  name: string | null;
+}
+
+/** Who wrote a ticket, as an agent sees them (migration 0022). */
+export interface SupportReporter extends SupportPerson {
+  email: string | null;
+}
+
+/** One tenant a requester belongs to, with the app's label for it (`private.genesis_tenant_label`), or null. */
+export interface RequesterTenant {
+  tenantId: string;
+  label: string | null;
+}
+
+/** How to show a requester's tenants on one line: the labels, joined ("Acme, Northside"), or null when none has one. */
+export function requesterTenantsLabel(tenants: readonly RequesterTenant[]): string | null {
+  const labels = tenants.map((t) => t.label?.trim()).filter((l): l is string => Boolean(l));
+  return labels.length ? labels.join(", ") : null;
 }
 
 export interface SupportClientOptions {
@@ -919,6 +953,23 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
     },
     async setStatus(reportId, status, featureId = null) {
       must("setStatus", await supabase.rpc("support_set_report_status", { report: reportId, status, feature: featureId }));
+    },
+
+    async setIdeaStatus(ideaId, status, featureId = null) {
+      must("setIdeaStatus", await supabase.rpc("support_set_idea_status", { idea: ideaId, status, feature: featureId }));
+    },
+    async staffList({ tenantId = null } = {}) {
+      const rows = must<Row[]>("staffList", await supabase.rpc("support_agents_list", { tenant: tenantId }));
+      return (rows ?? []).map((r) => ({ id: String(r["user_id"]), name: (r["full_name"] as string | null) ?? null }));
+    },
+    async reporters(ids) {
+      if (!ids.length) return [];
+      const rows = must<Row[]>("reporters", await supabase.rpc("support_ticket_requesters", { ids: [...new Set(ids)] }));
+      return (rows ?? []).map((r) => ({ id: String(r["user_id"]), name: (r["full_name"] as string | null) ?? null, email: (r["email"] as string | null) ?? null }));
+    },
+    async requesterTenants(personId) {
+      const rows = must<Row[]>("requesterTenants", await supabase.rpc("support_requester_tenants", { person: personId }));
+      return (rows ?? []).map((r) => ({ tenantId: String(r["tenant_id"]), label: (r["label"] as string | null) ?? null }));
     },
 
     async assign(reportId, userId) {

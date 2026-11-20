@@ -21,6 +21,8 @@
  * false the block mounts nothing and listens to nothing.
  */
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ComponentType, type ReactNode } from "react";
+import type { ResolvedSettings } from "@marktiderman/genesis-config/settings";
+import { devtoolsSettingValues } from "./settings";
 import { Alert, Modal, ScrollView, Share, View, type GestureResponderEvent } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
 import { renderSlot } from "@marktiderman/genesis-core/slots";
@@ -74,6 +76,13 @@ export interface DevtoolsOptions {
   clearCache?: () => unknown;
   /** Sign out (`supabase.auth.signOut()`). Without it, the action is hidden. */
   signOut?: () => unknown;
+  /**
+   * Genesis settings (`resolveSettings`' result, or the values alone): `devtools.overlay` off
+   * mounts nothing (it never turns the overlay on: `enabled` does); `devtools.shakeToOpen`,
+   * `devtools.hold`, `devtools.flags` and `devtools.signOut` off take that part away. Without
+   * them, everything the options give.
+   */
+  appSettings?: Pick<ResolvedSettings, "values"> | { readonly [key: string]: unknown } | null;
 }
 
 export interface DevtoolsState {
@@ -91,8 +100,17 @@ export interface DevtoolsBlock extends NativeBlock<typeof DEVTOOLS_BLOCK_ID> {
 }
 
 /** Build the overlay once, at module scope. @stability Beta */
-export function createDevtools(options: DevtoolsOptions): DevtoolsBlock {
-  const enabled = options.enabled === true;
+export function createDevtools(given: DevtoolsOptions): DevtoolsBlock {
+  const settings = devtoolsSettingValues(given.appSettings);
+  // The settings only take away: what they switch off is left out of the options everything reads.
+  const options: DevtoolsOptions = {
+    ...given,
+    ...(settings.shakeToOpen ? {} : { accelerometer: undefined }),
+    ...(settings.hold ? {} : { hold: false as const }),
+    ...(settings.flags ? {} : { flags: undefined }),
+    ...(settings.signOut ? {} : { signOut: undefined }),
+  };
+  const enabled = given.enabled === true && settings.overlay;
   let state: DevtoolsState = { open: false };
   const listeners = new Set<() => void>();
   const set = (next: DevtoolsState) => {

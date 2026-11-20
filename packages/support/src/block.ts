@@ -56,6 +56,10 @@ export interface SupportBlockOptions {
   useHelpSubtitle?: () => string | null | undefined;
   /** `false` leaves the idea board out. Default on. */
   ideas?: boolean;
+  /** `false` leaves the "Send feedback" row out (the `support.feedback` setting). Default on. */
+  feedback?: boolean;
+  /** `false` leaves the "Help" row (the person's reports) out (the `support.inbox` setting). Default on. */
+  inbox?: boolean;
   /** The block's other FeatureIds it needs (default `["account"]`: a signed-in person). */
   requires?: readonly string[];
 }
@@ -69,8 +73,10 @@ export function supportContributions(options: SupportBlockOptions = {}): BlockCo
   const section = options.settings === false ? null : (options.settings?.section ?? "support");
   const settings: BlockSettingsRow[] = section
     ? [
-        { id: "support-send-feedback", section, title: copy.settings.sendFeedback, href: paths.feedback, order: 10, testID: "genesis-support-send-feedback" },
-        { id: "support-help", section, title: copy.settings.help, href: paths.inbox, order: 20, testID: "genesis-support-help", ...(options.useHelpSubtitle ? { useSubtitle: options.useHelpSubtitle } : {}) },
+        ...(options.feedback === false ? [] : [{ id: "support-send-feedback", section, title: copy.settings.sendFeedback, href: paths.feedback, order: 10, testID: "genesis-support-send-feedback" }]),
+        ...(options.inbox === false
+          ? []
+          : [{ id: "support-help", section, title: copy.settings.help, href: paths.inbox, order: 20, testID: "genesis-support-help", ...(options.useHelpSubtitle ? { useSubtitle: options.useHelpSubtitle } : {}) }]),
       ]
     : [];
   const routes = [
@@ -91,12 +97,20 @@ export function supportContributions(options: SupportBlockOptions = {}): BlockCo
       { package: PACKAGE, file: "migrations/0006_genesis_support.sql", test: "migrations/tests/0006_genesis_support.test.sql" },
       // Severity, the verify loop and report handlers, after 0006.
       { package: "@marktiderman/genesis-support", file: "migrations/0003_genesis_support_findings.sql", test: "migrations/tests/0003_genesis_support_findings.test.sql" },
-      // Tickets and tenants: the rename, tenant_id, agents (needs the app's default-tenant hook).
+      // Zero config: a stand-in default tenant for 0004, where the app has none (0023 drops it).
+      { package: "@marktiderman/genesis-support", file: "migrations/0021_genesis_support_default_hooks.sql", test: "migrations/tests/0023_genesis_support_hook_defaults.test.sql" },
+      // Tickets and tenants: the rename, tenant_id, agents (needs the default-tenant hook: 0021's stand-in, or the app's).
       { package: "@marktiderman/genesis-support", file: "migrations/0004_genesis_support_tickets.sql", test: "migrations/tests/0004_genesis_support_tickets.test.sql" },
+      // Zero config in Genesis's own wrappers: the reserved tenant and platform admins as staff, where the app has no hooks.
+      { package: "@marktiderman/genesis-support", file: "migrations/0023_genesis_support_hook_defaults.sql", test: "migrations/tests/0023_genesis_support_hook_defaults.test.sql" },
       // The Data Studio's keys after the rename, and an agent's unread count.
       { package: "@marktiderman/genesis-support", file: "migrations/0016_genesis_support_ticket_fixes.sql", test: "migrations/tests/0016_genesis_support_ticket_fixes.test.sql" },
       // The context dump's table (createDiagnostics): own rows, staff read, 10 an hour, 90 days.
       { package: "@marktiderman/genesis-support", file: "migrations/0019_genesis_support_diagnostics.sql", test: "migrations/tests/0019_genesis_support_diagnostics.test.sql" },
+      // The dump's hourly limit and retention from the diagnostics.* settings.
+      { package: "@marktiderman/genesis-support", file: "migrations/0020_genesis_support_settings.sql", test: "migrations/tests/0020_genesis_support_settings.test.sql" },
+      // A dump sent with a ticket is read by whoever handles that ticket; staff read only dumps with none.
+      { package: "@marktiderman/genesis-support", file: "migrations/0026_genesis_support_diagnostics_access.sql", test: "migrations/tests/0026_genesis_support_diagnostics_access.test.sql" },
     ],
     privacy: {
       collects: [
@@ -151,6 +165,8 @@ export function defineSupportChatBlock(options: { requires?: readonly string[] }
         { package: "@marktiderman/genesis-support", file: "migrations/0015_genesis_support_agent_tools_bounds.sql", test: "migrations/tests/0015_genesis_support_agent_tools_bounds.test.sql" },
         // The queue as a list a provider pages and counts (no cap of its own); after 0013's queues.
         { package: "@marktiderman/genesis-support", file: "migrations/0018_genesis_support_agent_queue.sql", test: "migrations/tests/0018_genesis_support_agent_queue.test.sql" },
+        // Names for agents: the tenant's agents, who wrote, the requester's tenants.
+        { package: "@marktiderman/genesis-support", file: "migrations/0022_genesis_support_staff_tools.sql", test: "migrations/tests/0022_genesis_support_staff_tools.test.sql" },
       ],
     },
   });

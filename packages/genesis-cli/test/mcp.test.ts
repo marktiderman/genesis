@@ -1,5 +1,8 @@
 // @feat:genesis-mcp
-import { readFileSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, readFileSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { tmpdir } from "node:os";
+import { fileURLToPath } from "node:url";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -7,8 +10,10 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { ElicitRequestSchema, McpError, type ElicitRequest, type ElicitResult } from "@modelcontextprotocol/sdk/types.js";
 import { createGenesisMcpServer, type GenesisMcpOptions } from "../src/mcp/server.js";
 import { GENESIS_MCP_ENTRY, mcpJsonEdit, mcpJsonState, McpJsonError, writeMcpJson } from "../src/mcp/config.js";
-import { boundedJson, scrub, secretValues } from "../src/mcp/bounds.js";
-import { guardChildStdio, safeStdio } from "../src/mcp/stdio.js";
+import { boundedJson, scrub, scrubStream, secretValues, showInvisible } from "../src/mcp/bounds.js";
+import { slimFinding } from "../src/mcp/doctor.js";
+import { guardArgs, guardChildStdio, safeStdio } from "../src/mcp/stdio.js";
+import { removeTempDir } from "./temp.js";
 import { changedLines, toMcpError } from "../src/mcp/server.js";
 import { cleanupApps, makeApp } from "./doctor-helpers.js";
 
@@ -443,5 +448,147 @@ describe("genesis agents --mcp (.mcp.json)", () => {
     expect(mcpJsonState(broken)).toBe("invalid");
     expect(() => mcpJsonEdit(broken)).toThrow(McpJsonError);
     expect(read(broken, ".mcp.json")).toBe("{ not json");
+  });
+});
+
+/** The second review's adversarial cases (approval honesty, clipping, the stdio guard), as regression tests. */
+describe("genesis mcp: adversarial review", () => {
+  const decline = () => ({ action: "decline" as const });
+  const accept = () => ({ action: "accept" as const, content: { approve: true } });
+
+  it("an unterminated key header ends at its line: it never hides the rest of a text", () => {
+    expect(scrub("-----BEGIN PRIVATE KEY----- x\nthe rest stays", [])).toBe("[redacted]\nthe rest stays");
+    expect(scrub("a\n-----BEGIN RSA PRIVATE KEY-----\nMIIB\n-----END RSA PRIVATE KEY-----\nb", [])).toBe("a\n[redacted]\nb");
+  });
+
+  it.each([
+    ["an unterminated key header", "-----BEGIN PRIVATE KEY----- harmless? actually anything", /shaped like a secret/],
+    ["a token-shaped value", "sk-AAAAAAAAAAAAAAAAAAAAAAAAAA", /shaped like a secret/],
+    ["the value of an environment secret", SECRET, /value of a secret/],
+  ])("refuses to ask approval for %s rather than hide it from the person", async (_name, value, reason) => {
+    const root = app();
+    const before = read(root, "genesis.config.json");
+    const { call, asked } = await connect(root, { answer: accept });
+    const { hash } = await call("settings_propose", { key: "support.label", value });
+    const result = await call("fix_apply", { fixId: "settings.propose", hash });
+    expect(result).toMatchObject({ applied: false });
+    expect(result.reason).toMatch(reason);
+    expect(asked).toHaveLength(0);
+    expect(read(root, "genesis.config.json")).toBe(before);
+  });
+
+  it("shows invisible and direction-changing characters as their codes", async () => {
+    const root = app();
+    const { call, asked } = await connect(root, { answer: decline });
+    const { hash } = await call("settings_propose", { key: "support.label", value: "safe\u202Etxt.exe\u2028\u200Bx" });
+    await call("fix_apply", { fixId: "settings.propose", hash });
+    const message = asked[0]!.params.message;
+    expect(message).not.toMatch(/[\u202E\u2028\u200B]/);
+    expect(message).toContain("\\u{202E}");
+    expect(showInvisible("a\u2066b\tc\nd")).toBe("a\\u{2066}b\tc\nd");
+  });
+
+  it("refuses approval when the changed lines are over the bound, instead of hiding them", async () => {
+    const root = app();
+    const big = { id: "big.write", kind: "auto" as const, rules: ["big"], title: "write a big file", plan: () => ({ summary: "writes big.txt", files: [{ path: "big.txt", beforeHash: null, content: `${"line of text\n".repeat(1_500)}`, why: "w" }] }) };
+    const finding = { rule: "big", level: "warn" as const, file: "big.txt", line: 0, message: "m", fix: { id: "big.write", kind: "auto" as const, title: "t" } };
+    const { call, asked } = await connect(root, { answer: accept, server: { deps: { doctor: async () => ({ findings: [finding] }) as never, extraFixes: [big] } } });
+    const { hash } = await call("fix_plan", { fixId: "big.write" });
+    const result = await call("fix_apply", { fixId: "big.write", hash });
+    expect(result).toMatchObject({ applied: false, reason: expect.stringMatching(/more lines than an approval can show whole/) });
+    expect(asked).toHaveLength(0);
+  });
+
+  it("an answer that isn't approve: true applies nothing", async () => {
+    const root = app();
+    const before = read(root, "genesis.config.json");
+    const { call } = await connect(root, { answer: () => ({ action: "accept", content: { approve: "true" as never } }) });
+    const { hash } = await call("settings_propose", { key: "support.label", value: "hello-world" });
+    const outcome = await call("fix_apply", { fixId: "settings.propose", hash }).catch((e: Error) => ({ applied: false, error: e.message }));
+    expect(outcome).toMatchObject({ applied: false });
+    expect(read(root, "genesis.config.json")).toBe(before);
+  });
+
+  it("scrubs before clipping: a secret cut by the clip leaves nothing of it", async () => {
+    const message = `${"x".repeat(580)} token ${SECRET} tail`;
+    expect(message.indexOf(SECRET)).toBe(587);
+    const values = secretValues({ SUPPORT_GITHUB_TOKEN: SECRET });
+    expect(boundedJson(slimFinding({ rule: "r", level: "warn", file: "f", line: 1, message }, (t) => scrub(t, values)), values)).not.toContain("ghp_");
+    const root = app();
+    const finding = { rule: "r", level: "warn" as const, file: "f", line: 1, message };
+    const { call, seen } = await connect(root, { server: { deps: { doctor: async () => ({ ok: true, genesis: { uiPackage: "u", uiVersion: "1" }, errors: 0, warnings: 1, infos: 0, findings: [finding] }) as never } } });
+    await call("doctor_run");
+    expect(seen.join("\n")).not.toContain("ghp_TopSecret");
+  });
+
+  it("shows no file hashes to the agent", async () => {
+    const { call } = await connect(app());
+    const { plan } = await call("fix_plan", { fixId: "codemod.scope-names" });
+    expect(Object.keys(plan.files[0])).not.toContain("contentSha256");
+    expect(Object.keys(plan.files[0])).not.toContain("beforeHash");
+  });
+
+  it("treats *PASSPHRASE*, *_PWD and *SALT* as secret names, but not the shell's PWD", () => {
+    expect(secretValues({ GPG_PASSPHRASE: "correct-horse-battery", MYSQL_PWD: "hunter2hunter2", SIGNING_SALT: "saltysaltysalty", PWD: "/Users/someone/app", OLDPWD: "/Users/someone" })).toEqual(
+      expect.arrayContaining(["correct-horse-battery", "hunter2hunter2", "saltysaltysalty"]),
+    );
+    expect(secretValues({ PWD: "/Users/someone/app", OLDPWD: "/Users/someone" })).toEqual([]);
+  });
+
+  it("scrubs what is written to stderr", () => {
+    const written: unknown[] = [];
+    const stream = { write: (chunk: unknown) => (written.push(chunk), true) } as unknown as NodeJS.WriteStream;
+    const restore = scrubStream(stream, [SECRET]);
+    stream.write(`log ${SECRET}\n`);
+    stream.write(Buffer.from(`buf ${SECRET}\n`));
+    restore();
+    expect(written).toEqual(["log [redacted]\n", "buf [redacted]\n"]);
+  });
+
+  it("guards fork without stdio and spawn with null args, keeping fork's ipc", () => {
+    expect(guardArgs("spawn", ["sh", null, { stdio: "inherit" }])).toEqual(["sh", null, { stdio: ["ignore", 2, "inherit"] }]);
+    expect(guardArgs("fork", ["m.js"])).toEqual(["m.js", { stdio: ["ignore", 2, "inherit", "ipc"] }]);
+    expect(guardArgs("fork", ["m.js", ["a"], { stdio: "inherit" }])).toEqual(["m.js", ["a"], { stdio: ["ignore", 2, "inherit", "ipc"] }]);
+    expect(guardArgs("fork", ["m.js", { silent: true }])).toEqual(["m.js", { silent: true }]);
+    expect(guardArgs("exec", ["ls", { stdio: "inherit" }])).toEqual(["ls", { stdio: ["ignore", 2, "inherit"] }]);
+  });
+
+  it("no child writes to fd 1 while guarded: execFileSync, spawnSync, spawn(cmd, null), fork with and without stdio", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "genesis-mcp-stdio-"));
+    try {
+      const stdio = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "src", "mcp", "stdio.ts");
+      writeFileSync(path.join(dir, "child.cjs"), "process.stdout.write('FORK_LEAK\\n'); if (process.send) process.disconnect();\n");
+      writeFileSync(path.join(dir, "child.sh"), "#!/bin/sh\necho SPAWN_NULL_ARGS_LEAK\n", { mode: 0o755 });
+      writeFileSync(
+        path.join(dir, "harness.mts"),
+        `import { guardChildStdio } from ${JSON.stringify(stdio)};
+import { execFileSync, fork, spawn, spawnSync } from "node:child_process";
+guardChildStdio();
+execFileSync("/bin/echo", ["EXECFILE_INHERIT"], { stdio: "inherit" });
+spawnSync("/bin/echo", ["SPAWNSYNC_INHERIT"], { stdio: "inherit" });
+const s = spawn(${JSON.stringify(path.join(dir, "child.sh"))}, null, { stdio: "inherit" });
+await new Promise((r) => s.on("close", r));
+for (const options of [undefined, { stdio: "inherit" }]) {
+  const f = options ? fork(${JSON.stringify(path.join(dir, "child.cjs"))}, [], options) : fork(${JSON.stringify(path.join(dir, "child.cjs"))});
+  await new Promise((r) => f.on("exit", r));
+}
+process.stderr.write("HARNESS_DONE\\n");
+`,
+      );
+      const r = spawnSync(process.execPath, ["--experimental-strip-types", "--no-warnings", path.join(dir, "harness.mts")], { encoding: "utf8" });
+      expect(r.stderr).toContain("HARNESS_DONE");
+      expect(r.stdout).toBe("");
+      for (const marker of ["EXECFILE_INHERIT", "SPAWNSYNC_INHERIT", "SPAWN_NULL_ARGS_LEAK", "FORK_LEAK"]) expect(r.stderr).toContain(marker);
+      expect(r.stderr.match(/FORK_LEAK/g)).toHaveLength(2);
+    } finally {
+      removeTempDir(dir);
+    }
+  });
+
+  it("keeps .mcp.json's mode when it rewrites it", () => {
+    const root = makeApp(null, { ".mcp.json": JSON.stringify({ mcpServers: {} }) });
+    chmodSync(path.join(root, ".mcp.json"), 0o600);
+    expect(writeMcpJson(root)).toEqual([".mcp.json"]);
+    expect(statSync(path.join(root, ".mcp.json")).mode & 0o777).toBe(0o600);
   });
 });

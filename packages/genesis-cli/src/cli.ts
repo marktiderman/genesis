@@ -212,8 +212,9 @@ program
   .option("-d, --dir <dir>", "The app's folder", process.cwd())
   .option("--print-genesis", "Print the components, tokens and raw tags read from Genesis, and exit", false)
   .option("--base <ref>", "The git ref change checks compare against (the packages pack's change gate, and the ratchet: newOnly rules report unchanged files as info), e.g. origin/main")
-  .option("--offline", "Don't reach npm or the advisory endpoints (genesis-behind reads only its cache)", false)
-  .action(async (opts: { strict: boolean; json: boolean; verbose: boolean; build: boolean; config?: string; dir: string; printGenesis: boolean; base?: string; offline: boolean }) => {
+  .option("--offline", "Don't reach npm, the advisory endpoints or the secret stores (genesis-behind reads only its cache)", false)
+  .option("--database", "Also check the settings' database layer (genesis_settings) through the linked Supabase project (read anyway when the app is linked and not --offline)", false)
+  .action(async (opts: { strict: boolean; json: boolean; verbose: boolean; build: boolean; config?: string; dir: string; printGenesis: boolean; base?: string; offline: boolean; database: boolean }) => {
     const doctor = await import("./doctor/index.js");
     const root = path.resolve(opts.dir);
     try {
@@ -222,7 +223,7 @@ program
         console.log(JSON.stringify(doctor.genesisSummary(doctor.loadGenesis(root, config)), null, 2));
         return;
       }
-      const result = await doctor.runDoctor({ root, configPath: opts.config, strict: opts.strict, build: opts.build, quietBuild: opts.json, network: networkOn(opts.offline), ...(opts.base ? { base: opts.base } : {}) });
+      const result = await doctor.runDoctor({ root, configPath: opts.config, strict: opts.strict, build: opts.build, quietBuild: opts.json, network: networkOn(opts.offline), ...(opts.database ? { database: true } : {}), ...(opts.base ? { base: opts.base } : {}) });
       console.log(opts.json ? JSON.stringify(doctor.toJson(result), null, 2) : doctor.formatReport(result, { verbose: opts.verbose }));
       process.exitCode = result.ok ? 0 : 1;
     } catch (err) {

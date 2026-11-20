@@ -188,16 +188,16 @@ describe("genesis-support-cleanup", () => {
     expect(s.forgotten).toEqual([[1]]);
   });
 
-  it("deletes context dumps past their retention (default 90 days) where the store can", async () => {
+  it("deletes context dumps past their retention (the database's setting unless the environment says) where the store can", async () => {
     const purgeDiagnostics = vi.fn(async () => 7);
     const call = (values: Record<string, string>) =>
       cleanup(new Request("https://fn.test", { method: "POST", headers: { "x-genesis-support-secret": "c" } }), { env: env({ GENESIS_SUPPORT_CLEANUP_SECRET: "c", ...values }), store: store({ purgeDiagnostics }), log: vi.fn() });
     expect(await (await call({})).json()).toMatchObject({ ok: true, diagnostics: 7 });
-    expect(purgeDiagnostics).toHaveBeenLastCalledWith(90);
+    expect(purgeDiagnostics).toHaveBeenLastCalledWith(null);
     await call({ GENESIS_SUPPORT_DIAGNOSTICS_RETENTION_DAYS: "30" });
     expect(purgeDiagnostics).toHaveBeenLastCalledWith(30);
     await call({ GENESIS_SUPPORT_DIAGNOSTICS_RETENTION_DAYS: "nonsense" });
-    expect(purgeDiagnostics).toHaveBeenLastCalledWith(90);
+    expect(purgeDiagnostics).toHaveBeenLastCalledWith(null);
   });
 
   it("purges a backlog of dumps a batch at a time until a short batch, within a bound", async () => {

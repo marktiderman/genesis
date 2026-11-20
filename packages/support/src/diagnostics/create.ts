@@ -19,7 +19,7 @@
 import { cleanRoute } from "../contract";
 import type { FeedbackDelivery, FeedbackRecord, FeedbackSink } from "../record";
 import { capReport, type CapLimits } from "./cap";
-import { createOfflineQueue, DiagnosticsSendError, isRetryableError, type OfflineQueue, type QueueFlushResult, type QueueStorage } from "./queue";
+import { createOfflineQueue, DEFAULT_QUEUE_KEY, DiagnosticsSendError, isRetryableError, type OfflineQueue, type QueueFlushResult, type QueueStorage } from "./queue";
 import { redactReport } from "./redact";
 import {
   CORE_SECTIONS,
@@ -33,6 +33,7 @@ import {
   type DiagnosticTrigger,
 } from "./report";
 import type { DiagnosticsTransport } from "./transports";
+import { supportSettingValues, type SupportSettingsInput } from "../settings";
 
 export interface DiagnosticsUser {
   id?: string | null;
@@ -63,6 +64,12 @@ export interface DiagnosticsOptions {
   randomId?: () => string;
   /** A section failed, the queue had a problem: for the app's own logging. Never a crash. */
   onProblem?: (problem: string, error?: unknown) => void;
+  /**
+   * Genesis settings (`resolveSettings`' result, or the values alone): `diagnostics.enabled` (off,
+   * `send` and `submitFeedback` send no dump), `diagnostics.maxBytes` and `diagnostics.offlineQueue`.
+   * `limits.maxBytes` and leaving out `offline` still win. Without it, the `max` preset.
+   */
+  appSettings?: SupportSettingsInput;
 }
 
 export interface CollectOptions {
@@ -88,6 +95,8 @@ export interface DiagnosticsDelivery {
 
 export interface Diagnostics {
   readonly options: DiagnosticsOptions;
+  /** False when `diagnostics.enabled` is off: nothing is sent (`send` throws, `submitFeedback` sends the feedback alone). */
+  readonly enabled: boolean;
   /** The transport's feedback sink (screenshots included), for `createSupport` and `FeedbackPanel`. */
   readonly feedbackSink: FeedbackSink | undefined;
   /** Read every section now and return the dump, scrubbed and capped. Nothing is sent. */
@@ -171,9 +180,12 @@ export function createDiagnostics(options: DiagnosticsOptions): Diagnostics {
   const randomId = options.randomId ?? randomUuid;
   const startedAt = now();
   const maxRoutes = options.limits?.maxRecentRoutes ?? DIAGNOSTICS_DEFAULTS.maxRecentRoutes;
+  const settings = supportSettingValues(options.appSettings).diagnostics;
+  const enabled = settings.enabled;
   const sections = (options.sections ?? []).filter((s): s is DiagnosticSection => Boolean(s));
   const trusted = sections.filter((s) => s.options.pii === "none" && !isCore(s.name)).map((s) => s.name);
   const limits: CapLimits = {
+    maxBytes: settings.maxBytes,
     ...options.limits,
     sectionLimits: {
       ...Object.fromEntries(sections.filter((s) => s.options.maxBytes && !isCore(s.name)).map((s) => [s.name, s.options.maxBytes as number])),
@@ -202,7 +214,7 @@ export function createDiagnostics(options: DiagnosticsOptions): Diagnostics {
     }
   };
 
-  const queue: OfflineQueue<QueuedDump> | null = options.offline
+  const queue: OfflineQueue<QueuedDump> | null = options.offline && enabled && settings.offlineQueue
     ? createOfflineQueue<QueuedDump>({
         storage: options.offline.storage,
         ...(options.offline.key ? { key: options.offline.key } : {}),
@@ -223,6 +235,14 @@ export function createDiagnostics(options: DiagnosticsOptions): Diagnostics {
         onProblem: problem,
       })
     : null;
+  // Diagnostics (or the queue) switched off: what an earlier run queued is dropped, never sent later.
+  if (options.offline && !queue) {
+    const storage = options.offline.storage;
+    const key = options.offline.key ?? DEFAULT_QUEUE_KEY;
+    void Promise.resolve()
+      .then(() => storage.removeItem(key))
+      .catch((error: unknown) => problem("diagnostics: clearing the queue failed", error));
+  }
   // Anything left from the last run goes as soon as it can.
   if (queue) void Promise.resolve().then(() => queue.flush().catch((error: unknown) => problem("diagnostics: flushing the queue failed", error)));
 
@@ -271,9 +291,11 @@ export function createDiagnostics(options: DiagnosticsOptions): Diagnostics {
 
   const diagnostics: Diagnostics = {
     options,
+    enabled,
     feedbackSink: transport.feedbackSink,
     collect,
     async send({ trigger, feedbackId, report: given }) {
+      if (!enabled) throw new DiagnosticsSendError("diagnostics are off (the diagnostics.enabled setting)", 0, false, "disabled");
       const report = given ? { ...given, trigger, feedbackId: feedbackId === undefined ? given.feedbackId : feedbackId } : await collect({ trigger, feedbackId: feedbackId ?? null });
       // Anything waiting goes first (oldest first), without holding this one up.
       if (queue) void queue.flush().catch((error: unknown) => problem("diagnostics: flushing the queue failed", error));
@@ -290,6 +312,11 @@ export function createDiagnostics(options: DiagnosticsOptions): Diagnostics {
       }
     },
     async submitFeedback(record, { sink } = {}) {
+      if (!enabled) {
+        const target = sink ?? transport.feedbackSink;
+        if (!target) throw new Error("submitFeedback: this transport has no feedback sink; pass `sink`.");
+        return { ...(await target.submit(record)), diagnostics: null };
+      }
       let report: DiagnosticReport | null = null;
       try {
         report = await collect({ trigger: "feedback" });

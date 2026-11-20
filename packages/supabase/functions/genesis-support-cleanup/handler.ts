@@ -11,8 +11,9 @@
  * `support_orphan_objects`). Supabase refuses direct deletes from
  * storage.objects, so this is the only way they go. A bounded batch per call.
  *
- * It also deletes context dumps older than GENESIS_SUPPORT_DIAGNOSTICS_RETENTION_DAYS
- * (default 90, at least 1) where genesis-support's migration 0019 is applied.
+ * It also deletes context dumps older than GENESIS_SUPPORT_DIAGNOSTICS_RETENTION_DAYS (at least
+ * 1) where genesis-support's migration 0019 is applied. Without it, the database decides: the
+ * `diagnostics.retentionDays` setting with genesis-support 0020, else 90 days.
  */
 
 export interface PurgeRow {
@@ -33,10 +34,11 @@ export interface CleanupStore {
   forget(ids: number[]): Promise<void>;
   /**
    * Delete up to `DIAGNOSTICS_BATCH` context dumps past their retention (genesis-support
-   * 0019's `support_purge_diagnostics`); returns how many went. Left out, or the
-   * function missing (0019 not applied), dumps are left alone.
+   * 0019's `support_purge_diagnostics`); returns how many went. `null`: the database's own
+   * default (the `diagnostics.retentionDays` setting with genesis-support 0020, else 90 days).
+   * Left out, or the function missing (0019 not applied), dumps are left alone.
    */
-  purgeDiagnostics?(retentionDays: number): Promise<number>;
+  purgeDiagnostics?(retentionDays: number | null): Promise<number>;
 }
 
 export interface CleanupDeps {
@@ -47,7 +49,7 @@ export interface CleanupDeps {
 
 const BATCH = 100;
 const BUCKET = "genesis-support";
-/** Days a context dump is kept (genesis-support's DIAGNOSTICS_DEFAULTS.retentionDays). */
+/** Days a context dump is kept when nothing says otherwise (genesis-support's DIAGNOSTICS_DEFAULTS.retentionDays). */
 export const DIAGNOSTICS_RETENTION_DAYS = 90;
 /** Dumps deleted per call of `support_purge_diagnostics`, and the most calls in one run. */
 export const DIAGNOSTICS_BATCH = 1000;
@@ -88,8 +90,10 @@ export async function handle(req: Request, deps: CleanupDeps): Promise<Response>
     const removed = orphans.length ? await deps.store.remove(BUCKET, orphans) : [];
     let diagnostics = 0;
     if (deps.store.purgeDiagnostics) {
-      const days = Number(deps.env("GENESIS_SUPPORT_DIAGNOSTICS_RETENTION_DAYS") ?? DIAGNOSTICS_RETENTION_DAYS);
-      const keep = Number.isFinite(days) && days >= 1 ? Math.floor(days) : DIAGNOSTICS_RETENTION_DAYS;
+      // The environment wins; without it (or with nonsense), the database's default: the setting.
+      const raw = deps.env("GENESIS_SUPPORT_DIAGNOSTICS_RETENTION_DAYS");
+      const days = raw === undefined || raw.trim() === "" ? NaN : Number(raw);
+      const keep = Number.isFinite(days) && days >= 1 ? Math.floor(days) : null;
       // A batch at a time until a short one, so a backlog clears in one run, within a bound.
       for (let round = 0; round < DIAGNOSTICS_MAX_ROUNDS; round++) {
         const removed = await deps.store.purgeDiagnostics(keep);

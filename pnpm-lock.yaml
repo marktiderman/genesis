@@ -923,7 +923,7 @@ importers:
         specifier: workspace:^
         version: link:../features
       '@marktiderman/genesis-ui':
-        specifier: workspace:>=2.7.0 <4.0.0
+        specifier: workspace:>=3.0.0 <4.0.0
         version: link:../ui
       lucide-react:
         specifier: ^1.0.0

@@ -854,7 +854,8 @@ Upgrading Genesis upgrades the checks.
 | `-d, --dir <dir>` | The app's folder (default: cwd). |
 | `--print-genesis` | Print the components, tokens, raw tags, palette and companion packages' components read from Genesis, and exit. |
 | `--base <ref>` | The git ref change checks compare against: the packages pack's change gate and the [ratchet](#the-ratchet) (`newOnly` rules keep their level only in new files and in files whose count of their findings grew since the merge base; the rest are `info`). |
-| `--offline` | Don't reach npm or the advisory endpoints: [`genesis-behind`](#genesis-behind) reads only its cache. Also when `npm_config_offline=true`, or for good with `doctor.network: false` in the config. The Vite plugin never reaches them. |
+| `--offline` | Don't reach npm, the advisory endpoints or the secret stores: [`genesis-behind`](#genesis-behind) reads only its cache, and `secret-missing` isn't checked. Also when `npm_config_offline=true`, or for good with `doctor.network: false` in the config. The Vite plugin never reaches them. |
+| `--database` | Also check the settings' database layer (`genesis_settings`) through the linked Supabase project (`supabase db query --linked`). Read anyway when the app is linked (`supabase link`) and the network is on. |
 
 Every finding names its fix (`fix` in `--json`; ` → genesis fix <id>` in the report when one runs): see [genesis fix](#genesis-fix).
 
@@ -903,8 +904,11 @@ Exit codes: `0` pass, `1` findings, `2` the doctor couldn't run (bad config, Gen
 | `package-rule-override` | warn | `rules` changes a package rule's level without a reason; move it to `packageRules` with one. |
 | `agent-guide-stale` | warn | The agent guide `genesis agents` wrote (`.claude/skills/genesis/SKILL.md` and the `genesis-primitives` block in AGENTS.md) doesn't match the installed packages, one of the two is missing, or the block's markers are broken (one missing, repeated or out of order; `genesis agents` then writes nothing). An app with neither isn't checked. Line endings don't count. |
 | `database-elsewhere` | warn | An app whose `genesis.config.json` `supabase` setting puts its database files in another app (`{ "app": "../app" }`) or nowhere (`false`): **warn** when the named app has no `supabase/` folder, and when this app still has one (`add`, `migrate` and `upgrade` never plan it, so it's a second, unused copy). The supabase pack doesn't run in such an app. |
-| `genesis-config-unknown-key` | warn | A top-level key in `genesis.config.json` that no Genesis tool reads (a typo such as `presets` or `setting`), which would otherwise do nothing, silently. The message names the closest known key. |
-| `invalid-setting` | error / warn | `genesis.config.json`'s `preset` and `settings` against the settings catalogue the installed Genesis packages declare (package.json `genesis.settings`, the shape `defineSettings` takes). **error**: a setting no installed package declares, a value that doesn't fit its key's type or bounds, a package declaration that can't be used, or two packages declaring the same key. **warn**: a key that is on while a key it requires is off. The file's shape (`namespace.key` names, a boolean `locked`, a known preset) is checked when the config is read, so a malformed one stops every command. |
+| `genesis-config-unknown-key` | warn | A top-level key in `genesis.config.json` that no Genesis tool reads (a typo such as `presets` or `setting`), which would otherwise do nothing, silently. The message names the closest known key. The known keys are a hand-kept list, `GENESIS_CONFIG_KEYS` in `src/doctor/settings.ts`: a block or tool that adds a top-level key adds it there in the same change, or every app using it gets this warning. |
+| `invalid-setting` | error / info | The settings layers against the settings catalogue the installed Genesis packages declare (package.json `genesis.settings`, the shape `defineSettings` takes): `genesis.config.json`'s `preset` and `settings`, and the database layer (`genesis_settings`) with `--database` or a linked project. **error**: a setting no installed package declares, a value that doesn't fit its key's type or bounds, a database row a lock or a scope refuses, a package declaration that can't be used, or two packages declaring the same key. **info**: the database layer couldn't be read. The file's shape (`namespace.key` names, a boolean `locked`, a known preset) is checked when the config is read, so a malformed one stops every command. |
+| `setting-requires` | warn | A key that is on while a key it `requires` is off, reported where that key's value comes from: `genesis.config.json`, or `genesis_settings` for a database row (a platform admin's, changed on the Settings screen). |
+| `setup-incomplete` | info | A key with a `setup` step or a secret it `needs` that isn't set yet (its default is `null`): the feature stays dormant, and the finding names `genesis setup --step <id>`. Nothing fails. |
+| `secret-missing` | warn / info | A secret the app needs isn't in its store, checked by name only (never a value) through your own signed-in CLIs, only when the network is on. Needed: the secret of every settings key that is on (`needs`, in its `store`), and every secret a deployed Edge Function reads (`functions[].secrets` of a block whose function is in `supabase/functions/`), except one only dormant keys declare. Stores: `edge` (`supabase secrets list`), `vault` (`vault.secrets` names through `supabase db query --linked`, which needs a direct database connection), `ci` (`gh secret list`, in `release.environment` when the app has a release lane; and `eas env:list` when it has `eas.json`), `server-env` (can't be read). **info**: a store that couldn't be checked (a tool missing or signed out, the app not linked). |
 | `genesis-eslint-config` | warn | A native app (with `expo` or `react-native`, or the `native` pack) whose ESLint flat config doesn't load [`@marktiderman/genesis-cli/eslint`](#lint-rules), so `genesis upgrade` can't bring Genesis's lint rules; or loads it without `eslint-plugin-testing-library` in package.json, so the config can't load. The message gives the fix: `genesis codemod genesis-cli-eslint-config`, or the two lines to add. Web apps (Genesis has no web lint rules yet) and apps without a flat config aren't checked. Ratcheted by default: under `--base`, an unchanged config reports it as `info`. |
 | `migration-pending` | warn | A package migration of one of the app's blocks (`genesis.lock.json`) that isn't in the app yet, as `genesis migrate --dry-run` reports it: the database the app deploys lacks what the installed package needs. Fix: `migrate.copy` (`genesis migrate`). An app whose lock lists no blocks, or whose database files live in another app, isn't checked. |
 | `migration-drift` | warn | A copy of a package migration the app edited, one whose package text changed since it was copied, or a same-named file with other text, with no forward migration carrying it. An applied migration is never rewritten. Fix: `migrate.forward` (guided: `genesis migrate --forward` writes the stub, you fill it in). |
@@ -1020,7 +1024,26 @@ doctor couldn't run.
 | `migrate.forward` | guided | `migration-drift` | `genesis migrate --forward`; you fill in each forward migration. |
 | `upgrade.release` | auto | `genesis-behind`, `overlay-behind`, `version-skew` | Plans with `genesis upgrade --dry-run`; applies `genesis upgrade --pr`. The pull request is never merged for you. `genesis-behind` moves to the latest release; the others re-align on the installed one. With uncommitted changes (or outside git) the plan says so and runs nothing. |
 | `settings.remove-unknown` | auto | `invalid-setting` (an undeclared key) | Removes the key from `genesis.config.json`, keeping its format: only when the settings catalogue read completely (every Genesis package in package.json installed, every declaration readable), and never a locked key. Otherwise the finding says it's "not certain" and the fix is `settings.review`. |
-| `settings.review` | manual | `invalid-setting` (the rest) | Lists the values only you can choose. |
+| `settings.reset` | guided | `invalid-setting` (a value in `genesis.config.json` that doesn't fit) | Takes the value out, so the key takes its default; or you set one that fits (the plan says what does). |
+| `settings.review` | manual | `invalid-setting` (the rest in `genesis.config.json`: an unknown key that isn't certain or is locked, a legacy `preset`/`settings` key) | Lists the settings only you can correct. |
+| `settings.requires` | guided | `setting-requires` (in `genesis.config.json`) | Turns on the boolean keys the setting requires; a locked or non-boolean one, or turning the setting off instead, is yours. |
+| `settings.setup` | guided | `setup-incomplete` | Prints the dormant checklist: `genesis setup --step <id>` for each feature, or the setting and secret to set yourself. Runs nothing. |
+| `secrets.set` | guided | `secret-missing` | Sets each missing secret by name through your signed-in CLIs: `supabase secrets set --env-file /dev/stdin` (edge, one single-quoted dotenv line; a value with a quote or a line break is left to the dashboard) and `gh secret set NAME` (CI). The rest the plan tells you to do: `eas env:create` has no stdin path, so it prints the command; a Vault secret is added in the dashboard (Database → Vault), because SQL carrying the value would be kept in `pg_stat_statements` (Query Performance) and in the logs on an error; a server's environment is yours. |
+
+**Secrets.** A plan names secrets, never values. At a terminal, `genesis fix` asks for each value it
+needs without echoing it; elsewhere it refuses (a value is never taken from a flag, an environment
+variable or a file). Values live in memory only (`src/exec/secret-vault.ts`) and reach a tool only
+on its stdin, never in its arguments; everything printed (the tool's output as it streams, errors,
+notes, `--json`) is redacted against every value held, and the values are forgotten once
+everything about the fix is printed. Values are one line only: a multi-line paste, a control
+character or an escape sequence refuses the value, and so does stdin closing; the terminal's mode
+is put back however the prompt ends.
+
+Limits: a value must be at least 8 characters. Redaction catches the value as typed and its
+JSON- and `\u`-escaped forms, not other encodings a tool might print (URL-encoded, base64), and a
+short value that is also a common word is redacted wherever it appears. JavaScript strings can't
+be zeroed, so a forgotten value stays in the process's memory until it is reused: a core dump or a
+heap snapshot taken while `genesis fix` runs could hold it.
 
 A package adds fixes for its own rules with `genesis.doctor.fixes`, a module beside its `plugin`
 (see [Package rules](#package-rules)). The Vite plugin attaches the built-in fixes only.
@@ -1624,9 +1647,12 @@ the plan is refused). Nothing is written otherwise. One apply runs at a time.
   runs over MCP: it returns `genesis fix <id>` for the person to run at a terminal, and the step's
   id. `genesis setup --step <id>`, and a `setup_steps` tool listing the steps, arrive with the setup
   wizard; until then the command is `genesis fix <id>`.
-- The approval shows a proposed setting's value in full and each file's changed lines (up to
-  12,000 characters; past that it says how to read the rest). A message too long to show whole is
-  refused, never cut.
+- The approval shows the person exactly what applies: a proposed setting's value in full and each
+  file's changed lines, with invisible and direction-changing characters (U+2028, U+202E,
+  zero-width) shown as their codes. Nothing in it is hidden or cut: a plan whose changed lines
+  pass 12,000 characters, or whose message would hold a secret's value or a secret-shaped literal
+  (a private key, a provider token), isn't offered for approval; `fix_apply` says why and gives
+  the command (or the file) for the person.
 - `upgrade.release` runs the package manager attached to the terminal, so it returns its
   `genesis fix` command too.
 
@@ -1634,11 +1660,11 @@ the plan is refused). Nothing is written otherwise. One apply runs at a time.
 `server-env` secret as set or missing from the server's own environment (only whether it is
 there), and the other stores as `unknown`; it reads no `.env` file. Every result and error is
 scrubbed of the values of secret-looking environment variables (`*_TOKEN`, `*_KEY`, `*SECRET*`,
-`DATABASE_URL`, …) and of the settings' declared secrets (also as JSON escapes them), of URL
+`DATABASE_URL`, `*PASSPHRASE*`, `*_PWD`, `*SALT*`, …) and of the settings' declared secrets (also as JSON escapes them), of URL
 passwords, and of secret-shaped literals (a private key block, GitHub, Slack, Stripe, `sk-`, AWS
-and JWT tokens) wherever they appear, a planned file's content included; a planned file's
-content is shown up to 8,000 characters (the hash covers all of it); a result is at most 60,000
-characters. Errors are MCP errors with a message, never a stack.
+and JWT tokens) wherever they appear, a planned file's content included, before anything is
+clipped. A planned file's content is shown up to 8,000 characters (the plan's hash covers all of
+it; a file's own hashes aren't shown); a result is at most 60,000 characters. Errors are MCP errors with a message, never a stack.
 
 | Option | |
 | --- | --- |
@@ -1647,7 +1673,9 @@ characters. Errors are MCP errors with a message, never a stack.
 | `--offline` | `genesis-behind` and `upgrades_status` read only their cache. |
 
 Logs go to stderr; stdout is the protocol's. While it serves, every child process gets a safe
-stdio: stdin ignored and stdout sent to stderr, so nothing a fix runs can write into the protocol.
+stdio (`fork` included, with its ipc channel): stdin ignored and stdout sent to stderr, so nothing
+a fix runs can write into the protocol; what the server and in-process commands write to stderr is
+scrubbed like the results.
 
 ## genesis figma:routes
 

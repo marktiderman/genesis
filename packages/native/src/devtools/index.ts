@@ -20,3 +20,4 @@ export { createDevtools, DEVTOOLS_BLOCK_ID, type DevSettingsLike, type DevtoolsB
 export { createHoldDetector, createShakeDetector, type AccelerometerLike, type HoldDetector, type HoldDetectorOptions, type ShakeDetector, type ShakeDetectorOptions } from "./gestures";
 export { buildDebugInfo, type DebugInfoInput } from "./info";
 export type { DevtoolsDiagnosticsProps, DevtoolsFeedbackProps, DevtoolsSlots } from "./slots";
+export { DEVTOOLS_SETTING_SPECS, devtoolsSettings, devtoolsSettingValues, type DevtoolsSettingValues } from "./settings";

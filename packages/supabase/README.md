@@ -747,11 +747,19 @@ preset and genesis.config.json.
 - **Who may change settings** is your hook, `private.genesis_platform_admin(person uuid) returns
   boolean` (ADR 0003's platform zone). Without it nobody can (`42501`, with a hint): a fresh install
   fails closed, as tenant features do.
+- **Server code** is told apart from a person by the request's role, never by a JWT claim: the
+  service role, any role that bypasses row security, or a connection that never switched role. So a
+  direct database login (`psql`, a migration, a BI tool on its own login) counts as server code: it
+  reads the layers without signing in and its writes are recorded as `server` (or the source it names
+  in `genesis.setting_source`), unchecked against the catalogue. Give people API access, never a
+  database login.
 - **Reading.** `genesis_settings_layers()` gives any signed-in person (and server code) the layers,
   not resolved values: the preset, the file settings for every declared key (build-time ones too:
   they're committed config) and the database layer for runtime keys. The client resolves them with the
   app's catalogue, so every platform agrees. No setting is a secret: a key names the secret it needs,
   never its value.
+- **Whole numbers** (migration `0021_genesis_settings_integer.sql`): a number the catalogue declares
+  `integer` refuses a fraction.
 - **Checked writes.** `set_genesis_setting` refuses a key genesis.config.json locks, `null` for a key
   with a default, and any key whose synced catalogue entry is malformed. JSON `null` (which PostgREST
   passes as SQL null) means "not set".
@@ -864,11 +872,15 @@ in `extensions`). The URL and the secret are read from Vault each time, so they 
 That matters because pg_net keeps each request's headers in `net.http_request_queue` until it sends
 them, and on some images other roles can read that table.
 
+Add the secret itself (`genesis_jobs_secret`, the same value as `GENESIS_JOBS_SECRET`) in the
+Supabase dashboard (Database → Vault → Add new secret), not with SQL: a statement carrying the
+value can be kept, value and all, in `pg_stat_statements` and in the Postgres log.
+
 ```sql
 create extension if not exists pg_cron;
 create extension if not exists pg_net;
 select vault.create_secret('https://app.example.com/api/jobs', 'genesis_jobs_url');
-select vault.create_secret('<the same secret as GENESIS_JOBS_SECRET>', 'genesis_jobs_secret');
+-- genesis_jobs_secret: add it in the dashboard (Database → Vault → Add new secret), never in SQL.
 select genesis_schedule_job('jobs-queue', '* * * * *', 'queue');          -- POST …/api/jobs/queue
 select genesis_schedule_job('purge-uploads', '15 3 * * *', 'purge-uploads');
 ```

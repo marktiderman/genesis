@@ -63,6 +63,10 @@ describe("defineSettings", () => {
     ]);
   });
 
+  it("keeps a key's setup step", () => {
+    expect(defineSettings("x", { repo: { type: "string", default: null, needs: "secret:GITHUB_TOKEN", setup: "github.issues" } }).keys["x.repo"].setup).toBe("github.issues");
+  });
+
   it.each([
     ["a bad namespace", () => defineSettings("Support", { a: { type: "boolean", default: true } }), /valid namespace/],
     ["no keys", () => defineSettings("x", {}), /at least one key/],
@@ -86,6 +90,7 @@ describe("defineSettings", () => {
     ["a bad store", () => defineSettings("x", { a: { type: "string", default: null, needs: "secret:A", store: "disk" as never } }), /store "disk"/],
     ["a store without needs", () => defineSettings("x", { a: { type: "string", default: null, store: "vault" } }), /no needs/],
     ["a feature link on a non-boolean", () => defineSettings("x", { a: { type: "string", default: null, feature: "chat" } }), /must be a boolean/],
+    ["a bad setup step id", () => defineSettings("x", { a: { type: "string", default: null, setup: "GitHub Issues" } }), /step id/],
   ])("refuses %s", (_, define, message) => {
     expect(define).toThrow(SettingsError);
     expect(define).toThrow(message);
@@ -537,5 +542,19 @@ describe("hostile input", () => {
 
   it("keeps the scope rule in one table", () => {
     expect(SCOPE_LAYERS).toEqual({ app: ["file", "database"], tenant: ["file", "database", "tenant"], person: ["file", "database", "person"] });
+  });
+});
+
+describe("whole numbers", () => {
+  it("a number declared integer refuses a fraction in every layer, and the manifest says so", async () => {
+    const { defineSettings, settingsCatalogue, resolveSettings, catalogueManifest, settingValueProblem } = await import("../settings");
+    const decl = defineSettings("acme", { perHour: { type: "number", default: 10, min: 1, max: 100, integer: true } });
+    const cat = settingsCatalogue([decl]);
+    const r = resolveSettings(cat, { file: { "acme.perHour": { value: 4 } }, database: { "acme.perHour": { value: 2.5 } } });
+    expect(r.values["acme.perHour"]).toBe(4);
+    expect(r.problems.map((p) => p.kind)).toEqual(["type"]);
+    expect(catalogueManifest(cat)["acme.perHour"]).toMatchObject({ integer: true });
+    expect(settingValueProblem({ type: "number" }, 2.5)).toBeNull();
+    expect(() => defineSettings("acme", { name: { type: "string", default: "x", integer: true } as never })).toThrow();
   });
 });

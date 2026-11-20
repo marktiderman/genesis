@@ -11,6 +11,8 @@
  *   plan someone read, and a plan that went stale is refused. Plans are never written to disk.
  */
 import type { Finding, FixKind, FixRef } from "../doctor/types.js";
+import type { SecretVault } from "../exec/secret-vault.js";
+import type { StdinFormat } from "../exec/secret-stores.js";
 
 export type { FixKind, FixRef };
 
@@ -32,6 +34,8 @@ export interface PlannedCommand {
   args: string[];
   /** The name of a secret written to the command's stdin. Never in argv, never in the plan's text. */
   stdinSecret?: string;
+  /** How stdin carries it: the bare value (default), or one dotenv line (`supabase secrets set --env-file /dev/stdin`). */
+  stdinFormat?: StdinFormat;
   why: string;
 }
 
@@ -71,9 +75,14 @@ export interface FixContext {
   recheck?: (rules: readonly string[]) => Promise<Finding[]>;
 }
 
-/** What `apply` is given on top: the secrets the plan names, by name. Held in memory only. */
+/**
+ * What `apply` is given on top: the secrets the plan names, held in memory only (src/exec/secret-vault.ts).
+ * A fix passes a value to a tool with `secrets.use(name, …)`, on stdin; the engine redacts every
+ * held value from what is shown, and drops the plan's secrets once it has verified. A plain record
+ * is accepted too and turned into a vault.
+ */
 export interface ApplyContext extends FixContext {
-  secrets?: Readonly<Record<string, string>>;
+  secrets?: SecretVault | Readonly<Record<string, string>>;
 }
 
 /** What a fix's own `apply` did. */
