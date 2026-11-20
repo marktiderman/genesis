@@ -274,7 +274,7 @@ host's own RLS doesn't filter inside them.
   `pg_notify('genesis_sites', …)` whenever what a site serves changes
   (publish, rollback, archive, unarchive), for a listener that purges the
   cache.
-- **Audit.** Hosts add their own triggers (for example, genesis-studio's audit
+- **Audit.** Hosts add their own triggers (for example, genesis-data's audit
   trail).
 
 ### Storage interface (core)

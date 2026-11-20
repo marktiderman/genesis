@@ -40,12 +40,12 @@ export default function DataPage() {
 
 `npx @marktiderman/genesis-cli data init` writes this page and its server for you.
 
-- **No router or session wiring.** The studio keeps its state in the page's query string. The
+- **No router or session wiring.** Genesis Data keeps its state in the page's query string. The
   Supabase provider tells it when the signed-in user changes.
-- **`standalone.css`** is prebuilt: every class the studio uses, for apps without Tailwind v4
+- **`standalone.css`** is prebuilt: every class Genesis Data uses, for apps without Tailwind v4
   (Tailwind 3, CSS modules, or none). It adds no global reset. A small reset applies only inside
-  the studio and its pop-ups. The app's own shadcn-style theme variables (`--background`,
-  `--primary`, …) win over Genesis's defaults, so the studio matches the app.
+  Genesis Data and its pop-ups. The app's own shadcn-style theme variables (`--background`,
+  `--primary`, …) win over Genesis's defaults, so Genesis Data matches the app.
 - An app already on Tailwind v4 imports `styles.css` instead (see below).
 
 ## Use it
@@ -68,9 +68,9 @@ export default function AdminData() {
 ```
 
 The server half — the handler at `/api/studio` — is
-[`@marktiderman/genesis-data-server`](../studio-server/README.md).
+[`@marktiderman/genesis-data-server`](../data-server/README.md).
 
-Tailwind v4 needs to see the studio's classes:
+Tailwind v4 needs to see Genesis Data's classes:
 
 ```css
 @import "tailwindcss";
@@ -84,7 +84,7 @@ Tailwind v4 needs to see the studio's classes:
 | --- | --- |
 | `provider` | Any Genesis `DataProvider` with `describe` and `listResources` — usually `createStudioProvider`. |
 | `router` | `{ location, navigate }`. `createSearchParamsRouter` adapts React Router or Next.js; `useHistoryRouter` works without a router; `useMemoryRouter` for tests. URL keys: `table`, `page`, `sort`, `q`, `filter`, `group`, `record`. |
-| `signIn` | Rendered instead of the studio while the provider reports nobody signed in. |
+| `signIn` | Rendered instead of Genesis Data while the provider reports nobody signed in. |
 | `sessionKey` | The signed-in user's id. When it changes, everything loaded for the previous user is dropped. |
 | `forms` | Per `schema.table`: `{ sections: [{ title, fields }], visibleWhen: { field: (values) => boolean } }`. |
 | `title`, `perPage`, `className` | Presentation. |

@@ -24,7 +24,7 @@ export interface ResourceRule {
 
 export interface ByResourceOptions {
   /**
-   * Who may use the studio at all, from their verified claims. Required:
+   * Who may use Genesis Data at all, from their verified claims. Required:
    * on Supabase every signed-in user holds the same `authenticated` role,
    * including customers who signed themselves up, so "signed in" alone is
    * almost never the right answer.
@@ -50,7 +50,7 @@ export interface ByResourceOptions {
  */
 export function byResource(rules: Readonly<Record<string, ResourceRule>>, options: ByResourceOptions): Authorize {
   if (typeof options?.who !== "function") {
-    throw new Error("byResource needs `who`: decide which signed-in users may use the studio.");
+    throw new Error("byResource needs `who`: decide which signed-in users may use Genesis Data.");
   }
   return ({ resource, action, claims, rowAction }) => {
     if (!options.who(claims)) return false;
@@ -75,23 +75,23 @@ export function byResource(rules: Readonly<Record<string, ResourceRule>>, option
 
 export interface DatabaseDecidesOptions {
   /**
-   * Who may open the studio, from their verified claims. Default: any
-   * signed-in, non-anonymous user. That's safe because the studio acts as
+   * Who may open Genesis Data, from their verified claims. Default: any
+   * signed-in, non-anonymous user. That's safe because Genesis Data acts as
    * them, so they get exactly what the database already lets them do through
    * its own Data API, and nothing more. Narrow it to keep the UI to staff.
    */
   who?: (claims: StudioClaims) => boolean;
-  /** Tables (`schema.table`) to leave out of the studio entirely. */
+  /** Tables (`schema.table`) to leave out of Genesis Data entirely. */
   except?: readonly string[];
   /** Tighter rules for some tables, in `byResource` form. Tables not listed get everything the database allows. */
   rules?: Readonly<Record<string, ResourceRule>>;
 }
 
 /**
- * Turn the studio on for every table, and let the database decide: each
+ * Turn Genesis Data on for every table, and let the database decide: each
  * user reads, edits, adds and deletes exactly what their grants and row
  * rules allow, sees history and comments on the rows they can see, and runs
- * the row actions configured for a table. This is the default the studio is
+ * the row actions configured for a table. This is the default Genesis Data is
  * built around ("a signed-in user sees and edits exactly what they already
  * can"); `byResource` is the opt-in allow-list for apps that want less.
  *

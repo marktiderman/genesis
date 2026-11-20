@@ -23,7 +23,7 @@ pnpm --filter sample smoke            # opens every built page in headless Chrom
 | `/items`, `/tasks`, `/orders`, `/sandbox`, `/items-custom` | List screens: a `ResourceView`, `ResourcePage` options live, and the same list composed by hand | `app/routes/` |
 | `/dashboard`, `/settings` | `DashboardPage`-style tiles and a `SettingsPage` | `app/routes/` |
 | `/forms`, `/forms-builder`, `/preview/:scenario` | Genesis Forms: the playground with its inspector, the builder, a respondent's view | `app/routes/forms*.tsx`, `app/lib/forms.ts` |
-| `/chat`, `/features`, `/sites`, `/sites-editor`, `/studio` | Chat on the memory client, the feature registry, Genesis Sites and its editor, Genesis Data (dev server only; static builds go to the demo's) | `app/routes/` |
+| `/chat`, `/features`, `/sites`, `/sites-editor`, `/data` | Chat on the memory client, the feature registry, Genesis Sites and its editor, Genesis Data (dev server only; static builds go to the demo's) | `app/routes/` |
 | `/showcase/*` | Tokens, every web and native component (from `app/data/primitives.json`), live page layouts | `app/routes/showcase*.tsx` |
 | `/packages/*` | Every published package: entry points, components, hooks, exports | `app/routes/packages*.tsx`, `app/lib/catalog.server.ts` |
 | `/storybook/` | Storybook, built from `stories/` | `stories/` |
@@ -57,6 +57,6 @@ canonical links and the sitemap, and `PAGES_BASE` builds for a subpath. Any stat
 
 ## Genesis Data against a real database
 
-`/studio` in the dev server talks to the studio handler (`studio/vite-plugin.ts`). Set it up with
+`/data` in the dev server talks to the Genesis Data handler (`studio/vite-plugin.ts`). Set it up with
 `pnpm --filter sample studio:db` (Postgres) or `pnpm --filter sample studio:supabase` (a local
 Supabase), then restart `pnpm --filter sample dev`.

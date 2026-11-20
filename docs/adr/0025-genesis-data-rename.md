@@ -47,6 +47,25 @@ Nothing about the editor changes: only its names.
 
 - Apps move their imports and dependency to the new names whenever they like (the exports are the
   same); `genesis upgrade` can learn a codemod later, as genesis-features has.
-- After the release, the maintainer runs `npm deprecate` on the two old names.
+- The two new names are brand-new npm packages, so the release follows `docs/RELEASING.md`
+  ("Renaming a package" and "A brand-new package"), in this order, or CI's "Verify npm Trusted
+  Publishing" step stops the whole release (genesis-cli included, which depends on
+  genesis-data-server):
+  1. Merge the batch into `main`, but **don't merge the version PR yet**.
+  2. From a clean `main` checkout, publish each new package by hand at the version it has on
+     `main` (genesis-data-server 0.6.0, genesis-data 0.4.3, the old packages' last versions), and
+     trust it right after: `pnpm --filter @marktiderman/<pkg> publish --access public
+     --no-git-checks`, then `npx -y npm@latest trust github @marktiderman/<pkg> --file release.yml
+     --repo marktiderman/genesis --env npm --allow-publish --allow-stage-publish -y`. If `trust`
+     answers 404, wait a few minutes and run it again.
+  3. Merge the version PR within 48 hours, before the new trust expires. The changeset gives both
+     new packages a minor bump (0.7.0 and 0.5.0), so CI publishes each once and uses its trust.
+  4. Once the aliases are out, deprecate **every** version of both old names:
+     `npm deprecate '@marktiderman/genesis-studio' "Renamed to @marktiderman/genesis-data (same exports). The alias is kept for two minor versions."`,
+     and the same for `@marktiderman/genesis-studio-server` → `@marktiderman/genesis-data-server`.
 - The aliases go after two minor versions. The exported names can be renamed later through the
-  same alias, if wanted.
+  same alias, if wanted. `docs/DATA-STUDIO.md` stays as a pointer to `docs/DATA.md` until then,
+  because the published old versions link to it.
+- The sample app serves Genesis Data at `/data`; `/studio` redirects there. The generated
+  `/api/studio` route and `genesis-studio` Edge Function keep their names: they are files in
+  deployed apps, and renaming them would break those apps' URLs for no gain.

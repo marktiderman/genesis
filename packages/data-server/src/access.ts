@@ -371,7 +371,7 @@ export async function resolveResource(
   if (!history.allow) historyBlocked = history.reason ?? "Reading this table's history isn't enabled.";
   else if (!keyReadable) historyBlocked = "You can't see this table's key, so its history can't be looked up.";
   else if (!ctx.options.audit || ctx.options.audit.sink === "database") {
-    historyBlocked = "History is shown from the studio's audit log, and this app audits in its own tables.";
+    historyBlocked = "History is shown from Genesis Data's audit log, and this app audits in its own tables.";
   } else {
     const problem = await memoFunctionProblem(ctx, `${HISTORY_FUNCTION}(text, jsonb, int)`);
     if (problem) historyBlocked = `The history function ${HISTORY_FUNCTION} ${problem}.`;
@@ -384,7 +384,7 @@ export async function resolveResource(
     const problem =
       (await memoFunctionProblem(ctx, `${COMMENTS_FUNCTION}(text, jsonb, int)`)) ??
       (await memoFunctionProblem(ctx, `${ADD_COMMENT_FUNCTION}(text, jsonb, text)`));
-    if (problem) commentsBlocked = `Comments need the studio's setup SQL: the comment functions ${problem}.`;
+    if (problem) commentsBlocked = `Comments need Genesis Data's setup SQL: the comment functions ${problem}.`;
   }
 
   const keyNames = new Set(table.primaryKey);
@@ -428,7 +428,7 @@ export async function resolveResource(
       ...(c.generated || c.identity ? { generated: true } : {}),
       ...(c.enumValues ? { enumValues: c.enumValues } : {}),
       ...(c.description ? { description: c.description } : {}),
-      // Only link to tables the studio could show; a reference into another
+      // Only link to tables Genesis Data could show; a reference into another
       // schema would name a table this user was never offered.
       ...(c.references && schemasOf(ctx).includes(c.references.schema)
         ? { references: { resource: `${c.references.schema}.${c.references.table}`, field: c.references.column } }

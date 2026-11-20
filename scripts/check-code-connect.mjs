@@ -49,7 +49,7 @@
  *   - genesis-forms-native and genesis-forms-web: src/index.ts, PascalCase value exports minus
  *     hooks, providers, constants, React contexts (`*Context`) and the ChoiceRow parts (Indicator,
  *     OptionImage). forms-web exports its slots and field renderers, each with a template.
- *   - genesis-studio: src/index.ts, the same rule (DataStudio and the toolbar, panels and views it is built from).
+ *   - genesis-data: src/index.ts, the same rule (DataStudio and the toolbar, panels and views it is built from).
  *   - genesis-sites: src/sections/index.ts. A section is a `defineSection` constant, not a
  *     component export, so the section's `type` string (read from the file each `*Section` is
  *     imported from) is the name: hero, rich-text… (template `hero.figma.ts`). Beside them, the
@@ -163,7 +163,7 @@ export const PACKAGES = [
     figmaDir: "packages/sites/figma",
   },
   {
-    name: "studio",
+    name: "data",
     indexes: [{ file: "packages/data/src/index.ts", rule: "forms" }],
     figmaDir: "packages/data/figma",
   },
@@ -303,7 +303,7 @@ export function appComponentsFromIndex(source) {
   return pascalComponentsFromIndex(source, isAppPlumbing);
 }
 
-/** genesis-forms-native, -forms-web and -studio: PascalCase value exports minus contexts and ChoiceRow's parts. */
+/** genesis-forms-native, -forms-web and -data: PascalCase value exports minus contexts and ChoiceRow's parts. */
 export function formsComponentsFromIndex(source) {
   return pascalComponentsFromIndex(source, (name) => /Context$/.test(name) || FORMS_SUBPARTS.has(name));
 }

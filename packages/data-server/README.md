@@ -7,7 +7,7 @@ signed-in user browse and fix their app's Postgres or Supabase data **as themsel
 > decides that, never Genesis. — [docs/DATA.md](../../docs/DATA.md)
 
 It is the only Genesis package that touches a database credential. The browser half is
-[`@marktiderman/genesis-data`](../studio/README.md); the client it talks to ships here at
+[`@marktiderman/genesis-data`](../data/README.md); the client it talks to ships here at
 `@marktiderman/genesis-data-server/client`.
 
 **Status: 0.2, milestone P1.**
@@ -29,7 +29,7 @@ npx @marktiderman/genesis-cli data init
 
 It writes three things into your app and tells you the rest:
 
-- **One migration to review:** the studio's own `NOINHERIT` database login and the audit trail.
+- **One migration to review:** Genesis Data's own `NOINHERIT` database login and the audit trail.
 - **The server:** a Next.js route, or, for a Vite or Lovable app with no server of its own, a
   Supabase Edge Function.
 - **A page:** `<DataStudio provider={createSupabaseStudioProvider(supabase)} />`, which your app's
@@ -135,7 +135,7 @@ export const POST = studio;
 
 Hono: `app.post("/api/studio", (c) => studio(c.req.raw))`. Cloudflare: `fetch: studio`.
 
-**5. Render the studio** — see [`@marktiderman/genesis-data`](../studio/README.md).
+**5. Render Genesis Data** — see [`@marktiderman/genesis-data`](../data/README.md).
 
 ## Which tables appear, and who may edit what
 
@@ -155,11 +155,11 @@ Then a table is editable only when it also has all of these:
 - a row-level security policy that allows the action at all;
 - a working audit sink.
 
-When it isn't, `describe()` says why, in a sentence the studio shows. A configured `versionField`
+When it isn't, `describe()` says why, in a sentence Genesis Data shows. A configured `versionField`
 that can't be trusted (no trigger, or a timestamp too coarse) makes the table read-only, and says
 so.
 
-**Hiding a column in `authorize()` hides it in the studio, not from the database.** If the same user
+**Hiding a column in `authorize()` hides it in Genesis Data, not from the database.** If the same user
 can reach the table through PostgREST, revoke the column there too:
 `revoke select (answer_key) on public.quiz from authenticated`.
 
@@ -217,7 +217,7 @@ resources: {
 ```
 
 Each function is called **as the signed-in user**, inside the edit's transaction. It runs after
-the studio's version check and before its audit entry:
+Genesis Data's version check and before its audit entry:
 
 | Action | Signature | Returns |
 | --- | --- | --- |
@@ -248,7 +248,7 @@ authorize: byResource({ "public.orders": { read: true, actions: ["approve"] } },
 
 The function runs **as the signed-in user**, at the version they saw, inside one `REPEATABLE READ`
 transaction, so a row changed in between is a conflict, not an overwrite. Its effect on the row is
-audited as `run:approve` (before and after, or no after when it removed the row). The studio never
+audited as `run:approve` (before and after, or no after when it removed the row). Genesis Data never
 undoes an action, because the function may have changed more than the row shows.
 
 An action is offered only when `authorize` allows `{ action: "run", rowAction: name }`, the
@@ -278,7 +278,7 @@ It sets a table's label, label field and description, and a field's label, descr
 widget. A widget applies only when it can edit the field's type, and never over a link or a
 choice list. Types, keys and every permission still come from the live database, so a stale
 contract can't reveal, invent or unlock a field. `@genesis {…}` settings in comments are left out
-of the descriptions the studio shows.
+of the descriptions Genesis Data shows.
 
 ## Outbox delivery
 
@@ -314,7 +314,7 @@ worker.start();
 
 ## Run your own API as the user
 
-The studio's identity switch is exported on its own, for an app's API that should run user-scoped
+Genesis Data's identity switch is exported on its own, for an app's API that should run user-scoped
 queries under row-level security the way PostgREST does: in one transaction per unit of work (an
 HTTP request or a socket event), first switch to the user, then query.
 
@@ -358,13 +358,13 @@ await pool.begin(async (tx) => {
 - **A login without the grant:** a login that wasn't granted the role (`grant authenticated to
   <login>`) can't switch to it. That throws `IdentitySwitchError` ("the database login can't switch
   to it"), with the database's 42501 as its `cause`, not a bare 42501 that reads as the caller
-  lacking a permission. The studio handler reports it the same way.
+  lacking a permission. Genesis Data handler reports it the same way.
 - **The check:** after the switch, a check in SQL makes sure `current_user` is the role and can't
   bypass RLS, and that the login is neither a superuser nor BYPASSRLS. A failure raises inside the
   transaction, so Postgres aborts it and it throws `IdentitySwitchError`. Catching that error
   doesn't let anything go on as the login.
 - **The login:** use a dedicated `NOINHERIT` login that is neither a superuser nor BYPASSRLS, set up
-  the same way as the studio's (see [Attach a project](#attach-a-project-under-15-minutes)). On a
+  the same way as Genesis Data's (see [Attach a project](#attach-a-project-under-15-minutes)). On a
   privileged login, code inside the transaction could undo the switch with `reset role`, so such a
   login is refused (`allowPrivilegedLogin` is for local development only). Keep server-owned writes
   on a separate privileged pool that never runs user work.
@@ -389,7 +389,7 @@ await pool.begin(async (tx) => {
 - The audit log is append-only by design. Decide its retention, and how a deletion request is
   handled, before it holds production data.
 - On Cloudflare Workers (where Lovable deploys TanStack Start apps), a database connection
-  belongs to the request that opened it. There the studio opens one per transaction and closes
+  belongs to the request that opened it. There Genesis Data opens one per transaction and closes
   it after, instead of keeping a pool, so one handler can still serve every request. Set
   `createPostgresDatabase(url, { perRequest })` to choose either way yourself.
 - Cloudflare recommends [Hyperdrive](https://developers.cloudflare.com/hyperdrive/) for a remote

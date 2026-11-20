@@ -40,7 +40,7 @@ describe("genesis studio init", () => {
     expect(plan.steps[0]).toContain('<Route path="/admin/data"');
     expect(plan.install).toContain("@hookform/resolvers@>=5.1.0 <8");
     // The browser client and the Edge Function run the exact server this CLI was built with.
-    const { version } = JSON.parse(readFileSync(new URL("../../studio-server/package.json", import.meta.url), "utf8"));
+    const { version } = JSON.parse(readFileSync(new URL("../../data-server/package.json", import.meta.url), "utf8"));
     expect(plan.install).toContain(`@marktiderman/genesis-data-server@${version}`);
     const fn = plan.files.find((f) => f.path === "supabase/functions/genesis-studio/index.ts")!.content;
     expect(fn).toContain(`npm:@marktiderman/genesis-data-server@${version}"`);

@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// The browser half: a Genesis `DataProvider` that talks to the studio
+// The browser half: a Genesis `DataProvider` that talks to Genesis Data's
 // handler. It holds no database credential — only the signed-in user's
 // access token, sent as a bearer header.
 //
@@ -115,7 +115,7 @@ export function createStudioProvider(options: StudioProviderOptions): StudioProv
 
   async function call<T>(body: StudioRequest): Promise<T> {
     const token = await options.getAccessToken();
-    if (!token) throw new DataWriteError("unauthenticated", "Sign in to use the studio.");
+    if (!token) throw new DataWriteError("unauthenticated", "Sign in to use Genesis Data.");
     let response: Response;
     try {
       response = await doFetch(options.url, {
@@ -124,7 +124,7 @@ export function createStudioProvider(options: StudioProviderOptions): StudioProv
         body: JSON.stringify({ v: STUDIO_PROTOCOL_VERSION, ...body }),
       });
     } catch (error) {
-      throw new DataWriteError("error", `The studio server couldn't be reached (${error instanceof Error ? error.message : String(error)}).`);
+      throw new DataWriteError("error", `The Genesis Data server couldn't be reached (${error instanceof Error ? error.message : String(error)}).`);
     }
     const payload = (await response.json().catch(() => null)) as unknown;
     if (!response.ok) {
@@ -133,7 +133,7 @@ export function createStudioProvider(options: StudioProviderOptions): StudioProv
       const outcome = wire in OUTCOME_FROM_WIRE ? OUTCOME_FROM_WIRE[wire as keyof typeof OUTCOME_FROM_WIRE] : wire;
       throw new DataWriteError(
         outcome as Exclude<typeof wire, keyof typeof OUTCOME_FROM_WIRE>,
-        error?.message ?? `The studio server answered ${response.status}.`,
+        error?.message ?? `The Genesis Data server answered ${response.status}.`,
         { current: error?.current, currentVersion: error?.currentVersion },
       );
     }
@@ -303,7 +303,7 @@ export interface StudioSession {
   subscribe(listener: (userId: string | null) => void): () => void;
 }
 
-/** The parts of a supabase-js client the studio uses. Any `createClient()` result fits. */
+/** The parts of a supabase-js client Genesis Data uses. Any `createClient()` result fits. */
 export interface SupabaseClientLike {
   auth: {
     getSession(): Promise<{ data: { session: { access_token: string; user: { id: string } } | null } }>;
@@ -320,9 +320,9 @@ export interface SupabaseStudioProviderOptions {
 }
 
 /**
- * The studio's provider for an app that signs in with Supabase: it sends the
+ * Genesis Data's provider for an app that signs in with Supabase: it sends the
  * current session's token with every request and tells `DataStudio` when
- * the user changes, so embedding the studio is one line.
+ * the user changes, so embedding Genesis Data is one line.
  *
  * @example
  * const provider = useMemo(() => createSupabaseStudioProvider(supabase), [supabase]);

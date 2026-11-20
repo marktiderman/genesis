@@ -15,8 +15,8 @@ if (command === "sql") {
 } else {
   process.stderr.write(
     "Usage: genesis-data-server sql [--role <name>] [--login-role <name>] [--worker-role <name>]\n" +
-      "  Prints the SQL that installs the studio's audit trail. Save it as a migration.\n" +
-      "  --role        the role the studio acts as (default: authenticated)\n" +
+      "  Prints the SQL that installs Genesis Data's audit trail. Save it as a migration.\n" +
+      "  --role        the role Genesis Data acts as (default: authenticated)\n" +
       "  --login-role  the handler's own login; only it may write audit entries\n" +
       "  --worker-role the outbox worker's login; only it may read and settle the outbox\n",
   );

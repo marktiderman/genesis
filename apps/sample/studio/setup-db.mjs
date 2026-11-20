@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Builds the sample app's studio database on a LOCAL Postgres and writes
-// apps/sample/.env.local so `pnpm dev` serves /studio against it.
+// apps/sample/.env.local so `pnpm dev` serves /data against it.
 //
 //   pnpm --filter sample studio:db        # create, or rebuild from scratch
 //
@@ -95,4 +95,4 @@ writeFileSync(
   ].join("\n"),
 );
 console.log(`Built ${DATABASE} on ${adminUrl.host} and wrote ${envPath}.`);
-console.log("Run `pnpm --filter sample dev` and open http://localhost:3200/studio");
+console.log("Run `pnpm --filter sample dev` and open http://localhost:3200/data");

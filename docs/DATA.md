@@ -27,7 +27,7 @@ its API lives in that app's repository.
 >
 > - **Decision 8: the database decides by default.** `databaseDecides()` and `supabaseStudio()`
 >   show every table, bounded by the user's grants and row-level security. The rule below is
->   unchanged: the studio gives a user nothing the Data API doesn't already give them. `byResource`
+>   unchanged: Genesis Data gives a user nothing the Data API doesn't already give them. `byResource`
 >   remains the opt-in allow-list.
 > - **Write safety: no version trigger required.** A table without a trusted version column is
 >   checked against a fingerprint of the row's readable values, so stale edits are still refused.
@@ -105,7 +105,7 @@ anything a provider can't do instead of erroring.
 
 | Where                                       | What it holds                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@marktiderman/genesis-data` (new)        | The workspace UI: table sidebar, sheet grid, record pop-up, command palette. Routing goes through `onNavigate` plus a URL-state adapter, and sign-in fills a slot. Apps that don't want the studio pay nothing                                                                                                                                                                                                                                                                                                                                 |
+| `@marktiderman/genesis-data` (new)        | The workspace UI: table sidebar, sheet grid, record pop-up, command palette. Routing goes through `onNavigate` plus a URL-state adapter, and sign-in fills a slot. Apps that don't want Genesis Data pay nothing                                                                                                                                                                                                                                                                                                                                 |
 | `@marktiderman/genesis-data-server` (new) | The handler: schema discovery, queries that act as the user, write safety, the audit sink. It is the only package that touches database credentials                                                                                                                                                                                                                                                                                                                                                                                            |
 | `genesis-core`                              | One schema model: the switchboard's `FieldSchema`/`ResourceContract` promoted here, with deprecated aliases left in the switchboard. Each field carries a storage type plus a widget hint. Keys may be composite (`key: string \| string[]`). Optional provider methods: `describe`, `listResources`, `capabilities`, `getManyReference`, `updateMany`, `deleteMany`. `describe()` reports the current user's column-level permissions, so a hidden column such as an answer key never renders, and a column they can't update shows read-only |
 | `genesis-ui`                                | `ResourcePage` gains opt-in server paging (`paging="server"`), capability-hidden controls, schema-built forms and new view modes. The spreadsheet grid ships as an Experimental, optional subpath (`genesis-ui/sheet`), so other consumers don't inherit its dependency                                                                                                                                                                                                                                                                        |
@@ -240,11 +240,11 @@ Write safety is built into Genesis, whatever the data source.
 
 **Done when:**
 
-- A real row is fixed through the studio in `apps/sample` and in a stock Supabase project (supasheet's
+- A real row is fixed through Genesis Data in `apps/sample` and in a stock Supabase project (supasheet's
   demo schema), with the audit entry visible.
 - Attaching a second project takes under 15 minutes.
 
-### P1 · The studio people want to live in
+### P1 · Genesis Data people want to live in
 
 **Scope:**
 
@@ -255,7 +255,7 @@ Write safety is built into Genesis, whatever the data source.
   app's functions.
 - CSV export.
 
-**Versioning:** additive minors for UI changes; the studio at 0.2.
+**Versioning:** additive minors for UI changes; Genesis Data at 0.2.
 
 **Done when:** ten daily admin jobs pass in all three adoption tests: find a row, fix a field,
 bulk-change a status, follow a link, export a filtered set, and five others.

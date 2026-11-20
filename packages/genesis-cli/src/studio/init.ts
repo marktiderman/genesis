@@ -206,7 +206,7 @@ Deno.serve((request) => handler(request));
         files.push({ path: "supabase/config.toml", append: true, content: `\n[functions.genesis-studio]\nverify_jwt = false\n` });
       }
     } else {
-      steps.push("Deploy the function with JWT verification off (the studio verifies tokens itself): supabase functions deploy genesis-studio --no-verify-jwt");
+      steps.push("Deploy the function with JWT verification off (Genesis Data verifies tokens itself): supabase functions deploy genesis-studio --no-verify-jwt");
     }
     const clientImport = lovable ? `import { supabase } from "@/integrations/supabase/client";` : `import { createClient } from "@supabase/supabase-js";`;
     const clientSetup = lovable
@@ -354,9 +354,9 @@ function DataStudioPage() {
           ? css.replace(/(@source[^\n]*genesis-ui[^\n]*\n)/, `$1${line}\n`)
           : css.replace(/(@import\s+["']tailwindcss[^\n]*\n)/, `$1${ui}\n${line}\n`);
       if (next !== css) {
-        files.push({ path: "src/styles.css", content: next, edit: "Tailwind now also scans the studio's classes" });
+        files.push({ path: "src/styles.css", content: next, edit: "Tailwind now also scans Genesis Data's classes" });
       } else {
-        steps.push(`Add these to the stylesheet that imports Tailwind, so it builds the studio's classes:\n  ${ui}\n  ${line}`);
+        steps.push(`Add these to the stylesheet that imports Tailwind, so it builds Genesis Data's classes:\n  ${ui}\n  ${line}`);
       }
     }
   }

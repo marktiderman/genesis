@@ -47,7 +47,7 @@ row shows the package's layer and group from [Layers](#layers).
 | module · modules | `sites` | 12.2k | Sites, landing pages, blog, editor |
 | module · modules | `support` | 3.5k | Feedback, reports, idea board |
 | primitive · collaboration | `collab` | 0.2k | Spaces and visibility, designed in [COLLABORATION.md](./COLLABORATION.md) (`building`) |
-| primitive · data | `studio`, `studio-server` | 9.0k | Genesis Data, with an audit entry per edit |
+| primitive · data | `data`, `data-server` (aliases `studio`, `studio-server`) | 9.0k | Genesis Data, with an audit entry per edit |
 | module · modules | `product` | 2.1k | Product board, triage, release notes |
 | tooling · core | `genesis-cli` | 11.0k | init, add, migrate, upgrade, doctor, introspect |
 | tooling · core | `agents` (retired 2026-10-29) | docs | Rules of engagement for agent sessions; now [docs/agents/RULES.md](./agents/RULES.md), checked by `genesis agents --rules` |
@@ -147,7 +147,7 @@ gets a working product surface to switch on for tenants, it is a **module**.
 |---|---|---|---|
 | design-system, core, ui, ui-native, features | foundation | core | essential |
 | genesis (umbrella) | primitive | core | bundles primitives, never modules |
-| supabase, switchboard, studio, studio-server, connect | primitive | data | |
+| supabase, switchboard, data, data-server, connect | primitive | data | |
 | ai | primitive | ai | |
 | forms, forms-react, forms-web, forms-native, forms-builder, forms-studio, forms-devtools | primitive | forms | |
 | collab, chat, notifications | primitive | collaboration | chat is embedded by support and apps, so a primitive |

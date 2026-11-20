@@ -816,7 +816,7 @@ export const won = defineWidget({ id: "won", kind: "progress", label: "Won", vie
 ResourceView adds **no authority**. The layers, in order:
 
 1. **The database decides.** RLS, grants, checks and triggers. This is the guarantee.
-2. **The provider reports, where it can.** `describe()` (studio-server today) narrows what the UI
+2. **The provider reports, where it can.** `describe()` (genesis-data-server today) narrows what the UI
    offers. The Supabase provider has no `describe()`, and every signed-in user shares the
    `authenticated` role, so per-user field permissions don't exist in the browser. There, server-
    owned columns are marked once with `@genesis readonly`.
@@ -1470,7 +1470,7 @@ Web phase 1 is about 5 days. Each phase ships as its own release.
   - the Supabase provider has no `describe()`, so per-user field permissions in the browser and
     "never requests unreadable columns" are gone;
   - version checks exist only where the provider supports them;
-  - `genesis-studio` can't be an optional peer, so sheet mode is built on genesis-ui's `SheetGrid`.
+  - `genesis-data` can't be an optional peer, so sheet mode is built on genesis-ui's `SheetGrid`.
 - **Added a security model**, with the five layers named and the database requirements spelled
   out: tenant `WITH CHECK` and an immutable tenant column, real separation for sensitive columns,
   realtime RLS, URL checks and CSV export.

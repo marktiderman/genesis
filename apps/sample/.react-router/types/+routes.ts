@@ -121,6 +121,9 @@ type Pages = {
       "*": string;
     };
   };
+  "/data": {
+    params: {};
+  };
   "/studio": {
     params: {};
   };
@@ -190,7 +193,7 @@ type Pages = {
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/forms-frame" | "/preview/:scenario" | "/sites-editor" | "/demo" | "/demo/:ws" | "/demo/:ws/clients" | "/demo/:ws/clients/:id/:section?" | "/demo/:ws/bookings" | "/demo/:ws/intake" | "/demo/:ws/chat" | "/demo/:ws/assistant" | "/demo/:ws/data" | "/demo/:ws/settings" | "/dashboard" | "/items" | "/items-custom" | "/tickets" | "/tasks" | "/orders" | "/design-system" | "/sandbox" | "/forms-playground" | "/forms-builder" | "/forms" | "/forms/:scenario" | "/settings" | "/projects/*" | "/studio" | "/platform-settings" | "/features" | "/sites" | "/chat" | "/integrations" | "/packages" | "/packages/:name" | "/showcase" | "/showcase/tokens" | "/showcase/tokens/:category" | "/showcase/elements" | "/showcase/elements/:slug" | "/showcase/primitives" | "/showcase/primitives/:slug" | "/showcase/layouts" | "/showcase/layouts/:slug" | "/showcase/standards";
+    page: "/" | "/forms-frame" | "/preview/:scenario" | "/sites-editor" | "/demo" | "/demo/:ws" | "/demo/:ws/clients" | "/demo/:ws/clients/:id/:section?" | "/demo/:ws/bookings" | "/demo/:ws/intake" | "/demo/:ws/chat" | "/demo/:ws/assistant" | "/demo/:ws/data" | "/demo/:ws/settings" | "/dashboard" | "/items" | "/items-custom" | "/tickets" | "/tasks" | "/orders" | "/design-system" | "/sandbox" | "/forms-playground" | "/forms-builder" | "/forms" | "/forms/:scenario" | "/settings" | "/projects/*" | "/data" | "/studio" | "/platform-settings" | "/features" | "/sites" | "/chat" | "/integrations" | "/packages" | "/packages/:name" | "/showcase" | "/showcase/tokens" | "/showcase/tokens/:category" | "/showcase/elements" | "/showcase/elements/:slug" | "/showcase/primitives" | "/showcase/primitives/:slug" | "/showcase/layouts" | "/showcase/layouts/:slug" | "/showcase/standards";
   };
   "routes/_index.tsx": {
     id: "routes/_index";
@@ -254,7 +257,7 @@ type RouteFiles = {
   };
   "routes/_layout.tsx": {
     id: "routes/_layout";
-    page: "/dashboard" | "/items" | "/items-custom" | "/tickets" | "/tasks" | "/orders" | "/design-system" | "/sandbox" | "/forms-playground" | "/forms-builder" | "/forms" | "/forms/:scenario" | "/settings" | "/projects/*" | "/studio" | "/platform-settings" | "/features" | "/sites" | "/chat" | "/integrations" | "/packages" | "/packages/:name" | "/showcase" | "/showcase/tokens" | "/showcase/tokens/:category" | "/showcase/elements" | "/showcase/elements/:slug" | "/showcase/primitives" | "/showcase/primitives/:slug" | "/showcase/layouts" | "/showcase/layouts/:slug" | "/showcase/standards";
+    page: "/dashboard" | "/items" | "/items-custom" | "/tickets" | "/tasks" | "/orders" | "/design-system" | "/sandbox" | "/forms-playground" | "/forms-builder" | "/forms" | "/forms/:scenario" | "/settings" | "/projects/*" | "/data" | "/studio" | "/platform-settings" | "/features" | "/sites" | "/chat" | "/integrations" | "/packages" | "/packages/:name" | "/showcase" | "/showcase/tokens" | "/showcase/tokens/:category" | "/showcase/elements" | "/showcase/elements/:slug" | "/showcase/primitives" | "/showcase/primitives/:slug" | "/showcase/layouts" | "/showcase/layouts/:slug" | "/showcase/standards";
   };
   "routes/dashboard.tsx": {
     id: "routes/dashboard";
@@ -315,6 +318,10 @@ type RouteFiles = {
   "routes/projects.tsx": {
     id: "routes/projects";
     page: "/projects/*";
+  };
+  "routes/data.tsx": {
+    id: "routes/data";
+    page: "/data";
   };
   "routes/studio.tsx": {
     id: "routes/studio";
@@ -422,6 +429,7 @@ type RouteModules = {
   "routes/forms.$scenario": typeof import("./app/routes/forms.$scenario.tsx");
   "routes/settings": typeof import("./app/routes/settings.tsx");
   "routes/projects": typeof import("./app/routes/projects.tsx");
+  "routes/data": typeof import("./app/routes/data.tsx");
   "routes/studio": typeof import("./app/routes/studio.tsx");
   "routes/platform-settings": typeof import("./app/routes/platform-settings.tsx");
   "routes/features": typeof import("./app/routes/features.tsx");
