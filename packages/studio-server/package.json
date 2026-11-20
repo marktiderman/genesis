@@ -85,8 +85,37 @@
     "group": "data",
     "owner": "@marktiderman",
     "doctor": {
-      "enforce": false,
-      "reason": "A deprecated alias that re-exports @marktiderman/genesis-data-server, whose declarations carry the rules."
+      "prefer": [
+        {
+          "id": "handler-on-server",
+          "need": "Genesis Data's server side",
+          "level": "warn",
+          "files": [
+            "**/*.tsx",
+            "**/*.jsx"
+          ],
+          "exclude": [
+            "**/*.server.*",
+            "**/server/**",
+            "**/api/**"
+          ],
+          "forbid": {
+            "imports": [
+              "@marktiderman/genesis-data-server",
+              "@marktiderman/genesis-data-server/auth",
+              "@marktiderman/genesis-studio-server",
+              "@marktiderman/genesis-studio-server/auth"
+            ]
+          },
+          "unless": {
+            "pattern": "\\bcreateServerFn\\s*\\(|\\bexport\\s+(?:let|const|async\\s+function|function)\\s+(?:loader|action)\\b|\\bexport\\s*\\{[^}]*\\b(?:loader|action)\\b|^\\s*[\"']use server[\"']"
+          },
+          "use": "the browser client in screens, the handler in a server route",
+          "import": "@marktiderman/genesis-data-server/client",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/DATA.md",
+          "why": "The handler talks to Postgres as the signed-in user and must never ship to a browser."
+        }
+      ]
     }
   },
   "peerDependencies": {

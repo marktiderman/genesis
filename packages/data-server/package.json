@@ -112,7 +112,9 @@
           "forbid": {
             "imports": [
               "@marktiderman/genesis-data-server",
-              "@marktiderman/genesis-data-server/auth"
+              "@marktiderman/genesis-data-server/auth",
+              "@marktiderman/genesis-studio-server",
+              "@marktiderman/genesis-studio-server/auth"
             ]
           },
           "unless": {
