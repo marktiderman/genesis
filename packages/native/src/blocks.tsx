@@ -37,6 +37,12 @@ export interface NativeBlock<Id extends string = string> extends BlockDef<Id, Co
    * throw is ignored.
    */
   readonly onError?: (error: Error, report: ErrorReport) => void;
+  /**
+   * "Report this" on the fatal and screen error screens: the support block opens its feedback form
+   * with the error attached. `app`: the app's screens were replaced by the fatal screen, and are
+   * remounting ("Try again") as this is called.
+   */
+  readonly reportProblem?: (error: Error, where: { kind: "app" | "screen" }) => void;
 }
 
 /** @internal Hand an error to each block's `onError`; one that throws never stops the rest. */
@@ -55,6 +61,11 @@ const BlocksContext = createContext<ResolvedBlocks<NativeBlock> | null>(null);
 
 /** @internal Provided by GenesisNativeApp. */
 export const BlocksProvider = BlocksContext.Provider;
+
+/** @internal The resolved blocks, or null outside GenesisNativeApp (an error screen must never throw for want of them). */
+export function useOptionalBlocks(): ResolvedBlocks<NativeBlock> | null {
+  return useContext(BlocksContext);
+}
 
 /**
  * The resolved blocks: their ids, nav entries, Settings rows, routes and the
@@ -99,7 +110,8 @@ export interface UseBlockSettingsOptions {
  * at the end of the section its `section` names (by `order`, then block
  * order), and a section no one has yet is added after the rest.
  *
- * Calls each row's `useSubtitle` hook, so call it unconditionally at the top
+ * A row whose `useShown` hook says false is left out. Calls each row's `useSubtitle` and
+ * `useShown` hooks, so call it unconditionally at the top
  * of the Settings screen. The blocks are fixed for the life of the app, so
  * the hooks run in the same order on every render.
  *
@@ -113,18 +125,21 @@ export function useBlockSettings<R extends SettingsRowLike>(
   const rows = blocks?.settings ?? [];
   // The same hooks in the same order every render: `rows` never changes once the shell has resolved it.
   const subtitles = rows.map((row) => row.useSubtitle?.());
-  return mergeBlockSettings(sections, rows, subtitles, options);
+  const shown = rows.map((row) => row.useShown?.() ?? true);
+  return mergeBlockSettings(sections, rows, subtitles, options, shown);
 }
 
-/** The merge `useBlockSettings` does, without hooks (subtitles already read). @stability Beta */
+/** The merge `useBlockSettings` does, without hooks (subtitles and `shown` already read; a row shown false is left out). @stability Beta */
 export function mergeBlockSettings<R extends SettingsRowLike>(
   sections: readonly BlockSettingsSection<R>[],
   rows: readonly Contributed<BlockSettingsRow>[],
   subtitles: readonly (string | null | undefined)[] = [],
   options: UseBlockSettingsOptions = {},
+  shown: readonly boolean[] = [],
 ): BlockSettingsSection<R | SettingsRowLike>[] {
   const out: BlockSettingsSection<R | SettingsRowLike>[] = sections.map((s) => ({ ...s, rows: [...s.rows] }));
   rows.forEach((row, i) => {
+    if (shown[i] === false) return;
     let section = out.find((s) => s.id === row.section);
     if (!section) {
       section = { id: row.section, title: options.sectionTitles?.[row.section] ?? row.section, rows: [] };

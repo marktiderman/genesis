@@ -202,6 +202,33 @@ Genesis's screen for it, with its header through `router.Screen`. Every link sup
 opens its next screen there too. A screen of the app's own replaces one of Genesis's with
 `<SupportRoute screens={{ thread: MyThread }} />` (it gets `{ screen, params }`).
 
+`SupportRoute` never throws for want of a support block: with none (the app turned support off) it
+shows `unavailable`, by default an empty state that says support isn't available
+(`<SupportRoute unavailable={<Redirect href="/settings" />} />` sends people back instead).
+`onFeedbackSent={(delivery) => …}` hears a report sent from its feedback screen, in place of the
+form's own alert: show a toast and leave the screen there.
+
+**Settings that change while the app runs.** With `appSettings` as a function, support reads it
+each time: the Settings rows (`support.feedback`, `support.inbox`, `support.agentDesk`), the idea
+board, shake to report and "Report this" follow it without a restart. Pass `subscribeSettings`
+(called with a listener, returning the stop: your store's subscribe, fed by genesis-supabase's
+`watchAppSettings`) and a Settings screen that's open updates at once; each row's `useShown` hook
+reads `useSupport().useSettings()`.
+
+**Is it fixed?** Once support marks a report addressed (`addressed`, not yet confirmed),
+`useSupportThread` asks the person in the thread's `header`: "Yes, it's fixed" confirms it
+(`client.verify(id, true)`), "No, reopen it" sends it back to support (`verify(id, false)`), then the
+thread says which. A failed answer says so and can be tried again.
+
+**About the screen.** The feedback form shows "About: …" with "Not this", as the web panel does:
+`openFeedback({ about: { label: "Billing", context } })` names it, else the form shows the path the
+person was on (ids taken out). "Not this" leaves the route and the label out of the report.
+
+**Report this.** genesis-native's fatal and screen error screens offer "Report this" while
+`support.feedback` is on (the block's `reportProblem`): the feedback form opens with the error
+attached (its name, message and the top of its stack, scrubbed). On the app's fatal screen the app
+comes back first and the form opens once its screens have remounted, within ten seconds.
+
 *Moving from re-export files.* An app that copied each screen into every zone (`admin/…/support/
 ideas.tsx` re-exporting `(tabs)/…/support/ideas.tsx`, and so on) deletes those copies, and its own
 `zonePath` wrapper around `navigate`, and adds `zones` and `router` to `createSupport`. Its own
@@ -273,8 +300,10 @@ await client.submit({ type: "bug", message, context: await collector.collect(), 
   the report), `handles` (does the signed-in person handle this report), and for staff `isStaff`,
   `setStatus` and (support-chat block) `assign`; `thread`, `conversationId` and `subscribe` for a thread on
   genesis-chat (see below). Errors are `SupportError` with the database's code (`rateLimited` for
-  `GS429`). `verify` and `handles` need migration 0003 and are optional on the `SupportClient`
-  type (a client of your own may leave them out), so check for them before calling.
+  `GS429`). Every report carries `verifiedAt` (when the person confirmed a fix), so this client
+  needs migration 0003, which the support block brings. `verify` and `handles` need it too, and
+  they and `verifiedAt` are optional on the `SupportClient` type (a client of your own may leave
+  them out), so check for them before calling.
 - A report's severity always goes into its context (`context.severity`). With migration 0003
   applied, pass `severityColumn: true` to `createSupportClient` (or `createSupabaseSink`) and it
   is written to the `severity` column as well; for the intake function, set
@@ -484,8 +513,10 @@ at most, and 1 MB of storage in all); `send` answers `{ queued: true }` with the
 The queue is tried when `createDiagnostics` runs, and on reconnect and coming to the front:
 `createSupport({ appState: AppState, netInfo: NetInfo })` on the phone, `flushDiagnosticsOnReconnect(diagnostics)`
 on the web. A refusal (403, a bad dump) isn't kept. Each queued dump remembers who was signed in,
-and is dropped rather than sent under someone else (a shared device); call `diagnostics.clearQueue()`
-on sign-out.
+and is dropped rather than sent under someone else (a shared device). On sign-out the queue is
+cleared: on the phone `createSupport` does it itself (the Supabase client's `SIGNED_OUT`, which also
+drops a shake's dump and a report waiting for the form); on the web (`FeedbackPanel`,
+`flushDiagnosticsOnReconnect`) call `diagnostics.clearQueue()` when the person signs out.
 
 Feedback goes in the same queue: `diagnostics.submitFeedback` (what `FeedbackForm` and
 `FeedbackPanel` call when a dump goes with feedback) keeps a report written offline, with its dump,
@@ -497,8 +528,8 @@ directly and nothing is queued. Feedback is queued only when:
 
 - its author is known (`user`, or the Supabase transport's session), so a flush never files it as
   whoever signs in next (someone else signed in: it is dropped). Without one, the send fails as it
-  always did. Still call `diagnostics.clearQueue()` on sign-out: a person's reports shouldn't wait
-  on a shared device;
+  always did. The queue is still cleared on sign-out (by `createSupport` on the phone, by your
+  `diagnostics.clearQueue()` on the web): a person's reports shouldn't wait on a shared device;
 - it lands in the same help desk: the form's sink is the transport's own, or it names its tenant
   (a support client's `currentTenant`, which the queued record then carries), or the record names
   one. The severity column (`severityColumn`) follows the transport's options; severity is always
@@ -521,14 +552,17 @@ session, health checks, errors, breadcrumbs, console, the app's sections) of pla
 through `client.ticketDiagnostics(ticketId)`, so migration 0026's rule applies: whoever handles the
 ticket. A dump is scrubbed on the device and again on the server; the viewers render it as text
 only. `SupportTicketDiagnostics` (`/web-chat`) and `AgentTicketDiagnostics` (`/native`) work on
-their own too, and `diagnosticsViewSections(report)` gives the sections as text.
+their own too, and `diagnosticsViewSections(report)` gives the sections as text. On the phone each
+dump is headed with its trigger and local time (`dumpHeading`) and has "Copy" (`copy`, default the
+share sheet).
 
 ### Health checks
 
 `healthChecks` is a registry packages and the app register named checks into; each answers `ok`,
 `warn` or `fail` with a message, within 5 seconds. genesis-native's devtools overlay runs them when
 it opens (`createDevtools({ checks: healthChecks })`), and `healthChecksSection()` puts the latest
-results in the dump's `checks` (running them once if nothing has yet):
+results in the dump's `checks` (running them once if nothing has yet). `healthChecks.runCheck(name)`
+runs one again, the overlay's "Try again" on each check:
 
 ```ts
 import { createDiagnostics, healthChecks, healthChecksSection, supabaseHealthChecks, supabaseTransport } from "@marktiderman/genesis-support";
@@ -881,7 +915,13 @@ a report is about, keeping its status) and `SupportHelpArticle` (one article by 
 `useAgentUnreadCount` (a badge), `useAgentInbox({ view, tenantId })` (InboxPage props: Mine,
 Unassigned, All, Pending, Closed with counts, paged) and `useAgentThread(ticketId)` (ThreadPage
 props: reply or internal note, status, take it / hand it back, the requester's name, email and
-tenants; it marks the ticket read). Query keys are `supportAgentKeys`.
+tenants; it marks the ticket read). Query keys are `supportAgentKeys`. The thread's header links
+the requester's email (mailto), has an assignee picker (`assignees`, `assign`) and, with
+`support.desks` on, `AgentDeskControls` (where the ticket is, its last move, and send up / hand back /
+move with a reason, as `SupportDeskControls` on the web). A tenant desk's inbox header has
+`AgentDeskSwitch`, the switch its admins turn the desk on and off with. Settings gets a "Support
+inbox" row into the agent desk, with the unread count, shown only to the app's agents while
+`support.agentDesk` is on.
 
 ## Desks: each tenant's own help desk (migration 0024)
 
