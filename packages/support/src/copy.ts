@@ -165,6 +165,14 @@ export const supportCopy = {
     diagnosticsShow: "Show diagnostics",
     diagnosticsHide: "Hide diagnostics",
     diagnosticsFailed: "Couldn't load the diagnostics.",
+    diagnosticsLoading: "Loading the diagnostics",
+    /** How a dump was sent, by its `trigger`. */
+    diagnosticsTriggers: { manual: "Sent by hand", shake: "Shake to report", feedback: "With feedback", crash: "After a crash" } as Record<string, string>,
+    diagnosticsCopy: "Copy text",
+    diagnosticsCopied: "Copied the dump",
+    diagnosticsCopyFailed: "Couldn't copy. Select the text and copy it instead.",
+    diagnosticsSentry: "Open in Sentry",
+    diagnosticsIssue: "Open the GitHub issue",
     openFile: "Open file",
     /** A row's status line: `{requester}`, `{status}`, `{assignee}`. */
     rowMeta: "{requester} · {status} · {assignee}",
@@ -175,6 +183,11 @@ export const supportCopy = {
     earlier: "Earlier conversations",
     earlierEmpty: "No earlier conversations",
     earlierFailed: "Couldn't load the earlier conversations.",
+    earlierNoun: "conversation",
+    earlierNounPlural: "conversations",
+    earlierTitle: "Conversation",
+    earlierStatus: "Status",
+    earlierOpened: "Opened",
     /** The composer's pickers: `@` a teammate (in a note), `!` a saved reply, `?` a help article. */
     mentionsLabel: "Mention a teammate",
     savedRepliesLabel: "Saved replies",
@@ -228,6 +241,19 @@ export const supportCopy = {
     offBody: "New questions go to the app's support; the conversations already here stay to finish.",
     noDeskTitle: "No help desk to answer",
     noDeskBody: "Turn your help desk on in its settings to answer your people here.",
+    loadFailed: "Couldn't load where this conversation is.",
+    /** The desk's log in its card (`deskHistory`): `{by}` who, `{to}` the desk a ticket went to. */
+    log: "Desk log",
+    logEmpty: "Nothing has happened at this desk yet.",
+    logFailed: "Couldn't load the desk log.",
+    logSomeone: "Someone",
+    logActions: {
+      turned_on: "{by} turned the desk on",
+      turned_off: "{by} turned the desk off",
+      escalated: "{by} sent a conversation up to {to}",
+      returned: "{by} handed a conversation back to {to}",
+      moved: "{by} moved a conversation to {to}",
+    },
   },
   /** Support's notifications (migration 0025, `supportNotificationTypes`): `{by}`, `{title}`, `{from}`. */
   notifications: {
@@ -246,6 +272,8 @@ export const supportCopy = {
     support: "Support",
     verify: "Is it fixed? {title}",
     verifyBody: "We think this is fixed. Please check it, then confirm or reopen it.",
+    /** Who did it, when the event doesn't name them. */
+    someone: "Someone",
   },
   /** The contact fallback (`support.contactEmail`, `support.contactUrl`), in Help and on error screens. */
   contact: {
@@ -256,7 +284,7 @@ export const supportCopy = {
   /** A part of support the app's settings turned off. */
   off: {
     agentDeskTitle: "The agent desk is off",
-    agentDeskBody: "This app's settings turn the agent desk off (support.agentDesk).",
+    agentDeskBody: "This app has turned its agent desk off, so tickets can't be answered here.",
   },
   /** The details panel's requester card. */
   requester: {
@@ -266,6 +294,54 @@ export const supportCopy = {
     /** A tenant's role for the person, from migration 0024 (an app's own words show as it gives them). */
     roles: { admin: "Admin", agent: "Agent", member: "Member" },
     sentFrom: "Sent from",
+    failed: "Couldn't load who wrote.",
+    /** A desk's admins: make the person who wrote one of its agents. */
+    makeAgent: "Make an agent",
+    madeAgent: "They're now an agent of this help desk",
+    /** An email ticket with no login: link it to the person's login, so it shows in their app. */
+    linkTitle: "Link to a login",
+    linkBody: "This came by email. Link it to the person's login so they see it in the app.",
+    linkSearch: "Find the person",
+    linkSearchPlaceholder: "Name or email",
+    linkNoMatches: "Nobody matches",
+    link: "Link",
+    linked: "Linked to {name}",
+    linkFailed: "That wasn't linked. Try again.",
+  },
+  /** A help desk's agents (`setAgent`): who answers its tickets. */
+  agents: {
+    title: "Agents",
+    noun: "agent",
+    nounPlural: "agents",
+    name: "Name",
+    unnamed: "Unnamed",
+    emptyTitle: "No agents yet",
+    emptyBody: "Add the people who answer this help desk.",
+    loadFailed: "Couldn't load the agents. Check your connection and try again.",
+    add: "Add an agent",
+    search: "Find a person",
+    searchPlaceholder: "Name or email",
+    noMatches: "Nobody matches",
+    role: "Role",
+    roles: { agent: "Agent", admin: "Admin" },
+    remove: "Remove",
+    removeConfirmTitle: "Remove this agent?",
+    removeConfirmBody: "They stop seeing this help desk's conversations. You can add them again.",
+    added: "{name} is now an agent",
+    removed: "Removed from the agents",
+    failed: "That didn't change. Try again.",
+  },
+  /** Where the signed-in agent was mentioned in a note (`agentMentions`). */
+  mentions: {
+    title: "My mentions",
+    noun: "mention",
+    nounPlural: "mentions",
+    by: "By",
+    at: "When",
+    open: "Open",
+    emptyTitle: "No mentions yet",
+    emptyBody: "When a teammate mentions you in a note, it shows up here.",
+    loadFailed: "Couldn't load your mentions. Check your connection and try again.",
   },
   savedReplies: {
     listLabel: "Saved replies",
@@ -302,6 +378,10 @@ export const supportCopy = {
     timeToClose: "Median time to close",
     byRequester: "Open by customer",
     unknownRequester: "Unknown",
+    customer: "Customer",
+    customerNoun: "customer",
+    customerNounPlural: "customers",
+    openCount: "Open",
     /** Under the list when it counts only some open tickets. `{count}`: how many it counts. */
     byRequesterCapped: "Counted from the {count} most recently changed open conversations.",
     /** A time with nothing to measure. */
@@ -366,6 +446,19 @@ export const supportCopy = {
     aiThanks: "Glad that helped.",
     aiPerson: "Talk to a person",
     aiFailed: "That didn't go through. Try again, or send us a message.",
+    /** A ticket's desk, in a row of Messages when it lists every desk (`allTenants`). `{status}`, `{desk}`. */
+    rowAtDesk: "{status} · {desk}",
+    /** On a conversation marked fixed that the person hasn't answered (`support.verify`). */
+    verifyTitle: "Is it fixed?",
+    verifyBody: "We think this is fixed. Check it, then tell us.",
+    verifyFixed: "Yes, it's fixed",
+    verifyReopen: "No, it's still wrong",
+    verifyNoteLabel: "What's still wrong? (optional)",
+    verifySend: "Reopen it",
+    verifyCancel: "Cancel",
+    verifyThanks: "Thanks for confirming.",
+    verifyReopened: "Reopened. We'll take another look.",
+    verifyFailed: "That wasn't saved. Try again.",
   },
   helpAdmin: {
     listLabel: "Articles",
@@ -401,6 +494,12 @@ export const supportCopy = {
     newCollection: "New collection",
     newCollectionLabel: "Collection name",
     addCollection: "Add",
+    collections: "Collections",
+    collectionNoun: "collection",
+    collectionNounPlural: "collections",
+    collectionsEmpty: "No collections yet",
+    deleteCollectionTitle: "Delete this collection?",
+    deleteCollectionBody: "Its articles stay, in no collection.",
   },
   status: {
     open: "Open",

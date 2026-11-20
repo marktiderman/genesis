@@ -9,7 +9,7 @@
  *
  * @stability Beta
  */
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Button,
@@ -17,26 +17,37 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  InlineAlert,
+  Input,
   Label,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Skeleton,
   Textarea,
   ToggleRow,
+  toast,
 } from "@marktiderman/genesis-ui";
-import { requesterTenantsLabel, type AgentTicket, type SupportClient } from "../client";
-import { chooseDesk, pickerDesks, type DeskTarget, type SupportDesk, type TicketDesk } from "../desks";
+import { requesterTenantsLabel, type AgentTicket, type SupportClient, type SupportPerson } from "../client";
+import { chooseDesk, pickerDesks, type DeskLogEntry, type DeskTarget, type SupportDesk, type TicketDesk } from "../desks";
 import { fill, resolveSupportCopy, type SupportCopy, type SupportCopyOverrides } from "../copy";
 import { mailtoHref, supportSettingValues, type SupportSettingsInput } from "../settings";
 import { scopeOf } from "./tenant";
+import { listView, ViewList } from "./list-view";
+
+/** People the app can find by name or email, for linking an email ticket and adding an agent. Genesis has no directory of the app's people: the app gives one. */
+export type SupportFindPeople = (query: string) => Promise<readonly SupportPerson[]>;
 
 /**
  * Desk query keys, under genesis-support's root (a support write refreshes them too), each scoped
@@ -50,6 +61,8 @@ export const supportDeskKeys = {
   targets: (scope: string, id: string) => ["genesis-support", "desks", scope, "targets", id] as const,
   requester: (scope: string, id: string) => ["genesis-support", "desks", scope, "requester", id] as const,
   requesterTenants: (scope: string, id: string) => ["genesis-support", "desks", scope, "requester-tenants", id] as const,
+  log: (scope: string, tenantId: string | null) => ["genesis-support", "desks", scope, "log", tenantId] as const,
+  people: (scope: string, query: string) => ["genesis-support", "desks", scope, "people", query] as const,
 };
 
 /** A support client's scope for `supportDeskKeys`. */
@@ -85,13 +98,21 @@ export function useSupportDesks(client: SupportClient, options: { enabled?: bool
 export interface SupportRequesterPanelProps {
   client: SupportClient;
   ticket: AgentTicket;
+  /** Genesis settings: with `support.desks` off there's no "Make an agent". Left out, `max`. */
+  settings?: SupportSettingsInput | null;
   copy?: SupportCopyOverrides;
   onError?: (error: unknown) => void;
 }
 
-/** Who wrote: their name and email (a mailto link), the tenants they belong to, and where they wrote from. Migration 0022. */
-export function SupportRequesterPanel({ client, ticket, copy: overrides, onError }: SupportRequesterPanelProps) {
+/**
+ * Who wrote: their name and email (a mailto link), the tenants they belong to, and where they wrote
+ * from (migration 0022). The desk's admins also get "Make an agent" (`setAgent`).
+ */
+export function SupportRequesterPanel({ client, ticket, settings, copy: overrides, onError }: SupportRequesterPanelProps) {
   const copy = resolveSupportCopy(overrides);
+  const queryClient = useQueryClient();
+  const desks = useSupportDesks(client, { enabled: supportSettingValues(settings).support.desks && Boolean(client.setAgent) });
+  const [busy, setBusy] = useState(false);
   const userId = ticket.userId ?? "";
   const who = useQuery({
     queryKey: supportDeskKeys.requester(supportDeskScope(client), userId),
@@ -109,20 +130,45 @@ export function SupportRequesterPanel({ client, ticket, copy: overrides, onError
     if (who.error) onError?.(who.error);
     if (tenants.error) onError?.(tenants.error);
   }, [who.error, tenants.error, onError]);
+  if (who.isLoading || tenants.isLoading) {
+    return (
+      <div role="status" aria-label={copy.requester.title} data-testid="genesis-support-requester-loading">
+        <Skeleton className="h-20 w-full" />
+      </div>
+    );
+  }
+  if (who.isError) return <InlineAlert variant="destructive" description={copy.requester.failed} testID="genesis-support-requester-failed" />;
   const email = who.data?.email ?? ticket.requesterEmail;
   const belongs = tenants.data ? requesterTenantsLabel(tenants.data) : null;
   const sentFrom = [ticket.platform, ticket.appVersion].filter(Boolean).join(" · ");
-  if (!email && !belongs && !sentFrom && !who.data?.name) return null;
+  // An admin of this ticket's desk can make the person who wrote one of its agents.
+  const managed = desks.data?.some((d) => d.tenantId === ticket.tenantId && d.manage) ?? false;
+  const already = tenants.data?.some((t) => t.tenantId === ticket.tenantId && (t.role === "agent" || t.role === "admin")) ?? false;
+  const canMakeAgent = Boolean(userId && client.setAgent && managed && !already);
+  if (!email && !belongs && !sentFrom && !who.data?.name && !canMakeAgent) return null;
+  const makeAgent = async () => {
+    setBusy(true);
+    try {
+      await client.setAgent!(ticket.tenantId, userId, "agent");
+      await queryClient.invalidateQueries({ queryKey: supportDeskKeys.requesterTenants(supportDeskScope(client), userId) });
+      toast.success(copy.requester.madeAgent);
+    } catch (error) {
+      toast.error(copy.agents.failed);
+      onError?.(error);
+    } finally {
+      setBusy(false);
+    }
+  };
   return (
     <Card data-testid="genesis-support-requester">
-      <CardHeader className="p-3 pb-1">
+      <CardHeader>
         <CardTitle className="text-sm">{who.data?.name ?? copy.requester.title}</CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col gap-1 p-3 pt-0 text-sm">
+      <CardContent className="flex flex-col items-start gap-1 text-sm">
         {email ? (
-          <a className="text-primary underline-offset-4 hover:underline" href={mailtoHref(email)} data-testid="genesis-support-requester-email">
-            {email}
-          </a>
+          <Button asChild variant="link" className="h-auto p-0" testID="genesis-support-requester-email">
+            <a href={mailtoHref(email)}>{email}</a>
+          </Button>
         ) : null}
         {belongs && tenants.data?.some((t) => t.role) ? (
           <ul data-testid="genesis-support-requester-tenants" aria-label={copy.requester.tenants} className="flex flex-col gap-0.5">
@@ -146,6 +192,125 @@ export function SupportRequesterPanel({ client, ticket, copy: overrides, onError
             {copy.requester.sentFrom}: {sentFrom}
           </p>
         ) : null}
+        {canMakeAgent ? (
+          <Button size="sm" variant="outline" disabled={busy} onClick={() => void makeAgent()} data-testid="genesis-support-requester-make-agent">
+            {copy.requester.makeAgent}
+          </Button>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
+/** A search for one of the app's people (`findPeople`), and the pick among those it found. */
+export function PersonSearch({
+  client,
+  findPeople,
+  value,
+  onChange,
+  words,
+  testId,
+}: {
+  client: SupportClient;
+  findPeople: SupportFindPeople;
+  value: SupportPerson | null;
+  onChange: (person: SupportPerson | null) => void;
+  words: { search: string; placeholder: string; noMatches: string; unnamed: string };
+  testId: string;
+}) {
+  const id = useId();
+  const [query, setQuery] = useState("");
+  const q = query.trim();
+  const found = useQuery({ queryKey: supportDeskKeys.people(supportDeskScope(client), q), queryFn: () => findPeople(q), enabled: q.length >= 2, staleTime: 30_000 });
+  const people = found.data ?? [];
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-1">
+        <Label htmlFor={id}>{words.search}</Label>
+        <Input id={id} type="search" value={query} placeholder={words.placeholder} onChange={(e) => setQuery(e.target.value)} data-testid={`${testId}-search`} />
+      </div>
+      {q.length >= 2 && found.isSuccess ? (
+        people.length ? (
+          <Select value={value?.id ?? ""} onValueChange={(pick) => onChange(people.find((p) => p.id === pick) ?? null)}>
+            <SelectTrigger aria-label={words.search} data-testid={`${testId}-pick`}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {people.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.name?.trim() || words.unnamed}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <p className="text-sm text-muted-foreground" role="status">
+            {words.noMatches}
+          </p>
+        )
+      ) : null}
+    </div>
+  );
+}
+
+export interface SupportLinkRequesterProps {
+  client: SupportClient;
+  ticket: AgentTicket;
+  /** Finds the app's people by name or email. Without it, nothing shows. */
+  findPeople?: SupportFindPeople;
+  /** After it's linked (the inbox re-reads the ticket). */
+  onLinked?: (ticketId: string) => void;
+  copy?: SupportCopyOverrides;
+  onError?: (error: unknown) => void;
+}
+
+/**
+ * An email ticket with no login: link it to the person's login (`linkRequester`), so it shows in
+ * their app and its replies reach them there. The database refuses anyone who doesn't handle the
+ * ticket, and a person who isn't in its tenant.
+ */
+export function SupportLinkRequester({ client, ticket, findPeople, onLinked, copy: overrides, onError }: SupportLinkRequesterProps) {
+  const copy = resolveSupportCopy(overrides);
+  const queryClient = useQueryClient();
+  const [person, setPerson] = useState<SupportPerson | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  if (ticket.channel !== "email" || ticket.userId || !client.linkRequester || !findPeople) return null;
+  const link = async () => {
+    if (!person) return;
+    setBusy(true);
+    setFailed(false);
+    try {
+      await client.linkRequester!(ticket.id, person.id);
+      void queryClient.invalidateQueries({ queryKey: ["genesis-support"] });
+      toast.success(fill(copy.requester.linked, { name: person.name?.trim() || copy.agents.unnamed }));
+      onLinked?.(ticket.id);
+    } catch (error) {
+      setFailed(true);
+      onError?.(error);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Card data-testid="genesis-support-link-requester">
+      <CardHeader>
+        <CardTitle className="text-sm">{copy.requester.linkTitle}</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-2 text-sm">
+        <p className="text-muted-foreground">{copy.requester.linkBody}</p>
+        <PersonSearch
+          client={client}
+          findPeople={findPeople}
+          value={person}
+          onChange={setPerson}
+          words={{ search: copy.requester.linkSearch, placeholder: copy.requester.linkSearchPlaceholder, noMatches: copy.requester.linkNoMatches, unnamed: copy.agents.unnamed }}
+          testId="genesis-support-link-requester"
+        />
+        {failed ? <InlineAlert variant="destructive" description={copy.requester.linkFailed} /> : null}
+        <Button size="sm" className="self-start" disabled={!person || busy} onClick={() => void link()} data-testid="genesis-support-link-requester-send">
+          {copy.requester.link}
+        </Button>
       </CardContent>
     </Card>
   );
@@ -190,8 +355,17 @@ function DeskControls({ client, ticket, onMoved, allowMove = true, settings, cop
   useEffect(() => {
     if (desk.error) onError?.(desk.error);
   }, [desk.error, onError]);
+  if (!on || !client.ticketDesk) return null;
+  if (desk.isPending) {
+    return (
+      <div role="status" aria-label={copy.desks.pickerLabel} data-testid="genesis-support-desk-loading">
+        <Skeleton className="h-16 w-full" />
+      </div>
+    );
+  }
+  if (desk.isError) return <InlineAlert variant="destructive" description={copy.desks.loadFailed} testID="genesis-support-desk-failed" />;
   const d = desk.data;
-  if (!d || !on) return null;
+  if (!d) return null;
   const known = new Map<string, string>();
   for (const x of [...(mine.data ?? []), ...(targets.data ?? [])]) known.set(x.tenantId, deskName(x, copy));
   const nameOf = (id: string) => known.get(id) ?? (id === d.tenantId ? deskName(d, copy) : id === d.returnsTo ? deskName({ label: d.returnsToLabel, isDefault: false }, copy) : copy.desks.unnamedDesk);
@@ -202,14 +376,16 @@ function DeskControls({ client, ticket, onMoved, allowMove = true, settings, cop
   const canMove = allowMove && Boolean(client.moveTicket) && others.length > 0;
   const canEscalate = d.canEscalate && Boolean(client.escalateTicket);
   const canReturn = d.canReturn && Boolean(client.returnTicket);
-  if (!moved && !canEscalate && !canReturn && !d.returnsTo && !canMove) return null;
+  const hasLog = Boolean(client.deskHistory);
+  if (!moved && !canEscalate && !canReturn && !d.returnsTo && !canMove && !hasLog) return null;
   const returnsToName = d.returnsTo ? nameOf(d.returnsTo) : null;
+  const sentTo = open?.kind === "escalate" ? appDesk : open?.kind === "return" ? (returnsToName ?? "") : null;
   return (
     <Card data-testid="genesis-support-desk">
-      <CardHeader className="p-3 pb-1">
+      <CardHeader>
         <CardTitle className="text-sm">{deskName(d, copy)}</CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col items-start gap-2 p-3 pt-0 text-sm">
+      <CardContent className="flex flex-col items-start gap-2 text-sm">
         {moved ? <p className="text-muted-foreground" data-testid="genesis-support-desk-last">{moved}</p> : null}
         {d.lastMove?.reason ? <p className="whitespace-pre-wrap">“{d.lastMove.reason}”</p> : null}
         {canEscalate ? (
@@ -228,21 +404,57 @@ function DeskControls({ client, ticket, onMoved, allowMove = true, settings, cop
             {copy.desks.moveTo}
           </Button>
         ) : null}
+        {hasLog ? <DeskLog client={client} tenantId={d.isDefault ? null : d.tenantId} nameOf={nameOf} copy={copy} onError={onError} /> : null}
       </CardContent>
       {open ? (
         <MoveDialog
           client={client}
           ticketId={ticket.id}
           what={open}
-          to={open.kind === "escalate" ? appDesk : open.kind === "return" ? (returnsToName ?? "") : null}
+          to={sentTo}
           targets={others}
           copy={copy}
           onClose={() => setOpen(null)}
-          onMoved={() => onMoved?.(ticket.id)}
+          onMoved={(name) => {
+            toast.success(fill(copy.desks.sent, { name }));
+            onMoved?.(ticket.id);
+          }}
           onError={onError}
         />
       ) : null}
     </Card>
+  );
+}
+
+type DeskLogRow = { id: string; what: string; at: string } & Record<string, unknown>;
+
+/** The desk's log (`deskHistory`), folded away until opened: who turned it on or off, and the conversations that left it. */
+function DeskLog({ client, tenantId, nameOf, copy, onError }: { client: SupportClient; tenantId: string | null; nameOf: (id: string) => string; copy: SupportCopy; onError: ((error: unknown) => void) | undefined }) {
+  const [open, setOpen] = useState(false);
+  const log = useQuery({ queryKey: supportDeskKeys.log(supportDeskScope(client), tenantId), queryFn: () => client.deskHistory!({ tenantId, limit: 20 }), enabled: open, staleTime: 60_000 });
+  useEffect(() => {
+    if (log.error) onError?.(log.error);
+  }, [log.error, onError]);
+  const view = listView<DeskLogRow>("support_desk_log", { title: copy.desks.log, noun: copy.desks.log, nounPlural: copy.desks.log, emptyTitle: copy.desks.logEmpty }, [
+    { name: "what", label: copy.desks.log },
+    { name: "at", label: copy.agentInbox.opened, type: "datetime", display: "datetime" },
+  ]);
+  const rows = log.data?.map((e: DeskLogEntry): DeskLogRow => ({
+    id: e.id,
+    what: fill(copy.desks.logActions[e.action], { by: e.actorName?.trim() || copy.desks.logSomeone, to: e.toTenantId ? nameOf(e.toTenantId) : "" }),
+    at: e.at,
+  }));
+  return (
+    <Collapsible open={open} onOpenChange={setOpen} className="w-full">
+      <CollapsibleTrigger asChild>
+        <Button size="sm" variant="ghost" data-testid="genesis-support-desk-log-toggle">
+          {copy.desks.log}
+        </Button>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <ViewList view={view} rows={rows} loading={log.isPending} error={log.isError} errorMessage={copy.desks.logFailed} onRetry={() => void log.refetch()} testId="genesis-support-desk-log" />
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 
@@ -265,7 +477,8 @@ function MoveDialog({
   targets: readonly DeskTarget[];
   copy: SupportCopy;
   onClose: () => void;
-  onMoved: () => void;
+  /** Moved: the name of the desk it went to. */
+  onMoved: (name: string) => void;
   onError: ((error: unknown) => void) | undefined;
 }) {
   const queryClient = useQueryClient();
@@ -285,7 +498,7 @@ function MoveDialog({
       else await client.moveTicket!(ticketId, target, why);
       void queryClient.invalidateQueries({ queryKey: ["genesis-support"] });
       onClose();
-      onMoved();
+      onMoved(name);
     } catch (error) {
       setFailed(true);
       onError?.(error);
@@ -322,13 +535,9 @@ function MoveDialog({
           <Label htmlFor="genesis-support-desk-reason">{copy.desks.reason}</Label>
           <Textarea id="genesis-support-desk-reason" value={reason} maxLength={1000} onChange={(e) => setReason(e.target.value)} data-testid="genesis-support-desk-reason" />
         </div>
-        {failed ? (
-          <p role="alert" className="text-sm text-destructive">
-            {copy.desks.failed}
-          </p>
-        ) : null}
+        {failed ? <InlineAlert variant="destructive" description={copy.desks.failed} testID="genesis-support-desk-failed" /> : null}
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={busy}>
+          <Button variant="outline" onClick={onClose} disabled={busy} data-testid="genesis-support-desk-cancel">
             {copy.desks.cancel}
           </Button>
           <Button onClick={() => void send()} disabled={busy || (what.kind === "move" && !target)} aria-busy={busy} data-testid="genesis-support-desk-send">
@@ -395,7 +604,7 @@ export interface SupportDeskSwitchProps {
   /** Genesis settings: with `support.desks` off (the `standard` and `min` presets) this shows nothing. Left out, `max`. */
   settings?: SupportSettingsInput | null;
   copy?: SupportCopyOverrides;
-  /** After it changed (for a toast). */
+  /** After it changed (it shows its own toast: `switchedOn` or `switchedOff`). */
   onChanged?: (enabled: boolean) => void;
   onError?: (error: unknown) => void;
   className?: string;
@@ -421,6 +630,7 @@ export function SupportDeskSwitch({ client, tenantId, settings, copy: overrides,
     try {
       await client.setDesk!(tenantId, enabled);
       await queryClient.invalidateQueries({ queryKey: supportDeskKeys.all });
+      toast.success(enabled ? copy.desks.switchedOn : copy.desks.switchedOff);
       onChanged?.(enabled);
     } catch (error) {
       setFailed(true);
@@ -439,11 +649,7 @@ export function SupportDeskSwitch({ client, tenantId, settings, copy: overrides,
         onCheckedChange={(on: boolean) => void change(on)}
         testID="genesis-support-desk-switch-toggle"
       />
-      {failed ? (
-        <p role="alert" className="text-sm text-destructive">
-          {copy.desks.switchFailed}
-        </p>
-      ) : null}
+      {failed ? <InlineAlert variant="destructive" description={copy.desks.switchFailed} testID="genesis-support-desk-switch-failed" /> : null}
     </div>
   );
 }

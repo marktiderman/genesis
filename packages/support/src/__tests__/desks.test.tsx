@@ -188,8 +188,9 @@ describe("the web desk cards", () => {
     const ticketDesk = vi.fn(async () => ({ tenantId: "app", label: null, isDefault: true, canEscalate: false, canReturn: false, returnsTo: null, returnsToLabel: null, lastMove: null }));
     const client = stub({ ticketDesk, deskMoveTargets: vi.fn(async () => []) });
     const { container } = wrap(<SupportDeskControls client={client} ticket={ticket} />);
+    // A placeholder while it loads, then nothing.
     await waitFor(() => expect(ticketDesk).toHaveBeenCalled());
-    expect(container.innerHTML).toBe("");
+    await waitFor(() => expect(container.innerHTML).toBe(""));
   });
 
   it("offers a picker only to someone who works more than one desk", async () => {
@@ -274,8 +275,8 @@ describe("CodeRabbit follow-ups on the desk cards", () => {
     });
     const { container } = wrap(<SupportDeskControls client={client} ticket={ticket} />);
     await waitFor(() => expect(client.ticketDesk).toHaveBeenCalled());
+    await waitFor(() => expect(container.innerHTML).toBe(""));
     expect(screen.queryByTestId("genesis-support-desk-escalate")).toBeNull();
-    expect(container.innerHTML).toBe("");
   });
 
   it("closes an open dialog when the ticket changes", async () => {

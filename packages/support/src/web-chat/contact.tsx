@@ -5,6 +5,7 @@
  *
  * @stability Beta
  */
+import { Button } from "@marktiderman/genesis-ui";
 import { fill, resolveSupportCopy, type SupportCopyOverrides } from "../copy";
 import { mailtoHref, type SupportContactInfo } from "../settings";
 
@@ -24,14 +25,16 @@ export function SupportContact({ contact, bare = false, copy: overrides, classNa
     <div data-testid="genesis-support-contact" className={className ?? "flex flex-col gap-1 p-3 text-sm"}>
       {bare ? null : <p className="text-muted-foreground">{copy.title}</p>}
       {contact.email ? (
-        <a className="text-primary underline-offset-4 hover:underline" href={mailtoHref(contact.email)} data-testid="genesis-support-contact-email">
-          {fill(copy.email, { email: contact.email })}
-        </a>
+        <Button asChild variant="link" className="h-auto justify-start p-0" testID="genesis-support-contact-email">
+          <a href={mailtoHref(contact.email)}>{fill(copy.email, { email: contact.email })}</a>
+        </Button>
       ) : null}
       {contact.url ? (
-        <a className="text-primary underline-offset-4 hover:underline" href={contact.url} target="_blank" rel="noreferrer noopener" data-testid="genesis-support-contact-url">
-          {copy.page}
-        </a>
+        <Button asChild variant="link" className="h-auto justify-start p-0" testID="genesis-support-contact-url">
+          <a href={contact.url} target="_blank" rel="noreferrer noopener">
+            {copy.page}
+          </a>
+        </Button>
       ) : null}
     </div>
   );

@@ -9,6 +9,7 @@ import { answerHelpQuestion, HELP_AI_REFUSALS, HELP_ANSWER_FEATURE, supportHelpA
 import { useHelpAsk, type HelpAnswerResponse } from "../help-ask";
 import { SupportHelpCenterAdmin, SupportMessenger, SupportMessengerLauncher } from "../web-chat";
 import { fakeSupabase } from "./fake-supabase";
+import { GenesisTestProviders } from "./genesis-wrapper";
 
 afterEach(cleanup);
 
@@ -72,7 +73,8 @@ function fakeClient(over: Partial<SupportClient> = {}) {
   } as unknown as SupportClient & Record<string, ReturnType<typeof vi.fn>>;
 }
 
-const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>{children}</QueryClientProvider>;
+// A fresh cache per screen, under GenesisProvider: the details panel's lists are views.
+const wrapper = GenesisTestProviders;
 
 function show(client: SupportClient, props: Partial<Parameters<typeof SupportMessenger>[0]> = {}) {
   render(<SupportMessenger client={client} tenantId="ta" {...props} />, { wrapper });
@@ -231,6 +233,55 @@ describe("SupportMessenger", () => {
     fireEvent.click(await screen.findByText("Where is my invoice?"));
     expect(await screen.findByTestId("genesis-support-messenger-thread-closed")).toBeTruthy();
     expect(screen.queryByRole("textbox")).toBeNull();
+  });
+
+  it("asks \"Is it fixed?\" on a fixed conversation, and confirms it", async () => {
+    const verify = vi.fn(async () => undefined);
+    const client = fakeClient({ report: vi.fn(async () => ticket({ status: "addressed", verifiedAt: null })), verify });
+    show(client, { spaces: ["messages"] });
+    fireEvent.click(await screen.findByText("Where is my invoice?"));
+    expect((await screen.findByTestId("genesis-support-messenger-verify")).textContent).toContain("Is it fixed?");
+    fireEvent.click(screen.getByTestId("genesis-support-messenger-verify-fixed"));
+    await waitFor(() => expect(verify).toHaveBeenCalledWith("t1", true, undefined));
+  });
+
+  it("reopens a fixed conversation with what's still wrong", async () => {
+    const verify = vi.fn(async () => undefined);
+    show(fakeClient({ report: vi.fn(async () => ticket({ status: "addressed", verifiedAt: null })), verify }), { spaces: ["messages"] });
+    fireEvent.click(await screen.findByText("Where is my invoice?"));
+    fireEvent.click(await screen.findByTestId("genesis-support-messenger-verify-reopen"));
+    fireEvent.change(screen.getByTestId("genesis-support-messenger-verify-note"), { target: { value: "Still blank" } });
+    fireEvent.click(screen.getByTestId("genesis-support-messenger-verify-reopen-send"));
+    await waitFor(() => expect(verify).toHaveBeenCalledWith("t1", false, "Still blank"));
+  });
+
+  it("says when the answer wasn't saved, and asks nothing once it's confirmed", async () => {
+    const verify = vi.fn(async () => Promise.reject(new Error("down")));
+    show(fakeClient({ report: vi.fn(async () => ticket({ status: "addressed", verifiedAt: null })), verify }), { spaces: ["messages"] });
+    fireEvent.click(await screen.findByText("Where is my invoice?"));
+    fireEvent.click(await screen.findByTestId("genesis-support-messenger-verify-fixed"));
+    expect((await screen.findByTestId("genesis-support-messenger-verify-failed")).getAttribute("role")).toBe("alert");
+    cleanup();
+    show(fakeClient({ report: vi.fn(async () => ticket({ status: "addressed", verifiedAt: "2026-11-04T00:00:00Z" })), verify }), { spaces: ["messages"] });
+    fireEvent.click(await screen.findByText("Where is my invoice?"));
+    expect(await screen.findByTestId("genesis-support-messenger-thread-closed")).toBeTruthy();
+    expect(screen.queryByTestId("genesis-support-messenger-verify")).toBeNull();
+  });
+
+  it("names each conversation's desk when Messages lists every desk", async () => {
+    const client = fakeClient({ myReports: vi.fn(async () => [ticket({ tenantId: "acme" }), ticket({ id: "t2", message: "Second", tenantId: "north" })]) });
+    show(client, { spaces: ["messages"], allTenants: true, deskLabel: (id) => ({ acme: "Acme", north: "Northside" })[id] });
+    await waitFor(() => expect(screen.getByTestId("genesis-support-messenger-messages").textContent).toContain("Open · Acme"));
+    expect(screen.getByTestId("genesis-support-messenger-messages").textContent).toContain("Open · Northside");
+  });
+
+  it("switches spaces on genesis-ui's tab bar, with the unread count on Messages", async () => {
+    show(fakeClient({ ticketsInTenant: vi.fn(async () => [ticket({ unread: true })]) }));
+    const bar = await screen.findByTestId("genesis-support-messenger-space");
+    expect(bar.getAttribute("data-slot")).toBe("tab-bar");
+    await waitFor(() => expect(screen.getByTestId("genesis-support-messenger-space-messages").getAttribute("aria-label")).toBe("Messages (1)"));
+    fireEvent.click(screen.getByTestId("genesis-support-messenger-space-messages"));
+    expect(await screen.findByTestId("genesis-support-messenger-messages")).toBeTruthy();
   });
 
   it("browses and reads an article, with a way to a person", async () => {

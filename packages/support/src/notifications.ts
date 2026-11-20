@@ -77,7 +77,7 @@ export function supportNotificationTypes(options: SupportNotificationOptions = {
       category,
       channels: { in_app: true, push: true, email: true },
       render: (d) => {
-        const values = { by: text(d["by"]) || "Someone", title: titleOf(d) };
+        const values = { by: text(d["by"]) || copy.someone, title: titleOf(d) };
         const template = d["escalated"] ? copy.escalated : d["returned"] ? copy.returned : d["moved"] ? copy.moved : d["new"] ? copy.newTicket : copy.message;
         return withBody(fill(template, values), bodyOf(d), agentUrl(ticketOf(d), text(d["desk"]) || null));
       },

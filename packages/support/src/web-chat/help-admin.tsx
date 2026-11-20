@@ -21,6 +21,7 @@ import {
   EmptyState,
   InboxLayout,
   InboxPage,
+  InlineAlert,
   Input,
   Label,
   Select,
@@ -35,6 +36,9 @@ import {
 import { SupportError, type HelpArticle, type HelpArticleStatus, type HelpCollection, type SupportClient } from "../client";
 import { resolveSupportCopy, type SupportCopy, type SupportCopyOverrides } from "../copy";
 import { scopeOf, useResolvedTenant } from "./tenant";
+import { listView, ViewList } from "./list-view";
+
+type CollectionRow = HelpCollection & Record<string, unknown>;
 
 export interface SupportHelpCenterAdminProps {
   client: SupportClient;
@@ -210,9 +214,7 @@ function Editor({ client, tenantArg, article, collections, copy, onSaved, onDele
         </p>
       </div>
       {message ? (
-        <p role={message.failed ? "alert" : "status"} data-testid="genesis-support-help-message" className={message.failed ? "text-sm text-destructive" : "text-sm text-muted-foreground"}>
-          {message.text}
-        </p>
+        <InlineAlert variant={message.failed ? "destructive" : "success"} description={message.text} testID="genesis-support-help-message" />
       ) : null}
       <div className="flex items-center gap-2">
         <Button type="submit" disabled={saving} aria-busy={saving} data-testid="genesis-support-help-save">
@@ -231,7 +233,7 @@ function Editor({ client, tenantArg, article, collections, copy, onSaved, onDele
                 <AlertDialogDescription>{copy.helpAdmin.deleteConfirmBody}</AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel>{copy.helpAdmin.cancel}</AlertDialogCancel>
+                <AlertDialogCancel data-testid="genesis-support-help-delete-cancel">{copy.helpAdmin.cancel}</AlertDialogCancel>
                 <AlertDialogAction onClick={remove} data-testid="genesis-support-help-delete-confirm">
                   {copy.helpAdmin.delete}
                 </AlertDialogAction>
@@ -298,15 +300,25 @@ function HelpCenterAdmin({ client, tenantId, articleId, onArticleChange, copy: c
       });
   };
 
-  const removeCollection = (id: string) => {
+  const removeCollection = async (row: CollectionRow) => {
     setCollectionFailed(false);
-    required(client.deleteHelpCollection)(id)
-      .then(refresh)
-      .catch((error: unknown) => {
-        setCollectionFailed(true);
-        report.current?.(error);
-      });
+    try {
+      await required(client.deleteHelpCollection)(row.id);
+      refresh();
+    } catch (error) {
+      setCollectionFailed(true);
+      report.current?.(error);
+    }
   };
+  const collectionsView = useMemo(
+    () =>
+      listView<CollectionRow>(
+        "support_help_collections",
+        { title: copy.helpAdmin.collections, noun: copy.helpAdmin.collectionNoun, nounPlural: copy.helpAdmin.collectionNounPlural, emptyTitle: copy.helpAdmin.collectionsEmpty },
+        [{ name: "title", label: copy.helpAdmin.collection }],
+      ),
+    [copy],
+  );
 
   const header = (
     <div className="flex flex-col gap-2 border-b p-3">
@@ -325,22 +337,15 @@ function HelpCenterAdmin({ client, tenantId, articleId, onArticleChange, copy: c
         </Button>
       </form>
       {(collections.data ?? []).length ? (
-        <ul aria-label={copy.helpAdmin.collection} className="flex flex-wrap gap-1 text-sm">
-          {(collections.data ?? []).map((c) => (
-            <li key={c.id} className="flex items-center gap-1 rounded-md border pl-2">
-              {c.title}
-              <Button type="button" variant="ghost" size="sm" aria-label={`${copy.helpAdmin.delete}: ${c.title}`} onClick={() => removeCollection(c.id)} data-testid={`genesis-support-help-delete-collection-${c.id}`}>
-                {copy.helpAdmin.delete}
-              </Button>
-            </li>
-          ))}
-        </ul>
+        <ViewList
+          view={collectionsView}
+          rows={collections.data as CollectionRow[]}
+          onDelete={removeCollection}
+          confirmDelete={{ title: copy.helpAdmin.deleteCollectionTitle, description: copy.helpAdmin.deleteCollectionBody, confirmLabel: copy.helpAdmin.delete, cancelLabel: copy.helpAdmin.cancel }}
+          testId="genesis-support-help-collections"
+        />
       ) : null}
-      {collectionFailed ? (
-        <p role="alert" className="text-sm text-destructive">
-          {copy.helpAdmin.failed}
-        </p>
-      ) : null}
+      {collectionFailed ? <InlineAlert variant="destructive" description={copy.helpAdmin.failed} testID="genesis-support-help-collection-failed" /> : null}
     </div>
   );
 

@@ -10,6 +10,7 @@ import { createSupportClient, officeHoursState, SupportError, waitingSinceOf, ty
 import { SupportAgentInbox, SupportAgentReports, SupportMessenger, SupportSavedRepliesAdmin } from "../web-chat";
 import { fillReply, mentionMarkup, pickerToken, showMentions } from "../web-chat/composer-pickers";
 import { fakeSupabase } from "./fake-supabase";
+import { GenesisTestProviders } from "./genesis-wrapper";
 
 afterEach(() => {
   cleanup();
@@ -77,7 +78,8 @@ function fakeClient(over: Partial<SupportClient> = {}) {
 }
 
 const names: Record<string, string> = { u1: "Ada Lovelace", [AGENT]: "Kit" };
-const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>{children}</QueryClientProvider>;
+// A fresh cache per screen, under GenesisProvider: the details panel's lists are views.
+const wrapper = GenesisTestProviders;
 
 function inbox(client: SupportClient, props: Partial<Parameters<typeof SupportAgentInbox>[0]> = {}) {
   const onTicketChange = vi.fn();
@@ -170,7 +172,8 @@ describe("the queues", () => {
     fireEvent.click(await screen.findByTestId("genesis-support-agent-inbox-toggle-context"));
     const earlier = await screen.findByTestId("genesis-support-agent-earlier-t0");
     expect(earlier.textContent).toContain("Can't sign in");
-    expect(earlier.textContent).toContain("Fixed");
+    // A view's row: the heading opens it, the status beside it.
+    expect(screen.getByTestId("genesis-support-agent-earlier-list").textContent).toContain("Fixed");
     expect(client.agentEarlierTickets).toHaveBeenCalledWith("t1");
     fireEvent.click(earlier);
     expect(onTicketChange).toHaveBeenCalledWith("t0");

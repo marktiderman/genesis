@@ -6,11 +6,11 @@
 import { useQuery } from "@tanstack/react-query";
 import type { SupportClient } from "../client";
 
-const clientIds = new WeakMap<SupportClient, number>();
+const clientIds = new WeakMap<object, number>();
 let nextClientId = 1;
 
 /** A client's id, so two clients never share a cache. */
-function idOf(client: SupportClient): number {
+function idOf(client: object): number {
   let id = clientIds.get(client);
   if (id === undefined) {
     id = nextClientId++;
@@ -20,7 +20,7 @@ function idOf(client: SupportClient): number {
 }
 
 /** What a screen's data belongs to, for its query keys and its React key. */
-export function scopeOf(client: SupportClient, tenantId: string | null): string {
+export function scopeOf(client: object, tenantId: string | null): string {
   return `${idOf(client)}:${tenantId ?? "app"}`;
 }
 

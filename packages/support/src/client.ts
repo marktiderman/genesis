@@ -74,6 +74,10 @@ export interface SupportReport {
   unread: boolean;
   /** Who sent it (the person's own id, or for staff the reporter's). */
   userId?: string | null;
+  /** Its help desk's tenant (migration 0004): which desk it is at. Absent where the read doesn't carry it. */
+  tenantId?: string | null;
+  /** When the person confirmed the fix (migration 0003); null while a fixed report awaits their answer. */
+  verifiedAt?: string | null;
 }
 
 /** A ticket: a request from someone outside the team, owed a reply (ADR 0015). The new name for {@link SupportReport}. */
@@ -322,6 +326,8 @@ export interface SupportClient extends FeedbackSink {
   closeHelpQuestion?(questionId: string, outcome: "resolved" | "handed_off", ticketId?: string | null): Promise<void>;
   /** Tenant admins: make a tenant's person an agent or agent admin, or remove them (`null`). Needs migration 0004. */
   setAgent?(tenantId: string, personId: string, role: TicketAgentRole | null): Promise<void>;
+  /** A ticket's handlers: link an email ticket with no login to the person's login (`support_link_requester`, the support-email block). Refused unless they handle it and the person is in its tenant. */
+  linkRequester?(reportId: string, personId: string): Promise<void>;
   report(id: string): Promise<SupportReport | null>;
   replies(reportId: string): Promise<SupportReply[]>;
   /** `internal`: a staff-only note (support-chat block, staff only). */
@@ -465,7 +471,7 @@ export interface SupportClientOptions {
 }
 
 const REPORT_COLUMNS =
-  "id, user_id, type, title, message, status, feature_id, route, app_version, created_at, updated_at, last_staff_reply_at, last_user_reply_at, user_read_at, staff_read_at, pin:context->pin, about_label:context->>about_label";
+  "id, user_id, type, title, message, status, feature_id, route, app_version, created_at, updated_at, last_staff_reply_at, last_user_reply_at, user_read_at, staff_read_at, pin:context->pin, about_label:context->>about_label, tenant_id, verified_at";
 const IDEA_COLUMNS = "id, title, body, status, feature_id, shipped_at, vote_count, created_at";
 
 type Row = Record<string, unknown>;
@@ -529,8 +535,15 @@ function toReport(r: Row): SupportReport {
     userReadAt: (r["user_read_at"] as string | null) ?? null,
     staffReadAt: (r["staff_read_at"] as string | null) ?? null,
     userId: (r["user_id"] as string | null) ?? null,
+    ...("tenant_id" in r ? { tenantId: (r["tenant_id"] as string | null) ?? null } : {}),
+    ...("verified_at" in r ? { verifiedAt: (r["verified_at"] as string | null) ?? null } : {}),
   };
   return { ...report, unread: isUnread(report) };
+}
+
+/** A report marked fixed that the person hasn't confirmed yet: the "Is it fixed?" question is theirs to answer (`verify`). */
+export function awaitsVerification(t: Pick<SupportReport, "status" | "verifiedAt">): boolean {
+  return t.status === "addressed" && !t.verifiedAt;
 }
 
 /** Since when a ticket's requester has waited, from its reply times: for a queue read before migration 0013. */
@@ -979,6 +992,9 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
       must("closeHelpQuestion", await supabase.rpc("support_close_question", { question: questionId, outcome, ticket: ticketId }));
     },
 
+    async linkRequester(reportId, personId) {
+      must("linkRequester", await supabase.rpc("support_link_requester", { report: reportId, person: personId }));
+    },
     async verify(reportId, fixed, note) {
       must("verify", await supabase.rpc("support_verify_report", { report: reportId, fixed, note: note ?? null }));
     },

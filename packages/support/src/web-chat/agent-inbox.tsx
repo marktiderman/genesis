@@ -26,6 +26,7 @@ import {
   InboxLayout,
   InboxPage,
   InboxViews,
+  InlineAlert,
   Skeleton,
   ThreadPage,
   cn,
@@ -37,13 +38,14 @@ import {
   type ThreadPageSlotMap,
 } from "@marktiderman/genesis-ui";
 import type { ResolveUser } from "@marktiderman/genesis-chat/web";
-import { reportHeading, SupportError, type AgentTicket, type HelpSearchHit, type SupportClient, type SupportReply, type TicketInboxView } from "../client";
+import { reportHeading, SupportError, type AgentTicket, type EarlierTicket, type HelpSearchHit, type SupportClient, type SupportReply, type TicketInboxView } from "../client";
 import { fill, resolveSupportCopy, type SupportCopy, type SupportCopyOverrides } from "../copy";
 import { isSitePath } from "../routes";
 import { ComposerPickerList, showMentions, useComposerPicker, type ComposerPicker } from "./composer-pickers";
 import { supportWebKeys } from "./report-thread";
-import { SupportDeskControls, SupportRequesterPanel } from "./desks";
-import { SupportTicketDiagnostics } from "./diagnostics-viewer";
+import { SupportDeskControls, SupportLinkRequester, SupportRequesterPanel, useSupportDesks, type SupportFindPeople } from "./desks";
+import { SupportTicketDiagnostics, type SupportDiagnosticsLinks } from "./diagnostics-viewer";
+import { listView, ViewList } from "./list-view";
 import { supportSettingValues, type SupportSettingsInput } from "../settings";
 import { TicketControls } from "./staff-thread";
 import { scopeOf, useResolvedTenant } from "./tenant";
@@ -91,6 +93,13 @@ export interface SupportAgentInboxProps {
   deskControls?: boolean | { allowMove?: boolean };
   /** A ticket was moved to another desk (it closes here, and the queues refresh). */
   onTicketMoved?: (ticketId: string) => void;
+  /**
+   * Finds the app's people by name or email: with it, an email ticket with no login can be linked
+   * to the person's (`linkRequester`). Genesis has no directory of the app's people, so the app gives one.
+   */
+  findPeople?: SupportFindPeople;
+  /** Links from a context dump to its Sentry event and GitHub issue, in the details panel. */
+  diagnosticsLinks?: SupportDiagnosticsLinks;
   /**
    * Genesis settings: `support.agentDesk` off shows that the agent desk is off instead of the inbox,
    * and `support.desks` off leaves the desk card out (unless `deskControls` says otherwise). Left
@@ -442,22 +451,25 @@ function TicketPane({ client, tenantId, ticket, resolveUser, agents, slots, cont
   };
 
   const notice = held ? (
-    <div role="alert" data-testid="genesis-support-agent-held" className="mx-1 flex flex-col gap-2 rounded-md border border-warning p-3 text-sm">
-      <p className="font-medium">{copy.agentInbox.heldTitle}</p>
-      <p className="text-muted-foreground">{copy.agentInbox.heldBody}</p>
-      <div className="flex flex-wrap gap-2">
-        <Button size="sm" onClick={() => deliver(draft.trim())} data-testid="genesis-support-agent-send-anyway">
-          {copy.agentInbox.sendAnyway}
-        </Button>
-        <Button size="sm" variant="outline" onClick={review} data-testid="genesis-support-agent-review">
-          {copy.agentInbox.review}
-        </Button>
-      </div>
-    </div>
+    <InlineAlert
+      variant="warning"
+      className="mx-1"
+      title={copy.agentInbox.heldTitle}
+      description={copy.agentInbox.heldBody}
+      testID="genesis-support-agent-held"
+      actions={
+        <>
+          <Button size="sm" onClick={() => deliver(draft.trim())} data-testid="genesis-support-agent-send-anyway">
+            {copy.agentInbox.sendAnyway}
+          </Button>
+          <Button size="sm" variant="outline" onClick={review} data-testid="genesis-support-agent-review">
+            {copy.agentInbox.review}
+          </Button>
+        </>
+      }
+    />
   ) : sendFailed ? (
-    <p role="alert" data-testid="genesis-support-agent-send-failed" className="px-3 pt-2 text-sm text-destructive">
-      {copy.agentInbox.sendFailed}
-    </p>
+    <InlineAlert variant="destructive" className="mx-3 mt-2" description={copy.agentInbox.sendFailed} testID="genesis-support-agent-send-failed" />
   ) : null;
 
   return (
@@ -529,7 +541,9 @@ function Detail({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-/** The requester's other tickets in this tenant, each opening in the inbox. */
+type EarlierRow = EarlierTicket & { heading: string; statusLabel: string } & Record<string, unknown>;
+
+/** The requester's other tickets in this tenant, as a view; each opens in the inbox. */
 function EarlierConversations({ client, ticket, copy, onOpen, onError }: Pick<PaneProps, "client" | "ticket" | "copy" | "onError"> & { onOpen: (id: string) => void }) {
   const earlier = useQuery({
     queryKey: supportInboxKeys.earlier(ticket.id),
@@ -540,41 +554,46 @@ function EarlierConversations({ client, ticket, copy, onOpen, onError }: Pick<Pa
   useEffect(() => {
     if (earlier.error) onError?.(earlier.error);
   }, [earlier.error, onError]);
-  // In the viewer's zone, so it waits for the browser: the server's HTML has none.
-  const [hydrated, setHydrated] = useState(false);
-  useEffect(() => setHydrated(true), []);
+  const view = useMemo(
+    () =>
+      listView<EarlierRow>(
+        "support_earlier_tickets",
+        { title: copy.agentInbox.earlier, noun: copy.agentInbox.earlierNoun, nounPlural: copy.agentInbox.earlierNounPlural, emptyTitle: copy.agentInbox.earlierEmpty },
+        [
+          { name: "heading", label: copy.agentInbox.earlierTitle },
+          { name: "statusLabel", label: copy.agentInbox.earlierStatus },
+          { name: "createdAt", label: copy.agentInbox.earlierOpened, type: "datetime", display: "date" },
+        ],
+      ),
+    [copy],
+  );
+  const rows = useMemo(() => earlier.data?.map((t): EarlierRow => ({ ...t, heading: reportHeading(t), statusLabel: copy.status[t.status] ?? t.status })), [earlier.data, copy]);
+  const cells = useMemo(
+    () => ({
+      heading: (t: EarlierRow) => (
+        <Button variant="link" size="sm" className="h-auto p-0 text-left" onClick={() => onOpen(t.id)} data-testid={`genesis-support-agent-earlier-${t.id}`}>
+          <span className="truncate">{t.heading}</span>
+        </Button>
+      ),
+    }),
+    [onOpen],
+  );
   if (!client.agentEarlierTickets) return null;
   return (
     <section aria-labelledby="genesis-support-agent-earlier" data-testid="genesis-support-agent-earlier" className="flex flex-col gap-2">
       <h3 id="genesis-support-agent-earlier" className="text-xs text-muted-foreground">
         {copy.agentInbox.earlier}
       </h3>
-      {earlier.isPending ? (
-        <Skeleton className="h-10 w-full" />
-      ) : earlier.isError ? (
-        <p className="text-sm text-muted-foreground">{copy.agentInbox.earlierFailed}</p>
-      ) : !earlier.data?.length ? (
-        <p className="text-sm text-muted-foreground">{copy.agentInbox.earlierEmpty}</p>
-      ) : (
-        <ul className="flex flex-col gap-1">
-          {earlier.data.map((t) => (
-            <li key={t.id}>
-              <button
-                type="button"
-                onClick={() => onOpen(t.id)}
-                data-testid={`genesis-support-agent-earlier-${t.id}`}
-                className="flex min-h-11 w-full flex-col rounded-md px-2 py-1 text-left text-sm hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <span className="truncate font-medium">{reportHeading(t)}</span>
-                <span className="text-xs text-muted-foreground">
-                  {copy.status[t.status] ?? t.status}
-                  {hydrated ? ` · ${new Date(t.createdAt).toLocaleDateString()}` : null}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+      <ViewList
+        view={view}
+        rows={rows}
+        loading={earlier.isPending}
+        error={earlier.isError}
+        errorMessage={copy.agentInbox.earlierFailed}
+        onRetry={() => void earlier.refetch()}
+        cells={cells}
+        testId="genesis-support-agent-earlier-list"
+      />
     </section>
   );
 }
@@ -591,7 +610,13 @@ function TicketDetails({
   requesterPanel,
   deskControls,
   onMoved,
+  settings,
+  findPeople,
+  diagnosticsLinks,
 }: Pick<PaneProps, "client" | "ticket" | "resolveUser" | "copy" | "onError"> & {
+  settings: SupportSettingsInput | null | undefined;
+  findPeople: SupportFindPeople | undefined;
+  diagnosticsLinks: SupportDiagnosticsLinks | undefined;
   context?: ((ticket: AgentTicket) => ReactNode) | undefined;
   copyOverrides: SupportCopyOverrides | undefined;
   onOpen: (id: string) => void;
@@ -640,7 +665,7 @@ function TicketDetails({
             ))}
         </section>
       ) : null}
-      <SupportTicketDiagnostics client={client} ticketId={ticket.id} {...(copyOverrides ? { copy: copyOverrides } : {})} {...(onError ? { onError } : {})} />
+      <SupportTicketDiagnostics client={client} ticketId={ticket.id} {...(diagnosticsLinks ? { links: diagnosticsLinks } : {})} {...(copyOverrides ? { copy: copyOverrides } : {})} {...(onError ? { onError } : {})} />
       {deskControls ? (
         <SupportDeskControls
           client={client}
@@ -652,8 +677,9 @@ function TicketDetails({
         />
       ) : null}
       {requesterPanel && !ticket.requesterEmail ? (
-        <SupportRequesterPanel client={client} ticket={ticket} {...(copyOverrides ? { copy: copyOverrides } : {})} {...(onError ? { onError } : {})} />
+        <SupportRequesterPanel client={client} ticket={ticket} settings={settings ?? null} {...(copyOverrides ? { copy: copyOverrides } : {})} {...(onError ? { onError } : {})} />
       ) : null}
+      <SupportLinkRequester client={client} ticket={ticket} {...(findPeople ? { findPeople } : {})} {...(copyOverrides ? { copy: copyOverrides } : {})} {...(onError ? { onError } : {})} />
       {context ? context(ticket) : null}
       <EarlierConversations client={client} ticket={ticket} copy={copy} onOpen={onOpen} onError={onError} />
     </div>
@@ -666,11 +692,41 @@ export function SupportAgentInbox(props: SupportAgentInboxProps) {
   const values = supportSettingValues(props.settings);
   if (!values.support.agentDesk) {
     const copy = resolveSupportCopy(props.copy);
-    return <EmptyState data-testid="genesis-support-agent-desk-off" title={copy.off.agentDeskTitle} description={copy.off.agentDeskBody} />;
+    return (
+      <div data-testid="genesis-support-agent-desk-off">
+        <EmptyState title={copy.off.agentDeskTitle} description={copy.off.agentDeskBody} />
+      </div>
+    );
   }
   if (tenant.failed) return <EmptyState title={resolveSupportCopy(props.copy).agentInbox.errorTitle} description={resolveSupportCopy(props.copy).agentInbox.errorBody} />;
   if (!tenant.ready) return <Skeleton className="h-64 w-full" />;
-  return <AgentInbox key={scopeOf(props.client, tenant.tenantId)} {...props} tenantId={tenant.tenantId} />;
+  return <DeskState {...props} tenantId={tenant.tenantId} />;
+}
+
+/**
+ * A tenant's desk that is off: with conversations still open, a note over the inbox (they stay to
+ * finish); with none, "No help desk to answer" in its place. The app's own desk is always on.
+ */
+function DeskState(props: SupportAgentInboxProps & { tenantId: string | null }) {
+  const on = supportSettingValues(props.settings).support.desks;
+  const desks = useSupportDesks(props.client, { enabled: on && props.tenantId !== null });
+  const desk = props.tenantId ? desks.data?.find((d) => d.tenantId === props.tenantId && !d.isDefault) : undefined;
+  const inbox = <AgentInbox key={scopeOf(props.client, props.tenantId)} {...props} />;
+  if (!desk || desk.enabled) return inbox;
+  const copy = resolveSupportCopy(props.copy);
+  if (!desk.openTickets) {
+    return (
+      <div data-testid="genesis-support-agent-no-desk">
+        <EmptyState title={copy.desks.noDeskTitle} description={copy.desks.noDeskBody} />
+      </div>
+    );
+  }
+  return (
+    <div className={cn("flex h-full min-h-0 flex-col", props.className)}>
+      <InlineAlert className="m-2" title={copy.desks.offTitle} description={copy.desks.offBody} testID="genesis-support-agent-desk-is-off" />
+      <div className="min-h-0 flex-1">{inbox}</div>
+    </div>
+  );
 }
 
 /** The help center's article page at the block's default path (`supportPaths().article`), on this site. */
@@ -691,6 +747,8 @@ function AgentInbox({
   requesterPanel = true,
   deskControls: deskControlsProp,
   onTicketMoved,
+  findPeople,
+  diagnosticsLinks,
   settings,
   replyVariables,
   articleHref = defaultArticleHref,
@@ -868,6 +926,9 @@ function AgentInbox({
               onError={onError}
               requesterPanel={requesterPanel}
               deskControls={deskControls}
+              settings={settings}
+              findPeople={findPeople}
+              diagnosticsLinks={diagnosticsLinks}
               onMoved={(id) => {
                 void queryClient.invalidateQueries({ queryKey: supportInboxKeys.all });
                 onTicketMoved?.(id);
