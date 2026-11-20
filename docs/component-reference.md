@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 858 components · 5243 other exports · 4464 standalone types across 227 entry points in 32 packages.
+**Totals:** 858 components · 5244 other exports · 4464 standalone types across 227 entry points in 32 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -11473,7 +11473,7 @@ Support and feedback for Genesis apps, in the app's own Supabase: a feedback rec
 
 **Barrel:** [`packages/support/src/index.ts`](../packages/support/src/index.ts)
 
-### Other exports (143)
+### Other exports (144)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -11487,8 +11487,8 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`captureConsole`](../packages/support/src/diagnostics/console.ts) | function | — | Keep the last console lines. Calling it again while a capture runs returns that capture. |
 | [`cleanLabel`](../packages/support/src/client.ts) | function | — | An about label as it can be shown: the reporter's (so untrusted), on one line, at most 80 characters, without control or direction-changing (bidi) characters. Null when nothing is left. |
 | [`cleanLabel`](../packages/support/src/client.ts) | function | — | An about label as it can be shown: the reporter's (so untrusted), on one line, at most 80 characters, without control or direction-changing (bidi) characters. Null when nothing is left. |
-| [`cleanRoute`](../packages/support/src/contract.ts) | function | — | A route as a path only, safe to store and send: the query string and fragment (tokens, codes, emails) are dropped, and path segments that look private (an email, an id, a phone number, a token or short code) become `:email`, `:id`, `:pho... |
-| [`cleanRoute`](../packages/support/src/contract.ts) | function | — | A route as a path only, safe to store and send: the query string and fragment (tokens, codes, emails) are dropped, and path segments that look private (an email, an id, a phone number, a token or short code) become `:email`, `:id`, `:pho... |
+| [`cleanRoute`](../packages/support/src/contract.ts) | function | — | A route as a path only, safe to store and send: the query string and fragment (tokens, codes, emails), written or percent-encoded, are dropped, and path segments that look private (an email, an id, a phone or card number, a token or shor... |
+| [`cleanRoute`](../packages/support/src/contract.ts) | function | — | A route as a path only, safe to store and send: the query string and fragment (tokens, codes, emails), written or percent-encoded, are dropped, and path segments that look private (an email, an id, a phone or card number, a token or shor... |
 | [`composeCollectors`](../packages/support/src/record.ts) | function | — | Collectors merged left to right (a later one's values win; `device` and `extra` merge by key). |
 | [`composeCollectors`](../packages/support/src/record.ts) | function | — | Collectors merged left to right (a later one's values win; `device` and `extra` merge by key). |
 | [`CONTRACT_VERSION`](../packages/support/src/contract.ts) | const | — | Bumped only on a shape change. Old clients must keep working. |
@@ -11576,6 +11576,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`sanitizeContext`](../packages/support/src/record.ts) | function | — | The context as the database takes it: a clean route, short strings, bags under their caps. |
 | [`SHAKE_SETTING_SPECS`](../packages/support/src/settings.ts) | const | Beta | `shake.*`: shake to report. @stability Beta |
 | [`shakeSettings`](../packages/support/src/settings.ts) | const | Beta | _(no summary)_ |
+| [`storedByteLength`](../packages/support/src/diagnostics/report.ts) | function | — | A dump's size as the database measures it (`octet_length(report::text)` in migration 0019): Postgres writes jsonb with a space after every `,` and `:`, a few percent over compact JSON. The whole-dump cap counts this, so a dump at the cap... |
 | [`supabaseTransport`](../packages/support/src/diagnostics/transports.ts) | function | — | Dumps into the app's own Supabase (migration 0019 applied). The person comes from the session; the database refuses more than 10 dumps an hour (`GS429`, kept by the offline queue to try later). |
 | [`SUPPORT_BLOCK_ID`](../packages/support/src/block.ts) | const | — | The FeatureId of the support block (features.ts). |
 | [`SUPPORT_BLOCK_ID`](../packages/support/src/block.ts) | const | — | The FeatureId of the support block (features.ts). |

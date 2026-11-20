@@ -1,5 +1,59 @@
 # @marktiderman/genesis-cli
 
+## 1.30.1
+
+### Patch Changes
+
+- 5c9653e: Release 1 review fixes.
+
+  - The Expo config plugin loads again under `require` (genesis-config's `/settings` is CommonJS-loadable);
+    a test `require()`s the built plugin under `tsx/cjs`.
+  - The doctor treats a `planned` setting as dormant: no `secret-missing` and no `setup-incomplete` for
+    it, so a zero-config app on `max` passes `genesis doctor --strict`.
+  - `genesis fix <rule> --expect <hash>` reads every plan first and refuses, writing nothing, when the
+    target has more than one fix to apply. A package fix whose id is already taken is reported and left out.
+  - The genesis-features → genesis-config codemod keeps a production dependency a production one
+    when genesis-config is only a dev dependency, never doubles a key genesis-config already has in
+    `overrides`, `resolutions` or a pnpm-workspace.yaml catalog (flow mappings too), points an npm
+    override of a direct dependency at it (`$@marktiderman/genesis-config`, no `EOVERRIDE`), and
+    `genesis upgrade` runs it only for a release that has genesis-config (an older `--to` never gets
+    npm's latest).
+  - `genesis-behind` honours `NPM_CONFIG_REGISTRY` in any case, and still checks advisories when
+    `npm view` fails.
+  - Under `--base` with `doctor.ratchet: true`, a new `invalid-setting` keeps its level (the base pass
+    no longer reads the head's genesis.config.json).
+  - Findings and `genesis fix settings.setup` no longer point to `genesis setup --step`, which isn't
+    available yet: they name the setting and secret to set.
+  - The fix engine removes a partial new file or staging file a failed write leaves, and `verify`
+    counts a finding it ran for that now names another fix as not fixed. `genesis mcp` keeps a
+    result valid JSON after redaction and refuses an approval when a planned file changed since the plan.
+  - An invalid `release.environment` (or `release.easEnvironment`) is reported ("not checked: … isn't an
+    environment name") instead of being dropped, which made gh read the repository's secrets instead.
+
+- 06d4caa: #848 review findings.
+
+  - genesis-cli: `genesis fix --expect` writes nothing when one of the target's fixes can't be
+    planned. The fix engine removes only a file its own `wx` open created (an `EMFILE` open never
+    deletes another process's file). `genesis settings sync` passes `--yes` to `supabase db query`
+    after its own confirmation, so supabase's prompt can't default to No. `genesis-behind` keeps
+    advisories read while npm failed (through the hour of backoff, at their level), apart from a
+    cached release distance, which stays a note. The rename codemod dedupes pnpm-workspace.yaml
+    entries only within one mapping, so a named catalog keeps its own renamed entry.
+  - genesis-config: `SettingsClientMessages.badAnswer` is optional (a complete messages object from
+    before still typechecks). On the Settings screen a refreshed snapshot supersedes an upgrade
+    check or an audit page still in flight (its busy state cleared). `resolveSettings` never throws on
+    a value neither JSON nor `String` can write.
+  - genesis-support: the dump checks `diagnostics.enabled` again after collecting (a feedback goes
+    alone when it turned off meanwhile); a dump made earlier is capped with the limits in force when
+    sent, and no dump is capped above what the table stores; a shake's dump left unclaimed follows
+    support's own `diagnostics.enabled`, and leaving the feedback screen while its report is being
+    sent no longer sends the dump twice; the HTTP handler shares one settings read between requests.
+
+- 7481a71: `genesis settings sync` writes the app manifest (genesis-supabase's `genesis_app_manifest`: the Genesis packages and versions, the preset, genesis.config.json `settings` and the settings catalogue) through the linked Supabase project (`supabase db query --linked`, or `--project-ref`), after naming the project and asking (`--yes` skips the question and is required without a terminal; an invalid `preset` is refused, not stored as `max`; on Windows the SQL goes through a temp file); `--print` gives the SQL for a pipeline that runs it with psql, and `--app-id` names the app when its package.json name isn't an id. Run it on every deploy, after the migrations: until the manifest is written, `set_genesis_setting` refuses every value, and nothing wrote it. The settings block's setup step and the genesis-supabase README say so; a server can still write it at start with `writeAppManifest`.
+- Updated dependencies [06d4caa]
+- Updated dependencies [5c9653e]
+  - @marktiderman/genesis-config@0.11.1
+
 ## 1.30.0
 
 ### Minor Changes

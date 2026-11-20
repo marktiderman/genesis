@@ -1,5 +1,45 @@
 # @marktiderman/genesis-config (formerly @marktiderman/genesis-features, up to 0.9.1)
 
+## 0.11.1
+
+### Patch Changes
+
+- 06d4caa: #848 review findings.
+
+  - genesis-cli: `genesis fix --expect` writes nothing when one of the target's fixes can't be
+    planned. The fix engine removes only a file its own `wx` open created (an `EMFILE` open never
+    deletes another process's file). `genesis settings sync` passes `--yes` to `supabase db query`
+    after its own confirmation, so supabase's prompt can't default to No. `genesis-behind` keeps
+    advisories read while npm failed (through the hour of backoff, at their level), apart from a
+    cached release distance, which stays a note. The rename codemod dedupes pnpm-workspace.yaml
+    entries only within one mapping, so a named catalog keeps its own renamed entry.
+  - genesis-config: `SettingsClientMessages.badAnswer` is optional (a complete messages object from
+    before still typechecks). On the Settings screen a refreshed snapshot supersedes an upgrade
+    check or an audit page still in flight (its busy state cleared). `resolveSettings` never throws on
+    a value neither JSON nor `String` can write.
+  - genesis-support: the dump checks `diagnostics.enabled` again after collecting (a feedback goes
+    alone when it turned off meanwhile); a dump made earlier is capped with the limits in force when
+    sent, and no dump is capped above what the table stores; a shake's dump left unclaimed follows
+    support's own `diagnostics.enabled`, and leaving the feedback screen while its report is being
+    sent no longer sends the dump twice; the HTTP handler shares one settings read between requests.
+
+- 5c9653e: **Loadable from CommonJS.** `.`, `/blocks`, `/gate`, `/settings`, `/settings-protocol` and `/node`
+  now ship a CommonJS build beside the ESM one (a `require` condition). genesis-cli's Expo config
+  plugin reads `/settings`, and Expo loads plugins with `require` (through `tsx/cjs` in an
+  `app.config.ts`), where an import-only subpath failed with "Package subpath './settings' is not
+  defined by exports". The React entries stay ESM only. The CommonJS entries share chunks, so
+  `instanceof` holds across them (one `FeatureOff`, one `SettingsError`), and a `node10` CommonJS
+  consumer gets the CommonJS types (`types` and `typesVersions`).
+
+  Also: a setting can be declared `planned: true` (declared ahead of the code that reads it; the
+  doctor treats it as dormant). On the Settings screen, a late plan for one fix is never shown or
+  applied in another fix's sheet; an older state, upgrades or audit answer never overwrites a newer
+  one; a 200 the screen can't draw (a malformed plan, result, upgrades list or catalogue entry) is an
+  error, not a crash; a host that returns only a snippet no longer reads "Pull request opened"; the
+  Vault field clears as soon as it is sent; a finding with a guided step shows its `genesis fix <id>`
+  command (`genesis setup` isn't available yet). `resolveSettings` no longer throws on a bigint value,
+  and of two keys linked to one flag, an app-locked one keeps the flag's value.
+
 ## 0.11.0
 
 ### Minor Changes
