@@ -342,7 +342,9 @@ function DataStudioPage() {
   });
   if (tailwind4) {
     const css = facts.read("src/styles.css")!;
-    if (!css.includes("genesis-studio/dist")) {
+    // The new name's line, even when the app has the old one (genesis-studio's dist is now only a
+    // re-export), and never twice.
+    if (!css.includes("genesis-data/dist")) {
       const line = '@source "../node_modules/@marktiderman/genesis-data/dist";';
       // The studio renders genesis-ui's components, so Tailwind scans both.
       const ui = '@source "../node_modules/@marktiderman/genesis-ui/dist";';

@@ -17,7 +17,8 @@ rmSync(path.join(root, "dist"), { recursive: true, force: true });
 mkdirSync(path.join(root, "dist"));
 for (const file of readdirSync(path.join(root, "src"))) {
   if (file.endsWith(".test.ts")) continue;
-  if (!file.endsWith(".ts")) {
+  // Stylesheets, the CommonJS entry, the command and declaration files are copied as they are.
+  if (!file.endsWith(".ts") || /\.d\.[cm]?ts$/.test(file)) {
     cpSync(path.join(root, "src", file), path.join(root, "dist", file));
     continue;
   }

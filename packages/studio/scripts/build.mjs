@@ -6,6 +6,7 @@
  * and the command) are copied as they are.
  */
 import { cpSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -17,7 +18,8 @@ rmSync(path.join(root, "dist"), { recursive: true, force: true });
 mkdirSync(path.join(root, "dist"));
 for (const file of readdirSync(path.join(root, "src"))) {
   if (file.endsWith(".test.ts")) continue;
-  if (!file.endsWith(".ts")) {
+  // Stylesheets, the CommonJS entry, the command and declaration files are copied as they are.
+  if (!file.endsWith(".ts") || /\.d\.[cm]?ts$/.test(file)) {
     cpSync(path.join(root, "src", file), path.join(root, "dist", file));
     continue;
   }
@@ -28,3 +30,10 @@ for (const file of readdirSync(path.join(root, "src"))) {
   writeFileSync(path.join(root, "dist", `${name}.d.ts`), source);
   writeFileSync(path.join(root, "dist", `${name}.js`), CLIENT.has(name) ? `"use client";\n${source}` : source);
 }
+
+// An app set up under the old name scans this package's dist for Tailwind classes (`@source
+// ".../genesis-studio/dist"`). The re-export holds none, so genesis-data's built module sits here
+// too, unimported, for that scan to find.
+const require = createRequire(import.meta.url);
+const built = path.join(path.dirname(require.resolve("@marktiderman/genesis-data/package.json")), "dist", "index.js");
+writeFileSync(path.join(root, "dist", "tailwind-classes.js"), `// Not imported: Genesis Data's classes, for a Tailwind @source on this package.\n${readFileSync(built, "utf8")}`);

@@ -123,7 +123,10 @@ export function supabaseVerifier(options: SupabaseAuthOptions): StudioTokenVerif
 }
 
 function supabaseJwtOptions(options: SupabaseAuthOptions): JwtAuthOptions {
-  const base = options.url.replace(/\/+$/, "");
+  // Trailing slashes off, without a regular expression (linear on any input).
+  let end = options.url.length;
+  while (end > 0 && options.url[end - 1] === "/") end--;
+  const base = options.url.slice(0, end);
   const expected = `${base}/auth/v1`;
   // Inside the local Supabase stack, an Edge Function reaches the project as
   // http://kong:8000 while tokens name the address the browser used

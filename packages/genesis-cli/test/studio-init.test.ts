@@ -177,4 +177,13 @@ describe("TanStack Start apps", () => {
     const css = planStudioInit(bare).files.find((f) => f.path === "src/styles.css")!.content;
     expect(css).toBe('@import "tailwindcss" source(none);\n@source "../node_modules/@marktiderman/genesis-ui/dist";\n@source "../node_modules/@marktiderman/genesis-data/dist";\n');
   });
+
+  it("adds the genesis-data source once, and to an app set up under the old name", () => {
+    const withCss = (css: string) => ({ ...facts, read: (p: string) => (p === "src/styles.css" ? css : facts.read(p)) });
+    const ui = '@import "tailwindcss" source(none);\n@source "../node_modules/@marktiderman/genesis-ui/dist";\n';
+    const already = `${ui}@source "../node_modules/@marktiderman/genesis-data/dist";\n`;
+    expect(planStudioInit(withCss(already)).files.find((f) => f.path === "src/styles.css")).toBeUndefined();
+    const old = `${ui}@source "../node_modules/@marktiderman/genesis-studio/dist";\n`;
+    expect(planStudioInit(withCss(old)).files.find((f) => f.path === "src/styles.css")!.content).toContain('@source "../node_modules/@marktiderman/genesis-data/dist";');
+  });
 });

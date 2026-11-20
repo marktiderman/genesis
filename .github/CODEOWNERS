@@ -8,6 +8,8 @@
 /packages/collab/ @marktiderman
 /packages/connect/ @marktiderman
 /packages/core/ @marktiderman
+/packages/data/ @marktiderman
+/packages/data-server/ @marktiderman
 /packages/design-system/ @marktiderman
 /packages/extension/ @marktiderman
 /packages/features/ @marktiderman
@@ -26,8 +28,8 @@
 /packages/notifications/ @marktiderman
 /packages/product/ @marktiderman
 /packages/sites/ @marktiderman
-/packages/data/ @marktiderman
-/packages/data-server/ @marktiderman
+/packages/studio/ @marktiderman
+/packages/studio-server/ @marktiderman
 /packages/supabase/ @marktiderman
 /packages/support/ @marktiderman
 /packages/switchboard/ @marktiderman
