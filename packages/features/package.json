@@ -31,7 +31,35 @@
   },
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "types": "./dist/index.d.cts",
+  "typesVersions": {
+    "*": {
+      "blocks": [
+        "./dist/blocks.d.cts"
+      ],
+      "gate": [
+        "./dist/gate.d.cts"
+      ],
+      "gate/react": [
+        "./dist/gate-react.d.ts"
+      ],
+      "settings": [
+        "./dist/settings.d.cts"
+      ],
+      "settings/react": [
+        "./dist/settings-react.d.ts"
+      ],
+      "settings-protocol": [
+        "./dist/settings-protocol.d.cts"
+      ],
+      "node": [
+        "./dist/node.d.cts"
+      ],
+      "react": [
+        "./dist/react.d.ts"
+      ]
+    }
+  },
   "exports": {
     "./package.json": "./package.json",
     ".": {

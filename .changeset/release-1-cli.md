@@ -25,3 +25,5 @@ Release 1 review fixes.
 - The fix engine removes a partial new file or staging file a failed write leaves, and `verify`
   counts a finding it ran for that now names another fix as not fixed. `genesis mcp` keeps a
   result valid JSON after redaction and refuses an approval when a planned file changed since the plan.
+- An invalid `release.environment` (or `release.easEnvironment`) is reported ("not checked: … isn't an
+  environment name") instead of being dropped, which made gh read the repository's secrets instead.

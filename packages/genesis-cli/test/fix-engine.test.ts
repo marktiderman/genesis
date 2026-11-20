@@ -80,6 +80,15 @@ describe("plans", () => {
     expect(result.verify).toMatchObject({ ok: false, remaining: left, message: "1 finding left" });
   });
 
+  it("doesn't verify a finding it ran for that now names another fix", async () => {
+    const root = tmpApp({ "a.txt": "hello" });
+    const ran = [finding("lower-case", { subject: "a" })];
+    const plan = await planFix(upper, { root, findings: ran });
+    const moved = [{ ...ran[0]!, fix: { id: "other.fix", kind: "auto" as const, title: "t" } }];
+    const result = await applyPlan(upper, plan, { root, findings: ran, recheck: async () => moved });
+    expect(result.verify).toMatchObject({ ok: false, remaining: moved });
+  });
+
   it("refuses a stale plan: the app changed after it was read, and nothing is written", async () => {
     const root = tmpApp({ "a.txt": "hello" });
     const plan = await planFix(upper, { root, findings: [] });

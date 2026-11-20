@@ -6,7 +6,9 @@
 now ship a CommonJS build beside the ESM one (a `require` condition). genesis-cli's Expo config
 plugin reads `/settings`, and Expo loads plugins with `require` (through `tsx/cjs` in an
 `app.config.ts`), where an import-only subpath failed with "Package subpath './settings' is not
-defined by exports". The React entries stay ESM only.
+defined by exports". The React entries stay ESM only. The CommonJS entries share chunks, so
+`instanceof` holds across them (one `FeatureOff`, one `SettingsError`), and a `node10` CommonJS
+consumer gets the CommonJS types (`types` and `typesVersions`).
 
 Also: a setting can be declared `planned: true` (declared ahead of the code that reads it; the
 doctor treats it as dormant). On the Settings screen, a late plan for one fix is never shown or

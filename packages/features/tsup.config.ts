@@ -55,6 +55,9 @@ export default defineConfig([
   {
     entry: CJS_ENTRIES,
     format: ["cjs"],
+    // Shared chunks, as the ESM pass has: one FeatureOff, one SettingsError, so `instanceof` holds
+    // across `require(".")`, `require("./gate")` and `require("./settings")`.
+    splitting: true,
     dts: true,
     sourcemap: true,
     clean: false,

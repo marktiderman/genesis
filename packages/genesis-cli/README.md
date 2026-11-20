@@ -848,11 +848,15 @@ every value until the manifest is written, so run it on every deploy, after the 
 ```bash
 supabase db push
 genesis settings sync            # --app-id <id> when package.json's name isn't one
+genesis settings sync --yes --project-ref abcdefghijklmnopqrst   # in CI: no question, an explicit project
 genesis settings sync --print    # the SQL, for a pipeline that runs it with psql
 ```
 
-It runs `supabase db query --linked` (as `genesis doctor --database` does), so the CLI handles no
-key. A server can write the same row at start with genesis-supabase's `writeAppManifest`.
+It names the project it writes to (the linked one, or `--project-ref`) and asks before writing;
+`--yes` skips the question, and without a terminal it is required. It refuses a `preset` that
+isn't one of the presets rather than store `max`. It runs `supabase db query --linked` (as
+`genesis doctor --database` does; on Windows through a temp file, not `/dev/stdin`), so the CLI
+handles no key. A server can write the same row at start with genesis-supabase's `writeAppManifest`.
 
 ## genesis doctor
 

@@ -377,8 +377,12 @@ describe("createDiagnosticsHandler: feedback with screenshots", () => {
     f.append("screenshot", new Blob(["x"], { type: "image/gif" }), "b.gif");
     // A type named like an Object prototype member isn't an allowed type.
     f.append("screenshot", new Blob([PNG], { type: "constructor" }), "c.png");
+    // With WebP bytes too: a prototype lookup would take "constructor" as a type, and only the
+    // WebP magic check would be left to stop it, which these bytes pass.
+    const WEBP = new Uint8Array([0x52, 0x49, 0x46, 0x46, 4, 0, 0, 0, 0x57, 0x45, 0x42, 0x50, 0, 0, 0, 0]);
+    f.append("screenshot", new Blob([WEBP], { type: "constructor" }), "d.webp");
     const res = await handle(new Request("https://api.test", { method: "POST", headers: { authorization: "Bearer t" }, body: f }));
-    expect(await res.json()).toEqual({ id: TICKET, attachmentsDropped: 3, diagnostics: null });
+    expect(await res.json()).toEqual({ id: TICKET, attachmentsDropped: 4, diagnostics: null });
     expect(files).toEqual([]);
   });
 });

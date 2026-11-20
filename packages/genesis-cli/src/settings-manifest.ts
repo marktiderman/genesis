@@ -5,20 +5,24 @@
  * writes from a server: the installed Genesis packages and their versions, the preset, the file's
  * settings and the catalogue, built here from the app's own files.
  *
- * It goes through the linked project (`supabase db query --linked`), as the doctor reads the
- * database layer, so no key is handled here; `--print` gives the SQL for a pipeline that runs it
- * its own way (psql with the database URL).
+ * It goes through the linked project (`supabase db query --linked`, or `--project-ref`), as the
+ * doctor reads the database layer, so no key is handled here. It names the project and asks before
+ * writing (`--yes` skips the question; without a terminal, `--yes` is required). `--print` gives
+ * the SQL for a pipeline that runs it its own way (psql with the database URL).
  */
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { catalogueManifest, settingsCatalogue, type SettingsCatalogue } from "@marktiderman/genesis-config/settings";
 import { installedGenesis } from "./blocks/discover.js";
-import { readGenesisConfig } from "./doctor/config.js";
+import { GenesisConfigError, readGenesisConfig } from "./doctor/config.js";
 import { installedSettings } from "./doctor/settings.js";
 import { runTool, TOOL_AUTH_ENV, type ToolRunner } from "./exec/run.js";
 
 const APP_ID = /^[a-z0-9][a-z0-9._-]{0,99}$/;
+/** A Supabase project ref: 20 lower-case letters and digits. */
+const PROJECT_REF = /^[a-z0-9]{20}$/;
 
 /** The manifest row, as the table holds it. */
 export interface ManifestRow {
@@ -58,9 +62,21 @@ export function appIdOf(root: string, given?: string): string {
   return id;
 }
 
-/** Build the manifest row from the app's files. Throws a ManifestError when the catalogue can't be built. */
-export function buildManifest(root: string, options: { appId?: string } = {}): ManifestRow {
-  const config = readGenesisConfig(root);
+/**
+ * The manifest row from the app's files. Throws a ManifestError when the config can't be read, its
+ * preset isn't one of the presets, or the catalogue can't be built.
+ */
+export function toManifestRow(root: string, options: { appId?: string } = {}): ManifestRow {
+  let config: ReturnType<typeof readGenesisConfig>;
+  try {
+    config = readGenesisConfig(root);
+  } catch (err) {
+    if (err instanceof GenesisConfigError) throw new ManifestError(err.message);
+    throw err;
+  }
+  // The doctor reads an invalid preset as max with an error; the manifest would store max as if chosen.
+  const badPreset = config?.legacySettingsKeys?.find((l) => l.key === "preset");
+  if (badPreset) throw new ManifestError(`genesis.config.json: ${badPreset.message.split(". ")[0]}. Fix it before writing the manifest.`);
   const { declarations, problems } = installedSettings(root);
   if (problems.length) throw new ManifestError(`The settings catalogue can't be built: ${problems.map((p) => `${p.pkg}: ${p.message}`).join("; ")}`);
   let catalogue: SettingsCatalogue;
@@ -104,8 +120,91 @@ export function manifestSql(row: ManifestRow): string {
   ].join("\n");
 }
 
-/** Write the manifest through the linked Supabase project. */
-export async function syncManifest(root: string, row: ManifestRow, run: ToolRunner = runTool): Promise<void> {
-  const result = await run("supabase", ["db", "query", "--linked", "-f", "/dev/stdin"], { cwd: root, stdin: manifestSql(row), timeoutMs: 60_000, passEnv: TOOL_AUTH_ENV["supabase"] ?? [] });
+/** The project `supabase link` recorded for the app, or null. */
+export function linkedProjectRef(root: string): string | null {
+  try {
+    const ref = readFileSync(path.join(root, "supabase", ".temp", "project-ref"), "utf8").trim();
+    return PROJECT_REF.test(ref) ? ref : null;
+  } catch {
+    return null;
+  }
+}
+
+export interface SyncManifestOptions {
+  /** The project to write to (`--project-ref`), else the linked one. */
+  projectRef?: string;
+  /** Default `process.platform`. On Windows the SQL goes through a temp file: there is no /dev/stdin. */
+  platform?: NodeJS.Platform;
+}
+
+/** Write the manifest through the linked Supabase project (or `projectRef`). */
+export async function syncManifest(root: string, row: ManifestRow, run: ToolRunner = runTool, options: SyncManifestOptions = {}): Promise<void> {
+  if (options.projectRef !== undefined && !PROJECT_REF.test(options.projectRef)) throw new ManifestError(`--project-ref ${JSON.stringify(options.projectRef)} isn't a Supabase project ref (20 lower-case letters and digits).`);
+  const sql = manifestSql(row);
+  const target = ["db", "query", "--linked", ...(options.projectRef ? ["--project-ref", options.projectRef] : [])];
+  const common = { cwd: root, timeoutMs: 60_000, passEnv: TOOL_AUTH_ENV["supabase"] ?? [] };
+  let result: Awaited<ReturnType<ToolRunner>>;
+  if ((options.platform ?? process.platform) === "win32") {
+    const dir = mkdtempSync(path.join(tmpdir(), "genesis-manifest-"));
+    try {
+      const file = path.join(dir, "manifest.sql");
+      writeFileSync(file, sql, { mode: 0o600 });
+      result = await run("supabase", [...target, "-f", file], common);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  } else {
+    result = await run("supabase", [...target, "-f", "/dev/stdin"], { ...common, stdin: sql });
+  }
   if (result.code !== 0) throw new ManifestError(`supabase exited ${result.code}: ${result.stderr.trim().split("\n")[0] ?? ""}`.trim());
+}
+
+export interface SettingsSyncOptions {
+  dir: string;
+  appId?: string;
+  print?: boolean;
+  /** Write without asking. Required without a terminal. */
+  yes?: boolean;
+  projectRef?: string;
+}
+
+export interface SettingsSyncIo {
+  out: (line: string) => void;
+  err: (line: string) => void;
+  /** Whether a person is at a terminal to answer. */
+  isTTY: boolean;
+  confirm?: (question: string) => Promise<boolean>;
+  run?: ToolRunner;
+  platform?: NodeJS.Platform;
+}
+
+/** `genesis settings sync`: the exit code. Names the project and asks before it writes. */
+export async function runSettingsSync(options: SettingsSyncOptions, io: SettingsSyncIo): Promise<number> {
+  const root = path.resolve(options.dir);
+  try {
+    const row = toManifestRow(root, options.appId !== undefined ? { appId: options.appId } : {});
+    if (options.print) {
+      io.out(manifestSql(row));
+      return 0;
+    }
+    if (options.projectRef !== undefined && !PROJECT_REF.test(options.projectRef)) throw new ManifestError(`--project-ref ${JSON.stringify(options.projectRef)} isn't a Supabase project ref (20 lower-case letters and digits).`);
+    const linked = linkedProjectRef(root);
+    const ref = options.projectRef ?? linked;
+    if (!ref) throw new ManifestError("No Supabase project is linked here (supabase/.temp/project-ref): run supabase link, or pass --project-ref.");
+    io.out(`The manifest for ${row.app_id} (preset ${row.preset}, ${Object.keys(row.catalogue).length} settings) goes to Supabase project ${ref}${options.projectRef ? "" : " (linked)"}.`);
+    if (!options.yes) {
+      if (!io.isTTY || !io.confirm) throw new ManifestError("Not at a terminal, so nothing was written: pass --yes to write it without asking.");
+      if (!(await io.confirm(`Write it to ${ref}?`))) {
+        io.out("Nothing written.");
+        return 1;
+      }
+    }
+    await syncManifest(root, row, io.run ?? runTool, { ...(options.projectRef ? { projectRef: options.projectRef } : {}), ...(io.platform ? { platform: io.platform } : {}) });
+    io.out(`✔ Wrote the manifest for ${row.app_id}: ${Object.keys(row.packages).length} Genesis packages, ${Object.keys(row.catalogue).length} settings, preset ${row.preset}.`);
+    return 0;
+  } catch (err) {
+    if (!(err instanceof ManifestError)) throw err;
+    io.err(`✗ ${err.message}`);
+    return 1;
+  }
 }

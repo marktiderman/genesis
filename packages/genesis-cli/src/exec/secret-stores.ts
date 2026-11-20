@@ -193,10 +193,19 @@ export async function readSecretNames(target: SecretTarget, root: string, option
       if (!supabaseLinked(root)) return { ok: false, reason: "the app isn't linked to a Supabase project (supabase link)" };
       return attempt("supabase", ["db", "query", "--linked", "-o", "json", "-f", "/dev/stdin"], parseVaultNames, VAULT_NAMES_SQL);
     case "github":
-      checkEnvironment(options.githubEnvironment, "release.environment");
+      // A bad name is an answer ("not checked: …"), never repository secrets read in its place.
+      try {
+        checkEnvironment(options.githubEnvironment, "release.environment");
+      } catch (err) {
+        return { ok: false, reason: (err as Error).message };
+      }
       return attempt("gh", ["secret", "list", "--json", "name", ...(options.githubEnvironment ? ["--env", options.githubEnvironment] : [])], parseGhSecrets);
     case "eas":
-      checkEnvironment(options.easEnvironment, "release.easEnvironment");
+      try {
+        checkEnvironment(options.easEnvironment, "release.easEnvironment");
+      } catch (err) {
+        return { ok: false, reason: (err as Error).message };
+      }
       return attempt("eas", ["env:list", options.easEnvironment ?? "production", "--format", "short"], parseEasEnv);
     case "server-env":
       return { ok: false, reason: "a server's environment can't be read from here" };
@@ -210,7 +219,9 @@ export function storeOptions(root: string): StoreOptions {
     // The release lane keeps its CI secrets in a GitHub environment (default production); without one, repository secrets.
     const env = raw.release && typeof raw.release === "object" ? (raw.release.environment ?? "production") : undefined;
     const eas = raw.release?.easEnvironment;
-    return { ...(typeof env === "string" && ENVIRONMENT.test(env) ? { githubEnvironment: env } : {}), ...(typeof eas === "string" && ENVIRONMENT.test(eas) ? { easEnvironment: eas } : {}) };
+    // A name that isn't one is kept, not dropped: dropped, gh would read and set the repository's
+    // secrets instead of the environment's. Reading and setting check it and say so.
+    return { ...(typeof env === "string" ? { githubEnvironment: env } : {}), ...(typeof eas === "string" ? { easEnvironment: eas } : {}) };
   } catch {
     return {};
   }

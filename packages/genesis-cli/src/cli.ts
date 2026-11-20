@@ -775,22 +775,14 @@ settingsCommand
   .option("-d, --dir <dir>", "The app's folder", process.cwd())
   .option("--app-id <id>", "The app's id (default: its package.json name, without a scope)")
   .option("--print", "Print the SQL instead of running it (for a pipeline that runs it with psql)", false)
-  .action(async (opts: { dir: string; appId?: string; print: boolean }) => {
-    const { buildManifest, manifestSql, syncManifest, ManifestError } = await import("./settings-manifest.js");
-    const root = path.resolve(opts.dir);
-    try {
-      const row = buildManifest(root, opts.appId !== undefined ? { appId: opts.appId } : {});
-      if (opts.print) {
-        process.stdout.write(manifestSql(row));
-        return;
-      }
-      await syncManifest(root, row);
-      console.log(`✔ Wrote the manifest for ${row.app_id}: ${Object.keys(row.packages).length} Genesis packages, ${Object.keys(row.catalogue).length} settings, preset ${row.preset}.`);
-    } catch (err) {
-      if (!(err instanceof ManifestError)) throw err;
-      console.error(`✗ ${err.message}`);
-      process.exitCode = 1;
-    }
+  .option("--project-ref <ref>", "The Supabase project to write to (default: the linked one)")
+  .option("-y, --yes", "Write without asking (required without a terminal)", false)
+  .action(async (opts: { dir: string; appId?: string; print: boolean; projectRef?: string; yes: boolean }) => {
+    const { runSettingsSync } = await import("./settings-manifest.js");
+    process.exitCode = await runSettingsSync(
+      { dir: opts.dir, print: opts.print, yes: opts.yes, ...(opts.appId !== undefined ? { appId: opts.appId } : {}), ...(opts.projectRef !== undefined ? { projectRef: opts.projectRef } : {}) },
+      { out: (l) => (opts.print ? process.stdout.write(l) : console.log(l)), err: (l) => console.error(l), isTTY: Boolean(process.stdin.isTTY), confirm },
+    );
   });
 
 program

@@ -136,6 +136,11 @@ describe("secret stores", () => {
       const signedOut: ToolRunner = async () => ({ code: 4, stdout: "", stderr: "To get started with GitHub CLI, please run:  gh auth login" });
       expect(await readSecretNames("github", root, { run: signedOut })).toEqual({ ok: false, reason: expect.stringMatching(/exited 4: .*gh auth login/) });
       expect(await readSecretNames("server-env", root)).toEqual({ ok: false, reason: expect.any(String) });
+      // An invalid environment name: an answer, and gh never asked (it would list the repository's secrets).
+      let asked = 0;
+      const counted: ToolRunner = async () => (asked++, { code: 0, stdout: "[]", stderr: "" });
+      expect(await readSecretNames("github", root, { run: counted, githubEnvironment: "prod env" })).toEqual({ ok: false, reason: expect.stringMatching(/release\.environment "prod env" isn't an environment name/) });
+      expect(asked).toBe(0);
     } finally {
       removeTempDir(root);
     }
@@ -148,6 +153,9 @@ describe("secret stores", () => {
       expect(storeOptions(root)).toEqual({ githubEnvironment: "production", easEnvironment: "preview" });
       writeFileSync(path.join(root, "genesis.config.json"), JSON.stringify({}));
       expect(storeOptions(root)).toEqual({});
+      // An invalid name is kept, so it is reported, never replaced by the repository's secrets.
+      writeFileSync(path.join(root, "genesis.config.json"), JSON.stringify({ release: { environment: "prod env" } }));
+      expect(storeOptions(root)).toEqual({ githubEnvironment: "prod env" });
     } finally {
       removeTempDir(root);
     }
