@@ -202,29 +202,48 @@ describe("changing settings", () => {
 });
 
 describe("watching settings", () => {
+  // Like realtime-js: one channel per topic, handed back again while it is still leaving; `subscribe()`
+  // joins only a closed channel; `removeChannel` resolves later, once the channel is gone.
   function realtimeClient(data: unknown) {
     const listeners = new Map<string, () => void>();
     const joins = new Map<string, (status: string, error?: unknown) => void>();
     const removed: string[] = [];
+    const live = new Map<string, { name: string; state: string }>();
     const rpc = vi.fn(async () => ({ data, error: null }));
     const channel = vi.fn((name: string, options: unknown) => {
       expect(options).toEqual({ config: { private: true } });
+      const existing = live.get(name);
+      if (existing) return existing;
+      let onChanged: (() => void) | undefined;
       const ch = {
         name,
+        state: "closed",
         on: (type: string, filter: { event: string }, cb: () => void) => {
           expect([type, filter.event]).toEqual(["broadcast", "changed"]);
-          listeners.set(name, cb);
+          onChanged = cb;
           return ch;
         },
         subscribe: (cb: (status: string, error?: unknown) => void) => {
+          if (ch.state !== "closed") return ch;
+          ch.state = "joined";
+          listeners.set(name, onChanged!);
           joins.set(name, cb);
           return ch;
         },
       };
+      live.set(name, ch);
       return ch;
     });
-    const removeChannel = vi.fn((ch: { name: string }) => {
+    const removeChannel = vi.fn((ch: { name: string; state: string }) => {
       removed.push(ch.name);
+      ch.state = "leaving";
+      return new Promise((resolve) =>
+        setTimeout(() => {
+          ch.state = "closed";
+          live.delete(ch.name);
+          resolve("ok");
+        }, 0),
+      );
     });
     return { client: { rpc, channel, removeChannel } as unknown as RealtimeSettingsClient, rpc, listeners, joins, removed };
   }
@@ -255,6 +274,30 @@ describe("watching settings", () => {
     fake.listeners.get("genesis-settings")!();
     await flush();
     expect(onChange).toHaveBeenCalledTimes(3);
+  });
+
+  it("joins again after a stop (a sign-in, a sign-out): the new watch hears changes, the old one doesn't", async () => {
+    const fake = realtimeClient(stored);
+    const first = vi.fn();
+    const second = vi.fn();
+    const stopFirst = watchAppSettings(fake.client, catalogue, { personId: "p1", onChange: first });
+    const appChannel = fake.joins.get("genesis-settings");
+    stopFirst();
+    watchAppSettings(fake.client, catalogue, { personId: "p2", onChange: second });
+    await flush();
+    await flush();
+    // A fresh channel, joined once the old one was gone.
+    expect(fake.joins.get("genesis-settings")).not.toBe(appChannel);
+    expect(second).toHaveBeenCalledTimes(1);
+    // Its first join may follow changes made while it waited: it reads again.
+    fake.joins.get("genesis-settings")!("SUBSCRIBED");
+    await flush();
+    expect(second).toHaveBeenCalledTimes(2);
+    fake.listeners.get("genesis-settings")!();
+    fake.listeners.get("genesis-settings:person:p2")!();
+    await flush();
+    expect(second).toHaveBeenCalledTimes(3);
+    expect(first).not.toHaveBeenCalled();
   });
 
   it("reports a channel that can't be joined or times out", async () => {

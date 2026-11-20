@@ -11,3 +11,7 @@ node_modules/
 # Environment (copy .env.example)
 .env
 .env.local
+
+# genesis build-stamp writes it before every bundle, typecheck and test (package.json), and EAS
+# builds and updates stamp their own: never committed, so a release never ships a stale stamp.
+build-metadata.json

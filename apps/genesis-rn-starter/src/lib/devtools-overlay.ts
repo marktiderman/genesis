@@ -7,14 +7,12 @@
 import * as Application from "expo-application";
 import { DevSettings } from "react-native";
 import { createDevtools } from "@marktiderman/genesis-native/devtools";
-import { healthChecks } from "@marktiderman/genesis-support";
 import starter from "../../starter.config";
 import { offlineCache } from "./offline";
 import { env } from "./env";
 import { observability } from "./observability";
+import { healthChecks } from "./health";
 import { supabase } from "./supabase";
-// Registers the Supabase health checks (support.ts runs them into the dump too).
-import "./support";
 import { updatesBlock } from "./updates";
 
 /** The variants (withGenesis bundle id suffixes) that may open the overlay. */

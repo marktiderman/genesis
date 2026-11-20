@@ -39,9 +39,9 @@
  *   1 — coverage < threshold.
  *
  * Usage:
- *   node scripts/check-testid-coverage.mjs                 # scans apps/ and the packages' UI source
+ *   node scripts/check-testid-coverage.mjs                 # scans apps/ (genesis.config.yml's bar)
  *   node scripts/check-testid-coverage.mjs apps/genesis-rn-starter
- *   node scripts/check-testid-coverage.mjs --threshold 0.64 packages/support/src
+ *   pnpm check:testid-coverage:packages                    # the packages' UI source, at its own --threshold
  *   node scripts/check-testid-coverage.mjs --self-test      # run built-in fixture checks, no scan
  *   pnpm check:testid-coverage
  *
@@ -53,7 +53,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import YAML from 'yaml';
-import { defaultUiScanRoots } from './lib/ui-scan-roots.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1025,7 +1024,7 @@ if (rawArgs.includes(SELF_TEST_FLAG)) {
 const thresholdAt = rawArgs.indexOf('--threshold');
 const thresholdArg = thresholdAt === -1 ? undefined : rawArgs[thresholdAt + 1];
 const args = thresholdAt === -1 ? rawArgs : rawArgs.filter((_, i) => i !== thresholdAt && i !== thresholdAt + 1);
-const scanRoots = args.length > 0 ? args.map((a) => path.resolve(REPO_ROOT, a)) : defaultUiScanRoots(REPO_ROOT);
+const scanRoots = args.length > 0 ? args.map((a) => path.resolve(REPO_ROOT, a)) : [path.join(REPO_ROOT, 'apps')];
 
 const threshold = thresholdArg === undefined ? readThreshold() : normalizeThreshold(Number(thresholdArg));
 

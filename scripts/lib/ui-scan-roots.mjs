@@ -1,7 +1,8 @@
 /**
- * The UI source the design gates (testid-coverage, token-usage, design-system-coverage) scan when
- * they are given no paths: the apps, every package's `src` and the CLI wizard's. Packages ship
- * UI (support's screens, chat's, the wizard) as much as the apps do, so they are gated too.
+ * The UI source token-usage and design-system-coverage scan when they are given no paths: the
+ * apps, every package's `src` and the CLI wizard's. Packages ship UI (support's screens, chat's,
+ * the wizard) as much as the apps do, so they are gated too. testid-coverage keeps a bar per scope
+ * (`check:testid-coverage` for the apps, `check:testid-coverage:packages`).
  */
 import fs from 'node:fs';
 import path from 'node:path';

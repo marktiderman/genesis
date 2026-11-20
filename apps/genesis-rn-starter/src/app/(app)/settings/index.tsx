@@ -13,6 +13,7 @@ import { deleteAccount } from "@/lib/account";
 import { devtools } from "@/lib/devtools";
 import { observability } from "@/lib/observability";
 import { supabase } from "@/lib/supabase";
+import { useStarterSettings } from "@/lib/settings";
 import { support } from "@/lib/support";
 import { useAppVersion } from "@/lib/updates";
 
@@ -95,8 +96,12 @@ export default function SettingsScreen() {
   if (starter.features.accountDeletion) {
     dangerousActions.push({ label: t.deleteAccount, testID: "delete-account", emphasized: true, onPress: busy ? () => {} : confirmDelete });
   }
-  // "Send diagnostics" under About (`features.support`, while the `diagnostics.sendFromSettings` setting is on): the id to quote to support.
-  const sendDiagnostics = Boolean(support?.diagnostics && support.settings().diagnostics.sendFromSettings);
+  // "Send diagnostics" under About (`features.support`, while the `diagnostics.enabled` and
+  // `diagnostics.sendFromSettings` settings are on): the id to quote to support. It follows the
+  // settings live: a change re-renders this screen.
+  useStarterSettings();
+  // `options.diagnostics` is the dump while `diagnostics.enabled` is on, read now.
+  const sendDiagnostics = Boolean(support?.options.diagnostics && support.settings().diagnostics.sendFromSettings);
   // Blocks add their rows (push's Notifications row in `general`, support's in `support`); a section left empty is dropped.
   const sections = blockSettings
     .filter((section) => section.rows.length > 0)
@@ -105,7 +110,7 @@ export default function SettingsScreen() {
         ? {
             ...section,
             children: (
-              <View style={{ padding: 16 }}>
+              <View className="px-4 py-3">
                 <SendDiagnosticsRow copy={Clipboard.setStringAsync} testID="send-diagnostics" />
               </View>
             ),

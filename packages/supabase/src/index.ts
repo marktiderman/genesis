@@ -191,6 +191,7 @@ export {
   watchAppSettings,
   writeAppManifest,
   type AppManifestInput,
+  type AppSettings,
   type GenesisSettingChange,
   type GenesisSettingLayer,
   type ManifestClient,
