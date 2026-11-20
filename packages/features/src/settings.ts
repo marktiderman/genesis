@@ -88,6 +88,12 @@ export interface SettingSpec<K extends SettingType = SettingType> {
   max?: number;
   /** The values a string or number may take, or a list's items. */
   options?: readonly (string | number)[];
+  /**
+   * A string's shape, as a regular expression's source anchored with `^` and `$` (a DSN, an org
+   * slug). The database checks it too, with Postgres's regular expressions, so write one both read
+   * the same way: no flags, lookbehind, named groups or backreferences.
+   */
+  pattern?: string;
   /** The secret it needs, by name only: `"secret:GITHUB_TOKEN"`. The value is never a setting. */
   needs?: `secret:${string}`;
   /** Where that secret is kept. Default `edge` (an Edge Function secret). Only with `needs`. */
@@ -130,6 +136,8 @@ export interface SettingDef {
   readonly min?: number;
   readonly max?: number;
   readonly options?: readonly (string | number)[];
+  /** A string's shape: a regular expression's source, anchored. */
+  readonly pattern?: string;
   readonly secret?: { readonly name: string; readonly store: SecretStore };
   readonly feature?: string;
   readonly flag?: string;
@@ -161,7 +169,7 @@ export const SETTING_KEY = /^[a-z][a-zA-Z0-9]*(?:-[a-z0-9]+)*\.[a-z][a-zA-Z0-9]*
 const SECRET_NAME = /^[A-Z][A-Z0-9_]*$/;
 /** A setup step id: `github.issues`, `ai.key-budget`. */
 export const SETUP_STEP_ID = /^[a-z][a-z0-9-]*(?:\.[a-z0-9][a-z0-9-]*)*$/;
-const SPEC_KEYS = new Set(["type", "default", "scope", "applies", "requires", "min", "max", "options", "needs", "store", "feature", "flag", "summary", "setup", "integer", "planned"]);
+const SPEC_KEYS = new Set(["type", "default", "scope", "applies", "requires", "min", "max", "options", "pattern", "needs", "store", "feature", "flag", "summary", "setup", "integer", "planned"]);
 const SCOPES: readonly SettingScope[] = ["app", "tenant", "person"];
 const APPLIES: readonly SettingApplies[] = ["build", "runtime"];
 const STORES: readonly SecretStore[] = ["vault", "edge", "server-env", "ci"];
@@ -207,7 +215,7 @@ export function isPresetDefaults(v: unknown): v is PresetDefaults<unknown> {
  * Why a value doesn't fit a key's type and bounds, or null when it does. `null` ("not set") fits
  * only a key whose default is `null` (`nullable`).
  */
-export function settingValueProblem(def: Pick<SettingDef, "type" | "min" | "max" | "options"> & { nullable?: boolean; integer?: boolean }, value: unknown): string | null {
+export function settingValueProblem(def: Pick<SettingDef, "type" | "min" | "max" | "options" | "pattern"> & { nullable?: boolean; integer?: boolean }, value: unknown): string | null {
   if (value === null) return def.nullable ? null : "can't be null: it has a default, so set a value";
   switch (def.type) {
     case "boolean":
@@ -223,6 +231,7 @@ export function settingValueProblem(def: Pick<SettingDef, "type" | "min" | "max"
     case "string":
       if (typeof value !== "string") return "must be a string";
       if (def.options && !def.options.includes(value)) return `must be one of ${def.options.map((o) => JSON.stringify(o)).join(", ")}`;
+      if (def.pattern !== undefined && !patternTest(def.pattern)(value)) return `must match ${def.pattern}`;
       return null;
     case "list":
       if (!Array.isArray(value) || value.some((item) => typeof item !== "string" && typeof item !== "number")) return "must be a list of strings or numbers";
@@ -237,6 +246,35 @@ export function settingValueProblem(def: Pick<SettingDef, "type" | "min" | "max"
       if (!isPlainObject(value)) return "must be an object";
       return null;
   }
+}
+
+const patterns = new Map<string, (value: string) => boolean>();
+
+/** A pattern's test, compiled once. One that doesn't compile matches nothing (defineSettings refuses it first). */
+function patternTest(source: string): (value: string) => boolean {
+  let test = patterns.get(source);
+  if (!test) {
+    try {
+      const re = new RegExp(source);
+      test = (value) => re.test(value);
+    } catch {
+      test = () => false;
+    }
+    patterns.set(source, test);
+  }
+  return test;
+}
+
+/** Why a pattern can't be used, or null: a string, anchored at both ends, that compiles. */
+function settingPatternProblem(pattern: unknown): string | null {
+  if (typeof pattern !== "string" || pattern.length < 2) return "pattern must be a regular expression's source";
+  if (!pattern.startsWith("^") || !pattern.endsWith("$") || pattern.endsWith("\\$")) return "pattern must be anchored: start it with ^ and end it with $";
+  try {
+    new RegExp(pattern);
+  } catch (err) {
+    return `pattern doesn't compile: ${(err as Error).message}`;
+  }
+  return null;
 }
 
 /** One key's spec, checked and normalised. Throws a SettingsError naming the key. */
@@ -264,6 +302,11 @@ function defineKey(namespace: string, name: string, spec: SettingSpec): SettingD
   if (spec.options !== undefined) {
     if (!Array.isArray(spec.options) || spec.options.length === 0) fail("options must be a non-empty list");
     if (spec.type === "boolean" || spec.type === "object") fail(`has options, which a ${spec.type} doesn't take`);
+  }
+  if (spec.pattern !== undefined) {
+    if (spec.type !== "string") fail(`has a pattern, which only a string takes`);
+    const bad = settingPatternProblem(spec.pattern);
+    if (bad) fail(bad);
   }
   const requires = spec.requires ?? [];
   if (!Array.isArray(requires)) fail("requires must be a list of keys");
@@ -294,7 +337,7 @@ function defineKey(namespace: string, name: string, spec: SettingSpec): SettingD
     ? { ...(spec.default as PresetDefaults<unknown>) }
     : { max: spec.default as unknown, standard: spec.default as unknown, min: spec.default as unknown };
   const nullable = SETTINGS_PRESETS.some((preset) => defaults[preset] === null);
-  const shape = { type: spec.type, min: spec.min, max: spec.max, options: spec.options, nullable, integer: spec.integer === true };
+  const shape = { type: spec.type, min: spec.min, max: spec.max, options: spec.options, pattern: spec.pattern, nullable, integer: spec.integer === true };
   for (const preset of SETTINGS_PRESETS) {
     const problem = settingValueProblem(shape, defaults[preset]);
     if (problem) fail(`default${byPreset ? ` for ${preset}` : ""} ${problem}`);
@@ -312,6 +355,7 @@ function defineKey(namespace: string, name: string, spec: SettingSpec): SettingD
     ...(spec.min !== undefined ? { min: spec.min } : {}),
     ...(spec.max !== undefined ? { max: spec.max } : {}),
     ...(spec.options !== undefined ? { options: Object.freeze([...spec.options]) } : {}),
+    ...(spec.pattern !== undefined ? { pattern: spec.pattern } : {}),
     ...(secret ? { secret: Object.freeze(secret) } : {}),
     ...(spec.feature !== undefined ? { feature: spec.feature } : {}),
     ...(spec.flag !== undefined ? { flag: spec.flag } : {}),
@@ -718,6 +762,8 @@ export interface SettingManifestEntry {
   min?: number;
   max?: number;
   options?: readonly (string | number)[];
+  /** A string's shape (a regular expression's source, anchored): the database checks it too. */
+  pattern?: string;
   /** Present (true) only when the key may be `null` ("not set"). */
   nullable?: true;
   /** Present (true) only for a number that must be whole. */
@@ -753,6 +799,7 @@ export function catalogueManifest(catalogue: SettingsCatalogue): { [key: string]
       ...(def.min !== undefined ? { min: def.min } : {}),
       ...(def.max !== undefined ? { max: def.max } : {}),
       ...(def.options !== undefined ? { options: def.options } : {}),
+      ...(def.pattern !== undefined ? { pattern: def.pattern } : {}),
       ...(def.nullable ? { nullable: true as const } : {}),
       ...(def.integer ? { integer: true as const } : {}),
       ...(def.byPreset ? { byPreset: true as const } : {}),
@@ -781,6 +828,7 @@ function specFromManifest(entry: Record<string, unknown>): SettingSpec {
     ...pick("min"),
     ...pick("max"),
     ...pick("options"),
+    ...pick("pattern"),
     ...(secret ? { needs: `secret:${String(secret.name)}`, store: secret.store } : {}),
     ...pick("feature"),
     ...pick("flag"),

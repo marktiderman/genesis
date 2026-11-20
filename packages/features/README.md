@@ -155,7 +155,11 @@ layer that may change it; `applies` is `runtime` (the default) or `build` (a new
 `requires` links other keys, `min`, `max` and `options` bound the value, and `needs:
 "secret:NAME"` names the secret it needs and `store` where it lives (`vault`, `edge`, `server-env`
 or `ci`): never its value. `feature` and `flag` link the key to the gate. A number with
-`integer: true` takes whole numbers only (in every layer, and in the database).
+`integer: true` takes whole numbers only (in every layer, and in the database). A string's
+`pattern` is the shape its value must have, a regular expression's source anchored with `^` and
+`$` (`"^[a-z0-9][a-z0-9_-]*$"`): checked in every layer, on the Settings screen and in the
+database, which reads it with Postgres's regular expressions, so write one both read the same way
+(no flags, lookbehind, named groups or backreferences).
 
 **The layers**, low to high. A later layer wins unless an earlier one locked the value
 (`{ value, locked: true }`):
