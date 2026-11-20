@@ -80,4 +80,4 @@ export {
   type NavTarget,
 } from "./figma/routes.js";
 
-export { buildStamp, writeBuildStamp, BUILD_STAMP_FILE, type BuildStamp, type BuildStampOptions } from "./build-stamp.js";
+export { resolveBuildStamp, writeBuildStamp, BUILD_STAMP_FILE, type BuildStamp, type BuildStampOptions } from "./build-stamp.js";

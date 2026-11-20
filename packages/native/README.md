@@ -485,6 +485,8 @@ builds. It opens with a three-finger hold (every build, no native module), a sha
   `channels`: off where that block has it off; "Back to the build's channel" always works);
 - the signed-in user's id, the server's base URL, the blocks in effect (`useBlocks`) and your flags;
 - the recent errors and breadcrumbs from the observability block (scrubbed);
+- the health checks (`checks`: genesis-support's `healthChecks` registry), run when the sheet opens
+  and again with "Run checks", each with ok, warn or fail and its message;
 - "Copy debug info" (your `copy`, else the share sheet), "Crash test" (a render error, to check the
   fatal screen and reporting end to end), "Clear cache" (the query cache, then your `clearCache`)
   and "Sign out" (your `signOut`);

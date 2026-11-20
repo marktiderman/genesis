@@ -480,11 +480,48 @@ on the web. A refusal (403, a bad dump) isn't kept. Each queued dump remembers w
 and is dropped rather than sent under someone else (a shared device); call `diagnostics.clearQueue()`
 on sign-out.
 
+Feedback goes in the same queue: `diagnostics.submitFeedback` (what `FeedbackForm` and
+`FeedbackPanel` call when a dump goes with feedback) keeps a report written offline, with its dump,
+and answers `{ queued: true, id: "" }`; the forms say it goes when the person is back online. It is
+kept without its screenshots (they don't fit the queue), and sent later through the transport's own
+sink. So it follows the dump's switches: no queue without `offline`, `diagnostics.enabled` or
+`diagnostics.offlineQueue`, and with `diagnostics.dumpOnFeedback` off the forms send feedback
+directly and nothing is queued.
+
 ### Finding a dump by its short id
 
 A short id is 8 hex digits of an id the device makes, so two dumps can share one. Staff look one up
 with `support_diagnostics_by_short_id(short)` (migration 0019), which lists every match with its
 owner and time; check the person before trusting a match.
+
+### The staff dump viewer
+
+The web agent inbox's details panel and the phone's agent thread (`useAgentThread`'s header, behind
+"Show diagnostics") show a ticket's dumps, newest first, each in sections (summary, build, device,
+session, health checks, errors, breadcrumbs, console, the app's sections) of plain text. They read
+through `client.ticketDiagnostics(ticketId)`, so migration 0026's rule applies: whoever handles the
+ticket. A dump is scrubbed on the device and again on the server; the viewers render it as text
+only. `SupportTicketDiagnostics` (`/web-chat`) and `AgentTicketDiagnostics` (`/native`) work on
+their own too, and `diagnosticsViewSections(report)` gives the sections as text.
+
+### Health checks
+
+`healthChecks` is a registry packages and the app register named checks into; each answers `ok`,
+`warn` or `fail` with a message, within 5 seconds. genesis-native's devtools overlay runs them when
+it opens (`createDevtools({ checks: healthChecks })`), and `healthChecksSection()` puts the latest
+results in the dump's `checks` (running them once if nothing has yet):
+
+```ts
+import { createDiagnostics, healthChecks, healthChecksSection, supabaseHealthChecks, supabaseTransport } from "@marktiderman/genesis-support";
+
+healthChecks.register(...supabaseHealthChecks(supabase)); // supabase.reachable, auth.session
+healthChecks.register({ name: "socket", run: () => ({ status: "ok" }) });
+export const diagnostics = createDiagnostics({
+  app: { id: "acme" },
+  transport: supabaseTransport(supabase),
+  sections: [healthChecksSection()],
+});
+```
 
 ### Build metadata
 
@@ -492,6 +529,14 @@ owner and time; check the person before trusting a match.
 `createUpdates({ buildMetadata })`) read the commit, OTA number and release the app writes into its
 bundle when it publishes: a generated module such as `export default { commit: "3f2a9c1", otaNumber: 42, release: "2026.11.19" }`.
 Without it those fields are null.
+
+`genesis build-stamp` writes one: `build-metadata.json` with the version, the git commit and
+branch, the build time and the channel (`--channel`, else `GENESIS_CHANNEL`). Import it and pass it
+as `buildMetadata`; the devtools overlay's Build section and the dump's `build` then show them. Run
+it before the bundle is made: EAS Build runs an app's `eas-build-post-install` script by itself
+(`"eas-build-post-install": "genesis build-stamp"`), and before an update,
+`genesis build-stamp --channel production && eas update --channel production`. Commit a first copy
+so the import resolves in development.
 
 ## Threads on genesis-chat (the `support-chat` block)
 
@@ -1089,8 +1134,8 @@ its own help desk and your app runs its own support the same way. With the suppo
   while open.
 - No ratings, no web idea board, no notification when an idea ships.
 - The CDN (script-tag) build of the web loader isn't published; `mountSupportWidget` is the loader.
-- Diagnostics: no staff viewer for dumps yet (read `support_diagnostics`, or look one up by short
-  id); no health checks in a dump; the devtools overlay's "Copy debug info" is still its own text,
-  not a view of a dump; no CLI step stamps `buildMetadata` at publish. Dumps go to the app's own
-  server through `httpTransport` and `createDiagnosticsHandler`, so `genesis-support-intake`
-  takes none. Feedback written offline isn't queued yet (only dumps are).
+- Diagnostics: the dump viewer has no search and no lookup by short id (use
+  `support_diagnostics_by_short_id`); the devtools overlay's "Copy debug info" is still its own
+  text, not a view of a dump. Dumps go to the app's own server through `httpTransport` and
+  `createDiagnosticsHandler`, so `genesis-support-intake` takes none. Feedback queued offline loses
+  its screenshots, and may arrive twice if a send reached the server but its answer didn't.

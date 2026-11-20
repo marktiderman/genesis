@@ -57,7 +57,7 @@ function runGit(cwd: string) {
 }
 
 /** The stamp, without writing it. */
-export function buildStamp(options: BuildStampOptions = {}): BuildStamp {
+export function resolveBuildStamp(options: BuildStampOptions = {}): BuildStamp {
   const cwd = options.cwd ?? process.cwd();
   const env = options.env ?? process.env;
   const git = options.git ?? runGit(cwd);
@@ -80,7 +80,7 @@ export function buildStamp(options: BuildStampOptions = {}): BuildStamp {
 export function writeBuildStamp(options: BuildStampOptions & { out?: string } = {}): { file: string; stamp: BuildStamp } {
   const cwd = options.cwd ?? process.cwd();
   const file = path.resolve(cwd, options.out ?? BUILD_STAMP_FILE);
-  const stamp = buildStamp(options);
+  const stamp = resolveBuildStamp(options);
   writeFileSync(file, `${JSON.stringify(stamp, null, 2)}\n`, "utf8");
   return { file, stamp };
 }
