@@ -28,14 +28,32 @@ create table if not exists auth.sessions (id uuid primary key default gen_random
 create table if not exists auth.mfa_factors (id uuid primary key default gen_random_uuid(), user_id uuid references auth.users (id) on delete cascade);
 do $$ begin if not exists (select 1 from pg_publication where pubname = 'supabase_realtime') then create publication supabase_realtime; end if; end $$;
 alter table auth.users add column if not exists phone_confirmed_at timestamptz, add column if not exists confirmed_at timestamptz, add column if not exists is_sso_user boolean default false, add column if not exists email_change text, add column if not exists recovery_sent_at timestamptz, add column if not exists invited_at timestamptz, add column if not exists confirmation_sent_at timestamptz, add column if not exists last_sign_in_with text;
-create schema if not exists vault;
--- Like Supabase Vault, the value is kept encrypted: vault.secrets.secret is ciphertext, and only the
--- vault.decrypted_secrets view gives it back.
+-- Vault, with Supabase's ownership and grants: supabase_admin owns the schema, the table and the
+-- functions (security definer), and the value is kept encrypted (vault.secrets.secret is ciphertext;
+-- only vault.decrypted_secrets gives it back). The database owner may read and delete secrets and
+-- call the functions, never insert or update the table itself. Here the database owner is a
+-- superuser, which no grant binds; genesis_db_owner is the database owner as Supabase really has it
+-- (not a superuser, Vault's grants only), so a test can give a function to it and see what the
+-- function may really do on Supabase.
+do $$ begin
+  if not exists (select 1 from pg_roles where rolname = 'genesis_db_owner') then create role genesis_db_owner nologin nosuperuser; end if;
+end $$;
+create schema if not exists vault authorization supabase_admin;
+grant usage on schema extensions to supabase_admin;
 create table if not exists vault.secrets (id uuid primary key default gen_random_uuid(), name text unique, secret text, description text, created_at timestamptz default now(), updated_at timestamptz default now());
+alter table vault.secrets owner to supabase_admin;
 create or replace function vault._key() returns text language sql immutable as $$ select 'genesis-pgtap-stub-vault-key' $$;
+alter function vault._key() owner to supabase_admin;
 create or replace view vault.decrypted_secrets as select id, name, extensions.pgp_sym_decrypt(decode(secret, 'base64'), vault._key()) as decrypted_secret, secret, description, created_at, updated_at from vault.secrets;
-create or replace function vault.create_secret(new_secret text, new_name text default null, new_description text default '') returns uuid language sql as $$ insert into vault.secrets (secret, name, description) values (encode(extensions.pgp_sym_encrypt(new_secret, vault._key()), 'base64'), new_name, new_description) returning id $$;
-create or replace function vault.update_secret(secret_id uuid, new_secret text default null, new_name text default null, new_description text default null) returns void language sql as $$ update vault.secrets set secret = coalesce(encode(extensions.pgp_sym_encrypt(new_secret, vault._key()), 'base64'), secret), name = coalesce(new_name, name), updated_at = now() where id = secret_id $$;
+alter view vault.decrypted_secrets owner to supabase_admin;
+create or replace function vault.create_secret(new_secret text, new_name text default null, new_description text default '') returns uuid language sql security definer set search_path = '' as $$ insert into vault.secrets (secret, name, description) values (encode(extensions.pgp_sym_encrypt(new_secret, vault._key()), 'base64'), new_name, new_description) returning id $$;
+alter function vault.create_secret(text, text, text) owner to supabase_admin;
+create or replace function vault.update_secret(secret_id uuid, new_secret text default null, new_name text default null, new_description text default null) returns void language sql security definer set search_path = '' as $$ update vault.secrets set secret = coalesce(encode(extensions.pgp_sym_encrypt(new_secret, vault._key()), 'base64'), secret), name = coalesce(new_name, name), updated_at = now() where id = secret_id $$;
+alter function vault.update_secret(uuid, text, text, text) owner to supabase_admin;
+revoke all on vault.secrets, vault.decrypted_secrets from public;
+grant usage on schema vault to genesis_db_owner;
+grant select, delete on vault.secrets, vault.decrypted_secrets to genesis_db_owner;
+grant execute on function vault.create_secret(text, text, text), vault.update_secret(uuid, text, text, text) to genesis_db_owner;
 create schema if not exists net;
 create table if not exists net.http_request_queue (id bigserial primary key, method text, url text, headers jsonb, body jsonb, timeout_milliseconds integer);
 create or replace function net.http_post(url text, body jsonb default '{}', params jsonb default '{}', headers jsonb default '{}', timeout_milliseconds integer default 5000) returns bigint language sql as $$ insert into net.http_request_queue (method, url, headers, body, timeout_milliseconds) values ('POST', url, headers, body, timeout_milliseconds) returning id $$;

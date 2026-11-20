@@ -6,7 +6,7 @@
 -- transaction only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(73);
+select plan(93);
 
 -- People: a1 a platform admin; aa the admin of tenant A, ab a member of A; bb the admin of tenant B;
 -- c1 and c2 signed in, in no tenant.
@@ -54,9 +54,14 @@ insert into public.genesis_app_manifest (app_id, preset, packages, catalogue) va
     "demo.shake": {"type": "boolean", "applies": "runtime", "scope": "person", "default": true},
     "demo.webhook": {"type": "string", "applies": "runtime", "scope": "app", "default": null, "nullable": true, "secret": {"name": "GENESIS_TEST_WEBHOOK", "store": "vault"}},
     "demo.unset": {"type": "string", "applies": "runtime", "scope": "app", "default": null, "nullable": true, "secret": {"name": "GENESIS_TEST_UNSET", "store": "vault"}},
-    "demo.github": {"type": "string", "applies": "runtime", "scope": "app", "default": null, "nullable": true, "secret": {"name": "GENESIS_TEST_EDGE", "store": "edge"}}
+    "demo.github": {"type": "string", "applies": "runtime", "scope": "app", "default": null, "nullable": true, "secret": {"name": "GENESIS_TEST_EDGE", "store": "edge"}},
+    "demo.base": {"type": "boolean", "applies": "runtime", "scope": "app", "default": true},
+    "demo.featureOn": {"type": "boolean", "applies": "runtime", "scope": "app", "default": true, "requires": ["demo.base"]},
+    "demo.promo": {"type": "boolean", "applies": "runtime", "scope": "tenant", "default": false, "requires": ["demo.featureOn"]},
+    "demo.dbLocked": {"type": "boolean", "applies": "runtime", "scope": "tenant", "default": false}
   }'
 );
+insert into public.genesis_settings (key, value, locked) values ('demo.dbLocked', 'false', true);
 
 -- The hooks: a1 is a platform admin; aa admins tenant A, bb tenant B; ab is a member of A.
 create table private.genesis_test_platform_admins (person uuid primary key);
@@ -101,8 +106,9 @@ select is(
 );
 select ok(
   not has_function_privilege('anon', 'public.genesis_settings_viewer(uuid)', 'execute')
-  and not has_function_privilege('anon', 'public.propose_genesis_setting(text, jsonb, boolean, text)', 'execute')
-  and not has_function_privilege('anon', 'public.decide_genesis_setting_proposal(bigint, boolean)', 'execute')
+  and not has_function_privilege('anon', 'public.propose_genesis_setting(text, jsonb, boolean, text, uuid)', 'execute')
+  and not has_function_privilege('anon', 'public.decide_genesis_setting_proposal(bigint, boolean, text)', 'execute')
+  and not has_function_privilege('anon', 'public.clear_genesis_setting_if(text, jsonb, boolean)', 'execute')
   and not has_function_privilege('anon', 'public.genesis_setting_proposals(integer)', 'execute')
   and not has_function_privilege('anon', 'public.set_genesis_vault_secret(text, text)', 'execute')
   and not has_function_privilege('anon', 'public.genesis_vault_secret_status()', 'execute')
@@ -115,8 +121,9 @@ select ok(
    from pg_proc p
    where p.oid in (
      'public.genesis_settings_viewer(uuid)'::regprocedure,
-     'public.propose_genesis_setting(text, jsonb, boolean, text)'::regprocedure,
-     'public.decide_genesis_setting_proposal(bigint, boolean)'::regprocedure,
+     'public.propose_genesis_setting(text, jsonb, boolean, text, uuid)'::regprocedure,
+     'public.decide_genesis_setting_proposal(bigint, boolean, text)'::regprocedure,
+     'public.clear_genesis_setting_if(text, jsonb, boolean)'::regprocedure,
      'public.genesis_setting_proposals(integer)'::regprocedure,
      'public.set_genesis_vault_secret(text, text)'::regprocedure,
      'public.genesis_vault_secret_status()'::regprocedure,
@@ -136,11 +143,11 @@ select pg_temp.sign_out();
 select throws_ok($$ select public.genesis_settings_viewer(null) $$, '42501', null, 'nobody signed in: refused');
 select pg_temp.sign_in('a1');
 select ok((public.genesis_settings_viewer(null) ->> 'platformAdmin')::boolean, 'a platform admin is told so');
-select is((select count(*)::int from jsonb_object_keys(public.genesis_settings_viewer(null) -> 'catalogue')), 7, '... and sees every key');
+select is((select count(*)::int from jsonb_object_keys(public.genesis_settings_viewer(null) -> 'catalogue')), 11, '... and sees every key');
 select is(public.genesis_settings_viewer(null) -> 'packages', '{"@marktiderman/genesis-supabase": "0.17.0"}'::jsonb, '... and the packages');
 select pg_temp.sign_in('aa');
 select ok((public.genesis_settings_viewer(pg_temp.tenant('a')) ->> 'tenantAdmin')::boolean and not (public.genesis_settings_viewer(pg_temp.tenant('a')) ->> 'platformAdmin')::boolean, 'a tenant admin is told so, for their tenant');
-select is((select array_agg(k order by k) from jsonb_object_keys(public.genesis_settings_viewer(pg_temp.tenant('a')) -> 'catalogue') k), array['demo.banner'], '... and sees only the tenant-scope keys');
+select is((select array_agg(k order by k) from jsonb_object_keys(public.genesis_settings_viewer(pg_temp.tenant('a')) -> 'catalogue') k), array['demo.banner', 'demo.base', 'demo.dbLocked', 'demo.featureOn', 'demo.promo'], '... and sees the tenant-scope keys, with the keys they require at any depth');
 select is(public.genesis_settings_viewer(pg_temp.tenant('a')) -> 'packages', '{}'::jsonb, '... and no packages');
 select ok(not (public.genesis_settings_viewer(pg_temp.tenant('b')) ->> 'tenantAdmin')::boolean, 'for another tenant they are no admin');
 select is((select array_agg(k order by k) from jsonb_object_keys(public.genesis_settings_viewer(pg_temp.tenant('b')) -> 'catalogue') k), array['demo.shake'], '... and see only the person-scope keys');
@@ -179,6 +186,26 @@ select pg_temp.sign_in('c1');
 select is((select array_agg(layer) from public.genesis_settings_audit(null)), array['person'], 'a person reads their own history');
 
 -- Vault secrets ------------------------------------------------------------------------------
+-- On Supabase the database owner isn't a superuser: Vault lets it read and delete vault.secrets and
+-- call Vault's functions, never insert or update the table. The local stand-in (genesis_db_owner,
+-- scripts/pgtap-local) is that owner; on a real Supabase database the functions already run as it.
+reset role;
+do $$ begin
+  if exists (select 1 from pg_roles where rolname = 'genesis_db_owner') then
+    alter function public.set_genesis_vault_secret(text, text) owner to genesis_db_owner;
+    alter function public.genesis_vault_secret_status() owner to genesis_db_owner;
+    grant usage on schema auth, private to genesis_db_owner;
+    grant execute on function private.genesis_is_platform_admin(), private.genesis_settings_vault_names() to genesis_db_owner;
+    -- On Supabase the database owner owns the migration's tables too.
+    alter table public.genesis_secret_rotations owner to genesis_db_owner;
+  end if;
+end $$;
+select ok(
+  not exists (select 1 from pg_roles r join pg_proc p on p.proowner = r.oid where p.oid = 'public.set_genesis_vault_secret(text, text)'::regprocedure and r.rolsuper)
+  and not has_table_privilege((select proowner::regrole::text from pg_proc where oid = 'public.set_genesis_vault_secret(text, text)'::regprocedure), 'vault.secrets', 'update'),
+  'set_genesis_vault_secret runs as an owner that may not update vault.secrets, as on Supabase'
+);
+set local role authenticated;
 select pg_temp.sign_in('a1');
 select throws_ok($$ select public.set_genesis_vault_secret('GENESIS_TEST_EDGE', 'an-edge-value') $$, '22023', null, 'a secret kept in another store is refused');
 select ok(
@@ -270,6 +297,51 @@ select is((select value from public.genesis_settings where key = 'demo.theme'), 
 set local role authenticated;
 select pg_temp.sign_in('c1');
 select is((select array_agg(status order by id) from public.genesis_setting_proposals(100)), array['approved', 'declined'], 'the proposer sees how each was decided');
+select ok((select bool_and(tenant_id is null) from public.genesis_setting_proposals(100)), '... made for themselves, with no tenant');
+
+-- A tenant admin proposes for their tenant; a platform admin may approve for that tenant alone ----
+select throws_ok($$ select public.propose_genesis_setting('demo.banner', 'true', false, 'not mine', pg_temp.tenant('a')) $$, '42501', null, 'only the tenant''s admins propose for a tenant');
+select pg_temp.sign_in('aa');
+select lives_ok($$ select public.propose_genesis_setting('demo.banner', 'true', false, 'promotion week', pg_temp.tenant('a')) $$, 'a tenant admin proposes for their tenant');
+select lives_ok($$ select public.propose_genesis_setting('demo.dbLocked', 'true', false, 'we need it', pg_temp.tenant('a')) $$, '... also a key the database layer locks');
+select pg_temp.sign_in('a1');
+select is(
+  (select array_agg(key || ':' || tenant_id || ':' || tenant_layer_ok order by key) from public.genesis_setting_proposals(100) where status = 'pending'),
+  array['demo.banner:' || pg_temp.tenant('a') || ':true', 'demo.dbLocked:' || pg_temp.tenant('a') || ':false'],
+  'a platform admin sees which tenant asked, and where approving for it alone is allowed'
+);
+select throws_ok(
+  $$ select public.decide_genesis_setting_proposal((select id from public.genesis_setting_proposals(100) where key = 'demo.dbLocked'), true, 'tenant') $$,
+  '22023', null, 'a key the database layer locks can''t be approved for one tenant'
+);
+select throws_ok($$ select public.decide_genesis_setting_proposal((select id from public.genesis_setting_proposals(100) where key = 'demo.banner'), true, 'everywhere') $$, '22004', null, 'the layer is database or tenant');
+select lives_ok($$ select public.decide_genesis_setting_proposal((select id from public.genesis_setting_proposals(100) where key = 'demo.banner'), true, 'tenant') $$, 'a platform admin approves it for that tenant only');
+reset role;
+select is((select value from public.genesis_tenant_settings where tenant_id = pg_temp.tenant('a') and key = 'demo.banner'), 'true'::jsonb, 'the value is in that tenant''s layer');
+select ok(not exists (select 1 from public.genesis_settings where key = 'demo.banner'), '... not the app''s');
+select is((select status || ':' || approved_layer from public.genesis_setting_proposals where key = 'demo.banner'), 'approved:tenant', '... and the proposal says where it was approved');
+select is((select changed_by from public.genesis_scoped_setting_changes where tenant_id = pg_temp.tenant('a') and key = 'demo.banner' order by id desc limit 1), pg_temp.person('a1'), '... recorded as the platform admin''s change');
+set local role authenticated;
+select pg_temp.sign_in('c1');
+select lives_ok($$ select public.propose_genesis_setting('demo.theme', '"light"', false, 'for me') $$, 'a person proposes again');
+select pg_temp.sign_in('a1');
+select throws_ok(
+  $$ select public.decide_genesis_setting_proposal((select id from public.genesis_setting_proposals(100) where key = 'demo.theme'), true, 'tenant') $$,
+  '22023', null, 'a proposal no tenant made can''t be approved for a tenant'
+);
+
+-- A planned clear removes only the value it was planned for -------------------------------------
+select is(public.clear_genesis_setting_if('demo.theme', '"light"', false), false, 'a value that changed since the plan is left alone');
+reset role;
+select is((select value from public.genesis_settings where key = 'demo.theme'), '"dark"'::jsonb, '... still there');
+set local role authenticated;
+select pg_temp.sign_in('c1');
+select throws_ok($$ select public.clear_genesis_setting_if('demo.theme', '"dark"', false) $$, '42501', null, 'only platform admins clear');
+select pg_temp.sign_in('a1');
+select is(public.clear_genesis_setting_if('demo.theme', '"dark"', false), true, 'the planned value is removed');
+reset role;
+select ok(not exists (select 1 from public.genesis_settings where key = 'demo.theme'), '... and gone');
+set local role authenticated;
 
 -- The history, a page at a time ------------------------------------------------------------------
 select pg_temp.sign_in('a1');
