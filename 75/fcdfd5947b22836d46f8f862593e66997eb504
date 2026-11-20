@@ -1,0 +1,33 @@
+.changeset/secrets-review-2.md
+  s_ca8e075e853203::t_7674608304dabd 1-12
+packages/genesis-cli/src/exec/prompt-secret.ts
+  s_ca8e075e853203::t_76e1457e0ac18d 6-16,18-19,27-28,37-38,42-43,55,60-75,86,88-91,102,109,123-134,140,142,144-155,157-159,161-163,167-168,171,177-181,184-185,192-232
+packages/genesis-cli/src/exec/secret-stores.ts
+  s_ca8e075e853203::t_682d719f751102 17-21,115-117
+packages/genesis-cli/src/exec/secret-vault.ts
+  s_ca8e075e853203::t_f821671d9fef92 13-16,83-84,90,96,100-104,106-108,111-119,165-183
+packages/genesis-cli/src/fix/command.ts
+  s_ca8e075e853203::t_275db87686ba93 80-85,93-96,99-101
+packages/genesis-cli/test/doctor-secrets.test.ts
+  s_ca8e075e853203::t_5071b32a49c256 184-185
+packages/genesis-cli/test/secrets-adversarial.test.ts
+  s_ca8e075e853203::t_7873be93fbb189 1-159
+packages/supabase/README.md
+  s_ca8e075e853203::t_4231991a2cdb4a 873-876,881
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "75fcdfd5947b22836d46f8f862593e66997eb504",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
