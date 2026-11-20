@@ -108,6 +108,38 @@ database stores. The database reads two of them itself (migration
 kept (`diagnostics.retentionDays`), from genesis-supabase's settings tables when they're there,
 else 10 and 90 as before.
 
+### What an app still wires itself
+
+Zero config means no settings to choose: with none stored, the `max` preset turns everything on.
+It doesn't mean no code. The app passes support what only it has, once, and runs one command on
+every deploy. `apps/genesis-rn-starter/src/lib/support.ts` does all of it, so copy from there.
+
+- **Its route files.** Two per navigation zone, each one line (`index.tsx` and `[...route].tsx`
+  under `basePath`, exporting `SupportRoute`), and `createSupport`'s `router` (`Stack.Screen`,
+  `useLocalSearchParams`) and `useCurrentRoute` (`usePathname`).
+- **Its native modules**: `viewShot` and `accelerometer` (screenshots, shake to report),
+  `appState` and `netInfo` (queued dumps go when the app is back), and the queue's storage
+  (`createDiagnostics`' `offline.storage`, AsyncStorage).
+- **The dump**, as `createSupport`'s `diagnostics`: `createDiagnostics` with `supabaseTransport`,
+  `nativeSections` (the modules it reads, and `buildMetadata`), `observabilitySection`,
+  `healthChecksSection`, and `user`.
+- **Health checks**: `healthChecks.register(...supabaseHealthChecks(supabase))`, and
+  genesis-native's `createDevtools({ checks: healthChecks })`.
+- **The build stamp**: `"eas-build-post-install": "genesis build-stamp"` in the app's
+  package.json, and the `build-metadata.json` it writes imported as `buildMetadata`.
+- **"Send diagnostics"** under Settings → About: `<SendDiagnosticsRow />`.
+- **"Contact support" on the error screens**: genesis-native's fatal screen and screen boundary
+  take `contact: support.contact()`.
+- **Live settings**: `watchAppSettings(supabase, supportSettingsCatalogue(), { personId, onChange })`
+  from genesis-supabase, with `appSettings: () => latest` on `createSupport` and
+  `createDiagnostics`. Without it, settings are read once (or not at all: the `max` preset).
+- **On every deploy, after the migrations: `genesis settings sync`.** It writes the app's manifest
+  (`genesis_app_manifest`); until it has run, `set_genesis_setting` refuses every value, so no
+  setting can be changed from the database and support stays on its preset.
+- **Staff**: the first platform admin, added by hand (genesis-supabase's
+  `0022_genesis_platform_admins.sql`; `genesis doctor` warns `platform-admin-missing`). Until then
+  nobody answers reports.
+
 A shake makes a dump at once and hands it to the feedback screen it opens: sent with the report
 (one dump, linked both ways), or on its own when the person leaves without sending one (or after
 15 seconds, if no feedback screen takes it).
@@ -1147,9 +1179,12 @@ its own help desk and your app runs its own support the same way. With the suppo
 
 ## Not yet
 
-- No agent desk or article editor on the phone yet: `SupportAgentInbox` (with its pickers, held
-  reply and earlier conversations), `SupportSavedRepliesAdmin`, `SupportAgentReports` and
-  `SupportHelpCenterAdmin` are web only. The requester's side has both: the messenger's reply
+- On the phone, agents have the desk's queues and ticket threads (`useAgentInbox`,
+  `useAgentThread`, and `SupportRoute`'s `agent` screens, which show the queue and the thread;
+  status and assignee are the hook's `setStatus` and `assign`, for a screen of the app's own). The
+  rest of the web desk is web only: `SupportAgentInbox`'s pickers, held reply and earlier
+  conversations, `SupportSavedRepliesAdmin`, `SupportAgentReports` and the article editor
+  (`SupportHelpCenterAdmin`). The requester's side has both: the messenger's reply
   expectation and office hours are on the web and the phone. Without the support-chat block, staff work through the
   database functions.
 - Collections can be added and deleted in `SupportHelpCenterAdmin`; to rename or reorder one, call
@@ -1162,7 +1197,7 @@ its own help desk and your app runs its own support the same way. With the suppo
   rows hold a tenant's person records, and only the app can map those to logins.
 - Without the support-chat block there are no live updates: the thread re-reads every 30 seconds
   while open.
-- No ratings, no web idea board, no notification when an idea ships.
+- No ratings, no notification when an idea ships.
 - The CDN (script-tag) build of the web loader isn't published; `mountSupportWidget` is the loader.
 - Diagnostics: the dump viewer has no search and no lookup by short id (use
   `support_diagnostics_by_short_id`); the devtools overlay's "Copy debug info" is still its own

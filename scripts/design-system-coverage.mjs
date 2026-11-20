@@ -34,9 +34,11 @@
  *   - GITHUB_BASE_REF   The PR's base branch (e.g. `main`). Default `main`.
  *   - GITHUB_HEAD_REF   The PR's head branch. Default: current HEAD.
  *   - PR_BODY           The PR description (markdown). Default: empty.
- *   - SCAN_PATHS        Comma-separated paths (globs allowed) to scan.
- *                       Default: `apps`. Applied on BOTH the diff path and
- *                       the full-scan fallback — see SCAN_PATHS below.
+ *   - SCAN_PATHS        Comma- or space-separated paths (globs allowed) to
+ *                       scan. Default: the apps and the packages' UI source
+ *                       (`apps,packages/*\/src,packages/genesis-cli/wizard/src`;
+ *                       scripts/lib/ui-scan-roots.mjs). Applied on BOTH the
+ *                       diff path and the full-scan fallback — see SCAN_PATHS below.
  *
  * Output:
  *   - Markdown report on stdout (PR-comment ready).
@@ -93,6 +95,16 @@ const toPosix = (p) => p.split(path.sep).join('/');
 // component files at the time of writing) outside the denominator, which is the
 // same coverage-by-omission this fix exists to stop.
 const UI_PATH_RE = /\/(components|ui)\/(ui|composites|patterns|layout|data)\//;
+
+// A package's UI has no layer folders: support's screens are `src/native/*.tsx`, chat's
+// `src/web/*.tsx`, the wizard's `wizard/src/**`. Every component file in a package's source is
+// its UI, and answers the same question (does it build on Genesis's layers or ship raw?).
+const PACKAGE_UI_RE = /^\/packages\/[^/]+\/(src|wizard\/src)\//;
+
+// genesis-ui and genesis-ui-native ARE the primitives: they cannot import @marktiderman/genesis-*,
+// so they would score CUSTOM by construction (the PR #382 failure under SCAN_PATHS below). Out of
+// the DEFAULT scope (a change to them is named as excluded); a SCAN_PATHS that names them wins.
+const OWN_PRIMITIVES_RE = /^packages\/(ui|ui-native)\//;
 
 // ── The general case: nothing component-shaped may vanish ────────────────────
 //
@@ -171,8 +183,9 @@ const COMPONENT_DECL_RE = /^\s*(export\s+)?(const|function|class)\s+[A-Z]/;
 
 const baseRef = process.env.GITHUB_BASE_REF || 'main';
 const prBody = process.env.PR_BODY || '';
-const scanPathsEnv = process.env.SCAN_PATHS || 'apps';
-const scanPaths = scanPathsEnv.split(',').map((s) => s.trim()).filter(Boolean);
+// Keep in step with UI_SCAN_GLOBS in ./lib/ui-scan-roots.mjs (this file runs alone in its tests).
+const scanPathsEnv = process.env.SCAN_PATHS || 'apps,packages/*/src,packages/genesis-cli/wizard/src';
+const scanPaths = scanPathsEnv.split(/[,\s]+/).map((s) => s.trim()).filter(Boolean);
 
 // ── SCAN_PATHS ───────────────────────────────────────────────────────────────
 //
@@ -259,7 +272,8 @@ function compileScanPath(spec) {
 // Treat it as "everything".
 const scanMatchers = scanPaths.length > 0 ? scanPaths.map(compileScanPath) : [compileScanPath('')];
 
-const inScanPaths = (relPath) => scanMatchers.some((m) => m.re.test(toPosix(relPath)));
+const defaultScope = !process.env.SCAN_PATHS;
+const inScanPaths = (relPath) => !(defaultScope && OWN_PRIMITIVES_RE.test(toPosix(relPath))) && scanMatchers.some((m) => m.re.test(toPosix(relPath)));
 
 // Set when the git commands below FAIL (as opposed to legitimately having no
 // base, e.g. a local run on main). The full-scan fallback answers a different
@@ -383,7 +397,8 @@ function classify(filePath) {
 }
 
 function isUiSurface(relPath) {
-  return UI_PATH_RE.test('/' + toPosix(relPath));
+  const p = '/' + toPosix(relPath);
+  return UI_PATH_RE.test(p) || PACKAGE_UI_RE.test(p);
 }
 
 // The `components/<folder>` prefix a path sits under, or null if it does not

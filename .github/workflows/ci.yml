@@ -140,6 +140,13 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      # self-lint.yml runs genesis-lint on `apps` only (its import rules don't fit packages, which
+      # wrap the primitives). The packages' UI source (support's screens, chat's, the wizard) is
+      # gated here: testIDs (web `data-testid` counts) at its own bar, and no raw colors beyond
+      # scripts/token-usage-baseline.json.
+      - name: Package UI (testIDs, tokens)
+        run: pnpm check:testid-coverage:packages && pnpm check:token-usage
+
       # docs/GLOSSARY.md's banned synonyms in package descriptions and doc headings. Warn mode:
       # it reports and passes until the glossary is settled (then --strict).
       - name: Glossary (warn mode)
