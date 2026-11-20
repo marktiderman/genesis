@@ -135,7 +135,7 @@ export function appPnpmSettings(text: string): string {
 function readme(display: string, slug: string, database?: string): string {
   const apply = database
     ? `The database is ${database}'s: this app has no supabase/ folder. Add blocks' database files there (\`genesis add <block>\` in ${database}) and apply its migrations from there.`
-    : `Apply \`supabase/migrations\` (\`supabase db push\`, or \`supabase start\` for a local stack).`;
+    : `Apply \`supabase/migrations\` (\`supabase db push\`, or \`supabase start\` for a local stack), then \`genesis settings sync\` (on every deploy, after the migrations), and add the first platform admin to \`public.genesis_platform_admins\` (\`genesis doctor\` says how).`;
   return `# ${display}
 
 An Expo app made with \`genesis init ${slug} --template native\` from the Genesis RN starter.

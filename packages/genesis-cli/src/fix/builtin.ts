@@ -378,6 +378,25 @@ const settingRequires: Fix = {
   },
 };
 
+/** No platform admin in genesis-supabase's default list: the person names one by email. */
+const firstAdmin: Fix = {
+  id: "settings.first-admin",
+  kind: "guided",
+  rules: ["platform-admin-missing"],
+  title: "add the first platform admin by email",
+  appliesTo: (f) => f.level === "warn",
+  plan() {
+    return {
+      summary: "add the first platform admin: only you know who it is",
+      manual: [
+        "With your email in place of you@example.com (the person must have signed up already), run in the Supabase SQL editor, or with supabase db query --linked:",
+        "  insert into public.genesis_platform_admins (person) select id from auth.users where lower(email) = lower('you@example.com') on conflict do nothing;",
+        "Or replace the default hook with your own model: create or replace function private.genesis_platform_admin(person uuid) returns boolean (genesis-supabase README, Settings).",
+      ].join("\n"),
+    };
+  },
+};
+
 const settingSetup: Fix = {
   id: "settings.setup",
   kind: "guided",
@@ -431,5 +450,5 @@ function setSecrets(): Fix {
 
 /** Every built-in fix, in the order the engine tries them for a rule. */
 export function builtinFixes(deps: BuiltinDeps = {}): Fix[] {
-  return [scopeNames, featuresRenamed, eslintConfig, agentGuide, agentHooks, contractsFix(deps), migrateCopyFix(deps), migrateForwardFix(deps), upgradeFix(deps), removeUnknownSettings, resetBadSettings, reviewSettings, settingRequires, settingSetup, setSecrets()];
+  return [scopeNames, featuresRenamed, eslintConfig, agentGuide, agentHooks, contractsFix(deps), migrateCopyFix(deps), migrateForwardFix(deps), upgradeFix(deps), removeUnknownSettings, resetBadSettings, reviewSettings, settingRequires, settingSetup, firstAdmin, setSecrets()];
 }
