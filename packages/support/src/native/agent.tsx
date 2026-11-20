@@ -21,6 +21,7 @@ import type { InboxItem, InboxPageProps, ThreadAttachment, ThreadMessage, Thread
 import type { FeedbackStatus } from "../contract";
 import { reportHeading, requesterTenantsLabel, SupportError, type AgentTicket, type AgentTicketCounts, type SupportPerson, type SupportReply, type TicketInboxView } from "../client";
 import { fill, type SupportCopy } from "../copy";
+import { AgentTicketDiagnostics } from "./diagnostics-viewer";
 import { SUPPORT_QUERY_ROOT, useSupport } from "./support";
 
 /** The queues, in the order the switcher shows them. */
@@ -600,6 +601,7 @@ export function useAgentThread(ticketId: string, options: AgentThreadOptions = {
           {copy.staff.failed}
         </NativeText>
       ) : null}
+      <AgentTicketDiagnostics ticketId={t.id} me={me ?? null} />
     </View>
   ) : null;
 

@@ -17,6 +17,7 @@ export { SupportReportThread, supportWebKeys, type SupportReportThreadProps } fr
 export { SupportStaffThread, type SupportStaffThreadProps } from "./staff-thread";
 export { SupportAgentInbox, supportInboxKeys, type SupportAgentInboxProps } from "./agent-inbox";
 export { SupportContact, type SupportContactProps } from "./contact";
+export { SupportTicketDiagnostics, type SupportTicketDiagnosticsProps } from "./diagnostics-viewer";
 export {
   SupportDeskControls,
   SupportDeskPicker,

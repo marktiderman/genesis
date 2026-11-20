@@ -6,7 +6,7 @@
 export * from "./report";
 export { redactReport, type RedactOptions } from "./redact";
 export { capReport, cutToBytes, type CapLimits } from "./cap";
-export { createDiagnostics, type CollectOptions, type Diagnostics, type DiagnosticsDelivery, type DiagnosticsOptions, type DiagnosticsUser, type SendDiagnosticsOptions } from "./create";
+export { createDiagnostics, type CollectOptions, type Diagnostics, type DiagnosticsDelivery, type DiagnosticsOptions, type DiagnosticsUser, type FeedbackSubmission, type SendDiagnosticsOptions } from "./create";
 export {
   supabaseTransport,
   httpTransport,
@@ -29,3 +29,19 @@ export {
   type QueueStorage,
 } from "./queue";
 export { captureConsole, type CaptureConsoleOptions, type ConsoleBuffer, type ConsoleLevel } from "./console";
+export {
+  createHealthChecks,
+  healthChecks,
+  healthChecksSection,
+  supabaseHealthChecks,
+  toDiagnosticCheck,
+  HEALTH_CHECK_TIMEOUT_MS,
+  HEALTH_STATUSES,
+  type HealthAnswer,
+  type HealthCheck,
+  type HealthChecks,
+  type HealthResult,
+  type HealthStatus,
+  type HealthSupabaseLike,
+} from "./health";
+export { diagnosticsViewSections, type DiagnosticsViewSection } from "./view";

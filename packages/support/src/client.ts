@@ -389,6 +389,12 @@ export interface SupportClient extends FeedbackSink {
   /** Deletes the person's own report; its screenshots are queued for removal. */
   deleteReport(reportId: string): Promise<void>;
   attachments(reportId: string): Promise<SupportAttachmentView[]>;
+  /**
+   * The context dumps sent with a ticket, newest first (at most 5), for staff (migration 0019, read
+   * under 0026's rule: whoever handles the ticket). Empty when there are none or none are readable.
+   * Optional: a custom client may leave it out.
+   */
+  ticketDiagnostics?(reportId: string): Promise<TicketDiagnostics[]>;
   /** The board, most votes first. Hidden ideas are left out, the person's own included. */
   ideas(options?: { limit?: number; statuses?: IdeaStatus[] }): Promise<SupportIdea[]>;
   suggestIdea(input: { title: string; body?: string }): Promise<SupportIdea>;
@@ -396,6 +402,15 @@ export interface SupportClient extends FeedbackSink {
   unvote(ideaId: string): Promise<void>;
   /** "You asked, we shipped": shipped ideas the person suggested or voted for. */
   shippedForMe(): Promise<SupportIdea[]>;
+}
+
+/** A context dump sent with a ticket, as staff read it. `report` is the stored `genesis.diagnostics/1` JSON, already scrubbed. */
+export interface TicketDiagnostics {
+  id: string;
+  shortId: string;
+  createdAt: string;
+  trigger: string;
+  report: unknown;
 }
 
 /** A person an agent can name (migration 0022). `name` is null when the app has none for them. */
@@ -1052,6 +1067,14 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
         height: (r["height"] as number | null) ?? null,
         url: urls.get(String(r["path"])) ?? null,
       }));
+    },
+
+    async ticketDiagnostics(reportId) {
+      const rows = must<Row[]>(
+        "ticketDiagnostics",
+        await supabase.from("support_diagnostics").select("id, short_id, created_at, trigger, report").eq("feedback_id", reportId).order("created_at", { ascending: false }).limit(5),
+      );
+      return rows.map((r) => ({ id: String(r["id"]), shortId: String(r["short_id"]), createdAt: String(r["created_at"]), trigger: String(r["trigger"]), report: r["report"] }));
     },
 
     async ideas({ limit = 100, statuses } = {}) {

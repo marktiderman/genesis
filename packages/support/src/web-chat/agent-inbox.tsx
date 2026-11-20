@@ -43,6 +43,7 @@ import { isSitePath } from "../routes";
 import { ComposerPickerList, showMentions, useComposerPicker, type ComposerPicker } from "./composer-pickers";
 import { supportWebKeys } from "./report-thread";
 import { SupportDeskControls, SupportRequesterPanel } from "./desks";
+import { SupportTicketDiagnostics } from "./diagnostics-viewer";
 import { supportSettingValues, type SupportSettingsInput } from "../settings";
 import { TicketControls } from "./staff-thread";
 import { scopeOf, useResolvedTenant } from "./tenant";
@@ -639,6 +640,7 @@ function TicketDetails({
             ))}
         </section>
       ) : null}
+      <SupportTicketDiagnostics client={client} ticketId={ticket.id} {...(copyOverrides ? { copy: copyOverrides } : {})} {...(onError ? { onError } : {})} />
       {deskControls ? (
         <SupportDeskControls
           client={client}

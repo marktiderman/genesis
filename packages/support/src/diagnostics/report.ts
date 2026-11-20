@@ -98,6 +98,9 @@ export interface DiagnosticConsoleLine {
 /** A health check's result. */
 export interface DiagnosticCheck {
   name: string;
+  /** `ok`, `warn` or `fail` (health checks); absent in a dump from before them. */
+  status?: "ok" | "warn" | "fail";
+  /** False only when it failed. */
   ok: boolean;
   ms: number | null;
   detail: string | null;
