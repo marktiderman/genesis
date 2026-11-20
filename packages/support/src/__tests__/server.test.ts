@@ -238,6 +238,23 @@ describe("createDiagnosticsHandler: settings", () => {
     expect(read).toHaveBeenCalledTimes(2);
   });
 
+  it("shares one settings read between requests that find the cache stale together", async () => {
+    // Two reads in flight: the first (older) answers last. Shared, it is asked once and can't land late.
+    let calls = 0;
+    const answers: Array<(v: Record<string, unknown>) => void> = [];
+    const read = () => {
+      calls++;
+      return new Promise<Record<string, unknown>>((resolve) => answers.push(resolve));
+    };
+    const handle = createDiagnosticsHandler({ authenticate: auth, store: memoryStore().store, appSettings: read, settingsCacheMs: 1000, now: () => 0, rateLimit: false });
+    const a = handle(post(JSON.stringify(dump())));
+    const b = handle(post(JSON.stringify(dump())));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(calls).toBe(1);
+    answers[0]!({ "diagnostics.enabled": false });
+    expect([(await a).status, (await b).status]).toEqual([403, 403]);
+  });
+
   it("follows diagnostics.perHour as it changes", async () => {
     let t = 0;
     let values: Record<string, unknown> = { "diagnostics.perHour": 1 };

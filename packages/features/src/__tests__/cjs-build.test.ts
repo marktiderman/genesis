@@ -25,6 +25,9 @@ describe("the CommonJS build", () => {
     expect(root.FeatureOff).toBe(gate.FeatureOff);
     expect(typeof root.SettingsError).toBe("function");
     expect(root.SettingsError).toBe(settings.SettingsError);
+    const blocks = require("@marktiderman/genesis-config/blocks") as Record<string, unknown>;
+    expect(typeof root.BlockError).toBe("function");
+    expect(root.BlockError).toBe(blocks.BlockError);
     const SettingsError = settings.SettingsError as new (m: string) => Error;
     expect(new SettingsError("x")).toBeInstanceOf(root.SettingsError as typeof Error);
   });

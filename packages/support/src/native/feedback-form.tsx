@@ -71,6 +71,7 @@ export function FeedbackForm({ defaultType = "bug", onSent, sentAlert = true, te
       return;
     }
     setSending(true);
+    let withShake: typeof shakeDump = null;
     try {
       const context = await block.collector.collect();
       // Where the person was when they asked for the form, never the form itself.
@@ -88,12 +89,14 @@ export function FeedbackForm({ defaultType = "bug", onSent, sentAlert = true, te
       const sink = feedbackSink ?? block.client;
       // With diagnostics, a dump goes with it (linked both ways): the shake's, if a shake opened
       // this, else one made now. A failed dump never fails the report.
-      const withShake = diagnostics && dumpOnFeedback && shakeDump && claimed.current ? shakeDump : null;
+      withShake = diagnostics && dumpOnFeedback && shakeDump && claimed.current ? shakeDump : null;
+      // Held for this report from here: an unmount while it is sent doesn't send the dump alone too.
+      withShake?.begin();
       const made = withShake ? await withShake.report() : null;
       const delivery: FeedbackDelivery & { diagnostics?: DiagnosticsDelivery | null } =
         diagnostics && dumpOnFeedback ? await diagnostics.submitFeedback(record, { sink, report: made }) : await sink.submit(record);
       if (withShake) {
-        withShake.sent();
+        withShake.end(true);
         claimed.current = false;
       }
       void queryClient.invalidateQueries({ queryKey: [SUPPORT_QUERY_ROOT, "reports"] });
@@ -106,6 +109,8 @@ export function FeedbackForm({ defaultType = "bug", onSent, sentAlert = true, te
       }
       onSent?.(delivery);
     } catch (e) {
+      // Not sent: the dump is held again (or goes alone, once, if the screen has gone).
+      withShake?.end(false);
       const err = e instanceof SupportError ? e : null;
       const rateLimited = err?.rateLimited || (e instanceof DiagnosticsSendError && e.status === 429);
       const forbidden = err?.code === "42501" || (e instanceof DiagnosticsSendError && e.status === 401);

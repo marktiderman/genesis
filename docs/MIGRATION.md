@@ -21,8 +21,9 @@ moment you add `genesis_platform_admin` after it), every platform admin can read
 and close every ticket, and read the context dumps sent with them. An app with neither hook has no
 staff, as before; an app with its own `genesis_support_staff` is not affected.
 
-If your platform admins shouldn't handle tickets, add the staff hook in a migration of your own,
-before or after 0023 (it wins over the default whenever it exists):
+If your platform admins shouldn't handle tickets, add the staff hook in a migration of your own
+(it wins over the default whenever it exists). On a live app, apply it **before** 0023: added after,
+it removes the fallback from then on, but can't undo what platform admins could read in between.
 
 ```sql
 create or replace function private.genesis_support_staff(person uuid) returns boolean

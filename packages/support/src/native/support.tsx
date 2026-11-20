@@ -63,6 +63,13 @@ export interface ShakeDump {
   report(): Promise<DiagnosticReport | null>;
   /** It went with a report. */
   sent(): void;
+  /**
+   * The report it goes with is being sent: an unmount meanwhile no longer sends it alone. `end(true)`
+   * when the report went (as `sent`); `end(false)` when it failed: held again, or sent alone once
+   * if the screen let go of it meanwhile.
+   */
+  begin(): void;
+  end(ok: boolean): void;
   /** No report after all: send it on its own (once). */
   sendAlone(): void;
 }
@@ -322,7 +329,8 @@ export function createSupport(given: SupportOptions): SupportBlock {
       report(error, "diagnostics");
       return null;
     });
-    let state: "waiting" | "claimed" | "released" | "done" = "waiting";
+    let state: "waiting" | "claimed" | "released" | "submitting" | "done" = "waiting";
+    let abandoned = false;
     let releasing: ReturnType<typeof setTimeout> | undefined;
     const sendAlone = () => {
       if (state === "done") return;
@@ -330,7 +338,8 @@ export function createSupport(given: SupportOptions): SupportBlock {
       clearTimeout(timer);
       clearTimeout(releasing);
       void made
-        .then((dump) => (dump ? diagnostics.send({ trigger: "shake", report: dump }) : null))
+        // Support's own gate, read now: diagnostics switched off since the shake send nothing.
+        .then((dump) => (dump && liveDiagnostics() ? diagnostics.send({ trigger: "shake", report: dump }) : null))
         .catch((error: unknown) => report(error, "diagnostics"));
     };
     const timer = setTimeout(() => {
@@ -345,6 +354,11 @@ export function createSupport(given: SupportOptions): SupportBlock {
         return true;
       },
       release() {
+        if (state === "submitting") {
+          // The screen went while its report was being sent: the outcome decides (end).
+          abandoned = true;
+          return;
+        }
         if (state !== "claimed") return;
         // React's StrictMode unmounts and mounts again at once: wait a tick before sending, so the
         // same screen claiming it again keeps it (one dump, never two).
@@ -358,6 +372,20 @@ export function createSupport(given: SupportOptions): SupportBlock {
         state = "done";
         clearTimeout(timer);
         clearTimeout(releasing);
+      },
+      begin() {
+        if (state === "claimed") state = "submitting";
+      },
+      end(ok) {
+        if (state !== "submitting") return;
+        if (ok) {
+          state = "done";
+          clearTimeout(timer);
+          clearTimeout(releasing);
+          return;
+        }
+        state = "claimed";
+        if (abandoned) sendAlone();
       },
       sendAlone,
     };

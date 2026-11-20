@@ -427,6 +427,45 @@ describe("GenesisSettings: Upgrades", () => {
   });
 });
 
+describe("GenesisSettings: refreshed data wins over an older request", () => {
+  it("an upgrade check in flight when Refresh lands never replaces the refreshed list", async () => {
+    const state = makeState(APP_CAPS);
+    const client = fakeClient(state);
+    let release: () => void = () => {};
+    client.upgrades.mockImplementationOnce(
+      () => new Promise((resolve) => (release = () => resolve({ packages: [{ name: "@marktiderman/genesis-ui", current: "3.1.0", latest: "3.2.0", distance: "minor" }] }))),
+    );
+    await renderSettings({ client, defaultTab: "upgrades" });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("genesis-settings-upgrades-check"));
+    });
+    // Refresh: a newer state, whose upgrades say genesis-ui is current.
+    client.state.mockResolvedValueOnce({ ...state, upgrades: { packages: [{ name: "@marktiderman/genesis-ui", current: "3.4.0", latest: "3.4.0", distance: "current" }] } });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("genesis-settings-refresh"));
+    });
+    await act(async () => release());
+    expect(screen.getByTestId("genesis-settings-upgrade--marktiderman-genesis-ui-distance").textContent).not.toBe("Minor behind");
+    expect((screen.getByTestId("genesis-settings-upgrades-check") as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("a Load more in flight when Refresh lands leaves Load more usable", async () => {
+    const state = makeState();
+    const client = fakeClient(state);
+    client.audit.mockImplementationOnce(() => new Promise(() => {}));
+    await renderSettings({ client, defaultTab: "audit", auditPageSize: 2 });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("genesis-settings-audit-more"));
+    });
+    expect((screen.getByTestId("genesis-settings-audit-more") as HTMLButtonElement).disabled).toBe(true);
+    client.state.mockResolvedValueOnce({ ...state, audit: { entries: [...state.audit!.entries], next: "cursor-9" } });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("genesis-settings-refresh"));
+    });
+    expect((screen.getByTestId("genesis-settings-audit-more") as HTMLButtonElement).disabled).toBe(false);
+  });
+});
+
 describe("GenesisSettings: Audit", () => {
   it("shows changes with their layer and loads the next page", async () => {
     const client = fakeClient(makeState());

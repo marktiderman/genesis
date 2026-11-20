@@ -446,12 +446,12 @@ export interface SettingsClientMessages {
   notObject: string;
   status: (status: number) => string;
   badState: (what: string) => string;
-  /** A 200 whose answer to `op` lacks what the screen draws (a plan's files, an upgrade's packages). */
-  badAnswer: (op: string, what: string) => string;
+  /** A 200 whose answer to `op` lacks what the screen draws (a plan's files, an upgrade's packages). Optional: the default fills it. */
+  badAnswer?: (op: string, what: string) => string;
 }
 
 /** @stability Beta */
-export const SETTINGS_CLIENT_MESSAGES: SettingsClientMessages = {
+export const SETTINGS_CLIENT_MESSAGES: Required<SettingsClientMessages> = {
   signIn: "Sign in to change settings.",
   unreachable: (detail) => `The settings host couldn't be reached (${detail}).`,
   timedOut: (seconds) => `The settings host didn't answer within ${seconds} seconds.`,
@@ -506,7 +506,7 @@ function planProblem(v: unknown): string | null {
 }
 
 /** Throws the client's error for a 200 the screen couldn't draw. */
-function checkAnswer(problem: string | null, op: string, m: SettingsClientMessages): void {
+function checkAnswer(problem: string | null, op: string, m: Required<SettingsClientMessages>): void {
   if (problem) throw new SettingsProtocolError("error", m.badAnswer(op, problem));
 }
 
@@ -521,7 +521,7 @@ function checkAnswer(problem: string | null, op: string, m: SettingsClientMessag
  * @stability Beta
  */
 export function createSettingsClient(fetchFn: FetchLike, options: SettingsClientOptions): SettingsClient {
-  const m: SettingsClientMessages = { ...SETTINGS_CLIENT_MESSAGES, ...options.messages };
+  const m: Required<SettingsClientMessages> = { ...SETTINGS_CLIENT_MESSAGES, ...options.messages } as Required<SettingsClientMessages>;
   const timeoutMs = options.timeoutMs ?? 30_000;
 
   async function call<O extends SettingsOp>(body: Extract<SettingsRequest, { op: O }>): Promise<SettingsResponses[O]> {

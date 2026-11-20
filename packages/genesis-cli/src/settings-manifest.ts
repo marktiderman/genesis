@@ -141,7 +141,9 @@ export interface SyncManifestOptions {
 export async function syncManifest(root: string, row: ManifestRow, run: ToolRunner = runTool, options: SyncManifestOptions = {}): Promise<void> {
   if (options.projectRef !== undefined && !PROJECT_REF.test(options.projectRef)) throw new ManifestError(`--project-ref ${JSON.stringify(options.projectRef)} isn't a Supabase project ref (20 lower-case letters and digits).`);
   const sql = manifestSql(row);
-  const target = ["db", "query", "--linked", ...(options.projectRef ? ["--project-ref", options.projectRef] : [])];
+  // `--yes`: supabase asks before it sends a statement to a hosted database, and reads no piped
+  // answer (the default is No). The person already confirmed, or passed --yes, before this runs.
+  const target = ["db", "query", "--linked", ...(options.projectRef ? ["--project-ref", options.projectRef] : []), "--yes"];
   const common = { cwd: root, timeoutMs: 60_000, passEnv: TOOL_AUTH_ENV["supabase"] ?? [] };
   let result: Awaited<ReturnType<ToolRunner>>;
   if ((options.platform ?? process.platform) === "win32") {

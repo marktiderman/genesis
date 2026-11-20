@@ -171,7 +171,12 @@ function preview(value: unknown): string {
   try {
     return JSON.stringify(value, (_k, v: unknown) => (typeof v === "bigint" ? `${v}n` : v)) ?? String(value);
   } catch {
-    return String(value);
+    try {
+      return String(value);
+    } catch {
+      // A cycle with no prototype: neither JSON nor String can write it.
+      return "(a value that can't be shown)";
+    }
   }
 }
 

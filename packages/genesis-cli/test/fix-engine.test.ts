@@ -335,6 +335,26 @@ describe("genesis fix", () => {
     expect(read(root, "src/screen.tsx")).toBe(before);
   });
 
+  it("refuses --expect, writing nothing, when one of the target's fixes can't be planned", async () => {
+    const root = scopeApp();
+    const before = read(root, "src/screen.tsx");
+    // The scope-names fix plans; migrate.copy fails to. Both answer one rule.
+    const doctor = async (o: { root: string; network: boolean }) => {
+      const r = await runDoctor({ root: o.root, network: o.network });
+      const scope = r.findings.filter((f) => f.rule === "removed-scope-name").map((f) => ({ ...f, rule: "two-fixes" }));
+      return { ...r, findings: [...scope, { rule: "two-fixes", level: "warn" as const, file: "supabase/migrations", line: 0, message: "m", fix: { id: "migrate.copy", kind: "auto" as const, title: "t" } }] };
+    };
+    const deps = { runMigrate: async () => { throw new Error("migrations unreadable"); } } as never;
+    const planned = io();
+    await runFixCommand({ root, target: "codemod.scope-names", plan: true, network: false }, planned.io);
+    const hash = /plan ([0-9a-f]{64})/.exec(planned.out.join("\n"))![1]!;
+    const t = io();
+    expect(await runFixCommand({ root, target: "two-fixes", yes: true, expect: hash, network: false }, { ...t.io, doctor, deps })).toBe(1);
+    expect(t.err.join("\n")).toMatch(/migrate\.copy: couldn't plan: migrations unreadable/);
+    expect(t.err.join("\n")).toMatch(/Nothing was written/);
+    expect(read(root, "src/screen.tsx")).toBe(before);
+  });
+
   it("refuses --expect when the target has several fixes to apply, before writing any", async () => {
     const SUPPORT = "@marktiderman/genesis-support";
     const CONFIG = `{\n  "settings": {\n    "support.inbx": true\n  }\n}\n`;

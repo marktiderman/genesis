@@ -1377,9 +1377,14 @@ function UpgradesTab({ initial, caps, client, copy, testID, onChanged }: TabProp
   const [fixing, setFixing] = useState<string | null>(null);
   const { remember, returnFocus } = useReturnFocus();
 
-  useEffect(() => setUpgrades(initial), [initial]);
-
   const checks = useRef(0);
+  // A refreshed snapshot replaces whatever a check still in flight would bring: that check is stale.
+  useEffect(() => {
+    checks.current++;
+    setUpgrades(initial);
+    setBusy(false);
+  }, [initial]);
+
   const check = async (refresh: boolean) => {
     const mine = ++checks.current;
     setBusy(true);
@@ -1518,9 +1523,12 @@ function AuditTab({
 
   useEffect(() => {
     if (initial) {
+      // Supersedes a page still loading: its answer is dropped, so its busy and error go with it.
       pages.current++;
       setEntries(initial.entries ?? []);
       setNext(initial.next);
+      setBusy(false);
+      setError(null);
       setFetched(true);
     } else void load(undefined, false);
   }, [initial, load]);

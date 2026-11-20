@@ -10,17 +10,31 @@ import * as path from "node:path";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { removeTempDir } from "./temp.js";
 
-const failing = vi.hoisted(() => ({ match: null as RegExp | null }));
+const failing = vi.hoisted(() => ({ match: null as RegExp | null, openFails: null as RegExp | null, fds: new Map<number, string>() }));
+/** The open fails without creating anything (EMFILE); meanwhile another process creates the file. */
+const emfile = vi.hoisted(() => (fs: typeof import("node:fs"), file: string): never => {
+  fs.writeFileSync(file, "someone else's");
+  throw Object.assign(new Error("EMFILE: too many open files, open"), { code: "EMFILE" });
+});
 vi.mock("node:fs", async (importOriginal) => {
   const fs = await importOriginal<typeof import("node:fs")>();
+  const openSync = ((file: string, flags: string, mode?: number) => {
+    if (failing.openFails && failing.openFails.test(file)) emfile(fs, file);
+    const fd = fs.openSync(file, flags, mode);
+    failing.fds.set(fd, file);
+    return fd;
+  }) as typeof fs.openSync;
   const writeFileSync = ((file: Parameters<typeof fs.writeFileSync>[0], data: string, options?: Parameters<typeof fs.writeFileSync>[2]) => {
-    if (failing.match && typeof file === "string" && failing.match.test(file)) {
+    const name = typeof file === "number" ? failing.fds.get(file) : typeof file === "string" ? file : undefined;
+    // An open by path (writeFileSync with a flag) fails the same way an openSync does.
+    if (failing.openFails && typeof file === "string" && failing.openFails.test(file)) emfile(fs, file);
+    if (failing.match && name && failing.match.test(name)) {
       fs.writeFileSync(file, data.slice(0, 2), options);
       throw Object.assign(new Error("ENOSPC: no space left on device, write"), { code: "ENOSPC" });
     }
     return fs.writeFileSync(file, data, options);
   }) as typeof fs.writeFileSync;
-  return { ...fs, default: { ...fs, writeFileSync }, writeFileSync };
+  return { ...fs, default: { ...fs, openSync, writeFileSync }, openSync, writeFileSync };
 });
 
 const { applyPlan, defineFix, planFix, sha256 } = await import("../src/fix/index.js");
@@ -37,6 +51,7 @@ afterAll(() => {
 });
 beforeEach(() => {
   failing.match = null;
+  failing.openFails = null;
 });
 
 const writes = (files: Record<string, { before: string | null; content: string }>) =>
@@ -56,6 +71,16 @@ describe("a write that fails part way (ENOSPC)", () => {
     failing.match = /new\.txt$/;
     await expect(applyPlan(fix, plan, { root, findings: [] })).rejects.toThrow();
     expect(readdirSync(root)).toEqual([]);
+  });
+
+  it("never removes a file it didn't create: an open that fails (EMFILE) leaves what is there", async () => {
+    const root = tmpApp({});
+    const fix = writes({ "new.txt": { before: null, content: "a whole file" } });
+    const plan = await planFix(fix, { root, findings: [] });
+    // The open fails, and another process makes the file before any cleanup could run.
+    failing.openFails = /new\.txt$/;
+    await expect(applyPlan(fix, plan, { root, findings: [] })).rejects.toThrow();
+    expect(readFileSync(path.join(root, "new.txt"), "utf8")).toBe("someone else's");
   });
 
   it("removes the half-written staging file, and leaves the original as it was", async () => {

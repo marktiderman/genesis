@@ -166,33 +166,51 @@ export function rewriteWorkspaceYaml(text: string, rangeFor: (oldRange: string) 
   const inline = /(['"]?)@marktiderman\/genesis-features(?![\w-])([^'":,{}]*)\1(\s*:\s*)(['"]?)([^'",{}\s#]+)\4/g;
   const configEntry = /^(\s*)(['"]?)@marktiderman\/genesis-config(?![\w-])([^'":]*)\2\s*:/;
   const lines = text.split("\n");
-  // The block-mapping keys genesis-config already has (indent and subpath): the old entry beside one goes.
-  const taken = new Set(
-    lines
-      .map((l) => configEntry.exec(l))
-      .filter((m): m is RegExpExecArray => m !== null)
-      .map((m) => `${m[1]}|${m[3]}`),
-  );
-  const out: string[] = [];
+  // Each line's mapping: the keys of the lines above it with less indent (`catalogs/b`), so an entry
+  // is compared only with its own mapping's, never a sibling catalog's.
+  const parents: string[] = [];
+  const stack: Array<{ indent: number; key: string }> = [];
   for (const line of lines) {
+    const content = line.replace(/#.*$/, "");
+    if (!content.trim()) {
+      parents.push(stack.map((e) => e.key).join("/"));
+      continue;
+    }
+    const indent = line.length - line.trimStart().length;
+    while (stack.length && stack[stack.length - 1]!.indent >= indent) stack.pop();
+    parents.push(stack.map((e) => e.key).join("/"));
+    const key = /^\s*(?:-\s+)?(['"]?)([^'":]+)\1\s*:/.exec(content)?.[2];
+    if (key !== undefined) stack.push({ indent, key: key.trim() });
+  }
+  const mappingOf = (i: number, indent: string, rest: string) => `${parents[i]}|${indent}|${rest}`;
+  // The block-mapping keys genesis-config already has (mapping and subpath): the old entry beside one goes.
+  const taken = new Set<string>();
+  lines.forEach((l, i) => {
+    const m = configEntry.exec(l);
+    if (m) taken.add(mappingOf(i, m[1]!, m[3]!));
+  });
+  const out: string[] = [];
+  lines.forEach((line, i) => {
     const m = entry.exec(line);
     if (m) {
       const [, indent, q, rest, colon, vq, value, tail] = m;
-      if (taken.has(`${indent}|${rest}`)) continue;
+      if (taken.has(mappingOf(i, indent!, rest!))) return;
       out.push(`${indent}${q}${CONFIG_PACKAGE}${rest}${q}${colon}${vq}${overrideValue(value!, rangeFor)}${vq}${tail}`);
-      continue;
+      return;
     }
     if (/\{[^}]*@marktiderman\/genesis-features(?![\w-])/.test(line)) {
-      // A flow mapping: the old entry goes when genesis-config is already in it, else it is renamed with the new range.
-      const hasConfig = /@marktiderman\/genesis-config(?![\w-])['"]?\s*:/.test(line);
-      const next = hasConfig
-        ? line.replace(new RegExp(`,?\\s*${inline.source}`, "g"), "").replace(/\{\s*,\s*/, "{ ")
-        : line.replace(inline, (_all, q: string, rest: string, colon: string, vq: string, value: string) => `${q}${CONFIG_PACKAGE}${rest}${q}${colon}${vq}${overrideValue(value, rangeFor)}${vq}`);
+      // Each innermost flow mapping on its own: its old entry goes when genesis-config is already in
+      // that mapping, else it is renamed with the new range. A sibling mapping on the line doesn't count.
+      const next = line.replace(/\{[^{}]*\}/g, (map) => {
+        if (!/@marktiderman\/genesis-features(?![\w-])/.test(map)) return map;
+        if (/@marktiderman\/genesis-config(?![\w-])['"]?\s*:/.test(map)) return map.replace(new RegExp(`,?\\s*${inline.source}`, "g"), "").replace(/\{\s*,\s*/, "{ ");
+        return map.replace(inline, (_all, q: string, rest: string, colon: string, vq: string, value: string) => `${q}${CONFIG_PACKAGE}${rest}${q}${colon}${vq}${overrideValue(value, rangeFor)}${vq}`);
+      });
       out.push(rewriteFeaturesSpecifiers(next));
-      continue;
+      return;
     }
     out.push(rewriteFeaturesSpecifiers(line));
-  }
+  });
   return out.join("\n");
 }
 

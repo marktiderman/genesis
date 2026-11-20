@@ -211,8 +211,9 @@ export function createDiagnostics(options: DiagnosticsOptions): Diagnostics {
   const sections = (options.sections ?? []).filter((s): s is DiagnosticSection => Boolean(s));
   const trusted = sections.filter((s) => s.options.pii === "none" && !isCore(s.name)).map((s) => s.name);
   const limitsNow = (): CapLimits => ({
-    maxBytes: settingsNow().maxBytes,
     ...options.limits,
+    // Never over what the table stores (0019's check), whatever the setting or `limits` ask for.
+    maxBytes: Math.min(options.limits?.maxBytes ?? settingsNow().maxBytes, DIAGNOSTICS_DEFAULTS.serverMaxBytes),
     sectionLimits: {
       ...Object.fromEntries(sections.filter((s) => s.options.maxBytes && !isCore(s.name)).map((s) => [s.name, s.options.maxBytes as number])),
       ...options.limits?.sectionLimits,
@@ -327,8 +328,12 @@ export function createDiagnostics(options: DiagnosticsOptions): Diagnostics {
     feedbackSink: transport.feedbackSink,
     collect,
     async send({ trigger, feedbackId, report: given }) {
-      if (!enabledNow()) throw new DiagnosticsSendError("diagnostics are off (the diagnostics.enabled setting)", 0, false, "disabled");
-      const report = given ? { ...given, trigger, feedbackId: feedbackId === undefined ? given.feedbackId : feedbackId } : await collect({ trigger, feedbackId: feedbackId ?? null });
+      const off = () => new DiagnosticsSendError("diagnostics are off (the diagnostics.enabled setting)", 0, false, "disabled");
+      if (!enabledNow()) throw off();
+      // A dump made earlier (a shake's) is capped again with the limits in force now.
+      const report = given ? capReport({ ...given, trigger, feedbackId: feedbackId === undefined ? given.feedbackId : feedbackId }, limitsNow()) : await collect({ trigger, feedbackId: feedbackId ?? null });
+      // Collecting takes time: switched off meanwhile, nothing goes.
+      if (!enabledNow()) throw off();
       // Anything waiting goes first (oldest first), without holding this one up.
       if (queue) void queue.flush().catch((error: unknown) => problem("diagnostics: flushing the queue failed", error));
       try {
@@ -349,7 +354,7 @@ export function createDiagnostics(options: DiagnosticsOptions): Diagnostics {
         if (!target) throw new Error("submitFeedback: this transport has no feedback sink; pass `sink`.");
         return { ...(await target.submit(record)), diagnostics: null };
       }
-      let report: DiagnosticReport | null = made ?? null;
+      let report: DiagnosticReport | null = made ? capReport(made, limitsNow()) : null;
       if (!report) {
         try {
           report = await collect({ trigger: "feedback" });
@@ -357,6 +362,8 @@ export function createDiagnostics(options: DiagnosticsOptions): Diagnostics {
           problem("diagnostics: the dump for this feedback could not be made", error);
         }
       }
+      // Switched off while the dump was made: the feedback goes alone.
+      if (!enabledNow()) report = null;
       if (report && transport.submitFeedback && (!sink || sink === transport.feedbackSink)) {
         const { diagnostics: receipt, ...delivery } = await transport.submitFeedback(record, report);
         return { ...delivery, diagnostics: receipt ? { ...receipt, queued: false } : null };

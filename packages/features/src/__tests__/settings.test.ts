@@ -370,6 +370,10 @@ describe("feeding the gate", () => {
   it("never throws on a value JSON can't write (a bigint), and declares planned keys", () => {
     const r = resolveSettings(catalogue, { file: { "support.dumpRetentionDays": { value: 10n } } as never });
     expect(r.problems[0]?.message).toContain("10n");
+    const cycle = Object.create(null) as Record<string, unknown>;
+    cycle.self = cycle;
+    const c = resolveSettings(catalogue, { file: { "support.dumpRetentionDays": { value: cycle } } as never });
+    expect(c.problems[0]?.message).toContain("(a value that can't be shown)");
     expect(defineSettings("x", { later: { type: "boolean", default: true, planned: true } }).keys["x.later"].planned).toBe(true);
     expect(() => defineSettings("x", { later: { type: "boolean", default: true, planned: "yes" as never } })).toThrow(/planned must be a boolean/);
   });

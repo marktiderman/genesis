@@ -6,7 +6,7 @@
  * plan expects (`beforeHash`) before writing any, writes, runs the commands, then verifies.
  */
 import { createHash } from "node:crypto";
-import { chmodSync, existsSync, lstatSync, statSync, mkdirSync, readFileSync, realpathSync, renameSync, rmdirSync, unlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, closeSync, existsSync, lstatSync, statSync, mkdirSync, readFileSync, realpathSync, renameSync, rmdirSync, unlinkSync, writeFileSync, openSync } from "node:fs";
 import * as path from "node:path";
 import { runTool, isAllowedTool, TOOL_AUTH_ENV, type ToolRunner } from "../exec/run.js";
 import { SecretVault } from "../exec/secret-vault.js";
@@ -292,19 +292,34 @@ class Journal {
     checkTarget(this.root, abs, fixId);
     if (file.beforeHash === null) {
       this.entries.push({ abs, rel: file.path, before: null, dirs });
+      // Created with `wx` first, written second: only a file this write created is ever removed. An
+      // open that fails (EEXIST, or EMFILE with nothing created) leaves whatever is there alone.
+      let fd: number;
       try {
-        writeFileSync(abs, file.content, { flag: "wx" });
+        fd = openSync(abs, "wx");
       } catch (err) {
         this.entries.pop();
         if ((err as NodeJS.ErrnoException).code === "EEXIST") throw new FileConflictError(`${file.path} appeared while the fix was writing`);
-        // Not EEXIST: the file wasn't there, so whatever exists now is this write's partial file (ENOSPC).
+        throw err;
+      }
+      try {
+        writeFileSync(fd, file.content);
+      } catch (err) {
+        // This write created the file, so the partial file (ENOSPC) is its own to remove.
+        this.entries.pop();
+        try {
+          closeSync(fd);
+        } catch {
+          /* already closed */
+        }
         try {
           unlinkSync(abs);
         } catch {
-          /* never created */
+          /* gone already */
         }
         throw err;
       }
+      closeSync(fd);
       return;
     }
     const before = readFileSync(abs, "utf8");

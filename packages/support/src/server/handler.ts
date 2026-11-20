@@ -295,19 +295,27 @@ export function createDiagnosticsHandler(options: DiagnosticsHandlerOptions): Di
   const limiter = options.rateLimit === false ? null : (options.rateLimit ?? memoryRateLimiter(options.now));
   const settingsCacheMs = Math.max(0, options.settingsCacheMs ?? 30_000);
   let cached: { at: number; values: SupportSettingValues } | null = null;
+  // One read at a time: requests that find the cache stale together share it, so an older read can
+  // never land after a newer one, and the source is asked at most once per settingsCacheMs.
+  let reading: Promise<SupportSettingValues> | null = null;
   // The settings when a request needs them: a function is read again once the cache is stale.
   async function settingsNow(): Promise<SupportSettingValues> {
     const source = options.appSettings;
     if (typeof source !== "function") return (cached ??= { at: 0, values: supportSettingValues(source) }).values;
     if (cached && settingsCacheMs > 0 && now() - cached.at < settingsCacheMs) return cached.values;
-    try {
-      cached = { at: now(), values: supportSettingValues(await source()) };
-    } catch (error) {
-      fail(error, "appSettings");
-      // Never read yet: no dumps until it answers (fail closed). Read before: the last values.
-      cached = { at: now(), values: cached?.values ?? supportSettingValues(DIAGNOSTICS_OFF) };
-    }
-    return cached.values;
+    reading ??= (async () => {
+      try {
+        cached = { at: now(), values: supportSettingValues(await source()) };
+      } catch (error) {
+        fail(error, "appSettings");
+        // Never read yet: no dumps until it answers (fail closed). Read before: the last values.
+        cached = { at: now(), values: cached?.values ?? supportSettingValues(DIAGNOSTICS_OFF) };
+      }
+      return cached.values;
+    })().finally(() => {
+      reading = null;
+    });
+    return reading;
   }
   const feedbackPerHour = options.limits?.feedbackPerHour ?? 20;
   const ipPerMinute = options.limits?.ipPerMinute ?? DIAGNOSTICS_DEFAULTS.ipRatePerMinute;

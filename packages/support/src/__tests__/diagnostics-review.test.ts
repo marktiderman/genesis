@@ -173,6 +173,70 @@ describe("routes and text", () => {
   });
 });
 
+describe("diagnostics.enabled is read again at the moment of sending", () => {
+  const sink = () => {
+    const sent: DiagnosticReport[] = [];
+    const submitted: unknown[] = [];
+    const transport: DiagnosticsTransport = {
+      name: "t",
+      send: async (r) => (sent.push(r), { id: r.id, shortId: diagnosticsShortId(r.id) }),
+      feedbackSink: { submit: async (record) => (submitted.push(record), { id: "fb-1" }) },
+    };
+    return { sent, submitted, transport };
+  };
+
+  it("sends nothing when diagnostics are switched off while a section is being collected", async () => {
+    let enabled = true;
+    let release: () => void = () => {};
+    const { sent, transport } = sink();
+    const d = createDiagnostics({
+      app: { id: "acme" },
+      transport,
+      appSettings: () => ({ "diagnostics.enabled": enabled }),
+      sections: [{ name: "slow", options: {}, collect: () => new Promise((r) => (release = () => r({ ok: true }))) } as never],
+    });
+    const sending = d.send({ trigger: "manual" });
+    await new Promise((r) => setTimeout(r, 0));
+    enabled = false;
+    release();
+    await expect(sending).rejects.toMatchObject({ code: "disabled" });
+    expect(sent).toEqual([]);
+  });
+
+  it("sends the feedback alone when diagnostics are switched off while its dump is made", async () => {
+    let enabled = true;
+    let release: () => void = () => {};
+    const { sent, submitted, transport } = sink();
+    const d = createDiagnostics({
+      app: { id: "acme" },
+      transport,
+      appSettings: () => ({ "diagnostics.enabled": enabled }),
+      sections: [{ name: "slow", options: {}, collect: () => new Promise((r) => (release = () => r({ ok: true }))) } as never],
+    });
+    const submitting = d.submitFeedback({ type: "bug", message: "x" } as never);
+    await new Promise((r) => setTimeout(r, 0));
+    enabled = false;
+    release();
+    expect(await submitting).toMatchObject({ id: "fb-1", diagnostics: null });
+    expect(sent).toEqual([]);
+    expect((submitted[0] as { diagnosticsId?: unknown }).diagnosticsId).toBeUndefined();
+  });
+
+  it("caps a dump made earlier with the limits in force when it is sent, never over what the table stores", async () => {
+    let maxBytes = 524_288;
+    const { sent, transport } = sink();
+    const d = createDiagnostics({ app: { id: "acme" }, transport, appSettings: () => ({ "diagnostics.maxBytes": maxBytes }), limits: {} });
+    const big = base({ logs: { errors: [], breadcrumbs: [], console: Array.from({ length: 4000 }, (_, i) => ({ at: null, level: "log", text: `line ${i} ${"x".repeat(80)}` })) as never } });
+    maxBytes = 65_536;
+    await d.send({ trigger: "shake", report: big });
+    expect(jsonByteLength(sent[0])).toBeLessThanOrEqual(65_536);
+    const over = createDiagnostics({ app: { id: "acme" }, transport, limits: { maxBytes: 10_000_000 } });
+    const huge = base({ sections: { big: "y".repeat(700_000) } as never });
+    await over.send({ trigger: "manual", report: huge });
+    expect(jsonByteLength(sent[1])).toBeLessThanOrEqual(DIAGNOSTICS_DEFAULTS.serverMaxBytes);
+  });
+});
+
 describe("the offline queue across people", () => {
   const transport = (online: () => boolean): DiagnosticsTransport & { sent: DiagnosticReport[] } => {
     const sent: DiagnosticReport[] = [];

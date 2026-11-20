@@ -166,6 +166,60 @@ describe("createSupport({ diagnostics })", () => {
     expect(transport.sent[0]).toMatchObject({ id: ID, trigger: "shake", feedbackId: REPORT });
   });
 
+  it("leaving the screen while its report is being sent never sends the shake's dump twice", async () => {
+    const transport = memoryTransport();
+    const diagnostics = createDiagnostics({ app: { id: "acme" }, transport, randomId: () => ID });
+    const acc = accelerometer();
+    let deliver: () => void = () => {};
+    const feedbackSink = { submit: vi.fn(() => new Promise<{ id: string }>((resolve) => (deliver = () => resolve({ id: REPORT })))) };
+    const { navigate, wrap } = harness(diagnostics, { accelerometer: acc, feedbackSink });
+    const view = render(wrap(<span />));
+    let t = 0;
+    vi.spyOn(Date, "now").mockImplementation(() => t);
+    acc.jolt(3);
+    t = 100;
+    acc.jolt(3);
+    await waitFor(() => expect(navigate).toHaveBeenCalled());
+    vi.restoreAllMocks();
+    view.rerender(wrap(<FeedbackForm sentAlert={false} />));
+    fireEvent.change(screen.getByTestId("genesis-support-feedback-message"), { target: { value: "It froze" } });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("genesis-support-feedback-send"));
+    });
+    await waitFor(() => expect(feedbackSink.submit).toHaveBeenCalled());
+    // The person leaves while the report is still on its way.
+    view.rerender(wrap(<span />));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(transport.sent).toHaveLength(0);
+    await act(async () => deliver());
+    await waitFor(() => expect(transport.sent).toHaveLength(1));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(transport.sent).toHaveLength(1);
+    expect(transport.sent[0]).toMatchObject({ id: ID, trigger: "shake", feedbackId: REPORT });
+  });
+
+  it("a shake's dump left unclaimed isn't sent once support's diagnostics.enabled turns off", async () => {
+    const transport = memoryTransport();
+    // The dump's own instance has no settings source: only support's settings say off.
+    const diagnostics = createDiagnostics({ app: { id: "acme" }, transport, randomId: () => ID });
+    const acc = accelerometer();
+    let on = true;
+    const { navigate, wrap } = harness(diagnostics, { accelerometer: acc, appSettings: () => ({ "diagnostics.enabled": on }) });
+    const view = render(wrap(<span />));
+    let t = 0;
+    vi.spyOn(Date, "now").mockImplementation(() => t);
+    acc.jolt(3);
+    t = 100;
+    acc.jolt(3);
+    await waitFor(() => expect(navigate).toHaveBeenCalled());
+    vi.restoreAllMocks();
+    view.rerender(wrap(<FeedbackForm sentAlert={false} />));
+    on = false;
+    view.rerender(wrap(<span />));
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(transport.sent).toHaveLength(0);
+  });
+
   it("sends a shake's dump once under StrictMode, which mounts the feedback screen twice", async () => {
     const transport = memoryTransport();
     const diagnostics = createDiagnostics({ app: { id: "acme" }, transport, randomId: () => ID });

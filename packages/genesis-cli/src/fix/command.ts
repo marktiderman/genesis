@@ -157,16 +157,26 @@ async function fixCommand(options: FixCommandOptions, io: FixCommandIo, vault: S
   const planned = new Map<string, FixPlan>();
   if (options.expect && !options.plan) {
     const toApply: string[] = [];
+    const unplanned: Array<{ id: string; error: string }> = [];
     for (const g of chosen) {
       if (!g.fix) continue;
       let plan: FixPlan;
       try {
         plan = await planFix(g.fix, contextFor(g.fix, g));
-      } catch {
-        continue; // reported by the loop below, which plans it again
+      } catch (err) {
+        unplanned.push({ id: g.fix.id, error: (err as Error).message });
+        continue;
       }
       planned.set(g.fix.id, plan);
       if (g.fix.kind !== "manual" && plan.files.length + plan.commands.length > 0) toApply.push(g.fix.id);
+    }
+    // A fix that can't be planned can't be checked against --expect either: nothing is applied.
+    if (unplanned.length) {
+      for (const u of unplanned) io.err(`✗ ${u.id}: couldn't plan: ${u.error}`);
+      const message = `--expect needs every fix of ${target} planned first; ${unplanned.map((u) => u.id).join(", ")} couldn't be. Nothing was written.`;
+      if (options.json) io.out(JSON.stringify({ target, fixes: unplanned.map((u) => ({ id: u.id, error: u.error })), error: message }, null, 2));
+      else io.err(`✗ ${message}`);
+      return 1;
     }
     if (toApply.length > 1) {
       const message = `--expect names one plan, but ${target} has ${toApply.length} fixes to apply (${toApply.join(", ")}). Nothing was written; run genesis fix <id> --expect <hash> for each.`;

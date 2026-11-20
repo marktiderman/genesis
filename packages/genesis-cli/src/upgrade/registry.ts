@@ -69,6 +69,12 @@ export interface UpgradeStatus {
   stale?: boolean;
   /** Why the network wasn't used or failed, when it wasn't. */
   offlineReason?: string;
+  /**
+   * The advisories were read just now (or within the failure backoff, for these versions), though
+   * the release distance comes from the cache: npm failed, the advisory sources answered. The doctor
+   * reports them at their full level, and the distance as a note.
+   */
+  advisoriesLive?: true;
 }
 
 export interface RegistryDeps {
@@ -104,6 +110,8 @@ interface CacheFile {
   latest: string | null;
   firstNewerAt: string | null;
   advisories: Advisory[];
+  /** Advisories read while npm failed: kept for the failure backoff, apart from the release distance. */
+  advisoryCheck?: { at: string; packages: Record<string, string>; advisories: Advisory[] };
 }
 
 function npmJson(args: string[], cwd: string, timeout: number): unknown {
@@ -268,7 +276,7 @@ export function customRegistry(root: string, env: NodeJS.ProcessEnv = process.en
 function readCache(file: string): CacheFile | null {
   try {
     const c = JSON.parse(readFileSync(file, "utf8")) as CacheFile;
-    return typeof c.installed === "string" || typeof c.failedAt === "string" ? c : null;
+    return typeof c.installed === "string" || typeof c.failedAt === "string" || typeof c.advisoryCheck === "object" ? c : null;
   } catch {
     return null;
   }
@@ -306,15 +314,28 @@ export async function readUpgradeStatus(root: string, deps: RegistryDeps = {}): 
           ...(offlineReason ? { offlineReason } : {}),
         }
       : null;
+  /**
+   * The cache's distance (if any) with advisories read live: the distance stays a note (offline
+   * reason), the advisories keep their level.
+   */
+  const withLiveAdvisories = (advisories: Advisory[], checkedAt: string, reason: string): UpgradeStatus =>
+    ({ ...(fromCache(reason) ?? { installed: manifest.version, packages, latest: null, firstNewerAt: null, checkedAt, source: "network" as const, offlineReason: reason }), advisories, advisoriesLive: true });
   // Offline, the cache is only ever a note (the doctor never fails on it), fresh or not.
   if (!deps.network) return fromCache("the network is off");
   if (fresh) return fromCache();
-  if (cache?.failedAt && now.getTime() - Date.parse(cache.failedAt) < FAILURE_TTL_MS) return fromCache(`the last check, at ${cache.failedAt.slice(11, 16)} UTC, failed (${cache.failure ?? "unknown"}); it's tried again an hour later`);
+  if (cache?.failedAt && now.getTime() - Date.parse(cache.failedAt) < FAILURE_TTL_MS) {
+    const reason = `the last check, at ${cache.failedAt.slice(11, 16)} UTC, failed (${cache.failure ?? "unknown"}); it's tried again an hour later`;
+    // Advisories read in that failed run, for these versions, still count at their level.
+    const check = cache.advisoryCheck;
+    if (check && sameVersions(check.packages, packages) && now.getTime() - Date.parse(check.at) < FAILURE_TTL_MS) return withLiveAdvisories(check.advisories, check.at, reason);
+    return fromCache(reason);
+  }
 
-  const fail = (reason: string) => {
+  const fail = (reason: string, advisoryCheck?: CacheFile["advisoryCheck"]) => {
     try {
       mkdirSync(path.dirname(cacheFile), { recursive: true });
-      writeFileSync(cacheFile, `${JSON.stringify({ ...(good ?? {}), failedAt: now.toISOString(), failure: reason }, null, 2)}\n`);
+      const { advisoryCheck: _old, ...kept } = good ?? ({} as Partial<CacheFile>);
+      writeFileSync(cacheFile, `${JSON.stringify({ ...kept, failedAt: now.toISOString(), failure: reason, ...(advisoryCheck ? { advisoryCheck } : {}) }, null, 2)}\n`);
     } catch {
       // A read-only node_modules: the next run asks again.
     }
@@ -347,11 +368,10 @@ export async function readUpgradeStatus(root: string, deps: RegistryDeps = {}): 
     }
   }
   if (npmFailure) {
-    // The release distance comes from the cache (if any); the advisories are this run's.
-    const cached = fail(npmFailure);
-    return cached
-      ? { ...cached, advisories }
-      : { installed: manifest.version, packages, latest: null, firstNewerAt: null, advisories, checkedAt: now.toISOString(), source: "network", offlineReason: npmFailure };
+    // The release distance comes from the cache (if any); the advisories are this run's, saved
+    // apart from it so the hour of failure backoff still reports them.
+    fail(npmFailure, { at: now.toISOString(), packages, advisories });
+    return withLiveAdvisories(advisories, now.toISOString(), npmFailure);
   }
   const status: UpgradeStatus = { installed: manifest.version, packages, latest, firstNewerAt: firstNewerAt(times, manifest.version), advisories, checkedAt: now.toISOString(), source: "network" };
   try {

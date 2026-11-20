@@ -115,6 +115,14 @@ describe("renameFeaturesDependency", () => {
     expect(rewriteWorkspaceYaml("catalog:\n  '@marktiderman/genesis-config': ^0.11.4\n  '@marktiderman/genesis-features': ^0.11.0\n", rangeFor)).toBe("catalog:\n  '@marktiderman/genesis-config': ^0.11.4\n");
   });
 
+  it("dedupes only within one mapping: a named catalog keeps its own renamed entry", () => {
+    const rangeFor = () => "^0.13.0";
+    const yaml = "catalogs:\n  a:\n    '@marktiderman/genesis-config': ^0.13.0\n  b:\n    '@marktiderman/genesis-features': ^0.11.0\n";
+    expect(rewriteWorkspaceYaml(yaml, rangeFor)).toBe("catalogs:\n  a:\n    '@marktiderman/genesis-config': ^0.13.0\n  b:\n    '@marktiderman/genesis-config': ^0.13.0\n");
+    const flow = "catalogs: { a: { '@marktiderman/genesis-config': ^0.11.4 }, b: { '@marktiderman/genesis-features': ^0.11.0 } }\n";
+    expect(rewriteWorkspaceYaml(flow, rangeFor)).toBe("catalogs: { a: { '@marktiderman/genesis-config': ^0.11.4 }, b: { '@marktiderman/genesis-config': ^0.13.0 } }\n");
+  });
+
   it("returns the text unchanged when there's nothing to rename", () => {
     const raw = '{ "dependencies": { "left-pad": "1" } }';
     expect(renameFeaturesDependency(raw, () => "x")).toBe(raw);
