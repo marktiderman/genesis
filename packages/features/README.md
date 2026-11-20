@@ -166,8 +166,9 @@ or `ci`): never its value. `feature` and `flag` link the key to the gate. A numb
 3. **file**: genesis.config.json `settings` (`settingsLayerFromFile`), the only layer that sets a
    build-time key;
 4. **database**: the app's `genesis_settings` table (genesis-supabase's `settings` block);
-5. **tenant**: only keys declared `scope: "tenant"`;
-6. **person**: only keys declared `scope: "person"`.
+5. **tenant**: only keys declared `scope: "tenant"` (genesis-supabase's `genesis_tenant_settings`,
+   set by the tenant's admins);
+6. **person**: only keys declared `scope: "person"` (`genesis_person_settings`, set by each person).
 
 Which layers may set each scope is one table, `SCOPE_LAYERS`. A lock always holds: a locked entry
 whose own value is bad keeps the value from below and still locks it. `null` ("not set") is a value
@@ -263,8 +264,8 @@ confirm, then applies it with the plan's `hash` (`apply(fixId, expect)`). A host
 that changed in between (`stale_plan`), and the screen offers to plan again. A plan needing more
 than the host can do shows its `genesis fix <id>` command instead. The app host applies a fix only
 when it writes the database layer and nothing else (`databaseOnly` on the fix, `layers` on the
-plan). A guided fix opens its setup step (`onOpenStep`), or shows its `genesis fix <id>` command (the
-wizard's `genesis setup --step <id>` isn't available yet); a manual
+plan). A guided fix opens its setup step (`onOpenStep`), or shows its command: `genesis setup --step <id>` when it has
+a step, else `genesis fix <id>`; a manual
 fix shows its instructions. Links (`href`, `notesUrl`) are followed only when `http:`, `https:` or
 on the same site (`safeHref`).
 
@@ -283,7 +284,10 @@ When `state` carries no `audit`, the tab fetches the first page itself.
 **The protocol.** One endpoint, `POST`, JSON only, a bearer token and no cookies
 (`credentials: "omit"`), every request `{ v, op, … }` (`SETTINGS_PROTOCOL_VERSION`). The ops are
 `state`, `setValue`, `clearValue`, `plan`, `apply`, `upgrades`, `audit`, `propose` and `setSecret`
-(`SETTINGS_OPS`, answers in `SettingsResponses`). A failure is `{ error: { code, message } }`,
+(`SETTINGS_OPS`, answers in `SettingsResponses`). `setValue` and `clearValue` name their `layer`:
+`file`, `database`, `tenant` (with `tenant`, the tenant's id) or `person` (the signed-in person's
+own); `state` with `tenant` returns that tenant's layer and the person's in `layers`. The screen
+itself writes `file` and `database` only. A failure is `{ error: { code, message } }`,
 thrown by the client as a `SettingsProtocolError` whose `code` is `bad_request`, `unauthenticated`,
 `forbidden`, `unsupported`, `locked`, `stale_plan`, `not_found`, `version` or `error`. A host
 answers an op it doesn't know (one a newer screen sends) with `unsupported`, so the screen can tell

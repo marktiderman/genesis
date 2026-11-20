@@ -11,6 +11,77 @@ This file is appended to (never rewritten) at every release. Newest version on t
 
 ---
 
+## Support settings: one resolver, renumbered migrations, deprecated hooks — `@marktiderman/genesis-support` (migrations 0029 to 0034), `@marktiderman/genesis-supabase` (`0023_genesis_settings_tenant_person.sql`), `@marktiderman/genesis-config` (**minor**)
+
+🟡 **Support's unreleased migrations are renumbered after 0028**, so an app that already applied 0026
+and 0028 applies them in order: `0029_genesis_support_desks.sql` (was 0024),
+`0030_genesis_support_notifications.sql` (was 0025), `0031_genesis_support_email_reply.sql` (was
+0027) and `0032_genesis_support_staff_admin_list.sql` (was 0029). Only apps that copied them from a
+pre-release build need to act: rename your copies' files to match, or let `genesis migrate` copy them.
+
+🟡 **Write the manifest again on deploy** (`genesis settings sync`). The catalogue now carries each
+key's `defaults` by preset; genesis-supabase 0023's `private.genesis_setting(key, tenant)` resolves a
+setting on the server from them (default, preset, file, database, then a tenant-scoped key's tenant
+value, with locks), as `resolveSettings` does. Support's server gates read it, so a tenant's
+`support.helpCenter` now closes that tenant's help center on the server, not only on screen. Until
+the manifest is written, the server gates use the package defaults (resolveSettings with no layers).
+
+🔴 **Support 0020's setting readers are dropped** (support 0033): `private.genesis_support_setting_int`,
+`_bool`, `_layers`, `_fits` and `_value`. SQL of your own that called them calls
+`private.genesis_setting(key, tenant)` instead (genesis-supabase 0023; null until the manifest
+declares the key).
+
+🟡 **Deprecated, still honored for one release and removed in the next minor** (support 0030, 0033):
+
+- `private.genesis_support_verify_prompt_enabled()`: set `support.verifyPrompt` to true instead.
+- An app's own `private.genesis_support_person_name` or `private.genesis_support_tenant_label`:
+  define `private.genesis_person_name(person)` and `private.genesis_tenant_label(tenant)`, which
+  support asks first.
+
+🔴 **`private.genesis_support_requester_label(report)` is no longer called** (support 0034, the
+support-chat block), and the report's `by_requester_capped` (`byRequesterCapped`) is gone: every
+open ticket is labelled. Define the set-based hook instead; the one-ticket hook can be its body:
+
+```sql
+create function private.genesis_support_requester_labels(reports uuid[])
+returns table (report_id uuid, label text) language sql stable set search_path = '' as $$
+  select r, private.genesis_support_requester_label(r) from unnest(reports) r
+$$;
+revoke execute on function private.genesis_support_requester_labels(uuid[]) from public, anon, authenticated;
+```
+
+🟡 **`support_agents_list` returns two more columns** (support 0034): `role` and `removable`. SQL of
+your own that reads it by column name is unaffected; one that expects exactly two columns needs them.
+
+🟢 No support setting is planned any more: `support.email` gates reply by email, `support.aiAnswers`
+gates a tenant's AI answers in the database (0029, under `support_ai_enabled`), and
+`support.chatThreads` off keeps threads on support_replies (pass `settings` to `createSupportClient`
+on the web). The `sentry` step no
+longer offers to save its DSN as a setting and `ai.key-budget` has no budget field, since no package
+reads either; `github.issues` saves
+the repository to `support.githubRepo`.
+
+## Settings: tenant and person values, Realtime refresh — `@marktiderman/genesis-supabase` (migration `0023_genesis_settings_tenant_person.sql`), `@marktiderman/genesis-config` (settings protocol) (**minor**)
+
+🟡 **To get tenant and person values, apply migration 0023** (`genesis migrate` copies it), if your
+app uses the settings block. `readSettingsLayers` and `resolveAppSettings` (and so
+`watchAppSettings`) now ask `genesis_settings_layers(tenant)`, which 0023 adds. Until it is applied
+they read 0020's layers as before, resolve without tenant and person values, and say so once in the
+console, so deploying this version first breaks nothing. 0020's `genesis_settings_layers()` stays as
+it was, so SQL and Edge Functions that call it keep working.
+
+🟡 **Check what `resolveAppSettings` now reads.** Without `tenant` or `person` in its options it
+resolves with the stored tenant layer (of `tenantId`, when given) and the signed-in person's own
+values, where it used to resolve with none. Passing `tenant` or `person` still replaces the stored ones.
+
+🟢 Tenant admins can set tenant-scope keys only once your app has `private.genesis_tenant_admin(tenant,
+person)` (the tenant-features hook); without it, tenant writes are refused. Add the foreign key from
+`genesis_tenant_settings.tenant_id` (and `genesis_scoped_setting_changes.tenant_id`) to your tenant
+table, as the migration's header shows. 0023 adds a policy on `realtime.messages`
+(`genesis_settings_listen`) for its private channels; a project without Realtime is unaffected.
+
+---
+
 ## Support staff: platform admins handle tickets when the app names no staff — `@marktiderman/genesis-support` (migration `0023_genesis_support_hook_defaults.sql`; **minor**)
 
 🟡 **Check who your staff are** if your app defines `private.genesis_platform_admin(person)` (the

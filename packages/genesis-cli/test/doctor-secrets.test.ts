@@ -228,14 +228,17 @@ beforeAll(() => {
   stubs = mkdtempSync(path.join(tmpdir(), "genesis-stub-clis-"));
   const script = `#!/bin/sh
 D='${stubs}'
-printf '%s\\n' "$(basename "$0") $*" >> "$D/calls.log"
+printf '%s\\n' "$(basename "$0") $*" | sed 's#-f [^ ]*/query[.]sql#-f <sql file>#' >> "$D/calls.log"
 input=$(cat)
+# supabase db query reads its SQL from the file after -f (src/exec/supabase-query.ts).
+case "$(basename "$0") $*" in "supabase db query"*) for a; do last=$a; done; input=$(cat "$last") ;; esac
 printf '%s\\n---\\n' "$input" >> "$D/stdin.log"
 case "$(basename "$0") $*" in
   "supabase secrets list"*) echo '[{"name":"GENESIS_SUPPORT_CLEANUP_SECRET","value":"0f3c"}]' ;;
   "supabase secrets set"*) echo "Finished supabase secrets set." ;;
   "supabase db query"*)
     case "$input" in
+      *genesis_platform_admins*) if [ -f "$D/admins.json" ]; then cat "$D/admins.json"; else echo '[]'; fi ;;
       *genesis_settings*) if [ -f "$D/db.json" ]; then cat "$D/db.json"; else echo '[]'; fi ;;
       *"from vault.secrets order"*) echo '[{"name":"SOMETHING_ELSE"}]' ;;
       *) echo '[]' ;;
@@ -261,7 +264,7 @@ afterAll(() => {
   cleanupApps();
 });
 beforeEach(() => {
-  for (const f of ["calls.log", "stdin.log", "gh-fail", "db.json"]) rmSync(path.join(stubs, f), { force: true });
+  for (const f of ["calls.log", "stdin.log", "gh-fail", "db.json", "admins.json"]) rmSync(path.join(stubs, f), { force: true });
 });
 afterEach(() => {
   // Whatever happened, no value ever reached a tool's argv.
@@ -315,7 +318,7 @@ describe("the settings check: setup and secrets", () => {
     const root = secretsApp();
     const result = await runDoctor({ root });
     expect(list(result.findings)).toEqual([
-      "setup-incomplete info genesis.config.json support.githubRepo [settings.setup]: support.githubRepo isn't set up yet (reports become GitHub issues), so it stays off: set settings.support.githubRepo in genesis.config.json, and the secret GITHUB_TOKEN (its guided step, github.issues, comes with genesis setup, which isn't available yet)",
+      "setup-incomplete info genesis.config.json support.githubRepo [settings.setup]: support.githubRepo isn't set up yet (reports become GitHub issues), so it stays off: genesis setup --step github.issues",
     ]);
     expect(calls()).toBe("");
   });
@@ -329,14 +332,14 @@ describe("the settings check: setup and secrets", () => {
       "secret-missing warn supabase secrets AI_PROVIDER_KEY [secrets.set]: AI_PROVIDER_KEY isn't set in supabase secrets; settings.support.aiAnswers needs it",
       "secret-missing warn supabase secrets SUPPORT_WEBHOOK_URL [secrets.set]: SUPPORT_WEBHOOK_URL isn't set in supabase secrets; function genesis-support-notify needs it",
       "secret-missing warn supabase vault GENESIS_SUPPORT_WEBHOOK_SECRET [secrets.set]: GENESIS_SUPPORT_WEBHOOK_SECRET isn't set in supabase vault; settings.support.webhooks needs it",
-      "setup-incomplete info genesis.config.json support.githubRepo [settings.setup]: support.githubRepo isn't set up yet (reports become GitHub issues), so it stays off: set settings.support.githubRepo in genesis.config.json, and the secret GITHUB_TOKEN (its guided step, github.issues, comes with genesis setup, which isn't available yet)",
+      "setup-incomplete info genesis.config.json support.githubRepo [settings.setup]: support.githubRepo isn't set up yet (reports become GitHub issues), so it stays off: genesis setup --step github.issues",
     ]);
     // GITHUB_TOKEN only a dormant key and a function need: setup-incomplete covers it. NEVER_ASKED's function isn't deployed.
     expect(JSON.stringify(result.findings)).not.toMatch(/GITHUB_TOKEN isn't|NEVER_ASKED/);
     expect(calls().split("\n").filter(Boolean).sort()).toEqual([
       "eas env:list production --format short",
       "gh secret list --json name",
-      "supabase db query --linked -o json -f /dev/stdin",
+      "supabase db query --linked -o json -f <sql file>",
       "supabase secrets list -o json",
     ]);
     // eas printed a plaintext value: it is dropped with the rest of its output.
@@ -380,6 +383,37 @@ describe("the settings check: setup and secrets", () => {
       "invalid-setting error genesis_settings support.inbox [manual:invalid-setting]: support.inbox is locked by the file layer: the database layer can't change it (a row in the database layer; a platform admin changes it on the Settings screen)",
       "invalid-setting error genesis_settings support.nope [manual:invalid-setting]: support.nope isn't a setting any installed package declares (a row in the database layer; a platform admin changes it on the Settings screen)",
     ]);
+  });
+});
+
+describe("platform-admin-missing", () => {
+  const ADMINS = { "supabase/migrations/20261026000900_genesis_platform_admins.sql": "-- 0022's copy\n" };
+  const admins = (findings: Array<{ rule: string; level: string; file: string; message: string; fix?: { id: string } }>) =>
+    findings.filter((f) => f.rule === "platform-admin-missing").map((f) => `${f.level} ${f.file} [${f.fix?.id}]: ${f.message.split(":")[0]}`);
+
+  it("warns, with the first-admin fix, when the default list is in use and empty", async () => {
+    writeFileSync(path.join(stubs, "admins.json"), JSON.stringify([{ admins: 0, app_hook: false }]));
+    const result = await runDoctor({ root: secretsApp({}, ADMINS), database: true });
+    expect(admins(result.findings)).toEqual(["warn genesis_platform_admins [settings.first-admin]: nobody is a platform admin"]);
+    const plan = await planFix(builtinFixes().find((f) => f.id === "settings.first-admin")!, { root: secretsApp({}, ADMINS), findings: [] });
+    expect(plan.manual).toContain("and email_confirmed_at is not null) <> 1 then");
+    expect(plan.manual).toContain("insert into public.genesis_platform_admins (person)");
+  });
+
+  it("is quiet with an admin, with the app's own hook, or without the migration", async () => {
+    writeFileSync(path.join(stubs, "admins.json"), JSON.stringify([{ admins: 1, app_hook: false }]));
+    expect(admins((await runDoctor({ root: secretsApp({}, ADMINS), database: true })).findings)).toEqual([]);
+    writeFileSync(path.join(stubs, "admins.json"), JSON.stringify([{ admins: 0, app_hook: true }]));
+    expect(admins((await runDoctor({ root: secretsApp({}, ADMINS), database: true })).findings)).toEqual([]);
+    writeFileSync(path.join(stubs, "admins.json"), JSON.stringify([{ admins: 0, app_hook: false }]));
+    rmSync(path.join(stubs, "calls.log"), { force: true });
+    expect(admins((await runDoctor({ root: secretsApp(), database: true })).findings)).toEqual([]);
+    expect(calls()).not.toContain("genesis_platform_admins");
+  });
+
+  it("gives an info when the list can't be read", async () => {
+    writeFileSync(path.join(stubs, "admins.json"), "not json");
+    expect(admins((await runDoctor({ root: secretsApp({}, ADMINS), database: true })).findings)).toEqual(["info genesis_platform_admins [manual:platform-admin-missing]: the platform admins weren't checked"]);
   });
 });
 
@@ -535,8 +569,8 @@ describe("the settings and secrets fixes", () => {
     const root = secretsApp();
     const t = io();
     expect(await runFixCommand({ root, target: "setup-incomplete", yes: true, network: false }, t.io)).toBe(0);
-    expect(t.out.join("\n")).toContain("- support.githubRepo: set settings.support.githubRepo in genesis.config.json and its secret GITHUB_TOKEN");
-    expect(t.out.join("\n")).not.toContain("genesis setup --step");
+    // The step's command first, the settings and secret by hand as the alternative.
+    expect(t.out.join("\n")).toContain("- support.githubRepo: genesis setup --step github.issues (or set settings.support.githubRepo in genesis.config.json and its secret GITHUB_TOKEN");
     expect(calls()).toBe("");
   });
 });

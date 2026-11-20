@@ -14,13 +14,28 @@
  * Cached with TanStack Query under `[SUPPORT_QUERY_ROOT, "agent", …]` (`supportAgentKeys`).
  */
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { View } from "react-native";
-import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
-import { NativeButton, NativeSegmentedControl, NativeText } from "@marktiderman/genesis-ui-native/components";
+import { Linking } from "react-native";
+import { skipToken, useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  Box,
+  Inline,
+  NativeButton,
+  NativeInlineAlert,
+  NativeSegmentedControl,
+  NativeSelect,
+  NativeSelectContent,
+  NativeSelectItem,
+  NativeSelectTrigger,
+  NativeText,
+  Stack,
+} from "@marktiderman/genesis-ui-native/components";
 import type { InboxItem, InboxPageProps, ThreadAttachment, ThreadMessage, ThreadPageProps } from "@marktiderman/genesis-ui-native/layouts";
 import type { FeedbackStatus } from "../contract";
 import { reportHeading, requesterTenantsLabel, SupportError, type AgentTicket, type AgentTicketCounts, type SupportPerson, type SupportReply, type TicketInboxView } from "../client";
 import { fill, type SupportCopy } from "../copy";
+import { mailtoHref } from "../settings";
+import { AgentDeskControls, AgentDeskSwitch } from "./desks";
+import { AgentTicketDiagnostics } from "./diagnostics-viewer";
 import { SUPPORT_QUERY_ROOT, useSupport } from "./support";
 
 /** The queues, in the order the switcher shows them. */
@@ -33,6 +48,8 @@ const CLOSED = new Set<FeedbackStatus>(["addressed", "wont_fix"]);
 const NOT_ALLOWED = "42501";
 const NOTE = "note";
 const REPLY = "reply";
+/** The assignee picker's value for nobody. */
+const NOBODY = "";
 
 /**
  * The agent desk's query keys, scoped by the signed-in login (`user`) so a sign-in as someone else
@@ -54,18 +71,20 @@ export const supportAgentKeys = {
   staff: (user: string | null, tenant: string | null) => [SUPPORT_QUERY_ROOT, "agent", user, tenant, "staff"] as const,
   reporters: (user: string | null, ids: readonly string[]) => [SUPPORT_QUERY_ROOT, "agent", user, "reporters", ...ids] as const,
   requesterTenants: (user: string | null, personId: string) => [SUPPORT_QUERY_ROOT, "agent", user, "requester-tenants", personId] as const,
+  /** Desks (migration 0024): the ones the login works, a ticket's, and where it can be moved. */
+  desks: (user: string | null) => [SUPPORT_QUERY_ROOT, "agent", user, "desks"] as const,
+  ticketDesk: (user: string | null, id: string) => [SUPPORT_QUERY_ROOT, "agent", user, "desks", "ticket", id] as const,
+  deskTargets: (user: string | null, id: string) => [SUPPORT_QUERY_ROOT, "agent", user, "desks", "targets", id] as const,
 };
 
-/** The signed-in person's id, from the app's Supabase session (null while it's read, or signed out). */
-/** Undefined while the session is still read. */
-function useSignedInId(given: string | null | undefined): string | null | undefined {
+/** The signed-in person's id, from the app's Supabase session: null signed out, undefined while it's read. @internal */
+export function useSignedInId(given: string | null | undefined): string | null | undefined {
   const { options } = useSupport();
   const queryClient = useQueryClient();
   // A sign-in or sign-out reads the id again at once, so the keys move to the new login.
   useEffect(() => {
-    const auth = options.supabase.auth as { onAuthStateChange?: (cb: () => void) => { data?: { subscription?: { unsubscribe(): void } } } };
-    const sub = auth.onAuthStateChange?.(() => void queryClient.invalidateQueries({ queryKey: [SUPPORT_QUERY_ROOT, "agent", "me"] }));
-    return () => sub?.data?.subscription?.unsubscribe();
+    const { data } = options.supabase.auth.onAuthStateChange(() => void queryClient.invalidateQueries({ queryKey: [SUPPORT_QUERY_ROOT, "agent", "me"] }));
+    return () => data.subscription.unsubscribe();
   }, [options.supabase, queryClient]);
   const session = useQuery({
     queryKey: [SUPPORT_QUERY_ROOT, "agent", "me"],
@@ -81,7 +100,8 @@ const isRefused = (error: unknown) => error instanceof SupportError && error.cod
 /** A refusal doesn't change by asking again. */
 const retryUnlessRefused = (count: number, error: unknown) => !isRefused(error) && count < 2;
 
-function required<T>(method: T | undefined, name: string): NonNullable<T> {
+/** A client method the screen needs, or a SupportError naming it (`0A000`). @internal */
+export function required<T>(method: T | undefined, name: string): NonNullable<T> {
   if (!method) throw new SupportError(`This support client has no ${name} (the agent inbox, migration 0009).`, "0A000", name);
   return method as NonNullable<T>;
 }
@@ -103,28 +123,29 @@ function waitedFor(sinceIso: string, copy: SupportCopy, now: number): string {
  * business's, `client.isStaff()` for the app's own (null or left out). False while it's read, when
  * signed out, and when the read fails.
  */
-export function useIsSupportAgent(tenantId?: string | null): boolean {
+export function useIsSupportAgent(tenantId?: string | null, options: { enabled?: boolean } = {}): boolean {
   const { client } = useSupport();
   const tenant = tenantId ?? null;
   const me = useSignedInId(undefined);
   const query = useQuery({
     queryKey: supportAgentKeys.isAgent(me ?? null, tenant),
     queryFn: () => (tenant === null ? client.isStaff() : client.isAgent ? client.isAgent(tenant) : Promise.resolve(false)),
-    enabled: me !== null && me !== undefined,
+    enabled: options.enabled !== false && me !== null && me !== undefined,
     staleTime: 5 * 60_000,
   });
-  return query.data === true;
+  return options.enabled !== false && query.data === true;
 }
 
 /**
  * How many active tickets in the help desk hold a requester's message no agent has read
  * (`client.agentUnreadCount`), for a badge. 0 for anyone who isn't an agent there, and while it's read.
  */
-export function useAgentUnreadCount(tenantId?: string | null, options: { refreshInterval?: number } = {}): number {
+export function useAgentUnreadCount(tenantId?: string | null, options: { refreshInterval?: number; enabled?: boolean } = {}): number {
   const { client } = useSupport();
   const tenant = tenantId ?? null;
   const me = useSignedInId(undefined);
-  const agent = useIsSupportAgent(tenant);
+  // Not asked, nor polled, while whatever shows it is hidden.
+  const agent = useIsSupportAgent(tenant, { enabled: options.enabled !== false });
   const query = useQuery({
     queryKey: supportAgentKeys.unread(me ?? null, tenant),
     queryFn: () => required(client.agentUnreadCount, "agentUnreadCount")({ tenantId: tenant }),
@@ -274,7 +295,7 @@ export function useAgentInbox(options: AgentInboxOptions = {}): AgentInboxProps 
   const reporters = useReporters(requesterIds);
   const notAllowed = isRefused(list.error);
   const staff = useStaff(tenant, !notAllowed);
-  const open = options.onOpen ?? ((id: string) => block.options.navigate(`${block.paths.inbox}/agent/${encodeURIComponent(id)}`));
+  const open = options.onOpen ?? ((id: string) => block.options.navigate(block.paths.agentThread(id)));
   // Re-read with the list, so how long someone has waited moves on.
   const now = list.dataUpdatedAt || Date.now();
 
@@ -303,15 +324,22 @@ export function useAgentInbox(options: AgentInboxOptions = {}): AgentInboxProps 
   const viewList = views.map((v) => ({ value: v, label: copy.agentInbox.views[v], count: countOf(v) }));
 
   const header: ReactNode =
-    viewList.length > 1 ? (
-      <View style={{ paddingHorizontal: 16, paddingBottom: 8 }} accessibilityLabel={copy.agentInbox.viewLabel}>
-        <NativeSegmentedControl
-          testID="genesis-support-agent-views"
-          options={viewList.map((v) => ({ value: v.value, label: v.count === undefined ? v.label : `${v.label} ${v.count}` }))}
-          value={view}
-          onChange={setView}
-        />
-      </View>
+    viewList.length > 1 || tenant !== null ? (
+      <Box px="lg" pb="sm">
+        <Stack gap="sm">
+          {tenant !== null ? <AgentDeskSwitch tenantId={tenant} /> : null}
+          {viewList.length > 1 ? (
+            <Box accessibilityLabel={copy.agentInbox.viewLabel}>
+              <NativeSegmentedControl
+                testID="genesis-support-agent-views"
+                options={viewList.map((v) => ({ value: v.value, label: v.count === undefined ? v.label : `${v.label} ${v.count}` }))}
+                value={view}
+                onChange={setView}
+              />
+            </Box>
+          ) : null}
+        </Stack>
+      </Box>
     ) : null;
 
   return {
@@ -418,13 +446,16 @@ function toMessage(r: SupportReply, requester: string, requesterId: string | nul
       : r.fromStaff
         ? copy.thread.support
         : requester;
-  const attachments: ThreadAttachment[] = (r.attachments ?? [])
-    .filter((a) => a.url)
-    .map((a) =>
+  // A file with no address to open is left out.
+  const attachments: ThreadAttachment[] = (r.attachments ?? []).flatMap((a): ThreadAttachment[] => {
+    const uri = a.url;
+    if (!uri) return [];
+    return [
       a.kind === "image" && a.stored
-        ? { id: a.id, kind: "image" as const, uri: a.url!, ...(a.width ? { width: a.width } : {}), ...(a.height ? { height: a.height } : {}), accessibilityLabel: copy.thread.screenshot }
-        : { id: a.id, kind: "file" as const, uri: a.url!, name: a.name || (a.kind === "voice" ? copy.thread.voiceNote : a.kind === "video" ? copy.thread.video : copy.thread.file) },
-    );
+        ? { id: a.id, kind: "image" as const, uri, ...(a.width ? { width: a.width } : {}), ...(a.height ? { height: a.height } : {}), accessibilityLabel: copy.thread.screenshot }
+        : { id: a.id, kind: "file" as const, uri, name: a.name || (a.kind === "voice" ? copy.thread.voiceNote : a.kind === "video" ? copy.thread.video : copy.thread.file) },
+    ];
+  });
   return {
     id: r.id,
     body: showMentions(r.body),
@@ -470,10 +501,12 @@ export function useAgentThread(ticketId: string, options: AgentThreadOptions = {
   const notAllowed = isRefused(ticket.error);
   const staff = useStaff(tenant, !notAllowed);
   const reporters = useReporters(useMemo(() => (t?.userId ? [t.userId] : []), [t?.userId]));
+  const requesterId = t?.userId ?? null;
   const tenants = useQuery({
-    queryKey: supportAgentKeys.requesterTenants(me ?? null, t?.userId ?? ""),
-    queryFn: () => required(client.requesterTenants, "requesterTenants")(t!.userId!),
-    enabled: Boolean(client.requesterTenants && t?.userId),
+    queryKey: supportAgentKeys.requesterTenants(me ?? null, requesterId ?? ""),
+    // Nothing to ask without a requester (an email ticket).
+    queryFn: requesterId ? () => required(client.requesterTenants, "requesterTenants")(requesterId) : skipToken,
+    enabled: Boolean(client.requesterTenants),
     staleTime: 5 * 60_000,
     retry: retryUnlessRefused,
   });
@@ -563,54 +596,86 @@ export function useAgentThread(ticketId: string, options: AgentThreadOptions = {
   const closed = t ? CLOSED.has(t.status) : false;
   const threadFailed = ticket.isError || replies.isError;
 
+  const assignees = staff.map((s) => ({ id: s.id, name: s.id === me ? copy.thread.you : s.name?.trim() || copy.thread.support, current: t?.assigneeId === s.id }));
+  const email = person?.email ?? t?.requesterEmail ?? null;
+
   const header: ReactNode = t ? (
-    <View testID="genesis-support-agent-ticket" style={{ gap: 8, paddingHorizontal: 16, paddingVertical: 12 }}>
-      <NativeText preset="label">{who}</NativeText>
-      {person?.email ? <NativeText preset="body-sm" className="text-muted-foreground">{person.email}</NativeText> : null}
-      {tenantsLabel ? (
-        <NativeText preset="body-sm" className="text-muted-foreground" testID="genesis-support-agent-requester-tenants">
-          {tenantsLabel}
-        </NativeText>
-      ) : null}
-      <NativeText preset="caption" className="text-muted-foreground">
-        {[`${copy.staff.status}: ${statusLabel}`, `${copy.staff.assignee}: ${assigneeLabel}`].join(" · ")}
-      </NativeText>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }} accessibilityLabel={copy.staff.status}>
-        {statuses.map((s) => (
-          <NativeButton
-            key={s.value}
-            size="sm"
-            variant={s.current ? "default" : "outline"}
-            onPress={() => void setStatus(s.value).catch(() => undefined)}
-            testID={`genesis-support-agent-status-${s.value}`}
+    <Box px="lg" py="md" testID="genesis-support-agent-ticket">
+      <Stack gap="sm">
+        <NativeText preset="label">{who}</NativeText>
+        {email ? (
+          <NativeText
+            preset="body-sm"
+            className="text-primary"
+            accessibilityRole="link"
+            onPress={() => void Linking.openURL(mailtoHref(email)).catch(() => undefined)}
+            testID="genesis-support-agent-requester-email"
           >
-            {s.label}
-          </NativeButton>
-        ))}
-      </View>
-      {me ? (
-        <View style={{ flexDirection: "row" }}>
-          <NativeButton size="sm" variant="outline" onPress={() => void toggleMine().catch(() => undefined)} testID="genesis-support-agent-take">
-            {mine ? labels.handBack : labels.take}
-          </NativeButton>
-        </View>
-      ) : null}
-      {changeFailed ? (
-        <NativeText preset="body-sm" className="text-destructive" testID="genesis-support-agent-change-failed">
-          {copy.staff.failed}
+            {email}
+          </NativeText>
+        ) : null}
+        {tenantsLabel ? (
+          <NativeText preset="body-sm" className="text-muted-foreground" testID="genesis-support-agent-requester-tenants">
+            {tenantsLabel}
+          </NativeText>
+        ) : null}
+        <NativeText preset="caption" className="text-muted-foreground">
+          {[`${copy.staff.status}: ${statusLabel}`, `${copy.staff.assignee}: ${assigneeLabel}`].join(" · ")}
         </NativeText>
-      ) : null}
-    </View>
+        <Inline gap="sm" wrap accessibilityLabel={copy.staff.status}>
+          {statuses.map((s) => (
+            <NativeButton
+              key={s.value}
+              size="sm"
+              variant={s.current ? "default" : "outline"}
+              onPress={() => void setStatus(s.value).catch(() => undefined)}
+              testID={`genesis-support-agent-status-${s.value}`}
+            >
+              {s.label}
+            </NativeButton>
+          ))}
+        </Inline>
+        <Inline gap="sm" wrap>
+          {me ? (
+            <NativeButton size="sm" variant="outline" onPress={() => void toggleMine().catch(() => undefined)} testID="genesis-support-agent-take">
+              {mine ? labels.handBack : labels.take}
+            </NativeButton>
+          ) : null}
+          {assignees.length ? (
+            <NativeSelect value={t.assigneeId ?? NOBODY} onValueChange={(id) => void assign(id === NOBODY ? null : id).catch(() => undefined)}>
+              <NativeSelectTrigger testID="genesis-support-agent-assignee">
+                <NativeText preset="body-sm">{`${copy.agentInbox.assignTo}: ${assigneeLabel}`}</NativeText>
+              </NativeSelectTrigger>
+              <NativeSelectContent>
+                <NativeSelectItem value={NOBODY} testID="genesis-support-agent-assignee-none">
+                  {copy.staff.unassigned}
+                </NativeSelectItem>
+                {assignees.map((a) => (
+                  <NativeSelectItem key={a.id} value={a.id} testID={`genesis-support-agent-assignee-${a.id}`}>
+                    {a.name}
+                  </NativeSelectItem>
+                ))}
+              </NativeSelectContent>
+            </NativeSelect>
+          ) : null}
+        </Inline>
+        {changeFailed ? <NativeInlineAlert variant="destructive" description={copy.staff.failed} testID="genesis-support-agent-change-failed" /> : null}
+        <AgentDeskControls ticketId={t.id} />
+        <AgentTicketDiagnostics ticketId={t.id} me={me ?? null} />
+      </Stack>
+    </Box>
   ) : null;
 
   const aboveComposer = sendFailed ? (
-    <NativeText preset="body-sm" className="text-destructive" style={{ paddingHorizontal: 12, paddingTop: 8 }} testID="genesis-support-agent-send-failed">
-      {copy.agentInbox.sendFailed}
-    </NativeText>
+    <Box px="md" pt="sm">
+      <NativeInlineAlert variant="destructive" description={copy.agentInbox.sendFailed} testID="genesis-support-agent-send-failed" />
+    </Box>
   ) : closed ? (
-    <NativeText preset="body-sm" className="text-muted-foreground" style={{ paddingHorizontal: 12, paddingTop: 8 }} testID="genesis-support-agent-closed">
-      {labels.closedHint}
-    </NativeText>
+    <Box px="md" pt="sm">
+      <NativeText preset="body-sm" className="text-muted-foreground" testID="genesis-support-agent-closed">
+        {labels.closedHint}
+      </NativeText>
+    </Box>
   ) : undefined;
 
   return {
@@ -628,7 +693,7 @@ export function useAgentThread(ticketId: string, options: AgentThreadOptions = {
     assigneeLabel,
     statuses,
     setStatus,
-    assignees: staff.map((s) => ({ id: s.id, name: s.id === me ? copy.thread.you : s.name?.trim() || copy.thread.support, current: t?.assigneeId === s.id })),
+    assignees,
     assign,
     toggleMine,
     changeFailed,

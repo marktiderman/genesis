@@ -9,6 +9,8 @@ export const supportCopy = {
     help: "Help",
     /** `{count}` new replies. */
     unreadReplies: "{count} new",
+    /** The Settings row into the agent desk, for its agents (on the phone). */
+    agentDesk: "Support inbox",
   },
   diagnostics: {
     send: "Send diagnostics",
@@ -50,6 +52,8 @@ export const supportCopy = {
     sentTitle: "Thanks for the feedback",
     sentBody: "We read every report. You'll find it, and our replies, under Help.",
     sentWithoutScreenshot: "Your report was sent, but its screenshot couldn't be.",
+    /** Written offline: kept on this device and sent when the connection is back (without its screenshot). */
+    queuedBody: "You're offline. Your report is saved on this device and goes when you're back online, without its screenshot.",
     sendAnother: "Send another",
     openHelp: "See it in Help",
     failedTitle: "Your feedback wasn't sent",
@@ -57,6 +61,8 @@ export const supportCopy = {
     rateLimited: "You've sent a lot of feedback in a short time. Try again later.",
     signInFirst: "Sign in to send feedback.",
     messageRequired: "Write a few words first.",
+    /** The error a "Report this" on an error screen attaches. */
+    errorAttached: "The error on that screen is attached.",
   },
   annotate: {
     title: "Mark up",
@@ -107,6 +113,14 @@ export const supportCopy = {
     video: "Video",
     file: "File",
     internalNote: "Internal note",
+    /** The verify loop (migration 0003): support marked it fixed, and asks the person. */
+    verifyTitle: "Is it fixed?",
+    verifyBody: "We think this is fixed. Check it, then let us know.",
+    verifyFixed: "Yes, it's fixed",
+    verifyReopen: "No, reopen it",
+    verifiedFixed: "Thanks for checking. We've closed it.",
+    verifiedReopened: "We've reopened it and will take another look.",
+    verifyFailed: "Your answer wasn't saved. Try again.",
   },
   staff: {
     status: "Status",
@@ -157,6 +171,20 @@ export const supportCopy = {
     page: "Page",
     appVersion: "App version",
     screenshots: "Screenshots",
+    /** The ticket's context dumps (`genesis.diagnostics/1`), as text. `{id}`: a dump's short id. */
+    diagnostics: "Diagnostics",
+    diagnosticsDump: "Dump {id}",
+    diagnosticsShow: "Show diagnostics",
+    diagnosticsHide: "Hide diagnostics",
+    diagnosticsFailed: "Couldn't load the diagnostics.",
+    diagnosticsLoading: "Loading the diagnostics",
+    diagnosticsCopy: "Copy",
+    diagnosticsCopied: "Copied",
+    diagnosticsCopyFailed: "That wasn't copied. Try again, or select the text.",
+    /** What made a dump, by its trigger. */
+    diagnosticsTriggers: { manual: "Sent from the app", shake: "Shake", feedback: "With feedback", crash: "After a crash" },
+    /** The assignee picker's label. */
+    assignTo: "Assign to",
     openFile: "Open file",
     /** A row's status line: `{requester}`, `{status}`, `{assignee}`. */
     rowMeta: "{requester} · {status} · {assignee}",
@@ -182,6 +210,85 @@ export const supportCopy = {
     heldBody: "Read what's new before you send, or send it as it is.",
     sendAnyway: "Send anyway",
     review: "Review",
+  },
+  /** Desks (migration 0029): each tenant's own help desk, and moving a ticket between desks. */
+  desks: {
+    /** The app's own desk, where `private.genesis_tenant_label` names none. */
+    appDesk: "Support",
+    /** A tenant's desk with no label from the app. */
+    unnamedDesk: "Help desk",
+    pickerLabel: "Help desk",
+    escalate: "Send to {name}",
+    returnTo: "Hand back to {name}",
+    moveTo: "Move to another desk",
+    moveTitle: "Send to {name}",
+    escalateBody: "{name} takes the conversation, its notes included, and your desk no longer sees it. The person keeps the same conversation.",
+    returnBody: "{name} takes the conversation back, its notes included. The person keeps the same conversation.",
+    moveBody: "The desk you pick takes the conversation, its notes included. The person keeps the same conversation.",
+    moveTarget: "Desk",
+    reason: "What they should know (optional)",
+    send: "Send",
+    cancel: "Cancel",
+    sent: "Sent to {name}",
+    failed: "That wasn't moved. Try again.",
+    cantReturn: "{name} can't take it back now: its desk is off, or the person has left it.",
+    /** The last move: `{by}` is " by Ana" or nothing, `{from}` and `{to}` desks' names. */
+    lastEscalated: "Sent up to {to}{by} from {from}.",
+    lastReturned: "Handed back to {to}{by}.",
+    lastMoved: "Moved from {from} to {to}{by}.",
+    by: " by {name}",
+    /** A desk's switch, for its admins. */
+    switchLabel: "Answer our people's support ourselves",
+    switchOn: "On: a question from your people comes to your own help desk, where your admins and agents answer it, and can send it on when it needs the app's support.",
+    switchOff: "Off: your people's questions go to the app's support. Turn it on to answer them yourselves.",
+    switchedOn: "Questions now come to your help desk",
+    switchedOff: "Questions go to the app's support again",
+    switchFailed: "That didn't change. Try again.",
+    offTitle: "Your help desk is off",
+    offBody: "New questions go to the app's support; the conversations already here stay to finish.",
+    noDeskTitle: "No help desk to answer",
+    noDeskBody: "Turn your help desk on in its settings to answer your people here.",
+  },
+  /** Support's notifications (migration 0030, `supportNotificationTypes`): `{by}`, `{title}`, `{from}`. */
+  notifications: {
+    category: "Support",
+    categoryDescription: "Conversations with support",
+    /** A new ticket, to the desk's agents. */
+    newTicket: "{by}: {title}",
+    /** The person wrote again. */
+    message: "{by} replied: {title}",
+    /** Moved to this desk. */
+    escalated: "Sent up to you: {title}",
+    returned: "Handed back to you: {title}",
+    moved: "Moved to you: {title}",
+    /** Support answered, to the person. `{from}` is the desk's name, else "Support". */
+    reply: "{from} replied: {title}",
+    support: "Support",
+    verify: "Is it fixed? {title}",
+    verifyBody: "We think this is fixed. Please check it, then confirm or reopen it.",
+  },
+  /** The contact fallback (`support.contactEmail`, `support.contactUrl`), in Help and on error screens. */
+  contact: {
+    title: "Still need help?",
+    email: "Email {email}",
+    page: "Visit our support page",
+  },
+  /** A part of support the app's settings turned off. */
+  off: {
+    /** `SupportRoute` with no support block (the app turned support off). */
+    supportTitle: "Support isn't available",
+    supportBody: "This app doesn't offer help here right now.",
+    agentDeskTitle: "The agent desk is off",
+    agentDeskBody: "This app's settings turn the agent desk off (support.agentDesk).",
+  },
+  /** The details panel's requester card. */
+  requester: {
+    title: "Contact",
+    email: "Email",
+    tenants: "Belongs to",
+    /** A tenant's role for the person, from migration 0029 (an app's own words show as it gives them). */
+    roles: { admin: "Admin", agent: "Agent", member: "Member" },
+    sentFrom: "Sent from",
   },
   savedReplies: {
     listLabel: "Saved replies",
@@ -218,8 +325,6 @@ export const supportCopy = {
     timeToClose: "Median time to close",
     byRequester: "Open by customer",
     unknownRequester: "Unknown",
-    /** Under the list when it counts only some open tickets. `{count}`: how many it counts. */
-    byRequesterCapped: "Counted from the {count} most recently changed open conversations.",
     /** A time with nothing to measure. */
     none: "None yet",
     errorTitle: "Couldn't load the report",

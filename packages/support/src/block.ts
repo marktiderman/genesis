@@ -29,6 +29,10 @@ export interface SupportPaths {
   help: string;
   /** One article: `article(slug)`. */
   article: (slug: string) => string;
+  /** An agent's queues (the help desk, on the phone). */
+  agent: string;
+  /** One ticket, as an agent: `agentThread(id)`. */
+  agentThread: (id: string) => string;
 }
 
 export function supportPaths(basePath = "/support"): SupportPaths {
@@ -43,6 +47,8 @@ export function supportPaths(basePath = "/support"): SupportPaths {
     newMessage: `${base}/message`,
     help: `${base}/help`,
     article: (slug) => `${base}/help/${encodeURIComponent(slug)}`,
+    agent: `${base}/agent`,
+    agentThread: (id) => `${base}/agent/${encodeURIComponent(id)}`,
   };
 }
 
@@ -56,15 +62,18 @@ export interface SupportBlockOptions {
   useHelpSubtitle?: () => string | null | undefined;
   /** `false` leaves the idea board out. Default on. */
   ideas?: boolean;
-  /** `false` leaves the "Send feedback" row out (the `support.feedback` setting). Default on. */
-  feedback?: boolean;
-  /** `false` leaves the "Help" row (the person's reports) out (the `support.inbox` setting). Default on. */
-  inbox?: boolean;
+  /** `false` leaves the "Send feedback" row out; a function says whether it shows now (the `support.feedback` setting, read live). Default on. */
+  feedback?: boolean | (() => boolean);
+  /** `false` leaves the "Help" row (the person's reports) out; a function says whether it shows now (`support.inbox`). Default on. */
+  inbox?: boolean | (() => boolean);
   /** The block's other FeatureIds it needs (default `["account"]`: a signed-in person). */
   requires?: readonly string[];
 }
 
 const PACKAGE = "@marktiderman/genesis-supabase";
+
+/** A row's `useShown` from a live switch (a function the shell calls each render). */
+const shownBy = (on: boolean | (() => boolean) | undefined) => (typeof on === "function" ? { useShown: on } : {});
 
 /** The block's contributions, for any platform. */
 export function supportContributions(options: SupportBlockOptions = {}): BlockContributions<never> {
@@ -73,10 +82,23 @@ export function supportContributions(options: SupportBlockOptions = {}): BlockCo
   const section = options.settings === false ? null : (options.settings?.section ?? "support");
   const settings: BlockSettingsRow[] = section
     ? [
-        ...(options.feedback === false ? [] : [{ id: "support-send-feedback", section, title: copy.settings.sendFeedback, href: paths.feedback, order: 10, testID: "genesis-support-send-feedback" }]),
+        ...(options.feedback === false
+          ? []
+          : [{ id: "support-send-feedback", section, title: copy.settings.sendFeedback, href: paths.feedback, order: 10, testID: "genesis-support-send-feedback", ...shownBy(options.feedback) }]),
         ...(options.inbox === false
           ? []
-          : [{ id: "support-help", section, title: copy.settings.help, href: paths.inbox, order: 20, testID: "genesis-support-help", ...(options.useHelpSubtitle ? { useSubtitle: options.useHelpSubtitle } : {}) }]),
+          : [
+              {
+                id: "support-help",
+                section,
+                title: copy.settings.help,
+                href: paths.inbox,
+                order: 20,
+                testID: "genesis-support-help",
+                ...(options.useHelpSubtitle ? { useSubtitle: options.useHelpSubtitle } : {}),
+                ...shownBy(options.inbox),
+              },
+            ]),
       ]
     : [];
   const routes = [
@@ -109,10 +131,16 @@ export function supportContributions(options: SupportBlockOptions = {}): BlockCo
       { package: "@marktiderman/genesis-support", file: "migrations/0019_genesis_support_diagnostics.sql", test: "migrations/tests/0019_genesis_support_diagnostics.test.sql" },
       // The dump's hourly limit and retention from the diagnostics.* settings.
       { package: "@marktiderman/genesis-support", file: "migrations/0020_genesis_support_settings.sql", test: "migrations/tests/0020_genesis_support_settings.test.sql" },
+      // support.message, support.reply and support.verify through genesis-notifications (support.staffAlerts).
+      { package: "@marktiderman/genesis-support", file: "migrations/0030_genesis_support_notifications.sql", test: "migrations/tests/0030_genesis_support_notifications.test.sql" },
       // A dump sent with a ticket is read by whoever handles that ticket; staff read only dumps with none.
       { package: "@marktiderman/genesis-support", file: "migrations/0026_genesis_support_diagnostics_access.sql", test: "migrations/tests/0026_genesis_support_diagnostics_access.test.sql" },
       // A whole number stored as 10.0 reads as 10 in the dump's settings readers.
       { package: "@marktiderman/genesis-support", file: "migrations/0028_genesis_support_diagnostics_fixes.sql", test: "migrations/tests/0028_genesis_support_diagnostics_fixes.test.sql" },
+      // Staff from genesis-supabase 0022's platform-admin list, where the app has no hooks.
+      { package: "@marktiderman/genesis-support", file: "migrations/0032_genesis_support_staff_admin_list.sql", test: "migrations/tests/0032_genesis_support_staff_admin_list.test.sql" },
+      // Every setting through genesis-supabase's one resolver (private.genesis_setting); support.verifyPrompt.
+      { package: "@marktiderman/genesis-support", file: "migrations/0033_genesis_support_settings_resolver.sql", test: "migrations/tests/0033_genesis_support_settings_resolver.test.sql" },
     ],
     privacy: {
       collects: [
@@ -169,6 +197,8 @@ export function defineSupportChatBlock(options: { requires?: readonly string[] }
         { package: "@marktiderman/genesis-support", file: "migrations/0018_genesis_support_agent_queue.sql", test: "migrations/tests/0018_genesis_support_agent_queue.test.sql" },
         // Names for agents: the tenant's agents, who wrote, the requester's tenants.
         { package: "@marktiderman/genesis-support", file: "migrations/0022_genesis_support_staff_tools.sql", test: "migrations/tests/0022_genesis_support_staff_tools.test.sql" },
+        // The report's requester labels from the set-based hook only.
+        { package: "@marktiderman/genesis-support", file: "migrations/0034_genesis_support_agent_admin.sql", test: "migrations/tests/0034_genesis_support_agent_admin.test.sql" },
       ],
     },
   });
@@ -191,6 +221,8 @@ export function defineSupportEmailBlock(options: { requires?: readonly string[] 
         // 0002 written for public.tickets and safe to re-run (apps that applied 0002 keep it), then tenancy.
         { package: "@marktiderman/genesis-support", file: "migrations/0007_genesis_support_email_on_tickets.sql", test: "migrations/tests/0002_genesis_support_email.test.sql" },
         { package: "@marktiderman/genesis-support", file: "migrations/0008_genesis_support_email_tenants.sql", test: "migrations/tests/0008_genesis_support_email_tenants.test.sql" },
+        // Reply by email: support_email_reply, as the login the email went to (the route is /email-notifications' supportReplyRoute).
+        { package: "@marktiderman/genesis-support", file: "migrations/0031_genesis_support_email_reply.sql", test: "migrations/tests/0031_genesis_support_email_reply.test.sql" },
       ],
       privacy: {
         notes: [
@@ -206,7 +238,8 @@ export const SUPPORT_HELPDESK_BLOCK_ID = "support-helpdesk" as const;
 
 /**
  * The support-helpdesk block: what a tenant's help desk adds to support and its chat threads. It
- * brings migration `0010_genesis_support_help_center.sql`. Its screens are components and hooks the
+ * brings migrations `0010_genesis_support_help_center.sql`, `0017_genesis_support_help_answers.sql`
+ * and `0029_genesis_support_desks.sql` (desks). Its screens are components and hooks the
  * app routes to: `SupportMessengerLauncher`, `SupportAgentInbox` and `SupportHelpCenterAdmin` on the
  * web (`/web-chat`), the messenger's hooks on the phone (`/native`).
  */
@@ -226,6 +259,8 @@ export function defineSupportHelpdeskBlock(options: { basePath?: string; require
         { package: "@marktiderman/genesis-support", file: "migrations/0010_genesis_support_help_center.sql", test: "migrations/tests/0010_genesis_support_help_center.test.sql" },
         // A question routed elsewhere keeps no answer.
         { package: "@marktiderman/genesis-support", file: "migrations/0017_genesis_support_help_answers.sql", test: "migrations/tests/0017_genesis_support_help_answers.test.sql" },
+        // Desks: each tenant's own help desk, switched on by its admins; escalate, return and move (after the chat block's 0022).
+        { package: "@marktiderman/genesis-support", file: "migrations/0029_genesis_support_desks.sql", test: "migrations/tests/0029_genesis_support_desks.test.sql" },
       ],
       privacy: {
         notes: ["With AI answers on, a question the person chooses to ask and its answer are kept with their account and readable by the tenant's agents, and the question and the tenant's published articles go to the AI vendor. People agree first, unless the app's terms cover it. A question the app's safety protocol routes elsewhere isn't kept."],

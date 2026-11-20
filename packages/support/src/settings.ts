@@ -32,6 +32,7 @@ import {
   type SettingsDeclaration,
   type SettingsLayers,
   type SettingSpec,
+  type SettingValueOf,
 } from "@marktiderman/genesis-config/settings";
 
 const onOffOff = { max: true, standard: false, min: false } as const;
@@ -44,23 +45,24 @@ export const SUPPORT_SETTING_SPECS = {
   pins: { type: "boolean", default: true, requires: ["support.feedback"], summary: "Web: pin feedback to a place on the page." },
   severity: { type: "boolean", default: false, requires: ["support.feedback"], summary: "Ask how bad a bug is (Minor, Annoying, Blocks me, Broken). Off unless turned on." },
   inbox: { type: "boolean", default: onOnOff, summary: "The person's reports, with staff replies and the unread badge." },
-  messenger: { type: "boolean", default: onOnOff, scope: "tenant", requires: ["support.inbox"], planned: true, summary: "Planned (nothing reads it yet): The messenger (Home, Messages, Help) on web and phone." },
-  agentDesk: { type: "boolean", default: onOnOff, requires: ["support.inbox"], planned: true, summary: "Planned (nothing reads it yet): The staff side: the agent inbox on the web and the phone." },
-  helpCenter: { type: "boolean", default: onOnOff, scope: "tenant", planned: true, summary: "Planned (nothing reads it yet): Help articles in collections, searchable, with an admin editor." },
-  aiAnswers: { type: "boolean", default: onOffOff, scope: "tenant", requires: ["support.helpCenter"], feature: "support-helpdesk-ai", needs: "secret:ANTHROPIC_API_KEY", store: "edge", planned: true, summary: "Planned (nothing reads it yet): AI answers that cite the help center and hand off to a person (needs the person's consent and a provider key)." },
+  messenger: { type: "boolean", default: onOnOff, scope: "tenant", requires: ["support.inbox"], summary: "The messenger (Home, Messages, Help) on web and phone." },
+  agentDesk: { type: "boolean", default: onOnOff, requires: ["support.inbox"], summary: "The staff side: the agent inbox on the web and the phone." },
+  helpCenter: { type: "boolean", default: onOnOff, scope: "tenant", summary: "Help articles in collections, searchable, with an admin editor." },
+  aiAnswers: { type: "boolean", default: onOffOff, scope: "tenant", requires: ["support.helpCenter"], feature: "support-helpdesk-ai", needs: "secret:ANTHROPIC_API_KEY", store: "edge", summary: "AI answers that cite the help center and hand off to a person (needs the person's consent, the tenant's opt-in and a provider key)." },
   ideas: { type: "boolean", default: onOnOff, summary: "The idea board with votes, and the ideas the person asked for that shipped." },
-  chatThreads: { type: "boolean", default: onOnOff, feature: "support-chat", planned: true, summary: "Planned (nothing reads it yet): A report's thread runs on genesis-chat: live, with files, an assignee and internal notes." },
-  email: { type: "boolean", default: onOffOff, feature: "support-email", needs: "secret:RESEND_API_KEY", store: "edge", planned: true, summary: "Planned (nothing reads it yet): Email is a ticket channel: inbound mail opens or continues a ticket, replies go out threaded." },
-  replyByEmail: { type: "boolean", default: onOffOff, requires: ["support.email"], needs: "secret:SUPPORT_REPLY_SIGNING_SECRET", store: "server-env", planned: true, summary: "Planned (nothing reads it yet): Reply by email: a signed Reply-To per recipient, quoted text stripped, auto-replies ignored." },
-  desks: { type: "boolean", default: onOffOff, requires: ["support.agentDesk"], planned: true, summary: "Planned (nothing reads it yet): Desks: each tenant's own help desk, switched on per tenant, with escalate, return and move between desks." },
-  staffAlerts: { type: "boolean", default: onOnOff, planned: true, summary: "Planned (nothing reads it yet): Tell staff about a new report (the app's notifiers: email, push, webhook)." },
-  githubRepo: { type: "string", default: null, needs: "secret:GITHUB_TOKEN", store: "edge", planned: true, summary: "Planned (nothing reads it yet): owner/name: open a GitHub issue for each new report. Not set, no issues." },
-  githubIssueDetail: { type: "string", default: "summary", options: ["summary", "full"], planned: true, summary: "Planned (nothing reads it yet): What an issue carries: the summary only, or (private repositories only) the dump's detail too." },
-  webhookUrl: { type: "string", default: null, needs: "secret:SUPPORT_WEBHOOK_SIGNING_SECRET", store: "edge", planned: true, summary: "Planned (nothing reads it yet): A signed POST for each new report. Not set, no webhook." },
-  contactEmail: { type: "string", default: null, planned: true, summary: "Planned (nothing reads it yet): Where people can write when the app can't help (shown in Help and on error screens)." },
-  contactUrl: { type: "string", default: null, planned: true, summary: "Planned (nothing reads it yet): A support page, shown beside the contact email." },
+  chatThreads: { type: "boolean", default: onOnOff, feature: "support-chat", summary: "A report's thread runs on genesis-chat (with a chat client and the support-chat block): live, with files, an assignee and internal notes. Off: support_replies." },
+  email: { type: "boolean", default: onOffOff, feature: "support-email", needs: "secret:RESEND_API_KEY", store: "edge", summary: "Email is a ticket channel: inbound mail opens or continues a ticket, replies go out threaded." },
+  replyByEmail: { type: "boolean", default: onOffOff, requires: ["support.email"], needs: "secret:SUPPORT_REPLY_SIGNING_SECRET", store: "server-env", summary: "Reply by email: a signed Reply-To per recipient, quoted text stripped, auto-replies ignored." },
+  desks: { type: "boolean", default: onOffOff, requires: ["support.agentDesk"], summary: "Desks: each tenant's own help desk, switched on per tenant, with escalate, return and move between desks." },
+  staffAlerts: { type: "boolean", default: onOnOff, summary: "Tell staff about a new report (the app's notifiers: email, push, webhook)." },
+  githubRepo: { type: "string", default: null, needs: "secret:GITHUB_TOKEN", store: "edge", setup: "github.issues", summary: "owner/name: open a GitHub issue for each new report. Not set, no issues." },
+  githubIssueDetail: { type: "string", default: "summary", options: ["summary", "full"], summary: "What an issue carries: the summary only, or (private repositories only) the dump's detail too." },
+  webhookUrl: { type: "string", default: null, needs: "secret:SUPPORT_WEBHOOK_SIGNING_SECRET", store: "edge", summary: "A signed POST for each new report. Not set, no webhook." },
+  contactEmail: { type: "string", default: null, summary: "Where people can write when the app can't help (shown in Help and on error screens)." },
+  contactUrl: { type: "string", default: null, summary: "A support page, shown beside the contact email." },
   agentListScan: { type: "boolean", default: false, summary: "Agents' assignee lists check every login, not only agent rows and the app's private.genesis_support_staff_list(): slow on a big app." },
   replyExpectation: { type: "string", default: null, scope: "tenant", summary: "How soon people hear back, after \"We usually reply\" (\"within a few hours\")." },
+  verifyPrompt: { type: "boolean", default: false, summary: "When someone else marks a report fixed, ask its person in the thread to check the fix (at most once an hour). Off unless turned on." },
 } as const satisfies Record<string, SettingSpec>;
 
 /** `diagnostics.*`: the context dump. @stability Beta */
@@ -114,49 +116,22 @@ export function resolveSupportSettings(layers: SettingsLayers = {}): ResolvedSet
  */
 export type SupportSettingsInput = Pick<ResolvedSettings, "values"> | { readonly [key: string]: unknown };
 
-/** Support's settings, typed. @stability Beta */
+/** A spec's default may be `null` ("not set"), plainly or for some preset. */
+type NullableDefault<D> = D extends null ? true : D extends { readonly max: infer A; readonly standard: infer B; readonly min: infer C } ? (null extends A | B | C ? true : false) : false;
+
+/** The value one spec holds: its type's value, narrowed to its options, or null when it may be unset. */
+type SpecValue<S extends SettingSpec> =
+  | (S extends { readonly options: readonly (infer O)[] } ? O : SettingValueOf<S["type"]>)
+  | (NullableDefault<S["default"]> extends true ? null : never);
+
+/** One namespace's values, from its specs. */
+type SpecValues<Specs extends { readonly [key: string]: SettingSpec }> = { -readonly [K in keyof Specs]: SpecValue<Specs[K]> };
+
+/** Support's settings, typed: derived from the specs above, so a key is declared once. @stability Beta */
 export interface SupportSettingValues {
-  support: {
-    feedback: boolean;
-    screenshots: boolean;
-    pins: boolean;
-    severity: boolean;
-    inbox: boolean;
-    messenger: boolean;
-    agentDesk: boolean;
-    helpCenter: boolean;
-    aiAnswers: boolean;
-    ideas: boolean;
-    chatThreads: boolean;
-    email: boolean;
-    replyByEmail: boolean;
-    desks: boolean;
-    staffAlerts: boolean;
-    githubRepo: string | null;
-    githubIssueDetail: "summary" | "full";
-    webhookUrl: string | null;
-    contactEmail: string | null;
-    contactUrl: string | null;
-    agentListScan: boolean;
-    replyExpectation: string | null;
-  };
-  diagnostics: {
-    enabled: boolean;
-    dumpOnShake: boolean;
-    dumpOnFeedback: boolean;
-    sendFromSettings: boolean;
-    offlineQueue: boolean;
-    maxBytes: number;
-    perHour: number;
-    retentionDays: number;
-  };
-  shake: {
-    enabled: boolean;
-    threshold: number;
-    jolts: number;
-    windowMs: number;
-    cooldownMs: number;
-  };
+  support: SpecValues<typeof SUPPORT_SETTING_SPECS>;
+  diagnostics: SpecValues<typeof DIAGNOSTICS_SETTING_SPECS>;
+  shake: SpecValues<typeof SHAKE_SETTING_SPECS>;
 }
 
 function valuesOf(input: SupportSettingsInput | null | undefined): { readonly [key: string]: unknown } {
@@ -194,4 +169,62 @@ export function supportSettingValues(input?: SupportSettingsInput | null): Suppo
     }
   }
   return out as unknown as SupportSettingValues;
+}
+
+/** One address, checked in one pass (no backtracking): one "@", no spaces or brackets, a dot in the domain, not at its ends. */
+function looksLikeEmail(text: string): boolean {
+  if (text.length > 254) return false;
+  let at = -1;
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charCodeAt(i);
+    if (c <= 0x20 || c === 0x3c || c === 0x3e || c === 0x7f) return false;
+    if (c === 0x40) {
+      if (at !== -1) return false;
+      at = i;
+    }
+  }
+  const dot = text.lastIndexOf(".");
+  return at > 0 && dot > at + 1 && dot < text.length - 1;
+}
+
+/** An https page with a host (`https://acme.test/help`), else null. */
+function httpsPage(text: string | null | undefined): string | null {
+  const t = text?.trim();
+  if (!t || t.length > 2048 || !/^https:\/\//i.test(t)) return null;
+  try {
+    const u = new URL(t);
+    return u.protocol === "https:" && u.hostname ? t : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * A `mailto:` link for an address, with the characters that would start its query or fragment (or
+ * escape) encoded (RFC 6068): `help?desk@acme.test` stays one mailbox.
+ *
+ * @stability Beta
+ */
+export function mailtoHref(email: string): string {
+  return `mailto:${email.replace(/[%?#&/]/g, (c) => encodeURIComponent(c))}`;
+}
+
+/** Where people can write when the app can't help: `support.contactEmail` and `support.contactUrl`. @stability Beta */
+export interface SupportContactInfo {
+  email: string | null;
+  url: string | null;
+}
+
+/**
+ * The contact fallback from the settings (`support.contactEmail`, `support.contactUrl`): an email
+ * address that looks like one and an https page, or null with neither. Shown in Help and on error
+ * screens.
+ *
+ * @stability Beta
+ */
+export function supportContact(input?: SupportSettingsInput | null): SupportContactInfo | null {
+  const s = supportSettingValues(input).support;
+  const email = s.contactEmail?.trim() && looksLikeEmail(s.contactEmail.trim()) ? s.contactEmail.trim() : null;
+  const url = httpsPage(s.contactUrl);
+  return email || url ? { email, url } : null;
 }

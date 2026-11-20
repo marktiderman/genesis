@@ -1,5 +1,5 @@
 // @feat:native-app-shell @feat:define-block
-import type { ReactNode } from "react";
+import { useSyncExternalStore, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, render, screen } from "@testing-library/react";
 import { genesisBrand } from "@marktiderman/genesis-design-system";
@@ -130,6 +130,29 @@ describe("GenesisNativeApp blocks", () => {
 });
 
 describe("useBlockSettings", () => {
+  it("shows a row only while its useShown hook says so, and follows it as it changes", async () => {
+    let on = true;
+    const listeners = new Set<() => void>();
+    const useOn = () => useSyncExternalStore((l) => (listeners.add(l), () => listeners.delete(l)), () => on);
+    const block: NativeBlock = defineBlock({
+      id: "support",
+      contributes: { settings: [{ id: "inbox", section: "help", title: "Support inbox", href: "/agent", useShown: useOn }] },
+    });
+    let seen: ReturnType<typeof useBlockSettings> = [];
+    function Settings() {
+      seen = useBlockSettings([{ id: "help", title: "Help", rows: [] }]);
+      return null;
+    }
+    setup({ blocks: [block], children: <Settings /> });
+    await act(settle);
+    expect(seen[0]!.rows.map((r) => r.id)).toEqual(["inbox"]);
+    act(() => {
+      on = false;
+      listeners.forEach((l) => l());
+    });
+    expect(seen[0]!.rows).toEqual([]);
+  });
+
   it("adds blocks' rows to their sections, with live subtitles, and the updates block's version row to About", async () => {
     const application = { nativeApplicationVersion: "1.4.0", nativeBuildVersion: "37" };
     const updates = createUpdates({ platform: "ios", application, policyTimeoutMs: 50 });
@@ -163,5 +186,14 @@ describe("useBlockSettings", () => {
     expect(updates.contributes?.settings).toEqual([]);
     const sections = [{ id: "about", rows: [{ id: "terms", title: "Terms" }] }];
     expect(mergeBlockSettings(sections, [])).toEqual(sections);
+  });
+
+  it("leaves out a row its useShown says is hidden now", () => {
+    const rows = [
+      { id: "a", section: "about", title: "A", feature: "x" },
+      { id: "b", section: "about", title: "B", feature: "x" },
+    ] as never;
+    const merged = mergeBlockSettings([{ id: "about", rows: [] }], rows, [], {}, [true, false]);
+    expect(merged[0]!.rows.map((r) => r.id)).toEqual(["a"]);
   });
 });

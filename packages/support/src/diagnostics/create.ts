@@ -17,6 +17,7 @@
  * `offline: { storage }`) and tried again with backoff.
  */
 import { cleanRoute } from "../contract";
+import { SupportError } from "../client";
 import type { FeedbackDelivery, FeedbackRecord, FeedbackSink } from "../record";
 import { capReport, type CapLimits } from "./cap";
 import { createOfflineQueue, DEFAULT_QUEUE_KEY, DiagnosticsSendError, isRetryableError, type OfflineQueue, type QueueFlushResult, type QueueStorage } from "./queue";
@@ -125,8 +126,13 @@ export interface Diagnostics {
    * in one request, else the feedback goes through `sink` (default the transport's) and the dump
    * after it, with the new report's id. A dump that fails never fails the feedback: it is queued
    * (with `offline`) or reported through `onProblem`, and `diagnostics` is null.
+   *
+   * Offline (support-features 2.5): with `offline`, feedback that fails for a reason that may pass
+   * is kept in the same queue as dumps and sent later through the transport, with its dump. It is
+   * kept without its screenshots (they don't fit the queue). The answer then has `queued: true`
+   * and an empty `id`.
    */
-  submitFeedback(record: FeedbackRecord, options?: SubmitFeedbackOptions): Promise<FeedbackDelivery & { diagnostics: DiagnosticsDelivery | null }>;
+  submitFeedback(record: FeedbackRecord, options?: SubmitFeedbackOptions): Promise<FeedbackSubmission>;
   /** Try the queued sends now (on reconnect, on foreground). */
   flush(): Promise<QueueFlushResult>;
   /** Forget every queued send (on sign-out). */
@@ -135,10 +141,24 @@ export interface Diagnostics {
   pending(): Promise<number>;
 }
 
-/** A dump waiting in the queue, with who was signed in when it was made. */
-interface QueuedDump {
-  report: DiagnosticReport;
-  userId: string | null;
+/** What `submitFeedback` answers. */
+export interface FeedbackSubmission extends FeedbackDelivery {
+  diagnostics: DiagnosticsDelivery | null;
+  /** Kept by the offline queue: it goes when the network is back (`id` is empty until then). */
+  queued?: boolean;
+}
+
+/** A dump (or feedback with its dump) waiting in the queue, with who was signed in when it was made. */
+type Queued =
+  | { kind?: "dump"; report: DiagnosticReport; userId: string | null }
+  | { kind: "feedback"; record: FeedbackRecord; report: DiagnosticReport | null; userId: string | null };
+
+const FEEDBACK_RETRY_CODES = new Set(["GS429", "57014", "PGRST301", "08000", "08003", "08006"]);
+
+/** A feedback send worth trying again: the queue's rule, and a support client's error with no code (no answer) or a passing one. */
+function isFeedbackRetryable(error: unknown): boolean {
+  if (isRetryableError(error)) return true;
+  return error instanceof SupportError && (!error.code || FEEDBACK_RETRY_CODES.has(error.code));
 }
 
 const isCore = (name: string): name is CoreSectionName => (CORE_SECTIONS as readonly string[]).includes(name);
@@ -196,11 +216,14 @@ export function createDiagnostics(options: DiagnosticsOptions): Diagnostics {
   // that throws keeps the last values it gave; one that has never answered means no dumps.
   let settings = supportSettingValues(typeof options.appSettings === "function" ? { "diagnostics.enabled": false } : options.appSettings).diagnostics;
   let answered = typeof options.appSettings !== "function";
+  // Set once the queue exists: an answer that turns diagnostics (or the queue) off empties it.
+  let queueOff: (() => void) | null = null;
   const settingsNow = () => {
     if (typeof options.appSettings !== "function") return settings;
     try {
       settings = supportSettingValues(options.appSettings()).diagnostics;
       answered = true;
+      if (!settings.enabled || !settings.offlineQueue) queueOff?.();
     } catch {
       // keep the last values
     }
@@ -241,38 +264,89 @@ export function createDiagnostics(options: DiagnosticsOptions): Diagnostics {
     }
   };
 
+  // Who is signed in: the app's `user`, else what the transport's session says (Supabase).
+  const signedIn = async (): Promise<string | null> => {
+    const id = await currentUserId();
+    if (id || !transport.userId) return id;
+    try {
+      return (await withTimeout(() => transport.userId!(), DIAGNOSTICS_DEFAULTS.sectionTimeoutMs)) ?? null;
+    } catch {
+      return null;
+    }
+  };
+
   // Settings that couldn't be read yet keep the queue (its sends wait for diagnostics to be on);
   // only an answer that says off drops it.
-  const queue: OfflineQueue<QueuedDump> | null = options.offline && (settings.enabled || !answered) && settings.offlineQueue
-    ? createOfflineQueue<QueuedDump>({
+  const queue: OfflineQueue<Queued> | null = options.offline && (settings.enabled || !answered) && settings.offlineQueue
+    ? createOfflineQueue<Queued>({
         storage: options.offline.storage,
         ...(options.offline.key ? { key: options.offline.key } : {}),
         ...(options.offline.maxItems ? { maxItems: options.offline.maxItems } : {}),
         ...(options.offline.maxBytes ? { maxBytes: options.offline.maxBytes } : {}),
         ...(options.offline.autoRetry !== undefined ? { autoRetry: options.offline.autoRetry } : {}),
-        send: async ({ report, userId }) => {
+        send: async (item) => {
           // Diagnostics off (or not known yet): it waits in the queue.
           if (!enabledNow()) throw new DiagnosticsSendError("diagnostics are off for now", 0, true);
-          if (userId) {
-            const current = await currentUserId();
+          if (item.userId) {
+            const current = await signedIn();
             // Nobody signed in yet (the session is still being restored at launch): keep it for later.
             if (!current) throw new DiagnosticsSendError("waiting for the person who made it to be signed in", 0, true);
             // A shared device, someone else signed in: it goes nowhere. clearQueue() covers sign-out.
-            if (current !== userId) throw new DiagnosticsSendError("queued for someone who isn't signed in", 0, false);
+            if (current !== item.userId) throw new DiagnosticsSendError("queued for someone who isn't signed in", 0, false);
           }
-          return transport.send(report);
+          if (item.kind !== "feedback") return transport.send(item.report);
+          return sendQueuedFeedback(item.record, item.report);
         },
+        isRetryable: isFeedbackRetryable,
+        // Feedback the person was told is saved goes last when the queue is full.
+        keep: (item) => item.kind === "feedback",
         now,
         onProblem: problem,
       })
     : null;
-  // Diagnostics (or the queue) switched off: what an earlier run queued is dropped, never sent later.
+  // Queued feedback goes through the transport (the form's own sink isn't kept across launches).
+  async function sendQueuedFeedback(record: FeedbackRecord, report: DiagnosticReport | null): Promise<unknown> {
+    if (report && transport.submitFeedback) return transport.submitFeedback(record, report);
+    const sink = transport.feedbackSink;
+    if (!sink) throw new DiagnosticsSendError("this transport has no feedback sink", 0, false);
+    const delivery = await sink.submit(report ? { ...record, diagnosticsId: report.id } : record);
+    if (report) {
+      // The feedback is in: its dump goes on its own, and a failure there never sends it twice.
+      try {
+        await transport.send({ ...report, feedbackId: delivery.id });
+      } catch (error) {
+        problem("diagnostics: the dump for queued feedback was not sent", error);
+      }
+    }
+    return delivery;
+  }
+
+  // Diagnostics (or the queue) switched off: the dumps an earlier run queued are dropped, never sent
+  // later. Feedback stays stored (the person was told it's saved) and goes when the queue is back.
   if (options.offline && !queue) {
     const storage = options.offline.storage;
     const key = options.offline.key ?? DEFAULT_QUEUE_KEY;
     void Promise.resolve()
-      .then(() => storage.removeItem(key))
+      .then(async () => {
+        const raw = await storage.getItem(key);
+        const parsed: unknown = raw ? JSON.parse(raw) : [];
+        const kept = Array.isArray(parsed) ? parsed.filter((e: { item?: { kind?: string } } | null) => e?.item?.kind === "feedback") : [];
+        if (kept.length) await storage.setItem(key, JSON.stringify(kept));
+        else await storage.removeItem(key);
+      })
       .catch((error: unknown) => problem("diagnostics: clearing the queue failed", error));
+  }
+  // Switched off after the queue was made: what waits in it is dropped, never sent later.
+  if (queue) {
+    let cleared = false;
+    queueOff = () => {
+      if (cleared) return;
+      cleared = true;
+      void queue
+        .clear()
+        .catch((error: unknown) => problem("diagnostics: clearing the queue failed", error))
+        .finally(() => (cleared = false));
+    };
   }
   // Anything left from the last run goes as soon as it can.
   if (queue) void Promise.resolve().then(() => queue.flush().catch((error: unknown) => problem("diagnostics: flushing the queue failed", error)));
@@ -364,13 +438,52 @@ export function createDiagnostics(options: DiagnosticsOptions): Diagnostics {
       }
       // Switched off while the dump was made: the feedback goes alone.
       if (!enabledNow()) report = null;
+      // Offline: keep it (without screenshots) to send later through the transport, with its dump.
+      // Only with a known author (a flush never files it as someone else), and only where the
+      // transport's sink files it in the same help desk: the form's own sink, or one that names
+      // its tenant (a support client's `currentTenant`), which the record then carries.
+      const keep = async (error: unknown): Promise<FeedbackSubmission> => {
+        if (!queue || !isFeedbackRetryable(error) || (!transport.feedbackSink && !transport.submitFeedback)) throw error;
+        const own = !sink || sink === transport.feedbackSink;
+        const named = (sink as { currentTenant?: () => Promise<string | null> } | undefined)?.currentTenant;
+        if (!own && !named && record.tenantId === undefined) throw error;
+        const userId = await signedIn();
+        if (!userId) throw error;
+        let tenantId = record.tenantId;
+        if (tenantId === undefined && !own && named) {
+          try {
+            tenantId = await named.call(sink);
+          } catch {
+            throw error;
+          }
+        }
+        const { attachments = [], ...rest } = record;
+        await queue.add({ kind: "feedback", record: tenantId === undefined ? rest : { ...rest, tenantId }, report, userId });
+        return {
+          id: "",
+          attachmentsDropped: attachments.length,
+          queued: true,
+          diagnostics: report ? { id: report.id, shortId: diagnosticsShortId(report.id), queued: true } : null,
+        };
+      };
       if (report && transport.submitFeedback && (!sink || sink === transport.feedbackSink)) {
-        const { diagnostics: receipt, ...delivery } = await transport.submitFeedback(record, report);
+        let answer: Awaited<ReturnType<NonNullable<DiagnosticsTransport["submitFeedback"]>>>;
+        try {
+          answer = await transport.submitFeedback(record, report);
+        } catch (error) {
+          return keep(error);
+        }
+        const { diagnostics: receipt, ...delivery } = answer;
         return { ...delivery, diagnostics: receipt ? { ...receipt, queued: false } : null };
       }
       const target = sink ?? transport.feedbackSink;
       if (!target) throw new Error("submitFeedback: this transport has no feedback sink; pass `sink`.");
-      const delivery = await target.submit(report ? { ...record, diagnosticsId: report.id } : record);
+      let delivery: FeedbackDelivery;
+      try {
+        delivery = await target.submit(report ? { ...record, diagnosticsId: report.id } : record);
+      } catch (error) {
+        return keep(error);
+      }
       if (!report) return { ...delivery, diagnostics: null };
       try {
         return { ...delivery, diagnostics: await diagnostics.send({ trigger: report.trigger, report, feedbackId: delivery.id }) };
@@ -390,7 +503,16 @@ export function createDiagnostics(options: DiagnosticsOptions): Diagnostics {
     },
     flush: () => (queue ? queue.flush() : Promise.resolve({ sent: 0, kept: 0, dropped: 0 })),
     pending: () => (queue ? queue.size() : Promise.resolve(0)),
-    clearQueue: () => (queue ? queue.clear() : Promise.resolve()),
+    // Without a queue (diagnostics off), feedback an earlier run kept may still be stored: forget it too.
+    clearQueue: async () => {
+      if (queue) return queue.clear();
+      if (!options.offline) return;
+      try {
+        await options.offline.storage.removeItem(options.offline.key ?? DEFAULT_QUEUE_KEY);
+      } catch (error) {
+        problem("diagnostics: clearing the queue failed", error);
+      }
+    },
   };
   return diagnostics;
 }

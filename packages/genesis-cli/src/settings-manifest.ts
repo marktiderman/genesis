@@ -8,17 +8,20 @@
  * It goes through the linked project (`supabase db query --linked`, or `--project-ref`), as the
  * doctor reads the database layer, so no key is handled here. It names the project and asks before
  * writing (`--yes` skips the question; without a terminal, `--yes` is required). `--print` gives
- * the SQL for a pipeline that runs it its own way (psql with the database URL).
+ * the SQL for a pipeline that runs it its own way (psql with the database URL). An app without the
+ * settings block (no table to write) is skipped with a line and exit 0, so a deploy step can run it
+ * in every app.
  */
 import { createHash } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import * as path from "node:path";
 import { catalogueManifest, settingsCatalogue, type SettingsCatalogue } from "@marktiderman/genesis-config/settings";
 import { installedGenesis } from "./blocks/discover.js";
+import { readLock } from "./blocks/lock.js";
 import { GenesisConfigError, readGenesisConfig } from "./doctor/config.js";
 import { installedSettings } from "./doctor/settings.js";
-import { runTool, TOOL_AUTH_ENV, type ToolRunner } from "./exec/run.js";
+import { runTool, type ToolRunner } from "./exec/run.js";
+import { supabaseQuery } from "./exec/supabase-query.js";
 
 const APP_ID = /^[a-z0-9][a-z0-9._-]{0,99}$/;
 /** A Supabase project ref: 20 lower-case letters and digits. */
@@ -133,32 +136,33 @@ export function linkedProjectRef(root: string): string | null {
 export interface SyncManifestOptions {
   /** The project to write to (`--project-ref`), else the linked one. */
   projectRef?: string;
-  /** Default `process.platform`. On Windows the SQL goes through a temp file: there is no /dev/stdin. */
-  platform?: NodeJS.Platform;
 }
 
-/** Write the manifest through the linked Supabase project (or `projectRef`). */
+/** Write the manifest through the linked Supabase project (or `projectRef`), its SQL in a temp file (`supabaseQuery`). */
 export async function syncManifest(root: string, row: ManifestRow, run: ToolRunner = runTool, options: SyncManifestOptions = {}): Promise<void> {
   if (options.projectRef !== undefined && !PROJECT_REF.test(options.projectRef)) throw new ManifestError(`--project-ref ${JSON.stringify(options.projectRef)} isn't a Supabase project ref (20 lower-case letters and digits).`);
   const sql = manifestSql(row);
   // `--yes`: supabase asks before it sends a statement to a hosted database, and reads no piped
   // answer (the default is No). The person already confirmed, or passed --yes, before this runs.
-  const target = ["db", "query", "--linked", ...(options.projectRef ? ["--project-ref", options.projectRef] : []), "--yes"];
-  const common = { cwd: root, timeoutMs: 60_000, passEnv: TOOL_AUTH_ENV["supabase"] ?? [] };
-  let result: Awaited<ReturnType<ToolRunner>>;
-  if ((options.platform ?? process.platform) === "win32") {
-    const dir = mkdtempSync(path.join(tmpdir(), "genesis-manifest-"));
-    try {
-      const file = path.join(dir, "manifest.sql");
-      writeFileSync(file, sql, { mode: 0o600 });
-      result = await run("supabase", [...target, "-f", file], common);
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
-  } else {
-    result = await run("supabase", [...target, "-f", "/dev/stdin"], { ...common, stdin: sql });
-  }
+  const result = await supabaseQuery(root, sql, run, { timeoutMs: 60_000, args: [...(options.projectRef ? ["--project-ref", options.projectRef] : []), "--yes"] });
   if (result.code !== 0) throw new ManifestError(`supabase exited ${result.code}: ${result.stderr.trim().split("\n")[0] ?? ""}`.trim());
+}
+
+/**
+ * Whether the app has genesis-supabase's settings block: genesis.lock.json lists it, or the app holds
+ * a copy of its migration. Without it there is no table to write, so sync skips (on every deploy).
+ */
+export function hasSettingsBlock(root: string): boolean {
+  try {
+    if (readLock(root).blocks["settings"]) return true;
+  } catch {
+    // an unreadable lock: look for the migration instead
+  }
+  try {
+    return readdirSync(path.join(root, "supabase", "migrations")).some((f) => /^\d+_genesis_settings\.sql$/.test(f));
+  } catch {
+    return false;
+  }
 }
 
 export interface SettingsSyncOptions {
@@ -177,12 +181,16 @@ export interface SettingsSyncIo {
   isTTY: boolean;
   confirm?: (question: string) => Promise<boolean>;
   run?: ToolRunner;
-  platform?: NodeJS.Platform;
 }
 
 /** `genesis settings sync`: the exit code. Names the project and asks before it writes. */
 export async function runSettingsSync(options: SettingsSyncOptions, io: SettingsSyncIo): Promise<number> {
   const root = path.resolve(options.dir);
+  if (!hasSettingsBlock(root)) {
+    // A deploy step runs it in every app: one without the block has nothing to sync, and that's fine.
+    (options.print ? io.err : io.out)("No settings block here (genesis add settings), so there is no manifest to write: skipped.");
+    return 0;
+  }
   try {
     const row = toManifestRow(root, options.appId !== undefined ? { appId: options.appId } : {});
     if (options.print) {
@@ -201,7 +209,7 @@ export async function runSettingsSync(options: SettingsSyncOptions, io: Settings
         return 1;
       }
     }
-    await syncManifest(root, row, io.run ?? runTool, { ...(options.projectRef ? { projectRef: options.projectRef } : {}), ...(io.platform ? { platform: io.platform } : {}) });
+    await syncManifest(root, row, io.run ?? runTool, options.projectRef ? { projectRef: options.projectRef } : {});
     io.out(`✔ Wrote the manifest for ${row.app_id}: ${Object.keys(row.packages).length} Genesis packages, ${Object.keys(row.catalogue).length} settings, preset ${row.preset}.`);
     return 0;
   } catch (err) {

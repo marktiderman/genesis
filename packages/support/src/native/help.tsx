@@ -11,12 +11,13 @@
  * them (`useLocalSearchParams`) and passes `initialQuery` and `collectionId`, and keys the screen on them.
  */
 import { useCallback, useMemo, useState, type ReactNode } from "react";
-import { ScrollView, View } from "react-native";
+import { Linking, ScrollView } from "react-native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { NativeButton, NativeSearchBar, NativeText } from "@marktiderman/genesis-ui-native/components";
+import { Box, Inline, NativeButton, NativeInlineAlert, NativeSearchBar, NativeText, Stack } from "@marktiderman/genesis-ui-native/components";
 import type { InboxItem, InboxPageProps, ThreadPageProps } from "@marktiderman/genesis-ui-native/layouts";
 import { reportHeading, SupportError, type HelpArticle } from "../client";
-import type { SupportCopy } from "../copy";
+import { fill, type SupportCopy } from "../copy";
+import { mailtoHref, type SupportContactInfo } from "../settings";
 import { useHelpAsk, type UseHelpAsk } from "../help-ask";
 import { composeExpectationLine, useReplyExpectation } from "../reply-expectation";
 import { SUPPORT_QUERY_ROOT, useSupport } from "./support";
@@ -51,21 +52,21 @@ export function HelpAnswerCard({ ask, titles, copy, onArticle, onTicket, query, 
   const [failed, setFailed] = useState(false);
   if (state.phase === "idle") {
     return query ? (
-      <View style={{ gap: 4 }}>
+      <Stack gap="xs">
         <NativeButton size="sm" variant="outline" onPress={() => void ask.ask(query)} testID="genesis-support-help-ai-ask">
           {copy.messenger.aiAsk}
         </NativeButton>
         <NativeText preset="caption" className="text-muted-foreground">
           {copy.messenger.aiAskHint}
         </NativeText>
-      </View>
+      </Stack>
     ) : null;
   }
   if (state.phase === "asking") {
     return (
-      <View accessibilityLiveRegion="polite" testID="genesis-support-help-ai-asking" style={{ padding: 16 }}>
+      <Box p="lg" accessibilityLiveRegion="polite" testID="genesis-support-help-ai-asking">
         <NativeText preset="body-sm" className="text-muted-foreground">{copy.messenger.aiThinking}</NativeText>
-      </View>
+      </Box>
     );
   }
   const person = () => {
@@ -73,50 +74,52 @@ export function HelpAnswerCard({ ask, titles, copy, onArticle, onTicket, query, 
     ask.toPerson().then(onTicket, () => setFailed(true));
   };
   return (
-    <View testID="genesis-support-help-ai" style={{ gap: 8, padding: 16 }}>
-      {state.phase === "answered" ? (
-        <>
-          <NativeText preset="caption">{copy.messenger.aiLabel}</NativeText>
-          <NativeText>{state.answer}</NativeText>
-          <NativeText preset="body-sm" className="text-muted-foreground">{copy.messenger.aiNote}</NativeText>
-          {state.articleIds.map((id) => {
-            const known = titles.get(id);
-            return (
-              <NativeButton key={id} size="sm" variant="ghost" onPress={() => onArticle(known?.slug ?? id)} testID={`genesis-support-help-ai-source-${id}`}>
-                {known?.title ?? copy.messenger.aiSources}
+    <Box p="lg" testID="genesis-support-help-ai">
+      <Stack gap="sm">
+        {state.phase === "answered" ? (
+          <>
+            <NativeText preset="caption">{copy.messenger.aiLabel}</NativeText>
+            <NativeText>{state.answer}</NativeText>
+            <NativeText preset="body-sm" className="text-muted-foreground">{copy.messenger.aiNote}</NativeText>
+            {state.articleIds.map((id) => {
+              const known = titles.get(id);
+              return (
+                <NativeButton key={id} size="sm" variant="ghost" onPress={() => onArticle(known?.slug ?? id)} testID={`genesis-support-help-ai-source-${id}`}>
+                  {known?.title ?? copy.messenger.aiSources}
+                </NativeButton>
+              );
+            })}
+          </>
+        ) : (
+          <NativeText accessibilityLiveRegion="polite">{state.safety ? (state.response ?? copy.messenger.aiSafety) : state.needsConsent ? copy.messenger.aiNeedsConsent : copy.messenger.aiNoAnswer}</NativeText>
+        )}
+        {state.phase === "answered" && state.helped ? (
+          <NativeText preset="body-sm" className="text-muted-foreground">{copy.messenger.aiThanks}</NativeText>
+        ) : (
+          <Inline gap="sm" wrap>
+            {state.phase === "answered" ? (
+              <NativeButton size="sm" variant="outline" onPress={() => void ask.helped()} testID="genesis-support-help-ai-helped">
+                {copy.messenger.aiHelped}
               </NativeButton>
-            );
-          })}
-        </>
-      ) : (
-        <NativeText accessibilityLiveRegion="polite">{state.safety ? (state.response ?? copy.messenger.aiSafety) : state.needsConsent ? copy.messenger.aiNeedsConsent : copy.messenger.aiNoAnswer}</NativeText>
-      )}
-      {state.phase === "answered" && state.helped ? (
-        <NativeText preset="body-sm" className="text-muted-foreground">{copy.messenger.aiThanks}</NativeText>
-      ) : (
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-          {state.phase === "answered" ? (
-            <NativeButton size="sm" variant="outline" onPress={() => void ask.helped()} testID="genesis-support-help-ai-helped">
-              {copy.messenger.aiHelped}
+            ) : null}
+            {state.phase === "none" && state.needsConsent && onConsent ? (
+              <NativeButton size="sm" variant="outline" onPress={onConsent} testID="genesis-support-help-ai-consent">
+                {copy.messenger.aiConsent}
+              </NativeButton>
+            ) : null}
+            {state.phase === "none" && state.needsConsent ? (
+              <NativeButton size="sm" variant="outline" onPress={() => void ask.ask(state.question)} testID="genesis-support-help-ai-retry">
+                {copy.messenger.aiRetry}
+              </NativeButton>
+            ) : null}
+            <NativeButton size="sm" onPress={person} testID="genesis-support-help-ai-person">
+              {copy.messenger.aiPerson}
             </NativeButton>
-          ) : null}
-          {state.phase === "none" && state.needsConsent && onConsent ? (
-            <NativeButton size="sm" variant="outline" onPress={onConsent} testID="genesis-support-help-ai-consent">
-              {copy.messenger.aiConsent}
-            </NativeButton>
-          ) : null}
-          {state.phase === "none" && state.needsConsent ? (
-            <NativeButton size="sm" variant="outline" onPress={() => void ask.ask(state.question)} testID="genesis-support-help-ai-retry">
-              {copy.messenger.aiRetry}
-            </NativeButton>
-          ) : null}
-          <NativeButton size="sm" onPress={person} testID="genesis-support-help-ai-person">
-            {copy.messenger.aiPerson}
-          </NativeButton>
-        </View>
-      )}
-      {failed ? <NativeText accessibilityRole="alert">{copy.messenger.aiFailed}</NativeText> : null}
-    </View>
+          </Inline>
+        )}
+        {failed ? <NativeInlineAlert variant="destructive" description={copy.messenger.aiFailed} testID="genesis-support-help-ai-failed" /> : null}
+      </Stack>
+    </Box>
   );
 }
 
@@ -150,18 +153,20 @@ export function useMessengerHome(options: { greeting?: string } = {}): ListProps
     ),
   ];
   const header: ReactNode = (
-    <View style={{ gap: 12, paddingHorizontal: 16, paddingBottom: 12 }}>
-      <NativeText preset="h2">{options.greeting ?? copy.messenger.greeting}</NativeText>
-      <NativeSearchBar
-        value={query}
-        onChange={setQuery}
-        placeholder={copy.messenger.searchPlaceholder}
-        onSubmit={(value) => navigate(`${paths.help}?q=${encodeURIComponent(value.trim())}`)}
-      />
-      <NativeButton onPress={() => navigate(paths.newMessage)} testID="genesis-support-home-new">
-        {copy.messenger.newMessage}
-      </NativeButton>
-    </View>
+    <Box px="lg" pb="md">
+      <Stack gap="md">
+        <NativeText preset="h2">{options.greeting ?? copy.messenger.greeting}</NativeText>
+        <NativeSearchBar
+          value={query}
+          onChange={setQuery}
+          placeholder={copy.messenger.searchPlaceholder}
+          onSubmit={(value) => navigate(`${paths.help}?q=${encodeURIComponent(value.trim())}`)}
+        />
+        <NativeButton onPress={() => navigate(paths.newMessage)} testID="genesis-support-home-new">
+          {copy.messenger.newMessage}
+        </NativeButton>
+      </Stack>
+    </Box>
   );
   return {
     testID: "genesis-support-home",
@@ -220,19 +225,22 @@ export function useHelpCenter(options: { collectionId?: string | null; initialQu
         ];
   const reading = query ? hits : articles;
   const header: ReactNode = (
-    <View style={{ gap: 8, paddingHorizontal: 16, paddingBottom: 8 }}>
-      <NativeSearchBar
-        value={value}
-        onChange={setValue}
-        placeholder={copy.messenger.searchPlaceholder}
-        onSubmit={(typed) => {
-          const next = typed.trim();
-          setQuery(next);
-          ask.reset();
-        }}
-      />
-      {aiOn ? <HelpAnswerCard ask={ask} query={query} onConsent={block.options.onAiConsent} titles={titles} copy={copy} onArticle={(slug) => navigate(paths.article(slug))} onTicket={(id) => navigate(paths.thread(id))} /> : null}
-    </View>
+    <Box px="lg" pb="sm">
+      <Stack gap="sm">
+        <NativeSearchBar
+          value={value}
+          onChange={setValue}
+          placeholder={copy.messenger.searchPlaceholder}
+          onSubmit={(typed) => {
+            const next = typed.trim();
+            setQuery(next);
+            ask.reset();
+          }}
+        />
+        {aiOn ? <HelpAnswerCard ask={ask} query={query} onConsent={block.options.onAiConsent} titles={titles} copy={copy} onArticle={(slug) => navigate(paths.article(slug))} onTicket={(id) => navigate(paths.thread(id))} /> : null}
+        <SupportContactRow contact={block.contact?.() ?? null} copy={copy} />
+      </Stack>
+    </Box>
   );
   return {
     testID: "genesis-support-help",
@@ -265,6 +273,38 @@ export interface HelpArticleProps {
   onNewMessage: () => void;
 }
 
+/**
+ * Where people can write when the app can't help (`support.contactEmail` / `contactUrl`): an email
+ * and a support-page button, or nothing. In Help, and for an app's own error screens.
+ *
+ * @stability Beta
+ */
+export function SupportContactRow({ contact, copy }: { contact: SupportContactInfo | null; copy: SupportCopy }) {
+  if (!contact || (!contact.email && !contact.url)) return null;
+  const open = (href: string) => () => void Linking.openURL(href).catch(() => undefined);
+  return (
+    <Box pt="xs" testID="genesis-support-contact">
+      <Stack gap="xs">
+        <NativeText preset="body-sm" className="text-muted-foreground">
+          {copy.contact.title}
+        </NativeText>
+        <Inline gap="sm" wrap>
+          {contact.email ? (
+            <NativeButton size="sm" variant="outline" onPress={open(mailtoHref(contact.email))} testID="genesis-support-contact-email">
+              {fill(copy.contact.email, { email: contact.email })}
+            </NativeButton>
+          ) : null}
+          {contact.url ? (
+            <NativeButton size="sm" variant="outline" onPress={open(contact.url)} testID="genesis-support-contact-url">
+              {copy.contact.page}
+            </NativeButton>
+          ) : null}
+        </Inline>
+      </Stack>
+    </Box>
+  );
+}
+
 /** One article, by its slug. */
 export function useHelpArticle(slug: string): HelpArticleProps {
   const block = useSupport();
@@ -284,34 +324,43 @@ export function useHelpArticle(slug: string): HelpArticleProps {
 
 /** An article's words, and the way to a person. */
 export function HelpArticleBody({ article, loading, notFound, error, copy, onNewMessage }: HelpArticleProps) {
-  if (loading) return <NativeText preset="body-sm" className="text-muted-foreground" style={{ padding: 16 }}>{copy.messenger.aiThinking}</NativeText>;
+  if (loading)
+    return (
+      <Box p="lg">
+        <NativeText preset="body-sm" className="text-muted-foreground">{copy.messenger.aiThinking}</NativeText>
+      </Box>
+    );
   if (!article || notFound || error) {
     return (
-      <View testID="genesis-support-article-missing" style={{ padding: 16 }}>
+      <Box p="lg" testID="genesis-support-article-missing">
         <NativeText>{error ? copy.messenger.helpErrorTitle : copy.messenger.articleNotFound}</NativeText>
-      </View>
+      </Box>
     );
   }
   return (
-    <ScrollView testID="genesis-support-article" contentContainerStyle={{ gap: 12, padding: 16 }}>
-      <NativeText preset="h2" accessibilityRole="header">
-        {article.title}
-      </NativeText>
-      {article.body
-        .split(/\n\s*\n/)
-        .filter((p) => p.trim())
-        .map((p, i) => (
-          <NativeText key={i}>{p.trim()}</NativeText>
-        ))}
-      <NativeText preset="body-sm" className="text-muted-foreground">{copy.messenger.stillNeedHelp}</NativeText>
-      <NativeButton variant="outline" onPress={onNewMessage} testID="genesis-support-article-new">
-        {copy.messenger.newMessage}
-      </NativeButton>
+    <ScrollView testID="genesis-support-article">
+      <Box p="lg">
+        <Stack gap="md">
+          <NativeText preset="h2" accessibilityRole="header">
+            {article.title}
+          </NativeText>
+          {article.body
+            .split(/\n\s*\n/)
+            .filter((p) => p.trim())
+            .map((p, i) => (
+              <NativeText key={i}>{p.trim()}</NativeText>
+            ))}
+          <NativeText preset="body-sm" className="text-muted-foreground">{copy.messenger.stillNeedHelp}</NativeText>
+          <NativeButton variant="outline" onPress={onNewMessage} testID="genesis-support-article-new">
+            {copy.messenger.newMessage}
+          </NativeButton>
+        </Stack>
+      </Box>
     </ScrollView>
   );
 }
 
-type StartProps = Pick<ThreadPageProps, "messages" | "composer" | "emptyTitle" | "emptyBody" | "testID"> & {
+type StartProps = Pick<ThreadPageProps, "messages" | "composer" | "header" | "emptyTitle" | "emptyBody" | "testID"> & {
   headerTitle: string;
   failed: boolean;
   /** How soon people hear back, or when someone's back (`replyExpectation`, `officeHours`): shown above the composer, and here for a screen of your own. Null with neither set. */
@@ -337,16 +386,24 @@ export function useStartConversation(): StartProps {
     headerTitle: copy.messenger.composeTitle,
     messages: [],
     emptyTitle: copy.messenger.composeTitle,
-    emptyBody: failed ? copy.messenger.composeFailed : copy.messenger.composePlaceholder,
+    emptyBody: copy.messenger.composePlaceholder,
+    // Not sent: said where the person looks, above the empty thread, with the draft still there.
+    header: failed ? (
+      <Box px="lg" py="md">
+        <NativeInlineAlert variant="destructive" description={copy.messenger.composeFailed} testID="genesis-support-start-failed" />
+      </Box>
+    ) : null,
     failed,
     expectation,
     composer: {
       ...(expectation
         ? {
             above: (
-              <NativeText preset="body-sm" className="text-muted-foreground" style={{ paddingHorizontal: 12, paddingTop: 8 }} testID="genesis-support-start-expectation">
-                {expectation}
-              </NativeText>
+              <Box px="md" pt="sm">
+                <NativeText preset="body-sm" className="text-muted-foreground" testID="genesis-support-start-expectation">
+                  {expectation}
+                </NativeText>
+              </Box>
             ),
           }
         : {}),

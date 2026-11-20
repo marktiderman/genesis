@@ -591,7 +591,7 @@ Functions (templates; copy the folder into `supabase/functions/`):
 | Function                  | What it does                                                                                                                                         | Secrets                                                                                                                      |
 | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | `genesis-support-intake`  | The wire contract over HTTP (boot, submit, list) for clients without supabase-js; acts as the caller, never the service role                         | `GENESIS_SUPPORT_ORIGINS` (web origins)                                                                                      |
-| `genesis-support-notify`  | A Database Webhook on INSERT into `public.tickets` (`support_reports` before genesis-support 0004): a GitHub issue per report and/or a signed webhook, with a summary only (no person, device, context or screenshot) | `GENESIS_SUPPORT_WEBHOOK_SECRET`, `GITHUB_TOKEN` + `GITHUB_REPO`, `SUPPORT_WEBHOOK_URL` (+ `SUPPORT_WEBHOOK_SIGNING_SECRET`) |
+| `genesis-support-notify`  | A Database Webhook on INSERT into `public.tickets` (`support_reports` before genesis-support 0004): a GitHub issue per report and/or a signed webhook, with a summary only (no person, device, context or screenshot) | `GENESIS_SUPPORT_WEBHOOK_SECRET`, `GITHUB_TOKEN` + `GITHUB_REPO`, `SUPPORT_WEBHOOK_URL` (+ `SUPPORT_WEBHOOK_SIGNING_SECRET`); without `GITHUB_REPO` or `SUPPORT_WEBHOOK_URL` it reads `support.githubRepo` / `support.webhookUrl` from the app's settings (`genesis_settings_layers`), and posts no webhook with `support.staffAlerts` off |
 | `genesis-support-cleanup` | On a schedule: removes queued and orphaned screenshots through the Storage API                                                                       | `GENESIS_SUPPORT_CLEANUP_SECRET`                                                                                             |
 
 All three deploy with `verify_jwt = false` (each checks its caller or secret itself).
@@ -741,13 +741,33 @@ preset and genesis.config.json.
   and lock, and from where: `admin`, `wizard`, `cli`, `central`, `server` or `database`), written only
   by a trigger.
 - **`genesis_app_manifest`**: one row, what the app runs: its packages and versions, preset, file
-  settings and the settings catalogue. Write it on every deploy, after the migrations, with
-  `genesis settings sync` (genesis-cli, through the linked project), or from your server at start with
+  settings and the settings catalogue. **Write it on every deploy, after the migrations**, with
+  `genesis settings sync` (genesis-cli, through the linked project; put it in the deploy pipeline), or from your server at start with
   the service role (`writeAppManifest`). `set_genesis_setting` checks values against its catalogue
   (declared, runtime, the right type, in bounds); until it is written, every write is refused.
-- **Who may change settings** is your hook, `private.genesis_platform_admin(person uuid) returns
-  boolean` (ADR 0003's platform zone). Without it nobody can (`42501`, with a hint): a fresh install
-  fails closed, as tenant features do.
+- **Who may change settings** is the app's hook `private.genesis_platform_admin(person uuid) returns
+  boolean` (ADR 0003's platform zone). Migration `0022_genesis_platform_admins.sql` gives an app with
+  no hook a default inside Genesis's own wrappers (never under the hook's name): the people in
+  **`genesis_platform_admins`**, a list that starts empty (never every signed-in person) and only the
+  service role reads or writes. Until the app has a hook or the list has a person, nobody can
+  (`42501`, with a hint): a fresh install fails closed, as tenant features do. Add the first admin by a
+  confirmed email in the SQL editor (`genesis doctor` warns `platform-admin-missing` while it is
+  empty); it adds nobody when no confirmed person, or more than one, has that email:
+
+  ```sql
+  do $$ begin
+    if (select count(*) from auth.users where lower(email) = lower('you@example.com') and email_confirmed_at is not null) <> 1 then
+      raise exception 'no single confirmed person has that email: nobody was added';
+    end if;
+    insert into public.genesis_platform_admins (person)
+    select id from auth.users where lower(email) = lower('you@example.com') and email_confirmed_at is not null
+    on conflict do nothing;
+  end $$;
+  ```
+
+  The app's own hook, added whenever and however it likes (`create function`, its own parameter
+  name), takes over from the list. With genesis-support (0032), the platform admins are also support
+  staff.
 - **Server code** is told apart from a person by the request's role, never by a JWT claim: the
   service role, any role that bypasses row security, or a connection that never switched role. So a
   direct database login (`psql`, a migration, a BI tool on its own login) counts as server code: it
@@ -766,22 +786,52 @@ preset and genesis.config.json.
   passes as SQL null) means "not set".
 - **The history is evidence.** Nobody edits it; the service role can't delete it directly, only prune
   rows older than a year with `genesis_prune_setting_changes(older_than)`.
+- **Tenant and person values** (migration `0023_genesis_settings_tenant_person.sql`):
+  `genesis_tenant_settings` holds a tenant's value for keys declared `scope: "tenant"`, set by the
+  tenant's admins (your `private.genesis_tenant_admin(tenant uuid, person uuid)` hook, the one tenant
+  features use) for their own tenant only; `genesis_person_settings` holds a person's own value for
+  keys declared `scope: "person"`. Each write is checked like a platform admin's, and refused for a
+  key of another scope or one genesis.config.json or the database layer locks. Every change goes to
+  `genesis_scoped_setting_changes`. A tenant's members and admins read its values (the optional
+  `private.genesis_tenant_member` hook) and its admins alone its history; a person reads their own
+  values and history, platform admins everything; the tables
+  are written only through the functions. Add a foreign key from `tenant_id` to your tenant table
+  (the migration's header shows how); a deleted person takes their values and history with them.
+- **Reading a tenant.** `genesis_settings_layers(tenant)` returns the layers above plus that tenant's
+  layer and the signed-in person's own; `readSettingsLayers(supabase, { tenantId })` and
+  `resolveAppSettings(supabase, catalogue, { tenantId })` call it. On a database without 0023 they
+  read 0020's layers and leave tenant and person values out, warning once in the console.
+- **Realtime.** A change to any of the three settings tables is broadcast on a private channel
+  (`genesis-settings`, `genesis-settings:tenant:<id>`, `genesis-settings:person:<id>`) with the layer
+  and key, never the value, to those who may read it. `watchAppSettings` resolves now and again on
+  every change (and after a reconnect), and returns the function that stops it; a channel it can't
+  join or that times out goes to `onError`. To opt out, call `resolveAppSettings` instead: nothing
+  listens. The listen policy (`genesis_settings_listen` on `realtime.messages`) is created only if
+  Realtime is enabled when 0023 runs; enable Realtime later and copy 0023's `do $rt$ … $rt$` block
+  into a migration of your own.
 
 ```ts
-import { resolveAppSettings, setGenesisSetting, writeAppManifest } from "@marktiderman/genesis-supabase";
+import { resolveAppSettings, setGenesisSetting, watchAppSettings, writeAppManifest } from "@marktiderman/genesis-supabase";
 
 // On deploy, `genesis settings sync` writes the manifest. Or at server start, with the service role:
 await writeAppManifest(admin, { appId: "sample-app", packages, preset: "max", fileSettings, catalogue });
 
-// In the app, for any signed-in person:
-const settings = await resolveAppSettings(supabase, catalogue, { person: preferences });
+// In the app, for any signed-in person, with their tenant's values and their own:
+const settings = await resolveAppSettings(supabase, catalogue, { tenantId });
+
+// …or kept up to date over Realtime:
+const stop = watchAppSettings(supabase, catalogue, { tenantId, personId: user.id, onChange: setSettings });
 
 // A platform admin, from the Settings screen:
 await setGenesisSetting(supabase, { key: "support.dumpRetentionDays", value: 30, locked: true });
+// A tenant's admin, for their tenant; a person, for themselves:
+await setGenesisSetting(supabase, { key: "support.messenger", value: false, layer: "tenant", tenant: tenantId });
+await setGenesisSetting(supabase, { key: "support.shakeToReport", value: false, layer: "person" });
 ```
 
-`clearGenesisSetting` removes a row (the layers below apply again) and `genesisSettingHistory` reads
-the history, both for platform admins. Tenant and person values aren't stored here yet.
+`clearGenesisSetting(supabase, key, { layer, tenant })` removes a value (the layers below apply
+again): the database layer by default, for platform admins. `genesisSettingHistory` reads the
+database layer's history, for platform admins.
 
 ## Background jobs (the jobs block)
 

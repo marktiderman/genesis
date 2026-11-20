@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { Stack, router, type Href } from "expo-router";
-import { Alert } from "react-native";
+import * as Clipboard from "expo-clipboard";
+import { Alert, View } from "react-native";
 import type { Session } from "@supabase/supabase-js";
 import { useBlockSettings, useSession } from "@marktiderman/genesis-native";
 import { useBlockReload } from "@marktiderman/genesis-native/updates";
+import { SendDiagnosticsRow } from "@marktiderman/genesis-support/native";
 import { SettingsPage, getSettingsPageStackOptions, type SettingsPageDangerousAction, type SettingsPageRow } from "@marktiderman/genesis-ui-native";
 import starter from "../../../../starter.config";
 import { copy } from "@/copy";
@@ -11,11 +13,12 @@ import { deleteAccount } from "@/lib/account";
 import { devtools } from "@/lib/devtools";
 import { observability } from "@/lib/observability";
 import { supabase } from "@/lib/supabase";
+import { support } from "@/lib/support";
 import { useAppVersion } from "@/lib/updates";
 
 const t = copy.settings;
 
-/** The Settings tab: who is signed in, the version signature (`features.updates`), sign out and (`features.accountDeletion`) delete account. */
+/** The Settings tab: who is signed in, the version signature (`features.updates`), Send diagnostics (`features.support`), sign out and (`features.accountDeletion`) delete account. */
 export default function SettingsScreen() {
   const { session } = useSession<Session>();
   // While the request runs, "Delete account" does nothing (each try also goes through the confirmation).
@@ -92,8 +95,23 @@ export default function SettingsScreen() {
   if (starter.features.accountDeletion) {
     dangerousActions.push({ label: t.deleteAccount, testID: "delete-account", emphasized: true, onPress: busy ? () => {} : confirmDelete });
   }
+  // "Send diagnostics" under About (`features.support`, while the `diagnostics.sendFromSettings` setting is on): the id to quote to support.
+  const sendDiagnostics = Boolean(support?.diagnostics && support.settings().diagnostics.sendFromSettings);
   // Blocks add their rows (push's Notifications row in `general`, support's in `support`); a section left empty is dropped.
-  const sections = blockSettings.filter((section) => section.rows.length > 0);
+  const sections = blockSettings
+    .filter((section) => section.rows.length > 0)
+    .map((section) =>
+      section.id === "about" && sendDiagnostics
+        ? {
+            ...section,
+            children: (
+              <View style={{ padding: 16 }}>
+                <SendDiagnosticsRow copy={Clipboard.setStringAsync} testID="send-diagnostics" />
+              </View>
+            ),
+          }
+        : section,
+    );
   return (
     <>
       <Stack.Screen options={getSettingsPageStackOptions({ headerTitle: t.title })} />

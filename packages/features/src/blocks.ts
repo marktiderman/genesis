@@ -57,6 +57,11 @@ export interface BlockSettingsRow {
    * blocks must not change while the app runs (shells read them once).
    */
   useSubtitle?: () => string | null | undefined;
+  /**
+   * A hook saying whether the row shows now (a setting that changes while the app runs, who the
+   * person is). Called like `useSubtitle`, on every render. Left out, always.
+   */
+  useShown?: () => boolean;
   /** Where tapping the row goes, as a path. */
   href?: string;
   /** Lower first within its section. Default 0. */

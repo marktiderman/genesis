@@ -22,6 +22,7 @@ export function fakeSupabase({ userId = "00000000-0000-4000-8000-0000000000a1", 
   const calls: Call[] = [];
   const uploads: Array<{ bucket: string; path: string; body: unknown; options: unknown }> = [];
   const rpcs: Array<{ fn: string; args: unknown }> = [];
+  const authListeners = new Set<(event: string, session: unknown) => void>();
   const from = (table: string) => {
     const call: Call = { table, ops: [] };
     calls.push(call);
@@ -47,7 +48,13 @@ export function fakeSupabase({ userId = "00000000-0000-4000-8000-0000000000a1", 
       rpcs.push({ fn, args });
       return Promise.resolve(rpc?.(fn, args) ?? { data: null, error: null });
     },
-    auth: { getSession: async () => ({ data: { session: userId ? { user: { id: userId } } : null }, error: null }) },
+    auth: {
+      getSession: async () => ({ data: { session: userId ? { user: { id: userId } } : null }, error: null }),
+      onAuthStateChange: (callback: (event: string, session: unknown) => void) => {
+        authListeners.add(callback);
+        return { data: { subscription: { id: "fake", callback, unsubscribe: () => void authListeners.delete(callback) } } };
+      },
+    },
     storage: {
       from: (bucket: string) => ({
         upload: async (path: string, body: unknown, options: unknown) => {
@@ -58,7 +65,9 @@ export function fakeSupabase({ userId = "00000000-0000-4000-8000-0000000000a1", 
       }),
     },
   };
-  return { client: client as unknown as SupportSupabase, calls, uploads, rpcs };
+  /** Tell the client's auth listeners an event happened ("SIGNED_OUT"), as supabase-js does. */
+  const emitAuth = (event: string) => authListeners.forEach((listener) => listener(event, null));
+  return { client: client as unknown as SupportSupabase, calls, uploads, rpcs, emitAuth, authListeners };
 }
 
 /** The first argument of the first `op` in a call. */

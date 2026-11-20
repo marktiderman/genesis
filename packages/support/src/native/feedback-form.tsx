@@ -7,12 +7,25 @@
  *   <SettingsSubPage testID="support-feedback"><FeedbackForm onSent={() => router.back()} /></SettingsSubPage>
  */
 import { useEffect, useRef, useState } from "react";
-import { Alert, Image, Modal, View } from "react-native";
+import { Alert, Image, Modal } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
-import { NativeButton, NativeLabel, NativeSegmentedControl, NativeSwitch, NativeText, NativeTextarea } from "@marktiderman/genesis-ui-native/components";
+import {
+  Box,
+  Inline,
+  NativeButton,
+  NativeInlineAlert,
+  NativeLabel,
+  NativeSegmentedControl,
+  NativeSwitch,
+  NativeText,
+  NativeTextarea,
+  Stack,
+} from "@marktiderman/genesis-ui-native/components";
 import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
 import { SupportError } from "../client";
+import { cleanRoute } from "../contract";
+import { isUnderPath, stripZone } from "../routes";
 import { FEEDBACK_TYPES, type FeedbackDelivery, type FeedbackRecord, type FeedbackType } from "../record";
 import { DiagnosticsSendError } from "../diagnostics/queue";
 import type { DiagnosticsDelivery } from "../diagnostics/create";
@@ -23,7 +36,7 @@ import { SUPPORT_QUERY_ROOT, useSupport, type PendingFeedback, type PendingScree
 export interface FeedbackFormProps {
   defaultType?: FeedbackType;
   /** After a report is saved (go back, say thanks). The form has already shown its own confirmation, unless `sentAlert` is false. */
-  onSent?: (delivery: FeedbackDelivery & { diagnostics?: DiagnosticsDelivery | null }) => void;
+  onSent?: (delivery: FeedbackDelivery & { diagnostics?: DiagnosticsDelivery | null; queued?: boolean }) => void;
   /** Confirm a sent report with an alert. Default true; false when `onSent` says so itself (a toast). */
   sentAlert?: boolean;
   testID?: string;
@@ -62,6 +75,12 @@ export function FeedbackForm({ defaultType = "bug", onSent, sentAlert = true, te
   const [annotating, setAnnotating] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Where the person was when they asked for the form, never the form itself.
+  const fromRoute = origin?.route && !isUnderPath(stripZone(origin.route, block.options.zones), block.paths.inbox) ? origin.route : undefined;
+  // What it is about, as the web panel says it ("About: Billing"): the app's label, else the screen's path.
+  const aboutLabel = origin?.about?.label?.trim() || cleanRoute(fromRoute ? stripZone(fromRoute, block.options.zones) : undefined) || null;
+  const [keepAbout, setKeepAbout] = useState(true);
+  const errorAttached = Boolean(origin?.extra && "error" in origin.extra);
 
   useEffect(() => setError(null), [message]);
 
@@ -74,11 +93,11 @@ export function FeedbackForm({ defaultType = "bug", onSent, sentAlert = true, te
     let withShake: typeof shakeDump = null;
     try {
       const context = await block.collector.collect();
-      // Where the person was when they asked for the form, never the form itself.
-      const route = origin?.route && !origin.route.startsWith(block.paths.inbox) ? origin.route : undefined;
-      if (route) context.route = route;
+      // "Not this": the person says it isn't about that screen, so neither its path nor its label goes.
+      if (fromRoute && keepAbout) context.route = fromRoute;
       else delete context.route;
       if (origin?.extra) context.extra = { ...context.extra, ...origin.extra };
+      if (origin?.about && keepAbout && aboutLabel) context.extra = { ...context.extra, ...origin.about.context, about_label: aboutLabel };
       const record: FeedbackRecord = {
         type,
         message: message.trim(),
@@ -93,7 +112,7 @@ export function FeedbackForm({ defaultType = "bug", onSent, sentAlert = true, te
       // Held for this report from here: an unmount while it is sent doesn't send the dump alone too.
       withShake?.begin();
       const made = withShake ? await withShake.report() : null;
-      const delivery: FeedbackDelivery & { diagnostics?: DiagnosticsDelivery | null } =
+      const delivery: FeedbackDelivery & { diagnostics?: DiagnosticsDelivery | null; queued?: boolean } =
         diagnostics && dumpOnFeedback ? await diagnostics.submitFeedback(record, { sink, report: made }) : await sink.submit(record);
       if (withShake) {
         withShake.end(true);
@@ -103,7 +122,7 @@ export function FeedbackForm({ defaultType = "bug", onSent, sentAlert = true, te
       setMessage("");
       setScreenshot(null);
       if (sentAlert) {
-        const body = delivery.attachmentsDropped ? copy.feedback.sentWithoutScreenshot : copy.feedback.sentBody;
+        const body = delivery.queued ? copy.feedback.queuedBody : delivery.attachmentsDropped ? copy.feedback.sentWithoutScreenshot : copy.feedback.sentBody;
         const reference = delivery.diagnostics ? `\n\n${fill(copy.diagnostics.feedbackReference, { id: delivery.diagnostics.shortId })}` : "";
         Alert.alert(copy.feedback.sentTitle, `${body}${reference}`);
       }
@@ -121,8 +140,20 @@ export function FeedbackForm({ defaultType = "bug", onSent, sentAlert = true, te
   };
 
   return (
-    <View testID={testID} style={{ gap: 16 }}>
-      <View style={{ gap: 8 }}>
+    <Stack gap="lg" testID={testID}>
+      {aboutLabel && keepAbout ? (
+        <Inline gap="sm" justify="between" testID={`${testID}-about`}>
+          <NativeText preset="body-sm" className="flex-1">
+            <NativeText preset="body-sm" className="text-muted-foreground">{`${copy.feedback.aboutLabel} `}</NativeText>
+            {aboutLabel}
+          </NativeText>
+          <NativeButton variant="ghost" size="sm" onPress={() => setKeepAbout(false)} testID={`${testID}-about-clear`}>
+            {copy.feedback.aboutClear}
+          </NativeButton>
+        </Inline>
+      ) : null}
+      {errorAttached ? <NativeInlineAlert variant="info" description={copy.feedback.errorAttached} testID={`${testID}-error-attached`} /> : null}
+      <Stack gap="sm">
         <NativeLabel>{copy.feedback.typeLabel}</NativeLabel>
         <NativeSegmentedControl
           testID={`${testID}-type`}
@@ -130,7 +161,7 @@ export function FeedbackForm({ defaultType = "bug", onSent, sentAlert = true, te
           value={type}
           onChange={(v) => setType(v as FeedbackType)}
         />
-      </View>
+      </Stack>
       <NativeTextarea
         testID={`${testID}-message`}
         label={copy.feedback.messageLabel}
@@ -142,25 +173,29 @@ export function FeedbackForm({ defaultType = "bug", onSent, sentAlert = true, te
         error={error ?? undefined}
       />
       {screenshot ? (
-        <View testID={`${testID}-screenshot`} style={{ gap: 8 }}>
+        <Stack gap="sm" testID={`${testID}-screenshot`}>
           <NativeLabel>{copy.feedback.screenshotLabel}</NativeLabel>
-          <View style={{ flexDirection: "row", gap: 12, alignItems: "flex-start" }}>
+          <Inline gap="md" align="start">
             <Image
               source={{ uri: screenshot.uri }}
               accessibilityLabel={copy.feedback.screenshotLabel}
-              style={{ width: 96, height: Math.round((96 * screenshot.height) / Math.max(1, screenshot.width)), borderRadius: 8, backgroundColor: colors.fill }}
+              style={{ width: THUMB_WIDTH, height: Math.round((THUMB_WIDTH * screenshot.height) / Math.max(1, screenshot.width)), borderRadius: 8, backgroundColor: colors.fill }}
             />
-            <View style={{ flex: 1, gap: 8 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                <NativeText style={{ flex: 1, color: colors.label, fontSize: 15, lineHeight: 20 }}>{copy.feedback.includeScreenshot}</NativeText>
+            <Stack gap="sm" style={{ flex: 1 }}>
+              <Inline gap="sm" justify="between">
+                <NativeText preset="body" className="flex-1">
+                  {copy.feedback.includeScreenshot}
+                </NativeText>
                 <NativeSwitch
                   testID={`${testID}-include-screenshot`}
                   accessibilityLabel={copy.feedback.includeScreenshot}
                   checked={include}
                   onCheckedChange={setInclude}
                 />
-              </View>
-              <NativeText style={{ color: colors.secondaryLabel, fontSize: 13, lineHeight: 18 }}>{copy.feedback.screenshotHint}</NativeText>
+              </Inline>
+              <NativeText preset="body-sm" className="text-muted-foreground">
+                {copy.feedback.screenshotHint}
+              </NativeText>
               {block.options.viewShot ? (
                 <NativeButton variant="outline" size="sm" onPress={() => setAnnotating(true)} testID={`${testID}-annotate`}>
                   {copy.feedback.annotate}
@@ -177,9 +212,9 @@ export function FeedbackForm({ defaultType = "bug", onSent, sentAlert = true, te
               >
                 {copy.feedback.removeScreenshot}
               </NativeButton>
-            </View>
-          </View>
-        </View>
+            </Stack>
+          </Inline>
+        </Stack>
       ) : null}
       {/* Full screen, outside the page's scroll view: on iOS a scroll view takes a drag before the drawing can. */}
       {annotating && screenshot && block.options.viewShot ? (
@@ -189,7 +224,7 @@ export function FeedbackForm({ defaultType = "bug", onSent, sentAlert = true, te
             setAnnotating(false);
           }}>
           <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-            <View style={{ flex: 1, padding: 16, justifyContent: "center" }}>
+            <Box p="lg" style={{ flex: 1, justifyContent: "center" }}>
               <ScreenshotAnnotator
                 screenshot={screenshot}
                 viewShot={block.options.viewShot}
@@ -206,13 +241,16 @@ export function FeedbackForm({ defaultType = "bug", onSent, sentAlert = true, te
                 }}
                 testID={`${testID}-annotator`}
               />
-            </View>
+            </Box>
           </SafeAreaView>
         </Modal>
       ) : null}
       <NativeButton onPress={() => void send()} loading={sending} disabled={sending} testID={`${testID}-send`}>
         {sending ? copy.feedback.sending : copy.feedback.send}
       </NativeButton>
-    </View>
+    </Stack>
   );
 }
+
+/** The screenshot's thumbnail width, in points. */
+const THUMB_WIDTH = 96;

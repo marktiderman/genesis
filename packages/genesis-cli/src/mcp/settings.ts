@@ -82,6 +82,30 @@ export function loadCatalogue(root: string): { catalogue: SettingsCatalogue; dec
   return { catalogue: settingsCatalogue(declared.map((d) => d.declaration)), declared, problems };
 }
 
+/** The settings catalogue doesn't load, so the secrets it declares aren't known. */
+export class CatalogueError extends Error {
+  override name = "CatalogueError";
+}
+
+/** The secret names every settings declaration that could be read names, whether or not they make a catalogue. */
+export function readableSecretNames(root: string): string[] {
+  return packageSettings(root).declared.flatMap((d) => Object.values(d.declaration.keys).flatMap((k) => (k.secret ? [k.secret.name] : [])));
+}
+
+/**
+ * The secret names the catalogue declares, so their values are redacted. A catalogue that can't be
+ * built is a CatalogueError that says so: without it genesis mcp can't tell which values to redact.
+ */
+export function declaredSecretNames(root: string): string[] {
+  let catalogue: SettingsCatalogue;
+  try {
+    catalogue = loadCatalogue(root).catalogue;
+  } catch (err) {
+    throw new CatalogueError(`The settings catalogue doesn't load, so genesis mcp can't tell which environment values are secrets, and answers nothing but doctor_run and doctor_explain until it does: ${err instanceof Error ? err.message : String(err)} (genesis doctor at a terminal shows it)`);
+  }
+  return Object.values(catalogue.keys).flatMap((d) => (d.secret ? [d.secret.name] : []));
+}
+
 const hasKey = (catalogue: SettingsCatalogue, key: string) => Object.prototype.hasOwnProperty.call(catalogue.keys, key);
 
 /** One key as the catalogue tool shows it: its declaration, a secret by name only. */
@@ -171,7 +195,7 @@ export function checkProposal(catalogue: SettingsCatalogue, key: string, value: 
  * (a locked entry stays locked), keeping the file's indentation. Applied like any fix, through
  * fix_apply, after the person approves it.
  */
-export function settingsProposalFix(key: string, value: unknown): Fix {
+export function settingsProposalFix(key: string, value: unknown, locked?: boolean): Fix {
   return {
     id: SETTINGS_PROPOSE_ID,
     kind: "auto",
@@ -196,10 +220,14 @@ export function settingsProposalFix(key: string, value: unknown): Fix {
       const settings = json.settings ?? {};
       if (!settings || typeof settings !== "object" || Array.isArray(settings)) throw new ProposalError(`${CONFIG_FILE} "settings" isn't an object`);
       const current = (settings as Record<string, unknown>)[key];
-      const entry = isLockedEntry(current) ? { value, locked: current.locked } : value;
+      // `locked` left out keeps the key's lock as it is; true or false sets it.
+      const wasLocked = isLockedEntry(current) && current.locked === true;
+      const lock = locked ?? wasLocked;
+      // Left out, an entry written as { value, locked } keeps that shape (an explicit `locked: false` included).
+      const entry = locked === undefined && isLockedEntry(current) ? { value, locked: current.locked } : lock ? { value, locked: true } : value;
       const before = isLockedEntry(current) ? current.value : current;
-      if (current !== undefined && canonicalJson(before) === canonicalJson(value)) {
-        return { summary: `settings.${key} is already ${clipJson(value)} in ${CONFIG_FILE}` };
+      if (current !== undefined && canonicalJson(before) === canonicalJson(value) && lock === wasLocked) {
+        return { summary: `settings.${key} is already ${clipJson(value)}${lock ? " (locked)" : ""} in ${CONFIG_FILE}` };
       }
       // In place when the key is there, so the file's order stays.
       const next: Record<string, unknown> = { ...(settings as Record<string, unknown>) };
@@ -211,7 +239,7 @@ export function settingsProposalFix(key: string, value: unknown): Fix {
       const after = resolveSettings(catalogue, { ...(typeof json.preset === "string" ? { preset: json.preset as never } : {}), file: settingsLayerFromFile(next) });
       const needs = after.problems.filter((p) => p.key === key).map((p) => p.message);
       return {
-        summary: `${raw === null ? "creates" : "writes"} ${CONFIG_FILE}: settings.${key} ${current === undefined ? "set to" : `from ${clipJson(before)} to`} ${clipJson(value)}${isLockedEntry(current) && current.locked ? " (stays locked)" : ""}`,
+        summary: `${raw === null ? "creates" : "writes"} ${CONFIG_FILE}: settings.${key} ${current === undefined ? "set to" : `from ${clipJson(before)} to`} ${clipJson(value)}${lock && wasLocked ? " (stays locked)" : lock ? ", locked" : wasLocked ? ", unlocked" : ""}`,
         files: [plannedFile(ctx.root, CONFIG_FILE, content, `the proposed value of ${key}`)],
         ...(needs.length ? { manual: needs.join("\n") } : {}),
       };
@@ -221,6 +249,11 @@ export function settingsProposalFix(key: string, value: unknown): Fix {
       const resolved = resolveSettings(catalogue, fileLayers(ctx.root));
       const problem = resolved.problems.find((p) => p.key === key && p.kind !== "requires");
       if (problem) return { ok: false, message: problem.message };
+      const lockedHere = (() => {
+        const entry = (readGenesisConfig(ctx.root)?.settings ?? {})[key];
+        return isLockedEntry(entry) && entry.locked === true;
+      })();
+      if (locked !== undefined && lockedHere !== locked) return { ok: false, message: `settings.${key} is ${lockedHere ? "locked" : "not locked"} in ${CONFIG_FILE}` };
       const ok = canonicalJson(resolved.values[key]) === canonicalJson(value) || resolved.sources[key]?.lockedBy !== undefined;
       return ok ? { ok: true } : { ok: false, message: `settings.${key} resolves to ${clipJson(resolved.values[key])}` };
     },

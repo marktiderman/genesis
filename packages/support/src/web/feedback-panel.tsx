@@ -56,7 +56,7 @@ export interface FeedbackPanelProps {
   /** Offer a pin on the page. Default on. */
   pins?: boolean;
   defaultType?: FeedbackType;
-  onSent?: (delivery: FeedbackDelivery & { diagnostics?: DiagnosticsDelivery | null }) => void;
+  onSent?: (delivery: FeedbackDelivery & { diagnostics?: DiagnosticsDelivery | null; queued?: boolean }) => void;
   /**
    * The context dump (`createDiagnostics` with `webSections()`): one goes with every report,
    * linked both ways by `diagnosticsId` and `feedbackId`. A dump that fails never fails the report.
@@ -166,7 +166,7 @@ export function useFeedbackDraft(defaultType: FeedbackType = "bug"): FeedbackDra
   return useMemo(() => ({ draft, update, reset }), [draft, update, reset]);
 }
 
-type Status = { kind: "idle" } | { kind: "sending" } | { kind: "sent"; dropped: number } | { kind: "error"; message: string };
+type Status = { kind: "idle" } | { kind: "sending" } | { kind: "sent"; dropped: number; queued?: boolean } | { kind: "error"; message: string };
 
 export function FeedbackPanel({ client, diagnostics: dump, collector, copy: overrides, screenshots: screenshotsProp, pins: pinsProp, defaultType = "bug", onSent, onHide, about, captureOnOpen, draft: held, captureRequest, onOpenHelp, severity: severityProp, thanksReplacesForm = false, appSettings }: FeedbackPanelProps) {
   const settings = supportSettingValues(appSettings);
@@ -267,12 +267,12 @@ export function FeedbackPanel({ client, diagnostics: dump, collector, copy: over
         context,
         attachments: image ? [{ kind: "screenshot", contentType: image.contentType, base64: image.dataUrl, width: image.width, height: image.height }] : [],
       };
-      const delivery: FeedbackDelivery & { diagnostics?: DiagnosticsDelivery | null } = diagnostics
+      const delivery: FeedbackDelivery & { diagnostics?: DiagnosticsDelivery | null; queued?: boolean } = diagnostics
         ? await diagnostics.submitFeedback(record, { sink: client })
         : await client.submit(record);
       update(
         {
-          status: { kind: "sent", dropped: delivery.attachmentsDropped },
+          status: { kind: "sent", dropped: delivery.attachmentsDropped, ...(delivery.queued ? { queued: true } : {}) },
           message: "",
           shot: null,
           shotFailed: false,
@@ -309,7 +309,7 @@ export function FeedbackPanel({ client, diagnostics: dump, collector, copy: over
           <>
             <Alert data-testid="genesis-support-sent" role="status">
               <AlertTitle>{copy.feedback.sentTitle}</AlertTitle>
-              <AlertDescription>{status.dropped ? copy.feedback.sentWithoutScreenshot : copy.feedback.sentBody}</AlertDescription>
+              <AlertDescription>{status.queued ? copy.feedback.queuedBody : status.dropped ? copy.feedback.sentWithoutScreenshot : copy.feedback.sentBody}</AlertDescription>
             </Alert>
             <div className="flex flex-wrap gap-2">
               {onOpenHelp ? (
@@ -410,7 +410,7 @@ export function FeedbackPanel({ client, diagnostics: dump, collector, copy: over
             {status.kind === "sent" ? (
               // The default thanks: under the form, which stays (thanksReplacesForm swaps them).
               <Alert data-testid="genesis-support-sent">
-                <AlertDescription>{status.dropped ? copy.feedback.sentWithoutScreenshot : copy.feedback.sentBody}</AlertDescription>
+                <AlertDescription>{status.queued ? copy.feedback.queuedBody : status.dropped ? copy.feedback.sentWithoutScreenshot : copy.feedback.sentBody}</AlertDescription>
               </Alert>
             ) : null}
             <Button type="button" onClick={() => void send()} disabled={status.kind === "sending"} data-testid="genesis-support-send">

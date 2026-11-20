@@ -19,7 +19,7 @@
  */
 import { useEffect, useMemo, useRef, type ComponentType, type ReactNode } from "react";
 import { reportError } from "@marktiderman/genesis-core/errors";
-import { FatalScreen, GenesisErrorBoundary, type ErrorReport, type FatalScreenProps, type OnError } from "./errors";
+import { FatalScreen, GenesisErrorBoundary, type ErrorReport, type FatalScreenContact, type FatalScreenLabels, type FatalScreenProps, type OnError } from "./errors";
 
 /** What Expo Router gives a route's `ErrorBoundary`: the error, and `retry` to render the route again. */
 export interface ScreenErrorProps {
@@ -48,6 +48,10 @@ export interface ScreenErrorBoundaryOptions {
   onError?: OnError;
   /** Wrappers around the route boundary, innermost first (Sentry's `wrapExpoRouterErrorBoundary`). */
   wrap?: readonly ((boundary: ComponentType<ScreenErrorProps>) => ComponentType<ScreenErrorProps>)[];
+  /** "Contact support" on the default fallback (support's `support.contact()`), read when it shows. */
+  contact?: FatalScreenContact | (() => FatalScreenContact | null) | null;
+  /** The default fallback's words ("Contact support", "Report this"…), in English by default. */
+  labels?: Partial<FatalScreenLabels>;
 }
 
 /**
@@ -57,7 +61,14 @@ export interface ScreenErrorBoundaryOptions {
  * @stability Beta
  */
 export function createScreenErrorBoundary(options: ScreenErrorBoundaryOptions = {}): ComponentType<ScreenErrorProps> {
-  const Fallback = options.fallback ?? ScreenFallback;
+  const { contact, labels } = options;
+  const Fallback =
+    options.fallback ??
+    (contact || labels
+      ? (props: ScreenErrorProps) => (
+          <FatalScreen {...props} kind="screen" contact={typeof contact === "function" ? contact() : (contact ?? null)} {...(labels ? { labels } : {})} />
+        )
+      : ScreenFallback);
   const onError = options.onError ?? reportThroughCore;
   function GenesisScreenErrorBoundary(props: ScreenErrorProps) {
     const reported = useRef<Error | null>(null);

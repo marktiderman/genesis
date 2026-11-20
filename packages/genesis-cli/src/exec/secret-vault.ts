@@ -28,6 +28,12 @@ export const SECRET_NAME = /^[A-Z][A-Z0-9_]*$/;
 /** A value shorter than this couldn't be redacted without mangling ordinary text, so it is refused (no real token is this short). */
 export const MIN_SECRET_LENGTH = 8;
 
+/** A value `set` takes is at most this long (a PEM key fits): it is typed in and handed to a tool. */
+export const MAX_SECRET_LENGTH = 65_536;
+
+/** A value `hide` takes is at most this long: redaction is linear, so a large service-account key is fine. */
+export const MAX_HIDDEN_LENGTH = 4 * 1024 * 1024;
+
 export const REDACTED = "[redacted]";
 
 export class SecretError extends Error {
@@ -40,6 +46,10 @@ export function assertSecretName(name: string): void {
 
 export class SecretVault {
   readonly #values = new Map<string, string>();
+  /** Held for redaction only: no name, never handed to a tool. */
+  readonly #hidden = new Set<string>();
+  /** The needles, compiled once per change to what is held (not per `redact`). */
+  #compiled: Needle[] | null = null;
 
   /** A vault holding these values (the engine's older `Record` form). */
   static from(source: SecretVault | Readonly<Record<string, string>> | undefined): SecretVault {
@@ -52,8 +62,22 @@ export class SecretVault {
   set(name: string, value: string): void {
     assertSecretName(name);
     if (typeof value !== "string" || value.trim().length < MIN_SECRET_LENGTH) throw new SecretError(`${name}: the value is empty or shorter than ${MIN_SECRET_LENGTH} characters`);
+    if (value.length > MAX_SECRET_LENGTH) throw new SecretError(`${name}: the value is longer than ${MAX_SECRET_LENGTH} characters`);
     if (value.includes("\0")) throw new SecretError(`${name}: the value has a NUL byte`);
     this.#values.set(name, value);
+    this.#compiled = null;
+  }
+
+  /**
+   * Hold a value for redaction only (one found in the environment, say): it is never handed to a
+   * tool. Same rules as `set`, but up to MAX_HIDDEN_LENGTH characters.
+   */
+  hide(value: string): void {
+    if (typeof value !== "string" || value.trim().length < MIN_SECRET_LENGTH) throw new SecretError(`the value is empty or shorter than ${MIN_SECRET_LENGTH} characters`);
+    if (value.length > MAX_HIDDEN_LENGTH) throw new SecretError(`the value is longer than ${MAX_HIDDEN_LENGTH} characters`);
+    if (value.includes("\0")) throw new SecretError("the value has a NUL byte");
+    this.#hidden.add(value);
+    this.#compiled = null;
   }
 
   has(name: string): boolean {
@@ -74,27 +98,84 @@ export class SecretVault {
 
   drop(name: string): void {
     this.#values.delete(name);
+    this.#compiled = null;
   }
 
   clear(): void {
     this.#values.clear();
+    this.#hidden.clear();
+    this.#compiled = null;
   }
 
-  /** A pattern matching every string that must never be shown: each value and each line of 8+ characters of a multi-line one, in every JSON-escaped form. Longest first. */
-  #patterns(): RegExp[] {
+  /** Every string that must never be shown (each value and each line of 8+ characters of a multi-line one), compiled. */
+  #needles(): Needle[] {
+    if (this.#compiled) return this.#compiled;
     const out = new Set<string>();
-    for (const value of this.#values.values()) {
+    for (const value of [...this.#values.values(), ...this.#hidden]) {
       out.add(value);
       if (/[\r\n]/.test(value)) for (const line of value.split(/\r?\n/)) if (line.trim().length >= 8) out.add(line);
     }
-    return [...out].sort((a, b) => b.length - a.length).map((needle) => new RegExp(escapedForms(needle), "g"));
+    this.#compiled = [...out].map((text) => ({ text, z: text.includes("\\") ? null : zArray(text) }));
+    return this.#compiled;
   }
 
-  /** The text with every held value replaced by [redacted]. */
+  /**
+   * The text with every held value replaced by [redacted]. No regular expression is built from a
+   * value (one per value grew with it, and past ~1,500 characters threw an error that spelled the
+   * value out): each needle is matched unit by unit in every JSON-escaped form. A match is extended
+   * by every match that starts inside it and runs past its end (two values that overlap, or a
+   * periodic value over a longer run), so no part of any shows.
+   *
+   * Linear in the text: a needle longer than the text is skipped before any work (every form of it
+   * is at least as long). For a value without a backslash, its Z-array (computed once, when it is
+   * held) gives in one pass over the text how far the text matches it raw at each place; an escape
+   * can only start where that raw run stops, and only on a backslash, so the unit-by-unit matcher
+   * runs only there, from that unit.
+   */
   redact(text: string): string {
-    let out = text;
-    for (const pattern of this.#patterns()) out = out.replace(pattern, REDACTED);
-    return out;
+    if (typeof text !== "string" || !text) return text;
+    const fitting = this.#needles().filter((n) => n.text.length <= text.length);
+    if (!fitting.length) return text;
+    const needles = fitting.map((n) => n.text);
+    const plain = fitting.map((n) => n.z !== null);
+    const lcp = fitting.map((n) => (n.z ? rawPrefixLengths(text, n.text, n.z) : null));
+    /** Where the longest match of any needle starting at `j` ends, or -1. */
+    const endAt = (j: number): number => {
+      let end = -1;
+      for (let n = 0; n < needles.length; n++) {
+        const needle = needles[n]!;
+        // Every form is at least as long as the needle, so none fits in the text's last few characters.
+        if (j + needle.length > text.length) continue;
+        let e: number;
+        if (plain[n]) {
+          const z = lcp[n]![j]!;
+          if (z >= needle.length) e = j + needle.length;
+          // A unit that matches raw isn't a backslash, so an escape starts exactly where the raw run stops.
+          else e = text.charCodeAt(j + z) === 92 ? matchEscaped(text, j + z, needle, z) : -1;
+        } else e = matchEscaped(text, j, needle);
+        if (e > end) end = e;
+      }
+      return end;
+    };
+    let out = "";
+    let last = 0;
+    let i = 0;
+    while (i < text.length) {
+      let end = endAt(i);
+      if (end <= i) {
+        i++;
+        continue;
+      }
+      // Grow the span by every match that starts inside it and ends past it.
+      for (let j = i + 1; j < end; j++) {
+        const e = endAt(j);
+        if (e > end) end = e;
+      }
+      out += text.slice(last, i) + REDACTED;
+      last = end;
+      i = end;
+    }
+    return out + text.slice(last);
   }
 
   /**
@@ -167,8 +248,107 @@ const SHORT_ESCAPES: Readonly<Record<string, string>> = { '"': '\\"', "\\": "\\\
 const regexEscape = (text: string) => text.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
 
 /**
+ * Where a match of `needle` (from its unit `from` on) starting at `start` in `text` ends (the furthest end, when escapes make
+ * several possible), or -1. Each UTF-16 unit of the needle may appear as itself, its short JSON
+ * escape, or `\uXXXX` in either case: the same forms as `escapedForms`, without a regular expression.
+ */
+export function matchEscaped(text: string, start: number, needle: string, from = 0): number {
+  // Every form of a unit starts with the unit itself or a backslash.
+  if (from >= needle.length || (text[start] !== needle[from] && text[start] !== "\\")) return -1;
+  // The places a match may have reached so far: almost always one (two or three only around a backslash).
+  let positions: number[] = [start];
+  let next: number[] = [];
+  const add = (p: number) => {
+    if (!next.includes(p)) next.push(p);
+  };
+  for (let k = from; k < needle.length; k++) {
+    const unit = needle[k]!;
+    const code = needle.charCodeAt(k);
+    const short = SHORT_ESCAPES[unit];
+    next = [];
+    for (const p of positions) {
+      if (text[p] === unit) add(p + 1);
+      if (short && text.startsWith(short, p)) add(p + short.length);
+      if (text.charCodeAt(p) === 92 && text.charCodeAt(p + 1) === 117 && hexAt(text, p + 2) === code) add(p + 6);
+    }
+    if (!next.length) return -1;
+    positions = next;
+  }
+  let end = -1;
+  for (const p of positions) if (p > end) end = p;
+  return end;
+}
+
+/** A held string, and its Z-array when it has no backslash (computed once, when held). */
+interface Needle {
+  text: string;
+  z: Int32Array | null;
+}
+
+/** The Z-array of `s`: at each index, how many units from there match the start of `s` (`z[0]` is its length). */
+function zArray(s: string): Int32Array {
+  const z = new Int32Array(s.length);
+  z[0] = s.length;
+  for (let k = 1, l = 0, r = 0; k < s.length; k++) {
+    if (k < r) z[k] = Math.min(r - k, z[k - l]!);
+    while (k + z[k]! < s.length && s.charCodeAt(z[k]!) === s.charCodeAt(k + z[k]!)) z[k] = z[k]! + 1;
+    if (k + z[k]! > r) {
+      l = k;
+      r = k + z[k]!;
+    }
+  }
+  return z;
+}
+
+/**
+ * At each index of `text`, how many units of `needle` the text matches raw from there: one pass
+ * over the text using the needle's own Z-array (`zn`), linear in the text.
+ */
+function rawPrefixLengths(text: string, needle: string, zn: Int32Array): Int32Array {
+  const n = text.length;
+  const m = needle.length;
+  const out = new Int32Array(n);
+  // [l, r): the rightmost window where text matches the needle's start.
+  for (let k = 0, l = 0, r = 0; k < n; k++) {
+    let len = k < r ? Math.min(r - k, zn[k - l]!) : 0;
+    if (k + len >= r) {
+      while (len < m && k + len < n && text.charCodeAt(k + len) === needle.charCodeAt(len)) len++;
+      l = k;
+      r = k + len;
+    }
+    out[k] = len;
+  }
+  return out;
+}
+
+/** The value of the 4 hex digits (either case) at `at`, or -1. */
+function hexAt(text: string, at: number): number {
+  let value = 0;
+  for (let j = at; j < at + 4; j++) {
+    const c = text.charCodeAt(j);
+    const d = c >= 48 && c <= 57 ? c - 48 : c >= 97 && c <= 102 ? c - 87 : c >= 65 && c <= 70 ? c - 55 : -1;
+    if (d < 0) return -1;
+    value = value * 16 + d;
+  }
+  return value;
+}
+
+/**
+ * Text safe to show for an error that may hold a secret: redacted against `vault`, or, should that
+ * fail for any reason, `fallback`. Never the raw text.
+ */
+export function safeErrorMessage(vault: SecretVault | undefined, err: unknown, fallback = "The step failed; its error isn't shown, since it may hold a secret."): string {
+  try {
+    const raw = err instanceof Error ? err.message : String(err);
+    return vault ? vault.redact(raw) : raw;
+  } catch {
+    return fallback;
+  }
+}
+
+/**
  * A regular expression source matching `text` with each UTF-16 unit as itself, its short JSON
- * escape, or `\uXXXX` in either case.
+ * escape, or `\uXXXX` in either case. Not used for redaction (see `matchEscaped`).
  */
 export function escapedForms(text: string): string {
   let source = "";

@@ -20,9 +20,8 @@
  * getters), so none is required and tests pass fakes.
  */
 import { useCallback, useState } from "react";
-import { Dimensions, PixelRatio, Platform, Share, View } from "react-native";
-import { NativeButton, NativeText } from "@marktiderman/genesis-ui-native/components";
-import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
+import { Dimensions, PixelRatio, Platform, Share } from "react-native";
+import { Inline, NativeButton, NativeInlineAlert, NativeText, Stack } from "@marktiderman/genesis-ui-native/components";
 import { fill, resolveSupportCopy, type SupportCopy } from "../copy";
 import type { Diagnostics, DiagnosticsDelivery } from "../diagnostics/create";
 import { defineDiagnosticSection, type DiagnosticSection, type DiagnosticTrigger } from "../diagnostics/report";
@@ -62,6 +61,12 @@ export interface DiagnosticsNetInfoLike {
 
 /** The commit, OTA number and release the app stamps at publish time (genesis-native's `BuildMetadata`). */
 export interface DiagnosticsBuildMetadata {
+  /** The app's version at build time (`genesis build-stamp`); the binary's own wins. */
+  version?: string | null;
+  /** The channel it was built or published for; expo-updates' own wins. */
+  channel?: string | null;
+  /** When it was built, ISO. */
+  builtAt?: string | null;
   commit?: string | null;
   commitMessage?: string | null;
   branch?: string | null;
@@ -137,11 +142,11 @@ export function nativeSections(options: NativeSectionsOptions = {}): DiagnosticS
         requested = null;
       }
       return {
-        version: given(options.application?.nativeApplicationVersion),
+        version: given(options.application?.nativeApplicationVersion) ?? given(meta?.version),
         build: given(options.application?.nativeBuildVersion),
         bundleId: given(options.application?.applicationId),
         runtimeVersion: given(u?.runtimeVersion),
-        channel: on ? given(u?.channel) : null,
+        channel: (on ? given(u?.channel) : null) ?? given(meta?.channel),
         requestedChannel: requested,
         updateId: on ? given(u?.updateId) : null,
         launch: !on ? "off" : u?.isEmbeddedLaunch ? "embedded" : "update",
@@ -152,6 +157,7 @@ export function nativeSections(options: NativeSectionsOptions = {}): DiagnosticS
         otaNumber: given(meta?.otaNumber),
         release: given(meta?.release),
         releasePublishedAt: given(meta?.publishedAt),
+        builtAt: given(meta?.builtAt),
         jsBundle: typeof __DEV__ !== "undefined" && __DEV__ ? "metro" : "release",
       };
     }),
@@ -167,9 +173,10 @@ export function nativeSections(options: NativeSectionsOptions = {}): DiagnosticS
         // no Intl here
       }
       let network: { type: string | null; connected: boolean | null; reachable: boolean | null } | null = null;
-      if (options.netInfo) {
+      const netInfo = options.netInfo;
+      if (netInfo) {
         try {
-          const state = await timed(() => options.netInfo!.fetch(), options.permissionTimeoutMs ?? 1000);
+          const state = await timed(() => netInfo.fetch(), options.permissionTimeoutMs ?? 1000);
           network = state === "timeout" ? { type: "timeout", connected: null, reachable: null } : { type: state.type ?? null, connected: state.isConnected ?? null, reachable: state.isInternetReachable ?? null };
         } catch {
           network = { type: "error", connected: null, reachable: null };
@@ -328,7 +335,6 @@ export interface SendDiagnosticsRowProps {
 export function SendDiagnosticsRow({ diagnostics, copy, copyText, hideHint = false, testID = "genesis-support-send-diagnostics" }: SendDiagnosticsRowProps) {
   const support = useOptionalSupport();
   const text = copyText ?? support?.copy.diagnostics ?? resolveSupportCopy().diagnostics;
-  const roles = useThemeRoles();
   const { status, delivery, send } = useSendDiagnostics(diagnostics);
   const [copied, setCopied] = useState(false);
   const doCopy = async () => {
@@ -338,7 +344,7 @@ export function SendDiagnosticsRow({ diagnostics, copy, copyText, hideHint = fal
     setCopied(true);
   };
   return (
-    <View testID={testID} style={{ gap: 8 }}>
+    <Stack gap="sm" testID={testID}>
       <NativeButton
         variant="outline"
         size="sm"
@@ -353,25 +359,21 @@ export function SendDiagnosticsRow({ diagnostics, copy, copyText, hideHint = fal
         {status === "sending" ? text.sending : text.send}
       </NativeButton>
       {status === "sent" || status === "queued" ? (
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <NativeText preset="body-sm" selectable style={{ flex: 1 }} testID={`${testID}-id`}>
+        <Inline gap="sm">
+          <NativeText preset="body-sm" selectable className="flex-1" testID={`${testID}-id`}>
             {fill(status === "sent" ? text.sent : text.queued, { id: delivery?.shortId ?? "" })}
           </NativeText>
           <NativeButton variant="ghost" size="sm" onPress={() => void doCopy()} testID={`${testID}-copy`}>
             {copied ? text.copied : text.copy}
           </NativeButton>
-        </View>
+        </Inline>
       ) : null}
-      {status === "failed" ? (
-        <NativeText preset="body-sm" style={{ color: roles.destructive }} testID={`${testID}-failed`}>
-          {text.failed}
-        </NativeText>
-      ) : null}
+      {status === "failed" ? <NativeInlineAlert variant="destructive" description={text.failed} testID={`${testID}-failed`} /> : null}
       {hideHint ? null : (
-        <NativeText preset="body-sm" style={{ color: roles.secondaryLabel }}>
+        <NativeText preset="body-sm" className="text-muted-foreground">
           {text.hint}
         </NativeText>
       )}
-    </View>
+    </Stack>
   );
 }

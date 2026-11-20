@@ -30,6 +30,12 @@ describe("versionSignature", () => {
     expect(versionSignature({ platform: "ios", buildMetadata: { commit: " ", otaNumber: Number.NaN } })).toMatchObject({ commit: null, otaNumber: null });
   });
 
+  it("names when and for which channel it was built (genesis build-stamp), and takes its version when the binary gives none", () => {
+    const sig = versionSignature({ platform: "web", buildMetadata: { version: "1.4.0", builtAt: "2026-11-19T10:00:00.000Z", channel: "production" } });
+    expect(sig).toMatchObject({ version: "1.4.0", builtAt: "2026-11-19T10:00:00.000Z" });
+    expect(sig.text).toContain("Built 2026-11-19T10:00:00.000Z for production");
+  });
+
   it("says embedded, updates off, a switched channel, an emergency launch and unknown values", () => {
     const embedded = { ...fakeUpdates({ channel: "production" }), isEmbeddedLaunch: true };
     expect(versionSignature({ application, updates: embedded, platform: "ios" }).short).toBe("1.4.0 (37) · production · embedded");

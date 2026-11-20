@@ -119,12 +119,81 @@ describe("the devtools overlay", () => {
     expect(screen.getByTestId("screens")).toBeTruthy();
   });
 
+  it("runs the health checks when opened and shows each result, and the build stamp in the signature", async () => {
+    const results = [
+      { name: "supabase.reachable", status: "ok" as const, message: "answered 200", ms: 12 },
+      { name: "auth.session", status: "warn" as const, message: "signed out", ms: 1 },
+    ];
+    const checks = { list: () => results, latest: () => [], run: vi.fn(async () => results), runCheck: vi.fn(async () => null) };
+    const updates = createUpdates({
+      platform: "ios",
+      application: { nativeApplicationVersion: "2.1.0", nativeBuildVersion: "8" },
+      updates: fakeUpdates({ channel: "preview" }),
+      storage: memoryStorage(),
+      buildMetadata: { commit: "abc1234", builtAt: "2026-11-19T10:00:00.000Z", channel: "preview" },
+    });
+    const devtools = createDevtools({ enabled: true, updates, checks });
+    setup({ blocks: [updates, devtools] });
+    await act(settle);
+    act(() => devtools.open());
+    await act(settle);
+    expect(checks.run).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("genesis-devtools-check-auth.session").textContent).toContain("Needs a look · signed out");
+    expect(screen.getByTestId("genesis-devtools-check-supabase.reachable").textContent).toContain("Working");
+    expect(screen.getByTestId("genesis-devtools-signature").textContent).toContain("Built 2026-11-19T10:00:00.000Z for preview");
+  });
+
+  it("says each check in words the app can change, and runs one check again on its own", async () => {
+    let fixed = false;
+    const results = [
+      { name: "supabase.reachable", status: "ok" as const, message: null, ms: 12 },
+      { name: "socket", status: "fail" as const, message: "not connected", ms: 3 },
+    ];
+    const checks = {
+      list: () => results,
+      latest: () => [],
+      run: vi.fn(async () => results),
+      runCheck: vi.fn(async (name: string) => (fixed && name === "socket" ? { name, status: "ok" as const, message: null, ms: 2 } : null)),
+    };
+    const devtools = createDevtools({ enabled: true, checks, checkLabels: { ok: "Fine", fail: "Broken" } });
+    setup({ blocks: [devtools] });
+    await act(settle);
+    act(() => devtools.open());
+    await act(settle);
+    expect(screen.getByTestId("genesis-devtools-check-socket").textContent).toContain("Broken · not connected");
+    expect(screen.getByTestId("genesis-devtools-check-socket").textContent).not.toContain("FAIL");
+    fixed = true;
+    fireEvent.click(screen.getByTestId("genesis-devtools-check-socket-retry"));
+    await act(settle);
+    expect(checks.runCheck).toHaveBeenCalledWith("socket");
+    expect(screen.getByTestId("genesis-devtools-check-socket-retry").getAttribute("aria-label")).toBe("Try again: socket");
+    expect(checks.run).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("genesis-devtools-check-socket").textContent).toContain("Fine");
+    expect(screen.getByTestId("genesis-devtools-check-supabase.reachable").textContent).toContain("Fine");
+  });
+
+  it("offers no Try again for a registry that can't run one check, and lets the values wrap and be selected", async () => {
+    const results = [{ name: "socket", status: "fail" as const, message: "a long message that wraps", ms: 3 }];
+    const checks = { list: () => results, latest: () => [], run: vi.fn(async () => results) };
+    const devtools = createDevtools({ enabled: true, checks, baseUrl: "http://127.0.0.1:54421" });
+    setup({ blocks: [devtools] });
+    await act(settle);
+    act(() => devtools.open());
+    await act(settle);
+    expect(screen.queryByTestId("genesis-devtools-check-socket-retry")).toBeNull();
+    const value = screen.getByText("http://127.0.0.1:54421");
+    expect(value.getAttribute("data-selectable")).toBe("true");
+    expect(value.getAttribute("data-number-of-lines")).toBeNull();
+  });
+
   it("copies the debug info through the app's copy", async () => {
     const copy = vi.fn();
     const devtools = createDevtools({ enabled: true, copy });
     setup({ blocks: [devtools] });
     await act(settle);
     act(() => devtools.open());
+    // The sheet shows once it knows whether to animate (reduced motion).
+    await act(settle);
     fireEvent.click(screen.getByTestId("genesis-devtools-copy"));
     await act(settle);
     expect(copy.mock.calls[0]![0]).toContain("User user-9");
@@ -139,6 +208,8 @@ describe("the devtools overlay", () => {
     setup({ blocks: [observability, devtools] });
     await act(settle);
     act(() => devtools.open());
+    // The sheet shows once it knows whether to animate (reduced motion).
+    await act(settle);
     act(() => fireEvent.click(screen.getByTestId("genesis-devtools-crash")));
     await act(settle);
     expect(alert).toHaveBeenCalled();
@@ -181,6 +252,8 @@ describe("the devtools overlay", () => {
     });
     await act(settle);
     act(() => devtools.open());
+    // The sheet shows once it knows whether to animate (reduced motion).
+    await act(settle);
     expect(screen.getByTestId("genesis-devtools")).toBeTruthy();
     await act(async () => {
       fireEvent.click(screen.getByTestId("feedback"));
@@ -201,6 +274,8 @@ describe("the devtools overlay", () => {
     });
     await act(settle);
     act(() => devtools.open());
+    // The sheet shows once it knows whether to animate (reduced motion).
+    await act(settle);
     fireEvent.click(screen.getByTestId("diagnostics"));
     expect(copied).toEqual(["id true"]);
   });
@@ -210,6 +285,8 @@ describe("the devtools overlay", () => {
     setup({ blocks: [devtools], slots: { devtoolsFeedback: ({ debugInfo }) => <span data-testid="feedback">{debugInfo.split("\n")[0]}</span> } });
     await act(settle);
     act(() => devtools.open());
+    // The sheet shows once it knows whether to animate (reduced motion).
+    await act(settle);
     expect(screen.getByTestId("feedback").textContent).toMatch(/^Debug info /);
   });
 });

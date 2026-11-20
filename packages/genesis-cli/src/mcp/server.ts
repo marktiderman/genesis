@@ -32,16 +32,20 @@ import type { DoctorResult, Finding } from "../doctor/types.js";
 import { applyPlan, FixError, planFix, sha256, StalePlanError } from "../fix/engine.js";
 import { allFixes, type BuiltinDeps } from "../fix/registry.js";
 import type { Fix, FixContext, FixPlan } from "../fix/types.js";
+import type { SecretVault } from "../exec/secret-vault.js";
 import { distance, readUpgradeStatus, type RegistryDeps } from "../upgrade/registry.js";
-import { boundedJson, clip, hasSecretLiteral, scrub, scrubStream, scrubValues, secretValues, showInvisible } from "./bounds.js";
+import { boundedJson, clip, hasSecretLiteral, scrub, scrubStream, secretValues, secretVault, showInvisible } from "./bounds.js";
 import { guardChildStdio } from "./stdio.js";
 import { boundedPlan, catalogSearch, cliPackageDir, explainRule, findingsReport, resolveFixTarget, slimFinding, ToolInputError, type FixTarget } from "./doctor.js";
 import {
+  CatalogueError,
   checkProposal,
+  declaredSecretNames,
   describeKey,
   envSecretStatus,
   loadCatalogue,
   ProposalError,
+  readableSecretNames,
   settingsProposalFix,
   settingsValues,
   SETTINGS_PROPOSE_ID,
@@ -116,7 +120,10 @@ interface ToolDef {
   inputSchema: JsonSchema;
   readOnly: boolean;
   openWorld?: boolean;
-  run: (args: Record<string, unknown>) => Promise<unknown>;
+  /** `secrets`: what this call's output is redacted against. */
+  run: (args: Record<string, unknown>, secrets: SecretVault) => Promise<unknown>;
+  /** Answers while the catalogue doesn't load (it diagnoses that): redacted by every secret name still readable. */
+  diagnoses?: boolean;
 }
 
 const str = (description: string, maxLength = 200) => ({ type: "string", minLength: 1, maxLength, description });
@@ -206,20 +213,13 @@ export function createGenesisMcpServer(options: GenesisMcpOptions): Server {
     while (remembered.size > 100) remembered.delete(remembered.keys().next().value!);
   };
 
-  /** The secret names the catalogue declares, for scrubbing their values (read from the environment, never shown). */
-  const declaredSecretNames = (): string[] => {
-    try {
-      return Object.values(loadCatalogue(root).catalogue.keys).flatMap((d) => (d.secret ? [d.secret.name] : []));
-    } catch {
-      return [];
-    }
-  };
-
+  /** The environment's secret values, in a vault: read afresh each time, as the catalogue may change. */
+  const vault = () => secretVault(secretValues(env, declaredSecretNames(root)));
   /** Scrub, then clip: a clip first could cut a secret in half and leave its start unredacted. */
-  const sc = (text: string, max?: number) => clip(scrub(text, secretValues(env, declaredSecretNames())), max);
+  const sc = (text: string, max?: number) => clip(scrub(text, vault()), max);
   const scrubber = () => {
-    const values = secretValues(env, declaredSecretNames());
-    return (text: string) => scrub(text, values);
+    const secrets = vault();
+    return (text: string) => scrub(text, secrets);
   };
 
   /** The command the person runs to apply this plan themselves, or what to do by hand. */
@@ -234,11 +234,11 @@ export function createGenesisMcpServer(options: GenesisMcpOptions): Server {
       return { runnable: false as const, reason: `nothing to apply${plan.manual ? `: ${sc(plan.manual, 1_000)}` : ""}` };
     }
     if (plan.secrets.length || plan.commands.some((c) => c.stdinSecret) || (fix.kind === "guided" && fix.step)) {
-      // `genesis setup --step <id>` arrives with the setup wizard; until then the CLI's fix, which asks at a terminal.
+      // The person runs it: the wizard's step when the fix has one, else the CLI's fix, which asks at a terminal.
       return {
         runnable: false as const,
         reason: `${fix.id} needs ${plan.secrets.length ? `secrets (${plan.secrets.join(", ")})` : "a person's input"}: it never runs over MCP. The person runs it at a terminal.`,
-        command: `genesis fix ${fix.id}`,
+        command: fix.step ? `genesis setup --step ${fix.step}` : `genesis fix ${fix.id}`,
         ...(fix.step ? { step: fix.step } : {}),
       };
     }
@@ -293,7 +293,7 @@ export function createGenesisMcpServer(options: GenesisMcpOptions): Server {
       `Plan ${plan.hash.slice(0, 12)}. Nothing is written unless you approve; a plan that changed since is refused.`,
     ].join("\n");
     if (message.length > MAX_APPROVAL_CHARS) return { refused: `the plan is too large to show whole for approval (${message.length} characters)` };
-    if (scrubValues(message, secretValues(env, declaredSecretNames())) !== message) return { refused: "the plan holds the value of a secret from the environment; a secret is never written by an agent" };
+    if (vault().redact(message) !== message) return { refused: "the plan holds the value of a secret from the environment; a secret is never written by an agent" };
     if (hasSecretLiteral(message)) return { refused: "the plan holds text shaped like a secret (a private key block or a provider token), which an approval would have to hide" };
     return { message: showInvisible(message) };
   };
@@ -310,7 +310,8 @@ export function createGenesisMcpServer(options: GenesisMcpOptions): Server {
       }),
       readOnly: true,
       openWorld: true,
-      async run(args) {
+      diagnoses: true,
+      async run(args, secrets) {
         const result = await doctor({ network: network && args.offline !== true, ...(args.base ? { base: args.base as string } : {}) });
         return {
           ok: result.ok,
@@ -318,7 +319,7 @@ export function createGenesisMcpServer(options: GenesisMcpOptions): Server {
           errors: result.errors,
           warnings: result.warnings,
           infos: result.infos,
-          ...findingsReport(result.findings, args.rules as string[] | undefined, scrubber()),
+          ...findingsReport(result.findings, args.rules as string[] | undefined, (text) => scrub(text, secrets)),
         };
       },
     },
@@ -328,6 +329,7 @@ export function createGenesisMcpServer(options: GenesisMcpOptions): Server {
       description: "What a rule checks, where it comes from (built in, a package, the app), what to use instead, and the fixes that cover it.",
       inputSchema: schema({ rule: str("The rule id (raw-tag, ui/lists-use-resource-view).") }, ["rule"]),
       readOnly: true,
+      diagnoses: true,
       async run(args) {
         const packages = discoverPackages(root);
         const { fixes } = await allFixes(packages, deps.fixes ?? {});
@@ -375,6 +377,17 @@ export function createGenesisMcpServer(options: GenesisMcpOptions): Server {
           behind,
           ...(behind && behind.kind !== "current" ? { fix: "upgrade.release: genesis fix upgrade.release opens the upgrade pull request (the person runs it)" } : {}),
         };
+      },
+    },
+    {
+      name: "setup_steps",
+      title: "Genesis setup steps",
+      description: "The guided setup steps this app's settings name (github.issues, sentry…): the keys each configures and whether they are set, the secrets they need by name, and the command that opens it (genesis setup --step <id>, for the person: a step's secrets are never set over MCP).",
+      inputSchema: schema({}),
+      readOnly: true,
+      async run() {
+        const { setupSteps } = await import("../wizard/steps.js");
+        return { steps: setupSteps(root) };
       },
     },
     {
@@ -534,15 +547,29 @@ export function createGenesisMcpServer(options: GenesisMcpOptions): Server {
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const tool = byName.get(request.params.name);
     if (!tool) throw new McpError(ErrorCode.InvalidParams, `no tool "${clip(request.params.name, 100)}" (tools/list has them)`);
-    const values = () => secretValues(env, declaredSecretNames());
+    // Built before the tool runs: a catalogue that doesn't load, or a secret too long to hold, stops the
+    // call (fails closed), except that the doctor's tools still answer while the catalogue is broken,
+    // redacted by every secret name a readable declaration names. A refusal is scrubbed by the
+    // secret-looking names alone.
+    let secrets: SecretVault;
+    try {
+      secrets = vault();
+    } catch (err) {
+      if (err instanceof CatalogueError && tool.diagnoses) secrets = secretVault(secretValues(env, readableSecretNames(root)));
+      else {
+        const e = toMcpError(err, tool.name, secretVault(secretValues(env)));
+        log(`genesis mcp: ${tool.name} refused: ${e.message}`);
+        throw e;
+      }
+    }
     const started = Date.now();
     try {
       const args = checkArgs(tool, (request.params.arguments ?? {}) as Record<string, unknown>);
-      const value = await tool.run(args);
+      const value = await tool.run(args, secrets);
       log(`genesis mcp: ${tool.name} (${Date.now() - started} ms)`);
-      return { content: [{ type: "text" as const, text: boundedJson(value, values()) }] };
+      return { content: [{ type: "text" as const, text: boundedJson(value, secrets) }] };
     } catch (err) {
-      const e = toMcpError(err, tool.name, values());
+      const e = toMcpError(err, tool.name, secrets);
       log(`genesis mcp: ${tool.name} failed: ${e.message}`);
       throw e;
     }
@@ -552,8 +579,8 @@ export function createGenesisMcpServer(options: GenesisMcpOptions): Server {
 }
 
 /** Any failure as an MCP error: a message (scrubbed, bounded), never a stack. */
-export function toMcpError(err: unknown, tool: string, values: readonly string[]): McpError {
-  const message = (text: string) => clip(scrub(text, values), 2_000);
+export function toMcpError(err: unknown, tool: string, vault: SecretVault): McpError {
+  const message = (text: string) => clip(scrub(text, vault), 2_000);
   // McpError's constructor prefixes "MCP error <code>: "; strip every one so a re-thrown error doesn't stack them.
   if (err instanceof McpError) return new McpError(err.code, message(err.message.replace(/^(?:MCP error -?\d+: )+/, "")));
   const raw = err instanceof Error ? err.message : String(err);
@@ -576,17 +603,25 @@ export async function runMcpStdio(options: GenesisMcpOptions): Promise<Server> {
   });
   // stderr carries the server's logs, what in-process commands print, and the stdout moved below:
   // all of it scrubbed of the secret values and secret-shaped literals the results are.
-  let declared: string[] = [];
+  // Without the catalogue, stderr is scrubbed by every secret name a readable declaration names, and
+  // only the doctor's tools answer (the call handler refuses the rest), so the person can see why.
+  const root = path.resolve(options.root);
+  const env = options.env ?? process.env;
+  let names: string[];
+  let catalogueProblem: string | null = null;
   try {
-    declared = Object.values(loadCatalogue(path.resolve(options.root)).catalogue.keys).flatMap((d) => (d.secret ? [d.secret.name] : []));
-  } catch {
-    declared = [];
+    names = declaredSecretNames(root);
+  } catch (err) {
+    if (!(err instanceof CatalogueError)) throw err;
+    names = readableSecretNames(root);
+    catalogueProblem = err.message;
   }
-  scrubStream(process.stderr, secretValues(options.env ?? process.env, declared));
+  scrubStream(process.stderr, secretVault(secretValues(env, names)));
   stdout.write = ((chunk: unknown, ...rest: unknown[]) => (process.stderr.write as (...a: unknown[]) => boolean)(chunk, ...rest)) as typeof stdout.write;
   // A child that inherits the terminal would write to fd 1: route its stdout to stderr, its stdin away.
   guardChildStdio();
   const log = options.log ?? ((line: string) => process.stderr.write(`${line}\n`));
+  if (catalogueProblem) log(`genesis mcp: ${catalogueProblem}`);
   const server = createGenesisMcpServer({ ...options, log });
   await server.connect(new StdioServerTransport(process.stdin, protocolOut));
   log(`genesis mcp: serving ${path.resolve(options.root)} over stdio${options.network ? "" : " (offline)"}`);

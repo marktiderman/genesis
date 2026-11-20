@@ -52,7 +52,7 @@ interface Group {
   findings: Finding[];
 }
 
-function describePlan(fix: Fix, plan: FixPlan): string[] {
+export function describePlan(fix: Fix, plan: FixPlan): string[] {
   const lines = [`${fix.id} (${fix.kind}): ${fix.title}`, `  ${plan.summary}`];
   for (const f of plan.files) lines.push(`  ${f.beforeHash === null ? "create" : "write "} ${f.path}  (${f.why})`);
   for (const c of plan.commands) lines.push(`  run    ${[c.tool, ...c.args].join(" ")}${c.stdinSecret ? ` < ${c.stdinSecret}` : ""}  (${c.why})`);

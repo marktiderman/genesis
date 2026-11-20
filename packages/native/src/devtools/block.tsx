@@ -10,6 +10,8 @@
  *   app's flags;
  * - the recent breadcrumbs and errors (the observability block's, scrubbed);
  * - the server's base URL;
+ * - the health checks (`checks`: genesis-support's `healthChecks` registry), run when the sheet
+ *   opens and again on "Run checks", each in words (`checkLabels`) with its own "Try again";
  * - "Copy debug info", "Crash test", "Clear cache" and "Sign out";
  * - the `devtoolsFeedback` slot, which the support block fills with
  *   "Send feedback", and the `devtoolsDiagnostics` slot beside "Copy debug
@@ -23,11 +25,21 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ComponentType, type ReactNode } from "react";
 import type { ResolvedSettings } from "@marktiderman/genesis-config/settings";
 import { devtoolsSettingValues } from "./settings";
-import { Alert, Modal, ScrollView, Share, View, type GestureResponderEvent } from "react-native";
+import { Alert, Share, View, type GestureResponderEvent } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
 import { renderSlot } from "@marktiderman/genesis-core/slots";
-import { NativeButton, NativeInput, NativeText } from "@marktiderman/genesis-ui-native/components";
-import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
+import {
+  Box,
+  Inline,
+  NativeButton,
+  NativeInput,
+  NativeSectionListHeader,
+  NativeSettingsRow,
+  NativeSheet,
+  NativeSheetScrollView,
+  NativeText,
+  Stack,
+} from "@marktiderman/genesis-ui-native/components";
 import { defineBlock } from "@marktiderman/genesis-config/blocks";
 import { useSession } from "../auth";
 import { useBlocks, type NativeBlock, type NativeBlockRootProps } from "../blocks";
@@ -48,6 +60,42 @@ export interface DevSettingsLike {
   addMenuItem(title: string, handler: () => void): void;
 }
 
+/** One health check's result, as genesis-support's `healthChecks` gives it. */
+export interface DevtoolsCheckResult {
+  name: string;
+  status: "ok" | "warn" | "fail";
+  message: string | null;
+  ms: number;
+}
+
+/** A health-check registry (genesis-support's `healthChecks`): the overlay runs it and shows the results. */
+export interface DevtoolsChecksLike {
+  list(): readonly unknown[];
+  run(): Promise<readonly DevtoolsCheckResult[]>;
+  latest(): readonly DevtoolsCheckResult[];
+  /** Run one check again (a check's "Try again"); null when none has that name. Without it, no check has "Try again". */
+  runCheck?(name: string): Promise<DevtoolsCheckResult | null>;
+}
+
+/** The health checks' words: each status, and the actions. */
+export interface DevtoolsCheckLabels {
+  ok: string;
+  warn: string;
+  fail: string;
+  /** Run one check again. */
+  retry: string;
+  /** Run every check. */
+  runAll: string;
+}
+
+export const DEFAULT_DEVTOOLS_CHECK_LABELS: DevtoolsCheckLabels = {
+  ok: "Working",
+  warn: "Needs a look",
+  fail: "Not working",
+  retry: "Try again",
+  runAll: "Run checks",
+};
+
 export interface DevtoolsOptions {
   /**
    * Must be explicitly true: `__DEV__` or a fact of the binary (a `.dev` or
@@ -64,6 +112,10 @@ export interface DevtoolsOptions {
   baseUrl?: string;
   /** The app's switches and flags, shown by name and value. */
   flags?: Readonly<Record<string, unknown>>;
+  /** The health checks to run and show (genesis-support's `healthChecks`). */
+  checks?: DevtoolsChecksLike;
+  /** The health checks' words, in English by default. */
+  checkLabels?: Partial<DevtoolsCheckLabels>;
   /** `Accelerometer` from expo-sensors: shake to open. Without it, the hold and the dev menu still work. */
   accelerometer?: AccelerometerLike;
   /** `DevSettings` from react-native: "Open devtools" in the dev menu (development builds). */
@@ -306,34 +358,82 @@ interface SheetProps {
   onCrash: () => void;
 }
 
-// Layout by `style`, not `className`: this package is compiled before the app's NativeWind
-// transform runs, so a class on React Native's own View would do nothing.
+/** A label and its value, as a settings row: the value wraps whole and can be selected (an id, a URL). */
 function Row({ label, value, testID }: { label: string; value: string; testID?: string }) {
-  return (
-    <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 12, paddingVertical: 4 }} testID={testID}>
-      <NativeText preset="label">{label}</NativeText>
-      <NativeText preset="body-sm" className="text-right text-muted-foreground" style={{ flex: 1 }} selectable>
-        {value}
-      </NativeText>
-    </View>
-  );
+  return <NativeSettingsRow label={label} description={value} descriptionLines={null} selectable {...(testID ? { testID } : {})} />;
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
-  const roles = useThemeRoles();
   return (
-    <View style={{ gap: 4, borderTopWidth: 1, borderTopColor: roles.separator, paddingTop: 12 }}>
-      <NativeText preset="label" accessibilityRole="header">
-        {title}
-      </NativeText>
+    <Stack gap="xs">
+      <NativeSectionListHeader title={title} />
       {children}
-    </View>
+    </Stack>
+  );
+}
+
+function HealthChecksSection({ checks, labels }: { checks: DevtoolsChecksLike; labels: DevtoolsCheckLabels }) {
+  const [results, setResults] = useState<readonly DevtoolsCheckResult[]>(() => checks.latest());
+  const [running, setRunning] = useState(false);
+  const [retrying, setRetrying] = useState<string | null>(null);
+  const run = () => {
+    setRunning(true);
+    checks
+      .run()
+      .then(setResults, () => undefined)
+      .finally(() => setRunning(false));
+  };
+  const runCheck = checks.runCheck?.bind(checks);
+  const retry = (again: NonNullable<typeof runCheck>, name: string) => {
+    setRetrying(name);
+    again(name)
+      .then((next) => {
+        if (next) setResults((all) => all.map((r) => (r.name === name ? next : r)));
+      }, () => undefined)
+      .finally(() => setRetrying(null));
+  };
+  // Run when the sheet opens.
+  useEffect(run, [checks]);
+  const failed = results.filter((r) => r.status === "fail").length;
+  const warned = results.filter((r) => r.status === "warn").length;
+  const verdict = running ? "running" : !results.length ? "not run" : failed ? `${failed} failed` : warned ? `${warned} warnings` : "all good";
+  const word: Record<DevtoolsCheckResult["status"], string> = { ok: labels.ok, warn: labels.warn, fail: labels.fail };
+  return (
+    <Section title={`Health checks (${verdict})`}>
+      {checks.list().length === 0 ? <NativeText preset="body-sm">None registered</NativeText> : null}
+      {results.map((r) => (
+        <NativeSettingsRow
+          key={r.name}
+          label={r.name}
+          description={`${word[r.status]}${r.message ? ` · ${r.message}` : ""} · ${r.ms} ms`}
+          descriptionLines={null}
+          selectable
+          testID={`genesis-devtools-check-${r.name}`}
+        >
+          {runCheck ? (
+            <NativeButton
+              size="sm"
+              variant="ghost"
+              onPress={() => retry(runCheck, r.name)}
+              disabled={running || retrying !== null}
+              loading={retrying === r.name}
+              accessibilityLabel={`${labels.retry}: ${r.name}`}
+              testID={`genesis-devtools-check-${r.name}-retry`}
+            >
+              {labels.retry}
+            </NativeButton>
+          ) : null}
+        </NativeSettingsRow>
+      ))}
+      <NativeButton size="sm" variant="outline" onPress={run} disabled={running} testID="genesis-devtools-run-checks">
+        {labels.runAll}
+      </NativeButton>
+    </Section>
   );
 }
 
 function DevtoolsSheet({ visible, onDismissed, block, Feedback, feedbackProps, Diagnostics, diagnosticsProps, onCrash }: SheetProps) {
   const { options } = block;
-  const roles = useThemeRoles();
   const { userId } = useSession();
   const blocks = useBlocks();
   const recent = useRecentActivity(options.observability ?? null);
@@ -385,133 +485,133 @@ function DevtoolsSheet({ visible, onDismissed, block, Feedback, feedbackProps, D
 
   const flags = Object.entries(options.flags ?? {});
   return (
-    // React Native's own modal, as a page sheet on iOS: it needs no provider above it (a bottom-sheet
-    // library's modal does), so the overlay opens whatever the app has mounted.
-    <Modal
-      visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={() => void close()}
-      onDismiss={onDismissed}
-      testID="genesis-devtools"
-    >
-      <ScrollView style={{ flex: 1, backgroundColor: roles.background }} contentContainerStyle={{ gap: 12, padding: 16, paddingBottom: 48 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-          <NativeText preset="h3" accessibilityRole="header">
-            Devtools
-          </NativeText>
-          <NativeButton variant="ghost" size="sm" onPress={() => void close()} testID="genesis-devtools-close">
-            Close
-          </NativeButton>
-        </View>
-        {status ? (
-          <NativeText preset="body-sm" testID="genesis-devtools-status">
-            {status}
-          </NativeText>
-        ) : null}
-
-        <Section title="Build">
-          <NativeText preset="body-sm" selectable testID="genesis-devtools-signature">
-            {signature?.text ?? "Version unknown (no updates block)"}
-          </NativeText>
-        </Section>
-
-        {channels ? (
-          <Section title="Update channel">
-            <Row label="Channel" value={signature?.requestedChannel ?? signature?.channel ?? "none"} testID="genesis-devtools-channel" />
-            {channels.enabled ? (
-              <>
-                <NativeInput
-                  value={channel}
-                  onChangeText={setChannel}
-                  placeholder="pr-42"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  accessibilityLabel="Channel to switch to"
-                  testID="genesis-devtools-channel-input"
-                />
-                <NativeButton size="sm" onPress={switchChannel} disabled={!channel.trim()} testID="genesis-devtools-channel-switch">
-                  Switch and reload
-                </NativeButton>
-              </>
-            ) : (
-              <NativeText preset="body-sm" className="text-muted-foreground">
-                Switching is off in this build.
+    // The sheet primitive: a page sheet on iOS (React Native's modal, needing no provider above it),
+    // or the bottom-sheet library's under NativeSheetProvider; it brings the escape gesture, reduced
+    // motion and the safe area.
+    <NativeSheet open={visible} onOpenChange={(open) => (open ? undefined : void close())} onDismissed={onDismissed} testID="genesis-devtools">
+      <NativeSheetScrollView>
+        <Box p="lg" pb="3xl">
+          <Stack gap="md">
+            <Inline justify="between">
+              <NativeText preset="h3" accessibilityRole="header">
+                Devtools
               </NativeText>
-            )}
-            <NativeButton size="sm" variant="ghost" onPress={resetChannel} testID="genesis-devtools-channel-reset">
-              Back to the build's channel
-            </NativeButton>
-          </Section>
-        ) : null}
-
-        <Section title="Session">
-          <Row label="User id" value={userId ?? "signed out"} testID="genesis-devtools-user" />
-          <Row label="Server" value={options.baseUrl ? scrubUrl(options.baseUrl) : "unknown"} testID="genesis-devtools-server" />
-        </Section>
-
-        <Section title="Blocks and flags">
-          <Row label="Blocks" value={blocks.ids.size > 0 ? [...blocks.ids].join(", ") : "none"} testID="genesis-devtools-blocks" />
-          {flags.map(([name, value]) => (
-            <Row key={name} label={name} value={typeof value === "string" ? scrubString(value) : String(value)} testID={`genesis-devtools-flag-${name}`} />
-          ))}
-        </Section>
-
-        <Section title={`Errors (${recent.errors.length})`}>
-          {recent.errors.length === 0 ? <NativeText preset="body-sm">None</NativeText> : null}
-          {recent.errors
-            .slice(-10)
-            .reverse()
-            .map((e) => (
-              <NativeText key={`${e.at}-${e.message}`} preset="body-sm" testID="genesis-devtools-error">
-                {`${e.fatal ? "fatal " : ""}${e.source} · ${e.name}: ${e.message}`}
-              </NativeText>
-            ))}
-        </Section>
-
-        <Section title={`Breadcrumbs (${recent.breadcrumbs.length})`}>
-          {recent.breadcrumbs.length === 0 ? <NativeText preset="body-sm">None</NativeText> : null}
-          {recent.breadcrumbs
-            .slice(-15)
-            .reverse()
-            .map((c, i) => (
-              <NativeText key={`${c.timestamp ?? 0}-${i}`} preset="body-sm" testID="genesis-devtools-breadcrumb">
-                {`${c.category} · ${c.message ?? ""}`}
-              </NativeText>
-            ))}
-        </Section>
-
-        <Section title="Actions">
-          <View style={{ gap: 8 }}>
-            <NativeButton size="sm" variant="outline" onPress={copy} testID="genesis-devtools-copy">
-              Copy debug info
-            </NativeButton>
-            {renderSlot(NoDiagnostics, Diagnostics, { debugInfo: info(), close, copy: copyText }, diagnosticsProps)}
-            {renderSlot(NoFeedback, Feedback, { debugInfo: info(), close }, feedbackProps)}
-            <NativeButton size="sm" variant="outline" onPress={clearCache} testID="genesis-devtools-clear-cache">
-              Clear cache
-            </NativeButton>
-            <NativeButton
-              size="sm"
-              variant="outline"
-              onPress={() => confirm("Crash test", "This throws a render error: the fatal screen shows and the error is reported.", "Crash", onCrash)}
-              testID="genesis-devtools-crash"
-            >
-              Crash test
-            </NativeButton>
-            {options.signOut ? (
-              <NativeButton
-                size="sm"
-                variant="destructive"
-                onPress={() => confirm("Sign out", "Sign out of this device?", "Sign out", () => run("Sign out", options.signOut as () => unknown))}
-                testID="genesis-devtools-sign-out"
-              >
-                Sign out
+              <NativeButton variant="ghost" size="sm" onPress={() => void close()} testID="genesis-devtools-close">
+                Close
               </NativeButton>
+            </Inline>
+            {status ? (
+              <NativeText preset="body-sm" testID="genesis-devtools-status">
+                {status}
+              </NativeText>
             ) : null}
-          </View>
-        </Section>
-      </ScrollView>
-    </Modal>
+
+            <Section title="Build">
+              <NativeText preset="body-sm" selectable testID="genesis-devtools-signature">
+                {signature?.text ?? "Version unknown (no updates block)"}
+              </NativeText>
+            </Section>
+
+            {channels ? (
+              <Section title="Update channel">
+                <Row label="Channel" value={signature?.requestedChannel ?? signature?.channel ?? "none"} testID="genesis-devtools-channel" />
+                {channels.enabled ? (
+                  <>
+                    <NativeInput
+                      value={channel}
+                      onChangeText={setChannel}
+                      placeholder="pr-42"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      accessibilityLabel="Channel to switch to"
+                      testID="genesis-devtools-channel-input"
+                    />
+                    <NativeButton size="sm" onPress={switchChannel} disabled={!channel.trim()} testID="genesis-devtools-channel-switch">
+                      Switch and reload
+                    </NativeButton>
+                  </>
+                ) : (
+                  <NativeText preset="body-sm" className="text-muted-foreground">
+                    Switching is off in this build.
+                  </NativeText>
+                )}
+                <NativeButton size="sm" variant="ghost" onPress={resetChannel} testID="genesis-devtools-channel-reset">
+                  Back to the build's channel
+                </NativeButton>
+              </Section>
+            ) : null}
+
+            <Section title="Session">
+              <Row label="User id" value={userId ?? "signed out"} testID="genesis-devtools-user" />
+              <Row label="Server" value={options.baseUrl ? scrubUrl(options.baseUrl) : "unknown"} testID="genesis-devtools-server" />
+            </Section>
+
+            {options.checks ? <HealthChecksSection checks={options.checks} labels={{ ...DEFAULT_DEVTOOLS_CHECK_LABELS, ...options.checkLabels }} /> : null}
+
+            <Section title="Blocks and flags">
+              <Row label="Blocks" value={blocks.ids.size > 0 ? [...blocks.ids].join(", ") : "none"} testID="genesis-devtools-blocks" />
+              {flags.map(([name, value]) => (
+                <Row key={name} label={name} value={typeof value === "string" ? scrubString(value) : String(value)} testID={`genesis-devtools-flag-${name}`} />
+              ))}
+            </Section>
+
+            <Section title={`Errors (${recent.errors.length})`}>
+              {recent.errors.length === 0 ? <NativeText preset="body-sm">None</NativeText> : null}
+              {recent.errors
+                .slice(-10)
+                .reverse()
+                .map((e) => (
+                  <NativeText key={`${e.at}-${e.message}`} preset="body-sm" testID="genesis-devtools-error">
+                    {`${e.fatal ? "fatal " : ""}${e.source} · ${e.name}: ${e.message}`}
+                  </NativeText>
+                ))}
+            </Section>
+
+            <Section title={`Breadcrumbs (${recent.breadcrumbs.length})`}>
+              {recent.breadcrumbs.length === 0 ? <NativeText preset="body-sm">None</NativeText> : null}
+              {recent.breadcrumbs
+                .slice(-15)
+                .reverse()
+                .map((c, i) => (
+                  <NativeText key={`${c.timestamp ?? 0}-${i}`} preset="body-sm" testID="genesis-devtools-breadcrumb">
+                    {`${c.category} · ${c.message ?? ""}`}
+                  </NativeText>
+                ))}
+            </Section>
+
+            <Section title="Actions">
+              <Stack gap="sm">
+                <NativeButton size="sm" variant="outline" onPress={copy} testID="genesis-devtools-copy">
+                  Copy debug info
+                </NativeButton>
+                {renderSlot(NoDiagnostics, Diagnostics, { debugInfo: info(), close, copy: copyText }, diagnosticsProps)}
+                {renderSlot(NoFeedback, Feedback, { debugInfo: info(), close }, feedbackProps)}
+                <NativeButton size="sm" variant="outline" onPress={clearCache} testID="genesis-devtools-clear-cache">
+                  Clear cache
+                </NativeButton>
+                <NativeButton
+                  size="sm"
+                  variant="outline"
+                  onPress={() => confirm("Crash test", "This throws a render error: the fatal screen shows and the error is reported.", "Crash", onCrash)}
+                  testID="genesis-devtools-crash"
+                >
+                  Crash test
+                </NativeButton>
+                {options.signOut ? (
+                  <NativeButton
+                    size="sm"
+                    variant="destructive"
+                    onPress={() => confirm("Sign out", "Sign out of this device?", "Sign out", () => run("Sign out", options.signOut as () => unknown))}
+                    testID="genesis-devtools-sign-out"
+                  >
+                    Sign out
+                  </NativeButton>
+                ) : null}
+              </Stack>
+            </Section>
+          </Stack>
+        </Box>
+      </NativeSheetScrollView>
+    </NativeSheet>
   );
 }

@@ -188,14 +188,18 @@ export {
   readSettingsLayers,
   resolveAppSettings,
   setGenesisSetting,
+  watchAppSettings,
   writeAppManifest,
   type AppManifestInput,
   type GenesisSettingChange,
+  type GenesisSettingLayer,
   type ManifestClient,
+  type RealtimeSettingsClient,
   type ResolveAppSettingsOptions,
   type SetGenesisSettingInput,
   type SettingsClient,
   type StoredSettingsLayers,
+  type WatchAppSettingsOptions,
 } from "./settings";
 export {
   tenantFeatures,
