@@ -230,6 +230,23 @@ export function PlatformSettings() {
 }
 ```
 
+The app host is genesis-supabase's `createSettingsHandler`
+(`@marktiderman/genesis-supabase/settings/server`); `genesis settings init` writes its route for
+Next.js, TanStack Start, React Router or Expo Router.
+
+**Who is looking.** The host says who the signed-in person is to the settings (`state.viewer`,
+`SettingsViewer`), and the screen shows that slice:
+
+- a **platform admin** (`scope: "platform"`) sees every key and every tab, and approves or declines
+  the pending proposals at the top of Values;
+- a **tenant admin** (`scope: "tenant"`; mount the screen with `tenant={theTenantId}`) sees only the
+  keys declared `scope: "tenant"`, writes them in that tenant's layer, and sees Values and Audit;
+- **anyone else** (`scope: "person"`) sees and writes only their own `scope: "person"` keys.
+
+A tenant admin or a person can't change a value the app locked in its database: the row offers
+**Propose…** instead, which sends the value and why (`propose`) for a platform admin to decide
+(`decideProposal`). Their own proposals show with how each was decided.
+
 **Tabs.** Values (every key grouped by package, with its value, the layer it came from and its
 lock), Health (the doctor's findings, each with its fix), Secrets (each secret's name, store and
 whether it is set: never its value), Upgrades (installed and latest versions, release notes) and
@@ -247,16 +264,19 @@ it.
   like code; the database is an explicit choice in the edit sheet, except for a value that already
   comes from the database, which opens on the database. Writing a layer below the one
   the value comes from shows that the higher layer overrides it.
-- **The app host** (`APP_HOST_CAPABILITIES`) edits runtime keys in the database layer only. A
-  build-time key, or one the file layer locked (the lock lives in the file), shows "Change in repo"
-  with the genesis.config.json change to commit (`settingFileSnippet`), or a pull request when the
-  host can open one (`proposeChanges`).
+- **The app host** (`APP_HOST_CAPABILITIES`) edits runtime keys in the database layer for a
+  platform admin, and the viewer's own layer for a tenant admin or a person
+  (`settingWritability(def, source, capabilities, viewer)`). A build-time key, or one the file
+  layer locked (the lock lives in the file), shows "Change in repo" with the genesis.config.json
+  change to commit (`settingFileSnippet`), or a pull request when the CLI host can open one
+  (`proposeChanges`).
 - **Secrets** are set per store: `setSecrets` is `true` (every store) or `{ vault?, edge?,
   "server-env"?, ci? }` (`canSetSecret`). The app host may set and rotate Vault secrets only, when
   the host itself reports `{ vault: true }` (`APP_HOST_CAPABILITIES` is a mask that allows it but
   doesn't grant it): the `setSecret` op is write-only, the value is never returned, and the screen
-  drops it once sent. Other stores are set from a terminal with `genesis fix secrets.set`. The host side comes with the
-  app's settings handler.
+  drops it once sent. Other stores are set from a terminal with `genesis fix secrets.set`.
+  `createSettingsHandler` sets and rotates a Vault secret for a platform admin and reports when
+  each was last set.
 
 **Fixes.** An automatic fix is planned first (`plan`): the screen shows the files it writes (with
 a diff), the commands it runs, the settings layers it writes and the secrets it needs, asks to
@@ -283,11 +303,12 @@ When `state` carries no `audit`, the tab fetches the first page itself.
 
 **The protocol.** One endpoint, `POST`, JSON only, a bearer token and no cookies
 (`credentials: "omit"`), every request `{ v, op, … }` (`SETTINGS_PROTOCOL_VERSION`). The ops are
-`state`, `setValue`, `clearValue`, `plan`, `apply`, `upgrades`, `audit`, `propose` and `setSecret`
-(`SETTINGS_OPS`, answers in `SettingsResponses`). `setValue` and `clearValue` name their `layer`:
-`file`, `database`, `tenant` (with `tenant`, the tenant's id) or `person` (the signed-in person's
-own); `state` with `tenant` returns that tenant's layer and the person's in `layers`. The screen
-itself writes `file` and `database` only. A failure is `{ error: { code, message } }`,
+`state`, `setValue`, `clearValue`, `plan`, `apply`, `upgrades`, `audit`, `propose`,
+`decideProposal` and `setSecret` (`SETTINGS_OPS`, answers in `SettingsResponses`). `setValue` and
+`clearValue` name their `layer`: `file`, `database`, `tenant` (with `tenant`, the tenant's id) or
+`person` (the signed-in person's own); `state` with `tenant` returns that tenant's layer, and
+`viewer` and `proposals`. `propose` takes an optional `reason`; the CLI host answers with a pull
+request or the snippet to commit, the app host with the stored proposal's `id`. A failure is `{ error: { code, message } }`,
 thrown by the client as a `SettingsProtocolError` whose `code` is `bad_request`, `unauthenticated`,
 `forbidden`, `unsupported`, `locked`, `stale_plan`, `not_found`, `version` or `error`. A host
 answers an op it doesn't know (one a newer screen sends) with `unsupported`, so the screen can tell

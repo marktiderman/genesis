@@ -485,14 +485,35 @@ describe("what /settings ships", () => {
 });
 
 describe("manifests", () => {
-  it("writes the catalogue as the database checks and resolves it: defaults by preset, never a secret", async () => {
+  it("writes the catalogue as the database checks and resolves it: defaults by preset, the declaration, a secret by name only", async () => {
     const { catalogueManifest } = await import("../index");
     const m = catalogueManifest(catalogue);
     const each = <T>(v: T) => ({ max: v, standard: v, min: v });
     expect(m["support.dumpRetentionDays"]).toEqual({ type: "number", applies: "runtime", scope: "app", defaults: each(90), min: 7, max: 365 });
-    expect(m["support.githubRepo"]).toEqual({ type: "string", applies: "runtime", scope: "app", defaults: each(null), nullable: true });
-    expect(m["devtools.screen"]).toMatchObject({ type: "boolean", applies: "build", scope: "app" });
-    expect(JSON.stringify(m)).not.toMatch(/GITHUB_TOKEN|secret/);
+    expect(m["support.githubRepo"]).toEqual({ type: "string", applies: "runtime", scope: "app", defaults: each(null), nullable: true, secret: { name: "GITHUB_TOKEN", store: "edge" } });
+    expect(m["devtools.screen"]).toEqual({ type: "boolean", applies: "build", scope: "app", defaults: each(true), byPreset: true });
+  });
+
+  it("rebuilds the same catalogue from the manifest, as the app's Settings host does", async () => {
+    const { catalogueManifest, catalogueFromManifest } = await import("../index");
+    const json = JSON.parse(JSON.stringify(catalogueManifest(catalogue)));
+    const { catalogue: rebuilt, problems } = catalogueFromManifest(json);
+    expect(problems).toEqual([]);
+    expect(rebuilt.keys).toEqual(catalogue.keys);
+  });
+
+  it("leaves out, and names, a key the manifest can't describe", async () => {
+    const { catalogueManifest, catalogueFromManifest } = await import("../index");
+    const json = JSON.parse(JSON.stringify(catalogueManifest(catalogue)));
+    // Written by a release that kept no defaults, and a key requiring it.
+    delete json["support.messenger"].defaults;
+    json["support.bogus"] = { type: "colour", applies: "runtime", scope: "app", defaults: { max: 1, standard: 1, min: 1 } };
+    const { catalogue: rebuilt, problems } = catalogueFromManifest(json);
+    expect(rebuilt.keys["support.messenger"]).toBeUndefined();
+    expect(rebuilt.keys["support.bogus"]).toBeUndefined();
+    expect(problems.map((p) => p.key).sort()).toEqual(expect.arrayContaining(["support.bogus", "support.messenger"]));
+    expect(problems.find((p) => p.key === "support.messenger")!.message).toMatch(/older release/);
+    expect(catalogueFromManifest(null)).toEqual({ catalogue: { keys: {} }, problems: [] });
   });
 
   it("reads a package.json declaration with the same checks", async () => {

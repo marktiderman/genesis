@@ -882,6 +882,28 @@ isn't one of the presets rather than store `max`. It runs `supabase db query --l
 `genesis doctor --database` does; on Windows through a temp file, not `/dev/stdin`), so the CLI
 handles no key. A server can write the same row at start with genesis-supabase's `writeAppManifest`.
 
+The manifest's catalogue carries each key's declaration (default, scope, bounds, summary, the name
+and store of a secret it needs; never a value): the app's Settings screen rebuilds its catalogue
+from it, so sync again after upgrading.
+
+## genesis settings init
+
+Adds the in-app Settings screen's server to a web app: one route that serves genesis-supabase's
+`createSettingsHandler` (`@marktiderman/genesis-supabase/settings/server`), the app host of
+`<GenesisSettings>`. The framework comes from package.json: Next.js (`app/api/genesis/settings/route.ts`),
+TanStack Start (`src/routes/api/genesis/settings.ts`), React Router (a resource route,
+`app/routes/api.genesis.settings.ts`) or Expo Router (`app/api/genesis/settings+api.ts`, which
+needs `web.output: "server"`).
+
+```bash
+genesis settings init                       # --host next|tanstack-start|react-router|expo, --route /api/admin/settings
+```
+
+The route uses the project's URL and publishable key, never the service-role key: every call runs
+as the signed-in person, so the database decides what each person may read and change. It never
+overwrites a file (`--force` does), and prints what is left: the packages to install, the
+migrations (genesis-supabase's `settings-host` block) and where to mount the screen.
+
 ## genesis doctor
 
 `genesis doctor` checks that an app uses Genesis instead of working around it. Every built-in

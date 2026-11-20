@@ -130,6 +130,7 @@ export {
   SETTING_KEY,
   SETTING_TYPES,
   SettingsError,
+  catalogueFromManifest,
   catalogueManifest,
   defineSettings,
   isLockedEntry,
