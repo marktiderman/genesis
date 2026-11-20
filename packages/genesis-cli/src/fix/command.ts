@@ -77,6 +77,12 @@ export async function runFixCommand(options: FixCommandOptions, rawIo: FixComman
     return 1;
   } finally {
     vault.clear();
+    // The tail of a paste that came in after its prompt: read and thrown away, never left for the shell.
+    if (terminalPrompted) {
+      terminalPrompted = false;
+      const { drainInput } = await import("../exec/prompt-secret.js");
+      await drainInput();
+    }
   }
 }
 
@@ -84,8 +90,14 @@ async function defaultPrompt(io: FixCommandIo): Promise<FixCommandIo["promptSecr
   if (io.promptSecret) return io.promptSecret;
   if (!io.confirm || !process.stdin.isTTY) return undefined;
   const { promptHidden } = await import("../exec/prompt-secret.js");
-  return (_name, question) => promptHidden(question);
+  return (_name, question) => {
+    terminalPrompted = true;
+    return promptHidden(question);
+  };
 }
+
+/** A hidden prompt ran at the terminal in this process: what is left on stdin is drained before exit. */
+let terminalPrompted = false;
 
 async function fixCommand(options: FixCommandOptions, io: FixCommandIo, vault: SecretVault): Promise<number> {
   const network = options.network ?? true;

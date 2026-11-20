@@ -10,8 +10,10 @@
  * - `drop(name)` / `clear()` forget values: the fix engine drops a plan's secrets once it has
  *   verified, unless its caller still prints (then the caller clears, once, after printing).
  *
- * **Limits.** Redaction catches the value as typed, its JSON-escaped form, and its `\u`-escaped
- * form (every non-ASCII character as `\uXXXX`). It does not catch other encodings a tool might
+ * **Limits.** Redaction catches the value as typed and every JSON-escaped form of it: each
+ * character may appear as itself, as its short escape (`\"`, `\\`, `\/`, `\n`…) or as `\uXXXX`
+ * in either case (Go's JSON, which gh and supabase print, escapes `&`, `<` and `>` that way; an
+ * astral character is its two escaped surrogates). It does not catch other encodings a tool might
  * print (URL-encoded, base64, hex), nor lines shorter than 8 characters of a multi-line value. A
  * value is at least 8 characters, so redacting it rarely hides ordinary text, but a short one
  * that is also a common word would be over-redacted wherever it appears. And JavaScript strings
@@ -78,32 +80,43 @@ export class SecretVault {
     this.#values.clear();
   }
 
-  /** Every string that must never be shown: each value, its JSON-escaped and `\u`-escaped forms, and each line of 8+ characters of a multi-line value. Longest first. */
-  #needles(): string[] {
+  /** A pattern matching every string that must never be shown: each value and each line of 8+ characters of a multi-line one, in every JSON-escaped form. Longest first. */
+  #patterns(): RegExp[] {
     const out = new Set<string>();
     for (const value of this.#values.values()) {
       out.add(value);
-      const escaped = JSON.stringify(value).slice(1, -1);
-      out.add(escaped);
-      out.add(escaped.replace(/[^\x20-\x7e]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`));
       if (/[\r\n]/.test(value)) for (const line of value.split(/\r?\n/)) if (line.trim().length >= 8) out.add(line);
     }
-    return [...out].sort((a, b) => b.length - a.length);
+    return [...out].sort((a, b) => b.length - a.length).map((needle) => new RegExp(escapedForms(needle), "g"));
   }
 
   /** The text with every held value replaced by [redacted]. */
   redact(text: string): string {
     let out = text;
-    for (const needle of this.#needles()) out = out.split(needle).join(REDACTED);
+    for (const pattern of this.#patterns()) out = out.replace(pattern, REDACTED);
     return out;
   }
 
-  /** A deep copy of a value with every string leaf (and object key) redacted, for --json output. Numbers, booleans and null are kept as they are. */
+  /**
+   * A deep copy of a value as JSON.stringify would see it (`toJSON` honoured: a Date is its ISO
+   * string), with every string leaf and object key redacted, for --json output. Numbers, booleans
+   * and null are kept as they are; two keys that redact to the same text are both kept.
+   */
   redactJson<T>(value: T): T {
-    const walk = (v: unknown): unknown => {
+    const walk = (input: unknown): unknown => {
+      let v = input;
+      if (v && typeof v === "object" && typeof (v as { toJSON?: unknown }).toJSON === "function") v = (v as { toJSON(): unknown }).toJSON();
       if (typeof v === "string") return this.redact(v);
       if (Array.isArray(v)) return v.map(walk);
-      if (v && typeof v === "object") return Object.fromEntries(Object.entries(v as Record<string, unknown>).map(([k, x]) => [this.redact(k), walk(x)]));
+      if (v && typeof v === "object") {
+        const out: Record<string, unknown> = {};
+        for (const [k, x] of Object.entries(v as Record<string, unknown>)) {
+          let key = this.redact(k);
+          for (let n = 2; Object.prototype.hasOwnProperty.call(out, key); n++) key = `${this.redact(k)} (${n})`;
+          out[key] = walk(x);
+        }
+        return out;
+      }
       return v;
     };
     return walk(value) as T;
@@ -148,4 +161,23 @@ export class SecretVault {
       }
     };
   }
+}
+
+const SHORT_ESCAPES: Readonly<Record<string, string>> = { '"': '\\"', "\\": "\\\\", "/": "\\/", "\b": "\\b", "\f": "\\f", "\n": "\\n", "\r": "\\r", "\t": "\\t" };
+const regexEscape = (text: string) => text.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
+
+/**
+ * A regular expression source matching `text` with each UTF-16 unit as itself, its short JSON
+ * escape, or `\uXXXX` in either case.
+ */
+export function escapedForms(text: string): string {
+  let source = "";
+  for (let i = 0; i < text.length; i++) {
+    const unit = text[i]!;
+    const hex = text.charCodeAt(i).toString(16).padStart(4, "0");
+    const u = `\\\\u${[...hex].map((d) => (/[a-f]/.test(d) ? `[${d}${d.toUpperCase()}]` : d)).join("")}`;
+    const short = SHORT_ESCAPES[unit];
+    source += `(?:${regexEscape(unit)}${short ? `|${regexEscape(short)}` : ""}|${u})`;
+  }
+  return source;
 }

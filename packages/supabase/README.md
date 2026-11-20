@@ -870,11 +870,15 @@ in `extensions`). The URL and the secret are read from Vault each time, so they 
 That matters because pg_net keeps each request's headers in `net.http_request_queue` until it sends
 them, and on some images other roles can read that table.
 
+Add the secret itself (`genesis_jobs_secret`, the same value as `GENESIS_JOBS_SECRET`) in the
+Supabase dashboard (Database → Vault → Add new secret), not with SQL: a statement carrying the
+value can be kept, value and all, in `pg_stat_statements` and in the Postgres log.
+
 ```sql
 create extension if not exists pg_cron;
 create extension if not exists pg_net;
 select vault.create_secret('https://app.example.com/api/jobs', 'genesis_jobs_url');
-select vault.create_secret('<the same secret as GENESIS_JOBS_SECRET>', 'genesis_jobs_secret');
+-- genesis_jobs_secret: add it in the dashboard (Database → Vault → Add new secret), never in SQL.
 select genesis_schedule_job('jobs-queue', '* * * * *', 'queue');          -- POST …/api/jobs/queue
 select genesis_schedule_job('purge-uploads', '15 3 * * *', 'purge-uploads');
 ```
