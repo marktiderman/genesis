@@ -23,5 +23,8 @@ Guided setup steps that walk an outside service and end with a live check: `supa
   `supabase/` folder or an `eas.json`.
 - `eas env:create` has no stdin input, so EAS secrets stay a line the person runs, and `eas.push`
   is a manual step: its instructions, and a check that the EAS CLI is signed in.
+- Redaction no longer builds a regular expression from a secret: one past ~1,500 characters made
+  it throw an error that spelled the value out. A value over 64 KiB is refused, and an error whose
+  text can't be redacted is replaced by a generic line, never shown raw.
 - `supabase db query --linked` (the Vault names and the settings table the doctor reads) gets its
   SQL from a temp file it removes, not `/dev/stdin`.

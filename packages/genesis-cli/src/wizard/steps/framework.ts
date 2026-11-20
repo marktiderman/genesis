@@ -196,6 +196,21 @@ export async function request(ctx: StepContext, url: string, init: { method?: st
   }
 }
 
+/**
+ * Remote text made safe to print at a terminal: ANSI and OSC escape sequences and every other
+ * control character removed (a tab becomes a space), so a project name or a DNS record can't move
+ * the cursor, retitle the window or hide a line.
+ */
+export function printable(text: unknown): string {
+  if (typeof text !== "string") return "";
+  return text
+    .replace(/\u001b\][^\u0007\u001b]*(?:\u0007|\u001b\\)?/g, "") // OSC … BEL / ST
+    .replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, "") // CSI (colours, cursor)
+    .replace(/\u009b[0-?]*[ -/]*[@-~]/g, "") // 8-bit CSI
+    .replace(/\t/g, " ")
+    .replace(/[\u0000-\u001f\u007f-\u009f]/g, "");
+}
+
 /** The verify answer when the network is off. */
 export const OFFLINE: VerifyResult = { ok: false, message: "Not checked: the network is off (--offline). Run the step again online to verify it." };
 

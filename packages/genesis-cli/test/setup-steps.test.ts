@@ -4,7 +4,7 @@
  * runs and checks, and that a secret's value reaches a tool on stdin and a service in a header,
  * never argv, a URL, a log line, a note, a message or an answer.
  */
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { afterAll, describe, expect, it } from "vitest";
 import type { RunToolOptions, ToolRunner } from "../src/exec/run.js";
 import { supabaseQuery } from "../src/exec/supabase-query.js";
@@ -12,8 +12,9 @@ import { applyPlan, planFix } from "../src/fix/engine.js";
 import { SecretVault } from "../src/exec/secret-vault.js";
 import { createWizardHost } from "../src/wizard/host.js";
 import { runStepCommand } from "../src/wizard/step-command.js";
-import { runnerFor, stepFix, stepList, STEP_RUNNERS } from "../src/wizard/steps/index.js";
+import { runnerFor, stepFix, stepList, STEP_RUNNERS, verifyStep } from "../src/wizard/steps/index.js";
 import type { FetchLike } from "../src/wizard/steps/framework.js";
+import { printable } from "../src/wizard/steps/framework.js";
 import { pendingMigrations } from "../src/wizard/steps/supabase-link.js";
 import { cleanupApps, makeApp } from "./doctor-helpers.js";
 
@@ -146,6 +147,41 @@ describe("supabase.link", () => {
     expect(calls.map((c) => c.args.slice(0, 2).join(" "))).toEqual(["link --project-ref", "db push", "functions deploy", "migration list", "functions list"]);
   });
 
+  it("names each migration and its content hash in the plan, so an edit makes the plan stale", async () => {
+    const root = app({ "supabase/migrations/20260101000000_init.sql": "select 1;" });
+    const fix = () => stepFix(runnerFor("supabase.link")!, { projectRef: "abcdefghijklmnopqrst" }, { run: tools().run });
+    const before = await planFix(fix(), { root, findings: [] });
+    const push = before.commands.find((c) => c.args[1] === "push")!;
+    expect(push.why).toMatch(/20260101000000_init\.sql \(sha256 [0-9a-f]{12}\)/);
+    writeFileSync(`${root}/supabase/migrations/20260101000000_init.sql`, "drop table users;");
+    expect((await planFix(fix(), { root, findings: [] })).hash).not.toBe(before.hash);
+  });
+
+  it("says plainly there's no dry run on a first link, and lists the migrations instead", async () => {
+    const root = makeApp(null, { "package.json": "{}", "supabase/migrations/20260101000000_init.sql": "select 1;" });
+    const { run, calls } = tools({ "supabase projects list": { stdout: "[]" } });
+    const fix = stepFix(runnerFor("supabase.link")!, { projectRef: "abcdefghijklmnopqrst" }, { run });
+    const detected = await runnerFor("supabase.link")!.detect!({ root, fields: {}, run, fetch: web({}).fetch, network: true });
+    expect(detected.join("\n")).toMatch(/No dry run: the app isn't linked yet[\s\S]*20260101000000_init\.sql/);
+    expect(calls.map((c) => c.args.join(" "))).not.toContain("db push --dry-run");
+    expect((await planFix(fix, { root, findings: [] })).commands.find((c) => c.args[1] === "push")!.why).toMatch(/no dry run/);
+  });
+
+  it("isn't verified when the app is linked to another project than the one typed in", async () => {
+    const root = app();
+    const { run } = tools();
+    const result = await verifyStep(root, "supabase.link", { projectRef: "zyxwvutsrqponmlkjihg" }, undefined, { run, network: true });
+    expect(result).toMatchObject({ ok: false, message: expect.stringMatching(/linked to abcdefghijklmnopqrst, not zyxwvutsrqponmlkjihg/) });
+  });
+
+  it("strips control characters from the project list it prints", async () => {
+    const root = app();
+    const { run } = tools({ "supabase projects list": { stdout: JSON.stringify([{ id: "abcdefghijklmnopqrst", name: "app\u001b]0;pwned\u0007\u001b[2Jx", region: "us\u001b[31m-east" }]) } });
+    const detected = await runnerFor("supabase.link")!.detect!({ root, fields: {}, run, fetch: web({}).fetch, network: true });
+    expect(detected[0]).toBe("abcdefghijklmnopqrst  appx (us-east)");
+    expect(printable("a\u009b31mb\tc\r\n")).toBe("ab c");
+  });
+
   it("reads pending migrations from the migration list", () => {
     expect(pendingMigrations("  Local | Remote | Time\n  ----|----|----\n  20260101000000 | 20260101000000 | t\n  20260202000000 |                | \n")).toEqual(["20260202000000"]);
   });
@@ -174,6 +210,21 @@ describe("github.issues", () => {
     expectContained(calls, requests, shown);
   });
 
+  it("says write access to Issues wasn't checked, and fails when the token can't read the issues", async () => {
+    const { run } = tools();
+    const ok = await runStep("github.issues", app(), { repo: "acme/app" }, { run, fetch: web({ "GET https://api.github.com/repos/acme/app": { body: { full_name: "acme/app\u001b[2J", has_issues: true } } }).fetch }, { GITHUB_TOKEN: SECRET });
+    expect(ok.result.verify).toMatchObject({ ok: true, message: expect.stringMatching(/reads acme\/app and its issues[\s\S]*Write access to Issues wasn't checked/) });
+    expect(ok.result.verify.message).not.toContain("\u001b");
+    const noIssues = web({ "GET https://api.github.com/repos/acme/app/issues": { status: 403, body: {} }, "GET https://api.github.com/repos/acme/app": { body: { full_name: "acme/app", has_issues: true } } });
+    const denied = await runStep("github.issues", app(), { repo: "acme/app" }, { run, fetch: noIssues.fetch }, { GITHUB_TOKEN: SECRET });
+    expect(denied.result.verify).toMatchObject({ ok: false, message: expect.stringMatching(/not its issues \(403\)/) });
+  });
+
+  it("refuses a repository named . or ..", async () => {
+    for (const repo of ["acme/..", "acme/."]) await expect(planFix(stepFix(runnerFor("github.issues")!, { repo }, {}), { root: app(), findings: [] })).rejects.toThrow(/doesn't look right/);
+    await expect(planFix(stepFix(runnerFor("github.issues")!, { repo: "acme/.github" }, { run: tools().run }), { root: app(), findings: [] })).resolves.toMatchObject({ secrets: ["GITHUB_TOKEN"] });
+  });
+
   it("needs the Supabase project linked first", async () => {
     const root = makeApp(null, { "package.json": "{}" });
     await expect(planFix(stepFix(runnerFor("github.issues")!, { repo: "acme/app" }, {}), { root, findings: [] })).rejects.toThrow(/supabase\.link first/);
@@ -197,6 +248,14 @@ describe("sentry", () => {
     expect(JSON.stringify(requests[1])).not.toContain(SECRET);
     expect(result.verify).toMatchObject({ ok: true });
     expectContained(calls, requests, shown);
+  });
+});
+
+describe("sentry's DSN", () => {
+  it("is sentry.io's only: a private, loopback or other host is refused before any request", async () => {
+    for (const host of ["127.0.0.1", "localhost", "169.254.169.254", "10.0.0.1:9000", "sentry.io.evil.example", "evilsentry.io"]) {
+      await expect(planFix(stepFix(runnerFor("sentry")!, { org: "acme", project: "app", dsn: `https://0123456789abcdef0123456789abcdef@${host}/7` }, { run: tools().run }), { root: app(), findings: [] })).rejects.toThrow(/DSN doesn't look right/);
+    }
   });
 });
 
@@ -247,7 +306,8 @@ describe("eas.push", () => {
     expect(plan.commands).toEqual([]);
     expect(plan.manual).toMatch(/eas credentials -p ios/);
     await expect(applyPlan(fix, plan, { root, findings: [] })).rejects.toThrow(/manual/);
-    expect(await fix.verify!({ root, findings: [] })).toMatchObject({ ok: true, message: expect.stringMatching(/as someone/) });
+    // Signed in isn't a push that arrived: the step stays open, so the terminal shows ✗ and exits 1.
+    expect(await fix.verify!({ root, findings: [] })).toMatchObject({ ok: false, message: expect.stringMatching(/^Not verified: send a test push from a device build[\s\S]*as someone/) });
     expect(calls.map((c) => c.args.join(" "))).toEqual(["whoami"]);
   });
 });
@@ -277,6 +337,57 @@ describe("the wizard's Guided steps ops", () => {
     expect(JSON.stringify(bodies)).not.toContain(SECRET);
     expect(JSON.stringify(events)).not.toContain(SECRET);
     expectContained(calls, requests, "");
+  });
+});
+
+describe("a long secret (1,520 characters)", () => {
+  // One regular expression per value used to throw past ~1,500 characters, with the value in its message.
+  const LONG = `sk-${"Ab3/+x9Z".repeat(190)}`.slice(0, 1520);
+  // The old error spelled it out one escaped unit at a time, `(?:A|\\u0041)(?:b|…)…`: undo that shape too.
+  const squash = (text: string) => text.replace(/\|[^)]*\)/g, "").replace(/\(\?:/g, "").replace(/\\/g, "");
+  const leaks = (text: string) => text.includes(LONG.slice(100, 140)) || squash(text).includes(LONG.slice(100, 140)) || /Invalid regular expression/.test(text);
+
+  it("is redacted, in every JSON-escaped form, without a regular expression", () => {
+    expect(LONG).toHaveLength(1520);
+    const vault = new SecretVault();
+    vault.set("ANTHROPIC_API_KEY", LONG);
+    const text = `a ${LONG} b ${JSON.stringify(LONG)} c ${LONG.replace(/\//g, "\\/")} d ${LONG.replace(/A/g, "\\u0041")}`;
+    expect(() => vault.redact(text)).not.toThrow();
+    expect(vault.redact(text)).toBe('a [redacted] b "[redacted]" c [redacted] d [redacted]');
+  });
+
+  it("never comes back from step.verify, even when the service echoes it", async () => {
+    const root = app();
+    const { run } = tools();
+    const { fetch } = web({ "GET https://api.anthropic.com/v1/models": { status: 500, body: { error: `bad key ${LONG}` } } });
+    const h = createWizardHost({ mode: "setup", root, network: true, deps: { doctor: async () => ({ findings: [] }), run, fetch } });
+    const res = await h.handle({ v: 1, op: "step.verify", id: "ai.key-budget", fields: { budgetUsd: "50" }, secrets: { ANTHROPIC_API_KEY: LONG } });
+    expect(leaks(JSON.stringify(res))).toBe(false);
+    expect(JSON.stringify(res)).toMatch(/typed in for ANTHROPIC_API_KEY, not the one stored/);
+  });
+
+  it("never comes back from genesis setup --step, even when the tool echoes it", async () => {
+    const { run, calls } = tools();
+    const { fetch } = web({ "GET https://api.anthropic.com/v1/models": { body: { echoed: LONG } } });
+    const out: string[] = [];
+    const code = await runStepCommand(
+      { root: app(), id: "ai.key-budget", network: true },
+      { out: (l) => out.push(l), err: (l) => out.push(l), ask: async () => "50", confirm: async () => true, askSecret: async () => LONG, deps: { run, fetch } },
+    );
+    expect(code).toBe(0);
+    expect(calls[0]!.stdin).toContain(LONG);
+    expect(leaks(out.join("\n"))).toBe(false);
+  });
+
+  it("is refused past the cap, without the value in the error", () => {
+    const vault = new SecretVault();
+    const huge = "x".repeat(70_000);
+    expect(() => vault.set("BIG_KEY", huge)).toThrow(/longer than 65536/);
+    try {
+      vault.set("BIG_KEY", huge);
+    } catch (err) {
+      expect((err as Error).message).not.toContain("xxxxxxxxxx");
+    }
   });
 });
 

@@ -5,7 +5,7 @@
  */
 import { defineSetupStep } from "@marktiderman/genesis-config/setup";
 import type { SecretVault } from "../../exec/secret-vault.js";
-import { needsSecret, OFFLINE, request, secretSetters, StepError, type StepContext, type StepRunner } from "./framework.js";
+import { needsSecret, OFFLINE, printable, request, secretSetters, StepError, type StepContext, type StepRunner } from "./framework.js";
 
 export const resendDomainStep = defineSetupStep({
   id: "resend.domain",
@@ -55,7 +55,9 @@ async function findDomain(ctx: StepContext, secrets: SecretVault): Promise<Domai
 
 /** The DNS records to add, one per line. */
 export function recordLines(domain: Domain): string[] {
-  return (domain.records ?? []).map((r) => `${r.type ?? "?"}  ${r.name ?? "?"}  ${r.value ?? "?"}${r.priority !== undefined ? `  (priority ${r.priority})` : ""}${r.status ? `  [${r.status}]` : ""}`);
+  // Resend's text, printed at a terminal: control characters (ANSI, OSC) stripped.
+  const show = (v: unknown) => printable(typeof v === "number" ? String(v) : v) || "?";
+  return (domain.records ?? []).map((r) => `${show(r.type)}  ${show(r.name)}  ${show(r.value)}${r.priority !== undefined ? `  (priority ${show(r.priority)})` : ""}${r.status ? `  [${show(r.status)}]` : ""}`);
 }
 
 export const resendDomain: StepRunner = {
@@ -83,9 +85,9 @@ export const resendDomain: StepRunner = {
     try {
       const domain = await findDomain(ctx, secrets);
       if (!domain) return { ok: false, message: `${ctx.fields.domain} isn't in Resend yet: run the step to add it.` };
-      if (domain.status === "verified") return { ok: true, message: `Resend says ${domain.name} is verified.` };
+      if (domain.status === "verified") return { ok: true, message: `Resend says ${ctx.fields.domain} is verified.` };
       const lines = recordLines(domain);
-      return { ok: false, message: `Resend says ${domain.name} is ${domain.status ?? "not verified"}.${lines.length ? ` Add these DNS records, then check again:\n${lines.join("\n")}` : " Check again in a while."}` };
+      return { ok: false, message: `Resend says ${ctx.fields.domain} is ${printable(domain.status) || "not verified"}.${lines.length ? ` Add these DNS records, then check again:\n${lines.join("\n")}` : " Check again in a while."}` };
     } catch (err) {
       return { ok: false, message: (err as Error).message };
     }

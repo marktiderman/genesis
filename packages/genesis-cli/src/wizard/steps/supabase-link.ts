@@ -2,13 +2,14 @@
  * `supabase.link`: link the app to its Supabase project, push the migrations, deploy the functions.
  * Verified when no migration is pending and every local function is deployed.
  */
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import * as path from "node:path";
 import { defineSetupStep } from "@marktiderman/genesis-config/setup";
 import { TOOL_AUTH_ENV } from "../../exec/run.js";
 import { supabaseLinked } from "../../exec/secret-stores.js";
 import type { PlannedCommand } from "../../fix/types.js";
-import { OFFLINE, type StepContext, type StepRunner } from "./framework.js";
+import { OFFLINE, printable, type StepContext, type StepRunner } from "./framework.js";
 
 export const supabaseLinkStep = defineSetupStep({
   id: "supabase.link",
@@ -36,10 +37,24 @@ export function localFunctions(root: string): string[] {
     .sort();
 }
 
-const hasMigrations = (root: string) => {
+/** The app's migration files, sorted, each with the sha256 of its content (the first 12 hex digits). */
+export function localMigrations(root: string): Array<{ file: string; hash: string }> {
   const dir = path.join(root, "supabase", "migrations");
-  return existsSync(dir) && readdirSync(dir).some((f) => f.endsWith(".sql"));
-};
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir)
+    .filter((f) => f.endsWith(".sql") && statSync(path.join(dir, f)).isFile())
+    .sort()
+    .map((file) => ({ file, hash: createHash("sha256").update(readFileSync(path.join(dir, file))).digest("hex").slice(0, 12) }));
+}
+
+const hasMigrations = (root: string) => localMigrations(root).length > 0;
+
+/** The project ref the app is linked to (supabase/.temp/project-ref), or null. */
+export function linkedRef(root: string): string | null {
+  const file = path.join(root, "supabase", ".temp", "project-ref");
+  if (!existsSync(file)) return null;
+  return readFileSync(file, "utf8").trim() || null;
+}
 
 /** Migrations that are local only, from `supabase migration list --linked`'s table (`Local | Remote | Time`). */
 export function pendingMigrations(stdout: string): string[] {
@@ -67,16 +82,20 @@ export const supabaseLink: StepRunner = {
         const rows = JSON.parse(list.stdout) as Array<{ id?: unknown; ref?: unknown; name?: unknown; region?: unknown }>;
         for (const r of rows) {
           const ref = typeof r.ref === "string" ? r.ref : typeof r.id === "string" ? r.id : null;
-          if (ref) lines.push(`${ref}  ${typeof r.name === "string" ? r.name : ""}${typeof r.region === "string" ? ` (${r.region})` : ""}`);
+          if (ref) lines.push(`${printable(ref)}  ${printable(r.name)}${typeof r.region === "string" ? ` (${printable(r.region)})` : ""}`);
         }
         if (!rows.length) lines.push("No projects yet: make one in the dashboard.");
       } catch {
         lines.push("The project list couldn't be read.");
       }
     }
-    if (supabaseLinked(ctx.root) && hasMigrations(ctx.root)) {
+    const migrations = localMigrations(ctx.root);
+    if (migrations.length && supabaseLinked(ctx.root)) {
       const dry = await supabase(ctx, ["db", "push", "--dry-run"]).catch((err: Error) => ({ code: 1, stdout: "", stderr: err.message }));
-      lines.push("", "supabase db push --dry-run:", ...`${dry.stdout}${dry.stderr}`.trim().split("\n").slice(-20));
+      lines.push("", `supabase db push --dry-run (against ${printable(linkedRef(ctx.root))}, the project linked now):`, ...printable(`${dry.stdout}${dry.stderr}`.trim()).split("\n").slice(-20));
+    } else if (migrations.length) {
+      // A first link: supabase can't compare with a database it isn't linked to yet.
+      lines.push("", `No dry run: the app isn't linked yet, so supabase can't say which of its ${migrations.length} migration${migrations.length === 1 ? "" : "s"} the database already has. db push applies each one it doesn't have, from this list (the plan names them too):`, ...migrations.map((m) => `  ${m.file}`));
     }
     return lines;
   },
@@ -84,12 +103,24 @@ export const supabaseLink: StepRunner = {
     const ref = ctx.fields.projectRef!;
     const functions = localFunctions(ctx.root);
     const commands: PlannedCommand[] = [{ tool: "supabase", args: ["link", "--project-ref", ref], why: `links the app to the project ${ref}` }];
-    if (hasMigrations(ctx.root)) commands.push({ tool: "supabase", args: ["db", "push", "--yes"], why: "applies the app's migrations to the linked database (the dry run above lists them)" });
+    // Each migration by name and content hash: the plan's hash covers them, so an edit or a new file makes it stale.
+    const migrations = localMigrations(ctx.root);
+    if (migrations.length) {
+      const first = !supabaseLinked(ctx.root) || linkedRef(ctx.root) !== ref;
+      commands.push({
+        tool: "supabase",
+        args: ["db", "push", "--yes"],
+        why: `applies to ${ref} whichever of these migrations it doesn't have yet (${first ? "no dry run: the app isn't linked to it yet" : "the dry run above lists them"}): ${migrations.map((m) => `${m.file} (sha256 ${m.hash})`).join(", ")}`,
+      });
+    }
     for (const name of functions) commands.push({ tool: "supabase", args: ["functions", "deploy", name], why: `deploys the Edge Function ${name}` });
     return { summary: `links Supabase project ${ref}${hasMigrations(ctx.root) ? ", pushes the migrations" : ""}${functions.length ? ` and deploys ${functions.length} function${functions.length === 1 ? "" : "s"}` : ""}`, commands };
   },
   async verify(ctx) {
-    if (!supabaseLinked(ctx.root)) return { ok: false, message: "The app isn't linked to a Supabase project yet." };
+    const linked = linkedRef(ctx.root);
+    if (!linked) return { ok: false, message: "The app isn't linked to a Supabase project yet." };
+    const wanted = ctx.fields.projectRef;
+    if (wanted && linked !== wanted) return { ok: false, message: `The app is linked to ${printable(linked)}, not ${wanted}: run the step again to link ${wanted}.` };
     if (!ctx.network) return OFFLINE;
     const problems: string[] = [];
     if (hasMigrations(ctx.root)) {

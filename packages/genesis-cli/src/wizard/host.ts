@@ -41,7 +41,7 @@ import { allFixes, type BuiltinDeps } from "../fix/registry.js";
 import type { Fix, FixContext, FixPlan, FixPlanDraft } from "../fix/types.js";
 import type { ToolRunner } from "../exec/run.js";
 import { findLockfile, installCommand, type PackageManager } from "../blocks/pm.js";
-import { SecretError, SecretVault } from "../exec/secret-vault.js";
+import { safeErrorMessage, SecretError, SecretVault } from "../exec/secret-vault.js";
 import { changedLines } from "../mcp/server.js";
 import { CONFIG_FILE, fileLayers, loadCatalogue, ProposalError, settingsProposalFix } from "../mcp/settings.js";
 import { distance, readUpgradeStatus, type RegistryDeps } from "../upgrade/registry.js";
@@ -416,7 +416,7 @@ export function createWizardHost(options: WizardHostOptions): WizardHost {
     }
     if (!recipe) throw new HostError("stale_plan", "This plan is no longer current (it was applied, expired or made elsewhere). Nothing was written: plan it again and read the new plan.", 409);
     const vault = new SecretVault();
-    const log = (m: string) => publish("log", { fixId, line: vault.redact(m) });
+    const log = (m: string) => publish("log", { fixId, line: safeErrorMessage(vault, m, "(a line isn't shown: it may hold a secret)") });
     try {
       const { fix, findings } = await resolveRecipe(recipe);
       if (fix.id !== fixId) throw new HostError("bad_request", `that plan is ${fix.id}'s, not ${fixId}'s`);
@@ -445,12 +445,12 @@ export function createWizardHost(options: WizardHostOptions): WizardHost {
       return vault.redactJson({ fixId, verified: result.verify.ok, ...(message ? { message } : {}), ...(pr ? { pullRequestUrl: pr } : {}) });
     } catch (err) {
       publish("apply", { fixId, state: "failed" });
-      if (err instanceof HostError) throw new HostError(err.code, vault.redact(err.message), err.status);
+      if (err instanceof HostError) throw new HostError(err.code, safeErrorMessage(vault, err), err.status);
       // The engine's own wording names the CLI; the page plans again instead.
       if (err instanceof StalePlanError || err instanceof FileConflictError) throw new HostError("stale_plan", STALE_MESSAGE, 409);
-      if (err instanceof SecretError) throw new HostError("bad_request", vault.redact(err.message));
-      if (err instanceof ProposalError || err instanceof InitChoiceError) throw new HostError("bad_request", vault.redact(err.message));
-      throw new HostError("error", vault.redact(err instanceof Error ? err.message : String(err)), 500);
+      if (err instanceof SecretError) throw new HostError("bad_request", safeErrorMessage(vault, err));
+      if (err instanceof ProposalError || err instanceof InitChoiceError) throw new HostError("bad_request", safeErrorMessage(vault, err));
+      throw new HostError("error", safeErrorMessage(vault, err, "The fix failed; its error isn't shown, since it may hold a secret."), 500);
     } finally {
       vault.clear();
     }
@@ -654,8 +654,9 @@ export function createWizardHost(options: WizardHostOptions): WizardHost {
       } catch (err) {
         if (err instanceof HostError) return { status: err.status, body: { error: { code: err.code, message: err.message } } };
         if (err instanceof GenesisConfigError) return { status: 400, body: { error: { code: "bad_request", message: err.message } } };
-        // An unexpected error's message only: never a stack, never the request.
-        return { status: 500, body: { error: { code: "error", message: err instanceof Error ? err.message : "The wizard failed on that request." } } };
+        // An unexpected error: never its text (it may hold a value typed in), a stack or the request.
+        // Every path that knows its text is safe (a HostError, a GenesisConfigError) answers above.
+        return { status: 500, body: { error: { code: "error", message: "The wizard failed on that request." } } };
       }
     },
   };

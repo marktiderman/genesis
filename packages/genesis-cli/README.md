@@ -1738,16 +1738,18 @@ to do in the service, the values it asks for, the secrets it needs by name, and 
    signed-in CLI on stdin only, as `genesis fix secrets.set` does; a request to the service carries
    it in a header. Never argv, a URL, a log line or an answer.
 4. Apply through the [fix engine](#genesis-fix), then the test call. **Check** (`step.verify`)
-   runs it again later; a check that needs a secret asks for it again, since none is kept.
+   runs it again later; a check that needs a secret asks for it again, since none is kept, and
+   says it tested the value typed in, not the stored one. Remote text printed at a terminal
+   (project names, DNS records) has its control characters stripped.
 
 | Step | Runs | Checks |
 |---|---|---|
-| `supabase.link` | `supabase link --project-ref`, `db push`, `functions deploy` for each function in `supabase/functions` | no migration pending, every function deployed |
-| `github.issues` | `GITHUB_TOKEN` to the Edge Function secrets | the token reads the repository, with issues on |
+| `supabase.link` | `supabase link --project-ref`, `db push`, `functions deploy` for each function in `supabase/functions`; the plan names each migration with its content hash, so an edited one makes it stale (a first link has no dry run, and says so) | linked to the project ref typed in, no migration pending, every function deployed |
+| `github.issues` | `GITHUB_TOKEN` to the Edge Function secrets | the token reads the repository and its issues, with issues on (write access isn't checked: that would open an issue) |
 | `resend.domain` | `RESEND_API_KEY` to the Edge Function secrets; the domain added to Resend (or found) and its DNS records shown | Resend says the domain is `verified` |
-| `sentry` | `SENTRY_AUTH_TOKEN` through `gh secret set`; the `eas env:create` line for you to run | the token reads the project; a test event reaches the DSN, when given |
+| `sentry` | `SENTRY_AUTH_TOKEN` through `gh secret set`; the `eas env:create` line for you to run | the token reads the project; a test event reaches the DSN (a `*.sentry.io` host only), when given |
 | `ai.key-budget` | `ANTHROPIC_API_KEY` to the Edge Function secrets; the budget as a setting | `GET /v1/models` (spends no tokens) |
-| `eas.push` | nothing: a manual step (`eas credentials` asks its own questions) | the EAS CLI is signed in; then a test push to a device build |
+| `eas.push` | nothing: a manual step (`eas credentials` asks its own questions) | never verified from here: it checks the EAS CLI is signed in and answers "not verified: send a test push from a device build" |
 
 `eas env:create` takes a secret only as a flag or a prompt, never stdin, so an EAS secret is always
 a line you run yourself. If `supabase db push` asks for the database password, set

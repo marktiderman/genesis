@@ -9,7 +9,8 @@ import { defineSetupStep } from "@marktiderman/genesis-config/setup";
 import { needsSecret, OFFLINE, request, secretSetters, type StepContext, type StepRunner } from "./framework.js";
 
 const SLUG = "[a-z0-9][a-z0-9_-]{0,99}";
-const DSN = /^https:\/\/([0-9a-f]{16,64})@([A-Za-z0-9.-]+(?::\d+)?)\/(\d+)$/;
+/** sentry.io only (no self-hosted Sentry): its ingest hosts are subdomains of sentry.io, so no private or loopback host gets the test event. */
+const DSN = /^https:\/\/([0-9a-f]{16,64})@((?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*sentry\.io)\/(\d+)$/;
 
 export const sentryStep = defineSetupStep({
   id: "sentry",
@@ -56,7 +57,7 @@ export const sentry: StepRunner = {
 /** One info-level event, as an envelope, to the DSN's ingest endpoint. The DSN's key is public. */
 export async function sendTestEvent(ctx: StepContext, dsn: string): Promise<{ ok: boolean; message: string }> {
   const m = DSN.exec(dsn);
-  if (!m) return { ok: false, message: "The DSN doesn't look like https://<key>@<host>/<project id>." };
+  if (!m) return { ok: false, message: "The DSN doesn't look like https://<key>@<…>.sentry.io/<project id> (self-hosted Sentry isn't supported)." };
   const [, key, host, id] = m;
   const eventId = randomUUID().replace(/-/g, "");
   const body = [JSON.stringify({ event_id: eventId, dsn }), JSON.stringify({ type: "event" }), JSON.stringify({ event_id: eventId, message: "genesis setup: test event", level: "info", platform: "javascript" })].join("\n");

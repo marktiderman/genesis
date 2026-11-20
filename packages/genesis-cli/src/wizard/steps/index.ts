@@ -4,7 +4,7 @@
  * folder, an eas.json), each with its runner's title, instructions, fields and links.
  */
 import type { SetupStepDef } from "@marktiderman/genesis-config/setup";
-import { SecretVault } from "../../exec/secret-vault.js";
+import { safeErrorMessage, SecretVault } from "../../exec/secret-vault.js";
 import type { VerifyResult } from "../../fix/types.js";
 import { setupSteps, type SetupStepSummary } from "../steps.js";
 import { aiKeyBudget } from "./ai-key-budget.js";
@@ -78,10 +78,15 @@ export async function verifyStep(root: string, id: string, fields: unknown, secr
       if (typeof value !== "string") throw new StepError(`${name}'s value must be text`);
       vault.set(name, value);
     }
-    const result = await runner.verify(stepContext(root, fields, runner.step, deps), vault.names().length ? vault : undefined);
-    return result.message ? { ...result, message: vault.redact(result.message) } : result;
+    const typed = vault.names();
+    const result = await runner.verify(stepContext(root, fields, runner.step, deps), typed.length ? vault : undefined);
+    const message = result.message ? safeErrorMessage(vault, result.message, "The check's message isn't shown: it may hold a secret.") : "";
+    // A store never gives a value back, so a Check tests what was typed into it, not what is stored.
+    const note = typed.length ? `This checked the value typed in for ${typed.join(" and ")}, not the one stored: a store never gives a value back.` : "";
+    const said = [message, note].filter(Boolean).join(" ");
+    return said ? { ...result, message: said } : result;
   } catch (err) {
-    throw new StepError(vault.redact(err instanceof Error ? err.message : String(err)));
+    throw new StepError(safeErrorMessage(vault, err, "The check failed; its error isn't shown, since it may hold a secret."));
   } finally {
     vault.clear();
   }

@@ -13,7 +13,7 @@
  */
 import { applyPlan, planFix } from "../fix/engine.js";
 import { describePlan } from "../fix/command.js";
-import { SecretVault } from "../exec/secret-vault.js";
+import { safeErrorMessage, SecretVault } from "../exec/secret-vault.js";
 import { runnerFor, startStep, stepFix, STEP_RUNNERS, type StepDeps } from "./steps/index.js";
 
 export interface StepCommandOptions {
@@ -36,7 +36,9 @@ export interface StepCommandIo {
 /** The exit code: 0 verified, 1 not done or failed. */
 export async function runStepCommand(options: StepCommandOptions, rawIo: StepCommandIo): Promise<number> {
   const vault = new SecretVault();
-  const io = { ...rawIo, out: (l: string) => rawIo.out(vault.redact(l)), err: (l: string) => rawIo.err(vault.redact(l)) };
+  // Every line redacted; a line that can't be is dropped for a generic one, never shown raw.
+  const hidden = "(a line isn't shown: it may hold a secret)";
+  const io = { ...rawIo, out: (l: string) => rawIo.out(safeErrorMessage(vault, l, hidden)), err: (l: string) => rawIo.err(safeErrorMessage(vault, l, hidden)) };
   const runner = runnerFor(options.id);
   if (!runner) {
     io.err(`✗ No guided step ${options.id} (the steps: ${STEP_RUNNERS.map((r) => r.step.id).join(", ")}).`);
@@ -84,7 +86,7 @@ export async function runStepCommand(options: StepCommandOptions, rawIo: StepCom
     else io.err(`✗ ${step.id} isn't verified: ${verified.message ?? "the check failed"}`);
     return verified.ok ? 0 : 1;
   } catch (err) {
-    io.err(`✗ ${err instanceof Error ? err.message : String(err)}`);
+    io.err(`✗ ${safeErrorMessage(vault, err)}`);
     return 1;
   } finally {
     vault.clear();
