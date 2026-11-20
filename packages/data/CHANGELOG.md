@@ -1,4 +1,6 @@
-# @marktiderman/genesis-studio
+# @marktiderman/genesis-data
+
+Published as `@marktiderman/genesis-studio` until this rename (ADR 0025); the history below is that package's.
 
 ## 0.4.3
 
