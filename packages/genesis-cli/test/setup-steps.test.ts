@@ -387,17 +387,31 @@ describe("a long secret (1,520 characters)", () => {
     expect(leaks(out.join("\n"))).toBe(false);
   });
 
+  it("redacts a match that starts inside another and runs past it, with two values or one periodic value", () => {
+    const two = new SecretVault();
+    two.set("FIRST_KEY", "abcdefgh12345678");
+    two.set("SECOND_KEY", "12345678zyxwvuts");
+    expect(two.redact("x abcdefgh12345678zyxwvuts y")).toBe("x [redacted] y");
+    expect(two.redact(`x ${JSON.stringify("abcdefgh12345678zyxwvuts").replace(/z/g, "\\u007a")} y`)).toBe('x "[redacted]" y');
+    const periodic = new SecretVault();
+    periodic.set("PERIODIC_KEY", "abababab");
+    expect(periodic.redact("ababababab")).toBe("[redacted]");
+    expect(periodic.redact("abababab\\u0061b!")).toBe("[redacted]!");
+  });
+
   it("stays linear when the value and the text share long runs of one character", () => {
     const vault = new SecretVault();
     vault.set("RUN_KEY", "a".repeat(4096));
     const near = new SecretVault();
     near.set("NEAR_KEY", `${"a".repeat(4095)}b`);
     const started = performance.now();
-    expect(vault.redact("a".repeat(40_960))).toBe("[redacted]".repeat(10));
-    expect(vault.redact(`${"a".repeat(40_960)}\\n`)).toBe(`${"[redacted]".repeat(10)}\\n`);
+    // Every match inside the run overlaps the next, so the whole run is one span.
+    expect(vault.redact("a".repeat(40_960))).toBe("[redacted]");
+    expect(vault.redact(`${"a".repeat(40_960)}\\n`)).toBe("[redacted]\\n");
     expect(near.redact("a".repeat(40_000))).toBe("a".repeat(40_000));
     expect(near.redact(`\\n${"a".repeat(40_000)}`)).toBe(`\\n${"a".repeat(40_000)}`);
     expect(near.redact(`${"a".repeat(40_000)}\\n`)).toBe(`${"a".repeat(40_000)}\\n`);
+    expect(near.redact(`${"a".repeat(20_000)}\\n${"a".repeat(20_000)}`)).toBe(`${"a".repeat(20_000)}\\n${"a".repeat(20_000)}`);
     expect(performance.now() - started).toBeLessThan(1000);
   });
 

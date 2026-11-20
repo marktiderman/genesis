@@ -97,40 +97,51 @@ export class SecretVault {
   /**
    * The text with every held value replaced by [redacted]. No regular expression is built from a
    * value (one per value grew with it, and past ~1,500 characters threw an error that spelled the
-   * value out): each needle is matched unit by unit in every JSON-escaped form. At each place the
-   * longest match is redacted, and the scan resumes after it, so the work is linear in the text for
-   * a match. A value without a backslash is found raw in one linear pass (KMP), and in an escaped
-   * form only where a backslash falls within its length, so near misses stay cheap too.
+   * value out): each needle is matched unit by unit in every JSON-escaped form. A match is extended
+   * by every match that starts inside it and runs past its end (two values that overlap, or a
+   * periodic value over a longer run), so no part of any shows.
+   *
+   * Linear in practice: for a value without a backslash, one Z-array pass gives, at each place, how
+   * far the text matches it raw; an escape can only start where that raw run stops, and only on a
+   * backslash, so the unit-by-unit matcher runs only there, from that unit.
    */
   redact(text: string): string {
     if (typeof text !== "string" || !text) return text;
     const needles = this.#needles();
     if (!needles.length) return text;
-    // Where the next backslash is, from each place: an escaped form needs one within the needle's length.
-    const nextBackslash = new Int32Array(text.length + 1).fill(text.length);
-    for (let j = text.length - 1; j >= 0; j--) nextBackslash[j] = text.charCodeAt(j) === 92 ? j : nextBackslash[j + 1]!;
     const plain = needles.map((needle) => !needle.includes("\\"));
-    // Every raw occurrence of each plain needle, found once in linear time.
-    const rawAt = needles.map((needle, n) => (plain[n] ? rawOccurrences(text, needle) : null));
+    const lcp = needles.map((needle, n) => (plain[n] ? rawPrefixLengths(text, needle) : null));
+    /** Where the longest match of any needle starting at `j` ends, or -1. */
+    const endAt = (j: number): number => {
+      let end = -1;
+      for (let n = 0; n < needles.length; n++) {
+        const needle = needles[n]!;
+        // Every form is at least as long as the needle, so none fits in the text's last few characters.
+        if (j + needle.length > text.length) continue;
+        let e: number;
+        if (plain[n]) {
+          const z = lcp[n]![j]!;
+          if (z >= needle.length) e = j + needle.length;
+          // A unit that matches raw isn't a backslash, so an escape starts exactly where the raw run stops.
+          else e = text.charCodeAt(j + z) === 92 ? matchEscaped(text, j + z, needle, z) : -1;
+        } else e = matchEscaped(text, j, needle);
+        if (e > end) end = e;
+      }
+      return end;
+    };
     let out = "";
     let last = 0;
     let i = 0;
     while (i < text.length) {
-      let end = -1;
-      for (let n = 0; n < needles.length; n++) {
-        const needle = needles[n]!;
-        let e: number;
-        // A needle without a backslash matches raw (then nothing longer can), or uses an escape, which starts with a backslash before its raw length runs out.
-        // Every form is at least as long as the needle, so none fits in the text's last few characters.
-        if (i + needle.length > text.length) e = -1;
-        else if (plain[n] && rawAt[n]![i]) e = i + needle.length;
-        else if (plain[n] && nextBackslash[i]! >= i + needle.length) e = -1;
-        else e = matchEscaped(text, i, needle);
-        if (e > end) end = e;
-      }
+      let end = endAt(i);
       if (end <= i) {
         i++;
         continue;
+      }
+      // Grow the span by every match that starts inside it and ends past it.
+      for (let j = i + 1; j < end; j++) {
+        const e = endAt(j);
+        if (e > end) end = e;
       }
       out += text.slice(last, i) + REDACTED;
       last = end;
@@ -209,20 +220,20 @@ const SHORT_ESCAPES: Readonly<Record<string, string>> = { '"': '\\"', "\\": "\\\
 const regexEscape = (text: string) => text.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
 
 /**
- * Where a match of `needle` starting at `start` in `text` ends (the furthest end, when escapes make
+ * Where a match of `needle` (from its unit `from` on) starting at `start` in `text` ends (the furthest end, when escapes make
  * several possible), or -1. Each UTF-16 unit of the needle may appear as itself, its short JSON
  * escape, or `\uXXXX` in either case: the same forms as `escapedForms`, without a regular expression.
  */
-export function matchEscaped(text: string, start: number, needle: string): number {
+export function matchEscaped(text: string, start: number, needle: string, from = 0): number {
   // Every form of a unit starts with the unit itself or a backslash.
-  if (!needle || (text[start] !== needle[0] && text[start] !== "\\")) return -1;
+  if (from >= needle.length || (text[start] !== needle[from] && text[start] !== "\\")) return -1;
   // The places a match may have reached so far: almost always one (two or three only around a backslash).
   let positions: number[] = [start];
   let next: number[] = [];
   const add = (p: number) => {
     if (!next.includes(p)) next.push(p);
   };
-  for (let k = 0; k < needle.length; k++) {
+  for (let k = from; k < needle.length; k++) {
     const unit = needle[k]!;
     const code = needle.charCodeAt(k);
     const short = SHORT_ESCAPES[unit];
@@ -240,25 +251,23 @@ export function matchEscaped(text: string, start: number, needle: string): numbe
   return end;
 }
 
-/** A mark at each index of `text` where `needle` starts (Knuth–Morris–Pratt: linear in both). */
-function rawOccurrences(text: string, needle: string): Uint8Array {
-  const marks = new Uint8Array(text.length);
+/**
+ * At each index of `text`, how many units of `needle` the text matches raw from there (the Z
+ * algorithm over needle + NUL + text: linear in both; a held value never has a NUL).
+ */
+function rawPrefixLengths(text: string, needle: string): Int32Array {
+  const s = `${needle}\0${text}`;
   const m = needle.length;
-  const fail = new Int32Array(m);
-  for (let q = 1, k = 0; q < m; q++) {
-    while (k > 0 && needle.charCodeAt(q) !== needle.charCodeAt(k)) k = fail[k - 1]!;
-    if (needle.charCodeAt(q) === needle.charCodeAt(k)) k++;
-    fail[q] = k;
-  }
-  for (let j = 0, k = 0; j < text.length; j++) {
-    while (k > 0 && text.charCodeAt(j) !== needle.charCodeAt(k)) k = fail[k - 1]!;
-    if (text.charCodeAt(j) === needle.charCodeAt(k)) k++;
-    if (k === m) {
-      marks[j - m + 1] = 1;
-      k = fail[k - 1]!;
+  const z = new Int32Array(s.length);
+  for (let k = 1, l = 0, r = 0; k < s.length; k++) {
+    if (k < r) z[k] = Math.min(r - k, z[k - l]!);
+    while (k + z[k]! < s.length && s.charCodeAt(z[k]!) === s.charCodeAt(k + z[k]!)) z[k] = z[k]! + 1;
+    if (k + z[k]! > r) {
+      l = k;
+      r = k + z[k]!;
     }
   }
-  return marks;
+  return z.subarray(m + 1);
 }
 
 /** The value of the 4 hex digits (either case) at `at`, or -1. */

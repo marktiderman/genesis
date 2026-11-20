@@ -213,7 +213,8 @@ function hasPlatformAdminsMigration(root: string): boolean {
 export async function readPlatformAdmins(root: string, run: ToolRunner = runTool): Promise<{ ok: true; count: number; appHook: boolean } | { ok: false; reason: string }> {
   let result;
   try {
-    // Through a temp file, as every `supabase db query --linked` is (src/exec/supabase-query.ts), not /dev/stdin.
+    // Through a temp file (src/exec/supabase-query.ts), as the doctor's other reads are, not /dev/stdin.
+    // (settings-manifest.ts still sends its SQL on /dev/stdin outside Windows.)
     result = await supabaseQuery(root, ADMINS_SQL, run, { args: ["-o", "json"] });
   } catch (err) {
     return { ok: false, reason: (err as Error).message };
