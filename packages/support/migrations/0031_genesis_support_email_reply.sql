@@ -23,6 +23,10 @@
 --
 -- A refusal is 42501 (who), 22023 (what) or GS429 (too many), never a partial post.
 --
+-- support.email (genesis-config; the max preset) is the channel's switch on the server: while it is
+-- off, support_receive_email files nothing (it returns null) and support_claim_outbound_emails
+-- sends nothing (queued replies wait), read through genesis-supabase's private.genesis_setting.
+--
 -- One private table, private.genesis_support_email_posts: each email reply's Message-ID hash, the
 -- message it became and when, per ticket (60 days of them: an hour's for the limit, the rest for
 -- dedupe). It goes with its ticket. An app's own support_email_reply, or a table of another shape by
@@ -149,3 +153,153 @@ comment on function public.support_email_reply(uuid, uuid, text, text, text) is
 
 revoke execute on function public.support_email_reply(uuid, uuid, text, text, text) from public, anon, authenticated;
 grant execute on function public.support_email_reply(uuid, uuid, text, text, text) to service_role;
+
+-- support.email: the channel itself ---------------------------------------------------------------
+
+-- support.email, through genesis-supabase's one resolver (private.genesis_setting, 0023); without
+-- it, or before the manifest is synced, on (zero config is the max preset).
+create or replace function private.genesis_support_email_on()
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  if to_regprocedure('private.genesis_setting(text,uuid)') is null then
+    return true;
+  end if;
+  return private.genesis_setting('support.email') is distinct from 'false'::jsonb;
+end;
+$$;
+
+revoke execute on function private.genesis_support_email_on() from public, anon, authenticated;
+
+-- 0008's inbound filing and outbound claim, each refusing while support.email is off.
+create or replace function public.support_receive_email(email jsonb)
+returns uuid
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  msg_id text := nullif(btrim(email ->> 'messageId', ' <>'), '');
+  reply_to text := nullif(btrim(email ->> 'inReplyTo', ' <>'), '');
+  refs text[] := coalesce(array(select btrim(x, ' <>') from jsonb_array_elements_text(coalesce(email -> 'references', '[]')) x
+                                 where btrim(x, ' <>') ~ '^[^<>\s]+$' and char_length(btrim(x, ' <>')) <= 998 limit 50), '{}');
+  sender text := lower(btrim(email -> 'from' ->> 'email'));
+  sender_name text := left(nullif(btrim(email -> 'from' ->> 'name'), ''), 200);
+  recipients text[] := coalesce(array(select lower(btrim(x)) from jsonb_array_elements_text(coalesce(email -> 'to', '[]')) x limit 50), '{}');
+  subject text := left(coalesce(email ->> 'subject', ''), 998);
+  body text := left(coalesce(nullif(btrim(email ->> 'text'), ''),
+                             nullif(btrim(regexp_replace(regexp_replace(coalesce(email ->> 'html', ''), '<(script|style)[^>]*>.*?</\1>', '', 'gis'), '<[^>]+>', ' ', 'g')), ''),
+                             '(no text)'), 10000);
+  token text;
+  report public.tickets;
+  existing uuid;
+  reply uuid;
+begin
+  -- support.email off: mail isn't a ticket channel; nothing is filed.
+  if not private.genesis_support_email_on() then
+    return null;
+  end if;
+  if jsonb_typeof(email) is distinct from 'object' or sender is null or sender !~ '^[^@\s<>]+@[^@\s<>]+$' or char_length(sender) > 320 then
+    raise exception 'support_receive_email: needs from.email' using errcode = '22023';
+  end if;
+  -- Message-IDs that could carry header text are not kept.
+  if msg_id !~ '^[^<>\s]+$' or char_length(msg_id) > 998 then msg_id := null; end if;
+  if reply_to !~ '^[^<>\s]+$' or char_length(reply_to) > 998 then reply_to := null; end if;
+  select m.report_id into existing from public.support_email_messages m
+   where m.direction = 'in' and ((msg_id is not null and m.message_id = msg_id) or (email ->> 'providerId' is not null and m.provider_id = email ->> 'providerId'))
+   limit 1;
+  if existing is not null then
+    return existing;
+  end if;
+  -- An automatic message (an out-of-office, a bounce) and a sender past 20 emails an hour are
+  -- dropped: they neither open a ticket nor reopen one.
+  if coalesce((email ->> 'autoSubmitted')::boolean, false)
+     or sender ~ '^(mailer-daemon|postmaster|no-?reply)@'
+     or (select count(*) from public.support_email_messages m where m.direction = 'in' and m.from_address = sender and m.created_at > now() - interval '1 hour') >= 20 then
+    return null;
+  end if;
+  -- The reply address names the ticket; else what it answers.
+  select substring(r from '\+([0-9a-f]{32})@') into token from unnest(recipients) r where r ~ '\+[0-9a-f]{32}@' limit 1;
+  if token is not null then
+    select * into report from public.tickets where email_token = token and channel = 'email';
+  end if;
+  if report.id is null and (reply_to is not null or cardinality(refs) > 0) then
+    select r.* into report from public.support_email_messages m join public.tickets r on r.id = m.report_id
+     where m.message_id = any (array_append(refs, reply_to)) and r.channel = 'email'
+       -- A reply joins a thread only in the tenant its address belongs to.
+       and r.tenant_id = coalesce(private.genesis_support_email_tenant_id(recipients), private.genesis_support_default_tenant_id())
+     order by m.created_at desc limit 1;
+  end if;
+  if report.id is null and coalesce((email ->> 'onlyExisting')::boolean, false) then
+    return null;
+  end if;
+  if report.id is null then
+    insert into public.tickets (tenant_id, user_id, type, title, message, channel, requester_email, requester_name, platform)
+    values (private.genesis_support_email_tenant_id(recipients), null, 'question', left(nullif(subject, ''), 300), body, 'email', sender, sender_name, 'email')
+    returning * into report;
+  else
+    insert into public.support_replies (report_id, from_staff, body) values (report.id, false, body) returning id into reply;
+    if report.status in ('addressed', 'wont_fix') then
+      update public.tickets set status = 'open' where id = report.id;
+    end if;
+  end if;
+  insert into public.support_email_messages (report_id, direction, message_id, in_reply_to, from_address, to_addresses, subject, text_body, reply_id, provider_id, authentication, attachments, status)
+  values (report.id, 'in', msg_id, reply_to, sender, recipients, subject, left(email ->> 'text', 100000), reply,
+          left(email ->> 'providerId', 200),
+          case when jsonb_typeof(email -> 'authentication') = 'object' then email -> 'authentication' end,
+          case when jsonb_typeof(email -> 'attachments') = 'array' then email -> 'attachments' else '[]' end,
+          'received');
+  return report.id;
+end;
+$$;
+
+revoke execute on function public.support_receive_email(jsonb) from public, anon, authenticated;
+grant execute on function public.support_receive_email(jsonb) to service_role;
+
+create or replace function public.support_claim_outbound_emails(max_rows integer default 20)
+returns setof jsonb
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+begin
+  -- support.email off: nothing goes out; queued replies wait.
+  if not private.genesis_support_email_on() then
+    return;
+  end if;
+  -- A reply deleted before it went out is cancelled; one that kept failing is given up.
+  update public.support_email_messages m set status = 'cancelled', lease_until = null
+   where m.direction = 'out' and m.status in ('queued', 'sending') and m.reply_id is null;
+  update public.support_email_messages m set status = 'failed', lease_until = null, error = coalesce(m.error, 'gave up after 5 attempts')
+   where m.direction = 'out' and m.status = 'sending' and m.lease_until < now() and m.attempts >= 5;
+  return query
+  with picked as (
+    select m.id from public.support_email_messages m
+     where m.direction = 'out'
+       and (m.status = 'queued' or (m.status = 'sending' and m.lease_until < now() and m.attempts < 5))
+     order by m.created_at
+     limit greatest(1, least(max_rows, 100))
+     for update skip locked
+  ), claimed as (
+    update public.support_email_messages m
+       set status = 'sending', lease_until = now() + interval '10 minutes', attempts = m.attempts + 1
+      from picked where m.id = picked.id
+    returning m.*
+  )
+  select jsonb_build_object(
+    'id', c.id, 'reportId', c.report_id, 'to', c.to_addresses, 'subject', c.subject,
+    'text', c.text_body, 'inReplyTo', c.in_reply_to, 'references', to_jsonb(c.reference_ids),
+    'token', r.email_token, 'attempts', c.attempts)
+    from claimed c
+    join public.tickets r on r.id = c.report_id;
+end;
+$$;
+
+revoke execute on function public.support_claim_outbound_emails(integer) from public, anon, authenticated;
+grant execute on function public.support_claim_outbound_emails(integer) to service_role;

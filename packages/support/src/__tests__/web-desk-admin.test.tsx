@@ -46,7 +46,7 @@ const manager = (over: Partial<SupportClient> = {}) =>
       { id: "u1", name: "Ana", role: "admin" as const, removable: false },
       { id: "u2", name: "Bo", role: "agent" as const, removable: true },
     ]),
-    searchPeople: vi.fn(async () => [{ id: "u5", name: "Cy", email: "cy@example.test" }]),
+    searchPeople: vi.fn(async () => [{ personId: "p5", userId: "u5", name: "Cy", email: "cy@example.test" }]),
     setAgent: vi.fn(async () => undefined),
     ...over,
   });
@@ -72,7 +72,8 @@ describe("agents", () => {
     await pick(await screen.findByTestId("genesis-support-agents-pick"), /Cy/);
     await pick(screen.getByTestId("genesis-support-agents-role"), "Admin");
     fireEvent.click(screen.getByTestId("genesis-support-agents-add-send"));
-    await waitFor(() => expect(client.setAgent).toHaveBeenCalledWith("acme", "u5", "admin"));
+    // The person record found in the tenant, which ticket_agents holds.
+    await waitFor(() => expect(client.setAgent).toHaveBeenCalledWith("acme", "p5", "admin"));
     expect(await screen.findByText("Cy is now an agent")).toBeTruthy();
   });
 
@@ -146,7 +147,7 @@ describe("linking an email ticket", () => {
   it("finds the person in the ticket's tenant and links after a confirm that names both", async () => {
     const linkRequester = vi.fn(async () => undefined);
     const onLinked = vi.fn();
-    const client = manager({ linkRequester, searchPeople: vi.fn(async () => [{ id: "u9", name: "Bo", email: "bo@acme.test" }]) });
+    const client = manager({ linkRequester, searchPeople: vi.fn(async () => [{ personId: "p9", userId: "u9", name: "Bo", email: "bo@acme.test" }]) });
     show(<SupportLinkRequester client={client} ticket={email} onLinked={onLinked} />);
     fireEvent.change(await screen.findByTestId("genesis-support-link-requester-search"), { target: { value: "bo" } });
     await waitFor(() => expect(client.searchPeople).toHaveBeenCalledWith({ tenantId: "acme", query: "bo" }));
@@ -157,21 +158,25 @@ describe("linking an email ticket", () => {
     expect(confirm.textContent).toContain("Bo (bo@acme.test)");
     expect(linkRequester).not.toHaveBeenCalled();
     fireEvent.click(screen.getByTestId("genesis-support-link-requester-confirm-send"));
+    // Linking takes the login.
     await waitFor(() => expect(linkRequester).toHaveBeenCalledWith("t1", "u9"));
     expect(onLinked).toHaveBeenCalledWith("t1");
   });
 
-  it("shows nothing for a ticket with a login, or to someone who can't search the desk's people", async () => {
-    const canManageAgents = vi.fn(async () => false);
+  it("shows nothing for a ticket with a login, or without a search", async () => {
     const { container } = show(
       <>
         <SupportLinkRequester client={manager({ linkRequester: vi.fn() })} ticket={ticket({ channel: "email" })} />
-        <SupportLinkRequester client={manager({ linkRequester: vi.fn(), canManageAgents })} ticket={email} />
+        <SupportLinkRequester client={manager({ linkRequester: vi.fn(), searchPeople: undefined })} ticket={email} />
       </>,
     );
-    await waitFor(() => expect(canManageAgents).toHaveBeenCalledWith({ tenantId: "acme" }));
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(container.querySelector("[data-testid=genesis-support-link-requester]")).toBeNull();
+  });
+
+  it("is offered to any agent who handles the ticket, not only to whoever manages agents", async () => {
+    show(<SupportLinkRequester client={manager({ linkRequester: vi.fn(), canManageAgents: vi.fn(async () => false) })} ticket={email} />);
+    expect(await screen.findByTestId("genesis-support-link-requester-search")).toBeTruthy();
   });
 });
 

@@ -42,7 +42,7 @@ import {
   type InboxItem,
 } from "@marktiderman/genesis-ui";
 import { StatCard } from "@marktiderman/genesis-ui/data";
-import { SupportError, type AgentMention, type SavedReply, type SupportClient, type SupportPerson, type TicketAgentRole } from "../client";
+import { SupportError, type AgentMention, type SavedReply, type SupportClient, type SupportPersonMatch, type TicketAgentRole } from "../client";
 import { fill, resolveSupportCopy, type SupportCopy, type SupportCopyOverrides } from "../copy";
 import { waitedFor } from "./agent-inbox";
 import { scopeOf, useLoginScope, useResolvedTenant } from "./tenant";
@@ -414,7 +414,7 @@ function AgentsAdmin({ client, tenantId = null, copy: copyOverrides, onError, cl
     queryKey: supportAgentKeys.list(scope ?? ""),
     queryFn: staffList && scope && manage.manages ? () => staffList({ tenantId }) : skipToken,
   });
-  const [person, setPerson] = useState<SupportPerson | null>(null);
+  const [person, setPerson] = useState<SupportPersonMatch | null>(null);
   const [role, setRole] = useState<TicketAgentRole>("agent");
   const [busy, setBusy] = useState(false);
   const [addFailed, setAddFailed] = useState(false);
@@ -454,7 +454,7 @@ function AgentsAdmin({ client, tenantId = null, copy: copyOverrides, onError, cl
     setBusy(true);
     setAddFailed(false);
     try {
-      await setAgent(tenantId, person.id, role);
+      await setAgent(tenantId, person.personId, role);
       await refresh();
       toast.success(fill(copy.agents.added, { name: person.name?.trim() || copy.agents.unnamed }));
       setPerson(null);
@@ -480,7 +480,7 @@ function AgentsAdmin({ client, tenantId = null, copy: copyOverrides, onError, cl
     <section data-testid="genesis-support-agents" aria-label={copy.agents.title} className={cn("flex flex-col gap-3", className)}>
       <ViewList
         view={view}
-        rows={agents.data?.map((a): AgentRow => ({ id: a.id, name: a.name?.trim() || copy.agents.unnamed, role: copy.agents.roles[a.role ?? "agent"], removable: a.removable === true }))}
+        rows={agents.data?.map((a): AgentRow => ({ id: a.personId ?? a.id, name: a.name?.trim() || copy.agents.unnamed, role: copy.agents.roles[a.role ?? "agent"], removable: a.removable === true }))}
         loading={agents.isPending}
         error={agents.isError}
         errorMessage={copy.agents.loadFailed}

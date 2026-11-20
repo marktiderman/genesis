@@ -58,11 +58,13 @@ the server as on screen (migration 0029):
   tokens and signing secrets stay in the environment.
 - `support.replyByEmail` (with `support.email`): `supportReplyConfig`, `supportEmailOptions` and
   `handleSupportInbound`.
-- `support.email`: `supportReplyConfig` (reply by email) is off while it is off.
+- `support.email`: the email channel. While it is off, migration 0031's `support_receive_email`
+  files nothing and `support_claim_outbound_emails` sends nothing, and `supportReplyConfig` (reply
+  by email) is off.
 - `support.aiAnswers`: migration 0029 turns off a tenant's AI answers (`support_ai_enabled`, which
   `support_ask`, the help screens and `answerHelpQuestion` all ask) while it is off for that tenant.
-- `support.chatThreads`: off, threads stay on support_replies even with a chat client
-  (`createSupport`, and `createSupportClient`'s `settings`).
+- `support.chatThreads`: migration 0034 answers no conversation while it is off, so threads stay
+  on support_replies for every client, whatever chat client it was given.
 - `support.verifyPrompt`: migration 0033 (the verify prompt; see below).
 - `support.contactEmail`, `support.contactUrl`: `supportContact(settings)`; the messenger's Help and
   error states (`SupportContact`), the phone's help center (`SupportContactRow`), and
@@ -990,15 +992,20 @@ help desk something its admins run, and lets a ticket move between desks:
 - **The messenger across desks.** `<SupportMessenger allTenants>` (and the launcher) lists the
   person's conversations at every desk; a new one still goes to `tenantId`, or where routing sends it.
   `client.myTicketDesks()` (`support_my_ticket_desks`) gives each of the person's own tickets its
-  desk and the desk's name from `private.genesis_tenant_label`.
-- **Managing agents** (migration 0034, the support-chat block). Whoever manages a desk's agents (its
-  tenant admins and admin agents; the app's staff for the app's own desk) is one rule:
-  `client.canManageAgents` (`support_can_manage_agents`) answers exactly as `client.setAgent` decides.
-  `client.staffList` gives each agent's `role` and `removable` (only an agent row the caller can
-  remove). They search the people in that tenant by name or email with `client.searchPeople`
-  (`support_people_search`, at most 25), to add an agent or link an email requester. A tenant's
-  people are those `private.genesis_tenant_member(tenant, person)` names, else
-  `private.genesis_viewer_people`; anonymous logins never show.
+  desk, the desk's name from `private.genesis_tenant_label` and `isDefault` (the app's own desk).
+- **Managing agents** (migration 0034, the support-chat block). Who manages a desk's agents (its
+  tenant admins and admin agents; the app's staff for the app's own desk, which a null tenant means
+  everywhere) is one rule: `client.canManageAgents` answers exactly as `client.setAgent` decides.
+  `ticket_agents` holds the tenant's person record: `client.staffList` gives each agent's login
+  (`id`), `personId`, `role` and `removable`, and `setAgent` takes the `personId`.
+- **Finding people.** A desk's agents (who also link an email ticket to its person) search people in
+  its tenant by name or email with `client.searchPeople` (`support_people_search`, at most 25): each
+  match has its `personId` (for `setAgent`) and `userId` (for `linkRequester`). Define
+  `private.genesis_people_search(tenant uuid, q text, lim integer) returns table (person_id uuid,
+  login uuid)` to search all your people with your own indexes; without it, the search covers the
+  people support knows at that desk (its agents, the staff and tenant admin lists, the 500 most
+  recent requesters). Only the tenant's people (through `private.genesis_viewer_people`), never an
+  anonymous login.
 
 With the `support.desks` setting off (the `standard` and `min` presets) it is 0004 exactly:
 `tenant_features` alone decides, and nothing is switched, routed or moved.

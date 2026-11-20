@@ -55,10 +55,9 @@ $$;
 
 revoke execute on function private.genesis_support_staff_alerts_on() from public, anon, authenticated;
 
--- A name to show, never an email address (notification data shows on lock screens): the app's
--- private.genesis_person_name(person) hook, else (deprecated, for one release) an app's own
--- private.genesis_support_person_name, else the login's metadata. A hook that errors gives the
--- fallback: a name is never worth failing a notification for.
+-- A name to show, never an email address (notification data shows on lock screens). 0022's
+-- reader (the app's private.genesis_person_name hook, else the login's metadata) when the
+-- support-chat block is there; else the same hook and metadata here.
 create or replace function private.genesis_support_notify_name(person uuid)
 returns text
 language plpgsql
@@ -72,18 +71,20 @@ begin
   if person is null then
     return 'Someone';
   end if;
-  begin
+  if to_regprocedure('private.genesis_support_person_name(uuid)') is not null then
+    name := private.genesis_support_person_name(person);
+  else
     if to_regprocedure('private.genesis_person_name(uuid)') is not null then
-      name := nullif(btrim(private.genesis_person_name(person)), '');
-    elsif to_regprocedure('private.genesis_support_person_name(uuid)') is not null then
-      name := private.genesis_support_person_name(person);
+      begin
+        name := nullif(btrim(private.genesis_person_name(person)), '');
+      exception when others then
+        name := null;
+      end;
     end if;
-  exception when others then
-    name := null;
-  end;
-  if name is null then
-    select nullif(btrim(coalesce(u.raw_user_meta_data ->> 'full_name', u.raw_user_meta_data ->> 'name')), '')
-      into name from auth.users u where u.id = person;
+    if name is null then
+      select nullif(btrim(coalesce(u.raw_user_meta_data ->> 'full_name', u.raw_user_meta_data ->> 'name')), '')
+        into name from auth.users u where u.id = person;
+    end if;
   end if;
   -- A name, never an address: a full_name that is an email shows as Someone.
   return case when name is null or position('@' in name) > 0 then 'Someone' else left(name, 200) end;
@@ -92,8 +93,8 @@ $$;
 
 revoke execute on function private.genesis_support_notify_name(uuid) from public, anon, authenticated;
 
--- A desk's name for the person, or null for the app's own: the app's private.genesis_tenant_label
--- hook, else (deprecated, for one release) an app's own private.genesis_support_tenant_label.
+-- A desk's name for the person, or null for the app's own: 0022's reader (the app's
+-- private.genesis_tenant_label hook) when the support-chat block is there; else the hook here.
 create or replace function private.genesis_support_notify_label(tenant uuid)
 returns text
 language plpgsql
@@ -105,11 +106,11 @@ begin
   if tenant is null or tenant = private.genesis_support_default_tenant_id() then
     return null;
   end if;
-  if to_regprocedure('private.genesis_tenant_label(uuid)') is not null then
-    return left(nullif(btrim(private.genesis_tenant_label(tenant)), ''), 200);
-  end if;
   if to_regprocedure('private.genesis_support_tenant_label(uuid)') is not null then
     return private.genesis_support_tenant_label(tenant);
+  end if;
+  if to_regprocedure('private.genesis_tenant_label(uuid)') is not null then
+    return left(nullif(btrim(private.genesis_tenant_label(tenant)), ''), 200);
   end if;
   return null;
 exception when others then

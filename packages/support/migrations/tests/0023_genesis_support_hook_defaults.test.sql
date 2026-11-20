@@ -1,11 +1,11 @@
 -- @feat:support-feedback
--- pgTAP test for 0021 and 0023_genesis_support_hook_defaults.sql, applied with no hooks of the
--- app's own: support works on Genesis's reserved tenant with its platform admins as staff, no
--- viewer-people hook is defined, and the app's own hook migrations run after both, with a plain
--- `create function` and their own parameter names, and take over. Rolls back.
+-- pgTAP test for 0021 and 0023_genesis_support_hook_defaults.sql: with the app's hooks set aside
+-- (inside this transaction), support works on Genesis's reserved tenant with its platform admins as
+-- staff, and the app's own hook migrations run after both, with a plain `create function` and their
+-- own parameter names, and take over. Passes in an app with hooks of its own. Rolls back.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(20);
+select plan(18);
 
 create function pg_temp.person(n text) returns uuid language sql immutable as $$
   select ('00000000-0000-4000-8000-0000000023' || n)::uuid $$;
@@ -19,11 +19,39 @@ insert into auth.users (id, aud, role, email, instance_id)
 select pg_temp.person(n), 'authenticated', 'authenticated', 'genesis-hooks-' || n || '@example.test', '00000000-0000-0000-0000-000000000000'
 from unnest(array['a1', 'b2', 'c3']) n;
 
+select ok(coalesce(obj_description(to_regprocedure('private.genesis_support_default_tenant()'), 'pg_proc'), '') not like 'Genesis default: a stand-in%',
+  '0021''s stand-in is gone after 0023 (an app''s own hook stays)');
+
+-- The app's own hooks are set aside inside this transaction (it rolls back), so this test runs the
+-- same in an app that defines them: each case below defines what it needs.
+drop function if exists private.genesis_support_default_tenant() cascade;
+drop function if exists private.genesis_viewer_people(uuid) cascade;
+drop function if exists private.genesis_support_staff(uuid) cascade;
+drop function if exists private.genesis_platform_admin(uuid) cascade;
+drop function if exists private.genesis_tenant_admin(uuid, uuid) cascade;
+drop function if exists private.genesis_tenant_member(uuid, uuid) cascade;
+drop function if exists private.genesis_tenant_admin_list(uuid) cascade;
+drop function if exists private.genesis_tenant_label(uuid) cascade;
+drop function if exists private.genesis_tenant_role(uuid, uuid) cascade;
+drop function if exists private.genesis_person_name(uuid) cascade;
+drop function if exists private.genesis_person_login(uuid) cascade;
+drop function if exists private.genesis_support_staff_list() cascade;
+drop function if exists private.genesis_support_report_handler(uuid, uuid) cascade;
+drop function if exists private.genesis_support_staff_to_notify(uuid) cascade;
+drop function if exists private.genesis_support_desk_for(uuid, text) cascade;
+drop function if exists private.genesis_support_agent_mentioned(uuid, uuid, uuid, uuid) cascade;
+drop function if exists private.genesis_support_requester_labels(uuid[]) cascade;
+drop function if exists private.genesis_support_requester_label(uuid) cascade;
+drop function if exists private.genesis_people_search(uuid, text, integer) cascade;
+-- And genesis-supabase 0022's platform-admin list, where the app keeps one.
+do $$ begin
+  if to_regclass('public.genesis_platform_admins') is not null then
+    execute 'delete from public.genesis_platform_admins';
+  end if;
+end $$;
+
 -- 1. Zero config ----------------------------------------------------------------------------------
 
-select is(to_regprocedure('private.genesis_support_default_tenant()'), null, '0021''s stand-in is gone after 0023');
-select is(to_regprocedure('private.genesis_viewer_people(uuid)'), null, 'Genesis defines no viewer-people hook');
-select is(to_regprocedure('private.genesis_support_staff(uuid)'), null, 'nor a staff hook of the app''s name');
 select is(private.genesis_support_default_tenant_id(), 'bda1457d-053b-422c-8887-e046e54b8344'::uuid, 'the app''s own tenant is Genesis''s reserved one');
 select is(private.genesis_support_staff_hook(pg_temp.person('b2')), false, 'without a platform-admin hook, nobody is staff');
 

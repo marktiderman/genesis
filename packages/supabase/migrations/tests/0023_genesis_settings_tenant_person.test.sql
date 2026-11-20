@@ -5,7 +5,7 @@
 -- already has the hooks or a manifest, they are replaced inside this transaction only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(102);
+select plan(105);
 
 -- People: a1 a platform admin; aa the admin of tenant A, ab a member of A; bb the admin of tenant B;
 -- c1 and c2 signed in, in no tenant.
@@ -379,6 +379,10 @@ select is(private.genesis_setting('res.count'), '4'::jsonb, 'a value that doesn'
 select is(private.genesis_setting('res.pinned', pg_temp.tenant('b')), '2'::jsonb, 'a value the file locks holds over the tenant''s');
 select is(private.genesis_setting('res.build'), 'false'::jsonb, 'a build-time key takes only the file''s value');
 select ok(private.genesis_setting('res.unknown') is null, 'a key the catalogue doesn''t declare: null, for the caller''s fallback');
+select is((select row(layer, locked)::text from private.genesis_setting_entry('res.pinned', pg_temp.tenant('b'))), row('file', true)::text,
+  'the entry says which layer gave the value and that it is locked');
+select is((select layer from private.genesis_setting_entry('res.on')), 'preset', '... and when only the preset''s default applies');
+select is(private.genesis_setting_problem('res.count', '2.5'), 'res.count must be a whole number', 'writes and the resolver share one value check');
 
 select * from finish();
 rollback;
