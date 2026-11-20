@@ -280,9 +280,11 @@ export default function Sandbox() {
   // ---------------------------------------------------------------------------
 
   return (
-    <div className="flex gap-6 h-[calc(100vh-8rem)]">
+    // Side by side on a wide screen; stacked on a phone, where a 20rem sidebar beside the preview
+    // would push the page sideways (rule 2).
+    <div className="flex flex-col gap-6 lg:h-[calc(100vh-8rem)] lg:flex-row">
       {/* Controls sidebar */}
-      <Card className="w-80 shrink-0 overflow-y-auto">
+      <Card className="lg:w-80 lg:shrink-0 lg:overflow-y-auto">
         <CardHeader>
           <CardTitle className="text-lg">ResourcePage Configurator</CardTitle>
         </CardHeader>
@@ -508,7 +510,7 @@ export default function Sandbox() {
       </Card>
 
       {/* Live preview */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="min-w-0 flex-1 lg:overflow-y-auto">
         <ResourcePage
           key={`${dataset}-${defaultView}`}
           resource={dataset}

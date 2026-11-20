@@ -28,7 +28,7 @@ export function generateLightTheme(config: ThemeConfig): Record<string, string> 
     "--muted-foreground": "240 5.2% 33.9%",
     "--accent": "240 4.8% 95.9%",
     "--accent-foreground": "240 5.9% 10%",
-    "--destructive": "0 84.2% 60.2%",
+    "--destructive": "0 72.2% 46%",
     "--destructive-foreground": "0 0% 98%",
     "--border": "240 5.9% 90%",
     "--input": "240 5.9% 90%",

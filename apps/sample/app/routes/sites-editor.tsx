@@ -82,8 +82,9 @@ export default function SitesEditorRoute() {
   }, []);
   return (
     <div className="flex h-dvh flex-col bg-background">
-      <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
-        <div className="flex items-center gap-2">
+      {/* The bar wraps on a phone rather than run past its edge (rule 2). */}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button asChild size="sm" variant="ghost">
             <Link to="/sites">
               <ArrowLeft className="mr-1 h-4 w-4" aria-hidden /> Sites
@@ -92,7 +93,7 @@ export default function SitesEditorRoute() {
           <span className="text-sm font-semibold">Site editor demo</span>
           <Badge variant="muted">Memory store: a reload starts again</Badge>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {published ? <Badge variant="success">Last published: release {published}</Badge> : null}
           {/* A second editor saving the home page first: your next autosave meets a conflict. */}
           <Button size="sm" variant="outline" disabled={!store} onClick={() => store && void otherEditorSaves(store)}>

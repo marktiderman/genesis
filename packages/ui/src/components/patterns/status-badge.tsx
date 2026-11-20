@@ -35,7 +35,7 @@ export const statusBadgeVariants = cva(
       // `destructive` and registers no `--color-error` at all — so
       // `bg-error` would silently emit no utility and render an untinted
       // chip. In light mode the two are literally the same value
-      // (`--destructive` = 0 84.2% 60.2% = #EF4444 = semantic.error.DEFAULT).
+      // (`--destructive` = 0 72.2% 46% = #CA2121 = semantic.error.DEFAULT).
       // Dark mode is the one asymmetry: the theme darkens `--destructive`
       // (0 62.8% 30.6%) while keeping success/warning/info bright, so these
       // two chips read as a more subdued tint there. Left as-is rather than

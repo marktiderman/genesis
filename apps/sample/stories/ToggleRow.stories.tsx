@@ -10,7 +10,7 @@ type Story = StoryObj<typeof ToggleRow>;
 
 export const Default: Story = {
   render: () => (
-    <div className="w-96">
+    <div className="w-full max-w-96">
       <ToggleRow
         label="Marketing emails"
         description="Receive occasional product news and tips."
@@ -21,7 +21,7 @@ export const Default: Story = {
 
 export const Checked: Story = {
   render: () => (
-    <div className="w-96">
+    <div className="w-full max-w-96">
       <ToggleRow
         label="Do not disturb"
         description="Silence notifications outside of working hours."
@@ -33,7 +33,7 @@ export const Checked: Story = {
 
 export const Disabled: Story = {
   render: () => (
-    <div className="w-96">
+    <div className="w-full max-w-96">
       <ToggleRow
         label="Beta features"
         description="Not available on your current plan."
@@ -49,7 +49,7 @@ export const Disabled: Story = {
  */
 export const WithTestSelectors: Story = {
   render: () => (
-    <div className="w-96">
+    <div className="w-full max-w-96">
       <ToggleRow
         label="Two-factor authentication"
         description="Require a verification code at sign-in."
@@ -63,7 +63,7 @@ export const WithTestSelectors: Story = {
 
 export const List: Story = {
   render: () => (
-    <div className="w-96 divide-y divide-border rounded-lg border border-border px-4">
+    <div className="w-full max-w-96 divide-y divide-border rounded-lg border border-border px-4">
       <ToggleRow label="Email notifications" description="A daily summary every morning." defaultChecked />
       <ToggleRow label="Push notifications" description="Real-time alerts on this device." />
       <ToggleRow label="SMS alerts" description="Text messages for urgent updates." disabled />

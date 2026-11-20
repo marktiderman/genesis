@@ -16,6 +16,16 @@ import { layoutSubNavLevels, type SubNavLevel } from "../sub-nav";
 import type { NavigationNode } from "../../../navigation";
 import { validateAppTheme } from "../../../themes/define";
 
+/** A link's accessible name: its aria-label, or its text without the parts hidden from screen readers. */
+function linkName(a: HTMLElement): string {
+  const label = a.getAttribute("aria-label");
+  if (label != null) return label;
+  const copy = a.cloneNode(true) as HTMLElement;
+  copy.querySelectorAll("[aria-hidden='true'], [aria-hidden=''], svg").forEach((n) => n.remove());
+  return (copy.textContent ?? "").trim();
+}
+
+
 const opts = { showThemeToggle: false, configurable: false };
 
 const products: NavItem[] = [
@@ -190,7 +200,7 @@ describe("phones: phoneTabs", () => {
   it('"bottom" (default): the first row becomes the bottom bar, led by a back item', () => {
     renderShell("/products/offers/drafts");
     const links = within(bottomBar()).getAllByRole("link");
-    expect(links.map((a) => a.getAttribute("aria-label"))).toEqual(["Back to Home", "Offers", "Catalog"]);
+    expect(links.map((a) => linkName(a))).toEqual(["Back to Home", "Offers", "Catalog"]);
     // The primary row is hidden on phones; the bar carries it.
     expect(screen.getByRole("navigation", { name: "Products" }).closest("div.px-4")?.className).toContain("hidden md:block");
   });
@@ -259,7 +269,7 @@ describe("phones: the bar, its back item and the content's parent link", () => {
     const rowWrap = screen.getByRole("navigation", { name: "Products" }).closest("div.px-4");
     expect(rowWrap?.className).not.toContain("hidden");
     // Offers draws its children as sidebar sub-items, which the phone bar carries as before.
-    expect(within(bottomBar()).getAllByRole("link").map((a) => a.getAttribute("aria-label"))).toEqual([
+    expect(within(bottomBar()).getAllByRole("link").map((a) => linkName(a))).toEqual([
       "Back to Products",
       "All",
       "Drafts",

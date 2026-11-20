@@ -14,6 +14,16 @@ import { AppShell, type AppShellProps, type NavItem } from "../AppShell";
 import { AppShellPageHeader, AppShellSubNavEnd, useAppShellSubNav } from "../sub-nav";
 import type { NavigationNode } from "../../../navigation";
 
+/** A link's accessible name: its aria-label, or its text without the parts hidden from screen readers. */
+function linkName(a: HTMLElement): string {
+  const label = a.getAttribute("aria-label");
+  if (label != null) return label;
+  const copy = a.cloneNode(true) as HTMLElement;
+  copy.querySelectorAll("[aria-hidden='true'], [aria-hidden=''], svg").forEach((n) => n.remove());
+  return (copy.textContent ?? "").trim();
+}
+
+
 const legacy = { showThemeToggle: false, configurable: false };
 const chrome = { ...legacy, subNav: "tabs" as const };
 
@@ -83,7 +93,7 @@ describe("sub-navigation: default is the legacy section (opt-in)", () => {
     renderLegacy("/forms/f1/edit");
     expect(screen.queryByTestId("app-shell-mobile-back")).toBeNull();
     const links = bottomBar().getAllByRole("link");
-    expect(links.map((a) => a.getAttribute("aria-label"))).toEqual([
+    expect(links.map((a) => linkName(a))).toEqual([
       "Questions",
       "Logic and endings",
       "Responses",
@@ -333,7 +343,7 @@ describe("phone bar vs an app-wide mobileNavItems", () => {
   it("tabs / sidebar: a page's children win on that page, mobileNavItems elsewhere", () => {
     for (const mode of ["tabs", "sidebar"] as const) {
       const { unmount, rerender } = renderShell("/forms/f1/edit", { subNav: mode, mobileNavItems: appBar });
-      expect(bottomBar().getAllByRole("link").map((a: HTMLElement) => a.getAttribute("aria-label"))).toEqual([
+      expect(bottomBar().getAllByRole("link").map((a: HTMLElement) => linkName(a))).toEqual([
         "Back to Forms",
         "Questions (2)",
         "Logic and endings (1)",
@@ -356,7 +366,7 @@ describe("phone bar vs an app-wide mobileNavItems", () => {
       return null;
     }
     renderShell("/forms/f1/edit", { mobileNavItems: appBar, children: <Page /> });
-    expect(bottomBar().getAllByRole("link").map((a: HTMLElement) => a.getAttribute("aria-label"))).toEqual([
+    expect(bottomBar().getAllByRole("link").map((a: HTMLElement) => linkName(a))).toEqual([
       "Back to Forms",
       "Only tab",
     ]);
@@ -388,7 +398,7 @@ describe("hideOnPhone", () => {
       "Logic and endings",
       "Responses",
     ]);
-    expect(bottomBar().getAllByRole("link").map((a: HTMLElement) => a.getAttribute("aria-label") ?? a.textContent)).toEqual([
+    expect(bottomBar().getAllByRole("link").map((a: HTMLElement) => linkName(a))).toEqual([
       "Back to Forms",
       "Questions",
       "Responses",
@@ -398,7 +408,7 @@ describe("hideOnPhone", () => {
       .getAllByRole("link")
       .filter((a: HTMLElement) => a.getAttribute("aria-current") === "page");
     expect(current).toHaveLength(1);
-    expect(current[0]!.getAttribute("aria-label") ?? current[0]!.textContent).toMatch(/Questions$/);
+    expect(linkName(current[0]!)).toMatch(/Questions$/);
   });
 });
 
@@ -406,7 +416,7 @@ describe("sub-navigation on phones", () => {
   it("switches the bottom bar to the children, led by a back item to the parent", () => {
     renderShell("/forms/f1/edit/logic");
     const links = bottomBar().getAllByRole("link");
-    expect(links.map((a) => a.getAttribute("aria-label"))).toEqual([
+    expect(links.map((a) => linkName(a))).toEqual([
       "Back to Forms",
       "Questions (2)",
       "Logic and endings (1)",
@@ -441,7 +451,8 @@ describe("sub-navigation on phones", () => {
     }
     renderShell("/forms/f1/edit", { children: <Page /> });
     const questions = bottomBar().getByRole("link", { name: "Questions (2)" });
-    expect(questions.textContent).toBe("Q2Questions");
+    // The letter and the count are visual (aria-hidden); the name carries the count as hidden text.
+    expect(questions.textContent).toBe("Q2Questions (2)");
   });
 });
 

@@ -79,7 +79,7 @@ export default function PrimitivesIndex() {
         />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {filtered.map((p) => (
           <Link
             key={p.key}
@@ -88,8 +88,9 @@ export default function PrimitivesIndex() {
           >
             <Card data-testid={`primitive-${p.slug}`} className="h-full">
               <CardHeader>
-                <div className="flex items-center justify-between gap-2">
-                  <CardTitle className="text-base">{p.label}</CardTitle>
+                {/* Long identifiers (useReactRouterNavigate) break, and the badge wraps under them on a phone. */}
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <CardTitle className="min-w-0 text-base [overflow-wrap:anywhere]">{p.label}</CardTitle>
                   <Badge variant={STABILITY_VARIANT[p.stability]}>
                     @{p.stability}
                   </Badge>
