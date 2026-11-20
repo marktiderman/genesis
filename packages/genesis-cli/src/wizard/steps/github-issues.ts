@@ -3,7 +3,7 @@
  * Function secret GITHUB_TOKEN. Checked by reading the repository and its issues with that token.
  * Write access to Issues can't be checked without opening one, so the answer says it wasn't.
  */
-import { defineSetupStep } from "@marktiderman/genesis-config/setup";
+import { defineSetupStep } from "./define.js";
 import type { SecretVault } from "../../exec/secret-vault.js";
 import { needsSecret, OFFLINE, printable, request, secretSetters, type StepContext, type StepRunner } from "./framework.js";
 

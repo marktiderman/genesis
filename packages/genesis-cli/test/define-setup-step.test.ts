@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkSetupFields, defineSetupStep, SetupStepError } from "../setup";
+import { checkSetupFields, defineSetupStep, SetupStepError } from "../src/wizard/steps/define.js";
 
 const step = defineSetupStep({
   id: "github.issues",

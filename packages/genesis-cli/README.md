@@ -1743,8 +1743,8 @@ starting choices instead).
 
 **Guided steps.** Each walks one outside service and ends with a live check, or stays open.
 `genesis setup --step <id>` at a terminal runs one there; the wizard's Guided steps tab runs the
-same runner. A step is declared with `defineSetupStep` (`@marktiderman/genesis-config/setup`): what
-to do in the service, the values it asks for, the secrets it needs by name, and links.
+same runner. A step is declared inside the CLI with `defineSetupStep` (`src/wizard/steps/define.ts`):
+what to do in the service, the values it asks for, the secrets it needs by name, and links.
 
 1. The instructions and links, and what is there now (`step.start`: the Supabase project list, a
    dry run of the migrations).

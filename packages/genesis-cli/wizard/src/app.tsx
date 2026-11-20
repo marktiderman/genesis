@@ -9,7 +9,7 @@
  * Every write is a plan shown here first (`PlanDialog`); a secret is typed into a password field
  * (`SecretsDialog`), sent once, and never shown again.
  */
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,9 +27,11 @@ import {
   CardHeader,
   CardTitle,
   ChoiceCard,
+  FormDescription,
+  FormField,
+  FormLabel,
   InlineAlert,
   Input,
-  Label,
   PageLoading,
   RadioGroup,
   Stepper,
@@ -39,6 +41,7 @@ import {
   TabsTrigger,
   ToggleRow,
 } from "@marktiderman/genesis-ui";
+import { PageHeader } from "@marktiderman/genesis-ui/layout";
 import { GenesisSettings } from "@marktiderman/genesis-config/settings/react";
 import type { SettingsPlan, SettingsSecretStatus } from "@marktiderman/genesis-config/settings-protocol";
 import { applyPlan, call, CancelledError, changeSetting, readPlanFile, runStep, subscribe, verifyStep, wizardSettingsClient, type Approvals } from "./client";
@@ -48,7 +51,7 @@ interface StepKey {
   summary?: string;
   set: boolean;
 }
-/** A step's guided runner (genesis-config `./setup`'s SetupStepDef). */
+/** A step's guided runner (the CLI's SetupStepDef, src/wizard/steps/define.ts). */
 interface StepRunnerDef {
   id: string;
   title: string;
@@ -148,7 +151,7 @@ function FullText({ hash, file }: { hash: string; file: string }) {
   };
   if (text === null)
     return (
-      <Button size="sm" variant="ghost" onClick={() => void more()} aria-label={`Read all of ${file}`}>
+      <Button size="sm" variant="ghost" onClick={() => void more()} aria-label={`Read all of ${file}`} testID={`wizard-plan-read-all-${file}`}>
         Read all
       </Button>
     );
@@ -158,11 +161,15 @@ function FullText({ hash, file }: { hash: string; file: string }) {
         {text}
       </pre>
       {next !== undefined ? (
-        <Button size="sm" variant="ghost" onClick={() => void more()}>
+        <Button size="sm" variant="ghost" onClick={() => void more()} testID={`wizard-plan-read-more-${file}`}>
           Read more
         </Button>
       ) : null}
-      {error ? <p className="text-xs text-destructive">{error}</p> : null}
+      {error ? (
+        <p role="alert" className="text-xs text-destructive">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -252,8 +259,8 @@ function SecretsDialog({ names, onAnswer }: { names: readonly string[] | null; o
           }}
         >
           {names?.map((name) => (
-            <div key={name} className="flex flex-col gap-1">
-              <Label htmlFor={`secret-${name}`}>{name}</Label>
+            <FormField key={name}>
+              <FormLabel htmlFor={`secret-${name}`}>{name}</FormLabel>
               <Input
                 id={`secret-${name}`}
                 type="password"
@@ -263,11 +270,11 @@ function SecretsDialog({ names, onAnswer }: { names: readonly string[] | null; o
                 onChange={(e) => setValues((v) => ({ ...v, [name]: e.target.value }))}
                 data-testid={`wizard-secret-${name}`}
               />
-            </div>
+            </FormField>
           ))}
         </form>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel data-testid="wizard-secrets-cancel">Cancel</AlertDialogCancel>
           <AlertDialogAction disabled={!ready} onClick={() => answer(values)} data-testid="wizard-secrets-apply">
             Set
           </AlertDialogAction>
@@ -367,14 +374,14 @@ function GuidedRunner({ runner, approvals, onChanged }: { runner: StepRunnerDef;
         }}
       >
         {runner.fields.map((f) => (
-          <div key={f.name} className="flex flex-col gap-1">
-            <Label htmlFor={`field-${runner.id}-${f.name}`}>
+          <FormField key={f.name}>
+            <FormLabel htmlFor={`field-${runner.id}-${f.name}`}>
               {f.label}
               {f.optional ? " (optional)" : ""}
-            </Label>
+            </FormLabel>
             <Input id={`field-${runner.id}-${f.name}`} value={fields[f.name] ?? ""} placeholder={f.placeholder} onChange={(e) => setFields((v) => ({ ...v, [f.name]: e.target.value }))} data-testid={`wizard-field-${runner.id}-${f.name}`} />
-            {f.help ? <p className="text-xs text-muted-foreground">{f.help}</p> : null}
-          </div>
+            <FormDescription>{f.help}</FormDescription>
+          </FormField>
         ))}
         {runner.needs.length ? <p className="text-xs text-muted-foreground">Needs {runner.needs.map((n) => n.name).join(", ")}: you type {runner.needs.length === 1 ? "it" : "each"} when the step runs. It goes to your signed-in CLI on stdin and is never shown or kept.</p> : null}
         <div className="flex gap-2">
@@ -414,7 +421,7 @@ function StepCard({ step, secrets, approvals, onChanged, focused }: { step: Setu
     <Card data-testid={`wizard-step-${step.id}`} className={focused ? "ring-2 ring-primary" : undefined}>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          {step.runner?.title ?? step.id} <Badge variant={step.done ? "success" : "muted"}>{step.done ? "Set up" : "Dormant"}</Badge>
+          {step.runner?.title ?? step.id} <Badge variant={step.done ? "success" : "muted"}>{step.done ? "Set up" : "Not set up yet"}</Badge>
         </CardTitle>
         <CardDescription>
           {step.packages.join(", ")} · <code className="font-mono text-xs">{step.command}</code>
@@ -425,23 +432,23 @@ function StepCard({ step, secrets, approvals, onChanged, focused }: { step: Setu
         {step.keys.map((k) => (
           <form
             key={k.key}
-            className="flex flex-col gap-1"
             onSubmit={(e) => {
               e.preventDefault();
               const raw = (drafts[k.key] ?? "").trim();
               if (raw) void run(() => changeSetting(k.key, { value: raw }, approvals));
             }}
           >
-            <Label htmlFor={`key-${k.key}`}>
-              settings.{k.key} {k.set ? <Badge variant="success">set</Badge> : null}
-            </Label>
-            {k.summary ? <p className="text-xs text-muted-foreground">{k.summary}</p> : null}
-            <div className="flex gap-2">
-              <Input id={`key-${k.key}`} value={drafts[k.key] ?? ""} onChange={(e) => setDrafts((d) => ({ ...d, [k.key]: e.target.value }))} placeholder={k.set ? "Change it" : "Not set"} data-testid={`wizard-key-${k.key}`} />
-              <Button type="submit" variant="outline" disabled={busy || !(drafts[k.key] ?? "").trim()}>
-                Plan
-              </Button>
-            </div>
+            <FormField>
+              <FormLabel htmlFor={`key-${k.key}`}>
+                {k.summary ?? k.key} {k.set ? <Badge variant="success">set</Badge> : null}
+              </FormLabel>
+              <div className="flex gap-2">
+                <Input id={`key-${k.key}`} value={drafts[k.key] ?? ""} onChange={(e) => setDrafts((d) => ({ ...d, [k.key]: e.target.value }))} placeholder={k.set ? "Change it" : "Not set"} data-testid={`wizard-key-${k.key}`} />
+                <Button type="submit" variant="outline" disabled={busy || !(drafts[k.key] ?? "").trim()} testID={`wizard-key-plan-${k.key}`}>
+                  Plan
+                </Button>
+              </div>
+            </FormField>
           </form>
         ))}
         {step.secrets.map((s) => {
@@ -456,6 +463,7 @@ function StepCard({ step, secrets, approvals, onChanged, focused }: { step: Setu
                   size="sm"
                   variant="outline"
                   disabled={busy}
+                  testID={`wizard-secret-set-${s.name}`}
                   onClick={() =>
                     void run(async () => {
                       const { plan } = await call<{ plan: SettingsPlan }>("plan", { fixId: "secrets.set", subject: s.name });
@@ -535,7 +543,7 @@ function SetupScreen({ info, step, approvals, reload }: { info: Info; step?: str
         ) : (
           <p className="text-sm text-muted-foreground">No installed package names a guided setup step.</p>
         )}
-        <p className="text-xs text-muted-foreground">Each step stays dormant until it is set up; nothing fails meanwhile. A step ends with a live check: Check runs it again any time.</p>
+        <p className="text-xs text-muted-foreground">Until a step is set up, its feature stays off and nothing fails. A step ends with a live check: Check runs it again any time.</p>
       </TabsContent>
     </Tabs>
   );
@@ -584,16 +592,6 @@ const PRESETS: Record<string, string> = {
   standard: "A middle set: each package says which of its features it turns off.",
   min: "The least each package runs with.",
 };
-
-function Field({ id, label, hint, children }: { id: string; label: string; hint?: string; children: ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <Label htmlFor={id}>{label}</Label>
-      {children}
-      {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
-    </div>
-  );
-}
 
 function InitScreen({ info, approvals, reload }: { info: Info; approvals: Approvals; reload: () => void }) {
   const [current, setCurrent] = useState(0);
@@ -653,18 +651,26 @@ function InitScreen({ info, approvals, reload }: { info: Info; approvals: Approv
             <CardDescription>A new Expo app from the Genesis starter, made in {info.root}.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
-            <Field id="slug" label="Slug" hint="Lowercase letters, digits and -: the package name, the Expo slug and the URL scheme.">
+            <FormField>
+              <FormLabel htmlFor="slug">Slug</FormLabel>
               <Input id="slug" value={app.slug} onChange={(e) => setApp({ ...app, slug: e.target.value })} data-testid="wizard-init-slug" />
-            </Field>
-            <Field id="display" label="Name on the home screen" hint="Default: from the slug.">
+              <FormDescription>Lowercase letters, digits and -: the package name, the Expo slug and the URL scheme.</FormDescription>
+            </FormField>
+            <FormField>
+              <FormLabel htmlFor="display">Name on the home screen</FormLabel>
               <Input id="display" value={app.displayName} onChange={(e) => setApp({ ...app, displayName: e.target.value })} />
-            </Field>
-            <Field id="bundle" label="Bundle id" hint="Default: com.example.<slug>.">
+              <FormDescription>Default: from the slug.</FormDescription>
+            </FormField>
+            <FormField>
+              <FormLabel htmlFor="bundle">Bundle id</FormLabel>
               <Input id="bundle" value={app.bundleId} onChange={(e) => setApp({ ...app, bundleId: e.target.value })} />
-            </Field>
-            <Field id="folder" label="Folder" hint="Default: the slug, beneath this folder.">
+              <FormDescription>Default: com.example.&lt;slug&gt;.</FormDescription>
+            </FormField>
+            <FormField>
+              <FormLabel htmlFor="folder">Folder</FormLabel>
               <Input id="folder" value={app.folder} onChange={(e) => setApp({ ...app, folder: e.target.value })} />
-            </Field>
+              <FormDescription>Default: the slug, beneath this folder.</FormDescription>
+            </FormField>
             <div>
               <Button disabled={!slugOk} onClick={() => setCurrent(1)} data-testid="wizard-next">
                 Next
@@ -686,7 +692,7 @@ function InitScreen({ info, approvals, reload }: { info: Info; approvals: Approv
               ))}
             </RadioGroup>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setCurrent(0)}>
+              <Button variant="outline" onClick={() => setCurrent(0)} testID="wizard-back">
                 Back
               </Button>
               <Button onClick={() => setCurrent(2)} data-testid="wizard-next">
@@ -715,7 +721,7 @@ function InitScreen({ info, approvals, reload }: { info: Info; approvals: Approv
               />
             ))}
             <div className="flex gap-2 pt-2">
-              <Button variant="outline" onClick={() => setCurrent(1)}>
+              <Button variant="outline" onClick={() => setCurrent(1)} testID="wizard-back">
                 Back
               </Button>
               <Button disabled={busy} onClick={() => void review()} data-testid="wizard-review">
@@ -735,7 +741,7 @@ function InitScreen({ info, approvals, reload }: { info: Info; approvals: Approv
             <PlanBody plan={plan} />
             <Log lines={lines} />
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setCurrent(2)}>
+              <Button variant="outline" onClick={() => setCurrent(2)} testID="wizard-back">
                 Back
               </Button>
               <Button disabled={busy} onClick={() => void create()} data-testid="wizard-create">
@@ -764,10 +770,11 @@ export function App({ step }: { step?: string }) {
   useEffect(load, [load]);
   return (
     <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-6 px-4 py-8" data-testid="wizard">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold">{info?.mode === "init" ? "Make a Genesis app" : `Genesis setup${info ? ` · ${info.app}` : ""}`}</h1>
-        <p className="text-sm text-muted-foreground">Served by the Genesis CLI on this computer only. Every change is a plan you read and apply.</p>
-      </header>
+      <PageHeader
+        title={info?.mode === "init" ? "Make a Genesis app" : `Genesis setup${info ? ` · ${info.app}` : ""}`}
+        subtitle="Served by the Genesis CLI on this computer only. Every change is a plan you read and apply."
+        options={{ configurable: false }}
+      />
       {error ? <InlineAlert variant="destructive" title="The wizard can't load" description={error} testID="wizard-load-error" /> : null}
       {!info && !error ? <PageLoading label="Loading" /> : null}
       {info?.mode === "init" ? <InitScreen info={info} approvals={approvals} reload={load} /> : null}

@@ -3,7 +3,7 @@
  * settings name (src/wizard/steps.ts), plus each runner whose service the app uses (a supabase/
  * folder, an eas.json), each with its runner's title, instructions, fields and links.
  */
-import type { SetupStepDef } from "@marktiderman/genesis-config/setup";
+import type { SetupStepDef } from "./define.js";
 import { safeErrorMessage, SecretVault } from "../../exec/secret-vault.js";
 import type { VerifyResult } from "../../fix/types.js";
 import { setupSteps, type SetupStepSummary } from "../steps.js";
