@@ -128,6 +128,8 @@ export interface GenesisSettingsCopy {
   changeInRepoDescription: string;
   openPullRequest: string;
   pullRequestOpened: string;
+  /** The host returned the change to commit, but opened no pull request. */
+  proposalSnippet: string;
   readOnly: string;
   healthEmpty: string;
   healthEmptyDescription: string;
@@ -217,6 +219,7 @@ export const GENESIS_SETTINGS_COPY: GenesisSettingsCopy = {
   changeInRepoDescription: "This key is set in genesis.config.json and reviewed like code. Commit this change:",
   openPullRequest: "Open pull request",
   pullRequestOpened: "Pull request opened.",
+  proposalSnippet: "No pull request was opened. Commit this change:",
   readOnly: "Read-only here",
   healthEmpty: "Nothing needs attention",
   healthEmptyDescription: "The doctor found no problems.",
@@ -248,7 +251,7 @@ export const GENESIS_SETTINGS_COPY: GenesisSettingsCopy = {
   secretStores: { vault: "Vault", edge: "Edge Function secret", "server-env": "Server environment", ci: "CI secret" },
   neededBy: (keys) => `Needed by ${keys}`,
   lastRotated: (when) => `Last set ${when}`,
-  secretHint: "Set secrets with genesis setup. Their values never reach this screen.",
+  secretHint: "Set secrets from a terminal with genesis fix secrets.set. Their values never reach this screen.",
   setSecret: "Set…",
   rotateSecret: "Rotate…",
   secretLabel: (name) => `Set ${name}`,
@@ -358,15 +361,20 @@ export function GenesisSettings({
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<GenesisSettingsTab>(defaultTab);
 
+  // Only the latest load's answer is used: an older one that arrives late never overwrites it.
+  const loads = useRef(0);
   const load = useCallback(async () => {
+    const mine = ++loads.current;
     setLoading(true);
     try {
-      setState(await client.state({ auditLimit: auditPageSize }));
+      const next = await client.state({ auditLimit: auditPageSize });
+      if (mine !== loads.current) return;
+      setState(next);
       setLoadError(null);
     } catch (error) {
-      setLoadError(errorMessage(error));
+      if (mine === loads.current) setLoadError(errorMessage(error));
     } finally {
-      setLoading(false);
+      if (mine === loads.current) setLoading(false);
     }
   }, [client, auditPageSize]);
 
@@ -745,7 +753,7 @@ function ValueSheetBody({
     !editing || editing.mode !== "edit" || !layer || !source || SETTINGS_LAYERS.indexOf(source.layer) <= SETTINGS_LAYERS.indexOf(layer) ? null : source.layer;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [proposal, setProposal] = useState<string | null>(null);
+  const [proposal, setProposal] = useState<{ url?: string; snippet: string } | null>(null);
   const baseId = useId();
   const sheetId = tid(testID, "value-sheet");
 
@@ -783,7 +791,7 @@ function ValueSheetBody({
     run(async () => {
       if ("problem" in parsed) return;
       const result = await client.propose({ key: def.key, value: parsed.value, locked });
-      setProposal(result.pullRequestUrl ?? result.snippet);
+      setProposal(result.pullRequestUrl ? { url: result.pullRequestUrl, snippet: result.snippet } : { snippet: result.snippet });
     });
 
   const repo = editing.mode === "repo";
@@ -836,7 +844,11 @@ function ValueSheetBody({
             </pre>
           ) : null}
           {proposal ? (
-            <InlineAlert variant="success" title={copy.pullRequestOpened} description={proposal} testID={tid(sheetId, "proposal")} />
+            proposal.url ? (
+              <InlineAlert variant="success" title={copy.pullRequestOpened} description={proposal.url} testID={tid(sheetId, "proposal")} />
+            ) : (
+              <InlineAlert variant="info" title={copy.proposalSnippet} description={proposal.snippet} testID={tid(sheetId, "proposal")} />
+            )
           ) : null}
           {error ? <InlineAlert variant="destructive" description={error} testID={tid(sheetId, "error")} /> : null}
         </div>
@@ -986,7 +998,8 @@ function FixHint({
   if (fix.kind === "guided" && !safeHref(fix.href) && !(onOpenStep && fix.step)) {
     return (
       <span data-testid={tid(testID, "cli")}>
-        {copy.runInTerminal} <Code>{fix.step ? `genesis setup --step ${fix.step}` : `genesis fix ${fix.id}`}</Code>
+        {/* `genesis setup --step` comes with the setup wizard; until then the CLI's fix, which asks at a terminal. */}
+        {copy.runInTerminal} <Code>genesis fix {fix.id}</Code>
       </span>
     );
   }
@@ -1034,38 +1047,54 @@ function PlanSheet({ fixId, caps, client, copy, testID, onClose, onChanged, retu
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const sheetId = tid(testID, "plan-sheet");
+  // Each plan request (and each close) takes a new number; a response is used only while its
+  // number is current, so a late plan for fix A never shows, or applies, in fix B's sheet.
+  const request = useRef(0);
 
   const makePlan = useCallback(async (id: string) => {
+    const mine = ++request.current;
     setBusy(true);
     setPlan(null);
     setError(null);
     setResult(null);
+    setConfirming(false);
     try {
-      setPlan(await client.plan(id));
+      const next = await client.plan(id);
+      if (mine === request.current) setPlan(next);
     } catch (e) {
-      setError({ message: errorMessage(e), stale: false });
+      if (mine === request.current) setError({ message: errorMessage(e), stale: false });
     } finally {
-      setBusy(false);
+      if (mine === request.current) setBusy(false);
     }
   }, [client]);
 
   useEffect(() => {
     if (fixId) void makePlan(fixId);
+    else {
+      request.current++;
+      setPlan(null);
+      setError(null);
+      setResult(null);
+      setConfirming(false);
+      setBusy(false);
+    }
   }, [fixId, makePlan]);
 
   const apply = async () => {
     if (!plan) return;
+    const mine = request.current;
     setConfirming(false);
     setBusy(true);
     setError(null);
     try {
-      setResult(await client.apply(plan.fixId, plan.hash));
+      const applied = await client.apply(plan.fixId, plan.hash);
+      if (mine === request.current) setResult(applied);
       await onChanged();
     } catch (e) {
       const stale = e instanceof SettingsProtocolError && e.code === "stale_plan";
-      setError({ message: stale ? copy.stalePlan : errorMessage(e), stale });
+      if (mine === request.current) setError({ message: stale ? copy.stalePlan : errorMessage(e), stale });
     } finally {
-      setBusy(false);
+      if (mine === request.current) setBusy(false);
     }
   };
 
@@ -1264,8 +1293,8 @@ function redact(text: string, secret: string): string {
 
 /**
  * The Vault form. The input is uncontrolled: React never holds the value, so it never reaches the
- * `value` attribute or the markup. It is read once on save and cleared after sending, on an error,
- * on close and on unmount.
+ * `value` attribute or the markup. It is read once on save and cleared at once (before the request
+ * settles), on close and on unmount.
  */
 function SecretSheet({ name, client, copy, testID, onClose, onChanged, returnFocus }: TabProps & { name: string; onClose: () => void }) {
   const input = useRef<HTMLInputElement>(null);
@@ -1291,6 +1320,8 @@ function SecretSheet({ name, client, copy, testID, onClose, onChanged, returnFoc
   const save = async () => {
     const value = input.current?.value ?? "";
     if (!value || !client.setSecret) return;
+    // Out of the field as soon as it is read, not when the request settles.
+    clear();
     setBusy(true);
     setError(null);
     try {
@@ -1298,7 +1329,6 @@ function SecretSheet({ name, client, copy, testID, onClose, onChanged, returnFoc
       close();
       await onChanged();
     } catch (e) {
-      clear();
       setError(redact(errorMessage(e), value));
     } finally {
       setBusy(false);
@@ -1347,17 +1377,25 @@ function UpgradesTab({ initial, caps, client, copy, testID, onChanged }: TabProp
   const [fixing, setFixing] = useState<string | null>(null);
   const { remember, returnFocus } = useReturnFocus();
 
-  useEffect(() => setUpgrades(initial), [initial]);
+  const checks = useRef(0);
+  // A refreshed snapshot replaces whatever a check still in flight would bring: that check is stale.
+  useEffect(() => {
+    checks.current++;
+    setUpgrades(initial);
+    setBusy(false);
+  }, [initial]);
 
   const check = async (refresh: boolean) => {
+    const mine = ++checks.current;
     setBusy(true);
     setError(null);
     try {
-      setUpgrades(await client.upgrades({ refresh }));
+      const next = await client.upgrades({ refresh });
+      if (mine === checks.current) setUpgrades(next);
     } catch (e) {
-      setError(errorMessage(e));
+      if (mine === checks.current) setError(errorMessage(e));
     } finally {
-      setBusy(false);
+      if (mine === checks.current) setBusy(false);
     }
   };
 
@@ -1458,20 +1496,26 @@ function AuditTab({
   const [error, setError] = useState<string | null>(null);
   const names = useMemo(() => secretNames(state.catalogue, state.secrets), [state.catalogue, state.secrets]);
 
+  // A reload (not a next page) makes every earlier request's answer stale.
+  const pages = useRef(0);
   const load = useCallback(
     async (cursor: string | undefined, append: boolean) => {
+      const mine = append ? pages.current : ++pages.current;
       setBusy(true);
       setError(null);
       try {
         const page = await client.audit({ ...(cursor !== undefined ? { cursor } : {}), limit: pageSize });
+        if (mine !== pages.current) return;
         const got = Array.isArray(page?.entries) ? page.entries : [];
         setEntries((prev) => (append ? [...prev, ...got] : got));
         setNext(page?.next);
       } catch (e) {
-        setError(errorMessage(e));
+        if (mine === pages.current) setError(errorMessage(e));
       } finally {
-        setBusy(false);
-        setFetched(true);
+        if (mine === pages.current) {
+          setBusy(false);
+          setFetched(true);
+        }
       }
     },
     [client, pageSize],
@@ -1479,8 +1523,12 @@ function AuditTab({
 
   useEffect(() => {
     if (initial) {
+      // Supersedes a page still loading: its answer is dropped, so its busy and error go with it.
+      pages.current++;
       setEntries(initial.entries ?? []);
       setNext(initial.next);
+      setBusy(false);
+      setError(null);
       setFetched(true);
     } else void load(undefined, false);
   }, [initial, load]);

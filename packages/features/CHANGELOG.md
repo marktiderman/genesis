@@ -1,4 +1,4 @@
-# @marktiderman/genesis-features
+# @marktiderman/genesis-config (formerly @marktiderman/genesis-features, up to 0.9.1)
 
 ## 0.11.0
 

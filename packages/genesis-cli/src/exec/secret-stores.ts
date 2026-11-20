@@ -18,9 +18,9 @@
  * `$1`, but keeps a utility statement such as `DO $$ … $$` word for word, so an upsert written
  * that way would put the value in `pg_stat_statements.query` (which Supabase shows under Query
  * Performance); and a statement that fails is written to the Postgres log as it was sent, value
- * included, whatever its kind. And
- * `supabase db query --linked` needs a direct database connection (IPv6, or the database
- * password), not the Management API. So the CLI never writes Vault: the plan says to add it in
+ * included, whatever its kind. And `supabase db query --linked` (CLI 2.117) sends the statement
+ * through the Management API, so the value would also leave the machine in a request body. So
+ * the CLI never writes Vault: the plan says to add it in
  * the dashboard (Database → Vault). Only the names are read, which carries no value. The in-app
  * Settings screen will set Vault secrets server-side through a parameterised function (Phase 4).
  */
@@ -193,10 +193,19 @@ export async function readSecretNames(target: SecretTarget, root: string, option
       if (!supabaseLinked(root)) return { ok: false, reason: "the app isn't linked to a Supabase project (supabase link)" };
       return attempt("supabase", ["db", "query", "--linked", "-o", "json", "-f", "/dev/stdin"], parseVaultNames, VAULT_NAMES_SQL);
     case "github":
-      checkEnvironment(options.githubEnvironment, "release.environment");
+      // A bad name is an answer ("not checked: …"), never repository secrets read in its place.
+      try {
+        checkEnvironment(options.githubEnvironment, "release.environment");
+      } catch (err) {
+        return { ok: false, reason: (err as Error).message };
+      }
       return attempt("gh", ["secret", "list", "--json", "name", ...(options.githubEnvironment ? ["--env", options.githubEnvironment] : [])], parseGhSecrets);
     case "eas":
-      checkEnvironment(options.easEnvironment, "release.easEnvironment");
+      try {
+        checkEnvironment(options.easEnvironment, "release.easEnvironment");
+      } catch (err) {
+        return { ok: false, reason: (err as Error).message };
+      }
       return attempt("eas", ["env:list", options.easEnvironment ?? "production", "--format", "short"], parseEasEnv);
     case "server-env":
       return { ok: false, reason: "a server's environment can't be read from here" };
@@ -210,7 +219,9 @@ export function storeOptions(root: string): StoreOptions {
     // The release lane keeps its CI secrets in a GitHub environment (default production); without one, repository secrets.
     const env = raw.release && typeof raw.release === "object" ? (raw.release.environment ?? "production") : undefined;
     const eas = raw.release?.easEnvironment;
-    return { ...(typeof env === "string" && ENVIRONMENT.test(env) ? { githubEnvironment: env } : {}), ...(typeof eas === "string" && ENVIRONMENT.test(eas) ? { easEnvironment: eas } : {}) };
+    // A name that isn't one is kept, not dropped: dropped, gh would read and set the repository's
+    // secrets instead of the environment's. Reading and setting check it and say so.
+    return { ...(typeof env === "string" ? { githubEnvironment: env } : {}), ...(typeof eas === "string" ? { easEnvironment: eas } : {}) };
   } catch {
     return {};
   }

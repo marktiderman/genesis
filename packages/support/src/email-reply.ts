@@ -290,18 +290,26 @@ function cutAtTag(html: string, lower: string, needle: string, tagStart: string)
   return { html: html.slice(0, end), lower: lower.slice(0, end) };
 }
 
-/** Remove every `<tag …>…</tag>` block, scanning forward once. */
+/** Remove every `<tag …>…</tag>` block, scanning forward once. `<head` inside `<header>` isn't one. */
 function removeBlocks(html: string, tag: string): string {
   const lower = html.toLowerCase();
   let out = "";
   let from = 0;
+  let search = 0;
   for (;;) {
-    const open = lower.indexOf(`<${tag}`, from);
+    const open = lower.indexOf(`<${tag}`, search);
     if (open < 0) break;
+    // The tag's name ends here: `>`, `/`, whitespace or the end. Anything else is a longer name.
+    const after = lower.charAt(open + tag.length + 1);
+    if (after !== "" && after !== ">" && after !== "/" && !/\s/.test(after)) {
+      search = open + 1;
+      continue;
+    }
     out += html.slice(from, open);
     const close = lower.indexOf(`</${tag}>`, open);
     if (close < 0) return out;
     from = close + tag.length + 3;
+    search = from;
   }
   return out + html.slice(from);
 }

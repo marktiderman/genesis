@@ -29,42 +29,106 @@
     "access": "public",
     "provenance": false
   },
-  "main": "./dist/index.js",
+  "main": "./dist/index.cjs",
   "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "types": "./dist/index.d.cts",
+  "typesVersions": {
+    "*": {
+      "blocks": [
+        "./dist/blocks.d.cts"
+      ],
+      "gate": [
+        "./dist/gate.d.cts"
+      ],
+      "gate/react": [
+        "./dist/gate-react.d.ts"
+      ],
+      "settings": [
+        "./dist/settings.d.cts"
+      ],
+      "settings/react": [
+        "./dist/settings-react.d.ts"
+      ],
+      "settings-protocol": [
+        "./dist/settings-protocol.d.cts"
+      ],
+      "node": [
+        "./dist/node.d.cts"
+      ],
+      "react": [
+        "./dist/react.d.ts"
+      ]
+    }
+  },
   "exports": {
     "./package.json": "./package.json",
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./blocks": {
-      "types": "./dist/blocks.d.ts",
-      "import": "./dist/blocks.js"
+      "import": {
+        "types": "./dist/blocks.d.ts",
+        "default": "./dist/blocks.js"
+      },
+      "require": {
+        "types": "./dist/blocks.d.cts",
+        "default": "./dist/blocks.cjs"
+      }
     },
     "./gate": {
-      "types": "./dist/gate.d.ts",
-      "import": "./dist/gate.js"
+      "import": {
+        "types": "./dist/gate.d.ts",
+        "default": "./dist/gate.js"
+      },
+      "require": {
+        "types": "./dist/gate.d.cts",
+        "default": "./dist/gate.cjs"
+      }
     },
     "./gate/react": {
       "types": "./dist/gate-react.d.ts",
       "import": "./dist/gate-react.js"
     },
     "./settings": {
-      "types": "./dist/settings.d.ts",
-      "import": "./dist/settings.js"
+      "import": {
+        "types": "./dist/settings.d.ts",
+        "default": "./dist/settings.js"
+      },
+      "require": {
+        "types": "./dist/settings.d.cts",
+        "default": "./dist/settings.cjs"
+      }
     },
     "./settings/react": {
       "types": "./dist/settings-react.d.ts",
       "import": "./dist/settings-react.js"
     },
     "./settings-protocol": {
-      "types": "./dist/settings-protocol.d.ts",
-      "import": "./dist/settings-protocol.js"
+      "import": {
+        "types": "./dist/settings-protocol.d.ts",
+        "default": "./dist/settings-protocol.js"
+      },
+      "require": {
+        "types": "./dist/settings-protocol.d.cts",
+        "default": "./dist/settings-protocol.cjs"
+      }
     },
     "./node": {
-      "types": "./dist/node.d.ts",
-      "import": "./dist/node.js"
+      "import": {
+        "types": "./dist/node.d.ts",
+        "default": "./dist/node.js"
+      },
+      "require": {
+        "types": "./dist/node.d.cts",
+        "default": "./dist/node.cjs"
+      }
     },
     "./react": {
       "types": "./dist/react.d.ts",
@@ -76,7 +140,7 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsup && node ../../scripts/check-exports-resolve.mjs",
+    "build": "rm -rf dist && tsup && node ../../scripts/check-exports-resolve.mjs",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"

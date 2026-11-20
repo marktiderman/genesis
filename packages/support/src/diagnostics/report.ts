@@ -301,3 +301,21 @@ export function randomUuid(): string {
 export function jsonByteLength(value: unknown): number {
   return new TextEncoder().encode(JSON.stringify(value) ?? "").length;
 }
+
+/** The `,` and `:` between members: Postgres writes each with a space after it. */
+function separators(value: unknown): number {
+  if (Array.isArray(value)) return value.reduce<number>((n, item) => n + separators(item), Math.max(0, value.length - 1));
+  if (!value || typeof value !== "object") return 0;
+  if (typeof (value as { toJSON?: unknown }).toJSON === "function") return 0;
+  const kept = Object.values(value).filter((v) => v !== undefined && typeof v !== "function" && typeof v !== "symbol");
+  return kept.reduce<number>((n, v) => n + separators(v), kept.length + Math.max(0, kept.length - 1));
+}
+
+/**
+ * A dump's size as the database measures it (`octet_length(report::text)` in migration 0019):
+ * Postgres writes jsonb with a space after every `,` and `:`, a few percent over compact JSON.
+ * The whole-dump cap counts this, so a dump at the cap is never refused for size.
+ */
+export function storedByteLength(value: unknown): number {
+  return jsonByteLength(value) + separators(value);
+}

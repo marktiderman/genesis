@@ -446,10 +446,12 @@ export interface SettingsClientMessages {
   notObject: string;
   status: (status: number) => string;
   badState: (what: string) => string;
+  /** A 200 whose answer to `op` lacks what the screen draws (a plan's files, an upgrade's packages). Optional: the default fills it. */
+  badAnswer?: (op: string, what: string) => string;
 }
 
 /** @stability Beta */
-export const SETTINGS_CLIENT_MESSAGES: SettingsClientMessages = {
+export const SETTINGS_CLIENT_MESSAGES: Required<SettingsClientMessages> = {
   signIn: "Sign in to change settings.",
   unreachable: (detail) => `The settings host couldn't be reached (${detail}).`,
   timedOut: (seconds) => `The settings host didn't answer within ${seconds} seconds.`,
@@ -458,6 +460,7 @@ export const SETTINGS_CLIENT_MESSAGES: SettingsClientMessages = {
   notObject: "The settings host answered with something other than an object.",
   status: (status) => `The settings host answered ${status}.`,
   badState: (what) => `The settings host's state is missing ${what}.`,
+  badAnswer: (op, what) => `The settings host's answer to ${op} is missing ${what}.`,
 };
 
 /** @stability Beta */
@@ -482,12 +485,29 @@ const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "obj
 /** What a state must hold for the screen to draw it; the first thing missing, or null. */
 function stateProblem(v: Record<string, unknown>): string | null {
   for (const key of ["catalogue", "findings", "secrets"] as const) if (!Array.isArray(v[key])) return key;
+  if (!(v.catalogue as unknown[]).every((d) => isObject(d) && typeof d.key === "string" && typeof d.type === "string")) return "a catalogue entry's key and type";
+  if (!(v.findings as unknown[]).every((f) => isObject(f) && typeof f.rule === "string" && typeof f.message === "string")) return "a finding's rule and message";
   if (!isObject(v.capabilities)) return "capabilities";
   if (!isObject(v.app)) return "app";
   const resolved = v.resolved;
   if (!isObject(resolved) || !isObject(resolved.values) || !isObject(resolved.sources)) return "resolved";
   if (v.layers !== undefined && !isObject(v.layers)) return "layers";
   return null;
+}
+
+/** What a plan must hold for the sheet to draw it; the first thing missing, or null. */
+function planProblem(v: unknown): string | null {
+  if (!isObject(v)) return "plan";
+  if (typeof v.fixId !== "string" || typeof v.hash !== "string") return "the plan's fixId and hash";
+  for (const key of ["files", "commands", "secrets"] as const) if (!Array.isArray(v[key])) return `the plan's ${key}`;
+  if (!(v.files as unknown[]).every((f) => isObject(f) && typeof f.path === "string")) return "a planned file's path";
+  if (!(v.commands as unknown[]).every((c) => isObject(c) && typeof c.tool === "string" && Array.isArray(c.args))) return "a planned command's tool and args";
+  return null;
+}
+
+/** Throws the client's error for a 200 the screen couldn't draw. */
+function checkAnswer(problem: string | null, op: string, m: Required<SettingsClientMessages>): void {
+  if (problem) throw new SettingsProtocolError("error", m.badAnswer(op, problem));
 }
 
 /**
@@ -501,7 +521,7 @@ function stateProblem(v: Record<string, unknown>): string | null {
  * @stability Beta
  */
 export function createSettingsClient(fetchFn: FetchLike, options: SettingsClientOptions): SettingsClient {
-  const m: SettingsClientMessages = { ...SETTINGS_CLIENT_MESSAGES, ...options.messages };
+  const m: Required<SettingsClientMessages> = { ...SETTINGS_CLIENT_MESSAGES, ...options.messages } as Required<SettingsClientMessages>;
   const timeoutMs = options.timeoutMs ?? 30_000;
 
   async function call<O extends SettingsOp>(body: Extract<SettingsRequest, { op: O }>): Promise<SettingsResponses[O]> {
@@ -564,11 +584,27 @@ export function createSettingsClient(fetchFn: FetchLike, options: SettingsClient
     async clearValue({ key, layer }) {
       await call({ op: "clearValue", key, layer });
     },
-    plan: async (fixId) => (await call({ op: "plan", fixId })).plan,
-    apply: async (fixId, expect) => (await call({ op: "apply", fixId, expect })).result,
-    upgrades: (params) => call({ op: "upgrades", ...(params?.refresh ? { refresh: true } : {}) }),
+    async plan(fixId) {
+      const { plan } = await call({ op: "plan", fixId });
+      checkAnswer(planProblem(plan), "plan", m);
+      return plan;
+    },
+    async apply(fixId, expect) {
+      const { result } = await call({ op: "apply", fixId, expect });
+      checkAnswer(isObject(result) && typeof result.fixId === "string" ? null : "result", "apply", m);
+      return result;
+    },
+    async upgrades(params) {
+      const upgrades = await call({ op: "upgrades", ...(params?.refresh ? { refresh: true } : {}) });
+      checkAnswer(Array.isArray(upgrades.packages) && upgrades.packages.every((p) => isObject(p) && typeof p.name === "string") ? null : "packages", "upgrades", m);
+      return upgrades;
+    },
     audit: (params) => call({ op: "audit", ...(params?.cursor !== undefined ? { cursor: params.cursor } : {}), ...(params?.limit !== undefined ? { limit: params.limit } : {}) }),
-    propose: ({ key, value, locked }) => call({ op: "propose", key, value, ...(locked !== undefined ? { locked } : {}) }),
+    async propose({ key, value, locked }) {
+      const proposal = await call({ op: "propose", key, value, ...(locked !== undefined ? { locked } : {}) });
+      checkAnswer(typeof proposal.snippet === "string" ? null : "snippet", "propose", m);
+      return proposal;
+    },
     async setSecret({ name, value }) {
       await call({ op: "setSecret", name, store: "vault", value });
     },

@@ -358,6 +358,26 @@ describe("feeding the gate", () => {
     expect(settingsGateContext(catalogue, locked).locked).toEqual({ features: ["support-messenger"], flags: ["support-channel"] });
   });
 
+  it("keeps a locked key's flag when an unlocked key later gives the same flag a value", () => {
+    const two = settingsCatalogue([
+      defineSettings("a", { channel: { type: "string", default: "chat", flag: "shared-flag" } }),
+      defineSettings("b", { channel: { type: "string", default: "sms", flag: "shared-flag" } }),
+    ]);
+    const r = resolveSettings(two, { file: { "a.channel": { value: "email", locked: true } } });
+    expect(settingsGateContext(two, r)).toMatchObject({ flags: { "shared-flag": "email" }, locked: { flags: ["shared-flag"] } });
+  });
+
+  it("never throws on a value JSON can't write (a bigint), and declares planned keys", () => {
+    const r = resolveSettings(catalogue, { file: { "support.dumpRetentionDays": { value: 10n } } as never });
+    expect(r.problems[0]?.message).toContain("10n");
+    const cycle = Object.create(null) as Record<string, unknown>;
+    cycle.self = cycle;
+    const c = resolveSettings(catalogue, { file: { "support.dumpRetentionDays": { value: cycle } } as never });
+    expect(c.problems[0]?.message).toContain("(a value that can't be shown)");
+    expect(defineSettings("x", { later: { type: "boolean", default: true, planned: true } }).keys["x.later"].planned).toBe(true);
+    expect(() => defineSettings("x", { later: { type: "boolean", default: true, planned: "yes" as never } })).toThrow(/planned must be a boolean/);
+  });
+
   it("turns the feature off through the existing gate, with reason setting", () => {
     const off = resolve({ tenant: { "support.messenger": { value: false } } });
     expect(featureOn({ features }, withSettings({ platform: "web" }, catalogue, off), "support-messenger")).toEqual({ on: false, reason: "setting" });
