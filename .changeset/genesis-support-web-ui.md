@@ -14,8 +14,11 @@
   desk); the requester card offers "Make an agent". `SupportLinkRequester`, in the agent inbox, finds
   the person and, after a confirm naming the email and the person, links an email ticket to their
   login through the new `client.linkRequester`. `SupportMyMentions` lists `agentMentions`.
-- Reads that differ by who asks (dumps, mentions, people search, who manages a desk) are keyed by
-  the client, the signed-in login (the new `client.signedInId`) and the tenant.
+- Reads that differ by who asks (dumps, mentions, people search, who manages a desk, and every
+  desk key) are keyed by the client, the signed-in login (the new `client.signedInId`) and the
+  tenant, and read the login again when someone signs in or out (`client.onSignedInChange`).
+  `supportDeskScope` is now the hook `useSupportDeskScope`. A login that can't be read shows an
+  error, not a placeholder.
 - The dump viewer: a loading state, an accordion per dump and section, the trigger and a formatted
   date, "Copy text", Sentry and GitHub issue links from the app's `links` (https only), a `role=alert`
   error, a trigger label for every trigger ("Other" for an unknown one), and keys by login (`supportDiagnosticsKeys`). The inbox passes

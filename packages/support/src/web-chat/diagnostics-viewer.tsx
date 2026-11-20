@@ -27,7 +27,7 @@ export interface SupportDiagnosticsLinks {
 }
 
 export interface SupportTicketDiagnosticsProps {
-  client: Pick<SupportClient, "ticketDiagnostics" | "signedInId">;
+  client: Pick<SupportClient, "ticketDiagnostics" | "signedInId" | "onSignedInChange">;
   ticketId: string;
   /** Links to the dump's Sentry event and GitHub issue. Only `https:` links show. */
   links?: SupportDiagnosticsLinks;
@@ -74,7 +74,8 @@ export function diagnosticsText(dump: TicketDiagnostics): string {
 export function SupportTicketDiagnostics({ client, ticketId, links, copy: overrides, onError }: SupportTicketDiagnosticsProps) {
   const copy = resolveSupportCopy(overrides);
   const read = client.ticketDiagnostics?.bind(client);
-  const scope = useLoginScope(client, null);
+  const login = useLoginScope(client, null);
+  const scope = login.scope;
   const dumps = useQuery({
     queryKey: supportDiagnosticsKeys.ticket(scope ?? "", ticketId),
     queryFn: read && scope ? () => read(ticketId) : skipToken,
@@ -82,17 +83,18 @@ export function SupportTicketDiagnostics({ client, ticketId, links, copy: overri
   });
   useEffect(() => {
     if (dumps.error) onError?.(dumps.error);
-  }, [dumps.error, onError]);
+    if (login.error) onError?.(login.error);
+  }, [dumps.error, login.error, onError]);
   if (!read) return null;
+  if (dumps.isError || login.failed) {
+    return <InlineAlert variant="destructive" description={copy.agentInbox.diagnosticsFailed} testID="genesis-support-agent-diagnostics-failed" />;
+  }
   if (dumps.isPending) {
     return (
       <div role="status" aria-label={copy.agentInbox.diagnosticsLoading} data-testid="genesis-support-agent-diagnostics-loading">
         <Skeleton className="h-10 w-full" />
       </div>
     );
-  }
-  if (dumps.isError) {
-    return <InlineAlert variant="destructive" description={copy.agentInbox.diagnosticsFailed} testID="genesis-support-agent-diagnostics-failed" />;
   }
   const [newest] = dumps.data;
   if (!newest) return null;

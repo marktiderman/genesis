@@ -1,7 +1,7 @@
 // @feat:support-desks
 // The help desk's management on the web: agents (setAgent), linking an email ticket to a login,
 // the desk card's states and log, the desk being off, and an agent's mentions.
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Toaster } from "@marktiderman/genesis-ui";
 import { awaitsVerification, createSupportClient, type AgentTicket, type SupportClient, type SupportDesk } from "..";
@@ -241,6 +241,29 @@ describe("a desk that is off", () => {
 });
 
 describe("my mentions", () => {
+  it("reads again for another login on the same client, and never shows the last one's", async () => {
+    let user = "ana";
+    const fake = fakeSupabase({
+      userId: "ana",
+      respond: (call) => (call.table === "ticket_mentions" ? { data: [{ id: `m-${user}`, report_id: `t-${user}`, message_id: "x", author_id: "u1", created_at: "2026-11-19T09:00:00Z" }], error: null } : undefined),
+    });
+    const client = createSupportClient(fake.client);
+    const onOpen = vi.fn();
+    show(<SupportMyMentions client={client} resolveUser={() => ({ name: "Kit" }) as never} onOpen={onOpen} />);
+    expect(await screen.findByTestId("genesis-support-mention-m-ana")).toBeTruthy();
+    user = "bo";
+    act(() => fake.signIn("bo"));
+    expect(await screen.findByTestId("genesis-support-mention-m-bo")).toBeTruthy();
+    expect(screen.queryByTestId("genesis-support-mention-m-ana")).toBeNull();
+  });
+
+  it("says when the login can't be read, rather than loading for ever", async () => {
+    const client = stub({ signedInId: vi.fn(async () => Promise.reject(new Error("down"))), agentMentions: vi.fn(async () => []) });
+    show(<SupportMyMentions client={client} resolveUser={() => ({ name: "Kit" }) as never} onOpen={() => {}} />);
+    await waitFor(() => expect(screen.getByTestId("genesis-support-mentions-list").textContent).toContain("Couldn't load your mentions"));
+    expect(client.agentMentions).not.toHaveBeenCalled();
+  });
+
   it("lists where the agent was mentioned, each opening its ticket", async () => {
     const onOpen = vi.fn();
     const client = stub({ agentMentions: vi.fn(async () => [{ id: "m1", reportId: "t7", messageId: "x", authorId: "u1", createdAt: "2026-11-19T09:00:00Z" }]) });

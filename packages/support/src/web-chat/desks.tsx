@@ -50,14 +50,14 @@ import { requesterTenantsLabel, type AgentTicket, type SupportClient, type Suppo
 import { chooseDesk, pickerDesks, type DeskLogEntry, type DeskTarget, type SupportDesk, type TicketDesk } from "../desks";
 import { fill, resolveSupportCopy, type SupportCopy, type SupportCopyOverrides } from "../copy";
 import { mailtoHref, supportSettingValues, type SupportSettingsInput } from "../settings";
-import { scopeOf, useLoginScope } from "./tenant";
+import { useLoginScope, type LoginScope } from "./tenant";
 import { listView, ViewList } from "./list-view";
 
 
 /**
  * Desk query keys, under genesis-support's root (a support write refreshes them too), each scoped
- * to its support client (`scope`, from `supportDeskScope(client)`), so two clients sharing a
- * QueryClient never read each other's desks.
+ * to its support client and the signed-in login (`scope`, from `useSupportDeskScope(client)`), so
+ * two clients sharing a QueryClient, or two logins one after the other, never read each other's desks.
  */
 export const supportDeskKeys = {
   all: ["genesis-support", "desks"] as const,
@@ -67,13 +67,13 @@ export const supportDeskKeys = {
   requester: (scope: string, id: string) => ["genesis-support", "desks", scope, "requester", id] as const,
   requesterTenants: (scope: string, id: string) => ["genesis-support", "desks", scope, "requester-tenants", id] as const,
   log: (scope: string, tenantId: string | null) => ["genesis-support", "desks", scope, "log", tenantId] as const,
-  people: (loginScope: string, tenantId: string | null, query: string) => ["genesis-support", "desks", loginScope, "people", tenantId, query] as const,
-  manages: (loginScope: string, tenantId: string | null) => ["genesis-support", "desks", loginScope, "manages", tenantId] as const,
+  people: (scope: string, tenantId: string | null, query: string) => ["genesis-support", "desks", scope, "people", tenantId, query] as const,
+  manages: (scope: string, tenantId: string | null) => ["genesis-support", "desks", scope, "manages", tenantId] as const,
 };
 
-/** A support client's scope for `supportDeskKeys`. */
-export function supportDeskScope(client: SupportClient): string {
-  return scopeOf(client, null);
+/** A support client's scope for `supportDeskKeys`: the client and the signed-in login (null until it's known). */
+export function useSupportDeskScope(client: Pick<SupportClient, "signedInId" | "onSignedInChange">): LoginScope {
+  return useLoginScope(client, null);
 }
 
 /** A desk's name: the app's label, else the copy's ("Support" for the app's own). */
@@ -93,10 +93,11 @@ export function lastMoveLabel(desk: TicketDesk, copy: SupportCopy, names: (tenan
 
 /** The desks the signed-in person works (`support_my_desks`), or undefined while loading. */
 export function useSupportDesks(client: SupportClient, options: { enabled?: boolean } = {}) {
+  const { scope } = useSupportDeskScope(client);
+  const myDesks = client.myDesks?.bind(client);
   return useQuery({
-    queryKey: supportDeskKeys.mine(supportDeskScope(client)),
-    queryFn: () => client.myDesks!(),
-    enabled: Boolean(client.myDesks) && options.enabled !== false,
+    queryKey: supportDeskKeys.mine(scope ?? ""),
+    queryFn: myDesks && scope && options.enabled !== false ? () => myDesks() : skipToken,
     staleTime: 60_000,
   });
 }
@@ -110,13 +111,15 @@ export interface SupportRequesterPanelProps {
 
 /** Whether the signed-in login manages a desk's agents (`canManageAgents`); false while unknown or without the method. */
 export function useCanManageAgents(client: SupportClient, tenantId: string | null): { known: boolean; manages: boolean; failed: boolean; error: unknown } {
-  const scope = useLoginScope(client, tenantId);
+  const login = useSupportDeskScope(client);
   const ask = client.canManageAgents?.bind(client);
+  const scope = login.scope;
   const manages = useQuery({
     queryKey: supportDeskKeys.manages(scope ?? "", tenantId),
     queryFn: ask && scope ? () => ask({ tenantId }) : skipToken,
     staleTime: 60_000,
   });
+  if (login.failed) return { known: true, manages: false, failed: true, error: login.error };
   return { known: !ask || manages.isSuccess || manages.isError, manages: manages.data === true, failed: manages.isError, error: manages.error };
 }
 
@@ -132,16 +135,18 @@ export function SupportRequesterPanel({ client, ticket, copy: overrides, onError
   const manage = useCanManageAgents(client, ticket.tenantId);
   const [busy, setBusy] = useState(false);
   const userId = ticket.userId ?? "";
+  const login = useSupportDeskScope(client);
+  const scope = login.scope;
+  const reporters = client.reporters?.bind(client);
+  const requesterTenants = client.requesterTenants?.bind(client);
   const who = useQuery({
-    queryKey: supportDeskKeys.requester(supportDeskScope(client), userId),
-    queryFn: async () => (await client.reporters!([userId]))[0] ?? null,
-    enabled: Boolean(userId && client.reporters),
+    queryKey: supportDeskKeys.requester(scope ?? "", userId),
+    queryFn: userId && reporters && scope ? async () => (await reporters([userId]))[0] ?? null : skipToken,
     staleTime: 5 * 60_000,
   });
   const tenants = useQuery({
-    queryKey: supportDeskKeys.requesterTenants(supportDeskScope(client), userId),
-    queryFn: () => client.requesterTenants!(userId),
-    enabled: Boolean(userId && client.requesterTenants),
+    queryKey: supportDeskKeys.requesterTenants(scope ?? "", userId),
+    queryFn: userId && requesterTenants && scope ? () => requesterTenants(userId) : skipToken,
     staleTime: 5 * 60_000,
   });
   useEffect(() => {
@@ -149,7 +154,8 @@ export function SupportRequesterPanel({ client, ticket, copy: overrides, onError
     if (tenants.error) onError?.(tenants.error);
     if (manage.error) onError?.(manage.error);
   }, [who.error, tenants.error, manage.error, onError]);
-  if (who.isLoading || tenants.isLoading) {
+  if (login.failed) return <InlineAlert variant="destructive" description={copy.requester.failed} testID="genesis-support-requester-failed" />;
+  if ((userId && !scope) || who.isLoading || tenants.isLoading) {
     return (
       <div role="status" aria-label={copy.requester.title} data-testid="genesis-support-requester-loading">
         <Skeleton className="h-20 w-full" />
@@ -168,7 +174,7 @@ export function SupportRequesterPanel({ client, ticket, copy: overrides, onError
     setBusy(true);
     try {
       await setAgent(ticket.tenantId, userId, "agent");
-      await queryClient.invalidateQueries({ queryKey: supportDeskKeys.requesterTenants(supportDeskScope(client), userId) });
+      await queryClient.invalidateQueries({ queryKey: supportDeskKeys.requesterTenants(scope ?? "", userId) });
       await queryClient.invalidateQueries({ queryKey: supportAgentKeys.all });
       toast.success(copy.requester.madeAgent);
     } catch (error) {
@@ -247,7 +253,8 @@ export function PersonSearch({
   const id = useId();
   const [query, setQuery] = useState("");
   const q = query.trim();
-  const scope = useLoginScope(client, tenantId);
+  const login = useSupportDeskScope(client);
+  const scope = login.scope;
   const search = client.searchPeople?.bind(client);
   const found = useQuery({
     queryKey: supportDeskKeys.people(scope ?? "", tenantId, q),
@@ -261,7 +268,7 @@ export function PersonSearch({
         <Label htmlFor={id}>{words.search}</Label>
         <Input id={id} type="search" value={query} placeholder={words.placeholder} onChange={(e) => setQuery(e.target.value)} data-testid={`${testId}-search`} />
       </div>
-      {q.length < 2 ? null : found.isError ? (
+      {q.length < 2 ? null : found.isError || login.failed ? (
         <InlineAlert variant="destructive" description={words.failed} testID={`${testId}-search-failed`} />
       ) : found.isSuccess ? (
         people.length ? (
@@ -405,18 +412,22 @@ export function SupportDeskControls(props: SupportDeskControlsProps) {
 function DeskControls({ client, ticket, onMoved, allowMove = true, settings, copy: overrides, onError }: SupportDeskControlsProps) {
   const copy = resolveSupportCopy(overrides);
   const on = supportSettingValues(settings).support.desks;
-  const desk = useQuery({ queryKey: supportDeskKeys.ticket(supportDeskScope(client), ticket.id), queryFn: () => client.ticketDesk!(ticket.id), enabled: Boolean(client.ticketDesk) && on });
+  const login = useSupportDeskScope(client);
+  const scope = login.scope;
+  const ticketDesk = client.ticketDesk?.bind(client);
+  const moveTargets = client.deskMoveTargets?.bind(client);
+  const desk = useQuery({ queryKey: supportDeskKeys.ticket(scope ?? "", ticket.id), queryFn: ticketDesk && scope && on ? () => ticketDesk(ticket.id) : skipToken });
   const targets = useQuery({
-    queryKey: supportDeskKeys.targets(supportDeskScope(client), ticket.id),
-    queryFn: () => client.deskMoveTargets!(ticket.id),
-    enabled: Boolean(client.deskMoveTargets) && allowMove && on,
+    queryKey: supportDeskKeys.targets(scope ?? "", ticket.id),
+    queryFn: moveTargets && scope && allowMove && on ? () => moveTargets(ticket.id) : skipToken,
   });
   const mine = useSupportDesks(client, { enabled: on });
   const [open, setOpen] = useState<MoveKind | null>(null);
   useEffect(() => {
     if (desk.error) onError?.(desk.error);
   }, [desk.error, onError]);
-  if (!on || !client.ticketDesk) return null;
+  if (!on || !ticketDesk) return null;
+  if (login.failed) return <InlineAlert variant="destructive" description={copy.desks.loadFailed} testID="genesis-support-desk-failed" />;
   if (desk.isPending) {
     return (
       <div role="status" aria-label={copy.desks.pickerLabel} data-testid="genesis-support-desk-loading">
@@ -465,7 +476,7 @@ function DeskControls({ client, ticket, onMoved, allowMove = true, settings, cop
             {copy.desks.moveTo}
           </Button>
         ) : null}
-        {history ? <DeskLog history={history} scope={supportDeskScope(client)} tenantId={d.isDefault ? null : d.tenantId} nameOf={nameOf} copy={copy} onError={onError} /> : null}
+        {history ? <DeskLog history={history} scope={scope ?? ""} tenantId={d.isDefault ? null : d.tenantId} nameOf={nameOf} copy={copy} onError={onError} /> : null}
       </CardContent>
       {open ? (
         <MoveDialog

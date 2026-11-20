@@ -835,7 +835,7 @@ function Messenger({ client, tenantId: tenantProp, allTenants = false, settings,
   const expectation = useReplyExpectation(replyExpectation, officeHours);
   const tickets = useMemo(() => ticketsQueryOf(client, tenantId, allTenants), [client, tenantId, allTenants]);
   // With every desk's conversations, each row names its desk (`myTicketDesks`); the app's own has no name to show.
-  const loginScope = useLoginScope(client, null);
+  const { scope: loginScope } = useLoginScope(client, null);
   const readDesks = client.myTicketDesks?.bind(client);
   const desks = useQuery({ queryKey: supportMessengerKeys.desks(loginScope ?? ""), queryFn: allTenants && readDesks && loginScope ? () => readDesks() : skipToken, staleTime: 60_000 });
   useReported(desks.error, report);

@@ -409,7 +409,7 @@ function AgentsAdmin({ client, tenantId = null, copy: copyOverrides, onError, cl
   const setAgent = client.setAgent?.bind(client);
   const staffList = client.staffList?.bind(client);
   const manage = useCanManageAgents(client, tenantId);
-  const scope = useLoginScope(client, tenantId);
+  const { scope } = useLoginScope(client, tenantId);
   const agents = useQuery({
     queryKey: supportAgentKeys.list(scope ?? ""),
     queryFn: staffList && scope && manage.manages ? () => staffList({ tenantId }) : skipToken,
@@ -548,13 +548,15 @@ type MentionRow = AgentMention & { by: string } & Record<string, unknown>;
 export function SupportMyMentions({ client, resolveUser, onOpen, copy: copyOverrides, onError, className }: SupportMyMentionsProps) {
   const copy = useMemo(() => resolveSupportCopy(copyOverrides), [copyOverrides]);
   const read = client.agentMentions?.bind(client);
-  const scope = useLoginScope(client, null);
+  const login = useLoginScope(client, null);
+  const scope = login.scope;
   const mentions = useQuery({ queryKey: ["genesis-support", "mentions", scope ?? ""], queryFn: read && scope ? () => read() : skipToken });
   const reported = useRef(onError);
   reported.current = onError;
   useEffect(() => {
     if (mentions.error) reported.current?.(mentions.error);
-  }, [mentions.error]);
+    if (login.error) reported.current?.(login.error);
+  }, [mentions.error, login.error]);
   const view = useMemo(
     () =>
       listView<MentionRow>("support_my_mentions", { title: copy.mentions.title, noun: copy.mentions.noun, nounPlural: copy.mentions.nounPlural, emptyTitle: copy.mentions.emptyTitle, emptyBody: copy.mentions.emptyBody }, [
@@ -579,8 +581,8 @@ export function SupportMyMentions({ client, resolveUser, onOpen, copy: copyOverr
       <ViewList
         view={view}
         rows={mentions.data?.map((m): MentionRow => ({ ...m, by: m.authorId ? resolveUser(m.authorId).name : copy.mentions.someone }))}
-        loading={mentions.isPending}
-        error={mentions.isError}
+        loading={mentions.isPending && !login.failed}
+        error={mentions.isError || login.failed}
         errorMessage={copy.mentions.loadFailed}
         onRetry={() => void mentions.refetch()}
         cells={cells}

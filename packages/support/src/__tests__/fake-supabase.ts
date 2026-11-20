@@ -18,7 +18,9 @@ export interface FakeOptions {
   rpc?: (fn: string, args: unknown) => Answer;
 }
 
-export function fakeSupabase({ userId = "00000000-0000-4000-8000-0000000000a1", respond, upload, rpc }: FakeOptions = {}) {
+export function fakeSupabase({ userId: firstUser = "00000000-0000-4000-8000-0000000000a1", respond, upload, rpc }: FakeOptions = {}) {
+  let userId = firstUser;
+  const listeners = new Set<(event: string) => void>();
   const calls: Call[] = [];
   const uploads: Array<{ bucket: string; path: string; body: unknown; options: unknown }> = [];
   const rpcs: Array<{ fn: string; args: unknown }> = [];
@@ -47,7 +49,13 @@ export function fakeSupabase({ userId = "00000000-0000-4000-8000-0000000000a1", 
       rpcs.push({ fn, args });
       return Promise.resolve(rpc?.(fn, args) ?? { data: null, error: null });
     },
-    auth: { getSession: async () => ({ data: { session: userId ? { user: { id: userId } } : null }, error: null }) },
+    auth: {
+      getSession: async () => ({ data: { session: userId ? { user: { id: userId } } : null }, error: null }),
+      onAuthStateChange: (listener: (event: string) => void) => {
+        listeners.add(listener);
+        return { data: { subscription: { unsubscribe: () => listeners.delete(listener) } } };
+      },
+    },
     storage: {
       from: (bucket: string) => ({
         upload: async (path: string, body: unknown, options: unknown) => {
@@ -58,7 +66,12 @@ export function fakeSupabase({ userId = "00000000-0000-4000-8000-0000000000a1", 
       }),
     },
   };
-  return { client: client as unknown as SupportSupabase, calls, uploads, rpcs };
+  /** Signs another login in (or, with null, signs out), as Supabase's auth tells its listeners. */
+  const signIn = (next: string | null) => {
+    userId = next;
+    for (const listener of listeners) listener(next ? "SIGNED_IN" : "SIGNED_OUT");
+  };
+  return { client: client as unknown as SupportSupabase, calls, uploads, rpcs, signIn };
 }
 
 /** The first argument of the first `op` in a call. */

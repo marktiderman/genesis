@@ -3,7 +3,8 @@
  * option as it is now (a function can change when the viewer changes workspace), so another tenant
  * is a fresh screen with its own cache.
  */
-import { skipToken, useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { SupportClient } from "../client";
 
 const clientIds = new WeakMap<object, number>();
@@ -24,20 +25,34 @@ export function scopeOf(client: object, tenantId: string | null): string {
   return `${idOf(client)}:${tenantId ?? "app"}`;
 }
 
+/** What reads that differ by who asks are keyed by: `scope` is null until the login is known. */
+export interface LoginScope {
+  scope: string | null;
+  /** The login couldn't be read: show that, not a placeholder for ever. */
+  failed: boolean;
+  error: unknown;
+}
+
 /**
- * The client, the signed-in login and the tenant, for the keys of reads that differ by who asks
- * (dumps, mentions, people search): another login on the same client never reads the last one's
- * cache. Null until the login is known; a client without `signedInId` keys by the client alone.
+ * The client, the signed-in login and the tenant, for the keys of reads that differ by who asks:
+ * another login on the same client never reads the last one's cache. It reads the login again when
+ * someone signs in or out (`onSignedInChange`). A client without `signedInId` serves one login, and
+ * keys by the client alone.
  */
-export function useLoginScope(client: Pick<SupportClient, "signedInId">, tenantId: string | null): string | null {
+export function useLoginScope(client: Pick<SupportClient, "signedInId" | "onSignedInChange">, tenantId: string | null): LoginScope {
+  const queryClient = useQueryClient();
+  const id = idOf(client);
+  useEffect(() => client.onSignedInChange?.(() => void queryClient.invalidateQueries({ queryKey: ["genesis-support", "login", id] })), [client, queryClient, id]);
   const signedInId = client.signedInId?.bind(client);
   const login = useQuery({
-    queryKey: ["genesis-support", "login", idOf(client)],
+    queryKey: ["genesis-support", "login", id],
     queryFn: signedInId ?? skipToken,
-    staleTime: 0,
+    staleTime: Infinity,
+    retry: false,
   });
-  if (!signedInId) return `${scopeOf(client, tenantId)}:-`;
-  return login.isSuccess ? `${scopeOf(client, tenantId)}:${login.data ?? "signed-out"}` : null;
+  if (!signedInId) return { scope: `${scopeOf(client, tenantId)}:-`, failed: false, error: null };
+  if (login.isError) return { scope: null, failed: true, error: login.error };
+  return { scope: login.isSuccess ? `${scopeOf(client, tenantId)}:${login.data ?? "signed-out"}` : null, failed: false, error: null };
 }
 
 /** `ready` is false until it's known: a screen doesn't read or write until then, or it could use the wrong tenant. */

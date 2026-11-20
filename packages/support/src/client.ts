@@ -327,6 +327,8 @@ export interface SupportClient extends FeedbackSink {
   setAgent?(tenantId: string | null, personId: string, role: TicketAgentRole | null): Promise<void>;
   /** The signed-in login's id, or null when nobody is signed in: what a screen's cache is keyed by. */
   signedInId?(): Promise<string | null>;
+  /** Calls `listener` when someone signs in or out (the app's Supabase auth). Returns the stop. */
+  onSignedInChange?(listener: () => void): () => void;
   /** A ticket's handlers: link an email ticket with no login to the person's login (`support_link_requester`, the support-email block). Refused unless they handle it and the person is in its tenant. */
   linkRequester?(reportId: string, personId: string): Promise<void>;
   report(id: string): Promise<SupportReport | null>;
@@ -648,6 +650,16 @@ function defaultRandomId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+/** `support_agents_list`'s role, when it sends one this version knows. */
+function agentRoleOf(value: unknown): { role?: TicketAgentRole } {
+  return value === "agent" ? { role: "agent" } : value === "admin" ? { role: "admin" } : {};
+}
+
+/** `support_agents_list`'s `removable`, when it sends one. */
+function removableOf(value: unknown): { removable?: boolean } {
+  return typeof value === "boolean" ? { removable: value } : {};
+}
+
 /** The support client over the app's Supabase client. */
 export function createSupportClient(supabase: SupportSupabase, options: SupportClientOptions = {}): SupportClient {
   const bucket = options.bucket ?? SUPPORT_BUCKET;
@@ -878,6 +890,12 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
       must("setAgent", await supabase.rpc("support_set_agent", { tenant, person: personId, role }));
     },
     signedInId: () => me(),
+    onSignedInChange(listener) {
+      const { data } = supabase.auth.onAuthStateChange((event) => {
+        if (event === "SIGNED_IN" || event === "SIGNED_OUT") listener();
+      });
+      return () => data.subscription.unsubscribe();
+    },
 
     async agentTickets({ tenantId = null, view = "all", before = null, limit = 50 } = {}) {
       const rows = must<Row[]>(
@@ -1038,8 +1056,8 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
       return (rows ?? []).map((r) => ({
         id: String(r["user_id"]),
         name: (r["full_name"] as string | null) ?? null,
-        ...(r["role"] === "agent" || r["role"] === "admin" ? { role: r["role"] as TicketAgentRole } : {}),
-        ...(typeof r["removable"] === "boolean" ? { removable: r["removable"] as boolean } : {}),
+        ...agentRoleOf(r["role"]),
+        ...removableOf(r["removable"]),
       }));
     },
     async canManageAgents({ tenantId = null } = {}) {
