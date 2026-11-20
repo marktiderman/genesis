@@ -671,7 +671,7 @@ export const features = defineFeatures({
   },
   "resource-view-sheet": {
     name: "Sheet mode for lists",
-    summary: "ResourceView's `type=\"sheet\"` (or `sheet` among a view's types): a view's rows as a spreadsheet on SheetGrid, the grid the Data Studio's sheet uses. Only the view's writable fields are editable; each row goes through the view's guards and the screen's can, and a refused cell is read-only with the reason on it. Every change goes through the resource's own update, row by row, so the provider's rules and a versioned resource's check apply; a cell that failed is marked with its reason. Arrows, Tab, Enter and Escape move and edit, a paste fills a block and skips read-only cells, and the last change can be undone. Big pastes, imports and exports as jobs are still to come.",
+    summary: "ResourceView's `type=\"sheet\"` (or `sheet` among a view's types): a view's rows as a spreadsheet on SheetGrid, the grid Genesis Data's sheet uses. Only the view's writable fields are editable; each row goes through the view's guards and the screen's can, and a refused cell is read-only with the reason on it. Every change goes through the resource's own update, row by row, so the provider's rules and a versioned resource's check apply; a cell that failed is marked with its reason. Arrows, Tab, Enter and Escape move and edit, a paste fills a block and skips read-only cells, and the last change can be undone. Big pastes, imports and exports as jobs are still to come.",
     category: "Data",
     status: "building",
     claimedBy: "claude/lists-vnext",
@@ -882,13 +882,13 @@ export const features = defineFeatures({
     links: { code: ["packages/switchboard"], docs: ["packages/switchboard/README.md"] },
   },
   "data-studio": {
-    name: "Data Studio",
+    name: "Genesis Data",
     summary: "An Airtable-style data editor over an app's own Postgres or Supabase data, edited as the signed-in user with version checks and an audit trail.",
     tagline: "A spreadsheet over your own database, as the signed-in user.",
     category: "Data",
     status: "live",
     kind: "block",
-    keywords: ["admin", "database", "spreadsheet", "audit log", "back office"],
+    keywords: ["admin", "database", "spreadsheet", "audit log", "back office", "data studio"],
     owner: "mark",
     apps: ["web", "node"],
     audience: ["developer", "operator"],
@@ -899,7 +899,7 @@ export const features = defineFeatures({
       "Every edit lands in the audit log with who, when, before and after.",
     ],
     reviewedAt,
-    links: { code: ["packages/studio", "packages/studio-server"], docs: ["docs/DATA-STUDIO.md"] },
+    links: { code: ["packages/data", "packages/data-server", "packages/studio", "packages/studio-server"], docs: ["docs/DATA.md"] },
   },
   // Forms
   "forms-engine": {
@@ -1651,8 +1651,8 @@ export const features = defineFeatures({
     links: { code: ["packages/genesis-cli/src/introspect"] },
   },
   "studio-init": {
-    name: "genesis studio init",
-    summary: "Turns the Data Studio on in an existing app: a server route or Edge Function, a page and one migration to review.",
+    name: "genesis data init",
+    summary: "Turns Genesis Data on in an existing app: a server route or Edge Function, a page and one migration to review.",
     status: "live",
     kind: "tool",
     owner: "mark",
@@ -3398,7 +3398,7 @@ export const features = defineFeatures({
   },
   "audit-log": {
     name: "Audit log",
-    summary: "A general, retention-aware audit log of who changed what, generalised from the Data Studio's audit trail.",
+    summary: "A general, retention-aware audit log of who changed what, generalised from Genesis Data's audit trail.",
     category: "Admin",
     status: "planned",
     horizon: "next",

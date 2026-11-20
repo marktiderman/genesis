@@ -426,6 +426,6 @@ export { SiteFormHeader, siteFormSlots } from "./form-header";
     expect(dirs["forms-native"]).toBe("packages/forms-native/figma");
     expect(dirs["forms-web"]).toBe("packages/forms-web/figma");
     expect(dirs.sites).toBe("packages/sites/figma");
-    expect(dirs.studio).toBe("packages/studio/figma");
+    expect(dirs.studio).toBe("packages/data/figma");
   });
 });

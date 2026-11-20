@@ -1,10 +1,10 @@
-// Genesis Data Studio in the sample app. The handler runs in the Vite dev
+// Genesis Data in the sample app. The handler runs in the Vite dev
 // server (studio/vite-plugin.ts); this page is everything an app adds on the
 // client: a provider pointed at the handler, a router adapter, and a sign-in.
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { Navigate, useSearchParams } from "react-router";
-import { DataStudio, createSearchParamsRouter } from "@marktiderman/genesis-studio";
-import { createStudioProvider } from "@marktiderman/genesis-studio-server/client";
+import { DataStudio, createSearchParamsRouter } from "@marktiderman/genesis-data";
+import { createStudioProvider } from "@marktiderman/genesis-data-server/client";
 import { Button, Input, Label } from "@marktiderman/genesis-ui";
 
 interface DevUser {
@@ -39,7 +39,7 @@ function readSession(): Session | null {
 }
 
 // The studio's handler runs in the dev server only (studio/vite-plugin.ts). A
-// static build has none, so it shows the demo app's Data Studio, which runs
+// static build has none, so it shows the demo app's Genesis Data, which runs
 // on in-memory rows.
 export default function Studio() {
   if (import.meta.env.PROD) return <Navigate to="/demo/harbor/data" replace />;
@@ -81,7 +81,7 @@ function DevStudio() {
     <div className="space-y-4 p-4 md:p-6" data-testid="studio-page">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="text-xl font-semibold">Data Studio</h1>
+          <h1 className="text-xl font-semibold">Genesis Data</h1>
           <p className="text-sm text-muted-foreground">
             Your data, as you: the database's own row rules decide what you see and edit.
           </p>

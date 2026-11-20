@@ -212,7 +212,7 @@ Four more cover the forms, sites and the data studio:
   `ItemTitle`, `ButtonLink`, `TextLink`, `SiteImage`, `SiteFormHeader`) have JSX templates; the
   zod schemas exported under PascalCase names (`Anchor`, `IconName`) and the screen-reader-only
   `HiddenTitle` are excluded.
-- **genesis-studio** (`studio`, `packages/studio/figma/`), page **Studio**: the toolbar parts,
+- **genesis-studio** (`studio`, `packages/data/figma/`), page **Studio**: the toolbar parts,
   panels, views, record panel, dialogs, `FieldIcon` and `Pill` (`Studio/…` in Figma) have
   templates; `DataStudio` is `composed`.
 

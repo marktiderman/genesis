@@ -27,7 +27,7 @@ export const demoFeatures = defineFeatures({
   },
   "demo-data-studio": {
     ...common,
-    name: "Data Studio",
+    name: "Genesis Data",
     summary: "Edit the organization's tables like a spreadsheet.",
     status: "live",
     access: { plan: "pro" },

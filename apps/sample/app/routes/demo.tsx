@@ -72,7 +72,7 @@ export default function DemoLayout() {
     { path: "intake", icon: ClipboardList, label: "Intake form", feature: "demo-intake", needsOrg: true },
     { path: "chat", icon: MessagesSquare, label: "Messages" },
     { path: "assistant", icon: Bot, label: "Assistant", feature: "demo-assistant" },
-    { path: "data", icon: Database, label: "Data Studio", feature: "demo-data-studio" },
+    { path: "data", icon: Database, label: "Genesis Data", feature: "demo-data-studio" },
     { path: "settings", icon: Settings, label: "Settings", needsOrg: true },
   ];
   const nav: NavItem[] = !ws

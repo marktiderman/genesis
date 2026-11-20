@@ -164,8 +164,8 @@ export const PACKAGES = [
   },
   {
     name: "studio",
-    indexes: [{ file: "packages/studio/src/index.ts", rule: "forms" }],
-    figmaDir: "packages/studio/figma",
+    indexes: [{ file: "packages/data/src/index.ts", rule: "forms" }],
+    figmaDir: "packages/data/figma",
   },
 ];
 const allowlistOf = (pkg) => `${pkg.figmaDir}/code-connect.json`;

@@ -1434,7 +1434,7 @@ document model and renderer registry would serve both public and admin pages. Th
 
 ## Why not read the schema at run time
 
-Data Studio reads it at run time because it must work on any table. Product screens shouldn't:
+Genesis Data reads it at run time because it must work on any table. Product screens shouldn't:
 
 - labels, order, hidden fields and rules are reviewed decisions;
 - hosted Supabase no longer serves its schema to browser keys;

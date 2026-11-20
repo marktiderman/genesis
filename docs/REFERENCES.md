@@ -18,7 +18,7 @@ Each row's "Last checked" date is when its primary docs were last read. Quotes a
 | 5 | **shadcn/ui** | UI components | Components you copy into your app, plus a registry and a CLI | Open code; composition; a flat-file registry and an `add` CLI; Tailwind tokens | Components ship as versioned npm packages, not copies (see the tensions below) | ui, cli (`genesis add`), blocks | 2026-10-29 |
 | 6 | **Radix Primitives** | UI components | Unstyled, accessible React primitives | Behavior and accessibility come from Radix; the `asChild` composition prop; named parts | Genesis styles them and adds opinions. Apps never use raw Radix. | ui elements | 2026-10-29 |
 | 7 | **Refine** | App framework | A headless React meta-framework for CRUD apps | Resources plus pluggable providers (data, auth, access control, live); verb-plus-noun hooks | Access is enforced in Postgres (RLS), not in an app-side access provider | core (provider, resources), ResourceView | 2026-10-29 |
-| 8 | **react-admin** | App framework | A batteries-included admin framework | Ready-made list, show and edit screens; a parity checklist for Data Studio | No paid tier. The data layer is the database client under RLS, not REST. | ui/data, studio | 2026-10-18 |
+| 8 | **react-admin** | App framework | A batteries-included admin framework | Ready-made list, show and edit screens; a parity checklist for Genesis Data | No paid tier. The data layer is the database client under RLS, not REST. | ui/data, studio | 2026-10-18 |
 | 9 | **Supabase** | Backend platform | Postgres with Auth, Storage, Realtime, Edge Functions, and PostgREST | RLS as the access model; SQL functions for privileged steps; migrations as the database's record | Genesis adds an app layer, a feature gate and modules on top | supabase, every module's schema | 2026-10-29 |
 | 10 | **OpenFeature** | Standard | A vendor-neutral feature-flag API and specification | The flag-evaluation API, the provider model, and its manifest format | Flags control exposure, never authorization. Paid access is an entitlement, not a flag. | features (flags) | 2026-10-29 |
 | 11 | **Rails engines** | Module ecosystem | Mountable mini apps inside a Rails app | Install copies migrations into the host app; the host mounts the engine; namespaced tables | — (this is the model Genesis follows) | blocks, `genesis add`, modules | 2026-10-29 |
@@ -36,7 +36,7 @@ Each row's "Last checked" date is when its primary docs were last read. Quotes a
 **Product UX references.** These are closed products, so Genesis studies their behavior, never their code:
 - **Linear**: Triage Intelligence is the model for the coach approval queue in `docs/AI.md`.
 - **Notion**: an agent whose memory is an editable instructions page.
-- **Airtable**: the behaviors Data Studio aims for.
+- **Airtable**: the behaviors Genesis Data aims for.
 - **Typeform and Tally**: the form as a flat list of blocks (`docs/FORMS.md`).
 - **Slack**: chat conventions.
 
@@ -67,7 +67,7 @@ Each row's "Last checked" date is when its primary docs were last read. Quotes a
 
 **Refine.** "A React meta-framework for CRUD-heavy web applications", with a headless architecture ([docs](https://refine.dev/docs/)). Its nouns are `resource` and data, auth, access-control and live providers. Its hooks are verb plus noun: `useList`, `useOne`, `useCreate`, `useTable`, `useForm`. Genesis's provider, resources and `use*` hooks follow this closely. The difference is that Genesis has no access-control provider, because the database decides access.
 
-**react-admin.** A finished admin framework. Data Studio's parity research measures Genesis against it alongside Refine and Supabase (read 2026-10-18). Genesis takes its daily admin jobs as the checklist, and leaves out its paid tier and its REST-first data layer.
+**react-admin.** A finished admin framework. Genesis Data's parity research measures Genesis against it alongside Refine and Supabase (read 2026-10-18). Genesis takes its daily admin jobs as the checklist, and leaves out its paid tier and its REST-first data layer.
 
 **Supabase.** The platform Genesis runs on. Its feature catalog tags each feature GA, Public Beta, Beta or Public Alpha ([features](https://supabase.com/docs/guides/getting-started/features)), and its docs are organized by product noun: Database, Auth, Storage, Realtime, Functions. Genesis takes RLS, security-definer functions and migrations as the record of the database. It adds what Supabase leaves to apps: tenancy, features and modules.
 

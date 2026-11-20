@@ -47,7 +47,7 @@ row shows the package's layer and group from [Layers](#layers).
 | module · modules | `sites` | 12.2k | Sites, landing pages, blog, editor |
 | module · modules | `support` | 3.5k | Feedback, reports, idea board |
 | primitive · collaboration | `collab` | 0.2k | Spaces and visibility, designed in [COLLABORATION.md](./COLLABORATION.md) (`building`) |
-| primitive · data | `studio`, `studio-server` | 9.0k | Data Studio, with an audit entry per edit |
+| primitive · data | `studio`, `studio-server` | 9.0k | Genesis Data, with an audit entry per edit |
 | module · modules | `product` | 2.1k | Product board, triage, release notes |
 | tooling · core | `genesis-cli` | 11.0k | init, add, migrate, upgrade, doctor, introspect |
 | tooling · core | `agents` (retired 2026-10-29) | docs | Rules of engagement for agent sessions; now [docs/agents/RULES.md](./agents/RULES.md), checked by `genesis agents --rules` |
@@ -305,7 +305,7 @@ the box:
 | Data export (access requests) | ❌ |
 | Rate limiting and abuse protection | 🟡 forms and chat each have one (M6) |
 | Super admin, impersonation | ❌ `impersonation` is an idea |
-| Audit log | 🟡 Data Studio audits its edits; no general audit log |
+| Audit log | 🟡 Genesis Data audits its edits; no general audit log |
 | Jobs, cron, queues | ✅ `genesis_jobs` |
 | Webhooks and integrations | 🟡 `connect` (OAuth, secrets), form webhooks |
 | Search | 🟡 chat's permission-aware full-text search; nothing general, nothing semantic |

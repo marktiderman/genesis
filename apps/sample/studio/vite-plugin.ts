@@ -1,6 +1,6 @@
-// Dev-only: serves the Genesis Data Studio handler from the Vite dev server,
+// Dev-only: serves the Genesis Data handler from the Vite dev server,
 // so the sample app (a static SPA) can show /studio. In a real app the
-// handler is one route on your server — see packages/studio-server/README.md.
+// handler is one route on your server — see packages/data-server/README.md.
 //
 // Configured by apps/sample/.env.local (written by studio/setup-db.mjs):
 //   STUDIO_DATABASE_URL   the handler's NOINHERIT login role
@@ -19,7 +19,7 @@ import {
   jwtAuth,
   supabaseAuth,
   type StudioAuth,
-} from "@marktiderman/genesis-studio-server";
+} from "@marktiderman/genesis-data-server";
 import { contracts } from "./resources.genesis";
 
 interface DevUser {

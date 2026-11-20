@@ -54,7 +54,7 @@ export type Tier =
 // FIELD SCHEMA — the provider-agnostic contract for a resource's columns.
 //
 // Promoted to @marktiderman/genesis-core/schema as the one schema model
-// (docs/DATA-STUDIO.md decision 11). The names below stay for one
+// (docs/DATA.md decision 11). The names below stay for one
 // deprecation window and are the same types, not copies.
 //
 // They are LOCAL type aliases rather than `export type { X } from`, because
