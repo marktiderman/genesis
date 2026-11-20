@@ -5,7 +5,7 @@
 -- defined it, this file defines it for 0004's sake, returning Genesis's reserved zero-config
 -- tenant:
 --
---   00000000-0000-0000-0000-000000000001   never an organisation's id; reserved by Genesis
+--   bda1457d-053b-422c-8887-e046e54b8344   never an organisation's id; reserved by Genesis
 --
 -- It is a stand-in, not the app's hook: its comment says 'Genesis default:', and 0023 (right
 -- after 0004) drops it again while its body is still exactly this one, and answers from the same
@@ -34,7 +34,7 @@ begin
       language sql
       stable
       set search_path = ''
-      as $body$ select '00000000-0000-0000-0000-000000000001'::uuid $body$
+      as $body$ select 'bda1457d-053b-422c-8887-e046e54b8344'::uuid $body$
     $f$;
     execute 'revoke execute on function private.genesis_support_default_tenant() from public, anon, authenticated';
     execute $c$comment on function private.genesis_support_default_tenant() is

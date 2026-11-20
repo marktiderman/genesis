@@ -242,7 +242,7 @@
             "needs": [
               {
                 "function": "private.genesis_support_default_tenant",
-                "how": "0021_genesis_support_default_hooks.sql (copied before 0004) defines a stand-in; 0023 drops it again while it is still exactly that stand-in (its body and 'Genesis default:' comment), after which Genesis answers with its reserved tenant 00000000-0000-0000-0000-000000000001. An app with its own tenant defines private.genesis_support_default_tenant() returns uuid in a migration of its own: before 0004, over the stand-in with create or replace (kept, because its body differs), or with a plain create any time after 0023. See 0004's header."
+                "how": "0021_genesis_support_default_hooks.sql (copied before 0004) defines a stand-in; 0023 drops it again while it is still exactly that stand-in (its body and 'Genesis default:' comment), after which Genesis answers with its reserved tenant bda1457d-053b-422c-8887-e046e54b8344. An app with its own tenant defines private.genesis_support_default_tenant() returns uuid in a migration of its own: before 0004, over the stand-in with create or replace (kept, because its body differs), or with a plain create any time after 0023. See 0004's header."
               }
             ]
           },

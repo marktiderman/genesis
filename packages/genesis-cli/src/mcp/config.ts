@@ -2,7 +2,7 @@
  * `genesis agents --mcp`: the app's `.mcp.json` entry that starts `genesis mcp`, merged into the
  * file: every other server, and any key of the entry Genesis doesn't set (`env`), is kept.
  */
-import { existsSync, lstatSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, lstatSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 
 export const MCP_JSON = ".mcp.json";
@@ -79,6 +79,8 @@ export function writeMcpJson(root: string): string[] {
   writeFileSync(tmp, content, { flag: "wx" });
   try {
     refuseLink(file);
+    // The rewrite keeps the file's mode (a file the person made private stays private).
+    if (existsSync(file)) chmodSync(tmp, statSync(file).mode & 0o7777);
     renameSync(tmp, file);
   } catch (err) {
     try {

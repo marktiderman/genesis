@@ -17,7 +17,7 @@ without either, the `max` preset). `Diagnostics.enabled` says whether dumps are 
 `0020_genesis_support_settings.sql` reads `diagnostics.perHour` and `diagnostics.retentionDays` in
 the database; `0021_genesis_support_default_hooks.sql` (a stand-in default tenant for 0004) and
 `0023_genesis_support_hook_defaults.sql` (Genesis's own wrappers answer with the reserved tenant
-`00000000-0000-0000-0000-000000000001` and the platform admins as staff when the app has no hooks)
+`bda1457d-053b-422c-8887-e046e54b8344` and the platform admins as staff when the app has no hooks)
 let support run with no SQL of the app's own; Genesis keeps no function of the app's hook names and
 defines no viewer-people hook. The CommonJS server build bundles genesis-config's
 settings resolver.

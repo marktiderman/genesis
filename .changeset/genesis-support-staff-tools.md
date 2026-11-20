@@ -19,7 +19,7 @@ history or signature, linear on hostile input).
 
 Review fixes: Genesis defines no `private.genesis_viewer_people` and keeps no function of the app's
 hook names (0021 is a stand-in that 0023 drops; Genesis's wrappers answer with the reserved tenant
-`00000000-0000-0000-0000-000000000001` and the platform admins), so an app's own hooks can come in
+`bda1457d-053b-422c-8887-e046e54b8344` and the platform admins), so an app's own hooks can come in
 any later migration. `support_agents_list` checks candidates only (an optional
 `private.genesis_support_staff_list()` hook; `support.agentListScan` opts into every login), and
 the requester functions check the ticket's handler. The settings readers in SQL skip a value that

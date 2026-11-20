@@ -8,7 +8,7 @@
 --
 --   private.genesis_support_default_tenant_id()   the app's private.genesis_support_default_tenant()
 --                                                 when it has one, else Genesis's reserved
---                                                 zero-config tenant 00000000-0000-0000-0000-000000000001
+--                                                 zero-config tenant bda1457d-053b-422c-8887-e046e54b8344
 --                                                 (never an organisation's id).
 --   private.genesis_support_staff_hook(person)    the app's private.genesis_support_staff(person)
 --                                                 when it has one, else the app's platform admins
@@ -45,7 +45,7 @@ begin
   if fn is null then
     return false;
   end if;
-  if btrim((select p.prosrc from pg_catalog.pg_proc p where p.oid = fn)) <> 'select ''00000000-0000-0000-0000-000000000001''::uuid'
+  if btrim((select p.prosrc from pg_catalog.pg_proc p where p.oid = fn)) <> 'select ''bda1457d-053b-422c-8887-e046e54b8344''::uuid'
      or coalesce(obj_description(fn, 'pg_proc'), '') not like 'Genesis default:%' then
     return false;
   end if;
@@ -68,7 +68,7 @@ set search_path = ''
 as $$
 begin
   if to_regprocedure('private.genesis_support_default_tenant()') is null then
-    return '00000000-0000-0000-0000-000000000001'::uuid;
+    return 'bda1457d-053b-422c-8887-e046e54b8344'::uuid;
   end if;
   return private.genesis_support_default_tenant();
 end;

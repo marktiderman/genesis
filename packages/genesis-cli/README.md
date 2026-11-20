@@ -420,7 +420,9 @@ the sets and which the app has.
   `eas build` or `eas workflow:run`; a push trigger whose `branches` / `branches_ignore` leave
   `main` out doesn't count. The command then exits 1, naming them. `--replace-rival` writes it
   anyway, for a change that removes the rival too (the rival isn't deleted; the summary names it,
-  and `genesis doctor` fails with `release-lane-twice` until it's gone). The summary lists the
+  and `genesis doctor` fails with `release-lane-twice` until it's gone). The app's own
+  `deploy-production.yml` is never such a rival: `native-release.yml` dispatches to it, so it stays
+  held until its `.genesis-next` is merged, whatever the flag. The summary lists the
   secrets to add.
 
 ### genesis migrate
@@ -1125,7 +1127,7 @@ keep `raw-color`).
 | `store-readiness` | warn | Static checks of `app.json`, `app.config.json` and (as text, best-effort) `app.config.{ts,js,mjs,cjs}`. **Usage strings**: Expo applies an installed module's config plugin even when it isn't listed, with a generic default string (`Allow $(PRODUCT_NAME) to access your camera`), and App Review rejects generic purpose strings; so a module without its own sentence (`ios.infoPlist.<Key>` or the plugin option) is flagged, and `false` (Expo's opt-out) counts as set. Covered: `expo-camera`, `expo-image-picker` (photos; camera only "if the app takes photos"), `expo-media-library`, `expo-location`, `expo-av` / `expo-audio` (microphone "if the app records audio"), `expo-contacts`, `expo-local-authentication` (Face ID). **Sign in with Apple**: third-party sign-in (`@react-native-google-signin/google-signin`, `react-native-fbsdk-next`, or a Supabase `signInWithOAuth` / `signInWithIdToken` with a non-Apple provider) without Apple sign-in (`expo-apple-authentication`, or Supabase's `apple` provider). Guideline 4.8 accepts any equivalent privacy-focused login, so this is a warning to `allow` with the reason when another option qualifies; `expo-auth-session` alone doesn't trigger it (it serves non-login OAuth too). Also the export-compliance flag (`ios.config.usesNonExemptEncryption` or `ITSAppUsesNonExemptEncryption`), `ios.privacyManifests`, and a missing Expo config. Those two count as set when the [Expo config plugin](#expo-config-plugin) (`@marktiderman/genesis-cli` in `plugins`) will set them: export compliance unless `exportCompliance: false`, the privacy manifest unless `privacyManifest: false` and only when a dependency needs one. |
 | `eas-placeholder` | warn | A `REPLACE_WITH_…` placeholder from the EAS templates still in `eas.json` or `.eas/workflows/*.yml` (YAML comment lines aren't read), each with what replaces it: the store ids in `eas.json` `submit.production` (the App Store Connect Apple ID, the Apple Team ID, the Google Play service account key's path), or `REPLACE_WITH_APP_FOLDER` in `pr-preview.yml`'s `paths`, which otherwise matches nothing, so code changes never start a preview. `genesis init --template native` fills the app folder in (`src`). |
 | `fingerprint-plugin-files` | warn | The app's Expo config uses the fingerprint runtime version (the Genesis plugin sets it) and loads `@marktiderman/genesis-native/rich-push-plugin`, but no `fingerprint.config.js` sets `configPluginSourceType: "files"`. Hashed by `package.json`, each new Genesis version would make a store build instead of an update. `genesis add template expo` writes the config (docs/NATIVE-RELEASE.md, "Fingerprints"). |
-| `release-lane-twice` | error | The app has `.github/workflows/native-release.yml` (at the repository's root under `appFolder`) and another workflow that also releases: a GitHub workflow running `eas update`, `eas build` or `eas workflow:run`, or an EAS workflow with a `push` trigger that can fire on `main` (no branch filter, a matching `branches` glob, not in `branches_ignore`) and an update or build job (the old push-triggered `deploy-production.yml`). Each release would go out twice, so it fails the run. `genesis add release` holds `native-release.yml` back while one is there, unless run with `--replace-rival`. |
+| `release-lane-twice` | error | The app has `.github/workflows/native-release.yml` (at the repository's root under `appFolder`) and another workflow that also releases: a GitHub workflow running `eas update`, `eas build` or `eas workflow:run`, or an EAS workflow with a `push` trigger that can fire on `main` (no branch filter, a matching `branches` glob, not in `branches_ignore`) and an update or build job (the old push-triggered `deploy-production.yml`). Each release would go out twice, so it fails the run. `genesis add release` holds `native-release.yml` back while one is there, unless run with `--replace-rival`, which doesn't apply to the app's own push-triggered `deploy-production.yml` (merge its `.genesis-next`: `native-release.yml` dispatches to it). |
 
 **`supabase`**, for `supabase/migrations/*.sql` (`supabase.migrations`). The SQL is read
 statement by statement with comments removed and string (`'…'`, `E'…'`) and dollar-quoted
@@ -1647,9 +1649,12 @@ the plan is refused). Nothing is written otherwise. One apply runs at a time.
   runs over MCP: it returns `genesis fix <id>` for the person to run at a terminal, and the step's
   id. `genesis setup --step <id>`, and a `setup_steps` tool listing the steps, arrive with the setup
   wizard; until then the command is `genesis fix <id>`.
-- The approval shows a proposed setting's value in full and each file's changed lines (up to
-  12,000 characters; past that it says how to read the rest). A message too long to show whole is
-  refused, never cut.
+- The approval shows the person exactly what applies: a proposed setting's value in full and each
+  file's changed lines, with invisible and direction-changing characters (U+2028, U+202E,
+  zero-width) shown as their codes. Nothing in it is hidden or cut: a plan whose changed lines
+  pass 12,000 characters, or whose message would hold a secret's value or a secret-shaped literal
+  (a private key, a provider token), isn't offered for approval; `fix_apply` says why and gives
+  the command (or the file) for the person.
 - `upgrade.release` runs the package manager attached to the terminal, so it returns its
   `genesis fix` command too.
 
@@ -1657,11 +1662,11 @@ the plan is refused). Nothing is written otherwise. One apply runs at a time.
 `server-env` secret as set or missing from the server's own environment (only whether it is
 there), and the other stores as `unknown`; it reads no `.env` file. Every result and error is
 scrubbed of the values of secret-looking environment variables (`*_TOKEN`, `*_KEY`, `*SECRET*`,
-`DATABASE_URL`, …) and of the settings' declared secrets (also as JSON escapes them), of URL
+`DATABASE_URL`, `*PASSPHRASE*`, `*_PWD`, `*SALT*`, …) and of the settings' declared secrets (also as JSON escapes them), of URL
 passwords, and of secret-shaped literals (a private key block, GitHub, Slack, Stripe, `sk-`, AWS
-and JWT tokens) wherever they appear, a planned file's content included; a planned file's
-content is shown up to 8,000 characters (the hash covers all of it); a result is at most 60,000
-characters. Errors are MCP errors with a message, never a stack.
+and JWT tokens) wherever they appear, a planned file's content included, before anything is
+clipped. A planned file's content is shown up to 8,000 characters (the plan's hash covers all of
+it; a file's own hashes aren't shown); a result is at most 60,000 characters. Errors are MCP errors with a message, never a stack.
 
 | Option | |
 | --- | --- |
@@ -1670,7 +1675,9 @@ characters. Errors are MCP errors with a message, never a stack.
 | `--offline` | `genesis-behind` and `upgrades_status` read only their cache. |
 
 Logs go to stderr; stdout is the protocol's. While it serves, every child process gets a safe
-stdio: stdin ignored and stdout sent to stderr, so nothing a fix runs can write into the protocol.
+stdio (`fork` included, with its ipc channel): stdin ignored and stdout sent to stderr, so nothing
+a fix runs can write into the protocol; what the server and in-process commands write to stderr is
+scrubbed like the results.
 
 ## genesis figma:routes
 
