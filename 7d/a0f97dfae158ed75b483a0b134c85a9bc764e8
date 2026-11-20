@@ -1,0 +1,25 @@
+packages/genesis-cli/src/exec/secret-vault.ts
+  s_ca8e075e853203::t_a86246ee509159 31,34-36,49-50,68-78,101,107
+packages/genesis-cli/src/mcp/bounds.ts
+  s_ca8e075e853203::t_87cb170d2eabe6 7,40,47,56-57,61
+packages/genesis-cli/src/mcp/server.ts
+  s_ca8e075e853203::t_22d3a9887f4de4 551
+packages/genesis-cli/test/mcp.test.ts
+  s_ca8e075e853203::t_89f2251d5b9cd2 562,565-566,568
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7da0f97dfae158ed75b483a0b134c85a9bc764e8",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
