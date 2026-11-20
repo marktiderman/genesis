@@ -54,6 +54,20 @@ describe("captureConsole", () => {
 });
 
 describe("capReport", () => {
+  it("measures the whole dump as the database stores it, so one trimmed near 512 KB passes 0019's check", () => {
+    // Postgres's jsonb text: a space after every `,` and `:` (written independently of storedByteLength).
+    const pgText = (value: unknown) => JSON.stringify(value, null, 1).replace(/,\n\s*/g, ", ").replace(/\n\s*/g, "");
+    // Arrays of small numbers: the separators are a third of the text, the worst case for compact JSON.
+    const sections = Object.fromEntries(Array.from({ length: 60 }, (_, i) => [`grid${i}`, Array.from({ length: 4000 }, (_, j) => j % 10)]));
+    const report = base({ sections });
+    const limit = 524_288;
+    const out = capReport(report, { maxBytes: limit, sectionMaxBytes: 32_768 });
+    const stored = new TextEncoder().encode(pgText(out)).length;
+    expect(stored).toBeLessThanOrEqual(limit);
+    expect(stored).toBeGreaterThan(limit - 20_000);
+    expect(jsonByteLength(out)).toBeLessThan(stored);
+  });
+
   it("keeps extras beside the build, server and session within the caps (a 441 KB dump used to pass whole)", () => {
     const big = "x".repeat(4000);
     const report = base({
@@ -100,6 +114,50 @@ describe("routes and text", () => {
       "/ranking/top-100-apps",
       "/news/what-is-new",
     ]) expect(cleanRoute(route)).toBe(route);
+  });
+
+  it("redacts card numbers, phones, SSNs and codes however they're separated or encoded", () => {
+    const cases: Array<[string, string]> = [
+      // Slugs with 9 or more digits in all.
+      ["/order/order-4111-1111-1111-1111", "/order/:token"],
+      ["pay-4111-1111-1111-1111", ":token"],
+      ["/x/visa-4111-111111-11111", "/x/:token"],
+      ["/x/card-411111-111111-1111", "/x/:token"],
+      ["/call/call-555-555-0101", "/call/:token"],
+      // Cards and IBANs with %20 or + between the groups.
+      ["/pay/4111%201111%201111%201111", "/pay/:token"],
+      ["/pay/4111+1111+1111+1111", "/pay/:token"],
+      ["/iban/DE89%203704%200044%200532%200130%2000", "/iban/:token"],
+      ["/iban/GB82+WEST+1234+5698+7654+32", "/iban/:token"],
+      // Phones without a +.
+      ["/call/555-555-0101", "/call/:phone"],
+      ["/call/555.555.0101", "/call/:phone"],
+      ["/call/(555)%20555-0101", "/call/:phone"],
+      ["/call/tel:5555550101", "/call/:phone"],
+      ["/call/tel:+15555550101", "/call/:phone"],
+      // An SSN.
+      ["/people/123-45-6789/edit", "/people/:id/edit"],
+      // Base64 with its padding.
+      ["/verify/dG9rZW4xMjM0NQ==", "/verify/:token"],
+      ["/verify/YWJjZGVmZ2g=", "/verify/:token"],
+      // A query string or fragment written percent-encoded.
+      ["/reset%3Ftoken%3Dabc123", "/reset"],
+      ["/reset%3ftoken=abc", "/reset"],
+      ["/page%23access_token=abc", "/page"],
+    ];
+    for (const [route, clean] of cases) expect(cleanRoute(route), route).toBe(clean);
+    for (const route of [
+      "/news/release-2024-11-19",
+      "/blog/top-10-tips-2024",
+      "/archive/2024-11-19",
+      "/docs/v1.4.0",
+      "/docs/getting-started",
+      "/plans/pro-100",
+      "/ranking/top-100-apps",
+      "/search/red%20shoes",
+      "/guides/ios-17-setup",
+      "/help/how-to-reset-your-password",
+    ]) expect(cleanRoute(route), route).toBe(route);
   });
 
   it("scrubs phone numbers written without a separator or in spaced groups", () => {

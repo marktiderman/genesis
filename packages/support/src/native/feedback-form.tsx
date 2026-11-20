@@ -51,7 +51,7 @@ export function FeedbackForm({ defaultType = "bug", onSent, sentAlert = true, te
     }
     return () => {
       claimed.current = false;
-      shakeDump.sendAlone();
+      shakeDump.release();
     };
   }, [block, shakeDump]);
   const [type, setType] = useState<FeedbackType>(defaultType);

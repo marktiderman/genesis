@@ -90,6 +90,12 @@ export interface DiagnosticsStore {
   ownsFeedback?(userId: string, feedbackId: string): Promise<boolean>;
   /** Is `reportId` one of `userId`'s own dumps? Without it, feedback naming a dump it didn't bring drops the name. */
   ownsReport?(userId: string, reportId: string): Promise<boolean>;
+  /**
+   * Name a stored dump on the feedback it came with (the feedback's `diagnosticsId`), once
+   * `saveReport` has stored it: feedback is saved first and names a dump it brought only after
+   * that. Without it, the dump names the feedback (`feedbackId`) but not the other way round.
+   */
+  linkDiagnostics?(input: { feedbackId: string; diagnosticsId: string; userId: string }): Promise<void>;
 }
 
 /** Where screenshots go: Supabase Storage, S3, a disk. */
@@ -190,6 +196,8 @@ export interface DiagnosticsHandlerOptions {
   settingsCacheMs?: number;
 }
 
+/** What a settings function that has never answered stands for: everything at `max`, but no dumps. */
+const DIAGNOSTICS_OFF = { "diagnostics.enabled": false } as const;
 const SCREENSHOT_TYPES: ReadonlyMap<string, ScreenshotContentType> = new Map([
   ["image/png", "image/png"],
   ["image/jpeg", "image/jpeg"],
@@ -296,7 +304,8 @@ export function createDiagnosticsHandler(options: DiagnosticsHandlerOptions): Di
       cached = { at: now(), values: supportSettingValues(await source()) };
     } catch (error) {
       fail(error, "appSettings");
-      cached = { at: now(), values: cached?.values ?? supportSettingValues(null) };
+      // Never read yet: no dumps until it answers (fail closed). Read before: the last values.
+      cached = { at: now(), values: cached?.values ?? supportSettingValues(DIAGNOSTICS_OFF) };
     }
     return cached.values;
   }
@@ -432,7 +441,9 @@ export function createDiagnosticsHandler(options: DiagnosticsHandlerOptions): Di
     // A dump named without being brought: kept only if it is the caller's own.
     let named = dumpsOn ? feedback.value.diagnosticsId : null;
     if (!report && named && (await owns(options.store.ownsReport, caller.userId, named, "store.ownsReport")) !== true) named = null;
-    const submission: FeedbackSubmission = { ...feedback.value, diagnosticsId: report?.id ?? named };
+    // A dump brought with it is named only once it is stored (linkDiagnostics, below): a dump the
+    // store refuses is never named.
+    const submission: FeedbackSubmission = { ...feedback.value, diagnosticsId: report ? null : named };
     let id: string;
     try {
       id = (await options.store.saveFeedback({ feedback: submission, userId: caller.userId })).id;
@@ -488,6 +499,14 @@ export function createDiagnosticsHandler(options: DiagnosticsHandlerOptions): Di
         // The feedback is stored: a dump the store refused (its own rate limit) doesn't undo it.
         fail(error, "store.saveReport");
       }
+      if (diagnostics && options.store.linkDiagnostics) {
+        try {
+          await options.store.linkDiagnostics({ feedbackId: id, diagnosticsId: diagnostics.id, userId: caller.userId });
+        } catch (error) {
+          // The dump still names the feedback; only the feedback's pointer back is missing.
+          fail(error, "store.linkDiagnostics");
+        }
+      }
     }
 
     await announce({
@@ -506,8 +525,8 @@ export function createDiagnosticsHandler(options: DiagnosticsHandlerOptions): Di
       },
       screenshots: saved,
       // A dump brought with the feedback that the store refused doesn't exist: name none.
-      diagnosticsId: diagnostics?.id ?? (report ? null : submission.diagnosticsId),
-      diagnosticsShortId: diagnostics?.shortId ?? (!report && submission.diagnosticsId ? diagnosticsShortId(submission.diagnosticsId) : null),
+      diagnosticsId: diagnostics?.id ?? submission.diagnosticsId,
+      diagnosticsShortId: diagnostics?.shortId ?? (submission.diagnosticsId ? diagnosticsShortId(submission.diagnosticsId) : null),
       report: diagnostics && report ? { ...report, feedbackId: id } : null,
     });
     return json(201, { id, attachmentsDropped: dropped, diagnostics });

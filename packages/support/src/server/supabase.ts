@@ -93,6 +93,18 @@ export function supabaseDiagnosticsStore(admin: SupportSupabase, options: { tabl
       check(error, "ownsFeedback");
       return Boolean(data);
     },
+    async linkDiagnostics({ feedbackId, diagnosticsId, userId }) {
+      const { data, error } = await admin.from("tickets").select("context").eq("id", feedbackId).eq("user_id", userId).maybeSingle();
+      check(error, "linkDiagnostics");
+      if (!data) return;
+      const context = ((data as { context?: unknown }).context ?? {}) as Record<string, unknown>;
+      const { error: updateError } = await admin
+        .from("tickets")
+        .update({ context: { ...context, diagnosticsId } })
+        .eq("id", feedbackId)
+        .eq("user_id", userId);
+      check(updateError, "linkDiagnostics");
+    },
     async ownsReport(userId, reportId) {
       const { data, error } = await admin.from(table).select("id").eq("id", reportId).eq("user_id", userId).maybeSingle();
       check(error, "ownsReport");

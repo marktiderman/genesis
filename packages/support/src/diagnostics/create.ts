@@ -193,12 +193,14 @@ export function createDiagnostics(options: DiagnosticsOptions): Diagnostics {
   const startedAt = now();
   const maxRoutes = options.limits?.maxRecentRoutes ?? DIAGNOSTICS_DEFAULTS.maxRecentRoutes;
   // Read when used: a settings function (the app's database layer) changes without a restart. One
-  // that throws keeps the last values it gave.
-  let settings = supportSettingValues(typeof options.appSettings === "function" ? null : options.appSettings).diagnostics;
+  // that throws keeps the last values it gave; one that has never answered means no dumps.
+  let settings = supportSettingValues(typeof options.appSettings === "function" ? { "diagnostics.enabled": false } : options.appSettings).diagnostics;
+  let answered = typeof options.appSettings !== "function";
   const settingsNow = () => {
     if (typeof options.appSettings !== "function") return settings;
     try {
       settings = supportSettingValues(options.appSettings()).diagnostics;
+      answered = true;
     } catch {
       // keep the last values
     }
@@ -238,7 +240,9 @@ export function createDiagnostics(options: DiagnosticsOptions): Diagnostics {
     }
   };
 
-  const queue: OfflineQueue<QueuedDump> | null = options.offline && settings.enabled && settings.offlineQueue
+  // Settings that couldn't be read yet keep the queue (its sends wait for diagnostics to be on);
+  // only an answer that says off drops it.
+  const queue: OfflineQueue<QueuedDump> | null = options.offline && (settings.enabled || !answered) && settings.offlineQueue
     ? createOfflineQueue<QueuedDump>({
         storage: options.offline.storage,
         ...(options.offline.key ? { key: options.offline.key } : {}),
@@ -246,6 +250,8 @@ export function createDiagnostics(options: DiagnosticsOptions): Diagnostics {
         ...(options.offline.maxBytes ? { maxBytes: options.offline.maxBytes } : {}),
         ...(options.offline.autoRetry !== undefined ? { autoRetry: options.offline.autoRetry } : {}),
         send: async ({ report, userId }) => {
+          // Diagnostics off (or not known yet): it waits in the queue.
+          if (!enabledNow()) throw new DiagnosticsSendError("diagnostics are off for now", 0, true);
           if (userId) {
             const current = await currentUserId();
             // Nobody signed in yet (the session is still being restored at launch): keep it for later.

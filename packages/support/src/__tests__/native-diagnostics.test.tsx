@@ -1,5 +1,5 @@
 // @feat:support-feedback
-import type { ReactNode } from "react";
+import { StrictMode, type ReactNode } from "react";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { describe, expect, it, vi } from "vitest";
@@ -164,6 +164,51 @@ describe("createSupport({ diagnostics })", () => {
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(transport.sent).toHaveLength(1);
     expect(transport.sent[0]).toMatchObject({ id: ID, trigger: "shake", feedbackId: REPORT });
+  });
+
+  it("sends a shake's dump once under StrictMode, which mounts the feedback screen twice", async () => {
+    const transport = memoryTransport();
+    const diagnostics = createDiagnostics({ app: { id: "acme" }, transport, randomId: () => ID });
+    const acc = accelerometer();
+    const onSent = vi.fn();
+    const { navigate, wrap } = harness(diagnostics, { accelerometer: acc });
+    const view = render(wrap(<span />));
+    let t = 0;
+    vi.spyOn(Date, "now").mockImplementation(() => t);
+    acc.jolt(3);
+    t = 100;
+    acc.jolt(3);
+    await waitFor(() => expect(navigate).toHaveBeenCalled());
+    vi.restoreAllMocks();
+    view.rerender(
+      <StrictMode>
+        {wrap(<FeedbackForm sentAlert={false} onSent={onSent} />)}
+      </StrictMode>,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(transport.sent).toHaveLength(0);
+    fireEvent.change(screen.getByTestId("genesis-support-feedback-message"), { target: { value: "It froze" } });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("genesis-support-feedback-send"));
+    });
+    await waitFor(() => expect(onSent).toHaveBeenCalledTimes(1));
+    view.rerender(wrap(<span />));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(transport.sent).toHaveLength(1);
+    expect(transport.sent[0]).toMatchObject({ id: ID, trigger: "shake", feedbackId: REPORT });
+  });
+
+  it("keeps no routes while diagnostics are off", async () => {
+    const transport = memoryTransport();
+    let on = false;
+    const diagnostics = createDiagnostics({ app: { id: "acme" }, transport, randomId: () => ID });
+    const { wrap } = harness(diagnostics, { appSettings: () => ({ "diagnostics.enabled": on }) });
+    render(wrap(<span />));
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    on = true;
+    const report = await diagnostics.collect();
+    expect(report.session?.route ?? null).toBeNull();
+    expect(report.session?.recentRoutes ?? []).toEqual([]);
   });
 
   it("sends no dump on a shake with dumpOnShake false", async () => {

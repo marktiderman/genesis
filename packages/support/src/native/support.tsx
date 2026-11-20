@@ -55,8 +55,10 @@ export interface PendingFeedback {
  * (one dump, linked both ways); unclaimed, or claimed and left without a report, it goes on its own.
  */
 export interface ShakeDump {
-  /** The screen takes it: true unless it has already gone (or been claimed). */
+  /** The screen takes it: true unless it has already gone, or another screen holds it. Claiming again after `release` (a remount) takes it back. */
   claim(): boolean;
+  /** The screen let go of it unsent (it unmounted): it goes on its own, unless claimed again at once. */
+  release(): void;
   /** The dump (null when it couldn't be made), for `submitFeedback({ report })`. */
   report(): Promise<DiagnosticReport | null>;
   /** It went with a report. */
@@ -227,7 +229,8 @@ export function createSupport(given: SupportOptions): SupportBlock {
     try {
       lastSettings = supportSettingValues(typeof given.appSettings === "function" ? given.appSettings() : given.appSettings);
     } catch {
-      lastSettings ??= supportSettingValues(null);
+      // Never read yet: no dumps until it answers (fail closed). Read before: the last values.
+      lastSettings ??= supportSettingValues({ "diagnostics.enabled": false });
     }
     return lastSettings;
   };
@@ -319,11 +322,13 @@ export function createSupport(given: SupportOptions): SupportBlock {
       report(error, "diagnostics");
       return null;
     });
-    let state: "waiting" | "claimed" | "done" = "waiting";
+    let state: "waiting" | "claimed" | "released" | "done" = "waiting";
+    let releasing: ReturnType<typeof setTimeout> | undefined;
     const sendAlone = () => {
       if (state === "done") return;
       state = "done";
       clearTimeout(timer);
+      clearTimeout(releasing);
       void made
         .then((dump) => (dump ? diagnostics.send({ trigger: "shake", report: dump }) : null))
         .catch((error: unknown) => report(error, "diagnostics"));
@@ -333,15 +338,26 @@ export function createSupport(given: SupportOptions): SupportBlock {
     }, SHAKE_DUMP_CLAIM_MS);
     return {
       claim() {
-        if (state !== "waiting") return false;
+        if (state !== "waiting" && state !== "released") return false;
         state = "claimed";
         clearTimeout(timer);
+        clearTimeout(releasing);
         return true;
+      },
+      release() {
+        if (state !== "claimed") return;
+        // React's StrictMode unmounts and mounts again at once: wait a tick before sending, so the
+        // same screen claiming it again keeps it (one dump, never two).
+        state = "released";
+        releasing = setTimeout(() => {
+          if (state === "released") sendAlone();
+        }, 0);
       },
       report: () => made,
       sent() {
         state = "done";
         clearTimeout(timer);
+        clearTimeout(releasing);
       },
       sendAlone,
     };
@@ -408,7 +424,8 @@ export function createSupport(given: SupportOptions): SupportBlock {
       const current = (options.useCurrentRoute ?? noRoute)();
       useEffect(() => {
         if (current) route = current;
-        if (current) given.diagnostics?.recordRoute(current);
+        // Diagnostics off: the screens visited aren't kept either.
+        if (current) liveDiagnostics()?.recordRoute(current);
       }, [current]);
       useEffect(() => {
         const diagnostics = given.diagnostics;
