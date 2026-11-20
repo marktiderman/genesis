@@ -3,6 +3,15 @@ import { describe, expect, it, vi } from "vitest";
 import { NativeListItem } from "../list-item";
 
 describe("NativeListItem", () => {
+  it("cuts the subtitle at two lines by default, and wraps a selectable value whole", () => {
+    render(<NativeListItem testID="short" title="Name" subtitle="Ada" />);
+    expect(screen.getByText("Ada").getAttribute("data-number-of-lines")).toBe("2");
+    expect(screen.getByText("Ada").getAttribute("data-selectable")).toBeNull();
+    render(<NativeListItem testID="value" title="User id" subtitle="0000-long-id" subtitleLines={null} subtitleSelectable />);
+    expect(screen.getByText("0000-long-id").getAttribute("data-number-of-lines")).toBeNull();
+    expect(screen.getByText("0000-long-id").getAttribute("data-selectable")).toBe("true");
+  });
+
   it("renders title + subtitle", () => {
     render(<NativeListItem testID="row" title="Title" subtitle="Sub" />);
     const node = screen.getByTestId("row");

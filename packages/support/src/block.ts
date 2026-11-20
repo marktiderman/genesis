@@ -62,15 +62,18 @@ export interface SupportBlockOptions {
   useHelpSubtitle?: () => string | null | undefined;
   /** `false` leaves the idea board out. Default on. */
   ideas?: boolean;
-  /** `false` leaves the "Send feedback" row out (the `support.feedback` setting). Default on. */
-  feedback?: boolean;
-  /** `false` leaves the "Help" row (the person's reports) out (the `support.inbox` setting). Default on. */
-  inbox?: boolean;
+  /** `false` leaves the "Send feedback" row out; a function says whether it shows now (the `support.feedback` setting, read live). Default on. */
+  feedback?: boolean | (() => boolean);
+  /** `false` leaves the "Help" row (the person's reports) out; a function says whether it shows now (`support.inbox`). Default on. */
+  inbox?: boolean | (() => boolean);
   /** The block's other FeatureIds it needs (default `["account"]`: a signed-in person). */
   requires?: readonly string[];
 }
 
 const PACKAGE = "@marktiderman/genesis-supabase";
+
+/** A row's `useShown` from a live switch (a function the shell calls each render). */
+const shownBy = (on: boolean | (() => boolean) | undefined) => (typeof on === "function" ? { useShown: on } : {});
 
 /** The block's contributions, for any platform. */
 export function supportContributions(options: SupportBlockOptions = {}): BlockContributions<never> {
@@ -79,10 +82,23 @@ export function supportContributions(options: SupportBlockOptions = {}): BlockCo
   const section = options.settings === false ? null : (options.settings?.section ?? "support");
   const settings: BlockSettingsRow[] = section
     ? [
-        ...(options.feedback === false ? [] : [{ id: "support-send-feedback", section, title: copy.settings.sendFeedback, href: paths.feedback, order: 10, testID: "genesis-support-send-feedback" }]),
+        ...(options.feedback === false
+          ? []
+          : [{ id: "support-send-feedback", section, title: copy.settings.sendFeedback, href: paths.feedback, order: 10, testID: "genesis-support-send-feedback", ...shownBy(options.feedback) }]),
         ...(options.inbox === false
           ? []
-          : [{ id: "support-help", section, title: copy.settings.help, href: paths.inbox, order: 20, testID: "genesis-support-help", ...(options.useHelpSubtitle ? { useSubtitle: options.useHelpSubtitle } : {}) }]),
+          : [
+              {
+                id: "support-help",
+                section,
+                title: copy.settings.help,
+                href: paths.inbox,
+                order: 20,
+                testID: "genesis-support-help",
+                ...(options.useHelpSubtitle ? { useSubtitle: options.useHelpSubtitle } : {}),
+                ...shownBy(options.inbox),
+              },
+            ]),
       ]
     : [];
   const routes = [

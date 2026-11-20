@@ -386,10 +386,26 @@ describe("support", () => {
     expect(read("src/lib/app.ts")).toContain('appFeatures: ["account"]');
   });
 
-  it("has a route file for every route the block declares, each sending you back to Settings when support is off", () => {
-    const routes = ["index", "new", "[id]", "ideas", "shipped"].map((name) => join("src/app/(app)/settings/support", `${name}.tsx`));
-    for (const route of routes) expect(read(route), route).toContain("if (!starter.features.support");
+  it("serves every support screen from two one-line route files, sending you back to Settings when support is off", () => {
+    for (const name of ["index", "[...route]"]) {
+      expect(read(join("src/app/(app)/settings/support", `${name}.tsx`)).trim(), name).toBe('export { StarterSupportRoute as default } from "@/lib/support-route";');
+    }
+    expect(read("src/lib/support-route.tsx")).toContain('if (!starter.features.support) return <Redirect href="/settings" />;');
+    expect(read("src/lib/support-route.tsx")).toContain("<SupportRoute ");
     expect(read("src/lib/support.ts")).toContain('supportBasePath = "/settings/support"');
+  });
+
+  it("adopts zero config: the dump, health checks, live settings, the build stamp and a contact on the error screens", () => {
+    const lib = read("src/lib/support.ts");
+    for (const wired of ["diagnostics: createStarterDiagnostics()", "offline: { storage: AsyncStorage }", "healthChecksSection(healthChecks)", "appState: AppState", "netInfo: NetInfo", "watchAppSettings(", "buildMetadata"]) {
+      expect(lib, wired).toContain(wired);
+    }
+    expect(read("src/lib/devtools-overlay.ts")).toContain("checks: healthChecks");
+    expect(read("src/app/(app)/settings/index.tsx")).toContain("<SendDiagnosticsRow ");
+    expect(read("src/lib/errors.ts")).toContain("support?.contact()");
+    expect(read("src/lib/app.ts")).toContain("slots: { fatal: AppFatalScreen }");
+    const pkg = JSON.parse(read("package.json")) as { scripts: Record<string, string> };
+    expect(pkg.scripts["eas-build-post-install"]).toBe("genesis build-stamp");
   });
 
   it("keeps view-shot and expo-sensors in the build whichever way the switch is, so turning support off is JavaScript only", () => {
@@ -476,10 +492,10 @@ describe("chat", () => {
 
   it("gives every tab a reported screen boundary, and sends trace headers to its own Supabase only", () => {
     for (const tab of ["(home)", "notifications", "messages", "settings"]) {
-      expect(read(join("src/app/(app)", tab, "_layout.tsx")), tab).toContain('export { ScreenErrorBoundary as ErrorBoundary } from "@/lib/observability";');
+      expect(read(join("src/app/(app)", tab, "_layout.tsx")), tab).toContain('export { ScreenErrorBoundary as ErrorBoundary } from "@/lib/errors";');
     }
     const observability = read("src/lib/observability.ts");
-    expect(observability).toContain("observability.screenBoundary()");
+    expect(read("src/lib/errors.ts")).toContain("observability.screenBoundary(ScreenFallback)");
     expect(observability).toMatch(/tracePropagationTargets: \[env\.supabaseUrl/);
   });
 

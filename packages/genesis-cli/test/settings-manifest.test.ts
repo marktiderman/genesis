@@ -59,8 +59,8 @@ describe("genesis settings sync", () => {
     const calls: Array<{ args: readonly string[]; stdin?: string }> = [];
     const ok: ToolRunner = async (_tool, args, options) => (calls.push({ args, stdin: options.stdin }), { code: 0, stdout: "", stderr: "" });
     await syncManifest(root, row, ok);
-    expect(calls[0]?.args).toEqual(["db", "query", "--linked", "--yes", "-f", "/dev/stdin"]);
-    expect(calls[0]?.stdin).toBe(manifestSql(row));
+    expect(calls[0]?.args.slice(0, -1)).toEqual(["db", "query", "--linked", "--yes", "-f"]);
+    expect(calls[0]?.stdin).toBeUndefined();
     const fails: ToolRunner = async () => ({ code: 1, stdout: "", stderr: "Cannot find project ref\nmore" });
     await expect(syncManifest(root, row, fails)).rejects.toThrow("supabase exited 1: Cannot find project ref");
   });
@@ -69,7 +69,7 @@ describe("genesis settings sync", () => {
     expect(() => toManifestRow(app({ preset: "maximum" }))).toThrow(/"preset" is "maximum", not one of max, standard, min/);
   });
 
-  it("on Windows, sends the SQL through a temp file, removed after", async () => {
+  it("sends the SQL through a temp file, removed after, never /dev/stdin", async () => {
     const root = app({});
     const row = toManifestRow(root);
     let file = "";
@@ -80,7 +80,7 @@ describe("genesis settings sync", () => {
       expect(options.stdin).toBeUndefined();
       return { code: 0, stdout: "", stderr: "" };
     };
-    await syncManifest(root, row, run, { platform: "win32", projectRef: "abcdefghijklmnopqrst" });
+    await syncManifest(root, row, run, { projectRef: "abcdefghijklmnopqrst" });
     expect(file).not.toBe("/dev/stdin");
     expect(sent).toBe(manifestSql(row));
     expect(existsSync(file)).toBe(false);
@@ -104,7 +104,7 @@ describe("genesis settings sync (the command)", () => {
     const err: string[] = [];
     const calls: Array<readonly string[]> = [];
     const run: ToolRunner = async (_tool, args) => (calls.push(args), { code: 0, stdout: "", stderr: "" });
-    return { out, err, calls, io: { out: (l: string) => out.push(l), err: (l: string) => err.push(l), isTTY: true, run, platform: "linux" as const, ...over } };
+    return { out, err, calls, io: { out: (l: string) => out.push(l), err: (l: string) => err.push(l), isTTY: true, run, ...over } };
   }
 
   it("names the linked project and asks before writing", async () => {
@@ -114,7 +114,7 @@ describe("genesis settings sync (the command)", () => {
     expect(await runSettingsSync({ dir: root }, t.io)).toBe(0);
     expect(t.out[0]).toContain(`goes to Supabase project ${REF} (linked)`);
     expect(asked).toEqual([`Write it to ${REF}?`]);
-    expect(t.calls).toEqual([["db", "query", "--linked", "--yes", "-f", "/dev/stdin"]]);
+    expect(t.calls.map((c) => c.slice(0, -1))).toEqual([["db", "query", "--linked", "--yes", "-f"]]);
   });
 
   it("writes nothing when the answer is no", async () => {
@@ -138,7 +138,7 @@ describe("genesis settings sync (the command)", () => {
   it("takes --project-ref, and refuses one that isn't a ref or no project at all", async () => {
     const t = io();
     expect(await runSettingsSync({ dir: app({}), yes: true, projectRef: "zyxwvutsrqponmlkjihg" }, t.io)).toBe(0);
-    expect(t.calls).toEqual([["db", "query", "--linked", "--project-ref", "zyxwvutsrqponmlkjihg", "--yes", "-f", "/dev/stdin"]]);
+    expect(t.calls.map((c) => c.slice(0, -1))).toEqual([["db", "query", "--linked", "--project-ref", "zyxwvutsrqponmlkjihg", "--yes", "-f"]]);
     const bad = io();
     expect(await runSettingsSync({ dir: app({}), yes: true, projectRef: "x; rm" }, bad.io)).toBe(1);
     expect(bad.err.join("\n")).toMatch(/isn't a Supabase project ref/);

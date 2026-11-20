@@ -19,6 +19,7 @@ import { nativeModules } from "./native-modules";
 import { offlineCache } from "./offline";
 import { sessionReady, supabase } from "./supabase";
 import { devtools } from "./devtools";
+import { AppFatalScreen } from "./errors";
 import { createStarterPush } from "./push";
 import { support } from "./support";
 import { updatesBlock } from "./updates";
@@ -55,6 +56,8 @@ export const shell: Omit<GenesisNativeAppProps, "children" | "splash"> = {
   updates: updatesBlock,
   // The first block's root is the outermost: observability sees everything below it.
   blocks: [observability, features.push ? createStarterPush() : undefined, support, devtools].filter((block) => block !== undefined),
+  // "Contact support" on the fatal screen, when support has a contact (`errors.ts`).
+  slots: { fatal: AppFatalScreen },
   // Support needs a signed-in person: the account feature (sign-in in AuthScreen) is the app's own, not a block.
   appFeatures: ["account"],
 };

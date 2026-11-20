@@ -6,7 +6,7 @@
  */
 import { existsSync } from "node:fs";
 import * as path from "node:path";
-import { defineSetupStep } from "@marktiderman/genesis-config/setup";
+import { defineSetupStep } from "./define.js";
 import { TOOL_AUTH_ENV } from "../../exec/run.js";
 import { OFFLINE, printable, type StepRunner } from "./framework.js";
 

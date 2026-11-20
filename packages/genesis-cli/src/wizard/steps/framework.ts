@@ -1,7 +1,7 @@
 /**
  * The guided setup steps' runners (config-layer design §3.2, R5): each walks one outside service.
  *
- * A runner pairs a step's metadata (`defineSetupStep`, genesis-config `./setup`) with:
+ * A runner pairs a step's metadata (`defineSetupStep`, ./define.ts) with:
  *
  * - `detect`: what is there now (a project list, signed in or not). Reads only.
  * - `plan`: the commands the CLI runs, as a fix plan: the S2 setters put each secret in its store
@@ -17,7 +17,7 @@
  * tool's stdin or in a request header. Never argv, a URL, a log line or an answer: every message
  * is redacted against the vault before it leaves.
  */
-import { checkSetupFields, SetupStepError, type SetupStepDef } from "@marktiderman/genesis-config/setup";
+import { checkSetupFields, SetupStepError, type SetupStepDef } from "./define.js";
 import { SettingsError } from "@marktiderman/genesis-config/settings";
 import { runTool, isAllowedTool, TOOL_AUTH_ENV, type ToolRunner } from "../../exec/run.js";
 import { SecretVault } from "../../exec/secret-vault.js";

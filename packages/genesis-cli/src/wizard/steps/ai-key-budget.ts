@@ -3,7 +3,7 @@
  * provider's spend limit set in its console. Verified by listing the models with the key (`GET /v1/models`
  * spends no tokens).
  */
-import { defineSetupStep } from "@marktiderman/genesis-config/setup";
+import { defineSetupStep } from "./define.js";
 import { needsSecret, OFFLINE, request, secretSetters, type StepRunner } from "./framework.js";
 
 export const aiKeyBudgetStep = defineSetupStep({
