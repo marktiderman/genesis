@@ -148,9 +148,12 @@ describe("createSupport with settings", () => {
     expect(given.options).toMatchObject({ ideas: true, shake: { threshold: 4 } });
   });
 
-  it("leaves out the Settings rows for a feature that is off", () => {
+  it("leaves out the Settings rows for a feature that is off, as the setting says now", () => {
     const { block } = make({ "support.inbox": false });
-    expect(block.contributes!.settings?.map((r) => r.id)).toEqual(["support-send-feedback"]);
+    // Every row is declared; each one's useShown reads its setting on every render of Settings.
+    const shown = (id: string) => block.contributes!.settings!.find((r) => r.id === id)!.useShown!();
+    expect(shown("support-send-feedback")).toBe(true);
+    expect(shown("support-help")).toBe(false);
     expect(supportContributions({ feedback: false, inbox: false }).settings).toEqual([]);
   });
 

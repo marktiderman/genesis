@@ -5,6 +5,7 @@
  *
  * @stability Beta
  */
+import { fill, type SupportCopy } from "./copy";
 
 /** A help desk the signed-in login works (`support_my_desks`). */
 export interface SupportDesk {
@@ -100,6 +101,21 @@ export function pickerDesks(desks: readonly SupportDesk[], chosen?: SupportDesk)
 /** The desk's tenant as the support client's `tenantId` names it: null for the app's own. */
 export function deskTenant(desk: Pick<SupportDesk, "tenantId" | "isDefault"> | null | undefined): string | null {
   return !desk || desk.isDefault ? null : desk.tenantId;
+}
+
+/** A desk's name: the app's label, else the copy's ("Support" for the app's own). */
+export function deskTitle(desk: { label: string | null; isDefault: boolean } | null | undefined, copy: Pick<SupportCopy, "desks">): string {
+  if (!desk) return copy.desks.unnamedDesk;
+  return desk.label?.trim() || (desk.isDefault ? copy.desks.appDesk : copy.desks.unnamedDesk);
+}
+
+/** What a ticket's last move says ("Sent up to Support by Ana from Acme."), or null when it never moved. */
+export function lastMoveLine(desk: TicketDesk, copy: Pick<SupportCopy, "desks">, names: (tenantId: string) => string): string | null {
+  const move = desk.lastMove;
+  if (!move) return null;
+  const by = move.byName ? fill(copy.desks.by, { name: move.byName }) : "";
+  const template = move.action === "escalated" ? copy.desks.lastEscalated : move.action === "returned" ? copy.desks.lastReturned : copy.desks.lastMoved;
+  return fill(template, { by, from: names(move.from), to: names(move.to) });
 }
 
 type Row = Record<string, unknown>;

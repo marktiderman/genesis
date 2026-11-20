@@ -40,6 +40,7 @@ function wrap() {
 
 const report = (over: Partial<SupportReport> = {}): SupportReport => ({
   id: "r1",
+  verifiedAt: null,
   type: "bug",
   title: "Export is broken",
   message: "It does nothing",

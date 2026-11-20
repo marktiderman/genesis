@@ -238,3 +238,60 @@ describe("contactHref, after review", async () => {
     expect(contactHref({ email: "!@!." + "!.".repeat(20000) })).toBeNull();
   });
 });
+
+describe("the error screens' words and Report this", async () => {
+  const { BlocksProvider } = await import("../blocks");
+  const { createScreenErrorBoundary } = await import("../screen-boundary");
+  const withReporter = (reportProblem: (error: Error, where: { kind: "app" | "screen" }) => void) =>
+    ({ blocks: [{ id: "support-feedback", reportProblem }], ids: new Set(["support-feedback"]), slots: {}, settings: [] }) as never;
+
+  it("takes the app's words for every line, Contact support included", () => {
+    render(
+      <FatalScreen error={new Error("x")} retry={() => {}} kind="screen" contact={{ email: "help@acme.test" }} labels={{ contact: "Write to us", retry: "Again", screenTitle: "Oops" }} />,
+    );
+    expect(screen.getByTestId("genesis-screen-error-contact").textContent).toBe("Write to us");
+    expect(screen.getByTestId("genesis-screen-error-retry").textContent).toBe("Again");
+    expect(screen.getByText("Oops")).toBeTruthy();
+  });
+
+  it("offers Report this with a block that takes reports, and sends it the error", () => {
+    const report = vi.fn();
+    const error = new Error("screen broke");
+    render(
+      <BlocksProvider value={withReporter(report)}>
+        <FatalScreen error={error} retry={() => {}} kind="screen" />
+      </BlocksProvider>,
+    );
+    fireEvent.click(screen.getByTestId("genesis-screen-error-report"));
+    expect(report).toHaveBeenCalledWith(error, { kind: "screen" });
+  });
+
+  it("on the app's fatal screen, brings the app back before the form opens", () => {
+    const calls: string[] = [];
+    render(
+      <BlocksProvider value={withReporter(() => calls.push("report"))}>
+        <FatalScreen error={new Error("x")} retry={() => void calls.push("retry")} labels={{ report: "Tell us" }} />
+      </BlocksProvider>,
+    );
+    expect(screen.getByTestId("genesis-fatal-report").textContent).toBe("Tell us");
+    fireEvent.click(screen.getByTestId("genesis-fatal-report"));
+    expect(calls).toEqual(["retry", "report"]);
+  });
+
+  it("has no Report this without a block that takes reports, or with onReport null", () => {
+    render(<FatalScreen error={new Error("x")} retry={() => {}} />);
+    expect(screen.queryByTestId("genesis-fatal-report")).toBeNull();
+    render(
+      <BlocksProvider value={withReporter(vi.fn())}>
+        <FatalScreen error={new Error("x")} retry={() => {}} kind="screen" onReport={null} />
+      </BlocksProvider>,
+    );
+    expect(screen.queryByTestId("genesis-screen-error-report")).toBeNull();
+  });
+
+  it("gives a screen boundary's default fallback the app's words", () => {
+    const Boundary = createScreenErrorBoundary({ onError: () => {}, labels: { screenBody: "Go back and try again." } });
+    render(<Boundary error={new Error("x")} retry={async () => {}} />);
+    expect(screen.getByText("Go back and try again.")).toBeTruthy();
+  });
+});

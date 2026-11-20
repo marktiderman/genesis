@@ -9,7 +9,7 @@
  */
 import { useRef, useState, type ComponentRef } from "react";
 import { Dimensions, Image, PanResponder, View, type LayoutChangeEvent } from "react-native";
-import { NativeButton, NativeSegmentedControl, NativeText } from "@marktiderman/genesis-ui-native/components";
+import { Box, Inline, NativeButton, NativeInlineAlert, NativeSegmentedControl, NativeText, Stack } from "@marktiderman/genesis-ui-native/components";
 import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
 import type { SupportCopy } from "../copy";
 import type { ViewShotLike } from "./modules";
@@ -142,8 +142,10 @@ export function ScreenshotAnnotator({ screenshot, viewShot, copy, onDone, onCanc
   let dots = 0;
   const all = draft ? [...marks, draft] : marks;
   return (
-    <View testID={testID} style={{ gap: 12 }}>
-      <NativeText style={{ color: colors.secondaryLabel, fontSize: 13, lineHeight: 18 }}>{copy.hint}</NativeText>
+    <Stack gap="md" testID={testID}>
+      <NativeText preset="body-sm" className="text-muted-foreground">
+        {copy.hint}
+      </NativeText>
       <NativeSegmentedControl
         testID={`${testID}-tool`}
         options={[
@@ -174,23 +176,19 @@ export function ScreenshotAnnotator({ screenshot, viewShot, copy, onDone, onCanc
           })}
         </View>
       </View>
-      {failed ? (
-        <NativeText testID={`${testID}-failed`} accessibilityLiveRegion="polite" style={{ color: colors.destructive, fontSize: 13, lineHeight: 18 }}>
-          {copy.failed}
-        </NativeText>
-      ) : null}
-      <View style={{ flexDirection: "row", gap: 8 }}>
+      {failed ? <NativeInlineAlert variant="destructive" description={copy.failed} testID={`${testID}-failed`} /> : null}
+      <Inline gap="sm">
         <NativeButton variant="ghost" onPress={() => onCancel(marks.length > 0 || draft !== null)} testID={`${testID}-cancel`}>
           {copy.cancel}
         </NativeButton>
         <NativeButton variant="outline" onPress={() => setMarks((m) => m.slice(0, -1))} disabled={!marks.length} testID={`${testID}-undo`}>
           {copy.undo}
         </NativeButton>
-        <View style={{ flex: 1 }} />
+        <Box style={{ flex: 1 }} />
         <NativeButton onPress={() => void done()} loading={saving} testID={`${testID}-done`}>
           {copy.done}
         </NativeButton>
-      </View>
-    </View>
+      </Inline>
+    </Stack>
   );
 }

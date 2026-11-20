@@ -48,6 +48,8 @@ export interface HealthChecks {
   list(): readonly HealthCheck[];
   /** Run every check at once and keep the results. */
   run(): Promise<HealthResult[]>;
+  /** Run one check again (a devtools "Try again") and keep its result with the others. Null when no check has that name. */
+  runCheck(name: string): Promise<HealthResult | null>;
   /** The last results, empty before the first run. */
   latest(): readonly HealthResult[];
   /** Called after each run. */
@@ -101,6 +103,14 @@ export function createHealthChecks(options: { now?: () => number } = {}): Health
       results = await Promise.all([...checks.values()].map(runOne));
       listeners.forEach((listener) => listener());
       return results;
+    },
+    async runCheck(name) {
+      const check = checks.get(name);
+      if (!check) return null;
+      const result = await runOne(check);
+      results = results.some((r) => r.name === name) ? results.map((r) => (r.name === name ? result : r)) : [...results, result];
+      listeners.forEach((listener) => listener());
+      return result;
     },
     latest: () => results,
     subscribe(listener) {

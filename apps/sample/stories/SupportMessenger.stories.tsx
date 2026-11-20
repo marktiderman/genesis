@@ -51,6 +51,7 @@ const ARTICLES: HelpArticle[] = [
 
 const TICKET: Ticket = {
   id: "t1",
+  verifiedAt: null,
   type: "question",
   title: null,
   message: "Where do I find last month's invoice?",

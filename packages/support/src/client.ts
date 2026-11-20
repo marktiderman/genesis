@@ -74,6 +74,8 @@ export interface SupportReport {
   unread: boolean;
   /** Who sent it (the person's own id, or for staff the reporter's). */
   userId?: string | null;
+  /** When the person confirmed the fix (migration 0003, which the support block brings). Addressed and not confirmed: the thread asks "Is it fixed?". */
+  verifiedAt: string | null;
 }
 
 /** A ticket: a request from someone outside the team, owed a reply (ADR 0015). The new name for {@link SupportReport}. */
@@ -465,7 +467,7 @@ export interface SupportClientOptions {
 }
 
 const REPORT_COLUMNS =
-  "id, user_id, type, title, message, status, feature_id, route, app_version, created_at, updated_at, last_staff_reply_at, last_user_reply_at, user_read_at, staff_read_at, pin:context->pin, about_label:context->>about_label";
+  "id, user_id, type, title, message, status, feature_id, route, app_version, created_at, updated_at, last_staff_reply_at, last_user_reply_at, user_read_at, staff_read_at, verified_at, pin:context->pin, about_label:context->>about_label";
 const IDEA_COLUMNS = "id, title, body, status, feature_id, shipped_at, vote_count, created_at";
 
 type Row = Record<string, unknown>;
@@ -528,6 +530,7 @@ function toReport(r: Row): SupportReport {
     lastUserReplyAt: (r["last_user_reply_at"] as string | null) ?? null,
     userReadAt: (r["user_read_at"] as string | null) ?? null,
     staffReadAt: (r["staff_read_at"] as string | null) ?? null,
+    verifiedAt: (r["verified_at"] as string | null) ?? null,
     userId: (r["user_id"] as string | null) ?? null,
   };
   return { ...report, unread: isUnread(report) };

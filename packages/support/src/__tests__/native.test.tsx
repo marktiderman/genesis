@@ -81,7 +81,7 @@ describe("the support block", () => {
     const { block } = harness();
     expect(block.id).toBe("support-feedback");
     expect(block.platforms).toEqual(["native"]);
-    expect(block.contributes?.settings?.map((r) => r.href)).toEqual(["/settings/support/new", "/settings/support"]);
+    expect(block.contributes?.settings?.map((r) => r.href)).toEqual(["/settings/support/new", "/settings/support", "/settings/support/agent"]);
   });
 
   it("captures the screen on a shake and opens the feedback screen with it", async () => {

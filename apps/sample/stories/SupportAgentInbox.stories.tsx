@@ -17,6 +17,7 @@ const at = (minAgo: number) => new Date(Date.UTC(2026, 10, 3, 12, 0) - minAgo * 
 
 const seed = (over: Partial<AgentTicket> & Pick<AgentTicket, "id" | "title" | "message" | "userId" | "preview">): AgentTicket => ({
   tenantId: "acme",
+  verifiedAt: null,
   type: "bug",
   status: "open",
   featureId: null,

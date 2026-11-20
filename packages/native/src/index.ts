@@ -35,6 +35,8 @@ export {
   type FatalScreenKind,
   type FatalScreenViewProps,
   type FatalScreenContact,
+  type FatalScreenLabels,
+  DEFAULT_FATAL_SCREEN_LABELS,
   contactHref,
   PlainFatalScreen,
   GenesisErrorBoundary,

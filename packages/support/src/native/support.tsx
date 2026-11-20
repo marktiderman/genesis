@@ -28,8 +28,10 @@ import { fill, resolveSupportCopy, type SupportCopy, type SupportCopyOverrides }
 import { composeCollectors, createContextCollector, type ContextCollector, type FeedbackSink, type ScreenshotContentType } from "../record";
 import type { Diagnostics } from "../diagnostics/create";
 import type { DiagnosticReport } from "../diagnostics/report";
+import { scrubString } from "../diagnostics/scrub";
 import { listenForShake, type AccelerometerLike, type ShakeOptions, type ViewShotLike } from "./modules";
 import { SendDiagnosticsRow } from "./diagnostics";
+import { useAgentUnreadCount, useIsSupportAgent } from "./agent";
 import { supportContact, supportSettingValues, type SupportContactInfo, type SupportSettingsInput, type SupportSettingValues } from "../settings";
 import { isUnderPath, stripZone, zoneOf } from "../routes";
 
@@ -45,8 +47,13 @@ export interface PendingScreenshot {
 export interface PendingFeedback {
   route: string | null;
   screenshot: PendingScreenshot | null;
-  /** Extra context to send with the report (the devtools overlay's debug report). */
+  /** Extra context to send with the report (the devtools overlay's debug report, an error screen's error). */
   extra?: Record<string, unknown>;
+  /**
+   * What the screen is about, as the app names it ("Billing"), with context to send with it: the
+   * form shows "About: Billing", as the web panel does. Left out, the form shows the screen's path.
+   */
+  about?: { label: string; context?: Record<string, unknown> } | null;
   /** The dump the shake made: it goes with the report, or on its own if none is sent. */
   shakeDump?: ShakeDump | null;
 }
@@ -191,7 +198,13 @@ export interface SupportBlock extends NativeBlock<typeof SUPPORT_BLOCK_ID> {
   /** The context dump, when the app passed `diagnostics` and `diagnostics.enabled` is on now. */
   readonly diagnostics: Diagnostics | null;
   /** Capture the screen (if it can and `screenshot` isn't false), then open the feedback screen. */
-  openFeedback(options?: { screenshot?: boolean; extra?: Record<string, unknown>; delayMs?: number; shakeDump?: ShakeDump | null }): Promise<void>;
+  openFeedback(options?: {
+    screenshot?: boolean;
+    extra?: Record<string, unknown>;
+    about?: PendingFeedback["about"];
+    delayMs?: number;
+    shakeDump?: ShakeDump | null;
+  }): Promise<void>;
   /** Hand the feedback screen what it opens with (`takePending` empties it). */
   takePending(): PendingFeedback | null;
   peekPending(): PendingFeedback | null;
@@ -249,7 +262,6 @@ function applySettings(options: SupportOptions, s: SupportSettingValues): Suppor
   const replyExpectation = options.replyExpectation ?? s.support.replyExpectation ?? undefined;
   return {
     ...options,
-    ideas: options.ideas ?? s.support.ideas,
     ...(replyExpectation !== undefined ? { replyExpectation } : {}),
     shake,
   };
@@ -276,6 +288,8 @@ export function createSupport(given: SupportOptions): SupportBlock {
     diagnostics: { get: liveDiagnostics, enumerable: true, configurable: true },
     dumpOnShake: { get: () => given.dumpOnShake ?? readSettings().diagnostics.dumpOnShake, enumerable: true, configurable: true },
     dumpOnFeedback: { get: () => given.dumpOnFeedback ?? readSettings().diagnostics.dumpOnFeedback, enumerable: true, configurable: true },
+    // The idea board follows `support.ideas` too, unless the app gave `ideas`.
+    ideas: { get: () => given.ideas ?? readSettings().support.ideas, enumerable: true, configurable: true },
   });
   const copy = resolveSupportCopy(options.copy);
   const paths = supportPaths(options.basePath);
@@ -313,9 +327,10 @@ export function createSupport(given: SupportOptions): SupportBlock {
     basePath: options.basePath,
     copy: options.copy,
     settings: options.settings,
-    ideas: options.ideas,
-    feedback: initialSettings.support.feedback,
-    inbox: initialSettings.support.inbox,
+    // Its routes are declared unless the app said no; the rows show as the settings say now.
+    ideas: given.ideas,
+    feedback: () => readSettings().support.feedback,
+    inbox: () => readSettings().support.inbox,
     useHelpSubtitle: () => {
       const unread = useUnreadReplies();
       return unread ? fill(copy.settings.unreadReplies, { count: unread }) : null;
@@ -329,6 +344,17 @@ export function createSupport(given: SupportOptions): SupportBlock {
       // a failing reporter never breaks support
     }
   };
+
+  // Where to go once the app's screens are back (the fatal screen's "Report this").
+  let afterRemount: string | null = null;
+  function reportProblem(error: Error, where: { kind: "app" | "screen" }) {
+    pending?.shakeDump?.sendAlone();
+    setPending({ route, screenshot: null, extra: { error: errorSummary(error) }, about: null, shakeDump: null });
+    // A screen's error leaves the router up; the app's fatal screen has just remounted it ("Try
+    // again" ran first), so the form opens from the support root's next commit, below it.
+    if (where.kind === "screen") options.navigate(paths.feedback);
+    else afterRemount = paths.feedback;
+  }
 
   let opening = false;
   // The devtools overlay's "Send feedback" (its `devtoolsFeedback` slot): closes the overlay,
@@ -430,6 +456,27 @@ export function createSupport(given: SupportOptions): SupportBlock {
     ...declaration,
     contributes: {
       ...declaration.contributes,
+      // "Support inbox" into the agent desk: for the app's agents, while `support.agentDesk` is on.
+      settings: [
+        ...(declaration.contributes?.settings ?? []),
+        ...(given.settings === false
+          ? []
+          : [
+              {
+                id: "support-agent-desk",
+                section: given.settings?.section ?? "support",
+                title: copy.settings.agentDesk,
+                href: paths.agent,
+                order: 30,
+                testID: "genesis-support-agent-desk-row",
+                useShown: () => useIsSupportAgent() && readSettings().support.agentDesk,
+                useSubtitle: () => {
+                  const unread = useAgentUnreadCount();
+                  return unread ? fill(copy.agentInbox.unreadCount, { count: unread }) : null;
+                },
+              },
+            ]),
+      ],
       slots: {
         devtoolsFeedback: DevtoolsFeedback as ComponentType<never>,
         ...(given.diagnostics ? { devtoolsDiagnostics: DevtoolsDiagnostics as ComponentType<never> } : {}),
@@ -438,6 +485,10 @@ export function createSupport(given: SupportOptions): SupportBlock {
     get diagnostics() {
       return liveDiagnostics() ?? null;
     },
+    // genesis-native's error screens offer "Report this" while feedback is on: the form opens with the error attached.
+    get reportProblem() {
+      return readSettings().support.feedback ? reportProblem : undefined;
+    },
     platforms: ["native"],
     options,
     settings: readSettings,
@@ -445,7 +496,7 @@ export function createSupport(given: SupportOptions): SupportBlock {
     copy,
     paths,
     collector,
-    async openFeedback({ screenshot = true, extra, delayMs = 0, shakeDump = null } = {}) {
+    async openFeedback({ screenshot = true, extra, about = null, delayMs = 0, shakeDump = null } = {}) {
       if (opening) {
         shakeDump?.sendAlone();
         return;
@@ -466,7 +517,7 @@ export function createSupport(given: SupportOptions): SupportBlock {
           }
         }
         pending?.shakeDump?.sendAlone();
-        setPending({ route, screenshot: shot, extra, shakeDump });
+        setPending({ route, screenshot: shot, extra, about, shakeDump });
         options.navigate(paths.feedback);
       } finally {
         opening = false;
@@ -495,6 +546,13 @@ export function createSupport(given: SupportOptions): SupportBlock {
     contact: () => supportContact(typeof given.appSettings === "function" ? given.appSettings() : given.appSettings),
     Root: function SupportRoot({ children }) {
       const current = (options.useCurrentRoute ?? noRoute)();
+      // After every commit: a "Report this" on the app's fatal screen waits for the screens it remounted.
+      useEffect(() => {
+        if (!afterRemount) return;
+        const to = afterRemount;
+        afterRemount = null;
+        options.navigate(to);
+      });
       useEffect(() => {
         if (current) route = current;
         // Diagnostics off: the screens visited aren't kept either.
@@ -530,8 +588,9 @@ export function createSupport(given: SupportOptions): SupportBlock {
             () => {
               // Already on a support screen: shaking again does nothing.
               if (route && isUnderPath(stripZone(route, zones), paths.inbox)) return;
-              // The person turned shake to report off (shake.enabled is theirs to change).
-              if (!readSettings().shake.enabled) return;
+              // The person turned shake to report off (shake.enabled is theirs), or the app turned feedback off.
+              const now = readSettings();
+              if (!now.shake.enabled || !now.support.feedback) return;
               const diagnostics = options.diagnostics;
               const shakeDump = diagnostics && options.dumpOnShake ? makeShakeDump(diagnostics) : null;
               void block.openFeedback({ shakeDump });
@@ -547,6 +606,13 @@ export function createSupport(given: SupportOptions): SupportBlock {
     },
   };
   return block;
+}
+
+/** An error as feedback carries it: its name, message and the top of its stack, bounded. */
+function errorSummary(error: Error): Record<string, string> {
+  // Scrubbed as the dump is: an error's text can hold an email, a token or an id.
+  const stack = error.stack ? scrubString(error.stack.split("\n").slice(0, 15).join("\n")).slice(0, 4000) : null;
+  return { name: scrubString(error.name).slice(0, 200), message: scrubString(error.message).slice(0, 2000), ...(stack ? { stack } : {}) };
 }
 
 function noRoute(): string {

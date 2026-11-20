@@ -164,4 +164,13 @@ describe("useBlockSettings", () => {
     const sections = [{ id: "about", rows: [{ id: "terms", title: "Terms" }] }];
     expect(mergeBlockSettings(sections, [])).toEqual(sections);
   });
+
+  it("leaves out a row its useShown says is hidden now", () => {
+    const rows = [
+      { id: "a", section: "about", title: "A", feature: "x" },
+      { id: "b", section: "about", title: "B", feature: "x" },
+    ] as never;
+    const merged = mergeBlockSettings([{ id: "about", rows: [] }], rows, [], {}, [true, false]);
+    expect(merged[0]!.rows.map((r) => r.id)).toEqual(["a"]);
+  });
 });

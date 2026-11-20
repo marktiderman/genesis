@@ -7,9 +7,10 @@
  */
 import { Component, type ComponentType, type ErrorInfo, type ReactNode } from "react";
 import { Linking, Pressable, Text, View } from "react-native";
-import { NativeButton, NativeEmptyState } from "@marktiderman/genesis-ui-native/components";
+import { Inline, NativeButton, NativeEmptyState } from "@marktiderman/genesis-ui-native/components";
 import { classifyError, reportError } from "@marktiderman/genesis-core/errors";
 import { toError } from "./boot";
+import { useOptionalBlocks, type NativeBlock } from "./blocks";
 
 declare const __DEV__: boolean | undefined;
 
@@ -50,7 +51,40 @@ export interface FatalScreenViewProps {
    * settings: `support.contact()`): a "Contact support" button under "Try again". Left out, none.
    */
   contact?: FatalScreenContact | null;
+  /**
+   * "Report this": opens the support block's feedback form with the error attached. Left out, the
+   * block's (when the support block is on and feedback with it); `null` for none.
+   */
+  onReport?: ((error: Error, where: { kind: "app" | "screen" }) => void) | null;
+  /** The screen's words, in English by default. */
+  labels?: Partial<FatalScreenLabels>;
 }
+
+/** The fatal and screen error screens' words. */
+export interface FatalScreenLabels {
+  /** The app's fatal screen. */
+  title: string;
+  body: string;
+  /** One screen failed. */
+  screenTitle: string;
+  screenBody: string;
+  /** The plain screen's line when the error has nothing safe to say. */
+  plainBody: string;
+  retry: string;
+  contact: string;
+  report: string;
+}
+
+export const DEFAULT_FATAL_SCREEN_LABELS: FatalScreenLabels = {
+  title: "Something went wrong",
+  body: "The app hit a problem. Try again, and if it keeps happening, close and reopen the app.",
+  screenTitle: "This screen hit a problem",
+  screenBody: "The rest of the app still works. Try again, or go back.",
+  plainBody: "Try again, and if it keeps happening, close and reopen the app.",
+  retry: "Try again",
+  contact: "Contact support",
+  report: "Report this",
+};
 
 /** A support contact for the fatal screens: an email address, a support page, or both. */
 export interface FatalScreenContact {
@@ -108,57 +142,80 @@ const runRetry = (retry: FatalScreenViewProps["retry"], source: string) => () =>
  * The fatal screen: what went wrong and "Try again", for the whole app, one screen, or (with
  * `kind="plain"`) the last resort that needs nothing above it.
  */
-export function FatalScreen({ error, retry, kind = "app", contact }: FatalScreenViewProps) {
+export function FatalScreen({ error, retry, kind = "app", contact, onReport, labels: given }: FatalScreenViewProps) {
+  const blocks = useOptionalBlocks();
+  const labels = { ...DEFAULT_FATAL_SCREEN_LABELS, ...given };
   const href = contactHref(contact);
   if (kind === "plain") {
     return (
       <View testID="genesis-fatal-plain" style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 24, gap: 12 }}>
         <Text accessibilityRole="header" style={{ fontSize: 17, fontWeight: "600" }}>
-          Something went wrong
+          {labels.title}
         </Text>
-        <Text style={{ textAlign: "center" }}>{errorDetails(error) ?? "Try again, and if it keeps happening, close and reopen the app."}</Text>
+        <Text style={{ textAlign: "center" }}>{errorDetails(error) ?? labels.plainBody}</Text>
         <Pressable accessibilityRole="button" onPress={() => void retry()} testID="genesis-fatal-plain-retry" style={{ padding: 12 }}>
-          <Text style={{ fontSize: 17 }}>Try again</Text>
+          <Text style={{ fontSize: 17 }}>{labels.retry}</Text>
         </Pressable>
         {href ? (
           <Pressable accessibilityRole="link" onPress={openContact(href)} testID="genesis-fatal-plain-contact" style={{ padding: 12 }}>
-            <Text style={{ fontSize: 15 }}>Contact support</Text>
+            <Text style={{ fontSize: 15 }}>{labels.contact}</Text>
           </Pressable>
         ) : null}
       </View>
     );
   }
   const screen = kind === "screen";
+  const report = onReport === undefined ? blockReporter(blocks?.blocks) : onReport;
+  const onReportPress = report
+    ? () => {
+        // The app's screens are gone behind the fatal screen: bring them back, then open the form.
+        if (!screen) void Promise.resolve(retry()).catch((e: unknown) => reportError(e, "native:fatal-retry"));
+        try {
+          report(error, { kind: screen ? "screen" : "app" });
+        } catch (e) {
+          reportError(e, "native:report-problem");
+        }
+      }
+    : null;
+  const secondary =
+    href || onReportPress ? (
+      <Inline gap="sm" wrap justify="center">
+        {onReportPress ? (
+          <NativeButton variant="outline" onPress={onReportPress} testID={screen ? "genesis-screen-error-report" : "genesis-fatal-report"}>
+            {labels.report}
+          </NativeButton>
+        ) : null}
+        {href ? (
+          <NativeButton variant="outline" onPress={openContact(href)} testID={screen ? "genesis-screen-error-contact" : "genesis-fatal-contact"}>
+            {labels.contact}
+          </NativeButton>
+        ) : null}
+      </Inline>
+    ) : null;
   return (
     <NativeEmptyState
       variant="error"
-      title={screen ? "This screen hit a problem" : "Something went wrong"}
-      body={
-        screen
-          ? "The rest of the app still works. Try again, or go back."
-          : "The app hit a problem. Try again, and if it keeps happening, close and reopen the app."
-      }
+      title={screen ? labels.screenTitle : labels.title}
+      body={screen ? labels.screenBody : labels.body}
       details={errorDetails(error)}
       primaryAction={
         <NativeButton
           onPress={screen ? runRetry(retry, "native:screen-retry") : () => void retry()}
           testID={screen ? "genesis-screen-error-retry" : "genesis-fatal-retry"}
         >
-          Try again
+          {labels.retry}
         </NativeButton>
       }
-      {...(href
-        ? {
-            secondaryAction: (
-              <NativeButton variant="outline" onPress={openContact(href)} testID={screen ? "genesis-screen-error-contact" : "genesis-fatal-contact"}>
-                Contact support
-              </NativeButton>
-            ),
-          }
-        : {})}
+      {...(secondary ? { secondaryAction: secondary } : {})}
       testID={screen ? "genesis-screen-error" : "genesis-fatal"}
     />
   );
+}
+
+/** The first block that takes a problem report (the support block's "Report this"). */
+function blockReporter(blocks: readonly NativeBlock[] | undefined): FatalScreenViewProps["onReport"] {
+  const block = blocks?.find((b) => typeof b.reportProblem === "function");
+  return block?.reportProblem ? (error, where) => block.reportProblem!(error, where) : null;
 }
 
 /**

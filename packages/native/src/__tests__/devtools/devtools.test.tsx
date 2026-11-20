@@ -124,7 +124,7 @@ describe("the devtools overlay", () => {
       { name: "supabase.reachable", status: "ok" as const, message: "answered 200", ms: 12 },
       { name: "auth.session", status: "warn" as const, message: "signed out", ms: 1 },
     ];
-    const checks = { list: () => results, latest: () => [], run: vi.fn(async () => results) };
+    const checks = { list: () => results, latest: () => [], run: vi.fn(async () => results), runCheck: vi.fn(async () => null) };
     const updates = createUpdates({
       platform: "ios",
       application: { nativeApplicationVersion: "2.1.0", nativeBuildVersion: "8" },
@@ -138,10 +138,40 @@ describe("the devtools overlay", () => {
     act(() => devtools.open());
     await act(settle);
     expect(checks.run).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId("genesis-devtools-check-auth.session").textContent).toContain("WARN · signed out");
-    expect(screen.getByTestId("genesis-devtools-check-supabase.reachable").textContent).toContain("OK");
+    expect(screen.getByTestId("genesis-devtools-check-auth.session").textContent).toContain("Needs a look · signed out");
+    expect(screen.getByTestId("genesis-devtools-check-supabase.reachable").textContent).toContain("Working");
     expect(screen.getByTestId("genesis-devtools-signature").textContent).toContain("Built 2026-11-19T10:00:00.000Z for preview");
   });
+
+  it("says each check in words the app can change, and runs one check again on its own", async () => {
+    let fixed = false;
+    const results = [
+      { name: "supabase.reachable", status: "ok" as const, message: null, ms: 12 },
+      { name: "socket", status: "fail" as const, message: "not connected", ms: 3 },
+    ];
+    const checks = {
+      list: () => results,
+      latest: () => [],
+      run: vi.fn(async () => results),
+      runCheck: vi.fn(async (name: string) => (fixed && name === "socket" ? { name, status: "ok" as const, message: null, ms: 2 } : null)),
+    };
+    const devtools = createDevtools({ enabled: true, checks, checkLabels: { ok: "Fine", fail: "Broken" } });
+    setup({ blocks: [devtools] });
+    await act(settle);
+    act(() => devtools.open());
+    await act(settle);
+    expect(screen.getByTestId("genesis-devtools-check-socket").textContent).toContain("Broken · not connected");
+    expect(screen.getByTestId("genesis-devtools-check-socket").textContent).not.toContain("FAIL");
+    fixed = true;
+    fireEvent.click(screen.getByTestId("genesis-devtools-check-socket-retry"));
+    await act(settle);
+    expect(checks.runCheck).toHaveBeenCalledWith("socket");
+    expect(checks.run).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("genesis-devtools-check-socket").textContent).toContain("Fine");
+    expect(screen.getByTestId("genesis-devtools-check-supabase.reachable").textContent).toContain("Fine");
+  });
+
+
 
   it("copies the debug info through the app's copy", async () => {
     const copy = vi.fn();

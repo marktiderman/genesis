@@ -20,9 +20,8 @@
  * getters), so none is required and tests pass fakes.
  */
 import { useCallback, useState } from "react";
-import { Dimensions, PixelRatio, Platform, Share, View } from "react-native";
-import { NativeButton, NativeText } from "@marktiderman/genesis-ui-native/components";
-import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
+import { Dimensions, PixelRatio, Platform, Share } from "react-native";
+import { Inline, NativeButton, NativeInlineAlert, NativeText, Stack } from "@marktiderman/genesis-ui-native/components";
 import { fill, resolveSupportCopy, type SupportCopy } from "../copy";
 import type { Diagnostics, DiagnosticsDelivery } from "../diagnostics/create";
 import { defineDiagnosticSection, type DiagnosticSection, type DiagnosticTrigger } from "../diagnostics/report";
@@ -335,7 +334,6 @@ export interface SendDiagnosticsRowProps {
 export function SendDiagnosticsRow({ diagnostics, copy, copyText, hideHint = false, testID = "genesis-support-send-diagnostics" }: SendDiagnosticsRowProps) {
   const support = useOptionalSupport();
   const text = copyText ?? support?.copy.diagnostics ?? resolveSupportCopy().diagnostics;
-  const roles = useThemeRoles();
   const { status, delivery, send } = useSendDiagnostics(diagnostics);
   const [copied, setCopied] = useState(false);
   const doCopy = async () => {
@@ -345,7 +343,7 @@ export function SendDiagnosticsRow({ diagnostics, copy, copyText, hideHint = fal
     setCopied(true);
   };
   return (
-    <View testID={testID} style={{ gap: 8 }}>
+    <Stack gap="sm" testID={testID}>
       <NativeButton
         variant="outline"
         size="sm"
@@ -360,25 +358,21 @@ export function SendDiagnosticsRow({ diagnostics, copy, copyText, hideHint = fal
         {status === "sending" ? text.sending : text.send}
       </NativeButton>
       {status === "sent" || status === "queued" ? (
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <NativeText preset="body-sm" selectable style={{ flex: 1 }} testID={`${testID}-id`}>
+        <Inline gap="sm">
+          <NativeText preset="body-sm" selectable className="flex-1" testID={`${testID}-id`}>
             {fill(status === "sent" ? text.sent : text.queued, { id: delivery?.shortId ?? "" })}
           </NativeText>
           <NativeButton variant="ghost" size="sm" onPress={() => void doCopy()} testID={`${testID}-copy`}>
             {copied ? text.copied : text.copy}
           </NativeButton>
-        </View>
+        </Inline>
       ) : null}
-      {status === "failed" ? (
-        <NativeText preset="body-sm" style={{ color: roles.destructive }} testID={`${testID}-failed`}>
-          {text.failed}
-        </NativeText>
-      ) : null}
+      {status === "failed" ? <NativeInlineAlert variant="destructive" description={text.failed} testID={`${testID}-failed`} /> : null}
       {hideHint ? null : (
-        <NativeText preset="body-sm" style={{ color: roles.secondaryLabel }}>
+        <NativeText preset="body-sm" className="text-muted-foreground">
           {text.hint}
         </NativeText>
       )}
-    </View>
+    </Stack>
   );
 }
