@@ -1,0 +1,93 @@
+packages/support/src/native/desks.tsx
+  s_ca8e075e853203::t_5c1e7f1b7b4572 1-255
+  s_ca8e075e853203::t_c06a3e9fd40fa7 256-262
+packages/support/src/__tests__/native-desk-ui.test.tsx
+  s_ca8e075e853203::t_cf77dd6ea0c3ff 1-348,358-359
+  s_ca8e075e853203::t_8082164f40e5e3 349-357,360-442
+.changeset/support-native-ui-review.md
+  s_ca8e075e853203::t_43ec2deb5d6076 1-11
+apps/sample/stories/SupportAgentInbox.stories.tsx
+  s_ca8e075e853203::t_73d27f488fa86d 20
+apps/sample/stories/SupportMessenger.stories.tsx
+  s_ca8e075e853203::t_1c4d22bf74d32b 54
+packages/features/src/blocks.ts
+  s_ca8e075e853203::t_1c0e788c58fe06 60-64
+packages/native/src/__tests__/blocks.test.tsx
+  s_ca8e075e853203::t_730cdb5ee2a069 167-175
+packages/native/src/__tests__/devtools/devtools.test.tsx
+  s_ca8e075e853203::t_18c45b5d19f0f0 127,141-142,146-175
+packages/native/src/__tests__/errors.test.tsx
+  s_ca8e075e853203::t_571879b78fdd01 241-297
+packages/native/src/blocks.tsx
+  s_ca8e075e853203::t_b0e246bc7ce146 40-45,65-69,113-114,128-129,132,138,142
+packages/native/src/devtools/block.tsx
+  s_ca8e075e853203::t_c7a4ac13be4c34 14,31,66-67,70-88,107-108,351,353,358-359,361,365,368,376-384,390,395-406,409,479-484,486-492,494-498,500-528,530-600
+packages/native/src/devtools/index.ts
+  s_ca8e075e853203::t_89e7fff212ad9f 19
+packages/native/src/errors.tsx
+  s_ca8e075e853203::t_2b6e8cf2b93411 10,13,54-75,78-88,145-147,153,155,157,161,168-194,198-199,206,209,215-220
+packages/native/src/index.ts
+  s_ca8e075e853203::t_cfc13d58b00561 38-39
+packages/native/src/screen-boundary.tsx
+  s_ca8e075e853203::t_591ae504abe9d6 22,53-54,64,67-71
+packages/support/src/__tests__/agent-inbox.test.tsx
+  s_ca8e075e853203::t_5e5ba69a6b9f23 117
+packages/support/src/__tests__/helpdesk-desk.test.tsx
+  s_ca8e075e853203::t_9f5b12b360b3f5 23
+packages/support/src/__tests__/messenger.test.tsx
+  s_ca8e075e853203::t_8ec66af4a70bd2 32
+packages/support/src/__tests__/native.test.tsx
+  s_ca8e075e853203::t_829c395175b5be 84
+packages/support/src/__tests__/settings.test.tsx
+  s_ca8e075e853203::t_b1979537f9c359 151,153-156
+packages/support/src/__tests__/web-boards.test.tsx
+  s_ca8e075e853203::t_170f365be421a6 43
+packages/support/src/block.ts
+  s_ca8e075e853203::t_e7889979011942 65-68,75-77,85-87,90-101
+packages/support/src/client.ts
+  s_ca8e075e853203::t_f17761a30916ae 77-78,470,533
+packages/support/src/copy.ts
+  s_ca8e075e853203::t_1dd27c1da3690e 12-13,64-65,116-123,180-186,277-279
+packages/support/src/desks.ts
+  s_ca8e075e853203::t_90534dbabd7fb4 8,106-120
+packages/support/src/diagnostics/health.ts
+  s_ca8e075e853203::t_7e5129372067a7 51-52,107-114
+packages/support/src/index.ts
+  s_ca8e075e853203::t_928574014527be 18
+packages/support/src/native/agent.tsx
+  s_ca8e075e853203::t_cc4dd99f8680b0 17,19-31,36-37,51-52,74-77,80-81,326-341,593-595,597-606,608-617,619-660,664-666,668-672,690
+packages/support/src/native/annotator.tsx
+  s_ca8e075e853203::t_da13a2d6b7394d 12,145-148,179-180,187,191-192
+packages/support/src/native/diagnostics-viewer.tsx
+  s_ca8e075e853203::t_a42b9aea6a0202 8,10-13,21-24,28-37,39,42,51-52,54,56-65,67-68,72,74-80,82-98,101
+packages/support/src/native/diagnostics.tsx
+  s_ca8e075e853203::t_61eac4a75277b0 23-24,346,361-362,368,370,372,376
+packages/support/src/native/feedback-form.tsx
+  s_ca8e075e853203::t_cffa19ddaf5ba8 10,13-24,27,78-83,96-97,100,143-156,164,176,178,182,184-188,195-198,215-217,227,244,251,254-256
+packages/support/src/native/help.tsx
+  s_ca8e075e853203::t_2ccb1d39a86f08 14,16,55,62,67,69,77-102,104-116,118-122,156-169,228-243,286-304,327-332,335,337,341-358,363,389-395,402-406
+packages/support/src/native/index.ts
+  s_ca8e075e853203::t_ba6cb1e97818f6 7,60-61
+packages/support/src/native/route.tsx
+  s_ca8e075e853203::t_b7525f60959978 20,25-26,29,44,46-55,62-77,93,126,131,166,172,188-190,231
+packages/support/src/native/screens.tsx
+  s_ca8e075e853203::t_bd4109d42befc7 16,67-83,110,119-125,244-288,310-312,319-323,407-428
+packages/support/src/native/support.tsx
+  s_ca8e075e853203::t_5e4b7f23e295c1 31,34,50,52-56,201-207,291-292,330-333,348-358,459-479,488-491,499,520,549-555,591-593,611-617
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "22bfd4863018ad184a99c391baf5a7cf8ae27848",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
