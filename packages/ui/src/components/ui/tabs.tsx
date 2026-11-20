@@ -55,8 +55,9 @@ const TabsList = React.forwardRef<
       // The list grows with its triggers on a touch screen. Wider than its
       // container (a phone, 400% zoom), it scrolls sideways in its own frame
       // instead of widening the page (WCAG 1.4.10); `justify-center-safe`
-      // keeps the first tab reachable when it does.
-      "inline-flex h-10 max-w-full overflow-x-auto pointer-coarse:h-auto items-center justify-center-safe rounded-md bg-muted p-1 text-muted-foreground",
+      // keeps the first tab reachable when it does. `shrink-0`: as a scroller it could otherwise be
+      // squeezed below its tabs' height in a flex column, clipping them.
+      "inline-flex h-10 max-w-full shrink-0 overflow-x-auto pointer-coarse:h-auto items-center justify-center-safe rounded-md bg-muted p-1 text-muted-foreground",
       className
     )}
     {...props}
