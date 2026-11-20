@@ -69,6 +69,12 @@ export interface UpgradeStatus {
   stale?: boolean;
   /** Why the network wasn't used or failed, when it wasn't. */
   offlineReason?: string;
+  /**
+   * The advisories were read just now (or within the failure backoff, for these versions), though
+   * the release distance comes from the cache: npm failed, the advisory sources answered. The doctor
+   * reports them at their full level, and the distance as a note.
+   */
+  advisoriesLive?: true;
 }
 
 export interface RegistryDeps {
@@ -104,6 +110,8 @@ interface CacheFile {
   latest: string | null;
   firstNewerAt: string | null;
   advisories: Advisory[];
+  /** Advisories read while npm failed: kept for the failure backoff, apart from the release distance. */
+  advisoryCheck?: { at: string; packages: Record<string, string>; advisories: Advisory[] };
 }
 
 function npmJson(args: string[], cwd: string, timeout: number): unknown {
@@ -241,8 +249,11 @@ export function bunfigRegistries(text: string): string[] {
 /** The registry the app installs `@marktiderman/*` from, when it isn't npm's: the scope's or the default registry in the app's or the home .npmrc and bunfig.toml, or npm_config_registry. */
 export function customRegistry(root: string, env: NodeJS.ProcessEnv = process.env, home = homedir()): string | null {
   const found: string[] = [];
-  if (env.npm_config_registry) found.push(env.npm_config_registry);
-  if (env["npm_config_@marktiderman:registry"]) found.push(env["npm_config_@marktiderman:registry"]!);
+  // npm reads its environment settings in any case (NPM_CONFIG_REGISTRY too).
+  for (const [key, value] of Object.entries(env)) {
+    const k = key.toLowerCase();
+    if (value && (k === "npm_config_registry" || k === "npm_config_@marktiderman:registry")) found.push(value);
+  }
   for (const file of [path.join(root, ".npmrc"), path.join(home, ".npmrc")]) {
     let text: string;
     try {
@@ -265,7 +276,7 @@ export function customRegistry(root: string, env: NodeJS.ProcessEnv = process.en
 function readCache(file: string): CacheFile | null {
   try {
     const c = JSON.parse(readFileSync(file, "utf8")) as CacheFile;
-    return typeof c.installed === "string" || typeof c.failedAt === "string" ? c : null;
+    return typeof c.installed === "string" || typeof c.failedAt === "string" || typeof c.advisoryCheck === "object" ? c : null;
   } catch {
     return null;
   }
@@ -303,29 +314,44 @@ export async function readUpgradeStatus(root: string, deps: RegistryDeps = {}): 
           ...(offlineReason ? { offlineReason } : {}),
         }
       : null;
+  /**
+   * The cache's distance (if any) with advisories read live: the distance stays a note (offline
+   * reason), the advisories keep their level.
+   */
+  const withLiveAdvisories = (advisories: Advisory[], checkedAt: string, reason: string): UpgradeStatus =>
+    ({ ...(fromCache(reason) ?? { installed: manifest.version, packages, latest: null, firstNewerAt: null, checkedAt, source: "network" as const, offlineReason: reason }), advisories, advisoriesLive: true });
   // Offline, the cache is only ever a note (the doctor never fails on it), fresh or not.
   if (!deps.network) return fromCache("the network is off");
   if (fresh) return fromCache();
-  if (cache?.failedAt && now.getTime() - Date.parse(cache.failedAt) < FAILURE_TTL_MS) return fromCache(`the last check, at ${cache.failedAt.slice(11, 16)} UTC, failed (${cache.failure ?? "unknown"}); it's tried again an hour later`);
+  if (cache?.failedAt && now.getTime() - Date.parse(cache.failedAt) < FAILURE_TTL_MS) {
+    const reason = `the last check, at ${cache.failedAt.slice(11, 16)} UTC, failed (${cache.failure ?? "unknown"}); it's tried again an hour later`;
+    // Advisories read in that failed run, for these versions, still count at their level.
+    const check = cache.advisoryCheck;
+    if (check && sameVersions(check.packages, packages) && now.getTime() - Date.parse(check.at) < FAILURE_TTL_MS) return withLiveAdvisories(check.advisories, check.at, reason);
+    return fromCache(reason);
+  }
 
-  const fail = (reason: string) => {
+  const fail = (reason: string, advisoryCheck?: CacheFile["advisoryCheck"]) => {
     try {
       mkdirSync(path.dirname(cacheFile), { recursive: true });
-      writeFileSync(cacheFile, `${JSON.stringify({ ...(good ?? {}), failedAt: now.toISOString(), failure: reason }, null, 2)}\n`);
+      const { advisoryCheck: _old, ...kept } = good ?? ({} as Partial<CacheFile>);
+      writeFileSync(cacheFile, `${JSON.stringify({ ...kept, failedAt: now.toISOString(), failure: reason, ...(advisoryCheck ? { advisoryCheck } : {}) }, null, 2)}\n`);
     } catch {
       // A read-only node_modules: the next run asks again.
     }
     return fromCache(reason);
   };
-  let latest: string | null;
-  let times: Record<string, string> | null;
+  let latest: string | null = null;
+  let times: Record<string, string> | null = null;
+  // npm failing doesn't skip the advisories: they are asked for all the same, below.
+  let npmFailure: string | undefined;
   try {
     // The upgrade's own lookup (loaded only when the network is used: it's the heavy module).
     latest = (deps.latest ?? (await import("./index.js")).npmLookup(root, { timeoutMs: left() }).latest)(UMBRELLA_PACKAGE);
     if (latest === null && !deps.latest) throw new Error(`npm view ${UMBRELLA_PACKAGE} gave no version`);
     times = (deps.times ?? ((n) => npmJson(["view", n, "time", "--json"], root, left()) as Record<string, string> | null))(UMBRELLA_PACKAGE);
   } catch (err) {
-    return fail(`npm couldn't be read: ${(err as Error).message.split("\n")[0]}`);
+    npmFailure = `npm couldn't be read: ${(err as Error).message.split("\n")[0]}`;
   }
   const registry = deps.registry !== undefined ? deps.registry : customRegistry(root);
   const gh = deps.gh ?? defaultGh(root, left);
@@ -337,8 +363,15 @@ export async function readUpgradeStatus(root: string, deps: RegistryDeps = {}): 
     try {
       advisories = await withDeadline(ghAdvisories(packages, gh), left());
     } catch (ghErr) {
-      return fail(`no advisory source answered (${(bulkErr as Error).message}; ${(ghErr as Error).message})`);
+      const reason = `no advisory source answered (${(bulkErr as Error).message}; ${(ghErr as Error).message})`;
+      return fail(npmFailure ? `${npmFailure}; ${reason}` : reason);
     }
+  }
+  if (npmFailure) {
+    // The release distance comes from the cache (if any); the advisories are this run's, saved
+    // apart from it so the hour of failure backoff still reports them.
+    fail(npmFailure, { at: now.toISOString(), packages, advisories });
+    return withLiveAdvisories(advisories, now.toISOString(), npmFailure);
   }
   const status: UpgradeStatus = { installed: manifest.version, packages, latest, firstNewerAt: firstNewerAt(times, manifest.version), advisories, checkedAt: now.toISOString(), source: "network" };
   try {

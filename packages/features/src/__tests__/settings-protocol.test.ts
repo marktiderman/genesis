@@ -67,7 +67,7 @@ describe("createSettingsClient", () => {
   });
 
   it("sends state's audit limit and audit's cursor only when given", async () => {
-    const fetchFn = vi.fn(async () => reply(200, { ...MIN_STATE, entries: [] }));
+    const fetchFn = vi.fn(async () => reply(200, { ...MIN_STATE, entries: [], packages: [] }));
     const client = createSettingsClient(fetchFn, { baseUrl: "/x", token: "t" });
     await client.state();
     await client.state({ auditLimit: 10 });
@@ -80,6 +80,20 @@ describe("createSettingsClient", () => {
       { v: 1, op: "audit", cursor: "c2", limit: 5 },
       { v: 1, op: "upgrades", refresh: true },
     ]);
+  });
+
+  it("turns a 200 the screen can't draw into an error, not a crash", async () => {
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(reply(200, { plan: { fixId: "a", hash: "h", files: "nope", commands: [], secrets: [] } }))
+      .mockResolvedValueOnce(reply(200, { result: null }))
+      .mockResolvedValueOnce(reply(200, { packages: [null] }))
+      .mockResolvedValueOnce(reply(200, { ...MIN_STATE, catalogue: [{ key: 1 }] }));
+    const client = createSettingsClient(fetchFn, { baseUrl: "/x", token: "t" });
+    await expect(client.plan("a")).rejects.toThrow("The settings host's answer to plan is missing the plan's files.");
+    await expect(client.apply("a", "h")).rejects.toThrow("The settings host's answer to apply is missing result.");
+    await expect(client.upgrades()).rejects.toThrow("The settings host's answer to upgrades is missing packages.");
+    await expect(client.state()).rejects.toThrow(/missing a catalogue entry's key and type/);
   });
 
   it("throws the host's error code and message", async () => {

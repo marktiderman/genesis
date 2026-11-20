@@ -158,7 +158,45 @@ describe("createSupport with settings", () => {
     const diagnostics = createDiagnostics({ app: { id: "acme" }, transport: { name: "x", send: async () => ({ id: "1", shortId: "1" }) } });
     const { block } = make({ "diagnostics.enabled": false }, { diagnostics });
     expect(block.diagnostics).toBeNull();
-    expect(block.contributes!.slots).not.toHaveProperty("devtoolsDiagnostics");
+    expect(block.options.diagnostics).toBeUndefined();
+    // The devtools row is there to follow the setting, and draws nothing while it's off.
+    const Row = block.contributes!.slots!["devtoolsDiagnostics"] as unknown as (props: { copy: () => void }) => ReactNode;
+    expect(Row({ copy: () => undefined })).toBeNull();
+  });
+
+  it("sends no dump while a settings function has never answered, and keeps the last answer after", () => {
+    let fails = true;
+    let values: Record<string, unknown> = {};
+    const read = () => {
+      if (fails) throw new Error("not loaded");
+      return values;
+    };
+    const diagnostics = createDiagnostics({ app: { id: "acme" }, transport: { name: "x", send: async () => ({ id: "1", shortId: "1" }) }, appSettings: read });
+    const { block } = make(read, { diagnostics });
+    expect(block.diagnostics).toBeNull();
+    expect(diagnostics.enabled).toBe(false);
+    fails = false;
+    expect(block.diagnostics).toBe(diagnostics);
+    expect(diagnostics.enabled).toBe(true);
+    values = { "diagnostics.enabled": false };
+    expect(block.diagnostics).toBeNull();
+    expect(diagnostics.enabled).toBe(false);
+    fails = true;
+    expect(block.diagnostics).toBeNull();
+    expect(diagnostics.enabled).toBe(false);
+  });
+
+  it("reads diagnostics.* when a dump would go, not once at creation", () => {
+    let values: Record<string, unknown> = { "diagnostics.enabled": false, "diagnostics.dumpOnFeedback": false };
+    const diagnostics = createDiagnostics({ app: { id: "acme" }, transport: { name: "x", send: async () => ({ id: "1", shortId: "1" }) }, appSettings: () => values });
+    const { block } = make(() => values, { diagnostics });
+    expect(block.diagnostics).toBeNull();
+    expect(diagnostics.enabled).toBe(false);
+    expect(block.options.dumpOnFeedback).toBe(false);
+    values = { "diagnostics.enabled": true, "diagnostics.dumpOnShake": false };
+    expect(block.diagnostics).toBe(diagnostics);
+    expect(diagnostics.enabled).toBe(true);
+    expect(block.options).toMatchObject({ dumpOnFeedback: true, dumpOnShake: false });
   });
 
   it("reads the person's shake.enabled at each shake", async () => {

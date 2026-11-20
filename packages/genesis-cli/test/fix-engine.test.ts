@@ -80,6 +80,15 @@ describe("plans", () => {
     expect(result.verify).toMatchObject({ ok: false, remaining: left, message: "1 finding left" });
   });
 
+  it("doesn't verify a finding it ran for that now names another fix", async () => {
+    const root = tmpApp({ "a.txt": "hello" });
+    const ran = [finding("lower-case", { subject: "a" })];
+    const plan = await planFix(upper, { root, findings: ran });
+    const moved = [{ ...ran[0]!, fix: { id: "other.fix", kind: "auto" as const, title: "t" } }];
+    const result = await applyPlan(upper, plan, { root, findings: ran, recheck: async () => moved });
+    expect(result.verify).toMatchObject({ ok: false, remaining: moved });
+  });
+
   it("refuses a stale plan: the app changed after it was read, and nothing is written", async () => {
     const root = tmpApp({ "a.txt": "hello" });
     const plan = await planFix(upper, { root, findings: [] });
@@ -258,6 +267,15 @@ describe("package fixes (genesis.doctor.fixes)", () => {
     expect(problems).toEqual([{ package: "@marktiderman/genesis-widgets", message: expect.stringContaining("id must be") }]);
   });
 
+  it("rejects a duplicate id after namespacing, keeping the first", async () => {
+    const dir = tmpApp({
+      "fixes.mjs": 'export default [{ id: "swap", kind: "auto", rules: ["a"], title: "one", plan: () => ({ summary: "1" }) }, { id: "swap", kind: "auto", rules: ["b"], title: "two", plan: () => ({ summary: "2" }) }];',
+    });
+    const { fixes, problems } = await loadFixes([pkg(dir, path.join(dir, "fixes.mjs"))]);
+    expect(fixes.map((f) => [f.id, f.title])).toEqual([["widgets/swap", "one"]]);
+    expect(problems).toEqual([{ package: "@marktiderman/genesis-widgets", message: expect.stringContaining("widgets/swap, an id already taken") }]);
+  });
+
   it("reports a module that won't load instead of throwing", async () => {
     const dir = tmpApp();
     const { fixes, problems } = await loadFixes([pkg(dir, path.join(dir, "missing.mjs"))]);
@@ -315,6 +333,51 @@ describe("genesis fix", () => {
     expect(await runFixCommand({ root, target: "codemod.scope-names", yes: true, expect: "f".repeat(64), network: false }, t.io)).toBe(1);
     expect(t.err.join("\n")).toMatch(/the app changed since that plan was read/);
     expect(read(root, "src/screen.tsx")).toBe(before);
+  });
+
+  it("refuses --expect, writing nothing, when one of the target's fixes can't be planned", async () => {
+    const root = scopeApp();
+    const before = read(root, "src/screen.tsx");
+    // The scope-names fix plans; migrate.copy fails to. Both answer one rule.
+    const doctor = async (o: { root: string; network: boolean }) => {
+      const r = await runDoctor({ root: o.root, network: o.network });
+      const scope = r.findings.filter((f) => f.rule === "removed-scope-name").map((f) => ({ ...f, rule: "two-fixes" }));
+      return { ...r, findings: [...scope, { rule: "two-fixes", level: "warn" as const, file: "supabase/migrations", line: 0, message: "m", fix: { id: "migrate.copy", kind: "auto" as const, title: "t" } }] };
+    };
+    const deps = { runMigrate: async () => { throw new Error("migrations unreadable"); } } as never;
+    const planned = io();
+    await runFixCommand({ root, target: "codemod.scope-names", plan: true, network: false }, planned.io);
+    const hash = /plan ([0-9a-f]{64})/.exec(planned.out.join("\n"))![1]!;
+    const t = io();
+    expect(await runFixCommand({ root, target: "two-fixes", yes: true, expect: hash, network: false }, { ...t.io, doctor, deps })).toBe(1);
+    expect(t.err.join("\n")).toMatch(/migrate\.copy: couldn't plan: migrations unreadable/);
+    expect(t.err.join("\n")).toMatch(/Nothing was written/);
+    expect(read(root, "src/screen.tsx")).toBe(before);
+  });
+
+  it("refuses --expect when the target has several fixes to apply, before writing any", async () => {
+    const SUPPORT = "@marktiderman/genesis-support";
+    const CONFIG = `{\n  "settings": {\n    "support.inbx": true\n  }\n}\n`;
+    const root = makeApp(null, {
+      "package.json": JSON.stringify({ name: "app", dependencies: { [SUPPORT]: "^0.12.0" } }),
+      [`node_modules/${SUPPORT}/package.json`]: JSON.stringify({ name: SUPPORT, version: "0.12.0", genesis: { settings: { namespace: "support", keys: { inbox: { type: "boolean", default: true } } } } }),
+      "genesis.config.json": CONFIG,
+      "src/screen.tsx": 'import { NativeResourceView } from "@marktiderman/genesis-ui-native";\nexport const A = () => <NativeResourceView view={v} practiceTimeZone={zone} />;\n',
+    });
+    const before = read(root, "src/screen.tsx");
+    // One rule whose findings name two automatic fixes.
+    const doctor = async (o: { root: string; network: boolean }) => {
+      const r = await runDoctor({ root: o.root, network: o.network });
+      return { ...r, findings: r.findings.map((f) => (["removed-scope-name", "invalid-setting"].includes(f.rule) ? { ...f, rule: "two-fixes" } : f)) };
+    };
+    const planned = io();
+    expect(await runFixCommand({ root, target: "two-fixes", plan: true, network: false }, { ...planned.io, doctor })).toBe(0);
+    const hash = /plan ([0-9a-f]{64})/.exec(planned.out.join("\n"))![1]!;
+    const t = io();
+    expect(await runFixCommand({ root, target: "two-fixes", yes: true, expect: hash, network: false }, { ...t.io, doctor })).toBe(1);
+    expect(t.err.join("\n")).toMatch(/--expect names one plan, but two-fixes has 2 fixes to apply/);
+    expect(read(root, "src/screen.tsx")).toBe(before);
+    expect(read(root, "genesis.config.json")).toBe(CONFIG);
   });
 
   it("prints a manual fix's findings and runs nothing", async () => {

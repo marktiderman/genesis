@@ -189,6 +189,20 @@ describe("an agent's ticket", () => {
     expect(fake.rpcs.find((r) => r.fn === "support_assign_report")?.args).toEqual({ report: T1, assignee: ME });
   });
 
+  it("reads the thread and the ticket again after a reply, once the login is known (a cold start)", async () => {
+    const { wrapper, fake } = harness(desk, replies);
+    const { result } = renderHook(() => useAgentThread(T1), { wrapper });
+    await waitFor(() => expect(result.current.me).toBe(ME));
+    await waitFor(() => expect(result.current.composer).not.toBeNull());
+    const reads = () => fake.calls.filter((c) => c.table === "support_replies" && arg(c, "insert") === undefined).length;
+    const ticketReads = () => fake.rpcs.filter((r) => r.fn === "support_agent_tickets" && (r.args as { only_id?: string }).only_id === T1).length;
+    const before = { replies: reads(), ticket: ticketReads() };
+    act(() => result.current.composer?.onChangeText("On it"));
+    act(() => result.current.composer?.onSend());
+    await waitFor(() => expect(reads()).toBeGreaterThan(before.replies));
+    await waitFor(() => expect(ticketReads()).toBeGreaterThan(before.ticket));
+  });
+
   it("says a change failed", async () => {
     const { wrapper } = harness((fn, args) => (fn === "support_set_report_status" ? { data: null, error: { message: "no", code: "42501" } } : desk(fn, args)), replies);
     const { result } = renderHook(() => useAgentThread(T1), { wrapper });

@@ -256,7 +256,7 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
     let baseCounts: Map<string, number> | undefined;
     if (snapshot) {
       const before: FindingInput[] = [];
-      await runChecks({ ...ctx, files: snapshot.files, report: (f) => before.push(f) }, baseChecks(dueRules, packageIds, packagePlugins, () => [...builtinChecks(config, { contracts: false, figma: false }), ...appChecks]));
+      await runChecks({ ...ctx, files: snapshot.files, report: (f) => before.push(f) }, baseChecks(dueRules, packageIds, packagePlugins, () => [...builtinChecks(config, { contracts: false, figma: false }).filter((c) => !HEAD_CONFIG_CHECKS.has(c.name)), ...appChecks]));
       // Counted before extensions: what an extension covers is what its file had.
       baseCounts = countFindings(applyConfig(before, config, packageIds));
       if (heldExtensions.length) {
@@ -287,6 +287,13 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
     ...(extensionsNew.length ? { extensionsAdded: extensionsNew } : {}),
   };
 }
+
+/**
+ * Checks that read genesis.config.json from disk, the head's, not the merge base's: run at the base
+ * they would count the head's findings as old, and ratchet a new `invalid-setting` down to info. They
+ * stay out of the base pass, so each of their findings keeps its level.
+ */
+const HEAD_CONFIG_CHECKS: ReadonlySet<string> = new Set(["settings", "genesis-config-keys"]);
 
 /**
  * The checks the merge base's pass runs: only the package rules when every rule it counts is a
