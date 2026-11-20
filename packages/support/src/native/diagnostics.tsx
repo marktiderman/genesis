@@ -62,6 +62,12 @@ export interface DiagnosticsNetInfoLike {
 
 /** The commit, OTA number and release the app stamps at publish time (genesis-native's `BuildMetadata`). */
 export interface DiagnosticsBuildMetadata {
+  /** The app's version at build time (`genesis build-stamp`); the binary's own wins. */
+  version?: string | null;
+  /** The channel it was built or published for; expo-updates' own wins. */
+  channel?: string | null;
+  /** When it was built, ISO. */
+  builtAt?: string | null;
   commit?: string | null;
   commitMessage?: string | null;
   branch?: string | null;
@@ -137,11 +143,11 @@ export function nativeSections(options: NativeSectionsOptions = {}): DiagnosticS
         requested = null;
       }
       return {
-        version: given(options.application?.nativeApplicationVersion),
+        version: given(options.application?.nativeApplicationVersion) ?? given(meta?.version),
         build: given(options.application?.nativeBuildVersion),
         bundleId: given(options.application?.applicationId),
         runtimeVersion: given(u?.runtimeVersion),
-        channel: on ? given(u?.channel) : null,
+        channel: (on ? given(u?.channel) : null) ?? given(meta?.channel),
         requestedChannel: requested,
         updateId: on ? given(u?.updateId) : null,
         launch: !on ? "off" : u?.isEmbeddedLaunch ? "embedded" : "update",
@@ -152,6 +158,7 @@ export function nativeSections(options: NativeSectionsOptions = {}): DiagnosticS
         otaNumber: given(meta?.otaNumber),
         release: given(meta?.release),
         releasePublishedAt: given(meta?.publishedAt),
+        builtAt: given(meta?.builtAt),
         jsBundle: typeof __DEV__ !== "undefined" && __DEV__ ? "metro" : "release",
       };
     }),

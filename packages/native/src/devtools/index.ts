@@ -16,7 +16,7 @@
  *
  * @stability Beta
  */
-export { createDevtools, DEVTOOLS_BLOCK_ID, type DevSettingsLike, type DevtoolsBlock, type DevtoolsOptions, type DevtoolsState } from "./block";
+export { createDevtools, DEVTOOLS_BLOCK_ID, type DevSettingsLike, type DevtoolsCheckResult, type DevtoolsChecksLike, type DevtoolsBlock, type DevtoolsOptions, type DevtoolsState } from "./block";
 export { createHoldDetector, createShakeDetector, type AccelerometerLike, type HoldDetector, type HoldDetectorOptions, type ShakeDetector, type ShakeDetectorOptions } from "./gestures";
 export { buildDebugInfo, type DebugInfoInput } from "./info";
 export type { DevtoolsDiagnosticsProps, DevtoolsFeedbackProps, DevtoolsSlots } from "./slots";

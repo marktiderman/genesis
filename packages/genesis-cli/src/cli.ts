@@ -20,6 +20,7 @@
  *   npx @marktiderman/genesis-cli upgrade [--version <v>] [--dry-run] [--pr]
  *   npx @marktiderman/genesis-cli figma:routes [--json] [--strict]
  *   npx @marktiderman/genesis-cli client init [--folder <dir>] [--type <name>] [--force]
+ *   npx @marktiderman/genesis-cli build-stamp [--out <file>] [--channel <name>] [--app-version <v>]
  */
 import { Command } from "commander";
 import { runScaffold, type FileSystem } from "./scaffolder.js";
@@ -957,6 +958,24 @@ program
     console.log(changed.length ? `${opts.dryRun ? "Would change" : "✔ Changed"} ${changed.length} file${changed.length === 1 ? "" : "s"}:\n${changed.map((f) => `  ${f}`).join("\n")}` : "Nothing to change.");
     const note = codemodInstallNote(path.resolve(opts.dir), changed, opts.dryRun);
     if (note) console.log(`! ${note}`);
+  });
+
+program
+  .command("build-stamp")
+  .description("Write the build's metadata (version, git commit, branch, build time, channel) to build-metadata.json, for the devtools overlay and the context dump; run it before the bundle is made")
+  .option("-d, --dir <dir>", "The app's folder", process.cwd())
+  .option("-o, --out <file>", "Where to write it, relative to the app's folder", "build-metadata.json")
+  .option("--channel <name>", "The channel it is built or published for (default GENESIS_CHANNEL)")
+  .option("--app-version <v>", "The version (default the app's package.json version)")
+  .action(async (opts: { dir: string; out: string; channel?: string; appVersion?: string }) => {
+    const { writeBuildStamp } = await import("./build-stamp.js");
+    const { file, stamp } = writeBuildStamp({
+      cwd: path.resolve(opts.dir),
+      out: opts.out,
+      ...(opts.channel !== undefined ? { channel: opts.channel } : {}),
+      ...(opts.appVersion !== undefined ? { version: opts.appVersion } : {}),
+    });
+    console.log(`✔ Wrote ${path.relative(process.cwd(), file) || file}: ${stamp.version ?? "no version"} · ${stamp.commit?.slice(0, 12) ?? "no commit"} · ${stamp.channel ?? "no channel"} · ${stamp.builtAt}`);
   });
 
 program.parseAsync(process.argv).catch((err: unknown) => {

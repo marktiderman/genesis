@@ -10,6 +10,8 @@
  *   app's flags;
  * - the recent breadcrumbs and errors (the observability block's, scrubbed);
  * - the server's base URL;
+ * - the health checks (`checks`: genesis-support's `healthChecks` registry), run when the sheet
+ *   opens and again on "Run checks";
  * - "Copy debug info", "Crash test", "Clear cache" and "Sign out";
  * - the `devtoolsFeedback` slot, which the support block fills with
  *   "Send feedback", and the `devtoolsDiagnostics` slot beside "Copy debug
@@ -48,6 +50,21 @@ export interface DevSettingsLike {
   addMenuItem(title: string, handler: () => void): void;
 }
 
+/** One health check's result, as genesis-support's `healthChecks` gives it. */
+export interface DevtoolsCheckResult {
+  name: string;
+  status: "ok" | "warn" | "fail";
+  message: string | null;
+  ms: number;
+}
+
+/** A health-check registry (genesis-support's `healthChecks`): the overlay runs it and shows the results. */
+export interface DevtoolsChecksLike {
+  list(): readonly unknown[];
+  run(): Promise<readonly DevtoolsCheckResult[]>;
+  latest(): readonly DevtoolsCheckResult[];
+}
+
 export interface DevtoolsOptions {
   /**
    * Must be explicitly true: `__DEV__` or a fact of the binary (a `.dev` or
@@ -64,6 +81,8 @@ export interface DevtoolsOptions {
   baseUrl?: string;
   /** The app's switches and flags, shown by name and value. */
   flags?: Readonly<Record<string, unknown>>;
+  /** The health checks to run and show (genesis-support's `healthChecks`). */
+  checks?: DevtoolsChecksLike;
   /** `Accelerometer` from expo-sensors: shake to open. Without it, the hold and the dev menu still work. */
   accelerometer?: AccelerometerLike;
   /** `DevSettings` from react-native: "Open devtools" in the dev menu (development builds). */
@@ -331,6 +350,36 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
+const CHECK_MARK: Record<DevtoolsCheckResult["status"], string> = { ok: "OK", warn: "WARN", fail: "FAIL" };
+
+function HealthChecksSection({ checks }: { checks: DevtoolsChecksLike }) {
+  const [results, setResults] = useState<readonly DevtoolsCheckResult[]>(() => checks.latest());
+  const [running, setRunning] = useState(false);
+  const run = () => {
+    setRunning(true);
+    checks
+      .run()
+      .then(setResults, () => undefined)
+      .finally(() => setRunning(false));
+  };
+  // Run when the sheet opens.
+  useEffect(run, [checks]);
+  const failed = results.filter((r) => r.status === "fail").length;
+  const warned = results.filter((r) => r.status === "warn").length;
+  const verdict = running ? "running" : !results.length ? "not run" : failed ? `${failed} failed` : warned ? `${warned} warnings` : "all good";
+  return (
+    <Section title={`Health checks (${verdict})`}>
+      {checks.list().length === 0 ? <NativeText preset="body-sm">None registered</NativeText> : null}
+      {results.map((r) => (
+        <Row key={r.name} label={r.name} value={`${CHECK_MARK[r.status]}${r.message ? ` · ${r.message}` : ""} · ${r.ms} ms`} testID={`genesis-devtools-check-${r.name}`} />
+      ))}
+      <NativeButton size="sm" variant="outline" onPress={run} disabled={running} testID="genesis-devtools-run-checks">
+        Run checks
+      </NativeButton>
+    </Section>
+  );
+}
+
 function DevtoolsSheet({ visible, onDismissed, block, Feedback, feedbackProps, Diagnostics, diagnosticsProps, onCrash }: SheetProps) {
   const { options } = block;
   const roles = useThemeRoles();
@@ -449,6 +498,8 @@ function DevtoolsSheet({ visible, onDismissed, block, Feedback, feedbackProps, D
           <Row label="User id" value={userId ?? "signed out"} testID="genesis-devtools-user" />
           <Row label="Server" value={options.baseUrl ? scrubUrl(options.baseUrl) : "unknown"} testID="genesis-devtools-server" />
         </Section>
+
+        {options.checks ? <HealthChecksSection checks={options.checks} /> : null}
 
         <Section title="Blocks and flags">
           <Row label="Blocks" value={blocks.ids.size > 0 ? [...blocks.ids].join(", ") : "none"} testID="genesis-devtools-blocks" />

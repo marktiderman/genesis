@@ -119,6 +119,30 @@ describe("the devtools overlay", () => {
     expect(screen.getByTestId("screens")).toBeTruthy();
   });
 
+  it("runs the health checks when opened and shows each result, and the build stamp in the signature", async () => {
+    const results = [
+      { name: "supabase.reachable", status: "ok" as const, message: "answered 200", ms: 12 },
+      { name: "auth.session", status: "warn" as const, message: "signed out", ms: 1 },
+    ];
+    const checks = { list: () => results, latest: () => [], run: vi.fn(async () => results) };
+    const updates = createUpdates({
+      platform: "ios",
+      application: { nativeApplicationVersion: "2.1.0", nativeBuildVersion: "8" },
+      updates: fakeUpdates({ channel: "preview" }),
+      storage: memoryStorage(),
+      buildMetadata: { commit: "abc1234", builtAt: "2026-11-19T10:00:00.000Z", channel: "preview" },
+    });
+    const devtools = createDevtools({ enabled: true, updates, checks });
+    setup({ blocks: [updates, devtools] });
+    await act(settle);
+    act(() => devtools.open());
+    await act(settle);
+    expect(checks.run).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("genesis-devtools-check-auth.session").textContent).toContain("WARN · signed out");
+    expect(screen.getByTestId("genesis-devtools-check-supabase.reachable").textContent).toContain("OK");
+    expect(screen.getByTestId("genesis-devtools-signature").textContent).toContain("Built 2026-11-19T10:00:00.000Z for preview");
+  });
+
   it("copies the debug info through the app's copy", async () => {
     const copy = vi.fn();
     const devtools = createDevtools({ enabled: true, copy });
