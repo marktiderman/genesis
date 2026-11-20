@@ -1,5 +1,36 @@
 # @marktiderman/genesis-supabase
 
+## 0.16.1
+
+### Patch Changes
+
+- 7481a71: `genesis settings sync` writes the app manifest (genesis-supabase's `genesis_app_manifest`: the Genesis packages and versions, the preset, genesis.config.json `settings` and the settings catalogue) through the linked Supabase project (`supabase db query --linked`, or `--project-ref`), after naming the project and asking (`--yes` skips the question and is required without a terminal; an invalid `preset` is refused, not stored as `max`; on Windows the SQL goes through a temp file); `--print` gives the SQL for a pipeline that runs it with psql, and `--app-id` names the app when its package.json name isn't an id. Run it on every deploy, after the migrations: until the manifest is written, `set_genesis_setting` refuses every value, and nothing wrote it. The settings block's setup step and the genesis-supabase README say so; a server can still write it at start with `writeAppManifest`.
+- 7481a71: Support fixes from the release review:
+
+  - The server handler's screenshot allowlist is a `Map`, so a part typed `constructor` (or any `Object` member) is never an allowed type.
+  - When the store refuses the dump brought with a piece of feedback, the notification names no dump (it named one that doesn't exist).
+  - Without `waitUntil`, the handler waits at most 5 seconds for its notifiers before answering, so a hung notifier can't make the client retry and file the report twice.
+  - GitHub issues: the admin link's `(`, `)`, `<` and `>` are percent-encoded, so an `adminUrl` can't close the link early; a long title is cut to GitHub's 256 characters after neutralising (the issue was refused with 422 and lost).
+  - Reply by email: an HTML-only reply laid out in `<header>` is read whole (`<head` inside `<header>` dropped everything after it).
+  - `lucide-react` is declared (an optional peer, as genesis-notifications does): `/web-boards` and `/web-chat` import it.
+  - The privacy note says the dump's size, hourly limit and retention are defaults the app's settings can change.
+  - genesis-supabase README: a direct database login's setting writes are recorded as `database`, not `server` (the service role's are `server`).
+
+- 7481a71: `cleanRoute` redacts long digit runs and grouped codes written as slugs again: `/order/card-4111111111111111` and `/invite/ABCD-EFGH-1234-5678` become `/order/:token` and `/invite/:token`, as they did before the slug rule kept them whole. A slug part of 7 digits or more, or three or more parts of one length with letters and digits, is a token; ordinary slugs, dates and versions (`top-10-tips-2024`, `release-2024-11-19`) stay readable. The support intake function's copy of the contract matches.
+- 462af35: Support fixes from the #848 review:
+
+  - `cleanRoute` judges each segment after percent-decoding and redacts more: a slug with 9 or more digits in all (`order-4111-1111-1111-1111`, `call-555-555-0101`; a date like `release-2024-11-19` has 8 and stays), card and IBAN numbers in groups joined by spaces (`%20`) or `+`, phone numbers without a `+` (`555-555-0101`, `555.555.0101`, `(555) 555-0101`, `tel:` links), SSNs (`123-45-6789` → `:id`) and base64 with `=` padding. A percent-encoded `?` or `#` (`%3F`, `%23`) ends the path like a written one. The intake function's copy matches.
+  - The whole-dump cap measures the dump as the database stores it (jsonb text, a space after every `,` and `:`), so a dump trimmed to `diagnostics.maxBytes` (up to 512 KB) is never refused by migration 0019's size check.
+  - A settings function that has never answered means no dumps (fail closed) in `createDiagnosticsHandler`, `createSupport` and `createDiagnostics`; after one answer, a failing read keeps the last values. Queued dumps wait while diagnostics are off instead of being dropped.
+  - The handler names a dump brought with feedback on the feedback only after the store saved it, through the new optional `DiagnosticsStore.linkDiagnostics` (`supabaseDiagnosticsStore` has it). A store without it leaves the feedback unnamed; the dump still names the feedback.
+  - No routes are recorded for the dump while diagnostics are off.
+  - Under React's StrictMode, which mounts the feedback screen twice, a shake's dump is still sent once: `ShakeDump.release` waits a tick before sending, so a remount takes it back.
+  - Migration 0028 sets `lock_timeout` to 5 seconds before adding its check.
+
+- Updated dependencies [06d4caa]
+- Updated dependencies [5c9653e]
+  - @marktiderman/genesis-config@0.11.1
+
 ## 0.16.0
 
 ### Minor Changes
