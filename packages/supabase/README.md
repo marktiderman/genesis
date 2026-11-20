@@ -833,6 +833,67 @@ await setGenesisSetting(supabase, { key: "support.shakeToReport", value: false, 
 again): the database layer by default, for platform admins. `genesisSettingHistory` reads the
 database layer's history, for platform admins.
 
+### The Settings screen in the app
+
+`@marktiderman/genesis-supabase/settings/server` serves genesis-config's `<GenesisSettings>` from
+the app itself (config-layer §4): one Fetch handler for every op of the settings protocol.
+`genesis settings init` writes its route for Next.js, TanStack Start, React Router or Expo Router.
+
+```ts
+// app/api/genesis/settings/route.ts (Next.js)
+import { createSettingsHandler } from "@marktiderman/genesis-supabase/settings/server";
+
+export const POST = createSettingsHandler({
+  supabaseUrl: process.env["NEXT_PUBLIC_SUPABASE_URL"]!,
+  supabaseKey: process.env["NEXT_PUBLIC_SUPABASE_ANON_KEY"]!, // the publishable key: never the service role
+  app: { name: "Acme" },
+  onError: (error) => console.error("[genesis-settings]", error),
+});
+```
+
+- **Who it answers.** A `POST` of JSON with the person's Supabase access token as a bearer token and
+  an `Origin` it allows (the request's own by default; `origins` to widen it). It verifies the token,
+  then calls the database **with that token**, so row level security and every check in the
+  migrations decide what the person may read and change. It needs no service-role key.
+- **What each person sees** (`genesis_settings_viewer(tenant)`, migration
+  `0024_genesis_settings_host.sql`): a platform admin every key, the health findings, secrets,
+  upgrades, the whole history and the pending proposals; a tenant's admin (the screen's `tenant`
+  prop) that tenant's `scope: "tenant"` keys and history; anyone else their own `scope: "person"`
+  keys. The database layer, decisions and Vault are for platform admins only, and the handler
+  refuses them to anyone else before the database does.
+- **The catalogue** is the manifest's (`genesis settings sync` on every deploy), the same one
+  `set_genesis_setting` checks values against, so the screen and the database agree on every key.
+  The manifest now carries each key's default, summary and links and a secret's name and store
+  (never a value); a manifest written by an older release shows as `settings-manifest-stale`.
+- **Health** is what the server can know: the manifest missing or stale, every problem the resolver
+  finds in the stored layers, and a Vault secret that isn't set. A bad value in the database layer
+  comes with an automatic fix (`database.clear:<key>`): planned first, with a hash over what is stored
+  now, and applied only when that hash still matches, so the screen's confirm step holds.
+- **Writes** go through the RPCs above with the caller's token: the database layer
+  (`set_genesis_setting`, platform admins), a tenant's layer (its admins), a person's own.
+  genesis.config.json isn't the app's to write: a file-layer write answers `unsupported` and names
+  the localhost wizard, the CLI or a pull request.
+- **Proposals.** Someone who can't change a value (a tenant admin facing a key the app locked)
+  proposes one, with why: `propose_genesis_setting(key, value, locked, reason)` stores it in
+  `genesis_setting_proposals` (one pending per person and key; 20 at most). A platform admin
+  approves it (`decide_genesis_setting_proposal`: the value is written exactly as by
+  `set_genesis_setting`, and recorded as theirs) or declines it. `genesis_setting_proposals()` lists
+  every pending one for a platform admin, and their own for anyone else.
+- **Vault secrets.** A platform admin sets or rotates a secret a package declares with
+  `store: "vault"` (`set_genesis_vault_secret(name, value)`). The value goes from the request to
+  `vault.create_secret` / `vault.update_secret` as a parameter and nowhere else: PostgREST sends an
+  RPC's arguments as a bind parameter, so `pg_stat_statements` and the statement log keep `$1`, never
+  the value; the function builds no SQL text and no error names the value; the handler never logs
+  it and redacts it from any error. Vault stores it encrypted. `genesis_secret_rotations` records who
+  set which secret and when, with no column that could hold a value, and
+  `genesis_vault_secret_status()` gives the Secrets tab set or missing and when each was last set.
+  Keep Postgres's `log_parameter_max_length_on_error` at 0 and `log_statement` off `all` (Supabase's
+  defaults) so no log prints a parameter. Secrets in other stores (Edge Function secrets, the
+  server's environment, CI) show as unknown here, and are set from a terminal (`genesis setup`).
+- **History.** `genesis_settings_audit(tenant, before_at, before_seq, max_rows)` gives one history,
+  newest first, a page at a time: the database layer, the tenant and person layers and secret
+  rotations (by name), each only to those who may read it.
+
 ## Background jobs (the jobs block)
 
 `migrations/0007_genesis_jobs.sql` is one queue for background work and one way to schedule it, so

@@ -4086,7 +4086,7 @@
     {
       "id": "settings-screen",
       "name": "Settings screen",
-      "summary": "One Settings screen for two hosts, the localhost wizard and the app's platform-admin page: <GenesisSettings client capabilities /> shows every key with its value, the layer it came from and its lock, the doctor's findings with their fixes (plan, confirm, apply), secret status by name, upgrades and the audit history, over a versioned JSON protocol (createSettingsClient). It writes only what the host can: the app host the database layer, build keys through the repo.",
+      "summary": "One Settings screen for two hosts, the localhost wizard and the app itself: <GenesisSettings client capabilities /> shows every key with its value, the layer it came from and its lock, the doctor's findings with their fixes (plan, confirm, apply), secret status by name, upgrades and the audit history, over a versioned JSON protocol (createSettingsClient). In the app, createSettingsHandler (genesis-supabase, routed by genesis settings init) serves it as the signed-in person: platform admins see and write everything and set Vault secrets, a tenant's admins their tenant's keys, everyone else their own, and anyone can propose a locked value for a platform admin to approve.",
       "category": "Platform",
       "status": "beta",
       "kind": "pattern",
@@ -4094,7 +4094,12 @@
         "settings screen",
         "wizard",
         "platform admin",
+        "tenant admin",
         "genesis setup",
+        "genesis settings init",
+        "createSettingsHandler",
+        "vault",
+        "proposals",
         "fix",
         "secrets status",
         "upgrades",
@@ -4112,11 +4117,23 @@
       "contributes": [
         "component: GenesisSettings",
         "fn: createSettingsClient",
-        "fn: settingWritability"
+        "fn: settingWritability",
+        "fn: createSettingsHandler",
+        "fn: catalogueFromManifest",
+        "cli: genesis settings init",
+        "table: genesis_setting_proposals",
+        "table: genesis_secret_rotations",
+        "rpc: genesis_settings_viewer",
+        "rpc: propose_genesis_setting",
+        "rpc: decide_genesis_setting_proposal",
+        "rpc: set_genesis_vault_secret",
+        "rpc: genesis_vault_secret_status",
+        "rpc: genesis_settings_audit"
       ],
       "owner": "mark",
       "apps": [
         "web",
+        "server",
         "cli"
       ],
       "audience": [
@@ -4129,16 +4146,26 @@
         "The screen shows a write only when the host's capabilities allow it, and the capabilities prop can only narrow them: the app host writes runtime keys in the database layer, and a build key shows its genesis.config.json change instead.",
         "An automatic fix is planned, shown, confirmed and applied with the plan's hash; a stale plan is refused and planned again.",
         "Secrets show by name, store and status only; no value is ever drawn, even one a host sends by mistake.",
-        "Not yet: the app's settings handler (the localhost wizard, genesis setup, serves it from the CLI)."
+        "createSettingsHandler answers every protocol op from the app's Supabase with the caller's own token (never the service role), for its own origin only; a non-admin is refused the database layer, decisions, fixes and Vault, a tenant admin sees and writes only their tenant's tenant-scope keys, a person only their own person-scope keys.",
+        "A platform admin sets or rotates a declared Vault secret; the value is a parameter all the way into Vault, never logged, answered or stored outside it, and the Secrets tab shows when it was last set.",
+        "A tenant admin or a person proposes a value the app locked, with why; a platform admin approves it (written as by set_genesis_setting) or declines it.",
+        "A bad database value is fixed through plan and apply with a hash over what is stored, so a value changed in between is never cleared unseen.",
+        "genesis settings init writes the handler's route for Next.js, TanStack Start, React Router or Expo Router."
       ],
       "reviewedAt": "2026-10-22",
       "links": {
         "code": [
           "packages/features/src/settings-protocol.ts",
-          "packages/features/src/settings-react.tsx"
+          "packages/features/src/settings-react.tsx",
+          "packages/supabase/src/settings-server.ts",
+          "packages/supabase/migrations/0024_genesis_settings_host.sql",
+          "packages/genesis-cli/src/settings-init.ts",
+          "apps/sample/app/routes/platform-settings.tsx"
         ],
         "docs": [
-          "packages/features/README.md"
+          "packages/features/README.md",
+          "packages/supabase/README.md",
+          "packages/genesis-cli/README.md"
         ]
       },
       "access": "all",

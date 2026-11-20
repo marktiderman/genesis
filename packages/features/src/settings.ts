@@ -700,7 +700,14 @@ export function withSettings(ctx: GateContext, catalogue: SettingsCatalogue, res
   };
 }
 
-/** One key as the database checks it (genesis_app_manifest.catalogue): no defaults, no secrets. @stability Beta */
+/**
+ * One key as the manifest stores it (genesis_app_manifest.catalogue): what the database checks a
+ * value against (type, bounds, scope, applies), and the rest of the declaration, so a server can
+ * rebuild the catalogue from the database alone ({@link catalogueFromManifest}). A secret appears by
+ * name and store only, never a value.
+ *
+ * @stability Beta
+ */
 export interface SettingManifestEntry {
   type: SettingType;
   applies: SettingApplies;
@@ -712,11 +719,22 @@ export interface SettingManifestEntry {
   nullable?: true;
   /** Present (true) only for a number that must be whole. */
   integer?: true;
+  /** The default as declared: one value, or `{ max, standard, min }`. */
+  default: unknown;
+  requires?: readonly string[];
+  summary?: string;
+  /** The secret it needs, by name and store. */
+  secret?: { name: string; store: SecretStore };
+  feature?: string;
+  flag?: string;
+  setup?: string;
+  planned?: true;
 }
 
 /**
  * The catalogue as the database's manifest stores it, so `set_genesis_setting` can check a value
- * (type, bounds, runtime only) without the packages' code. Written on deploy with the manifest.
+ * (type, bounds, runtime only) without the packages' code, and the app's Settings host can rebuild
+ * the catalogue ({@link catalogueFromManifest}). Written on deploy with the manifest.
  *
  * @stability Beta
  */
@@ -732,9 +750,94 @@ export function catalogueManifest(catalogue: SettingsCatalogue): { [key: string]
       ...(def.options !== undefined ? { options: def.options } : {}),
       ...(def.nullable ? { nullable: true as const } : {}),
       ...(def.integer ? { integer: true as const } : {}),
+      default: def.byPreset ? { ...def.defaults } : def.defaults.max,
+      ...(def.requires.length ? { requires: def.requires } : {}),
+      ...(def.summary !== undefined ? { summary: def.summary } : {}),
+      ...(def.secret ? { secret: { name: def.secret.name, store: def.secret.store } } : {}),
+      ...(def.feature !== undefined ? { feature: def.feature } : {}),
+      ...(def.flag !== undefined ? { flag: def.flag } : {}),
+      ...(def.setup !== undefined ? { setup: def.setup } : {}),
+      ...(def.planned ? { planned: true as const } : {}),
     };
   }
   return out;
+}
+
+/** A manifest entry back into the spec {@link defineSettings} takes. */
+function specFromManifest(entry: Record<string, unknown>): SettingSpec {
+  const secret = isPlainObject(entry.secret) ? entry.secret : undefined;
+  const pick = (k: string) => (entry[k] !== undefined ? { [k]: entry[k] } : {});
+  return {
+    ...pick("type"),
+    ...(Object.prototype.hasOwnProperty.call(entry, "default") ? { default: entry.default } : {}),
+    ...pick("scope"),
+    ...pick("applies"),
+    ...pick("requires"),
+    ...pick("min"),
+    ...pick("max"),
+    ...pick("options"),
+    ...(secret ? { needs: `secret:${String(secret.name)}`, store: secret.store } : {}),
+    ...pick("feature"),
+    ...pick("flag"),
+    ...pick("summary"),
+    ...pick("setup"),
+    ...pick("integer"),
+    ...pick("planned"),
+  } as SettingSpec;
+}
+
+/**
+ * The catalogue a manifest's `catalogue` stores ({@link catalogueManifest}), with every key checked
+ * as {@link defineSettings} checks it. A key that can't be rebuilt (written by a release that left
+ * out its default, malformed, or requiring a key that is missing) is left out and named in
+ * `problems`, so the caller can say the manifest needs writing again.
+ *
+ * @stability Beta
+ */
+export function catalogueFromManifest(raw: unknown): { catalogue: SettingsCatalogue; problems: Array<{ key: string; message: string }> } {
+  const problems: Array<{ key: string; message: string }> = [];
+  const specs = new Map<string, Map<string, SettingSpec>>();
+  for (const [key, entry] of Object.entries(isPlainObject(raw) ? raw : {})) {
+    if (!SETTING_KEY.test(key) || !isPlainObject(entry)) {
+      problems.push({ key, message: `${key} isn't a catalogue entry` });
+      continue;
+    }
+    if (!Object.prototype.hasOwnProperty.call(entry, "default")) {
+      problems.push({ key, message: `${key} has no default in the manifest: it was written by an older release (write the manifest again)` });
+      continue;
+    }
+    const dot = key.indexOf(".");
+    const namespace = key.slice(0, dot);
+    const name = key.slice(dot + 1);
+    const spec = specFromManifest(entry);
+    try {
+      defineSettings(namespace, { [name]: spec });
+    } catch (err) {
+      problems.push({ key, message: err instanceof Error ? err.message : String(err) });
+      continue;
+    }
+    if (!specs.has(namespace)) specs.set(namespace, new Map());
+    specs.get(namespace)!.set(name, spec);
+  }
+  // A key whose `requires` names a key left out goes too, until none does.
+  for (let dropped = true; dropped; ) {
+    dropped = false;
+    const present = new Set([...specs].flatMap(([ns, keys]) => [...keys.keys()].map((k) => `${ns}.${k}`)));
+    for (const [ns, keys] of specs) {
+      for (const [name, spec] of keys) {
+        const missing = (spec.requires ?? []).filter((r) => !present.has(r));
+        if (missing.length) {
+          keys.delete(name);
+          problems.push({ key: `${ns}.${name}`, message: `${ns}.${name} requires ${missing.join(", ")}, which the manifest doesn't have` });
+          dropped = true;
+        }
+      }
+    }
+  }
+  const declarations = [...specs]
+    .filter(([, keys]) => keys.size > 0)
+    .map(([ns, keys]) => defineSettings(ns, Object.fromEntries(keys)));
+  return { catalogue: settingsCatalogue(declarations), problems };
 }
 
 /**
