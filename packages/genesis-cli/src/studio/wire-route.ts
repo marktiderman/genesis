@@ -64,7 +64,7 @@ export function wireStudioRoute(source: string, route: string, pageImportPath: s
   const relative = route.replace(/^\//, "");
   const existing = tags.find((t) => new RegExp(`path=["'](/?${relative.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})["']`).test(t.text));
   if (existing) {
-    return { skipped: `Your router already has a page at ${route}. Replace its element with <DataStudioPage /> to use the studio there.` };
+    return { skipped: `Your router already has a page at ${route}. Replace its element with <DataStudioPage /> to use Genesis Data there.` };
   }
   // The layout route: one that wraps child routes and renders a layout or shell.
   const layouts = tags.filter((t) => !t.selfClosing && t.close !== undefined && /Layout|Shell/.test(t.text));

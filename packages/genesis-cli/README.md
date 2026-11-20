@@ -44,7 +44,7 @@ npx @marktiderman/genesis-cli data init
 Turns Genesis Data on in an existing Supabase app (it was `genesis studio init`, which still works
 and says it's been renamed). It writes three things:
 
-- **One migration to review:** the studio's `NOINHERIT` login and the audit trail. It holds no
+- **One migration to review:** Genesis Data's `NOINHERIT` login and the audit trail. It holds no
   password.
 - **The server:** a Next.js route when the app has an `app/` router; otherwise a Supabase Edge
   Function, `supabase/functions/genesis-studio`, with `verify_jwt = false` added to

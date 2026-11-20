@@ -187,7 +187,7 @@ export function createStudioHandler(options: StudioHandlerOptions): StudioHandle
     const login = await database.inspectLogin();
     const problem =
       !options.allowPrivilegedLogin && (login.superuser || login.bypassRls)
-        ? `The studio's database login "${login.name}" is a superuser or bypasses row-level security. ` +
+        ? `Genesis Data's database login "${login.name}" is a superuser or bypasses row-level security. ` +
           "Connect with a dedicated NOINHERIT login role (see the README), or set allowPrivilegedLogin for local development."
         : null;
     // A refusal sticks: a check that finished later and found nothing never lifts one.
@@ -251,19 +251,19 @@ export function createStudioHandler(options: StudioHandlerOptions): StudioHandle
 
       // Who is asking, before reading anything they sent.
       const claims = await options.auth(request);
-      if (!claims) return fail("unauthenticated", "Sign in to use the studio.");
+      if (!claims) return fail("unauthenticated", "Sign in to use Genesis Data.");
       if (claims.role !== undefined && claims.role !== role) {
         // e.g. a service-role key: the studio only ever acts as a signed-in user.
         return fail("forbidden", "This token doesn't belong to a signed-in user.");
       }
       if (claims.is_anonymous === true && !options.allowAnonymousUsers) {
-        return fail("forbidden", "Anonymous sessions can't use the studio. Sign in with an account.");
+        return fail("forbidden", "Anonymous sessions can't use Genesis Data. Sign in with an account.");
       }
 
       const unsafeLogin = await checkLogin();
       if (unsafeLogin) {
         options.onError?.(new Error(unsafeLogin));
-        return fail("error", "The studio isn't set up safely, so it's switched off. Your administrator has the details.");
+        return fail("error", "Genesis Data isn't set up safely, so it's switched off. Your administrator has the details.");
       }
 
       const body = await readBody(request);
@@ -459,7 +459,7 @@ export function createStudioHandler(options: StudioHandlerOptions): StudioHandle
       if (error instanceof BadRequestError) return fail("bad_request", error.message);
       if (error instanceof NotFoundError) return fail("not_found", error.message);
       options.onError?.(error);
-      if (error instanceof IdentitySwitchError) return fail("error", "The studio couldn't switch to your identity.");
+      if (error instanceof IdentitySwitchError) return fail("error", "Genesis Data couldn't switch to your identity.");
       return fail("error", "Something went wrong. Nothing was changed.");
     }
   };

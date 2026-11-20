@@ -302,7 +302,7 @@ function StudioWorkspace({
   if (signedOut) {
     return (
       <div className={cn("flex min-h-[320px] items-center justify-center p-6", className)} data-testid="studio-sign-in">
-        {signIn ?? <p className="text-sm text-muted-foreground">Sign in to use the studio.</p>}
+        {signIn ?? <p className="text-sm text-muted-foreground">Sign in to use Genesis Data.</p>}
       </div>
     );
   }

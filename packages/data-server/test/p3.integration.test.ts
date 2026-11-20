@@ -179,7 +179,7 @@ describeDb("P3: row actions, comments, checked-in contracts", () => {
           await tx.unsafe("set local role authenticated");
           await tx.unsafe(statement);
         }),
-      ).rejects.toThrow(/only the studio login/);
+      ).rejects.toThrow(/only the (?:studio|Genesis Data) login/);
     }
   });
 
