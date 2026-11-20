@@ -1,0 +1,19 @@
+packages/sites/src/__tests__/__snapshots__/design-systems.test.ts.snap
+  s_ca8e075e853203::t_9cd54e07646611 61,154,247,340,433,526,707,976,1245,1514,1783,2055,2327,2596,2865,3134,3403,3675,3947,4216,4485,4754,5023,5295,5567,5836,6105,6374,6643,6915
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9b1ffd54fc76a347150e1b9c647d0b2499dbb3c7",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
