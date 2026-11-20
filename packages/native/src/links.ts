@@ -12,6 +12,8 @@
  * never throws: anything it can't read is unknown.
  */
 
+import { PREVIEW_PATH, previewLinkChannel, previewPath } from "./updates/preview-links";
+
 /** A target path (`"/clients/:id"`, params filled in) or a function of the params. */
 export type LinkTarget = string | ((params: Record<string, string>) => string);
 
@@ -30,6 +32,12 @@ export interface LinkOptions {
   ignore?: readonly string[];
   /** Told about each link that went to `"/"` because nothing matched. */
   onUnknown?: (url: string) => void;
+  /**
+   * Preview links (`/preview?channel=pr-42`, `/preview/pr-42`, Expo's development-client QR) open
+   * the preview screen at `path` with a checked `channel` (updates/preview-links.ts). On by
+   * default at `/preview`; `false` turns it off.
+   */
+  previews?: false | { path?: string };
 }
 
 const URL_PATTERN = /^([a-z][a-z0-9+.-]*):\/\/([^/?#]*)([^?#]*)(\?[^#]*)?(#.*)?$/i;
@@ -108,7 +116,17 @@ function withQuery(path: string, query: string): string {
 
 /** The app path for `url`, `"/"` when it is unknown, or `null` when it is ignored. */
 export function normalizeLink(url: string, options: LinkOptions): string | null {
-  const { schemes = [], hosts = [], map, ignore = [], onUnknown } = options;
+  const { schemes = [], hosts = [], map, ignore = [], onUnknown, previews = {} } = options;
+  if (previews !== false) {
+    const path = previews.path ?? PREVIEW_PATH;
+    let preview: { channel: string | null } | null = null;
+    try {
+      preview = previewLinkChannel(url, { schemes, hosts, path });
+    } catch {
+      preview = null;
+    }
+    if (preview) return preview.channel ? previewPath(preview.channel, path) : path;
+  }
   const unknown = () => {
     onUnknown?.(url);
     return "/";

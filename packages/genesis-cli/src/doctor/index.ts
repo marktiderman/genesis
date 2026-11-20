@@ -50,6 +50,7 @@ import { checkConfigKeys, settingsCheck, type SettingsCheckOptions } from "./set
 import { checkEslintConfig } from "./eslint-config.js";
 import { checkFigmaRoutesRule } from "./figma-routes.js";
 import { checkMigrationDrift } from "./migration-drift.js";
+import { missedValueCheck } from "./missed-value.js";
 import { genesisBehindCheck } from "./behind.js";
 import { allFixes, builtinFixes } from "../fix/registry.js";
 import { attachFixes } from "../fix/engine.js";
@@ -357,6 +358,7 @@ export function builtinChecks(config: DoctorConfig, options: { contracts?: boole
     { name: "genesis-config-keys", check: checkConfigKeys },
     { name: "eslint-config", check: checkEslintConfig },
     { name: "migration-drift", check: checkMigrationDrift },
+    ...(config.rules?.["missed-value"] === "off" ? [] : [{ name: "missed-value", check: missedValueCheck() }]),
     // Switched off, it doesn't run at all: no npm, no advisory endpoint, no cache.
     ...(config.rules?.["genesis-behind"] === "off" ? [] : [{ name: "genesis-behind", check: genesisBehindCheck(options.behind ?? { network: false }) }]),
     ...(config.packs ?? []).map((p) => packs[p]),
@@ -432,6 +434,12 @@ export function formatReport(result: DoctorResult, options: { verbose?: boolean 
     lines.push(`${f.level.toUpperCase().padEnd(5)} ${f.file}${f.line ? `:${f.line}` : ""}  [${(f.rules ?? [f.rule]).join(", ")}] ${f.message}${f.fix?.command ? `  → ${f.fix.command}` : ""}`);
   }
   lines.push(options.verbose ? `Available but unused (${result.unused.length}): ${result.unused.join(", ") || "none"}` : `Available but unused: ${result.unused.length} (genesis doctor --verbose lists them)`);
+  const missed = result.findings.filter((f) => f.rule === "missed-value");
+  lines.push(
+    missed.length
+      ? `Missed value: ${missed.length} Genesis ${missed.length === 1 ? "feature" : "features"} unused or switched off: ${[...new Set(missed.map((f) => f.subject ?? f.file))].join(", ")} (each is listed above with how to adopt it, or decline it in doctor.declined)`
+      : "Missed value: none",
+  );
   lines.push(`Primitives: ${result.primitives.rules} rules from ${result.primitives.packages} packages; see genesis catalog`);
   if (result.extensionsAdded?.length) {
     lines.push(`Extensions added on this branch (${result.extensionsAdded.length}); the pull request's review accepts each:`);

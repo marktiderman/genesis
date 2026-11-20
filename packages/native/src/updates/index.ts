@@ -75,7 +75,18 @@ export {
 } from "./checker";
 export { createWhatsNewStore, notesSince, type WhatsNewOptions, type WhatsNewState, type WhatsNewStore } from "./whats-new";
 export { versionSignature, type BuildMetadata, type VersionSignature, type VersionSignatureInput } from "./signature";
-export { createChannelSwitcher, type ChannelSwitcher, type ChannelSwitcherOptions, type ChannelSwitchResult } from "./channels";
+export {
+  CHANNEL_NAME,
+  createChannelSwitcher,
+  isChannelName,
+  isChannelNotFoundError,
+  type ChannelCheck,
+  type ChannelState,
+  type ChannelSwitcher,
+  type ChannelSwitcherOptions,
+  type ChannelSwitchResult,
+} from "./channels";
+export { PREVIEW_PATH, previewLink, previewLinkChannel, previewPath, type PreviewLinkOptions } from "./preview-links";
 export { compareVersions, isBelowMinimum, parseVersion } from "./version";
 export type {
   ApplicationLike,

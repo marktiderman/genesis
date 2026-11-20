@@ -14,6 +14,7 @@ import type { DoctorContext, SourceFile } from "./types.js";
 
 /** Ids of the built-in rules, for `rules` overrides and `allow` entries. */
 export const BUILTIN_RULES = [
+  "missed-value",
   "local-primitives",
   // figma (figma/routes.ts; runs when genesis.config.json has a figma block)
   "figma-routes",

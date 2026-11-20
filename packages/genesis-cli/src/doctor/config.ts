@@ -350,6 +350,7 @@ export interface LoadedConfig {
 const STRING_LISTS = ["src", "extensions", "ignore", "tokenFiles", "ignoreTokenPrefixes", "localPrimitiveDirs", "build", "componentPackages"] as const;
 const STRINGS = ["uiPackage", "rulesDoc"] as const;
 const KNOWN = new Set<string>([
+  "declined",
   ...STRING_LISTS,
   ...STRINGS,
   "themeCss",
@@ -618,6 +619,12 @@ export function validateConfig(raw: unknown, source = "config"): DoctorConfig {
   if (!isObject(raw)) fail("the doctor settings must be an object");
   const c = raw as Record<string, unknown>;
   for (const key of Object.keys(c)) if (!KNOWN.has(key)) fail(`unknown setting "${key}"`);
+  if (c.declined !== undefined) {
+    const d = c.declined;
+    if (typeof d !== "object" || d === null || Array.isArray(d) || !Object.values(d).every((v) => typeof v === "string" && v.trim().length > 0)) {
+      fail(`"declined" maps a feature id to why it isn't wanted, e.g. { "pr-previews": "previews run in another repository" }`);
+    }
+  }
   // themeCss takes one stylesheet or several; normalize to a list.
   if (typeof c.themeCss === "string") c.themeCss = [c.themeCss];
   if (c.themeCss !== undefined && !isStringList(c.themeCss)) fail(`"themeCss" must be a path or a list of paths`);
