@@ -1,0 +1,25 @@
+packages/studio/CHANGELOG.md
+  s_ee1136e5d8692a::t_96bf374f30db04 1-254
+packages/studio-server/CHANGELOG.md
+  s_ee1136e5d8692a::t_96bf374f30db04 1-228
+packages/data-server/CHANGELOG.md
+  s_ee1136e5d8692a::t_010f09069f0aec 1-3
+packages/data/CHANGELOG.md
+  s_ee1136e5d8692a::t_0dda84996f51c4 1-3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f2deb426ea9c2cff602f754aa1feda10f1ed99e8",
+  "prompts": {},
+  "sessions": {
+    "s_ee1136e5d8692a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7ae1bc89-ab61-49a4-ad8e-066febd5d1ba",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
