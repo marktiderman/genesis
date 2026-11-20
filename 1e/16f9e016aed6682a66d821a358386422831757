@@ -1,0 +1,151 @@
+AGENTS.md
+  s_ca8e075e853203::t_5d2c7a5a019ac6 155
+.changeset/genesis-support-desks-review.md
+  s_ca8e075e853203::t_2f1a0b1de08b84 1-32
+.changeset/genesis-support-desks.md
+  s_ca8e075e853203::t_3fb25b679f72b5 1-16
+.changeset/genesis-support-email-reply.md
+  s_ca8e075e853203::t_c8e1711a27318b 1-13
+.changeset/genesis-support-notifications.md
+  s_ca8e075e853203::t_b483cf01767b1b 1-12
+.changeset/genesis-support-route-mount.md
+  s_ca8e075e853203::t_08ef3a22549414 1-12
+.changeset/genesis-support-settings-wired.md
+  s_ca8e075e853203::t_f3e40dd8923e01 1-13
+.changeset/native-fatal-contact.md
+  s_ca8e075e853203::t_fb31d946642f39 1-10
+.changeset/notifications-parse-address.md
+  s_ca8e075e853203::t_21bf5603335400 1-7
+.changeset/supabase-notify-settings.md
+  s_ca8e075e853203::t_2a123cde964b54 1-8
+apps/genesis-rn-starter/supabase/migrations/20261026000600_genesis_support_notifications.sql
+  s_ca8e075e853203::t_a526ff1d2ca7be 1-413
+features.json
+  s_ca8e075e853203::t_b9fa138c2336f1 5835-5986,8731,8761-8764
+features.ts
+  s_ca8e075e853203::t_698788f04ad67c 2560-2625,3820,3833
+packages/native/README.md
+  s_ca8e075e853203::t_1c5bae3476ecab 453-455
+packages/native/src/__tests__/errors.test.tsx
+  s_ca8e075e853203::t_063fd1bb580518 215-240
+packages/native/src/errors.tsx
+  s_ca8e075e853203::t_edad34711b9ccd 9,48-70,73-102,111-112,123-127,150-158
+packages/native/src/index.ts
+  s_ca8e075e853203::t_c764095b3d2771 37-38
+packages/native/src/screen-boundary.tsx
+  s_ca8e075e853203::t_42f223325b4059 22,51-52,62-65
+packages/notifications/src/__tests__/inbound.test.ts
+  s_ca8e075e853203::t_b37dd74e7cf846 31-51
+packages/notifications/src/server/inbound.ts
+  s_ca8e075e853203::t_0af93ca07b9277 68-88,90-124
+packages/supabase/README.md
+  s_ca8e075e853203::t_d8191bdb562f9c 594
+packages/supabase/functions/genesis-support-notify/handler.ts
+  s_ca8e075e853203::t_5168b996f2b9bc 18-22,54-55,133-153,176-190,211-214
+packages/supabase/functions/genesis-support-notify/index.ts
+  s_ca8e075e853203::t_22ef4dd95aa0c9 14-17,19-32
+packages/supabase/src/__tests__/support-functions.test.ts
+  s_ca8e075e853203::t_42ff0b409d9911 4,140-168
+packages/support/README.md
+  s_ca8e075e853203::t_1e125adbee1bf9 44-63,178-209,821-891,942,945-975
+packages/support/migrations/0024_genesis_support_desks.sql
+  s_ca8e075e853203::t_1ccd40eca14e1d 1-878
+packages/support/migrations/0025_genesis_support_notifications.sql
+  s_ca8e075e853203::t_f5940300889487 1-413
+packages/support/migrations/0027_genesis_support_email_reply.sql
+  s_ca8e075e853203::t_90620c242838ae 1-151
+packages/support/migrations/tests/0024_genesis_support_desks.test.sql
+  s_ca8e075e853203::t_3e640f803e07db 1-258
+packages/support/migrations/tests/0025_genesis_support_notifications.test.sql
+  s_ca8e075e853203::t_c3175bd07bdd9b 1-198
+packages/support/migrations/tests/0027_genesis_support_email_reply.test.sql
+  s_ca8e075e853203::t_575632d216b83c 1-79
+packages/support/package.json
+  s_ca8e075e853203::t_0266b3ed52cd4a 68-71,111,157-159,169,274-277,506-509,555-558,689,701,711,775,787,796,803,812,819,824,829
+packages/support/src/__tests__/core.test.ts
+  s_ca8e075e853203::t_7e7b1a9a86a1bc 286-291
+packages/support/src/__tests__/desks.test.tsx
+  s_ca8e075e853203::t_ffb1f160a62bd2 1-297
+packages/support/src/__tests__/email-inbound.test.ts
+  s_ca8e075e853203::t_04726fba17fef7 1-206
+packages/support/src/__tests__/messenger.test.tsx
+  s_ca8e075e853203::t_a510092989f08e 671-728
+packages/support/src/__tests__/native-route.test.tsx
+  s_ca8e075e853203::t_b65a8d6082a16d 1-202
+packages/support/src/__tests__/native.test.tsx
+  s_ca8e075e853203::t_14bcdeb5ff4c7b 8,103-124
+packages/support/src/__tests__/notifications.test.ts
+  s_ca8e075e853203::t_c89346f3628aef 1-107
+packages/support/src/__tests__/server.test.ts
+  s_ca8e075e853203::t_522d1b727e1884 626-657
+packages/support/src/block.ts
+  s_ca8e075e853203::t_56010f1fcee379 32-35,50-51,118-119,202-203,219-220,240-241
+packages/support/src/client.ts
+  s_ca8e075e853203::t_ff5bf0fc15b46e 15,361-376,416-417,989-1017,1020-1024
+packages/support/src/copy.ts
+  s_ca8e075e853203::t_ac95e03d65a100 186-261
+packages/support/src/desks.ts
+  s_ca8e075e853203::t_a836f8221b4ee1 1-159
+packages/support/src/email-inbound.ts
+  s_ca8e075e853203::t_6b0eb2f0d13f85 1-228
+packages/support/src/email-notifications.ts
+  s_ca8e075e853203::t_de5c17fc60b071 1-14
+packages/support/src/email-templates.ts
+  s_ca8e075e853203::t_ec6d8f10613fed 1-72
+packages/support/src/index.ts
+  s_ca8e075e853203::t_1be57af5c57065 18,28
+packages/support/src/native/agent.tsx
+  s_ca8e075e853203::t_9a41befe64a7b3 277
+packages/support/src/native/feedback-form.tsx
+  s_ca8e075e853203::t_16e4c635f7c236 16,79
+packages/support/src/native/help.tsx
+  s_ca8e075e853203::t_34751e0a65cd48 14,19-20,236,270-299
+packages/support/src/native/index.ts
+  s_ca8e075e853203::t_e4103f30fe448f 42,60
+packages/support/src/native/route.tsx
+  s_ca8e075e853203::t_0886e6db56d916 1-275
+packages/support/src/native/support.tsx
+  s_ca8e075e853203::t_c6c2765924ed5e 33-34,123-138,201-209,285-293,486-495,532
+packages/support/src/notifications.ts
+  s_ca8e075e853203::t_14b3129039f286 1-101
+packages/support/src/routes.ts
+  s_ca8e075e853203::t_5b7394e8cc18d2 19-131
+packages/support/src/server/index.ts
+  s_ca8e075e853203::t_4b17db81060183 52
+packages/support/src/server/notifiers.ts
+  s_ca8e075e853203::t_f026451bc8f754 16,248-301
+packages/support/src/settings.ts
+  s_ca8e075e853203::t_16949094d86aa6 47-49,54-61,198-255
+packages/support/src/web-chat/agent-inbox.tsx
+  s_ca8e075e853203::t_394646bbe275c5 45-46,81,83-98,587,590-600,642-654,664-668,689-692,705-706,857-876
+packages/support/src/web-chat/contact.tsx
+  s_ca8e075e853203::t_c0f1b8724766e5 1-38
+packages/support/src/web-chat/desks.tsx
+  s_ca8e075e853203::t_3d9d0e2f68a15b 1-449
+packages/support/src/web-chat/index.ts
+  s_ca8e075e853203::t_388841a6180a35 19-34
+packages/support/src/web-chat/messenger.tsx
+  s_ca8e075e853203::t_72526ae8f5ba0e 42-43,65-78,130-133,179-182,204,219-220,358,426,450,464-468,491,507,542,556-558,569,575,603,685-686,691-695,703-711,715-717,734-735,748,828-830,834,848-849
+packages/support/tsup.config.ts
+  s_ca8e075e853203::t_823d5c2ae3b962 18
+pnpm-lock.yaml
+  s_ca8e075e853203::t_85751d7cf5b2f0 1869-1871
+scripts/pgtap-local/suites.sh
+  s_ca8e075e853203::t_07f06789a86b44 23-25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1e16f9e016aed6682a66d821a358386422831757",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
