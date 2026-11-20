@@ -181,8 +181,8 @@ describe("secret stores", () => {
   it.each([
     ["more after Enter in the same paste", (t: ReturnType<typeof terminal>) => t.emit("data", `${VALUE}\nsecond line`), /multi-line values aren't supported/],
     ["more arriving right after Enter", (t: ReturnType<typeof terminal>) => (t.emit("data", `${VALUE}\r`), t.emit("data", "second line")), /multi-line values aren't supported/],
-    ["a control character", (t: ReturnType<typeof terminal>) => t.emit("data", `${VALUE}\t`), /control character/],
-    ["an escape sequence", (t: ReturnType<typeof terminal>) => t.emit("data", `${VALUE}\u001b[A`), /control character/],
+    ["a control character", (t: ReturnType<typeof terminal>) => t.emit("data", `${VALUE}\t`), /control, invisible or direction character/],
+    ["an escape sequence", (t: ReturnType<typeof terminal>) => t.emit("data", `${VALUE}\u001b[A`), /control, invisible or direction character/],
     ["Ctrl-C", (t: ReturnType<typeof terminal>) => t.emit("data", "\u0003"), /cancelled/],
     ["stdin closing", (t: ReturnType<typeof terminal>) => t.emit("end"), /stdin closed/],
     ["stdin failing", (t: ReturnType<typeof terminal>) => t.emit("error", new Error("EIO")), /stdin failed: EIO/],
