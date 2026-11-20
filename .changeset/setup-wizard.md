@@ -1,5 +1,6 @@
 ---
 "@marktiderman/genesis-cli": minor
+"@marktiderman/genesis-config": patch
 ---
 
 `genesis setup`: the setup wizard on localhost, on the doctor's engine. It shows the app's findings
@@ -21,3 +22,5 @@ nothing: it prints the plans and the checklist and exits 1 when there is somethi
 --template native --preset standard|min` sets a new app's preset (checked before anything is
 written; refused without a template). With `CI` set the wizard never opens. `genesis mcp` adds the read-only `setup_steps` tool,
 and a fix with a setup step now returns `genesis setup --step <id>`.
+
+The Settings screen shows `genesis setup --step <id>` for a guided fix that has a step (else `genesis fix <id>`).
