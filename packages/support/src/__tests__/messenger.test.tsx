@@ -300,9 +300,9 @@ describe("SupportMessenger", () => {
       myReports: vi.fn(async () => [ticket(), ticket({ id: "t2", message: "Second" }), ticket({ id: "t3", message: "Third" })]),
       signedInId: vi.fn(async () => "me"),
       myTicketDesks: vi.fn(async () => [
-        { ticketId: "t1", tenantId: "acme", label: "Acme" },
-        { ticketId: "t2", tenantId: "north", label: "Northside" },
-        { ticketId: "t3", tenantId: "app", label: null },
+        { ticketId: "t1", tenantId: "acme", label: "Acme", isDefault: false },
+        { ticketId: "t2", tenantId: "north", label: "Northside", isDefault: false },
+        { ticketId: "t3", tenantId: "app", label: null, isDefault: true },
       ]),
     });
     show(client, { spaces: ["messages"], allTenants: true });

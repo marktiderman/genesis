@@ -12,8 +12,9 @@
 --
 --   support.verifyPrompt (boolean, default off) turns on 0003's verify prompt: a report someone
 --                 else marks addressed asks its person to check the fix. The app's hook
---                 private.genesis_support_verify_prompt_enabled() still turns it on too, for one
---                 release (deprecated: set support.verifyPrompt instead).
+--                 private.genesis_support_verify_prompt_enabled() still turns it on where no layer
+--                 sets support.verifyPrompt, for one release (deprecated: set the key instead). A
+--                 value set in any layer, or locked, wins over the hook.
 --
 -- Use: copy this file into your app's `supabase/migrations/` under a new timestamped name
 -- (`genesis migrate` does it). Never edit it once applied; change it with a new migration.
@@ -117,6 +118,9 @@ set search_path = ''
 as $$
 declare
   prompt_on boolean := false;
+  -- Whether a layer set support.verifyPrompt (a value, or a lock): then it alone decides.
+  set_by_a_layer boolean := false;
+  setting record;
 begin
   -- A status set directly is depth 1; through support-chat's conversation sync, 2. Deeper is a
   -- loop of triggers, never a person marking a fix.
@@ -124,10 +128,13 @@ begin
     return null;
   end if;
   -- Separate statements: one SQL expression may evaluate a call even when its function is missing.
-  if to_regprocedure('private.genesis_setting(text,uuid)') is not null then
-    prompt_on := coalesce(private.genesis_setting('support.verifyPrompt') = 'true'::jsonb, false);
+  if to_regprocedure('private.genesis_setting_entry(text,uuid)') is not null then
+    select * into setting from private.genesis_setting_entry('support.verifyPrompt');
+    prompt_on := coalesce(setting.value = 'true'::jsonb, false);
+    set_by_a_layer := coalesce(setting.locked or setting.layer not in ('default', 'preset'), false);
   end if;
-  if not prompt_on and to_regprocedure('private.genesis_support_verify_prompt_enabled()') is not null then
+  -- The deprecated hook only where no layer set the key: a value set, or locked, wins over it.
+  if not set_by_a_layer and not prompt_on and to_regprocedure('private.genesis_support_verify_prompt_enabled()') is not null then
     prompt_on := coalesce(private.genesis_support_verify_prompt_enabled(), false);
   end if;
   if not prompt_on then

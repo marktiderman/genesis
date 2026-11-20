@@ -37,10 +37,10 @@ describe("the client's desk calls", () => {
       },
     ],
     support_desk_move_targets: [{ tenant_id: "acme", label: "Acme", is_default: false }],
-    support_people_search: [{ user_id: "u2", full_name: "Bea", email: "bea@acme.test" }],
+    support_people_search: [{ person_id: "p2", user_id: "u2", full_name: "Bea", email: "bea@acme.test" }],
     support_can_manage_agents: true,
-    support_agents_list: [{ user_id: "u3", full_name: "Cy", role: "admin", removable: false }],
-    support_my_ticket_desks: [{ ticket_id: "t1", tenant_id: "acme", label: "Acme" }],
+    support_agents_list: [{ user_id: "u3", person_id: "p3", full_name: "Cy", role: "admin", removable: false }],
+    support_my_ticket_desks: [{ ticket_id: "t1", tenant_id: "acme", label: "Acme", is_default: false }],
     support_desk_history: [{ id: 7, tenant_id: "acme", ticket_id: null, to_tenant: null, action: "turned_on", reason: null, actor: "u1", actor_name: "Ana", at: "2026-11-19T09:00:00Z" }],
   };
   const make = () => {
@@ -55,16 +55,21 @@ describe("the client's desk calls", () => {
 
   it("searches a desk's people and names the person's ticket desks", async () => {
     const { fake, client } = make();
-    expect(await client.searchPeople!({ tenantId: "acme", query: "bea" })).toEqual([{ id: "u2", name: "Bea", email: "bea@acme.test" }]);
+    expect(await client.searchPeople!({ tenantId: "acme", query: "bea" })).toEqual([{ personId: "p2", userId: "u2", name: "Bea", email: "bea@acme.test" }]);
     expect(fake.rpcs.at(-1)).toEqual({ fn: "support_people_search", args: { tenant: "acme", q: "bea", lim: 10 } });
-    expect(await client.myTicketDesks!()).toEqual([{ ticketId: "t1", tenantId: "acme", label: "Acme" }]);
+    expect(await client.myTicketDesks!()).toEqual([{ ticketId: "t1", tenantId: "acme", label: "Acme", isDefault: false }]);
   });
 
   it("says who manages a desk's agents, and each agent's role and whether they can be removed", async () => {
     const { fake, client } = make();
     expect(await client.canManageAgents!({ tenantId: null })).toBe(true);
     expect(fake.rpcs.at(-1)).toEqual({ fn: "support_can_manage_agents", args: { tenant: null } });
-    expect(await client.staffList!({ tenantId: "acme" })).toEqual([{ id: "u3", name: "Cy", role: "admin", removable: false }]);
+    const scoped = createSupportClient(fake.client, { tenantId: "acme" });
+    await scoped.canManageAgents!();
+    expect(fake.rpcs.at(-1)).toEqual({ fn: "support_can_manage_agents", args: { tenant: "acme" } });
+    await scoped.staffList!();
+    expect(fake.rpcs.at(-1)).toEqual({ fn: "support_agents_list", args: { tenant: "acme" } });
+    expect(await client.staffList!({ tenantId: "acme" })).toEqual([{ id: "u3", name: "Cy", personId: "p3", role: "admin", removable: false }]);
   });
 
   it("reads where a ticket is and its last move", async () => {

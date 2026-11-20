@@ -8,7 +8,7 @@
 -- agent of ta; b8 ta's tenant admin; e6 the app's staff; a7 an anonymous login in ta.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(20);
+select plan(32);
 
 create function pg_temp.tenant(n text) returns uuid language sql immutable as $$
   select case n when 'd' then '00000000-0000-4000-8000-00000000000f'::uuid
@@ -109,19 +109,29 @@ reset role;
 
 -- Who manages agents: one rule ---------------------------------------------------------------------
 
+-- c9 is a login whose person record in ta is another id (p9 = ...0034f9): the app's records.
 insert into auth.users (id, aud, role, email, instance_id, is_anonymous)
 select pg_temp.person(n), 'authenticated', 'authenticated', 'genesis-labels-' || n || '@example.test', '00000000-0000-0000-0000-000000000000', n = 'a7'
-from unnest(array['c5', 'b8', 'e6', 'a7']) n;
+from unnest(array['c5', 'b8', 'e6', 'a7', 'c9']) n;
 create or replace function private.genesis_viewer_people(viewer uuid)
 returns table (tenant_id uuid, person_id uuid) language sql stable set search_path = '' as $$
-  select '00000000-0000-4000-8000-0000000000a0'::uuid, viewer
-   where viewer in (select ('00000000-0000-4000-8000-0000000034' || n)::uuid from unnest(array['a1', 'c3', 'c4', 'c5', 'b8', 'a7']) n) $$;
+  select '00000000-0000-4000-8000-0000000000a0'::uuid,
+         case when viewer = '00000000-0000-4000-8000-0000000034c9'::uuid then '00000000-0000-4000-8000-0000000034f9'::uuid else viewer end
+   where viewer in (select ('00000000-0000-4000-8000-0000000034' || n)::uuid from unnest(array['a1', 'c3', 'c4', 'c5', 'b8', 'a7', 'c9']) n) $$;
+create or replace function private.genesis_person_login(person uuid) returns uuid
+language sql stable set search_path = '' as $$
+  select case when person = '00000000-0000-4000-8000-0000000034f9'::uuid then '00000000-0000-4000-8000-0000000034c9'::uuid else person end $$;
 create or replace function private.genesis_tenant_admin(tenant uuid, person uuid) returns boolean
 language sql stable set search_path = '' as $$
   select tenant = '00000000-0000-4000-8000-0000000000a0'::uuid and person = '00000000-0000-4000-8000-0000000034b8'::uuid $$;
 create or replace function private.genesis_support_staff(person uuid) returns boolean
 language sql stable set search_path = '' as $$ select person = '00000000-0000-4000-8000-0000000034e6'::uuid $$;
+revoke execute on function private.genesis_person_login(uuid) from public, anon, authenticated;
 insert into public.ticket_agents (tenant_id, person_id, role) values (pg_temp.tenant('ta'), pg_temp.person('c5'), 'admin');
+-- An anonymous login and c9 wrote to ta.
+insert into public.tickets (type, title, message, tenant_id, user_id) values
+  ('question', 'anon', 'Hi', pg_temp.tenant('ta'), pg_temp.person('a7')),
+  ('question', 'c9', 'Hi', pg_temp.tenant('ta'), pg_temp.person('c9'));
 
 create function pg_temp.manages(n text, tenant uuid) returns boolean language plpgsql as $$
 declare r boolean;
@@ -144,8 +154,23 @@ select throws_ok($$select public.support_set_agent(pg_temp.tenant('ta'), pg_temp
 reset role;
 select pg_temp.sign_in('e6');
 set local role authenticated;
-select lives_ok($$select public.support_set_agent(pg_temp.tenant('d'), pg_temp.person('e6'), 'admin')$$, '... the app''s staff are accepted for the app''s own desk');
+select lives_ok($$select public.support_set_agent(null, pg_temp.person('e6'), 'admin')$$, '... and null is the app''s own desk there too, for its staff');
 reset role;
+select is((select role from public.ticket_agents where tenant_id = pg_temp.tenant('d') and person_id = pg_temp.person('e6')), 'admin', 'the row is at the app''s own desk');
+
+-- A person record that isn't the login ------------------------------------------------------------
+
+select pg_temp.sign_in('c5');
+set local role authenticated;
+select is((select row(person_id, user_id)::text from public.support_people_search(pg_temp.tenant('ta'), 'labels-c9')),
+  row('00000000-0000-4000-8000-0000000034f9'::uuid, pg_temp.person('c9'))::text, 'people search gives the tenant''s person record and the login');
+select lives_ok($$select public.support_set_agent(pg_temp.tenant('ta'), '00000000-0000-4000-8000-0000000034f9', 'agent')$$, 'which support_set_agent takes');
+select is((select row(user_id, person_id, role, removable)::text from public.support_agents_list(pg_temp.tenant('ta')) where user_id = pg_temp.person('c9')),
+  row(pg_temp.person('c9'), '00000000-0000-4000-8000-0000000034f9'::uuid, 'agent', true)::text, 'the agent list shows the login with its record, removable');
+select lives_ok($$select public.support_set_agent(pg_temp.tenant('ta'), (select person_id from public.support_agents_list(pg_temp.tenant('ta')) where user_id = pg_temp.person('c9')), null)$$,
+  'removing by the listed person record');
+reset role;
+select is((select count(*)::int from public.ticket_agents where person_id = '00000000-0000-4000-8000-0000000034f9'), 0, '... really removes the row');
 
 -- The agent list's role and removable -------------------------------------------------------------
 
@@ -162,20 +187,75 @@ select pg_temp.sign_in('c3');
 set local role authenticated;
 select is((select count(*)::int from public.support_agents_list(pg_temp.tenant('ta')) where removable), 0, 'an agent can remove nobody');
 reset role;
+-- The tenant's admin by the app's hook, with an agent row too: admin wins, and the row isn't removable.
+insert into public.ticket_agents (tenant_id, person_id, role) values (pg_temp.tenant('ta'), pg_temp.person('b8'), 'agent');
+select pg_temp.sign_in('c5');
+set local role authenticated;
+select is((select row(role, removable)::text from public.support_agents_list(pg_temp.tenant('ta')) where user_id = pg_temp.person('b8')),
+  row('admin', false)::text, 'a tenant admin with an agent row: admin, and not removable');
+reset role;
 
 -- People search ----------------------------------------------------------------------------------
 
+-- Many logins that aren't the desk's: the search doesn't look at them.
+insert into auth.users (id, aud, role, email, instance_id)
+select gen_random_uuid(), 'authenticated', 'authenticated', 'genesis-labels-bulk-' || g || '@example.test', '00000000-0000-0000-0000-000000000000'
+from generate_series(1, 20000) g;
+create temp table timing (started timestamptz, finished timestamptz);
+grant all on timing to authenticated;
+
 select pg_temp.sign_in('c5');
 set local role authenticated;
+insert into timing (started) values (clock_timestamp());
 select is((select array_agg(email order by email) from public.support_people_search(pg_temp.tenant('ta'), 'genesis-labels')),
-  array['genesis-labels-a1@example.test', 'genesis-labels-b8@example.test', 'genesis-labels-c3@example.test', 'genesis-labels-c4@example.test', 'genesis-labels-c5@example.test'],
-  'an admin agent finds the tenant''s people: no anonymous login, nobody from outside it');
-select throws_ok($$select * from public.support_people_search(pg_temp.tenant('d'), 'genesis')$$, '42501', null, 'and can''t search another desk''s');
+  array['genesis-labels-a1@example.test', 'genesis-labels-b8@example.test', 'genesis-labels-c3@example.test', 'genesis-labels-c4@example.test', 'genesis-labels-c5@example.test', 'genesis-labels-c9@example.test'],
+  'an admin agent finds the desk''s people (agents and requesters): no anonymous login, none of the other logins');
+update timing set finished = clock_timestamp();
+select ok((select finished - started from timing) < interval '250 milliseconds', 'with 20,000 other logins the search still reads only the desk''s people');
+select throws_ok($$select * from public.support_people_search(null, 'genesis')$$, '42501', null, 'and can''t search another desk''s');
 select throws_ok($$select * from public.support_people_search(pg_temp.tenant('ta'), 'g')$$, '22023', null, 'a search is at least 2 characters');
+reset role;
+select pg_temp.sign_in('c3');
+set local role authenticated;
+select is((select count(*)::int from public.support_people_search(pg_temp.tenant('ta'), 'labels-a1')), 1,
+  'an agent who doesn''t manage agents searches too: whoever may link an email ticket finds the person');
 reset role;
 select pg_temp.sign_in('a1');
 set local role authenticated;
-select throws_ok($$select * from public.support_people_search(pg_temp.tenant('ta'), 'genesis')$$, '42501', null, 'a member who doesn''t manage agents can''t search');
+select throws_ok($$select * from public.support_people_search(pg_temp.tenant('ta'), 'genesis')$$, '42501', null, 'someone who isn''t the desk''s agent can''t search');
+reset role;
+
+-- The app's own desk: its agents search too (the same rule as linking), among the people that desk
+-- handles, never every login. c4 is an agent there through a record the app gives it.
+create or replace function private.genesis_viewer_people(viewer uuid)
+returns table (tenant_id uuid, person_id uuid) language sql stable set search_path = '' as $$
+  select '00000000-0000-4000-8000-0000000000a0'::uuid,
+         case when viewer = '00000000-0000-4000-8000-0000000034c9'::uuid then '00000000-0000-4000-8000-0000000034f9'::uuid else viewer end
+   where viewer in (select ('00000000-0000-4000-8000-0000000034' || n)::uuid from unnest(array['a1', 'c3', 'c4', 'c5', 'b8', 'a7', 'c9']) n)
+  union all
+  select '00000000-0000-4000-8000-00000000000f'::uuid, viewer where viewer = '00000000-0000-4000-8000-0000000034c4'::uuid $$;
+insert into public.ticket_agents (tenant_id, person_id, role) values (pg_temp.tenant('d'), pg_temp.person('c4'), 'agent');
+select pg_temp.sign_in('c4');
+set local role authenticated;
+select is((select array_agg(email order by email) from public.support_people_search(null, 'genesis-labels')),
+  array['genesis-labels-c4@example.test', 'genesis-labels-e6@example.test'],
+  'an agent of the app''s own desk finds the people that desk handles (its agents), none of the other logins');
+reset role;
+select pg_temp.sign_in('c3');
+set local role authenticated;
+select throws_ok($$select * from public.support_people_search(null, 'genesis')$$, '42501', null, 'someone who doesn''t handle the app''s own desk can''t search it');
+reset role;
+
+-- The app's own search: its matches, still checked against the tenant.
+create function private.genesis_people_search(tenant uuid, q text, lim integer)
+returns table (person_id uuid, login uuid) language sql stable set search_path = '' as $$
+  select null::uuid, u.id from auth.users u
+   where u.id in ('00000000-0000-4000-8000-0000000034b8'::uuid, '00000000-0000-4000-8000-0000000034e6'::uuid) $$;
+revoke execute on function private.genesis_people_search(uuid, text, integer) from public, anon, authenticated;
+select pg_temp.sign_in('c5');
+set local role authenticated;
+select is((select array_agg(email) from public.support_people_search(pg_temp.tenant('ta'), 'genesis-labels')),
+  array['genesis-labels-b8@example.test'], 'with the app''s search hook: its matches, only those who are the tenant''s people');
 reset role;
 
 select * from finish();

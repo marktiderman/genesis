@@ -46,7 +46,7 @@ import {
   ToggleRow,
   toast,
 } from "@marktiderman/genesis-ui";
-import { requesterTenantsLabel, type AgentTicket, type SupportClient, type SupportPerson } from "../client";
+import { requesterTenantsLabel, type AgentTicket, type SupportClient, type SupportPersonMatch } from "../client";
 import { chooseDesk, pickerDesks, type DeskLogEntry, type DeskTarget, type SupportDesk, type TicketDesk } from "../desks";
 import { fill, resolveSupportCopy, type SupportCopy, type SupportCopyOverrides } from "../copy";
 import { mailtoHref, supportSettingValues, type SupportSettingsInput } from "../settings";
@@ -233,7 +233,7 @@ export const supportAgentKeys = {
   list: (scope: string) => ["genesis-support", "agents", scope] as const,
 };
 
-/** A search for people in a desk's tenant (`searchPeople`, for whoever manages its agents), and the pick among those it found. */
+/** A search for people in a desk's tenant (`searchPeople`, for the desk's agents), and the pick among those it found. */
 export function PersonSearch({
   client,
   tenantId,
@@ -245,8 +245,8 @@ export function PersonSearch({
   client: SupportClient;
   /** The desk whose tenant to search (null: the app's own). */
   tenantId: string | null;
-  value: SupportPerson | null;
-  onChange: (person: SupportPerson | null) => void;
+  value: SupportPersonMatch | null;
+  onChange: (person: SupportPersonMatch | null) => void;
   words: { search: string; placeholder: string; noMatches: string; unnamed: string; failed: string };
   testId: string;
 }) {
@@ -272,13 +272,13 @@ export function PersonSearch({
         <InlineAlert variant="destructive" description={words.failed} testID={`${testId}-search-failed`} />
       ) : found.isSuccess ? (
         people.length ? (
-          <Select value={value?.id ?? ""} onValueChange={(pick) => onChange(people.find((p) => p.id === pick) ?? null)}>
+          <Select value={value?.personId ?? ""} onValueChange={(pick) => onChange(people.find((p) => p.personId === pick) ?? null)}>
             <SelectTrigger aria-label={words.search} data-testid={`${testId}-pick`}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {people.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
+                <SelectItem key={p.personId} value={p.personId}>
                   {personLabel(p, words.unnamed)}
                 </SelectItem>
               ))}
@@ -295,7 +295,7 @@ export function PersonSearch({
 }
 
 /** A found person as a pick shows them: their name and email, else whichever there is. */
-function personLabel(p: SupportPerson & { email?: string | null }, unnamed: string): string {
+function personLabel(p: { name: string | null; email?: string | null }, unnamed: string): string {
   const name = p.name?.trim();
   return name && p.email ? `${name} (${p.email})` : (name || p.email || unnamed);
 }
@@ -312,26 +312,25 @@ export interface SupportLinkRequesterProps {
 /**
  * An email ticket with no login: find the person in the ticket's tenant (`searchPeople`) and, after
  * a confirm that names both, link it to their login (`linkRequester`), so it shows in their app. It
- * can't be undone here. For whoever manages the desk's agents, who may search its people; the
- * database refuses anyone who doesn't handle the ticket, and a person outside its tenant.
+ * can't be undone here. For the desk's agents (who handle its tickets): one rule for searching and
+ * linking. The database refuses anyone who doesn't handle the ticket, and a person outside its tenant.
  */
 export function SupportLinkRequester({ client, ticket, onLinked, copy: overrides, onError }: SupportLinkRequesterProps) {
   const copy = resolveSupportCopy(overrides);
   const queryClient = useQueryClient();
   const linkRequester = client.linkRequester?.bind(client);
-  const manage = useCanManageAgents(client, ticket.tenantId);
-  const [person, setPerson] = useState<SupportPerson | null>(null);
+  const [person, setPerson] = useState<SupportPersonMatch | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
-  if (ticket.channel !== "email" || ticket.userId || !linkRequester || !client.searchPeople || !manage.manages) return null;
+  if (ticket.channel !== "email" || ticket.userId || !linkRequester || !client.searchPeople) return null;
   const name = person ? personLabel(person, copy.agents.unnamed) : "";
   const link = async () => {
     if (!person) return;
     setBusy(true);
     setFailed(false);
     try {
-      await linkRequester(ticket.id, person.id);
+      await linkRequester(ticket.id, person.userId);
       setConfirming(false);
       void queryClient.invalidateQueries({ queryKey: ["genesis-support"] });
       toast.success(fill(copy.requester.linked, { name }));

@@ -3,7 +3,8 @@
 -- people who wrote tickets they handle and those people's tenants, and nobody else does. Rolls back.
 --
 -- People: a1 writes to the app and belongs to tenant tb; c2 is staff (the staff hook); d3 is an
--- agent of tb; e4 is nobody.
+-- agent of tb; e4 is nobody. The app's own hooks are set aside here, so it passes in an app that
+-- defines them.
 begin;
 create extension if not exists pgtap with schema extensions;
 select plan(14);
@@ -20,6 +21,34 @@ insert into auth.users (id, aud, role, email, instance_id, raw_user_meta_data)
 select pg_temp.person(n), 'authenticated', 'authenticated', 'genesis-staff-' || n || '@example.test',
        '00000000-0000-0000-0000-000000000000', jsonb_build_object('full_name', 'Person ' || n)
 from unnest(array['a1', 'c2', 'd3', 'e4']) n;
+
+-- The app's own hooks are set aside inside this transaction (it rolls back), so this test runs the
+-- same in an app that defines them: each case below defines what it needs.
+drop function if exists private.genesis_support_default_tenant() cascade;
+drop function if exists private.genesis_viewer_people(uuid) cascade;
+drop function if exists private.genesis_support_staff(uuid) cascade;
+drop function if exists private.genesis_platform_admin(uuid) cascade;
+drop function if exists private.genesis_tenant_admin(uuid, uuid) cascade;
+drop function if exists private.genesis_tenant_member(uuid, uuid) cascade;
+drop function if exists private.genesis_tenant_admin_list(uuid) cascade;
+drop function if exists private.genesis_tenant_label(uuid) cascade;
+drop function if exists private.genesis_tenant_role(uuid, uuid) cascade;
+drop function if exists private.genesis_person_name(uuid) cascade;
+drop function if exists private.genesis_person_login(uuid) cascade;
+drop function if exists private.genesis_support_staff_list() cascade;
+drop function if exists private.genesis_support_report_handler(uuid, uuid) cascade;
+drop function if exists private.genesis_support_staff_to_notify(uuid) cascade;
+drop function if exists private.genesis_support_desk_for(uuid, text) cascade;
+drop function if exists private.genesis_support_agent_mentioned(uuid, uuid, uuid, uuid) cascade;
+drop function if exists private.genesis_support_requester_labels(uuid[]) cascade;
+drop function if exists private.genesis_support_requester_label(uuid) cascade;
+drop function if exists private.genesis_people_search(uuid, text, integer) cascade;
+-- And genesis-supabase 0022's platform-admin list, where the app keeps one.
+do $$ begin
+  if to_regclass('public.genesis_platform_admins') is not null then
+    execute 'delete from public.genesis_platform_admins';
+  end if;
+end $$;
 
 create or replace function private.genesis_support_default_tenant() returns uuid
 language sql stable set search_path = '' as $$ select '00000000-0000-4000-8000-00000000000f'::uuid $$;
