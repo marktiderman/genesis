@@ -66,16 +66,28 @@ export interface DiagnosticsOptions {
   /** A section failed, the queue had a problem: for the app's own logging. Never a crash. */
   onProblem?: (problem: string, error?: unknown) => void;
   /**
-   * Genesis settings (`resolveSettings`' result, or the values alone): `diagnostics.enabled` (off,
-   * `send` and `submitFeedback` send no dump), `diagnostics.maxBytes` and `diagnostics.offlineQueue`.
-   * `limits.maxBytes` and leaving out `offline` still win. Without it, the `max` preset.
+   * Genesis settings (`resolveSettings`' result, the values alone, or a function that reads them
+   * now): `diagnostics.enabled` (off, `send` and `submitFeedback` send no dump) and
+   * `diagnostics.maxBytes`, read each time a dump is made or sent, so a change applies without a
+   * restart; `diagnostics.offlineQueue`, read when this is created. `limits.maxBytes` and leaving
+   * out `offline` still win. Without it, the `max` preset.
    */
-  appSettings?: SupportSettingsInput;
+  appSettings?: SupportSettingsInput | (() => SupportSettingsInput | null | undefined);
 }
 
 export interface CollectOptions {
   trigger?: DiagnosticTrigger;
   feedbackId?: string | null;
+}
+
+export interface SubmitFeedbackOptions {
+  /** Where the feedback goes. Default the transport's sink. */
+  sink?: FeedbackSink;
+  /**
+   * A dump made earlier (`collect`, on a shake) to send with this feedback instead of making a new
+   * one, so the moment the person asked for help is the one linked to the report.
+   */
+  report?: DiagnosticReport | null;
 }
 
 export interface SendDiagnosticsOptions {
@@ -96,7 +108,7 @@ export interface DiagnosticsDelivery {
 
 export interface Diagnostics {
   readonly options: DiagnosticsOptions;
-  /** False when `diagnostics.enabled` is off: nothing is sent (`send` throws, `submitFeedback` sends the feedback alone). */
+  /** False while `diagnostics.enabled` is off: nothing is sent (`send` throws, `submitFeedback` sends the feedback alone). Read now. */
   readonly enabled: boolean;
   /** The transport's feedback sink (screenshots included), for `createSupport` and `FeedbackPanel`. */
   readonly feedbackSink: FeedbackSink | undefined;
@@ -120,7 +132,7 @@ export interface Diagnostics {
    * kept without its screenshots (they don't fit the queue). The answer then has `queued: true`
    * and an empty `id`.
    */
-  submitFeedback(record: FeedbackRecord, options?: { sink?: FeedbackSink }): Promise<FeedbackSubmission>;
+  submitFeedback(record: FeedbackRecord, options?: SubmitFeedbackOptions): Promise<FeedbackSubmission>;
   /** Try the queued sends now (on reconnect, on foreground). */
   flush(): Promise<QueueFlushResult>;
   /** Forget every queued send (on sign-out). */
@@ -200,18 +212,33 @@ export function createDiagnostics(options: DiagnosticsOptions): Diagnostics {
   const randomId = options.randomId ?? randomUuid;
   const startedAt = now();
   const maxRoutes = options.limits?.maxRecentRoutes ?? DIAGNOSTICS_DEFAULTS.maxRecentRoutes;
-  const settings = supportSettingValues(options.appSettings).diagnostics;
-  const enabled = settings.enabled;
+  // Read when used: a settings function (the app's database layer) changes without a restart. One
+  // that throws keeps the last values it gave; one that has never answered means no dumps.
+  let settings = supportSettingValues(typeof options.appSettings === "function" ? { "diagnostics.enabled": false } : options.appSettings).diagnostics;
+  let answered = typeof options.appSettings !== "function";
+  const settingsNow = () => {
+    if (typeof options.appSettings !== "function") return settings;
+    try {
+      settings = supportSettingValues(options.appSettings()).diagnostics;
+      answered = true;
+    } catch {
+      // keep the last values
+    }
+    return settings;
+  };
+  settingsNow();
+  const enabledNow = () => settingsNow().enabled;
   const sections = (options.sections ?? []).filter((s): s is DiagnosticSection => Boolean(s));
   const trusted = sections.filter((s) => s.options.pii === "none" && !isCore(s.name)).map((s) => s.name);
-  const limits: CapLimits = {
-    maxBytes: settings.maxBytes,
+  const limitsNow = (): CapLimits => ({
     ...options.limits,
+    // Never over what the table stores (0019's check), whatever the setting or `limits` ask for.
+    maxBytes: Math.min(options.limits?.maxBytes ?? settingsNow().maxBytes, DIAGNOSTICS_DEFAULTS.serverMaxBytes),
     sectionLimits: {
       ...Object.fromEntries(sections.filter((s) => s.options.maxBytes && !isCore(s.name)).map((s) => [s.name, s.options.maxBytes as number])),
       ...options.limits?.sectionLimits,
     },
-  };
+  });
   const problem = (message: string, error?: unknown) => {
     try {
       options.onProblem?.(message, error);
@@ -234,7 +261,9 @@ export function createDiagnostics(options: DiagnosticsOptions): Diagnostics {
     }
   };
 
-  const queue: OfflineQueue<Queued> | null = options.offline && enabled && settings.offlineQueue
+  // Settings that couldn't be read yet keep the queue (its sends wait for diagnostics to be on);
+  // only an answer that says off drops it.
+  const queue: OfflineQueue<Queued> | null = options.offline && (settings.enabled || !answered) && settings.offlineQueue
     ? createOfflineQueue<Queued>({
         storage: options.offline.storage,
         ...(options.offline.key ? { key: options.offline.key } : {}),
@@ -242,6 +271,8 @@ export function createDiagnostics(options: DiagnosticsOptions): Diagnostics {
         ...(options.offline.maxBytes ? { maxBytes: options.offline.maxBytes } : {}),
         ...(options.offline.autoRetry !== undefined ? { autoRetry: options.offline.autoRetry } : {}),
         send: async (item) => {
+          // Diagnostics off (or not known yet): it waits in the queue.
+          if (!enabledNow()) throw new DiagnosticsSendError("diagnostics are off for now", 0, true);
           if (item.userId) {
             const current = await currentUserId();
             // Nobody signed in yet (the session is still being restored at launch): keep it for later.
@@ -325,17 +356,23 @@ export function createDiagnostics(options: DiagnosticsOptions): Diagnostics {
     if (!report.app.platform && typeof report.device?.os === "string") report.app.platform = report.device.os;
 
     // Scrub first (the scrubber cuts long strings, and cap names them), then cap.
-    return capReport(redactReport(report, { trustedSections: trusted }), limits);
+    return capReport(redactReport(report, { trustedSections: trusted }), limitsNow());
   }
 
   const diagnostics: Diagnostics = {
     options,
-    enabled,
+    get enabled() {
+      return enabledNow();
+    },
     feedbackSink: transport.feedbackSink,
     collect,
     async send({ trigger, feedbackId, report: given }) {
-      if (!enabled) throw new DiagnosticsSendError("diagnostics are off (the diagnostics.enabled setting)", 0, false, "disabled");
-      const report = given ? { ...given, trigger, feedbackId: feedbackId === undefined ? given.feedbackId : feedbackId } : await collect({ trigger, feedbackId: feedbackId ?? null });
+      const off = () => new DiagnosticsSendError("diagnostics are off (the diagnostics.enabled setting)", 0, false, "disabled");
+      if (!enabledNow()) throw off();
+      // A dump made earlier (a shake's) is capped again with the limits in force now.
+      const report = given ? capReport({ ...given, trigger, feedbackId: feedbackId === undefined ? given.feedbackId : feedbackId }, limitsNow()) : await collect({ trigger, feedbackId: feedbackId ?? null });
+      // Collecting takes time: switched off meanwhile, nothing goes.
+      if (!enabledNow()) throw off();
       // Anything waiting goes first (oldest first), without holding this one up.
       if (queue) void queue.flush().catch((error: unknown) => problem("diagnostics: flushing the queue failed", error));
       try {
@@ -350,18 +387,22 @@ export function createDiagnostics(options: DiagnosticsOptions): Diagnostics {
         throw error;
       }
     },
-    async submitFeedback(record, { sink } = {}) {
-      if (!enabled) {
+    async submitFeedback(record, { sink, report: made } = {}) {
+      if (!enabledNow()) {
         const target = sink ?? transport.feedbackSink;
         if (!target) throw new Error("submitFeedback: this transport has no feedback sink; pass `sink`.");
         return { ...(await target.submit(record)), diagnostics: null };
       }
-      let report: DiagnosticReport | null = null;
-      try {
-        report = await collect({ trigger: "feedback" });
-      } catch (error) {
-        problem("diagnostics: the dump for this feedback could not be made", error);
+      let report: DiagnosticReport | null = made ? capReport(made, limitsNow()) : null;
+      if (!report) {
+        try {
+          report = await collect({ trigger: "feedback" });
+        } catch (error) {
+          problem("diagnostics: the dump for this feedback could not be made", error);
+        }
       }
+      // Switched off while the dump was made: the feedback goes alone.
+      if (!enabledNow()) report = null;
       // Offline: keep it (without screenshots) to send later through the transport, with its dump.
       const keep = async (error: unknown): Promise<FeedbackSubmission> => {
         if (!queue || !isFeedbackRetryable(error) || (!transport.feedbackSink && !transport.submitFeedback)) throw error;
@@ -394,7 +435,7 @@ export function createDiagnostics(options: DiagnosticsOptions): Diagnostics {
       }
       if (!report) return { ...delivery, diagnostics: null };
       try {
-        return { ...delivery, diagnostics: await diagnostics.send({ trigger: "feedback", report, feedbackId: delivery.id }) };
+        return { ...delivery, diagnostics: await diagnostics.send({ trigger: report.trigger, report, feedbackId: delivery.id }) };
       } catch (error) {
         problem("diagnostics: the dump for this feedback was not sent", error);
         return { ...delivery, diagnostics: null };

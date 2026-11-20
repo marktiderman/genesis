@@ -8,7 +8,7 @@
 -- People: a1 writes and belongs to tenant b0; b2 is staff; d3 is b0's tenant admin.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(20);
+select plan(22);
 
 create function pg_temp.person(n text) returns uuid language sql immutable as $$
   select ('00000000-0000-4000-8000-0000000025' || n)::uuid $$;
@@ -170,6 +170,17 @@ select pg_temp.sign_in('a1');
 set local role authenticated;
 select lives_ok($$insert into public.tickets (type, message) values ('bug', 'no notifications')$$, 'nor does an app without genesis-notifications');
 reset role;
+
+-- 6b. Names, never addresses; a person's login ------------------------------------------------------
+
+update auth.users set raw_user_meta_data = jsonb_build_object('full_name', 'genesis-notify-a1@example.test') where id = pg_temp.person('a1');
+select is(private.genesis_support_notify_name(pg_temp.person('a1')), 'Someone', 'a name that is an email address shows as Someone');
+create or replace function private.genesis_person_login(person uuid) returns uuid
+language sql stable set search_path = '' as $$
+  select '00000000-0000-4000-8000-0000000025d3'::uuid where person = '00000000-0000-4000-8000-0000000025ff'::uuid $$;
+insert into public.ticket_agents (tenant_id, person_id) values ('00000000-0000-4000-8000-0000000000b0', '00000000-0000-4000-8000-0000000025ff');
+drop function private.genesis_tenant_admin_list(uuid);
+select is(private.genesis_support_person_login('00000000-0000-4000-8000-0000000025ff'), pg_temp.person('d3'), 'an agent row''s person resolves to its login through the app''s hook');
 
 -- 7. Whom to tell, with many logins -----------------------------------------------------------------
 

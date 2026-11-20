@@ -146,10 +146,61 @@ describe("genesis-behind", () => {
 
   it("the network failing falls back to the cache's info, never an error", async () => {
     const root = app();
-    const deps: RegistryDeps = { now: () => NOW, registry: null, latest: () => {
-      throw new Error("ENOTFOUND registry.npmjs.org");
-    } };
+    const deps: RegistryDeps = {
+      now: () => NOW,
+      registry: null,
+      latest: () => {
+        throw new Error("ENOTFOUND registry.npmjs.org");
+      },
+      fetch: (async () => {
+        throw new Error("ENOTFOUND registry.npmjs.org");
+      }) as unknown as typeof fetch,
+      gh: async () => null,
+    };
     expect((await behind(root, deps)).found).toEqual([]);
+  });
+
+  it("npm view failing still checks the advisories", async () => {
+    const { deps } = net({
+      latest: "2.3.0",
+      advisories: { [UMBRELLA]: [{ id: 1099, url: "https://github.com/advisories/GHSA-abcd-1234-wxyz", title: "Prototype pollution", severity: "high", vulnerable_versions: "<2.3.1" }] },
+    });
+    const { found } = await behind(app(), {
+      ...deps,
+      latest: () => {
+        throw new Error("npm view timed out");
+      },
+    });
+    expect(found.map((f) => [f.level, f.subject])).toEqual([["error", "GHSA-abcd-1234-wxyz"]]);
+  });
+
+  it("keeps advisories read while npm failed for the hour of backoff, at their level", async () => {
+    const root = app();
+    const advisories = { [UMBRELLA]: [{ id: 1099, url: "https://github.com/advisories/GHSA-abcd-1234-wxyz", title: "Prototype pollution", severity: "high", vulnerable_versions: "<2.3.1" }] };
+    const npmDown = () => {
+      throw new Error("npm view timed out");
+    };
+    const first = net({ latest: "2.3.0", advisories });
+    expect((await behind(root, { ...first.deps, latest: npmDown })).found.map((f) => f.level)).toEqual(["error"]);
+    // Ten minutes later: within the backoff, nothing is asked, and the advisory still counts.
+    const second = net({ latest: "2.3.0", advisories });
+    const { found } = await behind(root, { ...second.deps, latest: npmDown, now: () => new Date(NOW.getTime() + 10 * 60_000) });
+    expect(second.calls).toMatchObject({ latest: 0, fetch: 0 });
+    expect(found.map((f) => [f.level, f.subject])).toEqual([["error", "GHSA-abcd-1234-wxyz"]]);
+  });
+
+  it("with an expired cache, npm failing still reports a live advisory as an error, the distance as a note", async () => {
+    const root = app();
+    mkdirSync(path.dirname(path.join(root, BEHIND_CACHE)), { recursive: true });
+    writeFileSync(path.join(root, BEHIND_CACHE), JSON.stringify({ checkedAt: daysAgo(3), installed: "2.3.0", packages: installedVersions(root), latest: "3.0.0", firstNewerAt: daysAgo(100), advisories: [] }));
+    const { deps } = net({ latest: "2.3.0", advisories: { [UMBRELLA]: [{ id: 1099, url: "https://github.com/advisories/GHSA-abcd-1234-wxyz", title: "Prototype pollution", severity: "high", vulnerable_versions: "<2.3.1" }] } });
+    const { found } = await behind(root, {
+      ...deps,
+      latest: () => {
+        throw new Error("npm view timed out");
+      },
+    });
+    expect(found.map((f) => [f.level, f.subject]).sort()).toEqual([["error", "GHSA-abcd-1234-wxyz"], ["info", UMBRELLA]]);
   });
 
   it("is off by default (the Vite plugin, tests): no network call", async () => {
@@ -225,6 +276,13 @@ describe("genesis-behind", () => {
     expect(bunfigRegistries('[test]\nregistry = "https://not.install/"\n')).toEqual([]);
     const root = makeApp(null, { "bunfig.toml": '[install.scopes]\nmarktiderman = "https://npm.pkg.github.com/"\n' });
     expect(customRegistry(root, {}, "/nonexistent")).toBe("https://npm.pkg.github.com/");
+  });
+
+  it("reads the registry from npm's environment, in either case", () => {
+    const root = makeApp(null, {});
+    expect(customRegistry(root, { NPM_CONFIG_REGISTRY: "https://npm.example.com/" }, "/nonexistent")).toBe("https://npm.example.com/");
+    expect(customRegistry(root, { "NPM_CONFIG_@MARKTIDERMAN:REGISTRY": "https://npm.pkg.github.com" }, "/nonexistent")).toBe("https://npm.pkg.github.com");
+    expect(customRegistry(root, { npm_config_registry: "https://registry.npmjs.org/" }, "/nonexistent")).toBe(null);
   });
 
   it("reads the registry from .npmrc", () => {

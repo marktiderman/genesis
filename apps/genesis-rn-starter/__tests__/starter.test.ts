@@ -306,9 +306,12 @@ describe.runIf(database)("supabase/migrations", () => {
     expect(read(copies[0]!)).toBe(shipped("0001_genesis_notifications.sql"));
     expect(read("supabase/tests/database/genesis_notifications.test.sql")).toBe(shipped("tests/0001_genesis_notifications.test.sql"));
     const order = filesUnder("supabase/migrations").sort();
-    // The starter's own migrations (chat_people) may follow; every package's copy comes first.
-    const packaged = order.filter((f) => /_genesis_[a-z_]+\.sql$/.test(f));
+    // Every package copy dated before the starter's chat_people comes first. Copies added after it
+    // (support's later migrations) are dated after it, and touch no push table.
+    const chatPeople = order.findIndex((f) => f.endsWith("_chat_people.sql"));
+    const packaged = (chatPeople < 0 ? order : order.slice(0, chatPeople)).filter((f) => /_genesis_[a-z_]+\.sql$/.test(f));
     expect(packaged.at(-1)).toBe(copies[0]);
+    expect(order.indexOf(copies[0]!)).toBeGreaterThan(order.findIndex((f) => f.endsWith("_genesis_push.sql")));
   });
 
   it.runIf(support)("carries the support migration and its pgTAP test unchanged (the support block reads it), after the push one", () => {

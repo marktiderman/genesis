@@ -54,6 +54,20 @@ describe("captureConsole", () => {
 });
 
 describe("capReport", () => {
+  it("measures the whole dump as the database stores it, so one trimmed near 512 KB passes 0019's check", () => {
+    // Postgres's jsonb text: a space after every `,` and `:` (written independently of storedByteLength).
+    const pgText = (value: unknown) => JSON.stringify(value, null, 1).replace(/,\n\s*/g, ", ").replace(/\n\s*/g, "");
+    // Arrays of small numbers: the separators are a third of the text, the worst case for compact JSON.
+    const sections = Object.fromEntries(Array.from({ length: 60 }, (_, i) => [`grid${i}`, Array.from({ length: 4000 }, (_, j) => j % 10)]));
+    const report = base({ sections });
+    const limit = 524_288;
+    const out = capReport(report, { maxBytes: limit, sectionMaxBytes: 32_768 });
+    const stored = new TextEncoder().encode(pgText(out)).length;
+    expect(stored).toBeLessThanOrEqual(limit);
+    expect(stored).toBeGreaterThan(limit - 20_000);
+    expect(jsonByteLength(out)).toBeLessThan(stored);
+  });
+
   it("keeps extras beside the build, server and session within the caps (a 441 KB dump used to pass whole)", () => {
     const big = "x".repeat(4000);
     const report = base({
@@ -84,6 +98,68 @@ describe("routes and text", () => {
     for (const route of ["/game/round42", "/docs/ios17-setup", "/blog/top-10-tips-2024", "/release/v2024"]) expect(cleanRoute(route)).toBe(route);
   });
 
+  it("redacts long digit runs and grouped codes written as slugs", () => {
+    expect(cleanRoute("/order/card-4111111111111111")).toBe("/order/:token");
+    expect(cleanRoute("/account/acct-12345678/edit")).toBe("/account/:token/edit");
+    expect(cleanRoute("/invite/ABCD-EFGH-1234-5678")).toBe("/invite/:token");
+    expect(cleanRoute("/redeem/abc-def-123")).toBe("/redeem/:token");
+    // Ordinary slugs, dates and versions stay readable.
+    for (const route of [
+      "/blog/top-10-tips-2024",
+      "/news/release-2024-11-19",
+      "/docs/getting-started",
+      "/help/how-to-reset-your-password",
+      "/plans/pro-100",
+      "/guides/ios-17-setup",
+      "/ranking/top-100-apps",
+      "/news/what-is-new",
+    ]) expect(cleanRoute(route)).toBe(route);
+  });
+
+  it("redacts card numbers, phones, SSNs and codes however they're separated or encoded", () => {
+    const cases: Array<[string, string]> = [
+      // Slugs with 9 or more digits in all.
+      ["/order/order-4111-1111-1111-1111", "/order/:token"],
+      ["pay-4111-1111-1111-1111", ":token"],
+      ["/x/visa-4111-111111-11111", "/x/:token"],
+      ["/x/card-411111-111111-1111", "/x/:token"],
+      ["/call/call-555-555-0101", "/call/:token"],
+      // Cards and IBANs with %20 or + between the groups.
+      ["/pay/4111%201111%201111%201111", "/pay/:token"],
+      ["/pay/4111+1111+1111+1111", "/pay/:token"],
+      ["/iban/DE89%203704%200044%200532%200130%2000", "/iban/:token"],
+      ["/iban/GB82+WEST+1234+5698+7654+32", "/iban/:token"],
+      // Phones without a +.
+      ["/call/555-555-0101", "/call/:phone"],
+      ["/call/555.555.0101", "/call/:phone"],
+      ["/call/(555)%20555-0101", "/call/:phone"],
+      ["/call/tel:5555550101", "/call/:phone"],
+      ["/call/tel:+15555550101", "/call/:phone"],
+      // An SSN.
+      ["/people/123-45-6789/edit", "/people/:id/edit"],
+      // Base64 with its padding.
+      ["/verify/dG9rZW4xMjM0NQ==", "/verify/:token"],
+      ["/verify/YWJjZGVmZ2g=", "/verify/:token"],
+      // A query string or fragment written percent-encoded.
+      ["/reset%3Ftoken%3Dabc123", "/reset"],
+      ["/reset%3ftoken=abc", "/reset"],
+      ["/page%23access_token=abc", "/page"],
+    ];
+    for (const [route, clean] of cases) expect(cleanRoute(route), route).toBe(clean);
+    for (const route of [
+      "/news/release-2024-11-19",
+      "/blog/top-10-tips-2024",
+      "/archive/2024-11-19",
+      "/docs/v1.4.0",
+      "/docs/getting-started",
+      "/plans/pro-100",
+      "/ranking/top-100-apps",
+      "/search/red%20shoes",
+      "/guides/ios-17-setup",
+      "/help/how-to-reset-your-password",
+    ]) expect(cleanRoute(route), route).toBe(route);
+  });
+
   it("scrubs phone numbers written without a separator or in spaced groups", () => {
     expect(scrubString("call +15555550101 now")).toBe("call [phone] now");
     expect(scrubString("ring 44 20 7946 0958")).toBe("ring [phone]");
@@ -94,6 +170,70 @@ describe("routes and text", () => {
     for (const text of ["took 120 340 560 ms", "build 2024 11 19", "at 1732012345", "at 1732012345678", "id 5555550101abcdef", "n 12345678901234567", "uuid 3f2a9c1b-0000-4000-8000-000000000001"]) {
       expect(scrubString(text)).toBe(text);
     }
+  });
+});
+
+describe("diagnostics.enabled is read again at the moment of sending", () => {
+  const sink = () => {
+    const sent: DiagnosticReport[] = [];
+    const submitted: unknown[] = [];
+    const transport: DiagnosticsTransport = {
+      name: "t",
+      send: async (r) => (sent.push(r), { id: r.id, shortId: diagnosticsShortId(r.id) }),
+      feedbackSink: { submit: async (record) => (submitted.push(record), { id: "fb-1", attachmentsDropped: 0 }) },
+    };
+    return { sent, submitted, transport };
+  };
+
+  it("sends nothing when diagnostics are switched off while a section is being collected", async () => {
+    let enabled = true;
+    let release: () => void = () => {};
+    const { sent, transport } = sink();
+    const d = createDiagnostics({
+      app: { id: "acme" },
+      transport,
+      appSettings: () => ({ "diagnostics.enabled": enabled }),
+      sections: [{ name: "slow", options: {}, collect: () => new Promise((r) => (release = () => r({ ok: true }))) } as never],
+    });
+    const sending = d.send({ trigger: "manual" });
+    await new Promise((r) => setTimeout(r, 0));
+    enabled = false;
+    release();
+    await expect(sending).rejects.toMatchObject({ code: "disabled" });
+    expect(sent).toEqual([]);
+  });
+
+  it("sends the feedback alone when diagnostics are switched off while its dump is made", async () => {
+    let enabled = true;
+    let release: () => void = () => {};
+    const { sent, submitted, transport } = sink();
+    const d = createDiagnostics({
+      app: { id: "acme" },
+      transport,
+      appSettings: () => ({ "diagnostics.enabled": enabled }),
+      sections: [{ name: "slow", options: {}, collect: () => new Promise((r) => (release = () => r({ ok: true }))) } as never],
+    });
+    const submitting = d.submitFeedback({ type: "bug", message: "x" } as never);
+    await new Promise((r) => setTimeout(r, 0));
+    enabled = false;
+    release();
+    expect(await submitting).toMatchObject({ id: "fb-1", diagnostics: null });
+    expect(sent).toEqual([]);
+    expect((submitted[0] as { diagnosticsId?: unknown }).diagnosticsId).toBeUndefined();
+  });
+
+  it("caps a dump made earlier with the limits in force when it is sent, never over what the table stores", async () => {
+    let maxBytes = 524_288;
+    const { sent, transport } = sink();
+    const d = createDiagnostics({ app: { id: "acme" }, transport, appSettings: () => ({ "diagnostics.maxBytes": maxBytes }), limits: {} });
+    const big = base({ logs: { errors: [], breadcrumbs: [], console: Array.from({ length: 4000 }, (_, i) => ({ at: null, level: "log", text: `line ${i} ${"x".repeat(80)}` })) as never } });
+    maxBytes = 65_536;
+    await d.send({ trigger: "shake", report: big });
+    expect(jsonByteLength(sent[0])).toBeLessThanOrEqual(65_536);
+    const over = createDiagnostics({ app: { id: "acme" }, transport, limits: { maxBytes: 10_000_000 } });
+    const huge = base({ sections: { big: "y".repeat(700_000) } as never });
+    await over.send({ trigger: "manual", report: huge });
+    expect(jsonByteLength(sent[1])).toBeLessThanOrEqual(DIAGNOSTICS_DEFAULTS.serverMaxBytes);
   });
 });
 

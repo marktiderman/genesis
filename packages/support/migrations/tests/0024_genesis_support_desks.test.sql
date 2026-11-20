@@ -8,7 +8,7 @@
 -- settings tables (0020) and support 0020's readers.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(55);
+select plan(58);
 
 create function pg_temp.person(n text) returns uuid language sql immutable as $$
   select ('00000000-0000-4000-8000-0000000024' || n)::uuid $$;
@@ -207,12 +207,22 @@ set local role authenticated;
 select is((select reason from public.support_desk_history('00000000-0000-4000-8000-0000000000b0') where action = 'moved' limit 1), 'internal: Acme only', 'Acme still does');
 reset role;
 
+-- 4b. The log's own order (one transaction: every `at` the same) -------------------------------------
+
+insert into public.support_desk_log (tenant_id, ticket_id, to_tenant, action, actor)
+values ('00000000-0000-4000-8000-0000000000c0', (select id from t where name = 'e4b'), '00000000-0000-4000-8000-00000000000f', 'escalated', null),
+       ('00000000-0000-4000-8000-0000000000b0', (select id from t where name = 'e4b'), '00000000-0000-4000-8000-00000000000f', 'escalated', null);
+select is(private.genesis_support_returns_to((select id from t where name = 'e4b')), '00000000-0000-4000-8000-0000000000b0'::uuid,
+  'the desk that sent it up last, by the log''s order');
+
 -- 5. The settings, in the database (genesis-config's tables, support 0020's reader) ----------------
 
 insert into public.genesis_settings (key, value) values ('support.agentDesk', 'false');
 select pg_temp.sign_in('b2');
 set local role authenticated;
 select throws_ok($$select * from public.support_agent_tickets()$$, '42501', null, 'support.agentDesk off: no agent reads a queue');
+select is((select count(*)::int from public.support_my_desks()), 0, 'nor works a desk');
+select is((select count(*)::int from public.support_ticket_desk((select id from t where name = 'a1'))), 0, 'nor reads a ticket''s desk');
 reset role;
 select is(private.genesis_support_desks_on(), false, 'and desks need the agent desk');
 delete from public.genesis_settings where key = 'support.agentDesk';

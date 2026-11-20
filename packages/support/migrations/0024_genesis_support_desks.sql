@@ -230,6 +230,9 @@ begin
   if char_length(why) > 1000 then
     raise exception 'support_set_desk: say why in at most 1000 characters' using errcode = '22023';
   end if;
+  -- One change to a desk at a time, so `was` is the state this change replaces (a desk with no row
+  -- yet included).
+  perform pg_advisory_xact_lock(hashtextextended('genesis-support-desk:' || tenant::text, 0));
   was := private.genesis_support_helpdesk_on(tenant);
   insert into public.support_desks as d (tenant_id, enabled, updated_by, updated_at)
   values (tenant, support_set_desk.enabled, me, now())
@@ -384,7 +387,8 @@ set search_path = ''
 as $$
   select l.tenant_id from public.support_desk_log l
    where l.ticket_id = ticket and l.action = 'escalated'
-   order by l.at desc, l.id desc
+   -- The log's own order: the ticket's lock serializes its moves; `at` is when a transaction began.
+   order by l.id desc
    limit 1
 $$;
 
@@ -575,7 +579,8 @@ declare
   me uuid := auth.uid();
   dflt uuid := private.genesis_support_default_tenant_id();
 begin
-  if me is null then
+  -- support.agentDesk off: nobody works a desk (0009's reads refuse too).
+  if me is null or not private.genesis_support_agent_desk_on() then
     return;
   end if;
   return query
@@ -628,11 +633,11 @@ declare
   last public.support_desk_log;
 begin
   select * into t from public.tickets x where x.id = ticket;
-  if t.id is null or me is null or not private.genesis_support_handler(t.id, me) then
+  if t.id is null or me is null or not private.genesis_support_agent_desk_on() or not private.genesis_support_handler(t.id, me) then
     return;
   end if;
   back := case when t.tenant_id = dflt then private.genesis_support_returns_to(t.id) end;
-  select * into last from public.support_desk_log l where l.ticket_id = t.id order by l.at desc, l.id desc limit 1;
+  select * into last from public.support_desk_log l where l.ticket_id = t.id order by l.id desc limit 1;
   return query select
     t.tenant_id,
     case when t.tenant_id = dflt then null else private.genesis_support_tenant_label(t.tenant_id) end,
@@ -673,7 +678,7 @@ declare
   dflt uuid := private.genesis_support_default_tenant_id();
 begin
   select * into t from public.tickets x where x.id = ticket;
-  if t.id is null or me is null or not private.genesis_support_handler(t.id, me) then
+  if t.id is null or me is null or not private.genesis_support_agent_desk_on() or not private.genesis_support_handler(t.id, me) then
     return;
   end if;
   return query
@@ -707,8 +712,9 @@ declare
   resolved uuid := coalesce(tenant, private.genesis_support_default_tenant_id());
   me uuid := auth.uid();
 begin
-  if me is null or not (private.genesis_support_tenant_admin(resolved, me) or private.genesis_support_agent(resolved, me)) then
-    raise exception 'support_desk_history: only the desk''s agents' using errcode = '42501';
+  if me is null or not private.genesis_support_agent_desk_on()
+     or not (private.genesis_support_tenant_admin(resolved, me) or private.genesis_support_agent(resolved, me)) then
+    raise exception 'support_desk_history: only the desk''s agents, while the agent desk is on' using errcode = '42501';
   end if;
   return query
     -- A move from another tenant's desk keeps that desk's words (and who) to its own agents.
@@ -719,7 +725,7 @@ begin
            l.at
       from public.support_desk_log l
      where l.tenant_id = resolved or l.to_tenant = resolved
-     order by l.at desc, l.id desc
+     order by l.id desc
      limit greatest(1, least(coalesce(max_rows, 50), 200));
 end;
 $$;

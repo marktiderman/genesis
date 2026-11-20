@@ -17,3 +17,16 @@
 - `senderAuthenticated` trusts DMARC only (a DKIM pass from another domain isn't the sender).
   `support_email_reply` keeps Message-IDs 60 days. 0024 and 0027 stop with a clear message over an
   app's own `support_desks` or `support_email_reply`.
+- From CodeRabbit's review: switching a desk is serialized; escalation history follows the log's
+  own order; `support.agentDesk` off also empties `support_my_desks` and the desk card; names that
+  are email addresses show as Someone in notifications; an agent row's person resolves to its login
+  through an optional `genesis_person_login` hook; the email-posts table has row level security; the
+  same Message-ID on two tickets is two messages; the verify email doesn't ask for a reply; a retry
+  in a later week gets another idempotency key with its other Reply-To; an uppercase `HTTPS://`
+  webhook works; a contact page needs a host and `mailtoHref` encodes the mailbox; desk query keys
+  are per client (`supportDeskScope`), the desk card resets on another ticket and offers only what
+  the client can do; Home shows no articles with the help center off; the native route keeps the
+  zone of a path passed to `SupportRoute`, puts the zone in front of support's own hrefs, checks
+  paths at a segment boundary (`isUnderPath`), keeps an explicit `ideas` option over its setting and
+  reads a thread named `constructor` as a thread; paths and addresses are checked in one pass
+  (CodeQL).

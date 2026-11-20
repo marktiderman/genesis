@@ -46,7 +46,7 @@ describe("support's notification types", () => {
 });
 
 describe("support's emails", async () => {
-  const { supportEmailTemplate, supportEmailTemplates, stripReply, REPLY_MARKER } = await import("../email");
+  const { supportEmailTemplate, supportEmailTemplates, stripReply, REPLY_MARKER } = { ...(await import("../email-notifications")), ...(await import("../email")) };
   const ctx = (type: string, data: Record<string, unknown>) => ({
     type,
     category: "support",
@@ -81,5 +81,27 @@ describe("support's emails", async () => {
 
   it("covers the three types", () => {
     expect(Object.keys(supportEmailTemplates({ replies: true })).sort()).toEqual([...SUPPORT_NOTIFICATION_TYPES].sort());
+  });
+});
+
+describe("the verify email", async () => {
+  const { supportEmailTemplate } = await import("../email-notifications");
+  const { REPLY_MARKER } = await import("../email");
+  it("says nothing about replying, even with replies set up (it is answered in the app)", async () => {
+    const mail = await supportEmailTemplate({ replies: true })({
+      type: "support.verify",
+      category: "support",
+      data: { title: "Export" },
+      text: { title: "Is it fixed? Export" },
+      recipient: { email: "p@x.test", name: null },
+      brand: {},
+      tenantId: null,
+      transactional: false,
+      secretLink: null,
+      unsubscribeUrl: null,
+      url: null,
+    });
+    expect(mail.text).not.toContain(REPLY_MARKER);
+    expect(mail.html).not.toContain(REPLY_MARKER);
   });
 });

@@ -88,7 +88,8 @@ begin
     select left(nullif(btrim(coalesce(u.raw_user_meta_data ->> 'full_name', u.raw_user_meta_data ->> 'name')), ''), 200)
       into name from auth.users u where u.id = person;
   end if;
-  return coalesce(name, 'Someone');
+  -- A name, never an address: a full_name that is an email shows as Someone.
+  return case when name is null or position('@' in name) > 0 then 'Someone' else name end;
 end;
 $$;
 
@@ -144,10 +145,33 @@ $$;
 
 revoke execute on function private.genesis_support_notify(text, uuid[], jsonb, text, uuid, text) from public, anon, authenticated;
 
+-- The login a tenant's person record belongs to: the app's optional hook
+-- private.genesis_person_login(person uuid) returns uuid, else the person id itself (zero config,
+-- where a login is its own person). A hook that errors gives the id itself.
+create or replace function private.genesis_support_person_login(person uuid)
+returns uuid
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  if person is null or to_regprocedure('private.genesis_person_login(uuid)') is null then
+    return person;
+  end if;
+  return coalesce(private.genesis_person_login(person), person);
+exception when others then
+  return person;
+end;
+$$;
+
+revoke execute on function private.genesis_support_person_login(uuid) from public, anon, authenticated;
+
 -- Whom to tell about a ticket: the app's hook, else its desk's agents, unless someone who still
 -- handles it has it (genesis-chat tells them). Never its own person, never an anonymous login.
 -- Candidates come from what names agents (never a scan of every login, in the writer's
--- transaction): the tenant's ticket_agents rows, the app's staff list (the optional hook
+-- transaction): the tenant's ticket_agents rows (each person's login through the app's optional
+-- private.genesis_person_login(person uuid) returns uuid, else the person id), the app's staff list (the optional hook
 -- private.genesis_support_staff_list() returns setof uuid, as 0022's agent list reads it) for the
 -- app's own desk, and its tenant admins (the optional hook
 -- private.genesis_tenant_admin_list(tenant uuid) returns setof uuid). Each is checked as an agent of
@@ -206,7 +230,7 @@ begin
         select u.id
           from auth.users u
          where u.id in (
-                 select a.person_id from public.ticket_agents a where a.tenant_id = t.tenant_id
+                 select private.genesis_support_person_login(a.person_id) from public.ticket_agents a where a.tenant_id = t.tenant_id
                  union select unnest(listed)
                  union select unnest(admins)
                  union select x.id from auth.users x where scan
@@ -251,6 +275,7 @@ security definer
 set search_path = ''
 as $$
   select case when t.user_id is not null then private.genesis_support_notify_name(t.user_id)
+              when position('@' in coalesce(to_jsonb(t) ->> 'requester_name', '')) > 0 then 'Someone'
               else coalesce(nullif(btrim(to_jsonb(t) ->> 'requester_name'), ''), 'Someone') end
 $$;
 

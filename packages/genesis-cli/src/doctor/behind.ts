@@ -34,6 +34,12 @@ export function genesisBehindCheck(deps: RegistryDeps = {}): (ctx: DoctorContext
     const status = await readUpgradeStatus(ctx.root, deps);
     if (!status) return;
     const now = (deps.now ?? (() => new Date()))();
+    if (status.advisoriesLive) {
+      // npm failed, the advisory sources answered: the advisories at their level, the distance a note.
+      reportAdvisories(ctx, status);
+      if (status.source === "cache") reportOffline(ctx, { ...status, advisories: [] });
+      return;
+    }
     if (status.source === "cache" && (status.offlineReason || status.stale)) return reportOffline(ctx, status);
     reportStatus(ctx, status, now, deps.ci ?? Boolean(process.env.CI));
   };
@@ -45,7 +51,7 @@ function behindLine(status: UpgradeStatus): string {
 
 const SERIOUS = new Set(["high", "critical"]);
 
-function reportStatus(ctx: DoctorContext, status: UpgradeStatus, now: Date, ci: boolean): void {
+function reportAdvisories(ctx: DoctorContext, status: UpgradeStatus): void {
   for (const a of status.advisories) {
     ctx.report({
       rule: BEHIND_RULE,
@@ -55,6 +61,10 @@ function reportStatus(ctx: DoctorContext, status: UpgradeStatus, now: Date, ci: 
       message: `${a.package}@${a.version} is affected by ${a.id} (${a.severity}): ${a.title}${a.vulnerable ? ` (affected: ${a.vulnerable})` : ""}${a.url ? `; ${a.url}` : ""}. Upgrade Genesis: genesis fix upgrade.release`,
     });
   }
+}
+
+function reportStatus(ctx: DoctorContext, status: UpgradeStatus, now: Date, ci: boolean): void {
+  reportAdvisories(ctx, status);
   if (!status.latest) return;
   const d = distance(status.installed, status.latest);
   if (d.kind === "current") return;

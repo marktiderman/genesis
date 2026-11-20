@@ -767,6 +767,25 @@ program
     }
   });
 
+const settingsCommand = program.command("settings").description("Genesis settings in the app's database (genesis-supabase's settings block)");
+settingsCommand
+  .command("sync")
+  .description(
+    "Write the app manifest (genesis_app_manifest: packages, preset, file settings and the settings catalogue) through the linked Supabase project. Run it on every deploy, after the migrations: until it is written, set_genesis_setting refuses every value",
+  )
+  .option("-d, --dir <dir>", "The app's folder", process.cwd())
+  .option("--app-id <id>", "The app's id (default: its package.json name, without a scope)")
+  .option("--print", "Print the SQL instead of running it (for a pipeline that runs it with psql)", false)
+  .option("--project-ref <ref>", "The Supabase project to write to (default: the linked one)")
+  .option("-y, --yes", "Write without asking (required without a terminal)", false)
+  .action(async (opts: { dir: string; appId?: string; print: boolean; projectRef?: string; yes: boolean }) => {
+    const { runSettingsSync } = await import("./settings-manifest.js");
+    process.exitCode = await runSettingsSync(
+      { dir: opts.dir, print: opts.print, yes: opts.yes, ...(opts.appId !== undefined ? { appId: opts.appId } : {}), ...(opts.projectRef !== undefined ? { projectRef: opts.projectRef } : {}) },
+      { out: (l) => (opts.print ? process.stdout.write(l) : console.log(l)), err: (l) => console.error(l), isTTY: Boolean(process.stdin.isTTY), confirm },
+    );
+  });
+
 program
   .command("upgrade")
   .description("Move every @marktiderman/genesis* dependency to one Genesis release, refresh the files Genesis owns and what's generated, run codemods and the doctor")

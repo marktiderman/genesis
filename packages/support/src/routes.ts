@@ -41,7 +41,12 @@ export type SupportScreen =
 /** The screens' names, for a `screens` override map. @stability Beta */
 export type SupportScreenName = SupportScreen["name"];
 
-const trimSlash = (p: string) => (p.length > 1 ? p.replace(/\/+$/, "") : p);
+/** The path without its trailing slashes (one pass, from the end), "/" kept. */
+const trimSlash = (p: string) => {
+  let end = p.length;
+  while (end > 1 && p.charCodeAt(end - 1) === 0x2f) end--;
+  return p.slice(0, end);
+};
 const under = (path: string, prefix: string) => path === prefix || path.startsWith(`${prefix}/`);
 
 /**
@@ -58,6 +63,13 @@ export function zoneOf(path: string, zones: readonly string[] = []): string {
     if (zone !== "/" && zone.length > best.length && under(clean, zone)) best = zone;
   }
   return best;
+}
+
+/** Whether `path` is `base` or under it, at a segment boundary (`/support-plans` isn't under `/support`). @stability Beta */
+export function isUnderPath(path: string, base: string): boolean {
+  const clean = trimSlash(path.split(/[?#]/)[0] ?? "");
+  const b = trimSlash(base);
+  return clean === b || clean.startsWith(`${b}/`);
 }
 
 /** The path without its zone: `/admin/account/support/new` → `/account/support/new`. @stability Beta */
@@ -112,7 +124,7 @@ export function supportScreenOf(path: string, basePath = "/support", zones: read
   if (rest.length === 0) return { name: "inbox" };
   const [first, second, ...more] = rest as [string, ...string[]];
   if (more.length) return null;
-  if (second === undefined) return STATIC[first] ?? { name: "thread", id: first };
+  if (second === undefined) return Object.prototype.hasOwnProperty.call(STATIC, first) ? STATIC[first]! : { name: "thread", id: first };
   if (first === "help") return { name: "article", slug: second };
   if (first === "agent") return { name: "agentThread", id: second };
   return null;

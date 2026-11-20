@@ -47,10 +47,10 @@ export const SUPPORT_SETTING_SPECS = {
   messenger: { type: "boolean", default: onOnOff, scope: "tenant", requires: ["support.inbox"], summary: "The messenger (Home, Messages, Help) on web and phone." },
   agentDesk: { type: "boolean", default: onOnOff, requires: ["support.inbox"], summary: "The staff side: the agent inbox on the web and the phone." },
   helpCenter: { type: "boolean", default: onOnOff, scope: "tenant", summary: "Help articles in collections, searchable, with an admin editor." },
-  aiAnswers: { type: "boolean", default: onOffOff, scope: "tenant", requires: ["support.helpCenter"], feature: "support-helpdesk-ai", needs: "secret:ANTHROPIC_API_KEY", store: "edge", summary: "Planned (nothing reads it yet): AI answers that cite the help center and hand off to a person (needs the person's consent and a provider key)." },
+  aiAnswers: { type: "boolean", default: onOffOff, scope: "tenant", requires: ["support.helpCenter"], feature: "support-helpdesk-ai", needs: "secret:ANTHROPIC_API_KEY", store: "edge", planned: true, summary: "Planned (nothing reads it yet): AI answers that cite the help center and hand off to a person (needs the person's consent and a provider key)." },
   ideas: { type: "boolean", default: onOnOff, summary: "The idea board with votes, and the ideas the person asked for that shipped." },
-  chatThreads: { type: "boolean", default: onOnOff, feature: "support-chat", summary: "Planned (nothing reads it yet): A report's thread runs on genesis-chat: live, with files, an assignee and internal notes." },
-  email: { type: "boolean", default: onOffOff, feature: "support-email", needs: "secret:RESEND_API_KEY", store: "edge", summary: "Planned (nothing reads it yet): Email is a ticket channel: inbound mail opens or continues a ticket, replies go out threaded." },
+  chatThreads: { type: "boolean", default: onOnOff, feature: "support-chat", planned: true, summary: "Planned (nothing reads it yet): A report's thread runs on genesis-chat: live, with files, an assignee and internal notes." },
+  email: { type: "boolean", default: onOffOff, feature: "support-email", needs: "secret:RESEND_API_KEY", store: "edge", planned: true, summary: "Planned (nothing reads it yet): Email is a ticket channel: inbound mail opens or continues a ticket, replies go out threaded." },
   replyByEmail: { type: "boolean", default: onOffOff, requires: ["support.email"], needs: "secret:SUPPORT_REPLY_SIGNING_SECRET", store: "server-env", summary: "Reply by email: a signed Reply-To per recipient, quoted text stripped, auto-replies ignored." },
   desks: { type: "boolean", default: onOffOff, requires: ["support.agentDesk"], summary: "Desks: each tenant's own help desk, switched on per tenant, with escalate, return and move between desks." },
   staffAlerts: { type: "boolean", default: onOnOff, summary: "Tell staff about a new report (the app's notifiers: email, push, webhook)." },
@@ -70,7 +70,7 @@ export const DIAGNOSTICS_SETTING_SPECS = {
   dumpOnFeedback: { type: "boolean", default: true, requires: ["diagnostics.enabled"], summary: "Send a dump with every piece of feedback, linked by its id." },
   sendFromSettings: { type: "boolean", default: true, requires: ["diagnostics.enabled"], summary: "\"Send diagnostics\" for everyone (Settings, the Development screen)." },
   offlineQueue: { type: "boolean", default: true, requires: ["diagnostics.enabled"], summary: "Keep a dump that couldn't be sent and try again when back online." },
-  maxBytes: { type: "number", integer: true, default: 262_144, min: 65_536, max: 1_048_576, summary: "A dump's size, JSON before gzip; over it the oldest entries go first." },
+  maxBytes: { type: "number", integer: true, default: 262_144, min: 65_536, max: 524_288, summary: "A dump's size, JSON before gzip; over it the oldest entries go first. At most 512 KB, the most the database stores." },
   perHour: { type: "number", integer: true, default: 10, min: 1, max: 100, summary: "Dumps one person may send in an hour." },
   retentionDays: { type: "number", integer: true, default: 90, min: 7, max: 365, summary: "Days a dump is kept before the cleanup removes it." },
 } as const satisfies Record<string, SettingSpec>;
@@ -196,6 +196,44 @@ export function supportSettingValues(input?: SupportSettingsInput | null): Suppo
   return out as unknown as SupportSettingValues;
 }
 
+/** One address, checked in one pass (no backtracking): one "@", no spaces or brackets, a dot in the domain, not at its ends. */
+function looksLikeEmail(text: string): boolean {
+  if (text.length > 254) return false;
+  let at = -1;
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charCodeAt(i);
+    if (c <= 0x20 || c === 0x3c || c === 0x3e || c === 0x7f) return false;
+    if (c === 0x40) {
+      if (at !== -1) return false;
+      at = i;
+    }
+  }
+  const dot = text.lastIndexOf(".");
+  return at > 0 && dot > at + 1 && dot < text.length - 1;
+}
+
+/** An https page with a host (`https://acme.test/help`), else null. */
+function httpsPage(text: string | null | undefined): string | null {
+  const t = text?.trim();
+  if (!t || t.length > 2048 || !/^https:\/\//i.test(t)) return null;
+  try {
+    const u = new URL(t);
+    return u.protocol === "https:" && u.hostname ? t : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * A `mailto:` link for an address, with the characters that would start its query or fragment (or
+ * escape) encoded (RFC 6068): `help?desk@acme.test` stays one mailbox.
+ *
+ * @stability Beta
+ */
+export function mailtoHref(email: string): string {
+  return `mailto:${email.replace(/[%?#&/]/g, (c) => encodeURIComponent(c))}`;
+}
+
 /** Where people can write when the app can't help: `support.contactEmail` and `support.contactUrl`. @stability Beta */
 export interface SupportContactInfo {
   email: string | null;
@@ -211,7 +249,7 @@ export interface SupportContactInfo {
  */
 export function supportContact(input?: SupportSettingsInput | null): SupportContactInfo | null {
   const s = supportSettingValues(input).support;
-  const email = s.contactEmail?.trim() && /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(s.contactEmail.trim()) ? s.contactEmail.trim() : null;
-  const url = s.contactUrl?.trim() && /^https:\/\/[^\s]+$/i.test(s.contactUrl.trim()) ? s.contactUrl.trim() : null;
+  const email = s.contactEmail?.trim() && looksLikeEmail(s.contactEmail.trim()) ? s.contactEmail.trim() : null;
+  const url = httpsPage(s.contactUrl);
   return email || url ? { email, url } : null;
 }

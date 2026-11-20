@@ -65,6 +65,7 @@ create table if not exists private.genesis_support_email_posts (
   primary key (ticket_id, email_id)
 );
 create index if not exists genesis_support_email_posts_recent_idx on private.genesis_support_email_posts (ticket_id, at desc);
+alter table private.genesis_support_email_posts enable row level security;
 revoke all on private.genesis_support_email_posts from public, anon, authenticated;
 
 create or replace function public.support_email_reply(p_ticket uuid, p_user uuid, p_from text, p_message_id text, p_body text)
@@ -123,7 +124,8 @@ begin
   begin
     if chat then
       conv := coalesce(private.genesis_support_chat_conversation_of(t.id), private.genesis_support_chat_ensure(t));
-      select (genesis_chat.send_message(conv, _email_id::uuid, _body)).id into posted;
+      -- The chat message's client id names the ticket too: one email answering two tickets is two messages.
+      select (genesis_chat.send_message(conv, md5('support-email:' || t.id::text || ':' || btrim(p_message_id))::uuid, _body)).id into posted;
     else
       insert into public.support_replies (report_id, body) values (t.id, _body) returning id into posted;
     end if;

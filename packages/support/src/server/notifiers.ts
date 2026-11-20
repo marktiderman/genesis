@@ -55,6 +55,9 @@ export function issueDetail(report: DiagnosticReport): string {
   return ["<details><summary>Diagnostics</summary>", "", fenced(JSON.stringify(pick, null, 2).slice(0, 50_000), "json"), "", "</details>"].join("\n");
 }
 
+const LINK_UNSAFE: Readonly<Record<string, string>> = { "(": "%28", ")": "%29", "<": "%3C", ">": "%3E" };
+const percentEncode = (c: string): string => LINK_UNSAFE[c] ?? encodeURIComponent(c);
+
 /**
  * The issue's body: the title and summary inside one fence, so nothing the person typed can
  * mention, link or embed anything.
@@ -62,9 +65,17 @@ export function issueDetail(report: DiagnosticReport): string {
 export function issueBody(event: SupportEvent, options: { detail: boolean; url?: string | null }): string {
   const lines = eventSummaryLines(event);
   const parts = [fenced([eventTitle(event), "", ...lines].join("\n"))];
-  if (options.url) parts.push("", `[Open in the admin view](${options.url.replace(/[()\s]/g, encodeURIComponent)})`);
+  // encodeURIComponent leaves `(` and `)` alone: written out, so the URL can't close the link.
+  if (options.url) parts.push("", `[Open in the admin view](${options.url.replace(/[()<>\s]/g, percentEncode)})`);
   if (options.detail && event.report) parts.push("", issueDetail(event.report));
   return parts.join("\n");
+}
+
+/** GitHub refuses a title over 256 characters (422) and the issue is lost: cut it, after neutralising. */
+const GITHUB_TITLE_MAX = 256;
+function githubIssueTitle(event: SupportEvent): string {
+  const chars = Array.from(neutralise(eventTitle(event)));
+  return chars.length <= GITHUB_TITLE_MAX ? chars.join("") : `${chars.slice(0, GITHUB_TITLE_MAX - 1).join("")}…`;
 }
 
 export function githubIssueNotifier(options: GithubIssueNotifierOptions): SupportNotifier {
@@ -104,7 +115,7 @@ export function githubIssueNotifier(options: GithubIssueNotifierOptions): Suppor
       const res = await f(`${api}/repos/${options.repo}/issues`, {
         method: "POST",
         headers,
-        body: JSON.stringify({ title: neutralise(eventTitle(event)), body: issueBody(event, { detail, url: options.adminUrl?.(event) ?? null }), labels }),
+        body: JSON.stringify({ title: githubIssueTitle(event), body: issueBody(event, { detail, url: options.adminUrl?.(event) ?? null }), labels }),
       });
       if (!res.ok) throw new Error(`GitHub answered ${res.status}`);
     },
@@ -276,10 +287,12 @@ export function supportNotifiersFromSettings(options: {
       options.onProblem?.(error instanceof Error ? error.message : String(error));
     }
   } else if (repo) options.onProblem?.("supportNotifiersFromSettings: a GitHub repository is set but GITHUB_TOKEN isn't; no issues.");
-  const url = text(options.env["SUPPORT_WEBHOOK_URL"]) ?? text(s.webhookUrl);
+  let url = text(options.env["SUPPORT_WEBHOOK_URL"]) ?? text(s.webhookUrl);
   if (url && s.staffAlerts) {
     if (!/^https:\/\//i.test(url)) options.onProblem?.("supportNotifiersFromSettings: the webhook URL must be https; no webhook.");
     else {
+      // The scheme in lower case, as webhookNotifier checks it.
+      url = `https://${url.slice("https://".length)}`;
       const secret = text(options.env["SUPPORT_WEBHOOK_SIGNING_SECRET"]);
       out.push(webhookNotifier({ url, ...(secret ? { secret } : {}), ...(options.fetch ? { fetch: options.fetch } : {}) }));
     }

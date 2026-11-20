@@ -35,17 +35,27 @@ import {
 import { requesterTenantsLabel, type AgentTicket, type SupportClient } from "../client";
 import { chooseDesk, pickerDesks, type DeskTarget, type SupportDesk, type TicketDesk } from "../desks";
 import { fill, resolveSupportCopy, type SupportCopy, type SupportCopyOverrides } from "../copy";
-import { supportSettingValues, type SupportSettingsInput } from "../settings";
+import { mailtoHref, supportSettingValues, type SupportSettingsInput } from "../settings";
+import { scopeOf } from "./tenant";
 
-/** Desk query keys, under genesis-support's root (a support write refreshes them too). */
+/**
+ * Desk query keys, under genesis-support's root (a support write refreshes them too), each scoped
+ * to its support client (`scope`, from `supportDeskScope(client)`), so two clients sharing a
+ * QueryClient never read each other's desks.
+ */
 export const supportDeskKeys = {
   all: ["genesis-support", "desks"] as const,
-  mine: ["genesis-support", "desks", "mine"] as const,
-  ticket: (id: string) => ["genesis-support", "desks", "ticket", id] as const,
-  targets: (id: string) => ["genesis-support", "desks", "targets", id] as const,
-  requester: (id: string) => ["genesis-support", "desks", "requester", id] as const,
-  requesterTenants: (id: string) => ["genesis-support", "desks", "requester-tenants", id] as const,
+  mine: (scope: string) => ["genesis-support", "desks", scope, "mine"] as const,
+  ticket: (scope: string, id: string) => ["genesis-support", "desks", scope, "ticket", id] as const,
+  targets: (scope: string, id: string) => ["genesis-support", "desks", scope, "targets", id] as const,
+  requester: (scope: string, id: string) => ["genesis-support", "desks", scope, "requester", id] as const,
+  requesterTenants: (scope: string, id: string) => ["genesis-support", "desks", scope, "requester-tenants", id] as const,
 };
+
+/** A support client's scope for `supportDeskKeys`. */
+export function supportDeskScope(client: SupportClient): string {
+  return scopeOf(client, null);
+}
 
 /** A desk's name: the app's label, else the copy's ("Support" for the app's own). */
 export function deskName(desk: { label: string | null; isDefault: boolean } | null | undefined, copy: SupportCopy): string {
@@ -65,7 +75,7 @@ export function lastMoveLabel(desk: TicketDesk, copy: SupportCopy, names: (tenan
 /** The desks the signed-in person works (`support_my_desks`), or undefined while loading. */
 export function useSupportDesks(client: SupportClient, options: { enabled?: boolean } = {}) {
   return useQuery({
-    queryKey: supportDeskKeys.mine,
+    queryKey: supportDeskKeys.mine(supportDeskScope(client)),
     queryFn: () => client.myDesks!(),
     enabled: Boolean(client.myDesks) && options.enabled !== false,
     staleTime: 60_000,
@@ -84,13 +94,13 @@ export function SupportRequesterPanel({ client, ticket, copy: overrides, onError
   const copy = resolveSupportCopy(overrides);
   const userId = ticket.userId ?? "";
   const who = useQuery({
-    queryKey: supportDeskKeys.requester(userId),
+    queryKey: supportDeskKeys.requester(supportDeskScope(client), userId),
     queryFn: async () => (await client.reporters!([userId]))[0] ?? null,
     enabled: Boolean(userId && client.reporters),
     staleTime: 5 * 60_000,
   });
   const tenants = useQuery({
-    queryKey: supportDeskKeys.requesterTenants(userId),
+    queryKey: supportDeskKeys.requesterTenants(supportDeskScope(client), userId),
     queryFn: () => client.requesterTenants!(userId),
     enabled: Boolean(userId && client.requesterTenants),
     staleTime: 5 * 60_000,
@@ -110,7 +120,7 @@ export function SupportRequesterPanel({ client, ticket, copy: overrides, onError
       </CardHeader>
       <CardContent className="flex flex-col gap-1 p-3 pt-0 text-sm">
         {email ? (
-          <a className="text-primary underline-offset-4 hover:underline" href={`mailto:${email}`} data-testid="genesis-support-requester-email">
+          <a className="text-primary underline-offset-4 hover:underline" href={mailtoHref(email)} data-testid="genesis-support-requester-email">
             {email}
           </a>
         ) : null}
@@ -161,12 +171,17 @@ type MoveKind = { kind: "escalate" } | { kind: "return" } | { kind: "move" };
  * app's own desk hands an escalated one back; either moves it to another desk its person belongs
  * to. Nothing shows for a ticket that never moved and can't (the app's own, with no other desk).
  */
-export function SupportDeskControls({ client, ticket, onMoved, allowMove = true, settings, copy: overrides, onError }: SupportDeskControlsProps) {
+export function SupportDeskControls(props: SupportDeskControlsProps) {
+  // Another ticket is a fresh card: an open dialog never carries over to it.
+  return <DeskControls key={props.ticket.id} {...props} />;
+}
+
+function DeskControls({ client, ticket, onMoved, allowMove = true, settings, copy: overrides, onError }: SupportDeskControlsProps) {
   const copy = resolveSupportCopy(overrides);
   const on = supportSettingValues(settings).support.desks;
-  const desk = useQuery({ queryKey: supportDeskKeys.ticket(ticket.id), queryFn: () => client.ticketDesk!(ticket.id), enabled: Boolean(client.ticketDesk) && on });
+  const desk = useQuery({ queryKey: supportDeskKeys.ticket(supportDeskScope(client), ticket.id), queryFn: () => client.ticketDesk!(ticket.id), enabled: Boolean(client.ticketDesk) && on });
   const targets = useQuery({
-    queryKey: supportDeskKeys.targets(ticket.id),
+    queryKey: supportDeskKeys.targets(supportDeskScope(client), ticket.id),
     queryFn: () => client.deskMoveTargets!(ticket.id),
     enabled: Boolean(client.deskMoveTargets) && allowMove && on,
   });
@@ -184,8 +199,10 @@ export function SupportDeskControls({ client, ticket, onMoved, allowMove = true,
   const appDesk = deskName({ label: (targets.data ?? []).find((t) => t.isDefault)?.label ?? null, isDefault: true }, copy);
   const others = (targets.data ?? []).filter((t) => !t.isDefault && t.tenantId !== d.returnsTo);
   const moved = lastMoveLabel(d, copy, nameOf);
-  const canMove = allowMove && others.length > 0;
-  if (!moved && !d.canEscalate && !d.canReturn && !d.returnsTo && !canMove) return null;
+  const canMove = allowMove && Boolean(client.moveTicket) && others.length > 0;
+  const canEscalate = d.canEscalate && Boolean(client.escalateTicket);
+  const canReturn = d.canReturn && Boolean(client.returnTicket);
+  if (!moved && !canEscalate && !canReturn && !d.returnsTo && !canMove) return null;
   const returnsToName = d.returnsTo ? nameOf(d.returnsTo) : null;
   return (
     <Card data-testid="genesis-support-desk">
@@ -195,12 +212,12 @@ export function SupportDeskControls({ client, ticket, onMoved, allowMove = true,
       <CardContent className="flex flex-col items-start gap-2 p-3 pt-0 text-sm">
         {moved ? <p className="text-muted-foreground" data-testid="genesis-support-desk-last">{moved}</p> : null}
         {d.lastMove?.reason ? <p className="whitespace-pre-wrap">“{d.lastMove.reason}”</p> : null}
-        {d.canEscalate ? (
+        {canEscalate ? (
           <Button size="sm" variant="outline" className="h-auto whitespace-normal text-left" onClick={() => setOpen({ kind: "escalate" })} data-testid="genesis-support-desk-escalate">
             {fill(copy.desks.escalate, { name: appDesk })}
           </Button>
         ) : null}
-        {d.canReturn && returnsToName ? (
+        {canReturn && returnsToName ? (
           <Button size="sm" variant="outline" className="h-auto whitespace-normal text-left" onClick={() => setOpen({ kind: "return" })} data-testid="genesis-support-desk-return">
             {fill(copy.desks.returnTo, { name: returnsToName })}
           </Button>

@@ -58,12 +58,41 @@ export interface FatalScreenContact {
   url?: string | null;
 }
 
+/** An https page with a host (`https://acme.test/help`), else null. */
+function httpsPage(text: string | null | undefined): string | null {
+  const t = text?.trim();
+  if (!t || t.length > 2048 || !/^https:\/\//i.test(t)) return null;
+  try {
+    const u = new URL(t);
+    return u.protocol === "https:" && u.hostname ? t : null;
+  } catch {
+    return null;
+  }
+}
+
+/** One address, checked in one pass (no backtracking): one "@", no spaces or brackets, a dot in the domain, not at its ends. */
+function looksLikeEmail(text: string): boolean {
+  if (text.length > 254) return false;
+  let at = -1;
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charCodeAt(i);
+    if (c <= 0x20 || c === 0x3c || c === 0x3e || c === 0x7f) return false;
+    if (c === 0x40) {
+      if (at !== -1) return false;
+      at = i;
+    }
+  }
+  const dot = text.lastIndexOf(".");
+  return at > 0 && dot > at + 1 && dot < text.length - 1;
+}
+
 /** The link a contact opens: the support page, else a mailto. Null with neither (or one that isn't safe). */
 export function contactHref(contact: FatalScreenContact | null | undefined): string | null {
-  const url = contact?.url?.trim();
-  if (url && /^https:\/\//i.test(url)) return url;
+  const url = httpsPage(contact?.url);
+  if (url) return url;
   const email = contact?.email?.trim();
-  if (email && /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(email)) return `mailto:${email}`;
+  // RFC 6068: "?", "#", "%", "&" and "/" in the mailbox are encoded, so they don't start a query.
+  if (email && looksLikeEmail(email)) return `mailto:${email.replace(/[%?#&/]/g, (c) => encodeURIComponent(c))}`;
   return null;
 }
 

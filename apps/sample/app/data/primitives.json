@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-19",
+  "generatedAt": "2026-11-20",
   "surfaces": {
     "web": {
       "package": "@marktiderman/genesis-ui",
@@ -13257,6 +13257,13 @@
               "description": "Footer region above the user slot (version, links)"
             },
             {
+              "name": "headerItems",
+              "type": "NavItem[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "Links for the top bar (a \"top\" menu location: Help, a booking page, a\nsite). Drawn at the end of the top-tabs bar, in a thin row above the\npage on other wide layouts, and in the phone's drawer.\n@stability Beta"
+            },
+            {
               "name": "headerSlot",
               "type": "ReactNode",
               "required": false,
@@ -13268,7 +13275,7 @@
               "type": "((to: string, activePath?: string) => boolean)",
               "required": false,
               "defaultValue": null,
-              "description": "Optional custom active-state matcher. Defaults to a prefix match (with `/`\ntreated as exact), mirroring React Router `NavLink`."
+              "description": "Optional custom active-state matcher. Defaults to a prefix match (with `/`\ntreated as exact), mirroring React Router `NavLink`. The sub-navigation\nlevels above the page read it on navigation: a new matcher alone, with\nno `activePath` change, applies from the next navigation."
             },
             {
               "name": "linkComponent",
@@ -23218,7 +23225,7 @@
             },
             {
               "name": "shell",
-              "type": "DeepPartial<{ navigation: string; openNavigation: string; closeNavigation: string; expandSidebar: string; collapseSidebar: string; primaryNavigation: string; more: string; moreDescription: string; moreCurrent: string; }>",
+              "type": "DeepPartial<{ navigation: string; openNavigation: string; closeNavigation: string; expandSidebar: string; collapseSidebar: string; primaryNavigation: string; headerNavigation: string; pageSections: string; breadcrumb: string; more: string; moreDescription: string; moreCurrent: string; }>",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -23422,6 +23429,11 @@
         {
           "name": "NavigationNode",
           "summary": "One node of a logical navigation hierarchy. `path` is a route pattern whose\nsegments are either static (`clients`) or named params (`$clientId`). A\nnode's place in the tree is its LOGICAL parent, which need not share its URL\nprefix — `/clients/$clientId` can sit under `/dashboard`.",
+          "props": []
+        },
+        {
+          "name": "NavigationSubNav",
+          "summary": "How a navigation node's children are drawn (`NavigationNode.subNav`):\n`\"tabs\"`, `\"sidebar\"` (sub-items), `\"list\"`, `\"hub\"`, `\"section\"` (the\nlegacy default) or `\"off\"`.",
           "props": []
         },
         {
@@ -34532,8 +34544,198 @@
               "name": "label",
               "type": "string",
               "required": false,
-              "defaultValue": "Page sections",
+              "defaultValue": null,
               "description": "Accessible name of the `<nav>` (default \"Page sections\")."
+            },
+            {
+              "name": "variant",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "primary",
+              "description": "`primary` (default): the page's tab row. `secondary`: a smaller, quieter\nrow for a tabbed level inside another, drawn under the primary row."
+            }
+          ]
+        },
+        {
+          "name": "layoutSubNavLevels",
+          "summary": "How AppShell draws a set of levels, outermost first. Tabbed levels stack\nas two rows at most (primary, then secondary); the levels above the last\ntwo fold into breadcrumb pickers. The innermost `list` level is drawn as\na list, and a `hub` level as cards. Pure: AppShell and the tests share it.",
+          "props": []
+        },
+        {
+          "name": "SubNavSegmented",
+          "summary": "A segmented control of links: the phone form of a second tab row. Each\nsegment is a real link with `aria-current` on the active one, at least\n44px tall on touch; the control scrolls sideways when it doesn't fit.",
+          "props": [
+            {
+              "name": "items",
+              "type": "SubNavItem[]",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "linkComponent",
+              "type": "LinkComponent",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "activePath",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "isActive",
+              "type": "((to: string, activePath?: string) => boolean)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "label",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Accessible name of the `<nav>`."
+            }
+          ]
+        },
+        {
+          "name": "SubNavBreadcrumb",
+          "summary": "The outer tab levels folded into a breadcrumb: one picker per level,\nshowing its current item and opening the level's other items. AppShell\ndraws it above the two tab rows when a third tabbed level is open.",
+          "props": [
+            {
+              "name": "levels",
+              "type": "Pick<SubNavLevel, \"label\" | \"items\">[]",
+              "required": true,
+              "defaultValue": null,
+              "description": "The folded levels, outermost first."
+            },
+            {
+              "name": "linkComponent",
+              "type": "LinkComponent",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "activePath",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "isActive",
+              "type": "((to: string, activePath?: string) => boolean)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        },
+        {
+          "name": "SubNavList",
+          "summary": "A level's children as a vertical list of links: a column beside the\ncontent on a wide screen, or full-width rows (a phone's list page).",
+          "props": [
+            {
+              "name": "items",
+              "type": "SubNavItem[]",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "linkComponent",
+              "type": "LinkComponent",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "activePath",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "isActive",
+              "type": "((to: string, activePath?: string) => boolean)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "label",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "variant",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "column",
+              "description": "`column` (default): a list beside the content. `page`: full-width rows with a chevron, a phone's list page."
+            }
+          ]
+        },
+        {
+          "name": "SubNavHub",
+          "summary": "A level's children as cards, one per child (icon, label, badge): a\nsection's landing page. One column on a phone, more as the width allows.",
+          "props": [
+            {
+              "name": "items",
+              "type": "SubNavItem[]",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "linkComponent",
+              "type": "LinkComponent",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "label",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
             }
           ]
         },

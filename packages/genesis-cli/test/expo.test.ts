@@ -3,6 +3,7 @@
  * withGenesis() on plain ExpoConfig objects, and the `links` block of
  * genesis.config.json it reads through the CLI's config loader.
  */
+import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
@@ -461,5 +462,28 @@ describe("app.plugin.js", () => {
     // require(esm) hands back the module namespace, whose `default` Expo uses.
     const mod = require("../app.plugin.js") as { default?: unknown };
     expect(typeof mod.default).toBe("function");
+  });
+
+  // An app.config.ts that registers tsx/cjs (the starter does, Expo's recommended hook) makes every
+  // module the plugin pulls in load through CommonJS `require`, with the `require` export condition.
+  // An import-only subpath anywhere in the plugin's graph then fails with "Package subpath './settings'
+  // is not defined by exports" and breaks expo start, prebuild and EAS builds.
+  it("loads under tsx/cjs, so every package the plugin imports resolves with the require condition", () => {
+    expect(existsSync(path.join(here, "../dist/expo.js")), "run pnpm build:packages first").toBe(true);
+    const require = createRequire(import.meta.url);
+    const tsxCjs = require.resolve("tsx/cjs");
+    const plugin = path.join(here, "../app.plugin.js");
+    const script = `const m = require(${JSON.stringify(plugin)}); const f = m.default ?? m; if (typeof f !== "function") throw new Error("no default export"); process.stdout.write("ok");`;
+    const out = execFileSync(process.execPath, ["--require", tsxCjs, "-e", script], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    expect(out).toBe("ok");
+  });
+
+  it("can require() every React-free genesis-config subpath it may use", () => {
+    const require = createRequire(import.meta.url);
+    for (const sub of ["", "/settings", "/settings-protocol", "/blocks", "/gate", "/node"]) {
+      const mod = require(`@marktiderman/genesis-config${sub}`) as Record<string, unknown>;
+      expect(Object.keys(mod).length, `@marktiderman/genesis-config${sub}`).toBeGreaterThan(0);
+    }
+    expect(typeof (require("@marktiderman/genesis-config/settings") as { resolveSettings?: unknown }).resolveSettings).toBe("function");
   });
 });

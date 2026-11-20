@@ -1,4 +1,5 @@
 // @feat:genesis-mcp
+import { createHash } from "node:crypto";
 import { chmodSync, mkdtempSync, readFileSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
@@ -497,6 +498,28 @@ describe("genesis mcp: adversarial review", () => {
     const result = await call("fix_apply", { fixId: "big.write", hash });
     expect(result).toMatchObject({ applied: false, reason: expect.stringMatching(/more lines than an approval can show whole/) });
     expect(asked).toHaveLength(0);
+  });
+
+  it("refuses approval when a planned file changed since the plan, instead of showing a diff the plan doesn't write", async () => {
+    const root = app({ "notes.txt": "changed by someone else\n" });
+    // A plan read against "original" (its beforeHash), while the file on disk now says something else.
+    const stale = { id: "stale.write", kind: "auto" as const, rules: ["stale"], title: "rewrite notes", plan: () => ({ summary: "rewrites notes.txt", files: [{ path: "notes.txt", beforeHash: createHash("sha256").update("original\n").digest("hex"), content: "rewritten\n", why: "w" }] }) };
+    const finding = { rule: "stale", level: "warn" as const, file: "notes.txt", line: 0, message: "m", fix: { id: "stale.write", kind: "auto" as const, title: "t" } };
+    const { call, asked } = await connect(root, { answer: accept, server: { deps: { doctor: async () => ({ findings: [finding] }) as never, extraFixes: [stale] } } });
+    const { hash } = await call("fix_plan", { fixId: "stale.write" });
+    const result = await call("fix_apply", { fixId: "stale.write", hash });
+    expect(result).toMatchObject({ applied: false, reason: expect.stringMatching(/notes\.txt changed since the plan was made/) });
+    expect(asked).toHaveLength(0);
+    expect(read(root, "notes.txt")).toBe("changed by someone else\n");
+  });
+
+  it("keeps a result valid JSON when the second redaction pass cuts an escape", () => {
+    // The value `ab\` shows only in the escaped text (`"ab\""`): redacting it there would leave `"[redacted]""`.
+    const values = ["ab\\"];
+    const text = boundedJson({ k: 'ab"' }, values);
+    expect(() => JSON.parse(text)).not.toThrow();
+    expect(text).not.toContain("ab\\\\");
+    expect(JSON.parse(text)).toMatchObject({ redacted: true });
   });
 
   it("an answer that isn't approve: true applies nothing", async () => {

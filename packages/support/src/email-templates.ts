@@ -53,12 +53,14 @@ export function supportEmailTemplate(options: SupportEmailTemplateOptions): Emai
     const base = await defaultEmailTemplate({ ...ctx, text: { ...ctx.text, ...(body ? { body } : {}) } });
     const title = text(ctx.data["title"]) || copy.untitled;
     const marker = `${REPLY_MARKER} (from your email app).`;
+    // Only the emails that carry a reply address say so: the verify prompt is answered in the app.
+    const replies = options.replies && ctx.type !== "support.verify";
     return {
       subject: (toStaff ? copy.staffSubject : copy.personSubject).replace("{title}", title),
-      html: options.replies
+      html: replies
         ? base.html.replace(/<body[^>]*>/, (tag) => `${tag}<p style="font-family:sans-serif;font-size:12px;text-align:center;margin:0 0 16px">${escapeHtml(marker)}</p>`)
         : base.html,
-      text: options.replies ? `${marker}\n\n${base.text}` : base.text,
+      text: replies ? `${marker}\n\n${base.text}` : base.text,
     };
   };
 }

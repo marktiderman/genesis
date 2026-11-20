@@ -34,6 +34,10 @@ function memoryStore() {
     saveReport: async (input) => (reports.push(input), { id: input.report.id }),
     saveFeedback: async (input) => (feedback.push(input), { id: TICKET }),
     attachFile: async (file) => void files.push(file),
+    linkDiagnostics: async ({ feedbackId, diagnosticsId }) => {
+      const saved = feedback.find((f) => f.feedback && feedbackId === TICKET);
+      if (saved) saved.feedback = { ...saved.feedback, diagnosticsId };
+    },
   };
   return { store, reports, feedback, files };
 }
@@ -199,6 +203,136 @@ describe("createDiagnosticsHandler: dumps", () => {
   });
 });
 
+describe("createDiagnosticsHandler: settings", () => {
+  const feedbackWithDump = () => {
+    const f = new FormData();
+    f.append("feedback", JSON.stringify({ type: "bug", message: "x", diagnosticsId: ID }));
+    f.append("diagnostics", JSON.stringify(dump()));
+    return new Request("https://api.test", { method: "POST", headers: { authorization: "Bearer t" }, body: f });
+  };
+
+  it("refuses dumps while diagnostics.enabled is off, and stores feedback without its dump", async () => {
+    const { store, reports, feedback } = memoryStore();
+    const handle = createDiagnosticsHandler({ authenticate: auth, store, appSettings: { "diagnostics.enabled": false } });
+    const res = await handle(post(JSON.stringify(dump())));
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "diagnostics_off" });
+    const withFeedback = await handle(feedbackWithDump());
+    expect(withFeedback.status).toBe(201);
+    expect(await withFeedback.json()).toMatchObject({ id: TICKET, diagnostics: null });
+    expect(feedback[0]?.feedback.diagnosticsId).toBeNull();
+    expect(reports).toEqual([]);
+  });
+
+  it("reads a settings function per request, at most once per settingsCacheMs", async () => {
+    let t = 0;
+    let values: Record<string, unknown> = { "diagnostics.enabled": false };
+    const read = vi.fn(async () => values);
+    const handle = createDiagnosticsHandler({ authenticate: auth, store: memoryStore().store, appSettings: read, settingsCacheMs: 1000, now: () => t, rateLimit: false });
+    expect((await handle(post(JSON.stringify(dump())))).status).toBe(403);
+    values = { "diagnostics.enabled": true };
+    expect((await handle(post(JSON.stringify(dump())))).status).toBe(403);
+    expect(read).toHaveBeenCalledTimes(1);
+    t = 1500;
+    expect((await handle(post(JSON.stringify(dump())))).status).toBe(201);
+    expect(read).toHaveBeenCalledTimes(2);
+  });
+
+  it("shares one settings read between requests that find the cache stale together", async () => {
+    // Two reads in flight: the first (older) answers last. Shared, it is asked once and can't land late.
+    let calls = 0;
+    const answers: Array<(v: Record<string, unknown>) => void> = [];
+    const read = () => {
+      calls++;
+      return new Promise<Record<string, unknown>>((resolve) => answers.push(resolve));
+    };
+    const handle = createDiagnosticsHandler({ authenticate: auth, store: memoryStore().store, appSettings: read, settingsCacheMs: 1000, now: () => 0, rateLimit: false });
+    const a = handle(post(JSON.stringify(dump())));
+    const b = handle(post(JSON.stringify(dump())));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(calls).toBe(1);
+    answers[0]!({ "diagnostics.enabled": false });
+    expect([(await a).status, (await b).status]).toEqual([403, 403]);
+  });
+
+  it("follows diagnostics.perHour as it changes", async () => {
+    let t = 0;
+    let values: Record<string, unknown> = { "diagnostics.perHour": 1 };
+    const handle = createDiagnosticsHandler({ authenticate: auth, store: memoryStore().store, appSettings: () => values, settingsCacheMs: 0, now: () => t });
+    expect((await handle(post(JSON.stringify(dump())))).status).toBe(201);
+    expect((await handle(post(JSON.stringify(dump())))).status).toBe(429);
+    values = { "diagnostics.perHour": 5 };
+    t = 1;
+    expect((await handle(post(JSON.stringify(dump())))).status).toBe(201);
+  });
+
+  it("takes no dumps while a settings function has never answered (fails closed)", async () => {
+    let t = 0;
+    let fails = true;
+    const handle = createDiagnosticsHandler({
+      authenticate: auth,
+      store: memoryStore().store,
+      appSettings: async () => {
+        if (fails) throw new Error("db down");
+        return {};
+      },
+      settingsCacheMs: 0,
+      now: () => t,
+      onError: () => {},
+    });
+    expect((await handle(post(JSON.stringify(dump())))).status).toBe(403);
+    fails = false;
+    t = 1;
+    expect((await handle(post(JSON.stringify(dump())))).status).toBe(201);
+  });
+
+  it("keeps the last values when the settings function fails", async () => {
+    let fails = false;
+    let t = 0;
+    const handle = createDiagnosticsHandler({
+      authenticate: auth,
+      store: memoryStore().store,
+      appSettings: async () => {
+        if (fails) throw new Error("db down");
+        return { "diagnostics.enabled": false };
+      },
+      settingsCacheMs: 0,
+      now: () => t,
+      onError: () => {},
+    });
+    expect((await handle(post(JSON.stringify(dump())))).status).toBe(403);
+    fails = true;
+    t = 1;
+    expect((await handle(post(JSON.stringify(dump())))).status).toBe(403);
+  });
+
+  it("names no dump, on the feedback or in the notification, when the store refused the dump brought with it", async () => {
+    const { store, feedback } = memoryStore();
+    const events: SupportEvent[] = [];
+    const handle = createDiagnosticsHandler({
+      authenticate: auth,
+      store: { ...store, saveReport: async () => Promise.reject(new DiagnosticsStoreError("rate", 429)) },
+      notify: [{ name: "spy", notify: (e) => void events.push(e) }],
+      onError: () => {},
+    });
+    expect((await handle(feedbackWithDump())).status).toBe(201);
+    expect(feedback[0]?.feedback.diagnosticsId).toBeNull();
+    expect(events[0]).toMatchObject({ kind: "feedback", diagnosticsId: null, diagnosticsShortId: null });
+  });
+
+  it("answers without waiting forever for a notifier that hangs", async () => {
+    vi.useFakeTimers();
+    try {
+      const handle = createDiagnosticsHandler({ authenticate: auth, store: memoryStore().store, notify: [{ name: "hung", notify: () => new Promise<void>(() => {}) }], onError: () => {} });
+      const answer = handle(post(JSON.stringify(dump())));
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect((await answer).status).toBe(201);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 describe("createDiagnosticsHandler: feedback with screenshots", () => {
   it("round-trips httpTransport's multipart: the record, its dump and the screenshots", async () => {
     const { store, reports, feedback, files } = memoryStore();
@@ -283,8 +417,14 @@ describe("createDiagnosticsHandler: feedback with screenshots", () => {
     f.append("feedback", JSON.stringify({ type: "bug", message: "x" }));
     f.append("screenshot", new Blob(["<svg/>"], { type: "image/png" }), "a.png");
     f.append("screenshot", new Blob(["x"], { type: "image/gif" }), "b.gif");
+    // A type named like an Object prototype member isn't an allowed type.
+    f.append("screenshot", new Blob([PNG], { type: "constructor" }), "c.png");
+    // With WebP bytes too: a prototype lookup would take "constructor" as a type, and only the
+    // WebP magic check would be left to stop it, which these bytes pass.
+    const WEBP = new Uint8Array([0x52, 0x49, 0x46, 0x46, 4, 0, 0, 0, 0x57, 0x45, 0x42, 0x50, 0, 0, 0, 0]);
+    f.append("screenshot", new Blob([WEBP], { type: "constructor" }), "d.webp");
     const res = await handle(new Request("https://api.test", { method: "POST", headers: { authorization: "Bearer t" }, body: f }));
-    expect(await res.json()).toEqual({ id: TICKET, attachmentsDropped: 2, diagnostics: null });
+    expect(await res.json()).toEqual({ id: TICKET, attachmentsDropped: 4, diagnostics: null });
     expect(files).toEqual([]);
   });
 });
@@ -329,6 +469,16 @@ describe("notifiers", () => {
     expect(lines.slice(1, -1).some((l: string) => /^`{8,}$/.test(l))).toBe(false);
     expect(sent.title).not.toMatch(/@everyone|\[click\]|!\[|#1/);
     expect(sent.title.replace(/\u200b/g, "")).toContain("@everyone [click](https://evil)");
+  });
+
+  it("GitHub: a long title stays within GitHub's 256, and the admin link can't be closed early", async () => {
+    const fetch = vi.fn(async () => new Response("{}", { status: 201 }));
+    const event = feedbackEvent();
+    event.feedback = { ...event.feedback, title: "@".repeat(250) };
+    await githubIssueNotifier({ token: "t", repo: "a/b", fetch: fetch as never, adminUrl: () => "https://admin.test/t/1) [evil](https://evil" }).notify(event);
+    const sent = JSON.parse(String((fetch.mock.calls[0] as unknown as [string, RequestInit])[1].body));
+    expect(Array.from(sent.title as string).length).toBeLessThanOrEqual(256);
+    expect(sent.body).toContain("[Open in the admin view](https://admin.test/t/1%29%20[evil]%28https://evil)");
   });
 
   it("GitHub: asks again whether the repository is private after the TTL", async () => {
@@ -453,6 +603,14 @@ describe("supabaseDiagnosticsStore", () => {
     await expect(supabaseDiagnosticsStore(limited).saveReport({ report: dump(), userId: USER, feedbackId: null })).rejects.toMatchObject({ status: 429 });
   });
 
+  it("names a stored dump on its ticket, keeping the ticket's context", async () => {
+    const { client, calls } = fakeSupabase({ respond: (call) => (arg(call, "update") === undefined ? { data: { context: { a: 1 } }, error: null } : { data: null, error: null }) });
+    await supabaseDiagnosticsStore(client).linkDiagnostics!({ feedbackId: TICKET, diagnosticsId: ID, userId: USER });
+    const update = calls.find((c) => arg(c, "update") !== undefined);
+    expect(update?.table).toBe("tickets");
+    expect(arg(update, "update")).toEqual({ context: { a: 1, diagnosticsId: ID } });
+  });
+
   it("writes feedback as a ticket with the dump's id in its context", async () => {
     const { client, calls } = fakeSupabase({ respond: () => ({ data: { id: TICKET }, error: null }) });
     const store = supabaseDiagnosticsStore(client);
@@ -488,5 +646,12 @@ describe("notifiers from the settings", async () => {
     const problems: string[] = [];
     expect(supportNotifiersFromSettings({ env: {}, settings: { "support.webhookUrl": "http://x.test" }, onProblem: (p) => problems.push(p) })).toEqual([]);
     expect(problems[0]).toContain("https");
+  });
+});
+
+describe("a webhook URL in capitals", async () => {
+  const { supportNotifiersFromSettings } = await import("../server");
+  it("is normalised, never thrown on", () => {
+    expect(supportNotifiersFromSettings({ env: {}, settings: { "support.webhookUrl": "HTTPS://hooks.example.test/support" } }).map((n) => n.name)).toEqual(["webhook"]);
   });
 });

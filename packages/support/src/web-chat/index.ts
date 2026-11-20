@@ -26,6 +26,7 @@ export {
   deskName,
   lastMoveLabel,
   supportDeskKeys,
+  supportDeskScope,
   useSupportDesks,
   type SupportDeskControlsProps,
   type SupportDeskPickerProps,

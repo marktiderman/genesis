@@ -8,5 +8,5 @@ there; while `support.staffAlerts` is on and nobody who handles it has it), `sup
 person when support answers, and `support.verify` with the verify prompt, through
 genesis-notifications' `genesis_notify`, with an optional `private.genesis_support_staff_to_notify`
 hook. `supportNotificationTypes` adds the three types to the app's `defineNotifications`;
-`/email`'s `supportEmailTemplates` and `supportEmailTemplate` are their emails. genesis-notifications
+the new `/email-notifications` entry's `supportEmailTemplates` and `supportEmailTemplate` are their emails. genesis-notifications
 is a new optional peer.

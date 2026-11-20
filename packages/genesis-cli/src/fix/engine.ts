@@ -6,7 +6,7 @@
  * plan expects (`beforeHash`) before writing any, writes, runs the commands, then verifies.
  */
 import { createHash } from "node:crypto";
-import { chmodSync, existsSync, lstatSync, statSync, mkdirSync, readFileSync, realpathSync, renameSync, rmdirSync, unlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, closeSync, existsSync, lstatSync, statSync, mkdirSync, readFileSync, realpathSync, renameSync, rmdirSync, unlinkSync, writeFileSync, openSync } from "node:fs";
 import * as path from "node:path";
 import { runTool, isAllowedTool, TOOL_AUTH_ENV, type ToolRunner } from "../exec/run.js";
 import { SecretVault } from "../exec/secret-vault.js";
@@ -292,21 +292,43 @@ class Journal {
     checkTarget(this.root, abs, fixId);
     if (file.beforeHash === null) {
       this.entries.push({ abs, rel: file.path, before: null, dirs });
+      // Created with `wx` first, written second: only a file this write created is ever removed. An
+      // open that fails (EEXIST, or EMFILE with nothing created) leaves whatever is there alone.
+      let fd: number;
       try {
-        writeFileSync(abs, file.content, { flag: "wx" });
+        fd = openSync(abs, "wx");
       } catch (err) {
         this.entries.pop();
         if ((err as NodeJS.ErrnoException).code === "EEXIST") throw new FileConflictError(`${file.path} appeared while the fix was writing`);
         throw err;
       }
+      try {
+        writeFileSync(fd, file.content);
+      } catch (err) {
+        // This write created the file, so the partial file (ENOSPC) is its own to remove.
+        this.entries.pop();
+        try {
+          closeSync(fd);
+        } catch {
+          /* already closed */
+        }
+        try {
+          unlinkSync(abs);
+        } catch {
+          /* gone already */
+        }
+        throw err;
+      }
+      closeSync(fd);
       return;
     }
     const before = readFileSync(abs, "utf8");
     const tmp = path.join(path.dirname(abs), `.${path.basename(abs)}.genesis-fix-${process.pid}-${Date.now()}`);
     // The rewrite keeps the file's mode (an executable script stays executable).
     const mode = statSync(abs).mode & 0o7777;
-    writeFileSync(tmp, file.content, { flag: "wx" });
     try {
+      // Inside the try: a staging file a failed write left half-written is removed too.
+      writeFileSync(tmp, file.content, { flag: "wx" });
       chmodSync(tmp, mode);
       // The last look: the file is still what the plan read.
       if (sha256(readFileSync(abs, "utf8")) !== file.beforeHash || sha256(before) !== file.beforeHash) throw new FileConflictError(`${file.path} changed while the fix was writing`);
@@ -365,7 +387,11 @@ class Journal {
 export async function verifyFix(fix: Fix, plan: FixPlan, context: FixContext): Promise<VerifyResult> {
   if (fix.verify) return fix.verify(context);
   if (context.recheck) {
-    const remaining = (await context.recheck(fix.rules)).filter((f) => f.fix?.id === fix.id);
+    // A finding this fix was run for is left whatever fix it names now (one that moved to another
+    // fix isn't fixed); otherwise those that still name this fix.
+    const key = (f: { rule: string; file: string; subject?: string }) => `${f.rule}\u0000${f.file}\u0000${f.subject ?? ""}`;
+    const ranFor = new Set(context.findings.map(key));
+    const remaining = (await context.recheck(fix.rules)).filter((f) => f.fix?.id === fix.id || ranFor.has(key(f)));
     return { ok: remaining.length === 0, remaining, ...(remaining.length ? { message: `${remaining.length} finding${remaining.length === 1 ? "" : "s"} left` } : {}) };
   }
   const off = plan.files.filter((f) => fileHash(context.root, f.path) !== sha256(f.content));

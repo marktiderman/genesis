@@ -717,3 +717,14 @@ describe("the messenger's settings", () => {
     expect(screen.getByTestId("genesis-support-contact-url").getAttribute("href")).toBe("https://acme.test/support");
   });
 });
+
+describe("Home with the help center off", () => {
+  it("reads and shows no articles", async () => {
+    const client = fakeClient();
+    show(client, { spaces: ["home", "messages"], settings: { "support.helpCenter": false } });
+    await screen.findByTestId("genesis-support-messenger-home");
+    await new Promise((r) => setTimeout(r, 0));
+    expect(client.helpArticles).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("genesis-support-messenger-popular")).toBeNull();
+  });
+});

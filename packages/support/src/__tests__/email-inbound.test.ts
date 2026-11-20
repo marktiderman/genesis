@@ -2,17 +2,15 @@
 // Reply by email end to end: the Reply-To support's emails carry, and the inbound route.
 import { describe, expect, it, vi } from "vitest";
 import type { ClaimedJob, EmailProvider, InboundEmail } from "@marktiderman/genesis-notifications/server";
+import { replyAddress, replyKey, stripReply } from "../email";
 import {
   handleSupportInbound,
-  replyAddress,
-  replyKey,
   senderAuthenticated,
-  stripReply,
   supportEmailOptions,
   supportReplyConfig,
   supportReplyRoute,
   type SupportReplyConfig,
-} from "../email";
+} from "../email-notifications";
 
 const TICKET = "11111111-1111-4111-8111-111111111111";
 const USER = "22222222-2222-4222-8222-222222222222";
@@ -179,5 +177,30 @@ describe("the inbound endpoint", () => {
     const { client } = rpc();
     const full = { ...env, RESEND_INBOUND_WEBHOOK_SECRET: "whsec_dGVzdHNlY3JldHRlc3RzZWNyZXQ=", RESEND_API_KEY: "re_x" };
     expect((await handleSupportInbound(new Request("https://x.test", { method: "POST", body: "{}" }), { env: full, client })).status).toBe(401);
+  });
+});
+
+describe("review follow-ups", () => {
+  it("keeps /email free of genesis-notifications, so an app without it can still import it", async () => {
+    const { readFileSync } = await import("node:fs");
+    for (const f of ["../email.ts", "../email-reply.ts"]) {
+      expect(readFileSync(new URL(f, import.meta.url), "utf8")).not.toMatch(/^(import|export)[^\n]*from "@marktiderman\/genesis-notifications/m);
+    }
+  });
+
+  it("gives a retry in a later week another idempotency key with its other address", async () => {
+    const sent: Array<{ replyTo: string; idempotencyKey: string }> = [];
+    const provider = { name: "x", send: async (m: { replyTo: string; idempotencyKey: string }) => (sent.push(m), { id: "1" }) } as unknown as EmailProvider;
+    const job = { type: "support.reply", user_id: USER, data: { ticket_id: TICKET } } as unknown as ClaimedJob;
+    const message = { from: "a@acme.test", to: ["p@x.test"], subject: "s", html: "h", text: "t", idempotencyKey: "job-1" } as never;
+    const now = vi.spyOn(Date, "now");
+    now.mockReturnValue(Date.UTC(2026, 10, 19));
+    await supportEmailOptions({ env, provider }).providerFor!(job).send(message);
+    now.mockReturnValue(Date.UTC(2026, 10, 30));
+    await supportEmailOptions({ env, provider }).providerFor!(job).send(message);
+    now.mockRestore();
+    expect(sent[0]!.replyTo).not.toBe(sent[1]!.replyTo);
+    expect(sent[0]!.idempotencyKey).not.toBe(sent[1]!.idempotencyKey);
+    expect(sent[0]!.idempotencyKey.startsWith("job-1:")).toBe(true);
   });
 });

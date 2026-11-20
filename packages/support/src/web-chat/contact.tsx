@@ -6,7 +6,7 @@
  * @stability Beta
  */
 import { fill, resolveSupportCopy, type SupportCopyOverrides } from "../copy";
-import type { SupportContactInfo } from "../settings";
+import { mailtoHref, type SupportContactInfo } from "../settings";
 
 export interface SupportContactProps {
   contact: SupportContactInfo | null | undefined;
@@ -24,7 +24,7 @@ export function SupportContact({ contact, bare = false, copy: overrides, classNa
     <div data-testid="genesis-support-contact" className={className ?? "flex flex-col gap-1 p-3 text-sm"}>
       {bare ? null : <p className="text-muted-foreground">{copy.title}</p>}
       {contact.email ? (
-        <a className="text-primary underline-offset-4 hover:underline" href={`mailto:${contact.email}`} data-testid="genesis-support-contact-email">
+        <a className="text-primary underline-offset-4 hover:underline" href={mailtoHref(contact.email)} data-testid="genesis-support-contact-email">
           {fill(copy.email, { email: contact.email })}
         </a>
       ) : null}
