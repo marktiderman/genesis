@@ -82,6 +82,20 @@ export function loadCatalogue(root: string): { catalogue: SettingsCatalogue; dec
   return { catalogue: settingsCatalogue(declared.map((d) => d.declaration)), declared, problems };
 }
 
+/**
+ * The secret names the catalogue declares, so their values are redacted. A catalogue that can't be
+ * built is an error that says so: without it genesis mcp can't tell which values to redact.
+ */
+export function declaredSecretNames(root: string): string[] {
+  let catalogue: SettingsCatalogue;
+  try {
+    catalogue = loadCatalogue(root).catalogue;
+  } catch (err) {
+    throw new Error(`The settings catalogue doesn't load, so genesis mcp can't tell which environment values are secrets, and answers nothing until it does: ${err instanceof Error ? err.message : String(err)} (genesis doctor at a terminal shows it)`);
+  }
+  return Object.values(catalogue.keys).flatMap((d) => (d.secret ? [d.secret.name] : []));
+}
+
 const hasKey = (catalogue: SettingsCatalogue, key: string) => Object.prototype.hasOwnProperty.call(catalogue.keys, key);
 
 /** One key as the catalogue tool shows it: its declaration, a secret by name only. */

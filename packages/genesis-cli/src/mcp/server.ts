@@ -39,6 +39,7 @@ import { guardChildStdio } from "./stdio.js";
 import { boundedPlan, catalogSearch, cliPackageDir, explainRule, findingsReport, resolveFixTarget, slimFinding, ToolInputError, type FixTarget } from "./doctor.js";
 import {
   checkProposal,
+  declaredSecretNames,
   describeKey,
   envSecretStatus,
   loadCatalogue,
@@ -207,17 +208,8 @@ export function createGenesisMcpServer(options: GenesisMcpOptions): Server {
     while (remembered.size > 100) remembered.delete(remembered.keys().next().value!);
   };
 
-  /** The secret names the catalogue declares, for scrubbing their values (read from the environment, never shown). */
-  const declaredSecretNames = (): string[] => {
-    try {
-      return Object.values(loadCatalogue(root).catalogue.keys).flatMap((d) => (d.secret ? [d.secret.name] : []));
-    } catch {
-      return [];
-    }
-  };
-
   /** The environment's secret values, in a vault: read afresh each time, as the catalogue may change. */
-  const vault = () => secretVault(secretValues(env, declaredSecretNames()));
+  const vault = () => secretVault(secretValues(env, declaredSecretNames(root)));
   /** Scrub, then clip: a clip first could cut a secret in half and leave its start unredacted. */
   const sc = (text: string, max?: number) => clip(scrub(text, vault()), max);
   const scrubber = () => {
@@ -548,8 +540,16 @@ export function createGenesisMcpServer(options: GenesisMcpOptions): Server {
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const tool = byName.get(request.params.name);
     if (!tool) throw new McpError(ErrorCode.InvalidParams, `no tool "${clip(request.params.name, 100)}" (tools/list has them)`);
-    // Built before the tool runs: a secret too long to hold (over 4 MiB; secretValues names it) stops the call.
-    const secrets = vault();
+    // Built before the tool runs: a catalogue that doesn't load, or a secret too long to hold, stops the
+    // call (fails closed). That error is scrubbed by the secret-looking names alone.
+    let secrets: SecretVault;
+    try {
+      secrets = vault();
+    } catch (err) {
+      const e = toMcpError(err, tool.name, secretVault(secretValues(env)));
+      log(`genesis mcp: ${tool.name} refused: ${e.message}`);
+      throw e;
+    }
     const started = Date.now();
     try {
       const args = checkArgs(tool, (request.params.arguments ?? {}) as Record<string, unknown>);
@@ -591,13 +591,8 @@ export async function runMcpStdio(options: GenesisMcpOptions): Promise<Server> {
   });
   // stderr carries the server's logs, what in-process commands print, and the stdout moved below:
   // all of it scrubbed of the secret values and secret-shaped literals the results are.
-  let declared: string[] = [];
-  try {
-    declared = Object.values(loadCatalogue(path.resolve(options.root)).catalogue.keys).flatMap((d) => (d.secret ? [d.secret.name] : []));
-  } catch {
-    declared = [];
-  }
-  scrubStream(process.stderr, secretVault(secretValues(options.env ?? process.env, declared)));
+  // Fails closed: without the catalogue it can't tell which values to redact, so it doesn't start.
+  scrubStream(process.stderr, secretVault(secretValues(options.env ?? process.env, declaredSecretNames(path.resolve(options.root)))));
   stdout.write = ((chunk: unknown, ...rest: unknown[]) => (process.stderr.write as (...a: unknown[]) => boolean)(chunk, ...rest)) as typeof stdout.write;
   // A child that inherits the terminal would write to fd 1: route its stdout to stderr, its stdin away.
   guardChildStdio();

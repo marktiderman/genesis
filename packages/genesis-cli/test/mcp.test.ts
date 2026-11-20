@@ -569,6 +569,26 @@ describe("genesis mcp: adversarial review", () => {
     expect(secretValues({ API_TOKEN: "  abc12  ", DB_PASS: "longpassword1" })).toEqual(["longpassword1"]);
   });
 
+  it("costs the text, not the held secrets: 2,000 small leaves with a 1 MiB secret held", () => {
+    const vault = secretVault([`${"s".repeat(1024 * 1024 - 8)}-secret!`]);
+    const findings = Array.from({ length: 2_000 }, (_, i) => `finding ${i}`);
+    const started = performance.now();
+    const text = boundedJson({ findings }, vault);
+    expect(performance.now() - started).toBeLessThan(500);
+    expect(JSON.parse(text).findings).toHaveLength(2_000);
+  });
+
+  it("answers nothing while the settings catalogue doesn't load: it can't tell which values are secrets", async () => {
+    const OTHER = "@marktiderman/genesis-other";
+    const root = app({
+      "package.json": JSON.stringify({ name: "app", dependencies: { [SUPPORT]: "^0.12.0", [OTHER]: "^0.1.0" } }),
+      [`node_modules/${OTHER}/package.json`]: JSON.stringify({ name: OTHER, version: "0.1.0", genesis: { settings } }),
+    });
+    const { call, seen } = await connect(root);
+    await expect(call("doctor_run")).rejects.toThrow(/settings catalogue doesn't load.*declared twice/);
+    expect(seen.join("\n")).not.toContain(SECRET);
+  });
+
   it("scrubs what is written to stderr", () => {
     const written: unknown[] = [];
     const stream = { write: (chunk: unknown) => (written.push(chunk), true) } as unknown as NodeJS.WriteStream;
