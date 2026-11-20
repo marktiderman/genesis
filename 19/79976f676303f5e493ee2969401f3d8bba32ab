@@ -1,0 +1,45 @@
+.changeset/genesis-support-desks-review.md
+  s_ca8e075e853203::t_b788da8f8d0dd9 27
+.changeset/genesis-support-web-ui.md
+  s_ca8e075e853203::t_8ef33c561d796e 17-21
+.changeset/resource-view-rows-without-provider.md
+  s_ca8e075e853203::t_8b5a056b1fbef8 8-16
+packages/core/src/hooks/__tests__/optional-provider.test.tsx
+  s_ca8e075e853203::t_792dbac6e99adc 1-41
+packages/support/src/__tests__/fake-supabase.ts
+  s_ca8e075e853203::t_d624f8e53eca48 21-23,52-58,69-74
+packages/support/src/__tests__/web-desk-admin.test.tsx
+  s_ca8e075e853203::t_83379f49f6af0f 4,244-266
+packages/support/src/client.ts
+  s_ca8e075e853203::t_77ede5e45aabe2 330-331,653-662,893-898,1059-1060
+packages/support/src/web-chat/agent-tools.tsx
+  s_ca8e075e853203::t_7007aa4f3562d1 412,551-552,558-559,584-585
+packages/support/src/web-chat/desks.tsx
+  s_ca8e075e853203::t_80392ce2a37f9a 53,59-60,70-71,74-76,96-97,99-100,114,116,122,138-141,143-144,148-149,157-158,177,256-257,271,415-419,421-422,429-430,479
+packages/support/src/web-chat/diagnostics-viewer.tsx
+  s_ca8e075e853203::t_f286065450c54c 30,77-78,86-87,89-91
+packages/support/src/web-chat/index.ts
+  s_ca8e075e853203::t_a4d6fecfdff2d8 31
+packages/support/src/web-chat/messenger.tsx
+  s_ca8e075e853203::t_edf321a574ff6e 838
+packages/support/src/web-chat/tenant.ts
+  s_ca8e075e853203::t_62dfbfcd9e44b9 6-7,28-35,37-40,42-45,48,50-51,53-55
+packages/ui/src/components/data/__tests__/dual-context.test.tsx
+  s_ca8e075e853203::t_5812e83b4f6c7b 21,23-25,98-108
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1979976f676303f5e493ee2969401f3d8bba32ab",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
