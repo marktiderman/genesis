@@ -386,12 +386,10 @@ describe("support", () => {
     expect(read("src/lib/app.ts")).toContain('appFeatures: ["account"]');
   });
 
-  it("serves every support screen from two one-line route files, sending you back to Settings when support is off", () => {
+  it("serves every support screen from two one-line route files", () => {
     for (const name of ["index", "[...route]"]) {
-      expect(read(join("src/app/(app)/settings/support", `${name}.tsx`)).trim(), name).toBe('export { StarterSupportRoute as default } from "@/lib/support-route";');
+      expect(read(join("src/app/(app)/settings/support", `${name}.tsx`)).trim(), name).toBe('export { SupportRoute as default } from "@marktiderman/genesis-support/native";');
     }
-    expect(read("src/lib/support-route.tsx")).toContain('if (!starter.features.support) return <Redirect href="/settings" />;');
-    expect(read("src/lib/support-route.tsx")).toContain("<SupportRoute ");
     expect(read("src/lib/support.ts")).toContain('supportBasePath = "/settings/support"');
   });
 

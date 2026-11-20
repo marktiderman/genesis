@@ -1,1 +1,1 @@
-export { StarterSupportRoute as default } from "@/lib/support-route";
+export { SupportRoute as default } from "@marktiderman/genesis-support/native";

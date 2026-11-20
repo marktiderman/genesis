@@ -7,7 +7,7 @@
  * passes it to GenesisNativeApp's `blocks`; it also fills the devtools overlay's
  * "Send feedback" and "Send diagnostics".
  *
- * Zero config: every screen comes from `SupportRoute` (`support-route.tsx`), the
+ * Zero config: every screen comes from `SupportRoute` (two one-line route files), the
  * context dump goes with every report and every shake, and Genesis settings
  * (watched live: `settings.ts`) switch parts on and off; with
  * none stored, everything is on.
