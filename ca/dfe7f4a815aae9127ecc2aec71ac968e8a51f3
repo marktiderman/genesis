@@ -1,0 +1,61 @@
+.changeset/support-native-ui-review.md
+  s_ca8e075e853203::t_a47e1f3a993221 5,8,10,12-14
+packages/native/src/__tests__/blocks.test.tsx
+  s_ca8e075e853203::t_7b68d57d6918a8 2,133-155
+packages/native/src/__tests__/devtools/devtools.test.tsx
+  s_ca8e075e853203::t_2c6526172774c3 169,175-187,195-196,211-212,255-256,277-278,288-289
+packages/native/src/__tests__/errors.test.tsx
+  s_ca8e075e853203::t_3a807d850d60e4 16-17,244
+packages/native/src/devtools/block.tsx
+  s_ca8e075e853203::t_b62034510503b9 28,31-42,76-77,361,363,386-387,389,405-425,488-492,614-615
+packages/native/src/errors.tsx
+  s_ca8e075e853203::t_a01557f5192f55 215-218,220-224
+packages/support/README.md
+  s_ca8e075e853203::t_ccadef8e4a6171 205-231,303-306,553-555,562-563,916-922
+packages/support/src/__tests__/native-desk-ui.test.tsx
+  s_ca8e075e853203::t_ef50b3dcff53f8 11,149,154-160,245-267,310-331,359-373,414-430
+packages/support/src/__tests__/settings.test.tsx
+  s_ca8e075e853203::t_242253692145b7 5,153-155
+packages/support/src/client.ts
+  s_ca8e075e853203::t_0a3376bfa55260 77-82
+packages/support/src/copy.ts
+  s_ca8e075e853203::t_03a77ef8adc004 183
+packages/support/src/diagnostics/health.ts
+  s_ca8e075e853203::t_aa44d45710a64e 51-52,67,124
+packages/support/src/native/agent.tsx
+  s_ca8e075e853203::t_648543d7e9168e 104-105,127,134,137,144,148-149
+packages/support/src/native/desks.tsx
+  s_ca8e075e853203::t_3178e6ca0bce76 36,42-47,50-58,80-84,87,91,102-116,133-134,138-139,143-144,149,154-156,158,167,171,173,182-183,185,203,234,236,240,243,245,256
+packages/support/src/native/diagnostics-viewer.tsx
+  s_ca8e075e853203::t_719e45a6537f0c 16,41-42,44-45,49,64-68,87-94,97-99
+packages/support/src/native/index.ts
+  s_ca8e075e853203::t_e1936b69eb0723 23
+packages/support/src/native/screens.tsx
+  s_ca8e075e853203::t_0e5c0a10801c97 23,247
+packages/support/src/native/support.tsx
+  s_ca8e075e853203::t_f0f16f22616d8f 38-40,86-87,176,179-185,188-193,205-206,236-237,298-322,372-373,380,388-401,408,504-508,529,531,550,553,611,613,670-672
+packages/ui-native/src/components/__tests__/list-item.test.tsx
+  s_ca8e075e853203::t_2200db76071818 6-14
+packages/ui-native/src/components/list-item.tsx
+  s_ca8e075e853203::t_547bb35877a330 31-34,60-61,79-80
+packages/ui-native/src/components/settings-row.tsx
+  s_ca8e075e853203::t_0eae8a54050e15 32-35,41,46-47
+packages/ui-native/test-utils/rn-mock.tsx
+  s_ca8e075e853203::t_f6ea2e16901110 149,151,153-159,312-313
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "cadfe7f4a815aae9127ecc2aec71ac968e8a51f3",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
