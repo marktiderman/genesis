@@ -1,0 +1,94 @@
+packages/supabase/migrations/tests/0024_genesis_settings_host.test.sql
+  s_ca8e075e853203::t_937316c8bcd93b 1-289
+  s_ca8e075e853203::t_43433fe2e18f8e 290
+apps/sample/app/routes/platform-settings.tsx
+  s_ca8e075e853203::t_821f7e70870447 1-151
+packages/supabase/src/settings-server.ts
+  s_ca8e075e853203::t_b9ac1fa114cf7e 1-614
+packages/features/src/__tests__/settings-react-slice.test.tsx
+  s_ca8e075e853203::t_1c7e2adb6bc205 1-163
+  s_ca8e075e853203::t_ba05d5ec81edeb 164-170
+packages/supabase/migrations/0024_genesis_settings_host.sql
+  s_ca8e075e853203::t_6224bef1b8e1d5 1-407
+  s_ca8e075e853203::t_0cb7351e14dc66 408-409
+packages/supabase/src/__tests__/settings-server.test.ts
+  s_ca8e075e853203::t_b8c28195dfa220 1-425
+packages/genesis-cli/test/settings-init.test.ts
+  s_ca8e075e853203::t_b1de63c5978c0c 1-56
+packages/genesis-cli/src/settings-init.ts
+  s_ca8e075e853203::t_a33ffc6f29c8ab 1-141
+.changeset/settings-app-host.md
+  s_ca8e075e853203::t_de4ecdbbe7d7b4 1-13
+apps/sample/.react-router/types/+routes.ts
+  s_ca8e075e853203::t_65a725526b50e5 127-129,193,257,323-326,426
+apps/sample/.react-router/types/app/routes/+types/platform-settings.ts
+  s_ca8e075e853203::t_17d56177a75fdc 1-74
+apps/sample/app/lib/site.ts
+  s_ca8e075e853203::t_ee271f17981b18 54
+apps/sample/app/routes.ts
+  s_ca8e075e853203::t_a6f77c98a648a3 48-49
+apps/sample/app/routes/_layout.tsx
+  s_ca8e075e853203::t_c0eb71b6fe9324 8,35
+apps/sample/package.json
+  s_ca8e075e853203::t_139cd66c4bec8b 105
+apps/sample/settings/vite-plugin.ts
+  s_ca8e075e853203::t_c040596a772e33 1-78
+apps/sample/vite.config.ts
+  s_ca8e075e853203::t_a1769312e421e4 7,40-41,44
+features.json
+  s_ca8e075e853203::t_2d5a1c6d92f86e 4089,4097,4099-4102,4120-4131,4136,4149-4153,4159-4163,4166-4168
+features.ts
+  s_ca8e075e853203::t_9ab405c7659769 1798,1802,1806,1808,1816-1820,1824-1825
+packages/features/README.md
+  s_ca8e075e853203::t_b2b3a478b1e20b 256-272,290-295,300-302,329-334
+packages/features/src/__tests__/settings-protocol.test.ts
+  s_ca8e075e853203::t_164561052ee054 276-305
+packages/features/src/__tests__/settings.test.ts
+  s_ca8e075e853203::t_c74cd5b6556d06 488,491-515
+packages/features/src/index.ts
+  s_ca8e075e853203::t_14d14ef79b01c7 133
+packages/features/src/settings-protocol.ts
+  s_ca8e075e853203::t_5c065e698e1571 7-9,46-48,254-292,314-317,366-372,376-378,384-385,393-395,406-408,415,429,497-500,675-684,687-689,700-701,723-726,729-734,737-745
+packages/features/src/settings-react.tsx
+  s_ca8e075e853203::t_faf3be461d75b3 10-14,83,87,140-158,249-265,331-336,400,420,429,436-439,452,476,478,495,497-509,511,553-558,560,571,576,580,603-604,626,634-708,714-715,724-725,730-732,769-772,870,886,889,892,910-914,937,944,951-964,968,974-975,987,1002-1005,1007-1015,1025-1027,1036,1044-1048,1667,1674,1693,1707
+packages/features/src/settings.ts
+  s_ca8e075e853203::t_9cb10d27dea431 703-710,722-731,736-737,753-760,766-842
+packages/genesis-cli/README.md
+  s_ca8e075e853203::t_9a9564a652e410 885-906
+packages/genesis-cli/src/cli.ts
+  s_ca8e075e853203::t_1e7d30ce2adf2d 907-936
+packages/supabase/README.md
+  s_ca8e075e853203::t_fb7f0106915f8a 836-896
+packages/supabase/package.json
+  s_ca8e075e853203::t_24a80ee3bbd325 75-78,392-425
+packages/supabase/src/__tests__/settings.test.ts
+  s_ca8e075e853203::t_1d1f891a47662c 15,289,303-305,336-345
+packages/supabase/src/blocks.ts
+  s_ca8e075e853203::t_35fd14692fd65f 151-174
+packages/supabase/src/index.ts
+  s_ca8e075e853203::t_4b3f849c070d58 225
+packages/supabase/tsup.config.ts
+  s_ca8e075e853203::t_a16098eeed7a6c 4
+pnpm-lock.yaml
+  s_ca8e075e853203::t_4ca6afe0b6c5db 542-544
+scripts/pgtap-local/suites.sh
+  s_ca8e075e853203::t_3752a2597caaec 19
+scripts/pgtap-local/supabase-stubs-app.sql
+  s_ca8e075e853203::t_d1e9b2e3bb4970 32-38
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "11219ef928274b819f2c6a0ed087c9a3c3d9c3f2",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
