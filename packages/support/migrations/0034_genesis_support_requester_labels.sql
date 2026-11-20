@@ -1,6 +1,6 @@
 -- @feat:support-chat
--- Genesis support 0034: the report's requester labels from one hook (after
--- 0015_genesis_support_agent_tools_bounds.sql).
+-- Genesis support 0034: the report's requester labels from one hook, and the agent list on the one
+-- settings resolver (after 0015_genesis_support_agent_tools_bounds.sql and 0022_genesis_support_staff_tools.sql).
 --
 -- support_agent_report's "open by requester" list now asks only the set-based hook 0015 added,
 -- once for every open ticket:
@@ -10,7 +10,11 @@
 -- 0014's one-ticket hook, private.genesis_support_requester_label(report uuid), is no longer
 -- called: define the set-based one instead (the one-ticket hook can be its body:
 -- `select r, private.genesis_support_requester_label(r) from unnest(reports) r`). Without the
--- set-based hook the list is empty. by_requester_capped stays in the answer, always false.
+-- set-based hook the list is empty. Every open ticket is labelled, so the answer no longer has
+-- 0015's by_requester_capped.
+--
+-- support_agents_list (0022) reads support.agentListScan through genesis-supabase's
+-- private.genesis_setting (0023), as support 0033 moves every reader there and drops 0020's.
 --
 -- Use: copy this file into your app's `supabase/migrations/` under a new timestamped name
 -- (`genesis migrate` does it). Never edit it once applied; change it with a new migration.
@@ -77,12 +81,66 @@ begin
                           order by x.report_id) l on l.report_id = o.id
              group by 1) g;
   end if;
-  return result || jsonb_build_object('by_requester', groups, 'by_requester_capped', false);
+  return result || jsonb_build_object('by_requester', groups);
 end;
 $$;
 
 comment on function public.support_agent_report(uuid, timestamptz, timestamptz) is
-  'A tenant''s help desk over a date range, for its agents: opened, closed, median first response and time to close, open now, and open by requester (the app''s private.genesis_support_requester_labels hook; by_requester_capped is always false). Genesis support.';
+  'A tenant''s help desk over a date range, for its agents: opened, closed, median first response and time to close, open now, and open by requester (the app''s private.genesis_support_requester_labels hook). Genesis support.';
 
 revoke execute on function public.support_agent_report(uuid, timestamptz, timestamptz) from public, anon;
 grant execute on function public.support_agent_report(uuid, timestamptz, timestamptz) to authenticated;
+
+-- 0022's agent list, with support.agentListScan from the one resolver.
+create or replace function public.support_agents_list(tenant uuid default null)
+returns table (user_id uuid, full_name text)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  resolved uuid := coalesce(tenant, private.genesis_support_default_tenant_id());
+  me uuid := auth.uid();
+  scan boolean := false;
+  listed uuid[] := '{}';
+begin
+  if not private.genesis_support_agent(resolved, me) then
+    raise exception 'support_agents_list: only the tenant''s agents' using errcode = '42501';
+  end if;
+  if to_regprocedure('private.genesis_setting(text,uuid)') is not null then
+    scan := coalesce(private.genesis_setting('support.agentListScan') = 'true'::jsonb, false);
+  end if;
+  -- The app's list of staff logins, when it has one.
+  if to_regprocedure('private.genesis_support_staff_list()') is not null then
+    begin
+      execute 'select coalesce(array_agg(s), ''{}'') from private.genesis_support_staff_list() s where s is not null' into listed;
+    exception when others then
+      raise warning 'support_agents_list: private.genesis_support_staff_list() failed: %', sqlerrm;
+    end;
+  end if;
+  return query
+    select n.id, n.name
+      from (
+        select u.id, private.genesis_support_person_name(u.id) as name
+          from auth.users u
+         where u.id in (
+                 select me
+                 union select a.person_id from public.ticket_agents a where a.tenant_id = resolved
+                 union select unnest(listed)
+                 -- Every login, only when the app turns it on (support.agentListScan): slow on a big app.
+                 union select x.id from auth.users x where scan
+               )
+           and (to_jsonb(u) ->> 'is_anonymous') is distinct from 'true'
+           and private.genesis_support_agent(resolved, u.id)
+      ) n
+     order by n.name nulls last, n.id
+     limit 200;
+end;
+$$;
+
+comment on function public.support_agents_list(uuid) is
+  'The logins that handle a tenant''s tickets, with a name (null tenant: the app''s own). Only for the tenant''s agents. Genesis support.';
+
+revoke execute on function public.support_agents_list(uuid) from public, anon;
+grant execute on function public.support_agents_list(uuid) to authenticated;

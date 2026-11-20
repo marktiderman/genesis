@@ -707,7 +707,7 @@ is web only, like the inbox before it:
   `private.genesis_support_requester_labels(reports uuid[]) returns table (report_id uuid, label
   text)`, called once for every open ticket (0015). Since 0034 the one-ticket
   `private.genesis_support_requester_label(report)` is no longer asked (docs/MIGRATION.md shows the
-  one-line set-based hook that wraps it); `byRequesterCapped` is always false.
+  one-line set-based hook that wraps it), so every open ticket is labelled.
 
 ```tsx
 import { SupportAgentReports, SupportSavedRepliesAdmin } from "@marktiderman/genesis-support/web-chat";

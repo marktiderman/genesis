@@ -16,6 +16,10 @@ end $$;
 create function pg_temp.dump() returns jsonb language sql immutable as $$
   select '{"schema": "genesis.diagnostics/1", "trigger": "manual"}'::jsonb $$;
 
+-- What the dump's trigger and purge read (support 0033): the resolver's value, else the default.
+create function pg_temp.setting_int(k text, fallback integer) returns integer language sql stable as $$
+  select coalesce(private.genesis_setting(k)::text::numeric::integer, fallback) $$;
+
 insert into auth.users (id, aud, role, email, instance_id)
 select pg_temp.person(n), 'authenticated', 'authenticated', 'genesis-settings-numeric-' || n || '@example.test', '00000000-0000-0000-0000-000000000000'
 from unnest(array['a1', 'b2', 'c3']) n;
@@ -24,18 +28,18 @@ from unnest(array['a1', 'b2', 'c3']) n;
 
 insert into public.genesis_app_manifest (app_id, catalogue) values ('sample-app', '{"diagnostics.perHour": {"type": "number", "applies": "runtime", "scope": "app", "integer": true, "min": 1, "max": 100, "defaults": {"max": 10, "standard": 10, "min": 10}}, "diagnostics.retentionDays": {"type": "number", "applies": "runtime", "scope": "app", "integer": true, "min": 7, "max": 365, "defaults": {"max": 90, "standard": 90, "min": 90}}, "diagnostics.enabled": {"type": "boolean", "applies": "runtime", "scope": "app", "defaults": {"max": true, "standard": true, "min": true}}}');
 insert into public.genesis_settings (key, value) values ('diagnostics.perHour', '2.0'), ('diagnostics.retentionDays', '30.0');
-select is(private.genesis_support_setting_int('diagnostics.perHour', 10, 1, 100), 2, '2.0 in the database reads as 2');
-select is(private.genesis_support_setting_int('diagnostics.retentionDays', 90, 7, 365), 30, '30.0 reads as 30');
+select is(pg_temp.setting_int('diagnostics.perHour', 10), 2, '2.0 in the database reads as 2');
+select is(pg_temp.setting_int('diagnostics.retentionDays', 90), 30, '30.0 reads as 30');
 
 update public.genesis_app_manifest set file_settings = '{"diagnostics.perHour": {"value": 3.0, "locked": true}}';
-select is(private.genesis_support_setting_int('diagnostics.perHour', 10, 1, 100), 3, 'a locked 3.0 in genesis.config.json reads as 3');
+select is(pg_temp.setting_int('diagnostics.perHour', 10), 3, 'a locked 3.0 in genesis.config.json reads as 3');
 update public.genesis_app_manifest set file_settings = '{}';
 
 update public.genesis_settings set value = '2.5' where key = 'diagnostics.perHour';
-select is(private.genesis_support_setting_int('diagnostics.perHour', 10, 1, 100), 10, 'a real fraction is still skipped');
+select is(pg_temp.setting_int('diagnostics.perHour', 10), 10, 'a real fraction is still skipped');
 update public.genesis_settings set value = '2.0' where key = 'diagnostics.perHour';
 
-select ok(not has_function_privilege('authenticated', 'private.genesis_support_setting_int(text, integer, integer, integer)', 'execute'), 'people can''t call the reader');
+select ok(not has_function_privilege('authenticated', 'private.genesis_setting(text, uuid)', 'execute'), 'people can''t call the reader');
 
 -- 2. Dumps go in, two an hour -------------------------------------------------------------------
 

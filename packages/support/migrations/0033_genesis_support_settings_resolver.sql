@@ -3,17 +3,12 @@
 -- 0020_genesis_support_settings.sql and 0028_genesis_support_diagnostics_fixes.sql; genesis-supabase's
 -- 0023_genesis_settings_tenant_person.sql is optional, before or after).
 --
--- 0020 read settings with a resolver of its own (genesis_support_setting_layers, _fits and _value)
--- that knew only the file and database layers and no preset. Support now reads every setting
--- through genesis-supabase's private.genesis_setting(key, tenant), the server's one copy of
--- resolveSettings (default and preset from the synced catalogue, the file, the database, a
--- tenant's value for a tenant-scoped key, locks), so a server gate and the screens agree:
---
---   private.genesis_support_setting_int(key, fallback, lo, hi) and _bool(key, fallback)
---                 now ask private.genesis_setting; the fallback applies when it is missing or
---                 declares no such key (before the manifest is synced). Deprecated: kept for one
---                 release for 0022's support_agents_list and any app SQL that calls them.
---   0020's _layers, _fits and _value are dropped.
+-- 0020 read settings with a resolver of its own (genesis_support_setting_layers, _fits, _value,
+-- _int and _bool) that knew only the file and database layers and no preset. Support now reads
+-- every setting through genesis-supabase's private.genesis_setting(key, tenant), the server's one
+-- copy of resolveSettings (default and preset from the synced catalogue, the file, the database, a
+-- tenant's value for a tenant-scoped key, locks), so a server gate and the screens agree. The dump's
+-- trigger and purge read it here; 0020's resolver and readers are dropped.
 --
 --   support.verifyPrompt (boolean, default off) turns on 0003's verify prompt: a report someone
 --                 else marks addressed asks its person to check the fix. The app's hook
@@ -27,55 +22,86 @@
 
 create schema if not exists private;
 
--- The readers, on the one resolver ---------------------------------------------------------------
+-- The dump's settings, from the one resolver ---------------------------------------------------------
 
-create or replace function private.genesis_support_setting_int(setting_key text, fallback integer, lo integer, hi integer)
+-- 0020's trigger: the hourly limit from diagnostics.perHour, refusing dumps while
+-- diagnostics.enabled is false. Until the manifest is synced the resolver knows no key, and the
+-- package defaults hold (on, 10 an hour), as resolveSettings gives with no layers.
+create or replace function private.genesis_support_new_diagnostics()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  enabled jsonb;
+  per_hour jsonb;
+begin
+  if auth.uid() is not null then
+    new.user_id := auth.uid();
+  end if;
+  if new.user_id is null then
+    raise exception 'support_diagnostics: no person' using errcode = '42501';
+  end if;
+  if to_regprocedure('private.genesis_setting(text,uuid)') is not null then
+    enabled := private.genesis_setting('diagnostics.enabled');
+    per_hour := private.genesis_setting('diagnostics.perHour');
+  end if;
+  -- diagnostics.enabled off: no dump is stored, from a client or a server.
+  if enabled = 'false'::jsonb then
+    raise exception 'support_diagnostics: diagnostics are off (the diagnostics.enabled setting)' using errcode = '42501';
+  end if;
+  new.created_at := now();
+  if new.feedback_id is not null
+     and not exists (select 1 from public.tickets t where t.id = new.feedback_id and t.user_id = new.user_id) then
+    raise exception 'support_diagnostics: not your report' using errcode = '42501';
+  end if;
+  perform private.genesis_support_rate_limit(new.user_id, 'diagnostics',
+    coalesce(per_hour::text::numeric::integer, 10), interval '1 hour');
+  return new;
+end;
+$$;
+
+revoke execute on function private.genesis_support_new_diagnostics() from public, anon, authenticated;
+
+-- 0020's purge: the default age from diagnostics.retentionDays (90 days until the manifest is synced).
+create or replace function public.support_purge_diagnostics(older_than interval default null, max_rows integer default 1000)
 returns integer
 language plpgsql
-stable
 security definer
 set search_path = ''
 as $$
 declare
-  v jsonb;
-  n numeric;
+  removed integer;
+  days jsonb;
+  keep interval;
 begin
   if to_regprocedure('private.genesis_setting(text,uuid)') is not null then
-    v := private.genesis_setting(setting_key);
+    days := private.genesis_setting('diagnostics.retentionDays');
   end if;
-  if jsonb_typeof(v) is distinct from 'number' then
-    return fallback;
+  keep := coalesce(older_than, make_interval(days => coalesce(days::text::numeric::integer, 90)));
+  if keep < interval '1 day' then
+    raise exception 'support_purge_diagnostics: keep dumps at least a day' using errcode = '22023';
   end if;
-  n := v::text::numeric;
-  return case when n = trunc(n) and n between lo and hi then n::integer else fallback end;
+  with doomed as (
+    select d.id from public.support_diagnostics d
+    where d.created_at < now() - keep
+    order by d.created_at
+    limit greatest(1, least(coalesce(max_rows, 1000), 10000))
+  )
+  delete from public.support_diagnostics d using doomed where d.id = doomed.id;
+  get diagnostics removed = row_count;
+  return removed;
 end;
 $$;
 
-create or replace function private.genesis_support_setting_bool(setting_key text, fallback boolean)
-returns boolean
-language plpgsql
-stable
-security definer
-set search_path = ''
-as $$
-declare
-  v jsonb;
-begin
-  if to_regprocedure('private.genesis_setting(text,uuid)') is not null then
-    v := private.genesis_setting(setting_key);
-  end if;
-  return case when jsonb_typeof(v) = 'boolean' then v::boolean else fallback end;
-end;
-$$;
+revoke execute on function public.support_purge_diagnostics(interval, integer) from public, anon, authenticated;
+grant execute on function public.support_purge_diagnostics(interval, integer) to service_role;
 
-comment on function private.genesis_support_setting_int(text, integer, integer, integer) is
-  'Deprecated: call private.genesis_setting (genesis-supabase 0023). One integer setting, else the fallback. Genesis support.';
-comment on function private.genesis_support_setting_bool(text, boolean) is
-  'Deprecated: call private.genesis_setting (genesis-supabase 0023). One boolean setting, else the fallback. Genesis support.';
-
-revoke execute on function private.genesis_support_setting_int(text, integer, integer, integer) from public, anon, authenticated;
-revoke execute on function private.genesis_support_setting_bool(text, boolean) from public, anon, authenticated;
-
+-- 0020's own resolver and its readers, now that nothing calls them (0034 moves the support-chat
+-- block's support_agents_list to the resolver).
+drop function if exists private.genesis_support_setting_int(text, integer, integer, integer);
+drop function if exists private.genesis_support_setting_bool(text, boolean);
 drop function if exists private.genesis_support_setting_value(text, jsonb, integer, integer);
 drop function if exists private.genesis_support_setting_fits(jsonb, integer, integer);
 drop function if exists private.genesis_support_setting_layers(text);

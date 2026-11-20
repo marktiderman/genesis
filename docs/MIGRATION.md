@@ -24,19 +24,23 @@ key's `defaults` by preset; genesis-supabase 0023's `private.genesis_setting(key
 setting on the server from them (default, preset, file, database, then a tenant-scoped key's tenant
 value, with locks), as `resolveSettings` does. Support's server gates read it, so a tenant's
 `support.helpCenter` now closes that tenant's help center on the server, not only on screen. Until
-the manifest is written again, a key with no `defaults` starts from null and the gates stay on.
+the manifest is written, the server gates use the package defaults (resolveSettings with no layers).
 
-🟡 **Deprecated, still honored for one release** (support 0030, 0033, 0034):
+🔴 **Support 0020's setting readers are dropped** (support 0033): `private.genesis_support_setting_int`,
+`_bool`, `_layers`, `_fits` and `_value`. SQL of your own that called them calls
+`private.genesis_setting(key, tenant)` instead (genesis-supabase 0023; null until the manifest
+declares the key).
+
+🟡 **Deprecated, still honored for one release** (support 0030, 0033):
 
 - `private.genesis_support_verify_prompt_enabled()`: set `support.verifyPrompt` to true instead.
-- `private.genesis_support_setting_int` and `private.genesis_support_setting_bool`: call
-  `private.genesis_setting(key, tenant)`. 0020's `_layers`, `_fits` and `_value` are dropped.
 - An app's own `private.genesis_support_person_name` or `private.genesis_support_tenant_label`:
   define `private.genesis_person_name(person)` and `private.genesis_tenant_label(tenant)`, which
   support asks first.
 
 🔴 **`private.genesis_support_requester_label(report)` is no longer called** (support 0034, the
-support-chat block). Define the set-based hook instead; the one-ticket hook can be its body:
+support-chat block), and the report's `by_requester_capped` (`byRequesterCapped`) is gone: every
+open ticket is labelled. Define the set-based hook instead; the one-ticket hook can be its body:
 
 ```sql
 create function private.genesis_support_requester_labels(reports uuid[])
@@ -46,8 +50,9 @@ $$;
 revoke execute on function private.genesis_support_requester_labels(uuid[]) from public, anon, authenticated;
 ```
 
-🟢 `support.email` is no longer marked planned (the inbound route reads it). The `sentry` and
-`ai.key-budget` setup steps no longer offer to save a setting nothing reads; `github.issues` saves
+🟢 `support.email` is no longer marked planned (the inbound route reads it). The `sentry` step no
+longer offers to save its DSN as a setting and `ai.key-budget` has no budget field, since no package
+reads either; `github.issues` saves
 the repository to `support.githubRepo`.
 
 ## Settings: tenant and person values, Realtime refresh — `@marktiderman/genesis-supabase` (migration `0023_genesis_settings_tenant_person.sql`), `@marktiderman/genesis-config` (settings protocol) (**minor**)

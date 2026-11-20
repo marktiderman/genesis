@@ -296,7 +296,7 @@ describe("ai.key-budget", () => {
   it("keeps the key as an Edge Function secret and lists the models with it", async () => {
     const { run, calls } = tools();
     const { fetch, requests } = web({ "GET https://api.anthropic.com/v1/models": { body: { data: [] } } });
-    const { result, shown } = await runStep("ai.key-budget", app(), { budgetUsd: "50" }, { run, fetch }, { ANTHROPIC_API_KEY: SECRET });
+    const { result, shown } = await runStep("ai.key-budget", app(), {}, { run, fetch }, { ANTHROPIC_API_KEY: SECRET });
     expect(calls[0]!.stdin).toBe(`ANTHROPIC_API_KEY='${SECRET}'\n`);
     expect(requests[0]!.headers["x-api-key"]).toBe(SECRET);
     expect(result.verify).toMatchObject({ ok: true });
@@ -369,7 +369,7 @@ describe("a long secret (1,520 characters)", () => {
     const { run } = tools();
     const { fetch } = web({ "GET https://api.anthropic.com/v1/models": { status: 500, body: { error: `bad key ${LONG}` } } });
     const h = createWizardHost({ mode: "setup", root, network: true, deps: { doctor: async () => ({ findings: [] }), run, fetch } });
-    const res = await h.handle({ v: 1, op: "step.verify", id: "ai.key-budget", fields: { budgetUsd: "50" }, secrets: { ANTHROPIC_API_KEY: LONG } });
+    const res = await h.handle({ v: 1, op: "step.verify", id: "ai.key-budget", fields: {}, secrets: { ANTHROPIC_API_KEY: LONG } });
     expect(leaks(JSON.stringify(res))).toBe(false);
     expect(JSON.stringify(res)).toMatch(/typed in for ANTHROPIC_API_KEY, not the one stored/);
   });

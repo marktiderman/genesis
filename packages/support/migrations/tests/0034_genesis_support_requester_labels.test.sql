@@ -6,7 +6,7 @@
 -- Tenants: d (the app's own) and ta. People: a1 a client of ta; c3 and c4 agents of ta.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(3);
+select plan(5);
 
 create function pg_temp.tenant(n text) returns uuid language sql immutable as $$
   select case n when 'd' then '00000000-0000-4000-8000-00000000000f'::uuid
@@ -89,7 +89,20 @@ revoke execute on function private.genesis_support_requester_labels(uuid[]) from
 select pg_temp.sign_in('c3');
 set local role authenticated;
 select is(pg_temp.report() -> 'by_requester', '[{"label": "Acme", "open": 3}]'::jsonb, 'the set-based hook labels every open ticket');
-select is(pg_temp.report() -> 'by_requester_capped', 'false'::jsonb, 'nothing is cut short');
+select ok(not pg_temp.report() ? 'by_requester_capped', 'every open ticket is labelled: no cap to report');
+reset role;
+
+-- The agent list reads support.agentListScan through the one resolver.
+insert into public.genesis_app_manifest (app_id, catalogue) values ('labels-test',
+  '{"support.agentListScan": {"type": "boolean", "applies": "runtime", "scope": "app", "defaults": {"max": false, "standard": false, "min": false}}}');
+select pg_temp.sign_in('c3');
+set local role authenticated;
+select is((select count(*)::int from public.support_agents_list(pg_temp.tenant('ta'))), 2, 'the tenant''s agents, without a scan');
+reset role;
+insert into public.genesis_settings (key, value) values ('support.agentListScan', '"yes"');
+select pg_temp.sign_in('c3');
+set local role authenticated;
+select is((select count(*)::int from public.support_agents_list(pg_temp.tenant('ta'))), 2, 'a value of the wrong type is skipped, as resolveSettings skips it');
 reset role;
 
 select * from finish();
