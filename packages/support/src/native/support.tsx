@@ -198,8 +198,11 @@ export interface SupportBlock extends NativeBlock<typeof SUPPORT_BLOCK_ID> {
   subscribePending(listener: () => void): () => void;
   /** The route the person is on, as the root last saw it. */
   currentRoute(): string | null;
-  /** Tell support the route the person is on, for a screen that reads it itself (`SupportRoute`'s `path`). */
-  noteRoute(path: string): void;
+  /**
+   * Tell support the route the person is on, for a screen that reads it itself (`SupportRoute`'s
+   * `path`, when the block has no `useCurrentRoute`). Returns the undo, for when the screen goes.
+   */
+  noteRoute(path: string): () => void;
   /** The navigation zone the person is in (one of `zones`), or "" for none. */
   zone(): string;
   /** Where people can write when the app can't help (`support.contactEmail` / `contactUrl`), or null: for Help and for genesis-native's fatal screens (`contact`). */
@@ -481,7 +484,12 @@ export function createSupport(given: SupportOptions): SupportBlock {
     },
     currentRoute: () => route,
     noteRoute(path) {
+      const before = route;
       if (path) route = path;
+      // Leaving the screen puts back what was there (unless something has moved it on since).
+      return () => {
+        if (route === path) route = before;
+      };
     },
     zone: () => zoneOf(route ?? "", zones),
     contact: () => supportContact(typeof given.appSettings === "function" ? given.appSettings() : given.appSettings),

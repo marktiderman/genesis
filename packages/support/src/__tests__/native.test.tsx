@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { describe, expect, it, vi } from "vitest";
 import { Alert } from "react-native";
 import { InboxPage, ThreadPage } from "@marktiderman/genesis-ui-native/layouts";
-import { createSupport, FeedbackForm, listenForShake, strokeDots, boxOf, useIdeaBoard, useSupportInbox, useSupportThread, type AccelerometerLike, type ViewShotLike } from "../native";
+import { createSupport, FeedbackForm, listenForShake, SupportRoute, strokeDots, boxOf, useIdeaBoard, useSupportInbox, useSupportThread, type AccelerometerLike, type ViewShotLike } from "../native";
 import { fakeSupabase, arg, type Call } from "./fake-supabase";
 
 const REPORT = "11111111-1111-4111-8111-111111111111";
@@ -98,6 +98,28 @@ describe("the support block", () => {
     expect(shot.captureScreen).toHaveBeenCalledWith({ format: "jpg", quality: 0.8, result: "data-uri" });
     expect(block.peekPending()).toMatchObject({ route: "/home", screenshot: { uri: "data:image/jpeg;base64,aGk=", contentType: "image/jpeg" } });
     vi.restoreAllMocks();
+  });
+
+  it("shakes again once a SupportRoute with its own path is gone (no route hook)", async () => {
+    const acc = accelerometer();
+    const { navigate, block, wrap } = harness(undefined, { accelerometer: acc, viewShot: viewShot(), useCurrentRoute: undefined });
+    const view = render(wrap(<SupportRoute path="/settings/support/ideas" screens={{ ideas: () => <span>ideas</span> }} />));
+    await waitFor(() => expect(block.currentRoute()).toBe("/settings/support/ideas"));
+    view.rerender(wrap(<span />));
+    expect(block.currentRoute()).toBeNull();
+    let t = 0;
+    vi.spyOn(Date, "now").mockImplementation(() => t);
+    acc.jolt(3);
+    t = 100;
+    acc.jolt(3);
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith("/settings/support/new"));
+    vi.restoreAllMocks();
+  });
+
+  it("leaves the route to the block's own hook when it has one", async () => {
+    const { block, wrap } = harness();
+    render(wrap(<SupportRoute path="/settings/support/ideas" screens={{ ideas: () => <span>ideas</span> }} />));
+    await waitFor(() => expect(block.currentRoute()).toBe("/home"));
   });
 
   it("opens the form without a screenshot when capture fails, and reports why", async () => {
