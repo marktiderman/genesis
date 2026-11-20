@@ -1,0 +1,75 @@
+apps/genesis-rn-starter/src/lib/support-route.tsx
+  s_ca8e075e853203::t_633380c2d7bb56 1-43
+apps/genesis-rn-starter/src/lib/support.ts
+  s_ca8e075e853203::t_6a005cd0012e28 6,8,10-18,20-21,23,25,27,30-39,41,43-44,50-106,112,114,119,121
+  s_ca8e075e853203::t_806dfeaf528349 120,122,129-130
+scripts/lib/ui-scan-roots.mjs
+  s_ca8e075e853203::t_65010eaedbad1b 1-26
+scripts/check-testid-coverage.mjs
+  s_ca8e075e853203::t_8538f895ec9a09 810-818
+  s_ca8e075e853203::t_0635b5670d4179 20-21,42,44,56,738,809,1023-1028,1030
+.github/workflows/ci.yml
+  s_ca8e075e853203::t_885ac1ac8511f5 143-149
+apps/genesis-rn-starter/src/lib/errors.ts
+  s_ca8e075e853203::t_24c55b4a3c04e1 1-28
+apps/genesis-rn-starter/__tests__/starter.test.ts
+  s_ca8e075e853203::t_71297d57275817 389-394,398-410,495,498
+apps/genesis-rn-starter/build-metadata.json
+  s_ca8e075e853203::t_8d356532369abc 1-7
+apps/genesis-rn-starter/package.json
+  s_ca8e075e853203::t_56fb4f1441b849 12
+apps/genesis-rn-starter/src/app/(app)/(home)/_layout.tsx
+  s_ca8e075e853203::t_23f39d680a7d0c 9
+apps/genesis-rn-starter/src/app/(app)/messages/_layout.tsx
+  s_ca8e075e853203::t_ac64a21cd52603 14
+apps/genesis-rn-starter/src/app/(app)/notifications/_layout.tsx
+  s_ca8e075e853203::t_08ac31f525a283 9
+apps/genesis-rn-starter/src/app/(app)/settings/_layout.tsx
+  s_ca8e075e853203::t_2e02e6f69d1247 9
+apps/genesis-rn-starter/src/app/(app)/settings/index.tsx
+  s_ca8e075e853203::t_8701283b33542a 3-4,8,16,21,98-99,101-114
+apps/genesis-rn-starter/src/app/(app)/settings/support/[...route].tsx
+  s_ca8e075e853203::t_9e5f9af865f292 1
+apps/genesis-rn-starter/src/app/(app)/settings/support/index.tsx
+  s_ca8e075e853203::t_9b1970a2ddbe17 1
+apps/genesis-rn-starter/src/lib/app.ts
+  s_ca8e075e853203::t_7572dafa07dbe6 22,59-60
+apps/genesis-rn-starter/src/lib/devtools-overlay.ts
+  s_ca8e075e853203::t_8d383202817646 10,16-17,30-31
+apps/genesis-rn-starter/src/lib/observability.ts
+  s_ca8e075e853203::t_bdd5e80c1b7232 17
+apps/genesis-rn-starter/src/lib/updates.ts
+  s_ca8e075e853203::t_7be80e8a149931 20,32-33,56
+genesis.config.yml
+  s_ca8e075e853203::t_694e6665a4eb3a 5-9
+package.json
+  s_ca8e075e853203::t_42eefbb56c796f 30,40
+packages/features/README.md
+  s_ca8e075e853203::t_8af6d94a1e87bb 235-238,243-245,247,250,252-253,255-256,260-266
+packages/supabase/README.md
+  s_ca8e075e853203::t_f881defafe79d2 744-745
+packages/support/README.md
+  s_ca8e075e853203::t_9188b8caa2ca6e 111-142,1182-1187,1200
+scripts/check-token-usage.mjs
+  s_ca8e075e853203::t_d6dc694fa37339 43-49,55,76,99-100,131-136,173-175,177,221-238,240
+scripts/design-system-coverage.mjs
+  s_ca8e075e853203::t_e596e9cef9b9c7 37-41,99-108,186-188,275-276,400-401
+scripts/token-usage-baseline.json
+  s_ca8e075e853203::t_671bebd9d8f3f1 1-24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2635245f096c8e6099dd18b01d39b25bf690ac72",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

@@ -1,0 +1,27 @@
+.changeset/genesis-config-setting-pattern.md
+  s_ca8e075e853203::t_b64d0c1f9b1194 1-5
+.changeset/release-unbumped-fixes.md
+  s_ca8e075e853203::t_901b5cd4eec2dd 1-6
+packages/features/README.md
+  s_ca8e075e853203::t_d5c3029c047f12 158-162
+packages/features/src/__tests__/settings.test.ts
+  s_ca8e075e853203::t_457e28752d26a7 603-628
+packages/features/src/settings.ts
+  s_ca8e075e853203::t_c949722a3a37a9 91-96,139-140,172,218,234,251-279,306-310,340,358,765-766,802,831
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c9541acae301802081e46a4fe4595b40c37d75c4",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

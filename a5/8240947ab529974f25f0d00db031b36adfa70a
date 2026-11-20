@@ -1,0 +1,93 @@
+.changeset/doctor-secrets.md
+  s_ca8e075e853203::t_cf4399adc96046 1-24
+.changeset/genesis-config-settings-ui.md
+  s_ca8e075e853203::t_1421b54b6ceb36 1-24
+AGENTS.md
+  s_ca8e075e853203::t_2a30da0d3fba98 155
+apps/sample/stories/GenesisSettings.stories.tsx
+  s_ca8e075e853203::t_40e770793b17b5 1-136
+features.json
+  s_ca8e075e853203::t_57e74ff3c2db53 4060,4078-4138
+features.ts
+  s_ca8e075e853203::t_5ee4541923c859 1786,1794-1821
+packages/features-alias/README.md
+  s_ca8e075e853203::t_33a7b3356d9317 5
+packages/features-alias/package.json
+  s_ca8e075e853203::t_254ba7dbca0f8b 53-60,98
+packages/features-alias/scripts/build.mjs
+  s_ca8e075e853203::t_7e96684efa698f 15
+packages/features-alias/src/settings-protocol.ts
+  s_ca8e075e853203::t_333db4d172bc12 1-7
+packages/features-alias/src/settings-react.ts
+  s_ca8e075e853203::t_cd1e803ff4d90c 1-7
+packages/features/README.md
+  s_ca8e075e853203::t_d5f9c613ee75a7 141,204-295,461
+packages/features/package.json
+  s_ca8e075e853203::t_27d0b458410307 57-64,88
+packages/features/src/__tests__/settings-fixture.ts
+  s_ca8e075e853203::t_a88961fed1481b 1-79
+packages/features/src/__tests__/settings-protocol-imports.test.ts
+  s_ca8e075e853203::t_846a331b99a31c 1-40
+packages/features/src/__tests__/settings-protocol.test.ts
+  s_ca8e075e853203::t_795997b4576628 1-247
+packages/features/src/__tests__/settings-react.test.tsx
+  s_ca8e075e853203::t_b1788620237ecb 1-427
+packages/features/src/__tests__/settings.test.ts
+  s_ca8e075e853203::t_c54d22ff0589e7 66-69,93
+packages/features/src/settings-protocol.ts
+  s_ca8e075e853203::t_29330fc5c1a79a 1-696
+packages/features/src/settings-react.tsx
+  s_ca8e075e853203::t_67a033faa41748 1-1532
+packages/features/src/settings.ts
+  s_ca8e075e853203::t_2e8c44484f4ee2 101-105,130,152-154,263,292
+packages/features/tsup.config.ts
+  s_ca8e075e853203::t_199b2f6718ebef 27,38
+packages/genesis-cli/README.md
+  s_ca8e075e853203::t_dbd2873f7cf74b 857-858,908-911,1027-1046
+packages/genesis-cli/src/cli.ts
+  s_ca8e075e853203::t_5cca589a8a43ad 215-217,226
+packages/genesis-cli/src/doctor/index.ts
+  s_ca8e075e853203::t_5906f4cc7a9575 49,158-164,189-190,317,349
+packages/genesis-cli/src/doctor/rules.ts
+  s_ca8e075e853203::t_e9ed9cdff69780 102-104
+packages/genesis-cli/src/doctor/settings.ts
+  s_ca8e075e853203::t_6f72ce77b7723e 2-5,7-17,25,33,35-36,41-43,99,131-157,159,161,163-188,190-348,350-352,395-397,400-406
+packages/genesis-cli/src/exec/prompt-secret.ts
+  s_ca8e075e853203::t_ed2b462f3d41bf 1-134
+packages/genesis-cli/src/exec/run.ts
+  s_ca8e075e853203::t_75d942ab416e06 23-29,48-49,138-145
+packages/genesis-cli/src/exec/secret-stores.ts
+  s_ca8e075e853203::t_737fb8d2813cb8 1-212
+packages/genesis-cli/src/exec/secret-vault.ts
+  s_ca8e075e853203::t_c669368bf323f3 1-151
+packages/genesis-cli/src/fix/builtin.ts
+  s_ca8e075e853203::t_cb83ae01b189fc 13,262-279,288-289,294,301-302,308-329,334-336,346-431,434
+packages/genesis-cli/src/fix/command.ts
+  s_ca8e075e853203::t_226780c1ddd8bd 19,38-42,65-68,70,78-79,83-90,132-133,137,158,165,170,177,180,182-198,200-218,221
+packages/genesis-cli/src/fix/engine.ts
+  s_ca8e075e853203::t_13b809cfd10aac 11-13,117-120,167-171,187-197,208,213,215-223,247,250-252,255-260,263-264,277-279,310,376-377,379
+packages/genesis-cli/src/fix/types.ts
+  s_ca8e075e853203::t_b67f17f7b3df13 14-15,37-38,78-83,85
+packages/genesis-cli/test/doctor-secrets.test.ts
+  s_ca8e075e853203::t_200227c0489481 1-539
+packages/genesis-cli/test/doctor-settings.test.ts
+  s_ca8e075e853203::t_e518e57052df6a 100-105,107,157-158
+pnpm-lock.yaml
+  s_ca8e075e853203::t_802e2c3753137a 926
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a58240947ab529974f25f0d00db031b36adfa70a",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

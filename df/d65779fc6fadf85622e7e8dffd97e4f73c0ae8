@@ -1,0 +1,45 @@
+packages/support/src/__tests__/support-2c-rest.test.ts
+  s_ca8e075e853203::t_7f4eb7b088943c 1-180
+.changeset/cli-build-stamp.md
+  s_ca8e075e853203::t_3693405d2582ea 1-7
+.changeset/support-dump-viewer.md
+  s_ca8e075e853203::t_3bfffc7177039c 1-5
+.changeset/support-health-checks.md
+  s_ca8e075e853203::t_e63da38e951bfe 1-6
+.changeset/support-offline-feedback.md
+  s_ca8e075e853203::t_febf041609ae26 1-5
+packages/genesis-cli/README.md
+  s_ca8e075e853203::t_1f346cf49ee1f7 840-850
+packages/genesis-cli/src/build-stamp.ts
+  s_ca8e075e853203::t_6fff3121b38ae1 60,83
+packages/genesis-cli/src/index.ts
+  s_ca8e075e853203::t_b8523b5f9ca774 83
+packages/genesis-cli/test/build-stamp.test.ts
+  s_ca8e075e853203::t_c611a211583bb0 1-40
+packages/native/README.md
+  s_ca8e075e853203::t_e9b715deb1b3f4 488-489
+packages/native/src/__tests__/devtools/devtools.test.tsx
+  s_ca8e075e853203::t_262e64d8625b3a 122-145
+packages/native/src/__tests__/updates/signature-channels.test.ts
+  s_ca8e075e853203::t_55051cb145a4b7 33-38
+packages/support/README.md
+  s_ca8e075e853203::t_1259f8594e68c1 483-490,497-525,533-540,1137-1141
+packages/support/src/__tests__/dump-viewer.test.tsx
+  s_ca8e075e853203::t_7c19ea1468000d 1-50
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "dfd65779fc6fadf85622e7e8dffd97e4f73c0ae8",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

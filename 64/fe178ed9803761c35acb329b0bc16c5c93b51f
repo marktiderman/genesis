@@ -1,0 +1,101 @@
+packages/ui/src/components/layout/sub-nav.tsx
+  s_ca8e075e853203::t_83e0e557ec5a44 215
+packages/ui/src/components/patterns/settings-row.tsx
+  s_ca8e075e853203::t_5e298d29469901 28-32
+  s_ca8e075e853203::t_6b12b3263f1fd0 61,67-69,72-74,82-85
+packages/ui/src/components/layout/AppShell.tsx
+  s_ca8e075e853203::t_a407b25f869823 2597-2599
+  s_ca8e075e853203::t_683b13d6d32b9a 2623-2625
+  s_ca8e075e853203::t_9a8f4025bb8314 2364-2367,2370
+  s_ca8e075e853203::t_cfee3c066b50d2 142-144
+packages/genesis-cli/src/verify/dom.ts
+  s_ca8e075e853203::t_df69fd3699e0c6 256,258-281
+  s_ca8e075e853203::t_d2b8838d9989eb 228-230
+  s_ca8e075e853203::t_fbafd2959d6287 161-163,283-284,288
+packages/genesis-cli/test/verify.test.ts
+  s_ca8e075e853203::t_e799061828d569 438-439,442,444-447,449-452
+  s_ca8e075e853203::t_eba0fc2c3e56aa 433-437
+  s_ca8e075e853203::t_817d62c293e210 440-441,443,448
+apps/sample/app/data/primitives.json
+  s_ca8e075e853203::t_1becf02152c782 33475
+apps/sample/app/routes/_index.tsx
+  s_ca8e075e853203::t_2af565286b1f33 134-135,246,261,271
+apps/sample/app/routes/chat.tsx
+  s_ca8e075e853203::t_27b260b4296ba4 103
+apps/sample/app/routes/forms.$scenario.tsx
+  s_ca8e075e853203::t_a9f47b8b3d7898 206
+apps/sample/app/routes/integrations.tsx
+  s_ca8e075e853203::t_433bc0d784c64e 39-40
+apps/sample/app/routes/packages._index.tsx
+  s_ca8e075e853203::t_9d099dcd1a6a46 28,33-35
+apps/sample/app/routes/sandbox.tsx
+  s_ca8e075e853203::t_94da80f2530b91 283-285,287,513
+apps/sample/app/routes/showcase.elements._index.tsx
+  s_ca8e075e853203::t_c543004a16cecf 82,91-93
+apps/sample/app/routes/sites-editor.tsx
+  s_ca8e075e853203::t_95f9bd1052f852 85-87,96
+apps/sample/stories/GenesisSettings.stories.tsx
+  s_ca8e075e853203::t_a4bc63a5987711 19-21
+apps/sample/stories/ResourceViewLists.stories.tsx
+  s_ca8e075e853203::t_ec1dffc39410a6 137-138
+apps/sample/stories/SettingsRow.stories.tsx
+  s_ca8e075e853203::t_026b347e353147 18,37,47,70,90
+apps/sample/stories/SortableList.stories.tsx
+  s_ca8e075e853203::t_9543814d021b34 40
+apps/sample/stories/ToggleRow.stories.tsx
+  s_ca8e075e853203::t_cb7ba667f28b14 13,24,36,52,66
+packages/design-system/src/presets/brand-genesis.ts
+  s_ca8e075e853203::t_7611d890b56775 53-54
+packages/design-system/src/tokens/colors.ts
+  s_ca8e075e853203::t_66fabcf2fc37ad 22-23
+packages/design-system/src/tokens/native-themes.ts
+  s_ca8e075e853203::t_d67beeee5dcb61 26
+packages/design-system/src/tokens/native.ts
+  s_ca8e075e853203::t_3e2aa50fe2e3b4 33,47,52
+packages/design-system/src/tokens/roles.ts
+  s_ca8e075e853203::t_24cb33b6762909 41,43-44,73
+packages/design-system/src/tokens/theme-css.ts
+  s_ca8e075e853203::t_be1cf5efc52075 106-108
+packages/design-system/src/tokens/themes.ts
+  s_ca8e075e853203::t_e0e547889e0a01 31
+packages/design-system/tokens/dtcg/colors.json
+  s_ca8e075e853203::t_849ba94e469fec 27
+packages/design-system/tokens/dtcg/themes/light.json
+  s_ca8e075e853203::t_c635b225377c1b 17
+packages/features/src/settings-react.tsx
+  s_ca8e075e853203::t_e48cd230abfef8 126,218-219
+packages/forms-devtools/src/panels.tsx
+  s_ca8e075e853203::t_8f54ceda689e49 67-75
+packages/ui/src/components/data/DataFilters.tsx
+  s_ca8e075e853203::t_d1609b941d9d40 332,334
+packages/ui/src/components/data/DataTable.tsx
+  s_ca8e075e853203::t_474ee872e26bed 1264-1265,1270,1355,1392-1404,1643-1645
+packages/ui/src/components/data/__tests__/data-table-a11y.test.tsx
+  s_ca8e075e853203::t_12b69bac2e4e75 221,228-231,234
+packages/ui/src/components/layout/__tests__/app-shell-sub-nav-levels.test.tsx
+  s_ca8e075e853203::t_bd9c51c7cf3eb6 19-28,203,272
+packages/ui/src/components/layout/__tests__/app-shell-sub-nav.test.tsx
+  s_ca8e075e853203::t_800d27046b1959 17-26,96,346,369,401,411,419,454-455
+packages/ui/src/components/layout/tab-bar.tsx
+  s_ca8e075e853203::t_fa2af1e9ed9ed3 11-17,90-93
+packages/ui/src/components/patterns/status-badge.tsx
+  s_ca8e075e853203::t_bb7ce37f30b950 38
+packages/ui/src/components/ui/tabs.tsx
+  s_ca8e075e853203::t_4823ebaab08270 55-59,75-77
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "64fe178ed9803761c35acb329b0bc16c5c93b51f",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

@@ -1,0 +1,99 @@
+.changeset/genesis-support-desks-review.md
+  s_ca8e075e853203::t_25aedecf98bd1d 20-32
+.changeset/genesis-support-email-reply.md
+  s_ca8e075e853203::t_ce7836376e73a2 8
+.changeset/genesis-support-notifications.md
+  s_ca8e075e853203::t_30219744070749 11
+.changeset/genesis-support-settings-wired.md
+  s_ca8e075e853203::t_10c7db8df95b2d 10
+.changeset/native-fatal-contact.md
+  s_ca8e075e853203::t_d6abf6754d2916 8-10
+apps/genesis-rn-starter/supabase/migrations/20261026000600_genesis_support_notifications.sql
+  s_ca8e075e853203::t_1186a90c492d4f 91-92,148-169,173-174,233,278
+packages/native/src/__tests__/errors.test.tsx
+  s_cfe03394c0d379::t_51ccfdf57e9c4f 232-240
+packages/native/src/errors.tsx
+  s_ca8e075e853203::t_d336b14b08ff17 61-88,91-92,94-95
+packages/support/README.md
+  s_ca8e075e853203::t_ea65970e5b5440 878,938,941-942
+packages/support/migrations/0024_genesis_support_desks.sql
+  s_ca8e075e853203::t_5ac246bf4a2b49 233-235,390-391,582-583,636,640,681,715-717,728
+packages/support/migrations/0025_genesis_support_notifications.sql
+  s_ca8e075e853203::t_7077efc7b0f3ae 91-92,148-169,173-174,233,278
+packages/support/migrations/0027_genesis_support_email_reply.sql
+  s_cfe03394c0d379::t_dd78e4c3b1f9fe 68,127-128
+packages/support/migrations/tests/0024_genesis_support_desks.test.sql
+  s_ca8e075e853203::t_1ea893f69e6cad 11,210-217,224-225
+packages/support/migrations/tests/0025_genesis_support_notifications.test.sql
+  s_ca8e075e853203::t_596560d764cca8 11,174-184
+packages/support/migrations/tests/0027_genesis_support_email_reply.test.sql
+  s_ca8e075e853203::t_e7d32621f5692d 8,62-71
+packages/support/package.json
+  s_cfe03394c0d379::t_be20b198b5800e 68-71
+packages/support/src/__tests__/desks.test.tsx
+  s_ca8e075e853203::t_8c588f5ae28819 254-297
+packages/support/src/__tests__/email-inbound.test.ts
+  s_ca8e075e853203::t_de3c5576e0eea3 5,13,182-206
+packages/support/src/__tests__/messenger.test.tsx
+  s_ca8e075e853203::t_ec261acd09bf20 720-730
+packages/support/src/__tests__/native-route.test.tsx
+  s_cfe03394c0d379::t_5fea02902846c8 141-202
+packages/support/src/__tests__/notifications.test.ts
+  s_ca8e075e853203::t_5b357f076a67ef 49,86-107
+packages/support/src/__tests__/server.test.ts
+  s_ca8e075e853203::t_86003278e4d133 651-657
+packages/support/src/email-inbound.ts
+  s_ca8e075e853203::t_475b827c3309ef 93-103
+packages/support/src/email-notifications.ts
+  s_cfe03394c0d379::t_a9a3fa2e4454ac 1-14
+packages/support/src/email-templates.ts
+  s_ca8e075e853203::t_5bdfc3745b4a51 56-57,60,63
+packages/support/src/native/feedback-form.tsx
+  s_ca8e075e853203::t_49c11188d51c95 16,79
+packages/support/src/native/help.tsx
+  s_ca8e075e853203::t_ff2b32d272aa60 20,286
+packages/support/src/native/route.tsx
+  s_ca8e075e853203::t_dd5b3dd74be7dc 56-59,61,69,78-79
+packages/support/src/native/support.tsx
+  s_ca8e075e853203::t_677dd68199ce72 34,201-202,285-290,483-485,524
+packages/support/src/routes.ts
+  s_ca8e075e853203::t_80237581aea890 44-49,68-74,127
+packages/support/src/server/notifiers.ts
+  s_ca8e075e853203::t_9c2c9dfca6c72f 290,294-295
+packages/support/src/settings.ts
+  s_ca8e075e853203::t_9aa613dc7e6677 199-236,252-253
+packages/support/src/web-chat/contact.tsx
+  s_ca8e075e853203::t_5ea99b04c4156f 9,27
+packages/support/src/web-chat/desks.tsx
+  s_ca8e075e853203::t_17ee69c526b389 38-39,41-45,48-52,55-59,78,97,103,123,174-179,182,184,202-205,215,220
+packages/support/src/web-chat/index.ts
+  s_ca8e075e853203::t_8883cc2e129962 28
+packages/support/src/web-chat/messenger.tsx
+  s_ca8e075e853203::t_7a85464eebe9f8 179,181-182,204,557-558,575,748
+packages/support/tsup.config.ts
+  s_cfe03394c0d379::t_2293f5af3f385a 18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "24605c112bc34b7b079d0bc75a92b74a53bcf5f7",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_cfe03394c0d379": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b0c9d35b-ebb9-42c9-9694-dd173757e0d5",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

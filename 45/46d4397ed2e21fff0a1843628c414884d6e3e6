@@ -1,0 +1,241 @@
+.changeset/setup-wizard.md
+  s_cfe03394c0d379::t_dcbf473a4e46e1 21-22
+apps/genesis-rn-starter/__tests__/starter.test.ts
+  s_cfe03394c0d379::t_9cce8829fba9a5 309-312,314
+apps/genesis-rn-starter/supabase/migrations/20261026000500_genesis_support_diagnostics_fixes.sql
+  s_cfe03394c0d379::t_d58419644cd8aa 1-38
+apps/sample/app/data/primitives.json
+  s_cfe03394c0d379::t_fbde1aee6b5b1e 2,13259-13265,13278,23228,23434-23438,34547,34549-34738
+apps/sample/app/data/story-ids.json
+  s_cfe03394c0d379::t_898c107943bd71 34,44
+docs/MIGRATION.md
+  s_cfe03394c0d379::t_6e59c3231fd2da 14-37
+docs/component-reference.md
+  s_cfe03394c0d379::t_a917898e4a1745 7,1965,1972,3325,3327,3331,3339,3342,3348,3353,3374-3375,3393-3406,3415,3417,3478,3483-3507,3542,3578,3599-3760,3793,3815-4250,6232,6284,8036,8044,8047,8053,8058,8079-8080,8098-8111,8120,8122,8183,8188-8207,8329,8335,8337,8340,8342-8343,8347,8354,8359,8361,8369,8377,8386,8397,8410,8415-8416,8418-8421,8428-8429,8433,8438-8439,9170,9176,9338,9362,9405,9416-9418,9420,9429,9432,11152,11160,11168,11171,11173-11174,11176,11186,11188,11193,11209,11211,11213,11215,11217,11220,11284,11294,11476,11483,11485-11488,11490-11491,11493-11494,11496,11498-11500,11502-11504,11506-11507,11509-11511,11513-11514,11517-11518,11521-11531,11533,11535-11536,11539-11540,11543,11545-11547,11550-11552,11555-11558,11560,11562-11563,11565-11566,11568-11572,11574,11576-11581,11584-11585,11588,11590-11591,11594-11597,11600-11601,11604-11605,11608-11612,11615-11616,11619-11620,11623-11624,11627,11637-11641,11644-11667,11690,11699-11704,11707-11708,11723,11727-11729,11754,11765,11775,11777,11793,11837-11872,11877,11884,11886,11892-11893,11898-11899,11903,11905-11907,11911,11915,11925,11932-11936,11938-11942,11945-11946,11949-11950,11963,11969-11978,11980,11982,11984,11990-11992,12031-12101,12659,12711,13081,13104-13107,13147,13165
+features.json
+  s_cfe03394c0d379::t_9d228469605c2b 8370
+features.ts
+  s_cfe03394c0d379::t_3a65dd20106f8e 3650
+packages/ai/CHANGELOG.md
+  s_cfe03394c0d379::t_801b2a84ac141b 3-8
+packages/ai/package.json
+  s_cfe03394c0d379::t_e21b29b01af795 3
+packages/chat/CHANGELOG.md
+  s_cfe03394c0d379::t_f210dc6759b4bc 3-17
+packages/chat/package.json
+  s_cfe03394c0d379::t_5e5cc46854a7ca 3
+packages/core/CHANGELOG.md
+  s_cfe03394c0d379::t_a3098d85f7937a 3-8
+packages/core/package.json
+  s_cfe03394c0d379::t_feacbfa2966ad6 3
+packages/features-alias/CHANGELOG.md
+  s_cfe03394c0d379::t_19e868b647b8a5 1-234
+packages/features-alias/package.json
+  s_cfe03394c0d379::t_59931bce6c1d52 3
+packages/features/CHANGELOG.md
+  s_cfe03394c0d379::t_4182f4d3e8b967 1-126
+packages/features/README.md
+  s_cfe03394c0d379::t_cd48121ec54263 178-180,257,266-267
+packages/features/package.json
+  s_cfe03394c0d379::t_e15c0868350641 3,32,34-62,66-73,76-83,86-93,100-107,114-121,124-131,143
+packages/features/src/__tests__/cjs-build.test.ts
+  s_cfe03394c0d379::t_d09303cbfa2334 1-10,12-13,15-18,20-33,35-52
+packages/features/src/__tests__/settings-protocol.test.ts
+  s_cfe03394c0d379::t_550fa29feb7248 70,85-98
+packages/features/src/__tests__/settings-react.test.tsx
+  s_cfe03394c0d379::t_8c964f00478386 219-248,293,301,430-468
+packages/features/src/__tests__/settings.test.ts
+  s_cfe03394c0d379::t_befdf568e7cd0d 361-380
+packages/features/src/settings-protocol.ts
+  s_cfe03394c0d379::t_96cb57e22cf31e 449-450,454,463,488-489,498-512,524,587-601,603-607
+packages/features/src/settings-react.tsx
+  s_cfe03394c0d379::t_c66e5b70bf72df 131-132,222,254,364-365,367,370-372,375,377,756,794,847-851,1001-1002,1050-1052,1055,1060,1062-1063,1065,1067,1073-1080,1085,1090-1091,1095,1097,1296-1297,1323-1324,1380-1386,1389,1393-1394,1396,1398,1499-1500,1503,1508,1513,1515-1518,1526-1527,1530-1531
+packages/features/src/settings.ts
+  s_cfe03394c0d379::t_30fb94c74cde64 108-112,139-140,164,169-182,291,321,550,638-639
+packages/features/tsup.config.ts
+  s_cfe03394c0d379::t_4a367a785356cd 26-67,69
+packages/genesis-cli/CHANGELOG.md
+  s_cfe03394c0d379::t_87daff70d4a9e1 3-187
+packages/genesis-cli/README.md
+  s_cfe03394c0d379::t_37e76e5605fc31 849-869,942-943,1062,1673-1678,1705,1717-1718,1724-1729
+packages/genesis-cli/package.json
+  s_cfe03394c0d379::t_a7f91c0195d55a 3,117
+packages/genesis-cli/src/blocks/init-native.ts
+  s_cfe03394c0d379::t_8ff2e385d5fa32 170
+packages/genesis-cli/src/cli.ts
+  s_cfe03394c0d379::t_62e1bc0f2863a8 30,96,119-124,292-296,322,887-905
+packages/genesis-cli/src/doctor/behind.ts
+  s_cfe03394c0d379::t_f1d232b7df5d70 37-42,54,64-67
+packages/genesis-cli/src/doctor/index.ts
+  s_cfe03394c0d379::t_8812ff164ed78c 259,291-297
+packages/genesis-cli/src/doctor/settings.ts
+  s_cfe03394c0d379::t_e902d28b6a9e7e 13-14,229-230,243,313-314,316
+packages/genesis-cli/src/exec/secret-stores.ts
+  s_cfe03394c0d379::t_8dd9e86d64f52e 21-23,197-202,205-209,223-225
+packages/genesis-cli/src/fix/builtin.ts
+  s_cfe03394c0d379::t_7df491dd9053fb 393
+packages/genesis-cli/src/fix/command.ts
+  s_cfe03394c0d379::t_21aaa1a24b1af9 147-188,200,203
+packages/genesis-cli/src/fix/engine.ts
+  s_cfe03394c0d379::t_e9a5a37bfd1db1 9,295-297,299,305-322,330-331,390-394
+packages/genesis-cli/src/fix/registry.ts
+  s_cfe03394c0d379::t_89bbc4ed493ec7 40-46,48,70-76,84-86
+packages/genesis-cli/src/mcp/bounds.ts
+  s_cfe03394c0d379::t_cf6b47fbbacae8 112-122
+packages/genesis-cli/src/mcp/server.ts
+  s_cfe03394c0d379::t_2d1753ddcdc154 32,274-276
+packages/genesis-cli/src/mcp/settings.ts
+  s_cfe03394c0d379::t_d691151d60225b 174,199-202,204-205,217,227-231
+packages/genesis-cli/src/settings-manifest.ts
+  s_cfe03394c0d379::t_1529066b13bce0 1-212
+packages/genesis-cli/src/upgrade/index.ts
+  s_cfe03394c0d379::t_29c0795433cf06 67,398-404
+packages/genesis-cli/src/upgrade/registry.ts
+  s_cfe03394c0d379::t_ab2241e43bed63 72-77,113-114,252-256,279,317-322,326-332,334,337-338,344-347,354,366-367,370-375
+packages/genesis-cli/src/upgrade/rename-features.ts
+  s_cfe03394c0d379::t_702aee0b7a40df 12-15,143-155,165-195,197-214,229-233,237-239,243,248-251,264-274
+packages/genesis-cli/src/wizard/headless.ts
+  s_ca8e075e853203::t_e5ea3c115728a9 51-52,67-70,80-82,92-93,97-100,129-130,158-164,166-167,191-194,196,198-205,221
+packages/genesis-cli/src/wizard/host.ts
+  s_ca8e075e853203::t_ee36b502a9beab 18,20,89-91,105,167-212,242-266,276-280,282,320-321,349-351,360,395,404,406,412-416,424,437,534,565,567-568,570,597-610
+packages/genesis-cli/src/wizard/interactive.ts
+  s_cfe03394c0d379::t_d87b0b0531da5d 1-8
+packages/genesis-cli/src/wizard/security.ts
+  s_cfe03394c0d379::t_744e4e11577745 23
+packages/genesis-cli/src/wizard/server.ts
+  s_cfe03394c0d379::t_165c496979c7d1 21,116,118,160,287
+packages/genesis-cli/test/codemod-features-renamed.test.ts
+  s_cfe03394c0d379::t_6e5d5917db5662 7,52,55-56,61-84,110-125,201-203,243-256
+packages/genesis-cli/test/doctor-behind.test.ts
+  s_cfe03394c0d379::t_8baaa64432d105 149-159,163-205,281-287
+packages/genesis-cli/test/doctor-package-rules.test.ts
+  s_cfe03394c0d379::t_00c8b45019c586 647-665
+packages/genesis-cli/test/doctor-secrets.test.ts
+  s_cfe03394c0d379::t_47f6fd9ac0d806 139-143,156-158,283-285,320,334,357-362,540-541
+packages/genesis-cli/test/expo.test.ts
+  s_cfe03394c0d379::t_12bb97ca76e036 6,466-488
+packages/genesis-cli/test/fix-engine-disk-full.test.ts
+  s_cfe03394c0d379::t_7853f42495db77 1-95
+packages/genesis-cli/test/fix-engine.test.ts
+  s_cfe03394c0d379::t_c1fc3b67525dcb 83-91,270-278,338-382
+packages/genesis-cli/test/mcp.test.ts
+  s_cfe03394c0d379::t_5105e4b55495ee 2,503-524
+packages/genesis-cli/test/settings-manifest.test.ts
+  s_cfe03394c0d379::t_11d2bbfcd640dd 1-161
+packages/genesis-cli/test/wizard.test.ts
+  s_cfe03394c0d379::t_b336b02dab856e 14-16,18-22,71-73,77-84,88-90,92-93,120,122,169-170,174-176,178-181,571,575-741
+packages/genesis-cli/wizard/src/app.tsx
+  s_ca8e075e853203::t_1ae26d97007978 44,91-99,101,106,110-111,135-169,178,185,496-511,515,528
+packages/genesis-cli/wizard/src/client.ts
+  s_cfe03394c0d379::t_fe578075b526ee 46-56,139,165,167-168
+packages/genesis/CHANGELOG.md
+  s_cfe03394c0d379::t_fbe8b669402d25 3-34
+packages/genesis/package.json
+  s_cfe03394c0d379::t_2eea0fc70a5873 3
+packages/native/CHANGELOG.md
+  s_cfe03394c0d379::t_ebfb287b1c7881 3-47
+packages/native/package.json
+  s_cfe03394c0d379::t_557b0d4a97111a 3
+packages/notifications/CHANGELOG.md
+  s_cfe03394c0d379::t_cce6edb2fcb121 3-17
+packages/notifications/package.json
+  s_cfe03394c0d379::t_2768f489f859ba 3
+packages/product/CHANGELOG.md
+  s_cfe03394c0d379::t_a68e7bbe82dfcb 3-17
+packages/product/package.json
+  s_cfe03394c0d379::t_42a6ba00026ebc 3
+packages/sites/CHANGELOG.md
+  s_cfe03394c0d379::t_a0803de4221d60 3-17
+packages/sites/package.json
+  s_cfe03394c0d379::t_0c025abb083373 3
+packages/supabase/CHANGELOG.md
+  s_cfe03394c0d379::t_2125be0db64e3e 3-107
+packages/supabase/README.md
+  s_cfe03394c0d379::t_87e867ecbcd506 744-747,754-755,773
+packages/supabase/functions/genesis-support-intake/contract.ts
+  s_cfe03394c0d379::t_1acd3de579b4c5 126-128,137,141-150,156-171,173,177-179,182-184,189-190
+packages/supabase/package.json
+  s_cfe03394c0d379::t_611fe5cbdb1c43 3,377
+packages/support/CHANGELOG.md
+  s_cfe03394c0d379::t_7f34b6f8ac4865 3-154
+packages/support/README.md
+  s_cfe03394c0d379::t_a6868f66b63135 79-96
+packages/support/migrations/0028_genesis_support_diagnostics_fixes.sql
+  s_cfe03394c0d379::t_8f39a85bf9d86f 1-38
+packages/support/migrations/tests/0028_genesis_support_diagnostics_fixes.test.sql
+  s_cfe03394c0d379::t_8a9ad4619f1015 1-77
+packages/support/package.json
+  s_cfe03394c0d379::t_23bc2aa15a9513 3,106-107,151-153,169,268-271,376,668,681,692,709,729,742,757,770,780,788,798,806,812,818,879-880
+packages/support/src/__tests__/core.test.ts
+  s_cfe03394c0d379::t_28bc483d69df75 292-297
+packages/support/src/__tests__/diagnostics-review.test.ts
+  s_cfe03394c0d379::t_426b5cd2431b6e 57-70,101-162,176-239
+packages/support/src/__tests__/email-reply.test.ts
+  s_cfe03394c0d379::t_742147d66dc072 78-82
+packages/support/src/__tests__/native-agent.test.tsx
+  s_cfe03394c0d379::t_62eef2b9921a8f 192-205
+packages/support/src/__tests__/native-diagnostics.test.tsx
+  s_cfe03394c0d379::t_91d31ec44fdc5c 2,120,125,131-135,138-234,237-265
+packages/support/src/__tests__/server.test.ts
+  s_cfe03394c0d379::t_a81b484f96292e 37-40,206-335,420-425,427,474-483,606-613
+packages/support/src/__tests__/settings.test.tsx
+  s_cfe03394c0d379::t_ab53b0aa348b2e 161-199
+packages/support/src/block.ts
+  s_cfe03394c0d379::t_e78486836c7a9f 114-115,129
+packages/support/src/contract.ts
+  s_cfe03394c0d379::t_1ce72d45ea5580 126-128,137,141-150,156-171,173,177-179,182-184,189-190
+packages/support/src/diagnostics/cap.ts
+  s_cfe03394c0d379::t_032338d4370c05 7,164-165
+packages/support/src/diagnostics/create.ts
+  s_cfe03394c0d379::t_5bcd3a8344dfd0 68-72,74,82-91,110,129,195-210,213,215-216,221,244-246,254-255,320,325-327,331-336,351-352,357-363,365-366,376
+packages/support/src/diagnostics/report.ts
+  s_cfe03394c0d379::t_250e2f103f294a 304-321
+packages/support/src/email-reply.ts
+  s_cfe03394c0d379::t_645e5be3bfb28c 293,298,300,302-307,312
+packages/support/src/native/agent.tsx
+  s_cfe03394c0d379::t_036ef696477ef9 486,506
+packages/support/src/native/feedback-form.tsx
+  s_cfe03394c0d379::t_6f4d02ef0c7a2e 9,42-56,74,90-95,97-101,112-113
+packages/support/src/native/support.tsx
+  s_cfe03394c0d379::t_56d9c2c0743599 30,49-50,53-79,137,150-156,162-166,174,177,233-243,246-253,321-391,400,403-405,413-417,433-434,455-456,459,461-465,490-492
+packages/support/src/server/handler.ts
+  s_cfe03394c0d379::t_ecfd8b1ba91157 21,93-98,187-192,194-196,199-208,296-319,365-374,402-404,440-442,450,452-454,469,510-517,535
+packages/support/src/server/notifiers.ts
+  s_cfe03394c0d379::t_cd63c8a126e35b 57-59,67-68,73-79,117
+packages/support/src/server/supabase.ts
+  s_cfe03394c0d379::t_e21b71fbef339d 96-107
+packages/support/src/settings.ts
+  s_cfe03394c0d379::t_331ce405cacb18 47-50,52-61,73
+packages/ui/CHANGELOG.md
+  s_cfe03394c0d379::t_240b0f73586d6c 3-29
+packages/ui/package.json
+  s_cfe03394c0d379::t_993f7892257f6d 3
+pnpm-lock.yaml
+  s_cfe03394c0d379::t_1ece410c8e2061 1387-1389,1893-1895
+scripts/pgtap-local/suites.sh
+  s_cfe03394c0d379::t_2b0fe497fde8f2 24-25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4546d4397ed2e21fff0a1843628c414884d6e3e6",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_cfe03394c0d379": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b0c9d35b-ebb9-42c9-9694-dd173757e0d5",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

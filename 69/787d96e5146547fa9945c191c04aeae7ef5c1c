@@ -1,0 +1,43 @@
+.changeset/genesis-support-settings-one-resolver.md
+  s_ca8e075e853203::t_d2203871b93721 13-14,23-24,29-30
+apps/genesis-rn-starter/supabase/migrations/20261026001200_genesis_support_settings_resolver.sql
+  s_ca8e075e853203::t_b7aaad6a070cd2 6-11,25,27-31,37-38,40-45,47-52,54-57,59-61,65-69,75-77,80,82-94,98-99,101-104
+docs/MIGRATION.md
+  s_ca8e075e853203::t_deea12986c4c2c 27,29-34,42-43,53-55
+packages/genesis-cli/src/wizard/steps/ai-key-budget.ts
+  s_ca8e075e853203::t_db693edb0cc2fc 2-3
+packages/genesis-cli/test/setup-steps.test.ts
+  s_ca8e075e853203::t_c340110bc2b1c8 299,372
+packages/support/README.md
+  s_ca8e075e853203::t_7c7db713b09d93 710
+packages/support/migrations/0033_genesis_support_settings_resolver.sql
+  s_ca8e075e853203::t_43e4362754d270 6-11,25,27-31,37-38,40-45,47-52,54-57,59-61,65-69,75-77,80,82-94,98-99,101-104
+packages/support/migrations/0034_genesis_support_requester_labels.sql
+  s_ca8e075e853203::t_22173fe2bdb318 2-3,13-17,84,89,93-146
+packages/support/migrations/tests/0020_genesis_support_settings.test.sql
+  s_ca8e075e853203::t_25294f8f26ebaa 21-24,31,35,38-39,42,44,46,49
+packages/support/migrations/tests/0028_genesis_support_diagnostics_fixes.test.sql
+  s_ca8e075e853203::t_c62f66f99e7012 19-22,31-32,35,39,42
+packages/support/migrations/tests/0033_genesis_support_settings_resolver.test.sql
+  s_ca8e075e853203::t_0b2a9ba948d9bb 2-3,8,32-33,37,39-44,79
+packages/support/migrations/tests/0034_genesis_support_requester_labels.test.sql
+  s_ca8e075e853203::t_e606ee4d88c71d 9,92-105
+packages/support/src/__tests__/helpdesk-desk.test.tsx
+  s_ca8e075e853203::t_73ea299b33b6c3 142
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "69787d96e5146547fa9945c191c04aeae7ef5c1c",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

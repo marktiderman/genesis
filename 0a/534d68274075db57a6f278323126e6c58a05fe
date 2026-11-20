@@ -1,0 +1,23 @@
+.changeset/genesis-support-settings-one-resolver.md
+  s_ca8e075e853203::t_ab961c8660d1a1 12-13,38-45,48-58
+docs/MIGRATION.md
+  s_ca8e075e853203::t_5615ee1ddb7a75 50-59
+packages/support/README.md
+  s_ca8e075e853203::t_272bd902a49740 1015-1021,1029-1032
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0a534d68274075db57a6f278323126e6c58a05fe",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

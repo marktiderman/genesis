@@ -1,0 +1,21 @@
+packages/support/src/__tests__/diagnostics-review.test.ts
+  s_ca8e075e853203::t_4d844267335548 183
+packages/support/src/__tests__/native-diagnostics.test.tsx
+  s_ca8e075e853203::t_3beb10b2f1a554 174
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f07f67c30e145a5b3cf5674f8c37589a18deec9e",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

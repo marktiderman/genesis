@@ -1,0 +1,27 @@
+packages/supabase/README.md
+  s_ca8e075e853203::t_e8b2bd3d37393f 787-791
+packages/supabase/migrations/0023_genesis_settings_tenant_person.sql
+  s_ca8e075e853203::t_e35fd707afdcb6 370-371,373-376,381-385,389-390,393-394,397-413,472-492,518-519
+packages/supabase/migrations/tests/0023_genesis_settings_tenant_person.test.sql
+  s_ca8e075e853203::t_eac60b85756a25 8,330-354
+packages/supabase/src/__tests__/settings.test.ts
+  s_ca8e075e853203::t_cd4fc35a309805 85-90,207,219,260-273
+packages/supabase/src/settings.ts
+  s_ca8e075e853203::t_1b24f511413e00 82-87,101,164-168,209-214
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fe7d1a8e71bddf424f10e5bab54dbbbfff766031",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

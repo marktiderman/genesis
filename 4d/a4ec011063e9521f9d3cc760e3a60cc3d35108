@@ -1,0 +1,35 @@
+packages/native/src/observability/settings.ts
+  s_ca8e075e853203::t_5c36f191bc27b7 1-176
+apps/genesis-rn-starter/supabase/migrations/20261026001300_genesis_settings_pattern.sql
+  s_ca8e075e853203::t_7e021b22e94915 1-91
+packages/genesis-cli/src/mcp/settings.ts
+  s_ca8e075e853203::t_4ce95551126e0f 221-222
+packages/supabase/migrations/0025_genesis_settings_pattern.sql
+  s_ca8e075e853203::t_404bde4a2f45f2 1-91
+packages/supabase/migrations/tests/0025_genesis_settings_pattern.test.sql
+  s_ca8e075e853203::t_66814fd48dd42a 1-31
+packages/supabase/package.json
+  s_ca8e075e853203::t_f9f7079bd4747a 382-385
+packages/supabase/src/__tests__/settings.test.ts
+  s_ca8e075e853203::t_6f0386e8bacb33 365,377
+packages/supabase/src/blocks.ts
+  s_ca8e075e853203::t_2f989a731ca773 144-145
+scripts/pgtap-local/suites.sh
+  s_ca8e075e853203::t_76cc1564ba1d1f 20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4da4ec011063e9521f9d3cc760e3a60cc3d35108",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

@@ -1,0 +1,55 @@
+.changeset/genesis-support-settings-one-resolver.md
+  s_ca8e075e853203::t_3c96038ab66c56 20-23,33-45
+docs/MIGRATION.md
+  s_ca8e075e853203::t_26d9b4a1d7fc98 34,53-59
+packages/support/README.md
+  s_ca8e075e853203::t_5698c4eff9feed 43,62-65,920-929
+packages/support/migrations/0029_genesis_support_desks.sql
+  s_ca8e075e853203::t_6516c2dc3f639c 33-34,108-140,892-916
+packages/support/migrations/0034_genesis_support_agent_admin.sql
+  s_ca8e075e853203::t_144fc34e499e3e 2-3,5-29,34-226
+packages/support/migrations/tests/0029_genesis_support_desks.test.sql
+  s_ca8e075e853203::t_8d021ef78285a9 11,251-262,279-293
+packages/support/migrations/tests/0034_genesis_support_agent_admin.test.sql
+  s_cfe03394c0d379::t_fd9084e8abe1f2 2-5,7-8,11,110-180
+packages/support/package.json
+  s_ca8e075e853203::t_57aa40dd5bffbc 470-471,739,758
+packages/support/src/__tests__/chat.test.tsx
+  s_ca8e075e853203::t_73eb1330627c38 183
+packages/support/src/__tests__/desks.test.tsx
+  s_ca8e075e853203::t_43e7d3a3350d0a 40-43,56-69
+packages/support/src/block.ts
+  s_ca8e075e853203::t_d0776d961c3014 185
+packages/support/src/client.ts
+  s_ca8e075e853203::t_2b86b80b89763b 17,353-354,361-364,422-425,433-439,460-464,649,1014-1022,1058-1065
+packages/support/src/native/support.tsx
+  s_ca8e075e853203::t_8f430829ce8ed7 86-87,283
+packages/support/src/settings.ts
+  s_ca8e075e853203::t_8a06183c998cbe 51,53
+scripts/pgtap-local/suites.sh
+  s_ca8e075e853203::t_ba1b27782455b5 25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6ba4b52fd168b08db3e9cbf66a20d543e6b0f554",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_cfe03394c0d379": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b0c9d35b-ebb9-42c9-9694-dd173757e0d5",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

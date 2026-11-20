@@ -1,0 +1,163 @@
+.changeset/genesis-support-desks-review.md
+  s_ca8e075e853203::t_47fd90f0c58f36 18
+.changeset/genesis-support-desks.md
+  s_ca8e075e853203::t_31022c5fd84c4a 5
+.changeset/genesis-support-email-reply.md
+  s_ca8e075e853203::t_c12d25144b8788 5
+.changeset/genesis-support-notifications.md
+  s_ca8e075e853203::t_245fe31e7b526f 5
+.changeset/genesis-support-settings-one-resolver.md
+  s_ca8e075e853203::t_891734f9fed784 1-45
+.changeset/genesis-support-settings-wired.md
+  s_ca8e075e853203::t_51a1127ecd06cf 8
+.changeset/genesis-support-web-ui.md
+  s_ca8e075e853203::t_3f43d1c7fcedbc 8-18,21,28-29
+.changeset/release-1-leftovers-admins.md
+  s_ca8e075e853203::t_041cd841a3759f 10,12
+apps/genesis-rn-starter/supabase/migrations/20261026000600_genesis_support_notifications.sql
+  s_ca8e075e853203::t_0b44cbda08de95 2,4,35,39-40,49-50,52,58-61,75-85,89,95-96,105,108-116,229-230,319,354-355
+apps/genesis-rn-starter/supabase/migrations/20261026001000_genesis_support_staff_admin_list.sql
+  s_ca8e075e853203::t_3eed2c6846d48f 2,20
+apps/genesis-rn-starter/supabase/migrations/20261026001100_genesis_settings_tenant_person.sql
+  s_ca8e075e853203::t_a0b657549df276 23-27,548-659,694-695
+apps/genesis-rn-starter/supabase/migrations/20261026001200_genesis_support_settings_resolver.sql
+  s_ca8e075e853203::t_5646a737e36db5 1-152
+docs/MIGRATION.md
+  s_ca8e075e853203::t_0ea1c331419857 14-63
+features.json
+  s_ca8e075e853203::t_d244c3bf6ba983 5846,5873,5945,5973,8770
+features.ts
+  s_ca8e075e853203::t_612e980c83cfee 2564,2576,2608,2620,3835
+packages/features/src/__tests__/settings.test.ts
+  s_ca8e075e853203::t_1d81e777da653a 488,491-495
+packages/features/src/settings.ts
+  s_ca8e075e853203::t_8e9e7807a14c31 703-708,713-714,726-727,738
+packages/genesis-cli/src/wizard/steps/ai-key-budget.ts
+  s_ca8e075e853203::t_248c94b3dae090 2-3
+packages/genesis-cli/src/wizard/steps/sentry.ts
+  s_ca8e075e853203::t_49db9dadf4d9f5 23
+packages/genesis-cli/test/setup-steps.test.ts
+  s_ca8e075e853203::t_b9424e4b0675bf 299,372
+packages/supabase/README.md
+  s_ca8e075e853203::t_359301194c8afb 769
+packages/supabase/migrations/0023_genesis_settings_tenant_person.sql
+  s_ca8e075e853203::t_d0af6098df0a5f 23-27,548-659,694-695
+packages/supabase/migrations/tests/0023_genesis_settings_tenant_person.test.sql
+  s_ca8e075e853203::t_7cc1e79e7fc6f6 8,360-382
+packages/supabase/src/__tests__/settings.test.ts
+  s_ca8e075e853203::t_48c966c1f04254 302
+packages/support/README.md
+  s_ca8e075e853203::t_525bc74277a711 40,43-46,53-54,61-66,113-116,138,708,710-712,893,895,920-929,934,936,1029,1078-1080
+packages/support/migrations/0029_genesis_support_desks.sql
+  s_ca8e075e853203::t_0a83fe58390029 2,32-36,44,49,53,55-61,69-70,72,76-77,79,84-89,92-93,95,100-105,108-111,113,118-136,139-140,142,149,872,883,892-917
+packages/support/migrations/0030_genesis_support_notifications.sql
+  s_ca8e075e853203::t_3d4fad61497fb6 2,4,35,39-40,49-50,52,58-61,75-85,89,95-96,105,108-116,229-230,319,354-355
+packages/support/migrations/0031_genesis_support_email_reply.sql
+  s_ca8e075e853203::t_a3f8c33864ab67 2,34,49,55
+packages/support/migrations/0032_genesis_support_staff_admin_list.sql
+  s_ca8e075e853203::t_ab7e1253c38834 2,20
+packages/support/migrations/0033_genesis_support_settings_resolver.sql
+  s_ca8e075e853203::t_f7152dd30705e1 1-152
+packages/support/migrations/0034_genesis_support_agent_admin.sql
+  s_ca8e075e853203::t_9b15790b5b01e8 1-297
+packages/support/migrations/tests/0020_genesis_support_settings.test.sql
+  s_ca8e075e853203::t_1123e9f4d14ebc 3-4,9,21-24,31,33-35,38-39,42,44,46,49
+packages/support/migrations/tests/0028_genesis_support_diagnostics_fixes.test.sql
+  s_ca8e075e853203::t_d98c56ccfe60b8 19-22,29,31-32,34-36,39,42
+packages/support/migrations/tests/0029_genesis_support_desks.test.sql
+  s_ca8e075e853203::t_44c31b3a7d4d12 2,11,218,220-221,239-262,277-292
+packages/support/migrations/tests/0030_genesis_support_notifications.test.sql
+  s_ca8e075e853203::t_f3e33b041d548d 2,139
+packages/support/migrations/tests/0031_genesis_support_email_reply.test.sql
+  s_ca8e075e853203::t_5362adf2808fa5 2
+packages/support/migrations/tests/0032_genesis_support_staff_admin_list.test.sql
+  s_ca8e075e853203::t_41230a337b449f 2
+packages/support/migrations/tests/0033_genesis_support_settings_resolver.test.sql
+  s_ca8e075e853203::t_97c02168b30531 1-82
+packages/support/migrations/tests/0034_genesis_support_agent_admin.test.sql
+  s_ca8e075e853203::t_f761e1cc7784eb 1-182
+packages/support/package.json
+  s_ca8e075e853203::t_fc3bc847928403 275-276,287-292,468-471,520-521,569-570,739,758,770,812,851-855
+packages/support/src/__tests__/chat.test.tsx
+  s_ca8e075e853203::t_2901bbc4a55c16 183
+packages/support/src/__tests__/core.test.ts
+  s_ca8e075e853203::t_da526f8d4010f5 288-289,306-313
+packages/support/src/__tests__/desks.test.tsx
+  s_ca8e075e853203::t_43a7c5c5c26f51 2,40-43,56-69
+packages/support/src/__tests__/helpdesk-desk.test.tsx
+  s_ca8e075e853203::t_c732a3123a0e8e 13,81-82,144
+packages/support/src/__tests__/messenger.test.tsx
+  s_ca8e075e853203::t_b311ef2aff869f 12,76-77,271-286,288-297,300-301,748
+packages/support/src/__tests__/notifications.test.ts
+  s_ca8e075e853203::t_9d61daa8687491 11
+packages/support/src/__tests__/query-providers.tsx
+  s_ca8e075e853203::t_52a80985eca415 1-2,4,6-8
+packages/support/src/__tests__/web-desk-admin.test.tsx
+  s_ca8e075e853203::t_161c5f24f25d43 4,10,19,22,36-53,55-63,67-76,79-110,115,132-142,144-146,149-161,164-165,168-169,172-173
+packages/support/src/__tests__/web-diagnostics.test.tsx
+  s_ca8e075e853203::t_d93f1b600c8531 64-65
+packages/support/src/block.ts
+  s_ca8e075e853203::t_46663cc83ba72a 119,125-127,184-185,209,226,247
+packages/support/src/client.ts
+  s_cfe03394c0d379::t_125792c941ca6c 17,323-329,364-365,370,372-376,378,380,382,384,386,388,433-436,444-450,455,471-475,667,876-878,880,1038-1046,1082-1089
+packages/support/src/copy.ts
+  s_ca8e075e853203::t_0e52347bf7da5f 170,207,247-250,262,298,314-319,338-344,357,515-516
+packages/support/src/desks.ts
+  s_ca8e075e853203::t_54648ad45d0d98 2
+packages/support/src/email-inbound.ts
+  s_ca8e075e853203::t_3fd748c4c5e504 12
+packages/support/src/email-templates.ts
+  s_ca8e075e853203::t_0ef74fa5bfe6df 2
+packages/support/src/native/support.tsx
+  s_ca8e075e853203::t_268a0ca5c3d2ac 86-87,283
+packages/support/src/notifications.ts
+  s_ca8e075e853203::t_e21d5aec12c4e9 2,59
+packages/support/src/settings.ts
+  s_ca8e075e853203::t_954d537e1d4e37 35,51,53-54,58,65,119-130,132-134
+packages/support/src/web-chat/agent-inbox.tsx
+  s_ca8e075e853203::t_6333447f17f3f5 46,671,673
+packages/support/src/web-chat/agent-tools.tsx
+  s_ca8e075e853203::t_f2b7beb9ee2b09 15,48,50,389,391,394-396,405,409-416,420,425-426,428-437,440-453,455,457-460,462,468,470-477,483,488,491,495,498,503-509,514-518,525,550-552,576,581
+packages/support/src/web-chat/desks.tsx
+  s_ca8e075e853203::t_ad8beddcdbca69 13,15-21,53,70-71,111-122,125-126,128,131-132,150-151,164,167,170,172,224-230,233,240-241,244,250-256,264-266,275,290-295,306-309,311,314-315,317,320-321,327-328,330,333,349,352,355-356,360-375,440-441,468,493-507,509,513-515
+packages/support/src/web-chat/diagnostics-viewer.tsx
+  s_ca8e075e853203::t_554dd3af674586 13,18-19,23,30,61-65,77,79-80,97-98,102,135
+packages/support/src/web-chat/help-admin.tsx
+  s_ca8e075e853203::t_c23556af7859ff 303,309,311,313,320,344-345
+packages/support/src/web-chat/index.ts
+  s_ca8e075e853203::t_41b416d7d053f1 12,30
+packages/support/src/web-chat/list-view.tsx
+  s_ca8e075e853203::t_87bc6d12c0ad89 2-6,13,30-41,46,53,59,65,72-73,77-79,84,90,94,99-108
+packages/support/src/web-chat/messenger.tsx
+  s_ca8e075e853203::t_fff64ca8d3ca8e 15,44,61,545,673,675-688,695-707,709-710,712-718,725,757,767,813,837-843,897-900
+packages/support/src/web-chat/tenant.ts
+  s_ca8e075e853203::t_0d58ffc418f471 6,22,27-42
+packages/support/src/web/feedback-panel.tsx
+  s_ca8e075e853203::t_9c05108ba13252 10,178,330,333,354,357
+scripts/pgtap-local/suites.sh
+  s_ca8e075e853203::t_11a0417d4d6995 23-25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7a087913b55e569db6abb46f852b193cafcf0d3d",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_cfe03394c0d379": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b0c9d35b-ebb9-42c9-9694-dd173757e0d5",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

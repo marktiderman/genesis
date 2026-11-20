@@ -1,0 +1,56 @@
+packages/support/migrations/0024_genesis_support_notifications.sql
+  s_ca8e075e853203::t_14173eda28e069 1-284
+  s_ca8e075e853203::t_6945cf46711ef4 285-339
+packages/support/migrations/tests/0024_genesis_support_notifications.test.sql
+  s_ca8e075e853203::t_106c3340783eb9 1-171
+.changeset/genesis-support-notifications.md
+  s_ca8e075e853203::t_7d33cbe0a8a659 1-12
+AGENTS.md
+  s_ca8e075e853203::t_0a5e143c25448a 155
+features.json
+  s_ca8e075e853203::t_f5230ceb2621ab 5870-5922
+features.ts
+  s_ca8e075e853203::t_6083642fdc6804 2576-2597
+packages/support/README.md
+  s_ca8e075e853203::t_9436b235662f91 784-813
+packages/support/migrations/0023_genesis_support_desks.sql
+  s_ca8e075e853203::t_67e14925ee167d 719-730
+packages/support/package.json
+  s_ca8e075e853203::t_589d1fcd25f12c 102-103,147-149,157,260-263,485-488
+packages/support/src/__tests__/core.test.ts
+  s_ca8e075e853203::t_573850d5ce6a27 280-285
+packages/support/src/__tests__/notifications.test.ts
+  s_ca8e075e853203::t_51de314d91e307 1-85
+packages/support/src/block.ts
+  s_ca8e075e853203::t_6d503f1186a3d2 116-117
+packages/support/src/copy.ts
+  s_ca8e075e853203::t_0bd71dbcec9bcb 224-241
+packages/support/src/email-templates.ts
+  s_ca8e075e853203::t_ee8d0f47f98700 1-70
+packages/support/src/email.ts
+  s_ca8e075e853203::t_1f4324b8644282 189
+packages/support/src/index.ts
+  s_ca8e075e853203::t_97c7955bb694bd 28
+packages/support/src/notifications.ts
+  s_ca8e075e853203::t_84eda315fd3873 1-101
+pnpm-lock.yaml
+  s_ca8e075e853203::t_576737d158550f 1833-1835
+scripts/pgtap-local/suites.sh
+  s_ca8e075e853203::t_8bcea2e95b5a65 23-24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c04b9921b63503999a97185dc9883e08bbd773a6",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

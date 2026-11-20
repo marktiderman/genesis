@@ -1,0 +1,41 @@
+packages/support/src/email-inbound.ts
+  s_ca8e075e853203::t_bd93a32aafc8e1 1-218
+packages/support/migrations/tests/0026_genesis_support_email_reply.test.sql
+  s_ca8e075e853203::t_f33f9ae67fde7a 1-61
+packages/support/migrations/0026_genesis_support_email_reply.sql
+  s_ca8e075e853203::t_296a627a6ca32b 1-124
+.changeset/genesis-support-email-reply.md
+  s_ca8e075e853203::t_02d6092c1599fb 1-13
+features.json
+  s_ca8e075e853203::t_5f77db19ccab0d 8617,8647-8650
+features.ts
+  s_ca8e075e853203::t_4eb58554c6d7dd 3767,3780
+packages/support/README.md
+  s_ca8e075e853203::t_3c16ed52ef026e 894-923
+packages/support/package.json
+  s_ca8e075e853203::t_6559a6e4e23ba2 538-541
+packages/support/src/__tests__/email-inbound.test.ts
+  s_ca8e075e853203::t_ba74b12a6aacc7 1-170
+packages/support/src/block.ts
+  s_ca8e075e853203::t_a099a3cd21d46d 198-199
+packages/support/src/email.ts
+  s_ca8e075e853203::t_7bf9da3add78cc 190
+scripts/pgtap-local/suites.sh
+  s_ca8e075e853203::t_f6ad2bdddcf7ca 23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "386b576aef32df91a92a203939371dedeaea5e44",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

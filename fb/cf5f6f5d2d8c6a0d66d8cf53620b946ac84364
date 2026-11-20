@@ -1,0 +1,31 @@
+.changeset/genesis-support-web-ui.md
+  s_ca8e075e853203::t_3bf0dfdd66b045 6-7
+packages/support/README.md
+  s_ca8e075e853203::t_6e38f2fc41db24 1004-1008
+packages/support/src/__tests__/messenger.test.tsx
+  s_ca8e075e853203::t_1605e1ee6f8e0c 79-81,244,251-257,260,271,281,286,294,321-322
+packages/support/src/__tests__/native-desk-ui.test.tsx
+  s_ca8e075e853203::t_55fe407c047f99 33-35,72,95,106-112,115,608
+packages/support/src/client.ts
+  s_ca8e075e853203::t_9bc6047f937699 16,583-591
+packages/support/src/native/screens.tsx
+  s_ca8e075e853203::t_209270742de62e 18,257-258
+packages/support/src/web-chat/messenger.tsx
+  s_ca8e075e853203::t_ac3aafa0d967fc 38,44,144-145,546,679,851,856,858
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fbcf5f6f5d2d8c6a0d66d8cf53620b946ac84364",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

@@ -1,0 +1,43 @@
+packages/genesis-cli/README.md
+  s_ca8e075e853203::t_7af3516b9fe3f5 854-855
+packages/genesis-cli/src/build-stamp.ts
+  s_ca8e075e853203::t_399fe8480cafa8 16-17,60-70,84-86
+packages/genesis-cli/test/build-stamp.test.ts
+  s_ca8e075e853203::t_ba22ddad657994 37-44
+packages/support/README.md
+  s_ca8e075e853203::t_7aba26c1a87887 350-356,495-507,541
+packages/support/src/__tests__/support-2c-rest.test.ts
+  s_ca8e075e853203::t_7b35cd987eec45 98-148,173-183,227-241
+packages/support/src/diagnostics/create.ts
+  s_ca8e075e853203::t_a52fcac9207814 264-274,288,298-299,321-322,327-333,427-429,432-444,446
+packages/support/src/diagnostics/health.ts
+  s_ca8e075e853203::t_1b4921d70ee9db 59-61,118,122-124,126-127,132-134
+packages/support/src/diagnostics/index.ts
+  s_ca8e075e853203::t_1c191d59877ebf 39
+packages/support/src/diagnostics/queue.ts
+  s_ca8e075e853203::t_74237d455b8ec4 76-77,115-119,154,187
+packages/support/src/diagnostics/redact.ts
+  s_ca8e075e853203::t_c94ac30a824724 107
+packages/support/src/diagnostics/report.ts
+  s_ca8e075e853203::t_baf473add9e718 107-108
+packages/support/src/diagnostics/transports.ts
+  s_ca8e075e853203::t_70c2c628ffbd57 40-41,65-68
+packages/support/src/diagnostics/view.ts
+  s_ca8e075e853203::t_f812410c176e78 40-42,74-75,78,84-88,90-91,93-94
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3222edde814eefdb518baaf10016f844342ec5a5",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

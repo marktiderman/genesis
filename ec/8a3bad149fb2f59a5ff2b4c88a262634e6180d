@@ -1,0 +1,75 @@
+packages/genesis-cli/src/wizard/steps.ts
+  s_ca8e075e853203::t_5cec50c11ecad8 1-57
+packages/genesis-cli/src/wizard/init.ts
+  s_ca8e075e853203::t_9ce47a244ecc7e 1-129
+packages/genesis-cli/wizard/src/client.ts
+  s_ca8e075e853203::t_56d4983078f525 1-156
+packages/genesis-cli/wizard/src/app.tsx
+  s_ca8e075e853203::t_06aa734982ac69 1-563
+  s_ca8e075e853203::t_e793acf56a44f7 564-615
+packages/genesis-cli/src/wizard/command.ts
+  s_ca8e075e853203::t_267c1eda9b2c85 1-65
+packages/genesis-cli/src/wizard/server.ts
+  s_ca8e075e853203::t_d2420520a1d303 1-255
+packages/genesis-cli/src/wizard/security.ts
+  s_ca8e075e853203::t_e7fe1424cbea00 1-100
+packages/genesis-cli/src/wizard/host.ts
+  s_ca8e075e853203::t_eadbf982a154cb 1-458
+  s_ca8e075e853203::t_7d338dbdf932c8 459-497
+packages/genesis-cli/test/wizard.test.ts
+  s_ca8e075e853203::t_7d6de59e51e909 1-395
+packages/genesis-cli/src/wizard/headless.ts
+  s_ca8e075e853203::t_e20fbfb53d7382 1-172
+.changeset/setup-wizard.md
+  s_ca8e075e853203::t_737c834c84bc40 1-19
+AGENTS.md
+  s_ca8e075e853203::t_01efcde1384ce3 155
+features.json
+  s_ca8e075e853203::t_dc98e7a988bdf4 4124,8302,8346-8396
+features.ts
+  s_ca8e075e853203::t_42e4ba0ed36580 1814,3621,3640-3662
+packages/genesis-cli/README.md
+  s_ca8e075e853203::t_e2b821a73c0dcc 16-24,1628-1689,1706,1720
+packages/genesis-cli/package.json
+  s_ca8e075e853203::t_503223521fade6 84,86,104-105,107,109-115
+packages/genesis-cli/src/blocks/init-native.ts
+  s_ca8e075e853203::t_af86bf4c7a6f71 35,65-69,312-322
+packages/genesis-cli/src/blocks/lock.ts
+  s_ca8e075e853203::t_0d2d86aa717b44 90-94,104
+packages/genesis-cli/src/cli.ts
+  s_ca8e075e853203::t_9a45b065444f41 11,52-53,71-81,93-110,125-131,280-315
+packages/genesis-cli/src/mcp/server.ts
+  s_ca8e075e853203::t_ec27a36528835c 230,234,366-376
+packages/genesis-cli/test/mcp.test.ts
+  s_ca8e075e853203::t_5f134286eb7e1e 80,269,271
+packages/genesis-cli/wizard/env.d.ts
+  s_ca8e075e853203::t_3e09044418a9b8 1
+packages/genesis-cli/wizard/index.html
+  s_ca8e075e853203::t_8a43c57cb7bc69 1-13
+packages/genesis-cli/wizard/src/main.tsx
+  s_ca8e075e853203::t_c784013d902b1f 1-12
+packages/genesis-cli/wizard/src/wizard.css
+  s_ca8e075e853203::t_fcc38f6e1fc3ad 1-17
+packages/genesis-cli/wizard/tsconfig.json
+  s_ca8e075e853203::t_686b9dfd6a0ba8 1-15
+packages/genesis-cli/wizard/vite.config.ts
+  s_ca8e075e853203::t_46a4a812b6c1ff 1-31
+pnpm-lock.yaml
+  s_ca8e075e853203::t_cdabcd40f6a2f1 1348-1353,1357-1359,1363-1383
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ec8a3bad149fb2f59a5ff2b4c88a262634e6180d",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

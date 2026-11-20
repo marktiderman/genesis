@@ -1,0 +1,33 @@
+.changeset/genesis-mcp-review-2.md
+  s_ca8e075e853203::t_08ea21cab1d5a1 1-11
+packages/genesis-cli/README.md
+  s_ca8e075e853203::t_3d2c1752749b74 1650-1655,1663,1665-1667,1676-1678
+packages/genesis-cli/src/mcp/bounds.ts
+  s_ca8e075e853203::t_ae1d4a63ddc7fc 19-26,33,65-67,76-77,80-93,116-134
+packages/genesis-cli/src/mcp/config.ts
+  s_ca8e075e853203::t_5357a12e7883f5 5,82-83
+packages/genesis-cli/src/mcp/doctor.ts
+  s_ca8e075e853203::t_628899c7ce41b3 21-26,32-33,40,47,189-194,200,202,207-208,211,213
+packages/genesis-cli/src/mcp/server.ts
+  s_ca8e075e853203::t_b5135defbc34ba 36,218-224,228,234,259-262,264,266-267,276,278-279,292-295,318,403,407,422,480-489,494,512-513,574-582
+packages/genesis-cli/src/mcp/stdio.ts
+  s_ca8e075e853203::t_575746eb10f5c6 31-57,72
+packages/genesis-cli/test/mcp.test.ts
+  s_ca8e075e853203::t_d4778345bac66d 2-5,13-16,453-594
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "bd2d2e24f580e85b2a9506d6f15df9f3fa07d314",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

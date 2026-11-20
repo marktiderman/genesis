@@ -1,0 +1,21 @@
+packages/support/src/__tests__/support-2c-rest.test.ts
+  s_ca8e075e853203::t_bdc2204abbeddb 150-161
+packages/support/src/diagnostics/create.ts
+  s_ca8e075e853203::t_0da6e45b143d68 506-515
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a0a99d89adf97ba8d79d1a6e0a53fefd9b8a5309",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "unknown"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

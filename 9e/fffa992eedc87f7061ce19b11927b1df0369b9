@@ -1,0 +1,91 @@
+.changeset/release-1-leftovers-admins.md
+  s_ca8e075e853203::t_23f1b31c231823 1-12
+.changeset/release-1-leftovers-support.md
+  s_ca8e075e853203::t_e14b273ac616c0 1-9
+.changeset/release-1-leftovers-sync.md
+  s_ca8e075e853203::t_41154e1c9f9bb3 1-5
+apps/genesis-rn-starter/README.md
+  s_ca8e075e853203::t_375bed2165fae1 48-53
+apps/genesis-rn-starter/supabase/migrations/20261026000700_genesis_settings.sql
+  s_ca8e075e853203::t_61d25d3765ab21 1-470
+apps/genesis-rn-starter/supabase/migrations/20261026000800_genesis_settings_integer.sql
+  s_ca8e075e853203::t_b2ea1ca770ddf6 1-101
+apps/genesis-rn-starter/supabase/migrations/20261026000900_genesis_platform_admins.sql
+  s_ca8e075e853203::t_5a56aea4493b05 1-134
+apps/genesis-rn-starter/supabase/migrations/20261026001000_genesis_support_staff_admin_list.sql
+  s_ca8e075e853203::t_6f90d3ee6922fb 1-49
+apps/genesis-rn-starter/supabase/migrations/20261026001100_genesis_settings_tenant_person.sql
+  s_ca8e075e853203::t_ade6d05cbdb39e 1-576
+packages/genesis-cli/README.md
+  s_ca8e075e853203::t_b3a54c13eeee86 864-866,947,1068
+packages/genesis-cli/src/blocks/init-native.ts
+  s_ca8e075e853203::t_4cdc0bc2d1a59f 143
+packages/genesis-cli/src/doctor/rules.ts
+  s_ca8e075e853203::t_b2283ca207fdbc 105
+packages/genesis-cli/src/doctor/settings.ts
+  s_ca8e075e853203::t_29d63780c144c5 19-22,30,197-231,324-336
+packages/genesis-cli/src/fix/builtin.ts
+  s_ca8e075e853203::t_c3c42d15ccff70 381-406,460
+packages/genesis-cli/src/settings-manifest.ts
+  s_ca8e075e853203::t_0c487fc35a2383 11-13,16,21,167-183,206-210
+packages/genesis-cli/test/doctor-secrets.test.ts
+  s_ca8e075e853203::t_98d9c7827cf521 239,265,387-417
+packages/genesis-cli/test/init-native.test.ts
+  s_ca8e075e853203::t_52dd73cb593292 62,95
+packages/genesis-cli/test/settings-manifest.test.ts
+  s_ca8e075e853203::t_a2cb8de8ea3ec6 22,99,157-167
+packages/genesis-cli/test/shared-database.test.ts
+  s_ca8e075e853203::t_02463d01c85d35 62,66
+packages/supabase/README.md
+  s_ca8e075e853203::t_a435443ed07b33 748-770
+packages/supabase/functions/genesis-support-intake/contract.ts
+  s_ca8e075e853203::t_81ce4847372828 126-128,141-144,175-185
+packages/supabase/migrations/0022_genesis_platform_admins.sql
+  s_ca8e075e853203::t_bcb53e5ed4b504 1-134
+packages/supabase/migrations/tests/0020_genesis_settings.test.sql
+  s_ca8e075e853203::t_70f30e2dc05932 33-36
+packages/supabase/migrations/tests/0022_genesis_platform_admins.test.sql
+  s_ca8e075e853203::t_6cc1b2b55ba5da 1-69
+packages/supabase/package.json
+  s_ca8e075e853203::t_7061abbf8fe377 371-374,384
+packages/supabase/src/__tests__/settings.test.ts
+  s_ca8e075e853203::t_669209bdf5ec51 318,329
+packages/supabase/src/blocks.ts
+  s_ca8e075e853203::t_c965903b26d189 140-141
+packages/support/README.md
+  s_ca8e075e853203::t_24578ebc8a1962 129-131
+packages/support/migrations/0029_genesis_support_staff_admin_list.sql
+  s_ca8e075e853203::t_29ef33808db314 1-49
+packages/support/migrations/tests/0029_genesis_support_staff_admin_list.test.sql
+  s_ca8e075e853203::t_7b9a124b86fc68 1-34
+packages/support/package.json
+  s_ca8e075e853203::t_7da005694d8dcb 285-288
+packages/support/src/__tests__/core.test.ts
+  s_ca8e075e853203::t_ea50899ce828e8 304-309
+packages/support/src/__tests__/diagnostics-review.test.ts
+  s_ca8e075e853203::t_8953c06db3ca4d 163-194,286-302
+packages/support/src/block.ts
+  s_ca8e075e853203::t_a839c6d8dda05a 124-125
+packages/support/src/contract.ts
+  s_ca8e075e853203::t_e029890059cd71 126-128,141-144,175-185
+packages/support/src/diagnostics/create.ts
+  s_ca8e075e853203::t_36b919448cf6bb 199-200,206,280-291
+scripts/pgtap-local/suites.sh
+  s_ca8e075e853203::t_daced178143ee3 19,24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9efffa992eedc87f7061ce19b11927b1df0369b9",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

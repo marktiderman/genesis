@@ -1,0 +1,99 @@
+packages/genesis-cli/src/settings-manifest.ts
+  s_ca8e075e853203::t_b13c09ff46662d 1-111
+packages/support/migrations/0028_genesis_support_diagnostics_fixes.sql
+  s_ca8e075e853203::t_74d7dd1803d164 2-35
+  s_53540df9913a54::t_bf3d9de17d33cd 1
+packages/support/src/contract.ts
+  s_ca8e075e853203::t_882e7eb5a09755 146-155
+  s_ca8e075e853203::t_e80300841caf4c 156
+packages/genesis-cli/test/settings-manifest.test.ts
+  s_ca8e075e853203::t_bb586169e12eaa 1-65
+.changeset/release-1-settings-sync.md
+  s_ca8e075e853203::t_079a64948c408c 1-6
+.changeset/release-1-support-diagnostics-settings.md
+  s_ca8e075e853203::t_d97115c388f7da 1-12
+.changeset/release-1-support-lows.md
+  s_ca8e075e853203::t_58fcb15ed46ae2 1-15
+.changeset/release-1-support-redaction.md
+  s_ca8e075e853203::t_ce21947395de4c 1-6
+apps/genesis-rn-starter/supabase/migrations/20261026000500_genesis_support_diagnostics_fixes.sql
+  s_ca8e075e853203::t_553c6dbe364fb7 1-35
+docs/MIGRATION.md
+  s_ca8e075e853203::t_a68b8345bc91e6 14-36
+packages/genesis-cli/README.md
+  s_ca8e075e853203::t_46b350e638732e 840-856
+packages/genesis-cli/src/cli.ts
+  s_ca8e075e853203::t_7ad67090fb2821 769-795
+packages/supabase/README.md
+  s_ca8e075e853203::t_36a06a518797c1 744-747,754-755,773
+packages/supabase/functions/genesis-support-intake/contract.ts
+  s_ca8e075e853203::t_c39a8da017af21 146-156
+packages/supabase/package.json
+  s_ca8e075e853203::t_1cfdd619a155a0 377
+packages/support/README.md
+  s_ca8e075e853203::t_24b676cf388118 79-96
+packages/support/migrations/tests/0028_genesis_support_diagnostics_fixes.test.sql
+  s_ca8e075e853203::t_703b5f89661469 1-77
+packages/support/package.json
+  s_ca8e075e853203::t_4d6138d4f14186 106-107,151-153,169,268-271,376,865-866
+packages/support/src/__tests__/core.test.ts
+  s_ca8e075e853203::t_a22e32815a609e 292-297
+packages/support/src/__tests__/diagnostics-review.test.ts
+  s_ca8e075e853203::t_949f7e1d2e9513 87-104
+packages/support/src/__tests__/email-reply.test.ts
+  s_ca8e075e853203::t_e4add08f3168a0 78-82
+packages/support/src/__tests__/native-agent.test.tsx
+  s_ca8e075e853203::t_8cbc309f62d1d8 192-205
+packages/support/src/__tests__/native-diagnostics.test.tsx
+  s_ca8e075e853203::t_8b38d63eff4dee 120,125,131-135,138-152,155-166
+packages/support/src/__tests__/server.test.ts
+  s_ca8e075e853203::t_e39fc48222eadb 202-293,378-379,381,428-437
+packages/support/src/__tests__/settings.test.tsx
+  s_ca8e075e853203::t_f66c63db7f7c48 161-177
+packages/support/src/block.ts
+  s_ca8e075e853203::t_206d42d3e8e174 114-115,129
+packages/support/src/diagnostics/create.ts
+  s_ca8e075e853203::t_2e82e434dbf995 68-72,74,82-91,110,129,195-208,211-212,218,241,313,318-320,324,340-341,346-352,363
+packages/support/src/email-reply.ts
+  s_ca8e075e853203::t_9e3f5c82802f9b 293,298,300,302-307,312
+packages/support/src/native/agent.tsx
+  s_ca8e075e853203::t_08a5724ee9a17f 486,506
+packages/support/src/native/feedback-form.tsx
+  s_ca8e075e853203::t_8608626bc6c3a9 9,42-56,89-92,94-98
+packages/support/src/native/support.tsx
+  s_ca8e075e853203::t_28b44628796c54 30,49-50,53-70,128,141-147,153-157,165,168,224-233,236-243,311-347,356,359-361,369-373,389-390,411,414,416-420,445-447
+packages/support/src/server/handler.ts
+  s_ca8e075e853203::t_528d5993aa4f68 21,181-186,188-190,193-200,288-302,348-357,385-387,423-425,433,450,508-510
+packages/support/src/server/notifiers.ts
+  s_ca8e075e853203::t_be2f115858c3b1 57-59,67-68,73-79,117
+packages/support/src/settings.ts
+  s_ca8e075e853203::t_1acd635e99786f 73
+pnpm-lock.yaml
+  s_ca8e075e853203::t_21236166046eb8 1860-1862
+scripts/pgtap-local/suites.sh
+  s_ca8e075e853203::t_649ff2c0349986 24-25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7481a7139bb92e541d51fb649dc7e59c02aa339e",
+  "prompts": {},
+  "sessions": {
+    "s_53540df9913a54": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "abecd9cc-fe12-4317-8685-9e0ef89602c7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
