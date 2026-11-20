@@ -1,0 +1,43 @@
+packages/support/src/web-chat/agent-tools.tsx
+  s_ca8e075e853203::t_49c56dc7f2805a 484-488
+packages/support/src/native/agent.tsx
+  s_ca8e075e853203::t_ee7cd3686c47c9 186-187
+  s_ca8e075e853203::t_14395f6f1b2b54 175
+packages/support/migrations/0034_genesis_support_agent_admin.sql
+  s_ca8e075e853203::t_35ba3c9d60c2de 160
+  s_ca8e075e853203::t_1d6ef45ae49f7b 66-72,80,82-84,89-101,104-146
+  s_ca8e075e853203::t_de073cb666a8b4 25-26
+  s_ca8e075e853203::t_efbeb4c6b7a4af 9-12
+  s_ca8e075e853203::t_d248b3b5391d85 274-280
+  s_ca8e075e853203::t_60d3e1249dbd11 41-44
+  s_ca8e075e853203::t_75cb337b24b296 251-254
+  s_ca8e075e853203::t_f8fd940fae08fc 147
+packages/support/src/client.ts
+  s_ca8e075e853203::t_0c77fa88a4d359 366,368
+  s_ca8e075e853203::t_fd1af9edc190ab 1085
+  s_ca8e075e853203::t_5ec04e197b601c 446-454
+packages/support/src/__tests__/web-desk-admin.test.tsx
+  s_ca8e075e853203::t_05204a46ee5b2b 91-103
+packages/support/migrations/tests/0034_genesis_support_agent_admin.test.sql
+  s_ca8e075e853203::t_70244ed00313eb 11,261-313
+packages/support/src/__tests__/desks.test.tsx
+  s_ca8e075e853203::t_49c5fd541cd132 42-45,75-79
+packages/support/src/__tests__/native-agent.test.tsx
+  s_ca8e075e853203::t_fcda8abca59760 48-49
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b9ec9b74609c92646995a70e4e904ace321e0aea",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
