@@ -2,7 +2,7 @@
 "@marktiderman/genesis-support": minor
 ---
 
-**Reply by email, end to end.** Migration `0026_genesis_support_email_reply.sql` (support-email
+**Reply by email, end to end.** Migration `0027_genesis_support_email_reply.sql` (support-email
 block) adds `support_email_reply` (service role): a reply posted as the login the email went to,
 the ticket's person or a handler, from that login's own address, once per Message-ID, at most 20 a
 ticket an hour. `/email` gains `supportReplyRoute` (token, automatic mail, `senderAuthenticated`,

@@ -1,5 +1,5 @@
 -- @feat:support-email
--- Genesis support 0026: reply by email, the database half (after 0004_genesis_support_tickets.sql;
+-- Genesis support 0027: reply by email, the database half (after 0004_genesis_support_tickets.sql;
 -- the support-chat block's 0005 and 0006 are optional).
 --
 -- public.support_email_reply(p_ticket, p_user, p_from, p_message_id, p_body): the inbound route
@@ -29,7 +29,7 @@
 -- Use: copy this file into your app's `supabase/migrations/` under a new timestamped name
 -- (`genesis migrate` does it). Never edit it once applied; change it with a new migration.
 --
--- Verify: the pgTAP test beside this file (`tests/0026_genesis_support_email_reply.test.sql`).
+-- Verify: the pgTAP test beside this file (`tests/0027_genesis_support_email_reply.test.sql`).
 
 create schema if not exists private;
 

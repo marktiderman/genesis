@@ -5,7 +5,7 @@
 -- `create function` and their own parameter names, and take over. Rolls back.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(15);
+select plan(17);
 
 create function pg_temp.person(n text) returns uuid language sql immutable as $$
   select ('00000000-0000-4000-8000-0000000023' || n)::uuid $$;
@@ -46,6 +46,17 @@ select pg_temp.sign_in('c3');
 set local role authenticated;
 select is((select count(*)::int from public.tickets), 0, 'someone else reads nothing');
 reset role;
+
+-- 1b. An app's hook written over the stand-in before 0023 ran is kept --------------------------
+
+create function private.genesis_support_default_tenant() returns uuid language sql stable set search_path = ''
+  as $b$ select '00000000-0000-0000-0000-000000000001'::uuid $b$;
+comment on function private.genesis_support_default_tenant() is 'Genesis default: a stand-in for support 0004, dropped by support 0023. Genesis support 0021.';
+create or replace function private.genesis_support_default_tenant() returns uuid language sql stable set search_path = ''
+  as $b$ select '00000000-0000-4000-8000-0000000023f0'::uuid $b$;
+select is(private.genesis_support_drop_tenant_standin(), false, 'a create-or-replace over the stand-in (which keeps its comment) is not dropped');
+select is(private.genesis_support_default_tenant_id(), '00000000-0000-4000-8000-0000000023f0'::uuid, 'and the app''s tenant answers');
+drop function private.genesis_support_default_tenant();
 
 -- 2. The app's own hooks, written later ------------------------------------------------------------
 

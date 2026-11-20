@@ -1,5 +1,5 @@
 -- @feat:support-email
--- pgTAP test for 0026_genesis_support_email_reply.sql: the person and a handler answer by email,
+-- pgTAP test for 0027_genesis_support_email_reply.sql: the person and a handler answer by email,
 -- as themselves, once per Message-ID; anyone else, another From and a loop are refused. Rolls back.
 --
 -- People: a1 wrote the ticket; b2 is staff (a handler); c3 is nobody.

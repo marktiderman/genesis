@@ -117,6 +117,8 @@ export function supportContributions(options: SupportBlockOptions = {}): BlockCo
       { package: "@marktiderman/genesis-support", file: "migrations/0020_genesis_support_settings.sql", test: "migrations/tests/0020_genesis_support_settings.test.sql" },
       // support.message, support.reply and support.verify through genesis-notifications (support.staffAlerts).
       { package: "@marktiderman/genesis-support", file: "migrations/0025_genesis_support_notifications.sql", test: "migrations/tests/0025_genesis_support_notifications.test.sql" },
+      // A dump sent with a ticket is read by whoever handles that ticket; staff read only dumps with none.
+      { package: "@marktiderman/genesis-support", file: "migrations/0026_genesis_support_diagnostics_access.sql", test: "migrations/tests/0026_genesis_support_diagnostics_access.test.sql" },
     ],
     privacy: {
       collects: [
@@ -196,7 +198,7 @@ export function defineSupportEmailBlock(options: { requires?: readonly string[] 
         { package: "@marktiderman/genesis-support", file: "migrations/0007_genesis_support_email_on_tickets.sql", test: "migrations/tests/0002_genesis_support_email.test.sql" },
         { package: "@marktiderman/genesis-support", file: "migrations/0008_genesis_support_email_tenants.sql", test: "migrations/tests/0008_genesis_support_email_tenants.test.sql" },
         // Reply by email: support_email_reply, as the login the email went to (the route is /email's supportReplyRoute).
-        { package: "@marktiderman/genesis-support", file: "migrations/0026_genesis_support_email_reply.sql", test: "migrations/tests/0026_genesis_support_email_reply.test.sql" },
+        { package: "@marktiderman/genesis-support", file: "migrations/0027_genesis_support_email_reply.sql", test: "migrations/tests/0027_genesis_support_email_reply.test.sql" },
       ],
       privacy: {
         notes: [

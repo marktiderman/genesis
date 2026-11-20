@@ -7,16 +7,16 @@
  * stored:
  *
  *   <token>@<reply domain>
- *   token = key letter ‖ base32(ticket id 16 ‖ login id 16 ‖ issued week 1 ‖ MAC 6)   (64 characters)
+ *   token = key letter ‖ base32(ticket id 16 ‖ login id 16 ‖ issued week 12 bits ‖ MAC 44 bits)   (64 characters)
  *
- * - The MAC is the first 6 bytes of HMAC-SHA256 over the ids and the week, with a key derived from
+ * - The MAC is the first 44 bits of HMAC-SHA256 over the ids and the week, with a key derived from
  *   a server secret (`replyKey(SUPPORT_REPLY_SIGNING_SECRET)`): nobody can make an address for a
- *   ticket or a person they weren't sent, short of guessing 2^48 of them, each an email.
+ *   ticket or a person they weren't sent, short of guessing 2^44 of them, each an email.
  * - **Rotation:** a `ReplyKeyring` holds keys by letter. New addresses use `current`; any letter
  *   still in the ring verifies, so old emails keep working until their key is removed (revoking
  *   every address it made).
- * - **Expiry:** the issued week (mod 256) lets old addresses lapse: `maxAgeWeeks`, default 26, at
- *   most 200.
+ * - **Expiry:** the issued week (12 bits, so it comes round again only after about 78 years) lets
+ *   old addresses lapse: `maxAgeWeeks`, default 26, at most 200.
  * - Lower-case base32 because mail systems lowercase addresses; 64 characters is the most a local
  *   part may have, so the reply domain is only for these replies.
  *
@@ -39,8 +39,11 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 const ALPHABET = "abcdefghijklmnopqrstuvwxyz234567";
-const MAC_BYTES = 6;
-const TOKEN_BYTES = 32 + 1 + MAC_BYTES;
+/** The week (12 bits) and the MAC (44 bits) share 7 bytes after the two ids. */
+const STAMP_BYTES = 7;
+const MAC_BITS = 44n;
+const WEEKS = 1 << 12;
+const TOKEN_BYTES = 32 + STAMP_BYTES;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const WEEK_MS = 7 * 24 * 3600 * 1000;
 /** The longest secret-derived key input refused: a secret shorter than this is no secret. */
@@ -56,7 +59,8 @@ export interface ReplyClaims {
  * Keys by their letter (a–z), and the letter new addresses use. `legacy` holds keys, by their own
  * letters, for addresses an app made before adopting this module in the earlier format (ticket,
  * login and a 7-byte MAC over "ticket:login", no week): they still verify, never expire, and are
- * never made. A letter is in `keys` or `legacy`, not both.
+ * never made. A letter is in `keys` or `legacy`, never both (a ring with both throws): an app
+ * whose old addresses use `a` gives its new key another letter, `b`.
  *
  * @stability Beta
  */
@@ -136,9 +140,33 @@ const uuidOf = (b: Buffer) => {
   const h = b.toString("hex");
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
 };
-const weekOf = (ms: number) => Math.floor(ms / WEEK_MS) & 255;
-const mac = (key: Buffer, c: ReplyClaims, week: number) =>
-  createHmac("sha256", key).update(`${c.ticketId.toLowerCase()}:${c.userId.toLowerCase()}:${week}`).digest().subarray(0, MAC_BYTES);
+/** The week, mod 4096 (about 78 years before it comes round again). */
+const weekOf = (ms: number) => Math.floor(ms / WEEK_MS) % WEEKS;
+/** The MAC's top 44 bits, as a bigint. */
+const mac = (key: Buffer, c: ReplyClaims, week: number): bigint => {
+  const d = createHmac("sha256", key).update(`${c.ticketId.toLowerCase()}:${c.userId.toLowerCase()}:${week}`).digest();
+  return d.readBigUInt64BE(0) >> (64n - MAC_BITS);
+};
+function stamp(week: number, m: bigint): Buffer {
+  const v = (BigInt(week) << MAC_BITS) | m;
+  const out = Buffer.alloc(STAMP_BYTES);
+  for (let i = STAMP_BYTES - 1, x = v; i >= 0; i--, x >>= 8n) out[i] = Number(x & 255n);
+  return out;
+}
+function unstamp(b: Buffer): { week: number; mac: bigint } {
+  let v = 0n;
+  for (const byte of b) v = (v << 8n) | BigInt(byte);
+  return { week: Number(v >> MAC_BITS) & (WEEKS - 1), mac: v & ((1n << MAC_BITS) - 1n) };
+}
+
+/** A letter in both `keys` and `legacy` is ambiguous: its old addresses would stop verifying. */
+function checkRing(ring: ReplyKeyring): void {
+  for (const letter of Object.keys(ring.legacy ?? {})) {
+    if (Object.prototype.hasOwnProperty.call(ring.keys, letter)) {
+      throw new Error(`ReplyKeyring: the letter "${letter}" is in both keys and legacy; give the new key another letter`);
+    }
+  }
+}
 
 function keyOf(ring: ReplyKeyring, letter: string): Buffer | null {
   if (!/^[a-z]$/.test(letter) || !Object.prototype.hasOwnProperty.call(ring.keys, letter)) return null;
@@ -148,10 +176,11 @@ function keyOf(ring: ReplyKeyring, letter: string): Buffer | null {
 /** The token for a ticket and a recipient, signed with the ring's current key. @stability Beta */
 export function createReplyToken(ring: ReplyKeyring, claims: ReplyClaims, options: Pick<ReplyTokenOptions, "now"> = {}): string {
   if (!UUID.test(claims.ticketId) || !UUID.test(claims.userId)) throw new Error("A reply token names a ticket and a login by id");
+  checkRing(ring);
   const key = keyOf(ring, ring.current);
   if (!key) throw new Error(`createReplyToken: the keyring has no key "${ring.current}"`);
   const week = weekOf(options.now ?? Date.now());
-  return ring.current + base32(Buffer.concat([uuidBytes(claims.ticketId), uuidBytes(claims.userId), Buffer.from([week]), mac(key, claims, week)]));
+  return ring.current + base32(Buffer.concat([uuidBytes(claims.ticketId), uuidBytes(claims.userId), stamp(week, mac(key, claims, week))]));
 }
 
 const LEGACY_MAC_BYTES = 7;
@@ -168,6 +197,7 @@ function verifyLegacy(key: Buffer, body: string): ReplyClaims | null {
 /** The ticket and recipient a token names, when a key in the ring signed it and it hasn't expired; else null. @stability Beta */
 export function verifyReplyToken(ring: ReplyKeyring, token: string, options: ReplyTokenOptions = {}): ReplyClaims | null {
   if (typeof token !== "string" || !/^[a-z][a-z2-7]{63}$/i.test(token)) return null;
+  checkRing(ring);
   const letter = token[0]!.toLowerCase();
   const legacy = ring.legacy && Object.prototype.hasOwnProperty.call(ring.legacy, letter) ? ring.legacy[letter] : undefined;
   if (legacy && !keyOf(ring, letter)) return verifyLegacy(legacy, token.slice(1));
@@ -177,10 +207,11 @@ export function verifyReplyToken(ring: ReplyKeyring, token: string, options: Rep
   // Exactly the bytes' own spelling: no second token for the same address through the unused bits.
   if (!raw || raw.length !== TOKEN_BYTES || base32(raw) !== token.slice(1).toLowerCase()) return null;
   const claims = { ticketId: uuidOf(raw.subarray(0, 16)), userId: uuidOf(raw.subarray(16, 32)) };
-  const week = raw[32]!;
-  if (!timingSafeEqual(raw.subarray(33), mac(key, claims, week))) return null;
+  const { week, mac: given } = unstamp(raw.subarray(32));
+  const expected = mac(key, claims, week);
+  if (!timingSafeEqual(Buffer.from(given.toString(16).padStart(11, "0")), Buffer.from(expected.toString(16).padStart(11, "0")))) return null;
   const maxAge = Math.min(Math.max(Math.floor(options.maxAgeWeeks ?? 26), 0), 200);
-  const age = (weekOf(options.now ?? Date.now()) - week + 256) & 255;
+  const age = (weekOf(options.now ?? Date.now()) - week + WEEKS) % WEEKS;
   return age <= maxAge ? claims : null;
 }
 

@@ -99,13 +99,19 @@ turns `shake.enabled` off stops shake to report at once. The database reads two 
 (`diagnostics.perHour`) and how long a dump is kept (`diagnostics.retentionDays`), from
 genesis-supabase's settings tables when they're there, else 10 and 90 as before.
 
+**Who reads a dump** (migration `0026_genesis_support_diagnostics_access.sql`): its sender; for a
+dump sent with a ticket, whoever handles that ticket (a business's dumps stay with its agents); for
+a dump with no ticket, support staff. The short-id lookup follows the same rule.
+
 **No SQL of your own.** Support runs without any hook of the app's:
 
 - **The app's own tenant** is Genesis's reserved zero-config tenant,
   `00000000-0000-0000-0000-000000000001`. It is never an organisation's id: don't give one to a real
   organisation. Migration `0021_genesis_support_default_hooks.sql` (before 0004) defines a stand-in
   `private.genesis_support_default_tenant()` only so 0004 can run; `0023` (right after 0004) drops it
-  again and answers from Genesis's own wrapper.
+  again, but only while it is still exactly that stand-in (its body and its "Genesis default:"
+  comment), and answers from Genesis's own wrapper. An app's hook written over the stand-in with
+  `create or replace` before 0023 runs keeps its own body, so it is kept.
 - **Staff** are the app's platform admins (genesis-supabase's `private.genesis_platform_admin`),
   asked in Genesis's own wrapper (0023); without that hook nobody is staff.
 - **No viewer-people default.** `private.genesis_viewer_people` is the tenancy boundary chat, work
@@ -900,8 +906,12 @@ is a Reply-To that names the ticket, the one person the email went to and the we
 signed (nothing stored). A keyring holds keys by letter, so a new key signs while old ones still
 verify, and removing a key revokes its addresses; addresses expire after `maxAgeWeeks` (26).
 An app that made reply addresses in the earlier format (ticket, login, a 7-byte MAC, no week) keeps
-them working by putting its old key, derived under its own label (`replyKey(secret, { label })`),
-in the ring's `legacy` under its letter; they never expire and are never made again.
+them working by putting its old key, derived under its own label, in the ring's `legacy` under its
+old letter, and giving the new key another letter: `{ current: "b", keys: { b: replyKey(secret) },
+legacy: { a: replyKey(secret, { label: oldLabel }) } }`. Old addresses usually start with `a`,
+which is also `replyKeyring()`'s default letter, so don't use `replyKeyring()` for such an app: a
+letter in both `keys` and `legacy` throws rather than quietly breaking every old address. Legacy
+addresses never expire and are never made again.
 `claimsFromAddresses(ring, replyDomain, recipients)` reads it back from an inbound email (bare or
 `Name <address>`). **A valid token says who the email went to, not who answered:** the inbound route
 must check, when the reply arrives, that `userId` is still the ticket's requester or a handler, and
@@ -910,7 +920,7 @@ that the sender is that login's email with SPF and DKIM passing. And
 `REPLY_MARKER` line or their signature. Auto-replies are already dropped by genesis-notifications'
 inbound router.
 
-**Wired end to end** (migration `0026_genesis_support_email_reply.sql`, in the support-email block,
+**Wired end to end** (migration `0027_genesis_support_email_reply.sql`, in the support-email block,
 and `/email`):
 
 ```ts

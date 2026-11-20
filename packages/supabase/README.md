@@ -758,6 +758,8 @@ preset and genesis.config.json.
   they're committed config) and the database layer for runtime keys. The client resolves them with the
   app's catalogue, so every platform agrees. No setting is a secret: a key names the secret it needs,
   never its value.
+- **Whole numbers** (migration `0021_genesis_settings_integer.sql`): a number the catalogue declares
+  `integer` refuses a fraction.
 - **Checked writes.** `set_genesis_setting` refuses a key genesis.config.json locks, `null` for a key
   with a default, and any key whose synced catalogue entry is malformed. JSON `null` (which PostgREST
   passes as SQL null) means "not set".
