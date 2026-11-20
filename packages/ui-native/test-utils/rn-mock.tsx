@@ -146,11 +146,17 @@ export const Text = React.forwardRef<HTMLSpanElement, AnyProps>(function Text(
   props,
   ref
 ) {
-  const { numberOfLines, ...rest } = props as AnyProps & {
+  const { numberOfLines, selectable, ...rest } = props as AnyProps & {
     numberOfLines?: number;
+    selectable?: boolean;
   };
-  void numberOfLines;
-  return React.createElement("span", { ...toDom(rest), ref });
+  // How the real Text would clip and select, for assertions.
+  return React.createElement("span", {
+    ...toDom(rest),
+    ...(numberOfLines !== undefined ? { "data-number-of-lines": String(numberOfLines) } : {}),
+    ...(selectable ? { "data-selectable": "true" } : {}),
+    ref,
+  });
 });
 Text.displayName = "Text";
 
@@ -303,7 +309,8 @@ export const Switch = (props: AnyProps & {
 };
 
 export const Modal = ({
-  visible,
+  // React Native's Modal is visible unless `visible` says otherwise.
+  visible = true,
   children,
   onRequestClose,
   onDismiss,

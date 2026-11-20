@@ -766,7 +766,7 @@ preset and genesis.config.json.
   ```
 
   The app's own hook, added whenever and however it likes (`create function`, its own parameter
-  name), takes over from the list. With genesis-support (0029), the platform admins are also support
+  name), takes over from the list. With genesis-support (0032), the platform admins are also support
   staff.
 - **Server code** is told apart from a person by the request's role, never by a JWT claim: the
   service role, any role that bypasses row security, or a connection that never switched role. So a

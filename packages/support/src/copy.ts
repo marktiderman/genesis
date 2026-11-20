@@ -9,6 +9,8 @@ export const supportCopy = {
     help: "Help",
     /** `{count}` new replies. */
     unreadReplies: "{count} new",
+    /** The Settings row into the agent desk, for its agents (on the phone). */
+    agentDesk: "Support inbox",
   },
   diagnostics: {
     send: "Send diagnostics",
@@ -59,6 +61,8 @@ export const supportCopy = {
     rateLimited: "You've sent a lot of feedback in a short time. Try again later.",
     signInFirst: "Sign in to send feedback.",
     messageRequired: "Write a few words first.",
+    /** The error a "Report this" on an error screen attaches. */
+    errorAttached: "The error on that screen is attached.",
   },
   annotate: {
     title: "Mark up",
@@ -109,6 +113,14 @@ export const supportCopy = {
     video: "Video",
     file: "File",
     internalNote: "Internal note",
+    /** The verify loop (migration 0003): support marked it fixed, and asks the person. */
+    verifyTitle: "Is it fixed?",
+    verifyBody: "We think this is fixed. Check it, then let us know.",
+    verifyFixed: "Yes, it's fixed",
+    verifyReopen: "No, reopen it",
+    verifiedFixed: "Thanks for checking. We've closed it.",
+    verifiedReopened: "We've reopened it and will take another look.",
+    verifyFailed: "Your answer wasn't saved. Try again.",
   },
   staff: {
     status: "Status",
@@ -165,6 +177,14 @@ export const supportCopy = {
     diagnosticsShow: "Show diagnostics",
     diagnosticsHide: "Hide diagnostics",
     diagnosticsFailed: "Couldn't load the diagnostics.",
+    diagnosticsLoading: "Loading the diagnostics",
+    diagnosticsCopy: "Copy",
+    diagnosticsCopied: "Copied",
+    diagnosticsCopyFailed: "That wasn't copied. Try again, or select the text.",
+    /** What made a dump, by its trigger. */
+    diagnosticsTriggers: { manual: "Sent from the app", shake: "Shake", feedback: "With feedback", crash: "After a crash" },
+    /** The assignee picker's label. */
+    assignTo: "Assign to",
     openFile: "Open file",
     /** A row's status line: `{requester}`, `{status}`, `{assignee}`. */
     rowMeta: "{requester} · {status} · {assignee}",
@@ -191,7 +211,7 @@ export const supportCopy = {
     sendAnyway: "Send anyway",
     review: "Review",
   },
-  /** Desks (migration 0024): each tenant's own help desk, and moving a ticket between desks. */
+  /** Desks (migration 0029): each tenant's own help desk, and moving a ticket between desks. */
   desks: {
     /** The app's own desk, where `private.genesis_tenant_label` names none. */
     appDesk: "Support",
@@ -229,7 +249,7 @@ export const supportCopy = {
     noDeskTitle: "No help desk to answer",
     noDeskBody: "Turn your help desk on in its settings to answer your people here.",
   },
-  /** Support's notifications (migration 0025, `supportNotificationTypes`): `{by}`, `{title}`, `{from}`. */
+  /** Support's notifications (migration 0030, `supportNotificationTypes`): `{by}`, `{title}`, `{from}`. */
   notifications: {
     category: "Support",
     categoryDescription: "Conversations with support",
@@ -255,6 +275,9 @@ export const supportCopy = {
   },
   /** A part of support the app's settings turned off. */
   off: {
+    /** `SupportRoute` with no support block (the app turned support off). */
+    supportTitle: "Support isn't available",
+    supportBody: "This app doesn't offer help here right now.",
     agentDeskTitle: "The agent desk is off",
     agentDeskBody: "This app's settings turn the agent desk off (support.agentDesk).",
   },
@@ -263,7 +286,7 @@ export const supportCopy = {
     title: "Contact",
     email: "Email",
     tenants: "Belongs to",
-    /** A tenant's role for the person, from migration 0024 (an app's own words show as it gives them). */
+    /** A tenant's role for the person, from migration 0029 (an app's own words show as it gives them). */
     roles: { admin: "Admin", agent: "Agent", member: "Member" },
     sentFrom: "Sent from",
   },
@@ -302,8 +325,6 @@ export const supportCopy = {
     timeToClose: "Median time to close",
     byRequester: "Open by customer",
     unknownRequester: "Unknown",
-    /** Under the list when it counts only some open tickets. `{count}`: how many it counts. */
-    byRequesterCapped: "Counted from the {count} most recently changed open conversations.",
     /** A time with nothing to measure. */
     none: "None yet",
     errorTitle: "Couldn't load the report",

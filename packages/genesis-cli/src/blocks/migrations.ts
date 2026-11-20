@@ -3,7 +3,7 @@
  *
  * A package migration is copied into `supabase/migrations/` as a new file,
  * `<timestamp>_<name>.sql`, with a two-line header naming the package, the
- * file and the checksum of the package's text:
+ * file and the checksum of the package's text (older CLIs wrote the first line alone):
  *
  *   -- genesis-migration: @marktiderman/genesis-supabase migrations/0004_genesis_tenant_features.sql sha256:…
  *   -- Copied by the Genesis CLI. Never edit it once applied: write a new migration instead.
@@ -32,7 +32,12 @@ import { migrationKey, type GenesisLock } from "./lock.js";
 export const MIGRATIONS_DIR = "supabase/migrations";
 export const TESTS_DIR = "supabase/tests/database";
 
-const HEADER = /^-- genesis-migration: (\S+) (\S+) sha256:([0-9a-f]{64})\r?\n-- [^\n]*\n/;
+/**
+ * The header: its first line, then the CLI's note when the copy has one. Copies made by older CLIs
+ * have the first line alone, so only the note itself is taken as the second line, never a comment
+ * the migration starts with.
+ */
+const HEADER = /^-- genesis-migration: (\S+) (\S+) sha256:([0-9a-f]{64})\r?\n(?:-- Copied by the Genesis CLI\.[^\n]*\n)?/;
 const FORWARD = /^-- genesis-forward: (\S+) (\S+) sha256:([0-9a-f]{64}) copy-sha256:([0-9a-f]{64})\r?\n/;
 
 /** Line endings don't make a migration different. */

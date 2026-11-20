@@ -13,13 +13,14 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Alert, View } from "react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { NativeButton, NativeInput, NativeText } from "@marktiderman/genesis-ui-native/components";
+import { Box, Inline, NativeButton, NativeInlineAlert, NativeInput, NativeText } from "@marktiderman/genesis-ui-native/components";
 import type { InboxItem, InboxPageProps, ThreadMessage, ThreadPageProps } from "@marktiderman/genesis-ui-native/layouts";
 import type { SupportIdea, SupportReply, SupportReport } from "../client";
 import type { SupportThreadInfo } from "../chat";
 import { fill } from "../copy";
 import { awaitingReplyLine, useReplyExpectation } from "../reply-expectation";
 import { SUPPORT_QUERY_ROOT, useOptionalSupport, useSupport } from "./support";
+import { required } from "./agent";
 
 const key = (...parts: string[]) => [SUPPORT_QUERY_ROOT, ...parts];
 
@@ -64,21 +65,23 @@ export function useSupportInbox(): InboxProps {
   }));
 
   const header = (
-    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, paddingHorizontal: 16, paddingBottom: 8 }}>
-      <NativeButton size="sm" onPress={() => void block.openFeedback({ screenshot: false })} testID="genesis-support-inbox-new">
-        {copy.inbox.sendFeedback}
-      </NativeButton>
-      {block.options.ideas === false ? null : (
-        <>
-          <NativeButton size="sm" variant="outline" onPress={() => navigate(paths.ideas)} testID="genesis-support-inbox-ideas">
-            {copy.inbox.ideaBoard}
-          </NativeButton>
-          <NativeButton size="sm" variant="outline" onPress={() => navigate(paths.shipped)} testID="genesis-support-inbox-shipped">
-            {copy.inbox.shipped}
-          </NativeButton>
-        </>
-      )}
-    </View>
+    <Box px="lg" pb="sm">
+      <Inline gap="sm" wrap>
+        <NativeButton size="sm" onPress={() => void block.openFeedback({ screenshot: false })} testID="genesis-support-inbox-new">
+          {copy.inbox.sendFeedback}
+        </NativeButton>
+        {block.options.ideas === false ? null : (
+          <>
+            <NativeButton size="sm" variant="outline" onPress={() => navigate(paths.ideas)} testID="genesis-support-inbox-ideas">
+              {copy.inbox.ideaBoard}
+            </NativeButton>
+            <NativeButton size="sm" variant="outline" onPress={() => navigate(paths.shipped)} testID="genesis-support-inbox-shipped">
+              {copy.inbox.shipped}
+            </NativeButton>
+          </>
+        )}
+      </Inline>
+    </Box>
   );
 
   return {
@@ -105,7 +108,7 @@ function firstLine(text: string): string {
   return line.length > 120 ? `${line.slice(0, 119)}…` : line;
 }
 
-type ThreadProps = Pick<ThreadPageProps, "messages" | "composer" | "closedNotice" | "readAt" | "readLabel" | "emptyTitle" | "emptyBody" | "labels" | "testID"> & {
+type ThreadProps = Pick<ThreadPageProps, "messages" | "composer" | "closedNotice" | "header" | "readAt" | "readLabel" | "emptyTitle" | "emptyBody" | "labels" | "testID"> & {
   headerTitle: string;
   /**
    * Until support first answers: where the answer will come, and how soon (`replyExpectation`) or
@@ -114,6 +117,13 @@ type ThreadProps = Pick<ThreadPageProps, "messages" | "composer" | "closedNotice
    * report is closed (addressed or won't fix), when no answer is coming.
    */
   awaiting: string | null;
+  /**
+   * Support marked it fixed and asks the person "Is it fixed?" (migration 0003): `header` shows the
+   * question with "Yes, it's fixed" and "No, reopen it", which call `verify`.
+   */
+  awaitingVerification: boolean;
+  /** The person's answer: fixed (confirmed) or not (reopened). */
+  verify: (fixed: boolean) => void;
   report: SupportReport | null;
   loading: boolean;
   /** Read, and there is no such report (deleted, or not the person's): leave the screen. */
@@ -200,9 +210,9 @@ export function useSupportThread(reportId: string, options: { pollMs?: number } 
       body: r.message,
       mine: true,
       timestamp: r.createdAt,
-      attachments: (attachments.data ?? [])
-        .filter((a) => a.url)
-        .map((a) => ({ id: a.id, uri: a.url!, width: a.width ?? undefined, height: a.height ?? undefined, accessibilityLabel: copy.thread.screenshot })),
+      attachments: (attachments.data ?? []).flatMap((a) =>
+        a.url ? [{ id: a.id, uri: a.url, width: a.width ?? undefined, height: a.height ?? undefined, accessibilityLabel: copy.thread.screenshot }] : [],
+      ),
     };
     // The person never receives internal notes; a staff member using this screen doesn't see them either.
     const rest: ThreadMessage[] = (replies.data ?? [])
@@ -213,9 +223,11 @@ export function useSupportThread(reportId: string, options: { pollMs?: number } 
         mine: reply.mine,
         authorName: reply.fromStaff ? copy.thread.support : undefined,
         timestamp: reply.createdAt,
-        attachments: (reply.attachments ?? [])
-          .filter((a) => a.kind === "image" && a.stored && a.url)
-          .map((a) => ({ id: a.id, uri: a.url!, width: a.width ?? undefined, height: a.height ?? undefined, accessibilityLabel: copy.thread.screenshot })),
+        attachments: (reply.attachments ?? []).flatMap((a) =>
+          a.kind === "image" && a.stored && a.url
+            ? [{ id: a.id, uri: a.url, width: a.width ?? undefined, height: a.height ?? undefined, accessibilityLabel: copy.thread.screenshot }]
+            : [],
+        ),
       }));
     const pending: ThreadMessage[] = send.isPending && send.variables ? [{ id: "sending", body: send.variables, mine: true, timestamp: new Date().toISOString(), status: "sending" }] : [];
     const failedMessages: ThreadMessage[] = failed.map((f) => ({
@@ -231,6 +243,51 @@ export function useSupportThread(reportId: string, options: { pollMs?: number } 
     }));
     return [first, ...rest, ...pending, ...failedMessages];
   }, [r, replies.data, attachments.data, send.isPending, send.variables, failed, copy, send]);
+
+  const [answered, setAnswered] = useState<"fixed" | "reopened" | null>(null);
+  const verify = useMutation({
+    mutationFn: (fixed: boolean) => required(client.verify, "verify")(reportId, fixed),
+    onSuccess: (_done, fixed) => {
+      setAnswered(fixed ? "fixed" : "reopened");
+      void queryClient.invalidateQueries({ queryKey: key("report", reportId) });
+      void queryClient.invalidateQueries({ queryKey: key("reports") });
+    },
+  });
+  // Addressed and not yet confirmed: only where the client reads when it was (`verifiedAt` null, not unknown).
+  const awaitingVerification = Boolean(client.verify && r && r.status === "addressed" && r.verifiedAt === null && answered === null);
+  const answer = (fixed: boolean) => {
+    if (!verify.isPending) verify.mutate(fixed);
+  };
+  const header: ReactNode =
+    awaitingVerification || answered ? (
+      <Box px="lg" py="md" testID="genesis-support-thread-verify">
+        {awaitingVerification ? (
+          <NativeInlineAlert
+            variant="info"
+            title={copy.thread.verifyTitle}
+            description={copy.thread.verifyBody}
+            actions={
+              <>
+                <NativeButton size="sm" onPress={() => answer(true)} disabled={verify.isPending} testID="genesis-support-thread-verify-fixed">
+                  {copy.thread.verifyFixed}
+                </NativeButton>
+                <NativeButton size="sm" variant="outline" onPress={() => answer(false)} disabled={verify.isPending} testID="genesis-support-thread-verify-reopen">
+                  {copy.thread.verifyReopen}
+                </NativeButton>
+              </>
+            }
+          >
+            {verify.isError ? <NativeInlineAlert variant="destructive" description={copy.thread.verifyFailed} testID="genesis-support-thread-verify-failed" /> : null}
+          </NativeInlineAlert>
+        ) : (
+          <NativeInlineAlert
+            variant="success"
+            description={answered === "fixed" ? copy.thread.verifiedFixed : copy.thread.verifiedReopened}
+            testID="genesis-support-thread-verified"
+          />
+        )}
+      </Box>
+    ) : null;
 
   const closed = r ? CLOSED.has(r.status) : false;
   // Until support first answers, say where the answer will come. Only when the app set when people
@@ -253,15 +310,20 @@ export function useSupportThread(reportId: string, options: { pollMs?: number } 
     emptyBody: copy.thread.emptyBody,
     closedNotice: copy.thread.closed,
     awaiting,
+    awaitingVerification,
+    verify: answer,
+    header,
     composer: closed
       ? null
       : {
           ...(awaiting
             ? {
                 above: (
-                  <NativeText preset="body-sm" className="text-muted-foreground" style={{ paddingHorizontal: 12, paddingTop: 8 }} testID="genesis-support-thread-awaiting">
-                    {awaiting}
-                  </NativeText>
+                  <Box px="md" pt="sm">
+                    <NativeText preset="body-sm" className="text-muted-foreground" testID="genesis-support-thread-awaiting">
+                      {awaiting}
+                    </NativeText>
+                  </Box>
                 ),
               }
             : {}),
@@ -345,26 +407,28 @@ export function useIdeaBoard(): BoardProps {
   }));
 
   const header: ReactNode = (
-    <View style={{ flexDirection: "row", gap: 8, alignItems: "flex-end", paddingHorizontal: 16, paddingBottom: 12 }}>
-      <View style={{ flex: 1 }}>
-        <NativeInput
-          testID="genesis-support-idea-title"
-          label={copy.ideas.titleLabel}
-          placeholder={copy.ideas.titlePlaceholder}
-          value={title}
-          onChangeText={setTitle}
-          maxLength={140}
-        />
-      </View>
-      <NativeButton
-        onPress={() => title.trim().length >= 3 && suggest.mutate(title.trim())}
-        disabled={title.trim().length < 3}
-        loading={suggest.isPending}
-        testID="genesis-support-idea-submit"
-      >
-        {copy.ideas.submit}
-      </NativeButton>
-    </View>
+    <Box px="lg" pb="md">
+      <Inline gap="sm" align="end">
+        <Box style={{ flex: 1 }}>
+          <NativeInput
+            testID="genesis-support-idea-title"
+            label={copy.ideas.titleLabel}
+            placeholder={copy.ideas.titlePlaceholder}
+            value={title}
+            onChangeText={setTitle}
+            maxLength={140}
+          />
+        </Box>
+        <NativeButton
+          onPress={() => title.trim().length >= 3 && suggest.mutate(title.trim())}
+          disabled={title.trim().length < 3}
+          loading={suggest.isPending}
+          testID="genesis-support-idea-submit"
+        >
+          {copy.ideas.submit}
+        </NativeButton>
+      </Inline>
+    </Box>
   );
 
   return {

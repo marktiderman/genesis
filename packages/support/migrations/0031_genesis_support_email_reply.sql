@@ -1,5 +1,5 @@
 -- @feat:support-email
--- Genesis support 0027: reply by email, the database half (after 0004_genesis_support_tickets.sql;
+-- Genesis support 0031: reply by email, the database half (after 0004_genesis_support_tickets.sql;
 -- the support-chat block's 0005 and 0006 are optional).
 --
 -- public.support_email_reply(p_ticket, p_user, p_from, p_message_id, p_body): the inbound route
@@ -31,7 +31,7 @@
 -- Use: copy this file into your app's `supabase/migrations/` under a new timestamped name
 -- (`genesis migrate` does it). Never edit it once applied; change it with a new migration.
 --
--- Verify: the pgTAP test beside this file (`tests/0027_genesis_support_email_reply.test.sql`).
+-- Verify: the pgTAP test beside this file (`tests/0031_genesis_support_email_reply.test.sql`).
 
 create schema if not exists private;
 
@@ -46,13 +46,13 @@ begin
    where n.nspname = 'public' and p.proname = 'support_email_reply'
    limit 1;
   if existing is not null and existing not like '%Genesis support.%' then
-    raise exception 'genesis support 0027: public.support_email_reply already exists and isn''t Genesis''s (an app''s own reply by email?). Drop or rename yours, and point your inbound route at this one (supportReplyRoute), then run this migration; see its header.';
+    raise exception 'genesis support 0031: public.support_email_reply already exists and isn''t Genesis''s (an app''s own reply by email?). Drop or rename yours, and point your inbound route at this one (supportReplyRoute), then run this migration; see its header.';
   end if;
   if to_regclass('private.genesis_support_email_posts') is not null
      and (select array_agg(a.attname::text order by a.attname) from pg_attribute a
            where a.attrelid = to_regclass('private.genesis_support_email_posts') and a.attnum > 0 and not a.attisdropped)
          is distinct from array['at', 'email_id', 'posted_id', 'ticket_id'] then
-    raise exception 'genesis support 0027: private.genesis_support_email_posts exists with other columns; rename it, then run this migration.';
+    raise exception 'genesis support 0031: private.genesis_support_email_posts exists with other columns; rename it, then run this migration.';
   end if;
 end;
 $$;

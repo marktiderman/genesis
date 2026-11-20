@@ -1,9 +1,9 @@
 /**
- * `ai.key-budget`: the AI provider key as the Edge Function secret ANTHROPIC_API_KEY, and the
- * app's spending cap as a setting. Verified by listing the models with the key (`GET /v1/models`
+ * `ai.key-budget`: the AI provider key as the Edge Function secret ANTHROPIC_API_KEY, with the
+ * provider's spend limit set in its console. Verified by listing the models with the key (`GET /v1/models`
  * spends no tokens).
  */
-import { defineSetupStep } from "@marktiderman/genesis-config/setup";
+import { defineSetupStep } from "./define.js";
 import { needsSecret, OFFLINE, request, secretSetters, type StepRunner } from "./framework.js";
 
 export const aiKeyBudgetStep = defineSetupStep({
@@ -12,7 +12,6 @@ export const aiKeyBudgetStep = defineSetupStep({
   package: "@marktiderman/genesis-ai",
   tools: ["supabase"],
   needs: [{ name: "ANTHROPIC_API_KEY", store: "edge", help: "An Anthropic API key from the console." }],
-  fields: [{ name: "budgetUsd", label: "Budget (USD)", pattern: "\\d{1,7}(?:\\.\\d{1,2})?", placeholder: "50", optional: true, help: "The app's own cap. Set the provider's spend limit in its console too.", setting: "budgetUsd" }],
   links: [
     { label: "Anthropic API keys", url: "https://console.anthropic.com/settings/keys" },
     { label: "Anthropic limits", url: "https://console.anthropic.com/settings/limits" },

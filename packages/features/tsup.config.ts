@@ -23,7 +23,7 @@ function stampUseClient(file: string) {
   }
 }
 
-const ESM_ENTRIES = { index: "src/index.ts", blocks: "src/blocks-entry.ts", gate: "src/gate-entry.ts", settings: "src/settings-entry.ts", "settings-protocol": "src/settings-protocol.ts", setup: "src/setup.ts", "settings-react": "src/settings-react.tsx", "gate-react": "src/gate-react.tsx", node: "src/node.ts", react: "src/react.tsx" };
+const ESM_ENTRIES = { index: "src/index.ts", blocks: "src/blocks-entry.ts", gate: "src/gate-entry.ts", settings: "src/settings-entry.ts", "settings-protocol": "src/settings-protocol.ts", "settings-react": "src/settings-react.tsx", "gate-react": "src/gate-react.tsx", node: "src/node.ts", react: "src/react.tsx" };
 
 /**
  * The React-free entries also ship as CommonJS (`require` condition). The Expo
@@ -31,7 +31,7 @@ const ESM_ENTRIES = { index: "src/index.ts", blocks: "src/blocks-entry.ts", gate
  * `require` (through tsx/cjs or its own transpiler), so an `import`-only export
  * fails there with "Package subpath './settings' is not defined by exports".
  */
-const CJS_ENTRIES = { index: "src/index.ts", blocks: "src/blocks-entry.ts", gate: "src/gate-entry.ts", settings: "src/settings-entry.ts", "settings-protocol": "src/settings-protocol.ts", setup: "src/setup.ts", node: "src/node.ts" };
+const CJS_ENTRIES = { index: "src/index.ts", blocks: "src/blocks-entry.ts", gate: "src/gate-entry.ts", settings: "src/settings-entry.ts", "settings-protocol": "src/settings-protocol.ts", node: "src/node.ts" };
 
 const EXTERNAL = [/^@marktiderman\//, "react", "react-dom", "lucide-react", "zod", /^node:/];
 

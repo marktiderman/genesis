@@ -485,13 +485,14 @@ describe("what /settings ships", () => {
 });
 
 describe("manifests", () => {
-  it("writes the catalogue as the database checks it, without defaults or secrets", async () => {
+  it("writes the catalogue as the database checks and resolves it: defaults by preset, never a secret", async () => {
     const { catalogueManifest } = await import("../index");
     const m = catalogueManifest(catalogue);
-    expect(m["support.dumpRetentionDays"]).toEqual({ type: "number", applies: "runtime", scope: "app", min: 7, max: 365 });
-    expect(m["support.githubRepo"]).toEqual({ type: "string", applies: "runtime", scope: "app", nullable: true });
-    expect(m["devtools.screen"]).toEqual({ type: "boolean", applies: "build", scope: "app" });
-    expect(JSON.stringify(m)).not.toMatch(/GITHUB_TOKEN|default/);
+    const each = <T>(v: T) => ({ max: v, standard: v, min: v });
+    expect(m["support.dumpRetentionDays"]).toEqual({ type: "number", applies: "runtime", scope: "app", defaults: each(90), min: 7, max: 365 });
+    expect(m["support.githubRepo"]).toEqual({ type: "string", applies: "runtime", scope: "app", defaults: each(null), nullable: true });
+    expect(m["devtools.screen"]).toMatchObject({ type: "boolean", applies: "build", scope: "app" });
+    expect(JSON.stringify(m)).not.toMatch(/GITHUB_TOKEN|secret/);
   });
 
   it("reads a package.json declaration with the same checks", async () => {

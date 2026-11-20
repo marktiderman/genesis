@@ -5,7 +5,7 @@
 -- already has the hooks or a manifest, they are replaced inside this transaction only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(93);
+select plan(102);
 
 -- People: a1 a platform admin; aa the admin of tenant A, ab a member of A; bb the admin of tenant B;
 -- c1 and c2 signed in, in no tenant.
@@ -356,6 +356,29 @@ select is((select count(*)::int from public.genesis_scoped_setting_changes where
 delete from auth.users where id = pg_temp.person('c2');
 select is((select count(*)::int from public.genesis_person_settings where person_id = pg_temp.person('c2')), 0, 'a deleted person''s values are gone');
 select is((select count(*)::int from public.genesis_scoped_setting_changes where person_id = pg_temp.person('c2')), 0, '... and their history');
+
+-- The server's reader: private.genesis_setting, as resolveSettings resolves ------------------------
+update public.genesis_app_manifest set preset = 'standard',
+  file_settings = file_settings || '{"res.count": 4, "res.pinned": {"value": 2, "locked": true}, "res.build": false}',
+  catalogue = catalogue || '{
+    "res.on": {"type": "boolean", "applies": "runtime", "scope": "tenant", "defaults": {"max": true, "standard": false, "min": false}},
+    "res.count": {"type": "number", "applies": "runtime", "scope": "app", "integer": true, "min": 1, "max": 9, "defaults": {"max": 5, "standard": 5, "min": 5}},
+    "res.pinned": {"type": "number", "applies": "runtime", "scope": "tenant", "defaults": {"max": 1, "standard": 1, "min": 1}},
+    "res.build": {"type": "boolean", "applies": "build", "scope": "app", "defaults": {"max": true, "standard": true, "min": true}}
+  }';
+select is(private.genesis_setting('res.on'), 'false'::jsonb, 'the preset''s default, from the synced catalogue');
+insert into public.genesis_tenant_settings (tenant_id, key, value)
+values (pg_temp.tenant('b'), 'res.on', 'true'), (pg_temp.tenant('b'), 'res.count', '7'), (pg_temp.tenant('b'), 'res.pinned', '3');
+select is(private.genesis_setting('res.on', pg_temp.tenant('b')), 'true'::jsonb, 'a tenant-scoped key takes the tenant''s value');
+select is(private.genesis_setting('res.on'), 'false'::jsonb, '... only for that tenant');
+select is(private.genesis_setting('res.count'), '4'::jsonb, 'the file over the default');
+insert into public.genesis_settings (key, value) values ('res.count', '6'), ('res.build', 'true');
+select is(private.genesis_setting('res.count', pg_temp.tenant('b')), '6'::jsonb, 'the database over the file, and an app-scoped key ignores a tenant''s value');
+update public.genesis_settings set value = '2.5' where key = 'res.count';
+select is(private.genesis_setting('res.count'), '4'::jsonb, 'a value that doesn''t fit (a fraction) is skipped');
+select is(private.genesis_setting('res.pinned', pg_temp.tenant('b')), '2'::jsonb, 'a value the file locks holds over the tenant''s');
+select is(private.genesis_setting('res.build'), 'false'::jsonb, 'a build-time key takes only the file''s value');
+select ok(private.genesis_setting('res.unknown') is null, 'a key the catalogue doesn''t declare: null, for the caller''s fallback');
 
 select * from finish();
 rollback;

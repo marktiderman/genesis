@@ -139,7 +139,7 @@ describe("the client", () => {
     expect(rpcs.at(-1)).toEqual({ fn: "support_delete_saved_reply", args: { saved: "s1" } });
     const report = await support.agentReport!({ from: new Date("2026-10-01T00:00:00Z"), to: "2026-11-01T00:00:00Z" });
     expect(rpcs.at(-1)).toEqual({ fn: "support_agent_report", args: { tenant: "ta", from_at: "2026-10-01T00:00:00.000Z", to_at: "2026-11-01T00:00:00Z" } });
-    expect(report).toMatchObject({ opened: 4, closed: 2, openNow: 3, medianFirstResponseSeconds: 3600, medianCloseSeconds: null, byRequester: [{ label: "Acme", open: 2 }, { label: null, open: 1 }], byRequesterCapped: false });
+    expect(report).toMatchObject({ opened: 4, closed: 2, openNow: 3, medianFirstResponseSeconds: 3600, medianCloseSeconds: null, byRequester: [{ label: "Acme", open: 2 }, { label: null, open: 1 }] });
     expect(await support.agentMentions!()).toEqual([{ id: "x", reportId: "t1", messageId: "m", authorId: "a", createdAt: "2026-11-01T00:00:00Z" }]);
     expect(calls.at(-1)?.table).toBe("ticket_mentions");
   });
@@ -593,12 +593,6 @@ describe("SupportSavedRepliesAdmin", () => {
 });
 
 describe("SupportAgentReports", () => {
-  it("says when the list by customer counts only some open tickets", async () => {
-    const agentReport = vi.fn(async () => ({ fromAt: "", toAt: "", opened: 1, closed: 0, openNow: 1500, medianFirstResponseSeconds: null, medianCloseSeconds: null, byRequester: [{ label: "Acme", open: 1000 }], byRequesterCapped: true }));
-    render(<SupportAgentReports client={fakeClient({ agentReport })} tenantId="ta" from="2026-10-01" to="2026-10-31" />, { wrapper });
-    expect((await screen.findByTestId("genesis-support-reports-by-requester-capped")).textContent).toMatch(/^Counted from the 1.?000 most recently changed open conversations\.$/);
-  });
-
   it("shows the range's numbers and the open ones by customer", async () => {
     const agentReport = vi.fn(async () => ({ fromAt: "", toAt: "", opened: 12, closed: 7, openNow: 5, medianFirstResponseSeconds: 5400, medianCloseSeconds: null, byRequester: [{ label: "Acme", open: 3 }, { label: null, open: 2 }] }));
     render(<SupportAgentReports client={fakeClient({ agentReport })} tenantId="ta" from="2026-10-01" to="2026-10-31" />, { wrapper });
@@ -607,7 +601,6 @@ describe("SupportAgentReports", () => {
     expect(screen.getByText("None yet")).toBeTruthy();
     expect(screen.getByText("Acme")).toBeTruthy();
     expect(screen.getByText("Unknown")).toBeTruthy();
-    expect(screen.queryByTestId("genesis-support-reports-by-requester-capped")).toBeNull();
     const call = (agentReport.mock.calls[0] as unknown as [{ tenantId: string; from: Date; to: Date }])[0];
     expect(call.tenantId).toBe("ta");
     expect(call.from.getDate()).toBe(1);

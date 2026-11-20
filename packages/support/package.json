@@ -272,8 +272,8 @@
             "test": "migrations/tests/0020_genesis_support_settings.test.sql"
           },
           {
-            "file": "migrations/0025_genesis_support_notifications.sql",
-            "test": "migrations/tests/0025_genesis_support_notifications.test.sql"
+            "file": "migrations/0030_genesis_support_notifications.sql",
+            "test": "migrations/tests/0030_genesis_support_notifications.test.sql"
           },
           {
             "file": "migrations/0026_genesis_support_diagnostics_access.sql",
@@ -284,8 +284,12 @@
             "test": "migrations/tests/0028_genesis_support_diagnostics_fixes.test.sql"
           },
           {
-            "file": "migrations/0029_genesis_support_staff_admin_list.sql",
-            "test": "migrations/tests/0029_genesis_support_staff_admin_list.test.sql"
+            "file": "migrations/0032_genesis_support_staff_admin_list.sql",
+            "test": "migrations/tests/0032_genesis_support_staff_admin_list.test.sql"
+          },
+          {
+            "file": "migrations/0033_genesis_support_settings_resolver.sql",
+            "test": "migrations/tests/0033_genesis_support_settings_resolver.test.sql"
           }
         ],
         "functions": [
@@ -461,6 +465,10 @@
           {
             "file": "migrations/0022_genesis_support_staff_tools.sql",
             "test": "migrations/tests/0022_genesis_support_staff_tools.test.sql"
+          },
+          {
+            "file": "migrations/0034_genesis_support_agent_admin.sql",
+            "test": "migrations/tests/0034_genesis_support_agent_admin.test.sql"
           }
         ],
         "steps": [
@@ -509,8 +517,8 @@
             "test": "migrations/tests/0017_genesis_support_help_answers.test.sql"
           },
           {
-            "file": "migrations/0024_genesis_support_desks.sql",
-            "test": "migrations/tests/0024_genesis_support_desks.test.sql"
+            "file": "migrations/0029_genesis_support_desks.sql",
+            "test": "migrations/tests/0029_genesis_support_desks.test.sql"
           }
         ],
         "steps": [
@@ -558,8 +566,8 @@
             "test": "migrations/tests/0008_genesis_support_email_tenants.test.sql"
           },
           {
-            "file": "migrations/0027_genesis_support_email_reply.sql",
-            "test": "migrations/tests/0027_genesis_support_email_reply.test.sql"
+            "file": "migrations/0031_genesis_support_email_reply.sql",
+            "test": "migrations/tests/0031_genesis_support_email_reply.test.sql"
           }
         ],
         "steps": [
@@ -728,8 +736,7 @@
             "feature": "support-helpdesk-ai",
             "needs": "secret:ANTHROPIC_API_KEY",
             "store": "edge",
-            "planned": true,
-            "summary": "Planned (nothing reads it yet): AI answers that cite the help center and hand off to a person (needs the person's consent and a provider key)."
+            "summary": "AI answers that cite the help center and hand off to a person (needs the person's consent, the tenant's opt-in and a provider key)."
           },
           "ideas": {
             "type": "boolean",
@@ -748,8 +755,7 @@
               "min": false
             },
             "feature": "support-chat",
-            "planned": true,
-            "summary": "Planned (nothing reads it yet): A report's thread runs on genesis-chat: live, with files, an assignee and internal notes."
+            "summary": "A report's thread runs on genesis-chat (with a chat client and the support-chat block): live, with files, an assignee and internal notes. Off: support_replies."
           },
           "email": {
             "type": "boolean",
@@ -761,8 +767,7 @@
             "feature": "support-email",
             "needs": "secret:RESEND_API_KEY",
             "store": "edge",
-            "planned": true,
-            "summary": "Planned (nothing reads it yet): Email is a ticket channel: inbound mail opens or continues a ticket, replies go out threaded."
+            "summary": "Email is a ticket channel: inbound mail opens or continues a ticket, replies go out threaded."
           },
           "replyByEmail": {
             "type": "boolean",
@@ -804,6 +809,7 @@
             "default": null,
             "needs": "secret:GITHUB_TOKEN",
             "store": "edge",
+            "setup": "github.issues",
             "summary": "owner/name: open a GitHub issue for each new report. Not set, no issues."
           },
           "githubIssueDetail": {
@@ -842,6 +848,11 @@
             "default": null,
             "scope": "tenant",
             "summary": "How soon people hear back, after \"We usually reply\" (\"within a few hours\")."
+          },
+          "verifyPrompt": {
+            "type": "boolean",
+            "default": false,
+            "summary": "When someone else marks a report fixed, ask its person in the thread to check the fix (at most once an hour). Off unless turned on."
           }
         }
       },

@@ -398,11 +398,3 @@ export async function verifyFix(fix: Fix, plan: FixPlan, context: FixContext): P
   const off = plan.files.filter((f) => fileHash(context.root, f.path) !== sha256(f.content));
   return { ok: off.length === 0, ...(off.length ? { message: `${off.map((f) => f.path).join(", ")} changed after the write` } : {}) };
 }
-
-/** Text with every held secret value replaced. */
-export function redact(text: string, secrets: SecretVault | Readonly<Record<string, string>> | undefined): string {
-  if (secrets instanceof SecretVault) return secrets.redact(text);
-  let out = text;
-  for (const value of Object.values(secrets ?? {}).sort((a, b) => b.length - a.length)) if (value.length >= 4) out = out.split(value).join("[redacted]");
-  return out;
-}
