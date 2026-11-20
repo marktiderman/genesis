@@ -17,7 +17,7 @@ import { NativeButton, NativeSearchBar, NativeText } from "@marktiderman/genesis
 import type { InboxItem, InboxPageProps, ThreadPageProps } from "@marktiderman/genesis-ui-native/layouts";
 import { reportHeading, SupportError, type HelpArticle } from "../client";
 import { fill, type SupportCopy } from "../copy";
-import type { SupportContactInfo } from "../settings";
+import { mailtoHref, type SupportContactInfo } from "../settings";
 import { useHelpAsk, type UseHelpAsk } from "../help-ask";
 import { composeExpectationLine, useReplyExpectation } from "../reply-expectation";
 import { SUPPORT_QUERY_ROOT, useSupport } from "./support";
@@ -283,7 +283,7 @@ export function SupportContactRow({ contact, copy }: { contact: SupportContactIn
       </NativeText>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         {contact.email ? (
-          <NativeButton size="sm" variant="outline" onPress={open(`mailto:${contact.email}`)} testID="genesis-support-contact-email">
+          <NativeButton size="sm" variant="outline" onPress={open(mailtoHref(contact.email))} testID="genesis-support-contact-email">
             {fill(copy.contact.email, { email: contact.email })}
           </NativeButton>
         ) : null}

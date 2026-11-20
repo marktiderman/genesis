@@ -875,7 +875,7 @@ export const notifications = defineNotifications({ categories: { ...support.cate
 Their links open the agent's ticket (`/support/agent/<id>`, with `?desk=` at a tenant's desk) and
 the person's thread; `agentUrl` and `personUrl` change them. `support.reply` offers no push while
 threads run on genesis-chat (`chatPushes: false` for an app without it). The emails:
-`supportEmailTemplates({ replies })` from `/email`, as the runner's `templates`, put the whole
+`supportEmailTemplates({ replies })` from `/email-notifications`, as the runner's `templates`, put the whole
 message in under a subject the ticket's emails share. A notification that can't be sent (no
 genesis-notifications, a type not synced) is a warning, never a failed ticket or message.
 
@@ -935,10 +935,11 @@ that the sender is that login's email with DMARC passing (aligned with the From 
 inbound router.
 
 **Wired end to end** (migration `0027_genesis_support_email_reply.sql`, in the support-email block,
-and `/email`):
+and `/email-notifications`, which imports genesis-notifications; `/email` doesn't):
 
 ```ts
-import { handleSupportInbound, supportEmailOptions, supportEmailRoute } from "@marktiderman/genesis-support/email";
+import { supportEmailRoute } from "@marktiderman/genesis-support/email";
+import { handleSupportInbound, supportEmailOptions } from "@marktiderman/genesis-support/email-notifications";
 
 // POST /api/support/email-inbound (Resend's `email.received` webhook)
 export const POST = ({ request }: { request: Request }) =>

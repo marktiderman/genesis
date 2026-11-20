@@ -138,3 +138,65 @@ describe("SupportRoute and the settings", () => {
     expect(block.contact()).toEqual({ email: "help@acme.test", url: null });
   });
 });
+
+describe("hostile paths and addresses", async () => {
+  const { supportContact } = await import("..");
+  it("stay linear: a path of many slashes, an address of many @s", () => {
+    const start = performance.now();
+    expect(zoneOf("/admin" + "/".repeat(50_000) + "x", ZONES)).toBe("/admin");
+    expect(supportScreenOf("/account/support" + "/".repeat(50_000), "/account/support")).toEqual({ name: "inbox" });
+    expect(supportContact({ "support.contactEmail": "a@".repeat(20_000) + "x" })).toBeNull();
+    expect(performance.now() - start).toBeLessThan(200);
+    expect(supportContact({ "support.contactEmail": "help@acme.test" })).toEqual({ email: "help@acme.test", url: null });
+  });
+});
+
+describe("CodeRabbit follow-ups on routes", async () => {
+  const { isUnderPath, supportContact, mailtoHref } = await import("..");
+  it("reads a thread named like an Object method as a thread", () => {
+    expect(supportScreenOf("/support/constructor", "/support")).toEqual({ name: "thread", id: "constructor" });
+    expect(supportScreenOf("/support/__proto__", "/support")).toEqual({ name: "thread", id: "__proto__" });
+  });
+
+  it("checks a path at a segment boundary", () => {
+    expect(isUnderPath("/support-plans", "/support")).toBe(false);
+    expect(isUnderPath("/support/ideas", "/support")).toBe(true);
+    expect(isUnderPath("/support?x", "/support")).toBe(true);
+  });
+
+  it("puts the zone in front of a basePath that starts like the zone", async () => {
+    const fake = fakeSupabase({ userId: "00000000-0000-4000-8000-0000000000a1", rpc: () => ({ data: [], error: null }) });
+    const navigate = vi.fn();
+    const block = createSupport({ supabase: fake.client, navigate, platform: "ios", basePath: "/admin/support", zones: ["/admin"], useCurrentRoute: () => "/admin/admin/support" });
+    const queryClient = new QueryClient();
+    render(<QueryClientProvider client={queryClient}><block.Root>{null}</block.Root></QueryClientProvider>);
+    await waitFor(() => expect(block.zone()).toBe("/admin"));
+    block.options.navigate(block.paths.help);
+    expect(navigate).toHaveBeenCalledWith("/admin/admin/support/help");
+  });
+
+  it("keeps the zone of a path the route file passes itself", async () => {
+    const fake = fakeSupabase({ userId: "00000000-0000-4000-8000-0000000000a1", rpc: () => ({ data: [], error: null }) });
+    const navigate = vi.fn();
+    const block = createSupport({ supabase: fake.client, navigate, platform: "ios", basePath: "/support", zones: ["/coach"] });
+    const Ideas = () => <span>ideas</span>;
+    render(<QueryClientProvider client={new QueryClient()}><block.Root><SupportRoute path="/coach/support/ideas" screens={{ ideas: Ideas }} /></block.Root></QueryClientProvider>);
+    await waitFor(() => expect(block.zone()).toBe("/coach"));
+    block.options.navigate(block.paths.shipped);
+    expect(navigate).toHaveBeenCalledWith("/coach/support/shipped");
+  });
+
+  it("lets an ideas option the app gave win over the setting", () => {
+    const fake = fakeSupabase({ userId: "00000000-0000-4000-8000-0000000000a1", rpc: () => ({ data: [], error: null }) });
+    const block = createSupport({ supabase: fake.client, navigate: vi.fn(), platform: "ios", basePath: "/support", ideas: true, appSettings: { "support.ideas": false }, useCurrentRoute: () => "/support/ideas" });
+    render(<QueryClientProvider client={new QueryClient()}><block.Root><SupportRoute screens={{ ideas: () => <span>board</span> }} /></block.Root></QueryClientProvider>);
+    expect(screen.getByText("board")).toBeTruthy();
+  });
+
+  it("offers a support page only with a host, and encodes the mailbox", () => {
+    expect(supportContact({ "support.contactUrl": "https://?", "support.contactEmail": "help@acme.test" })).toEqual({ email: "help@acme.test", url: null });
+    expect(supportContact({ "support.contactUrl": "https://acme.test/help" })).toEqual({ email: null, url: "https://acme.test/help" });
+    expect(mailtoHref("help?desk@acme.test")).toBe("mailto:help%3Fdesk@acme.test");
+    expect(mailtoHref("help@acme.test")).toBe("mailto:help@acme.test");
+  });
+});

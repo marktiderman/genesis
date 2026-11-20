@@ -287,10 +287,12 @@ export function supportNotifiersFromSettings(options: {
       options.onProblem?.(error instanceof Error ? error.message : String(error));
     }
   } else if (repo) options.onProblem?.("supportNotifiersFromSettings: a GitHub repository is set but GITHUB_TOKEN isn't; no issues.");
-  const url = text(options.env["SUPPORT_WEBHOOK_URL"]) ?? text(s.webhookUrl);
+  let url = text(options.env["SUPPORT_WEBHOOK_URL"]) ?? text(s.webhookUrl);
   if (url && s.staffAlerts) {
     if (!/^https:\/\//i.test(url)) options.onProblem?.("supportNotifiersFromSettings: the webhook URL must be https; no webhook.");
     else {
+      // The scheme in lower case, as webhookNotifier checks it.
+      url = `https://${url.slice("https://".length)}`;
       const secret = text(options.env["SUPPORT_WEBHOOK_SIGNING_SECRET"]);
       out.push(webhookNotifier({ url, ...(secret ? { secret } : {}), ...(options.fetch ? { fetch: options.fetch } : {}) }));
     }

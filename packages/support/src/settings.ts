@@ -196,6 +196,44 @@ export function supportSettingValues(input?: SupportSettingsInput | null): Suppo
   return out as unknown as SupportSettingValues;
 }
 
+/** One address, checked in one pass (no backtracking): one "@", no spaces or brackets, a dot in the domain, not at its ends. */
+function looksLikeEmail(text: string): boolean {
+  if (text.length > 254) return false;
+  let at = -1;
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charCodeAt(i);
+    if (c <= 0x20 || c === 0x3c || c === 0x3e || c === 0x7f) return false;
+    if (c === 0x40) {
+      if (at !== -1) return false;
+      at = i;
+    }
+  }
+  const dot = text.lastIndexOf(".");
+  return at > 0 && dot > at + 1 && dot < text.length - 1;
+}
+
+/** An https page with a host (`https://acme.test/help`), else null. */
+function httpsPage(text: string | null | undefined): string | null {
+  const t = text?.trim();
+  if (!t || t.length > 2048 || !/^https:\/\//i.test(t)) return null;
+  try {
+    const u = new URL(t);
+    return u.protocol === "https:" && u.hostname ? t : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * A `mailto:` link for an address, with the characters that would start its query or fragment (or
+ * escape) encoded (RFC 6068): `help?desk@acme.test` stays one mailbox.
+ *
+ * @stability Beta
+ */
+export function mailtoHref(email: string): string {
+  return `mailto:${email.replace(/[%?#&/]/g, (c) => encodeURIComponent(c))}`;
+}
+
 /** Where people can write when the app can't help: `support.contactEmail` and `support.contactUrl`. @stability Beta */
 export interface SupportContactInfo {
   email: string | null;
@@ -211,7 +249,7 @@ export interface SupportContactInfo {
  */
 export function supportContact(input?: SupportSettingsInput | null): SupportContactInfo | null {
   const s = supportSettingValues(input).support;
-  const email = s.contactEmail?.trim() && /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(s.contactEmail.trim()) ? s.contactEmail.trim() : null;
-  const url = s.contactUrl?.trim() && /^https:\/\/[^\s]+$/i.test(s.contactUrl.trim()) ? s.contactUrl.trim() : null;
+  const email = s.contactEmail?.trim() && looksLikeEmail(s.contactEmail.trim()) ? s.contactEmail.trim() : null;
+  const url = httpsPage(s.contactUrl);
   return email || url ? { email, url } : null;
 }

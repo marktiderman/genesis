@@ -251,3 +251,47 @@ describe("the agent desk's setting", () => {
     expect(agentTickets).not.toHaveBeenCalled();
   });
 });
+
+describe("CodeRabbit follow-ups on the desk cards", () => {
+  it("keeps two clients' desks apart in one QueryClient", async () => {
+    const a = stub({ myDesks: vi.fn(async () => [desk(), acme]) });
+    const b = stub({ myDesks: vi.fn(async () => [desk(), north]) });
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={qc}>
+        <SupportDeskPicker client={a} onChange={() => {}} />
+        <SupportDeskPicker client={b} onChange={() => {}} value="north" />
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(b.myDesks).toHaveBeenCalled());
+    expect(a.myDesks).toHaveBeenCalled();
+  });
+
+  it("offers no action the client can't do", async () => {
+    const client = stub({
+      ticketDesk: vi.fn(async () => ({ tenantId: "acme", label: "Acme", isDefault: false, canEscalate: true, canReturn: false, returnsTo: null, returnsToLabel: null, lastMove: null })),
+      deskMoveTargets: vi.fn(async () => [{ tenantId: "app", label: null, isDefault: true }]),
+    });
+    const { container } = wrap(<SupportDeskControls client={client} ticket={ticket} />);
+    await waitFor(() => expect(client.ticketDesk).toHaveBeenCalled());
+    expect(screen.queryByTestId("genesis-support-desk-escalate")).toBeNull();
+    expect(container.innerHTML).toBe("");
+  });
+
+  it("closes an open dialog when the ticket changes", async () => {
+    const escalateTicket = vi.fn(async () => undefined);
+    const client = stub({
+      ticketDesk: vi.fn(async () => ({ tenantId: "acme", label: "Acme", isDefault: false, canEscalate: true, canReturn: false, returnsTo: null, returnsToLabel: null, lastMove: null })),
+      deskMoveTargets: vi.fn(async () => []),
+      escalateTicket,
+    });
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const view = render(<QueryClientProvider client={qc}><SupportDeskControls client={client} ticket={ticket} /></QueryClientProvider>);
+    fireEvent.click(await screen.findByTestId("genesis-support-desk-escalate"));
+    expect(screen.getByTestId("genesis-support-desk-dialog")).toBeTruthy();
+    const other = { ...ticket, id: "t2" } as AgentTicket;
+    view.rerender(<QueryClientProvider client={qc}><SupportDeskControls client={client} ticket={other} /></QueryClientProvider>);
+    expect(screen.queryByTestId("genesis-support-desk-dialog")).toBeNull();
+    expect(escalateTicket).not.toHaveBeenCalled();
+  });
+});

@@ -648,3 +648,10 @@ describe("notifiers from the settings", async () => {
     expect(problems[0]).toContain("https");
   });
 });
+
+describe("a webhook URL in capitals", async () => {
+  const { supportNotifiersFromSettings } = await import("../server");
+  it("is normalised, never thrown on", () => {
+    expect(supportNotifiersFromSettings({ env: {}, settings: { "support.webhookUrl": "HTTPS://hooks.example.test/support" } }).map((n) => n.name)).toEqual(["webhook"]);
+  });
+});

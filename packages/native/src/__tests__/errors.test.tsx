@@ -229,3 +229,12 @@ describe("a support contact on the fatal screens", () => {
     expect(screen.queryByTestId("genesis-fatal-contact")).toBeNull();
   });
 });
+
+describe("contactHref, after review", async () => {
+  const { contactHref } = await import("../errors");
+  it("needs a host for a page, and encodes the mailbox", () => {
+    expect(contactHref({ url: "https://", email: "help@acme.test" })).toBe("mailto:help@acme.test");
+    expect(contactHref({ email: "help?desk@acme.test" })).toBe("mailto:help%3Fdesk@acme.test");
+    expect(contactHref({ email: "!@!." + "!.".repeat(20000) })).toBeNull();
+  });
+});

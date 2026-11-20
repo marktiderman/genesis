@@ -90,7 +90,17 @@ export function supportReplyProvider(provider: EmailProvider, config: SupportRep
   return {
     name: provider.name,
     send: (message, options) =>
-      provider.send({ ...message, replyTo, headers: { ...message.headers, References: `<support-ticket-${claims.ticketId}@${config.domain}>` } }, options),
+      provider.send(
+        {
+          ...message,
+          replyTo,
+          headers: { ...message.headers, References: `<support-ticket-${claims.ticketId}@${config.domain}>` },
+          // The address names the week it was made: a retry in a later week sends another address,
+          // so it is another request to the provider, never a clash with the first one's key.
+          idempotencyKey: `${message.idempotencyKey}:${replyTo.slice(0, replyTo.indexOf("@")).slice(-4)}`,
+        },
+        options,
+      ),
   };
 }
 

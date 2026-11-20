@@ -176,9 +176,10 @@ function SearchForm({ copy, initial, onSearch }: { copy: SupportCopy; initial: s
   );
 }
 
-function Home({ client, tenantId, scope, tickets: ticketsQuery, copy, go, here, report, greeting, onSearch }: Shared & { greeting: string | undefined; onSearch: ((query: string) => void) | null }) {
+function Home({ client, tenantId, scope, tickets: ticketsQuery, copy, go, here, report, greeting, onSearch, help }: Shared & { greeting: string | undefined; onSearch: ((query: string) => void) | null; help: boolean }) {
   const tickets = useQuery(ticketsQuery);
-  const articles = useQuery({ queryKey: supportMessengerKeys.articles(scope, null), queryFn: () => required(client.helpArticles)({ tenantId }) });
+  // support.helpCenter off: no articles on Home either.
+  const articles = useQuery({ queryKey: supportMessengerKeys.articles(scope, null), queryFn: () => required(client.helpArticles)({ tenantId }), enabled: help });
   useReported(tickets.error, report);
   useReported(articles.error, report);
   const latest = tickets.data?.[0];
@@ -200,7 +201,7 @@ function Home({ client, tenantId, scope, tickets: ticketsQuery, copy, go, here, 
           items={ticketItems([latest], copy, (id) => go({ name: "ticket", id, from: here }))}
         />
       ) : null}
-      {articles.data?.length ? (
+      {help && articles.data?.length ? (
         <InboxPage
           testID="genesis-support-messenger-popular"
           className="flex-none overflow-visible rounded-md border"
@@ -553,7 +554,8 @@ function Conversation({ client, tenantId, scope, contact, tickets, copy, report,
     void queryClient.invalidateQueries({ queryKey: supportMessengerKeys.replies(id) });
     void queryClient.invalidateQueries({ queryKey: supportMessengerKeys.ticket(id) });
     void queryClient.invalidateQueries({ queryKey: tickets.queryKey });
-  }, [queryClient, id, scope]);
+    // The list it refreshes is the one shown now (`allTenants` can change it).
+  }, [queryClient, id, scope, JSON.stringify(tickets.queryKey)]);
   useEffect(() => client.subscribe(id, refresh), [client, id, refresh]);
 
   // Read while it's in front of them: as it shows, as something new arrives, and on coming back.
@@ -570,7 +572,7 @@ function Conversation({ client, tenantId, scope, contact, tickets, copy, report,
     read();
     document.addEventListener("visibilitychange", read);
     return () => document.removeEventListener("visibilitychange", read);
-  }, [client, id, latest, active, scope, queryClient, report]);
+  }, [client, id, latest, active, scope, queryClient, report, JSON.stringify(tickets.queryKey)]);
 
   const shown = useMemo(() => (replies.data ?? []).filter((r) => !r.internal), [replies.data]);
   const threadFailed = replies.isError && !replies.data;
@@ -743,7 +745,7 @@ function Messenger({ client, tenantId: tenantProp, allTenants = false, settings,
     case "space":
       body =
         screen.space === "home" ? (
-          <Home {...shared} greeting={greeting} onSearch={spaces.includes("help") ? search : null} />
+          <Home {...shared} greeting={greeting} onSearch={spaces.includes("help") ? search : null} help={values.support.helpCenter} />
         ) : screen.space === "messages" ? (
           <Messages {...shared} />
         ) : (

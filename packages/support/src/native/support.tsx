@@ -31,7 +31,7 @@ import type { DiagnosticReport } from "../diagnostics/report";
 import { listenForShake, type AccelerometerLike, type ShakeOptions, type ViewShotLike } from "./modules";
 import { SendDiagnosticsRow } from "./diagnostics";
 import { supportContact, supportSettingValues, type SupportContactInfo, type SupportSettingsInput, type SupportSettingValues } from "../settings";
-import { inZone, stripZone, zoneOf } from "../routes";
+import { isUnderPath, stripZone, zoneOf } from "../routes";
 
 /** A screenshot waiting for the feedback screen. `uri` is a data URI. */
 export interface PendingScreenshot {
@@ -198,6 +198,8 @@ export interface SupportBlock extends NativeBlock<typeof SUPPORT_BLOCK_ID> {
   subscribePending(listener: () => void): () => void;
   /** The route the person is on, as the root last saw it. */
   currentRoute(): string | null;
+  /** Tell support the route the person is on, for a screen that reads it itself (`SupportRoute`'s `path`). */
+  noteRoute(path: string): void;
   /** The navigation zone the person is in (one of `zones`), or "" for none. */
   zone(): string;
   /** Where people can write when the app can't help (`support.contactEmail` / `contactUrl`), or null: for Help and for genesis-native's fatal screens (`contact`). */
@@ -280,7 +282,12 @@ export function createSupport(given: SupportOptions): SupportBlock {
   const zones = options.zones ?? [];
   // Every link support opens stays in the zone the person is in.
   const appNavigate = options.navigate;
-  options.navigate = (href: string) => appNavigate(inZone(href, zoneOf(route ?? "", zones)));
+  // Support's own hrefs are always unzoned (`paths`), so the zone is put in front, never guessed
+  // from the href (a basePath that starts like a zone would look zoned already).
+  options.navigate = (href: string) => {
+    const zone = zoneOf(route ?? "", zones);
+    appNavigate(zone && href.startsWith("/") ? `${zone}${href}` : href);
+  };
   let pending: PendingFeedback | null = null;
   const listeners = new Set<() => void>();
   const setPending = (next: PendingFeedback | null) => {
@@ -473,6 +480,9 @@ export function createSupport(given: SupportOptions): SupportBlock {
       return () => listeners.delete(listener);
     },
     currentRoute: () => route,
+    noteRoute(path) {
+      if (path) route = path;
+    },
     zone: () => zoneOf(route ?? "", zones),
     contact: () => supportContact(typeof given.appSettings === "function" ? given.appSettings() : given.appSettings),
     Root: function SupportRoot({ children }) {
@@ -511,7 +521,7 @@ export function createSupport(given: SupportOptions): SupportBlock {
             options.accelerometer,
             () => {
               // Already on a support screen: shaking again does nothing.
-              if (route && stripZone(route, zones).startsWith(paths.inbox)) return;
+              if (route && isUnderPath(stripZone(route, zones), paths.inbox)) return;
               // The person turned shake to report off (shake.enabled is theirs to change).
               if (!readSettings().shake.enabled) return;
               const diagnostics = options.diagnostics;

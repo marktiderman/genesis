@@ -53,8 +53,12 @@ export function SupportRoute({ path, params, screens, notFound = null }: Support
   const current = (block.options.useCurrentRoute ?? noPath)();
   const search = (block.options.router?.useSearchParams ?? noParams)();
   const where = path ?? current;
+  // A path the route file passes is where the person is: links from here keep its zone.
+  useEffect(() => {
+    if (path) block.noteRoute(path);
+  }, [block, path]);
   const screen = supportScreenOf(where, block.paths.inbox, block.options.zones);
-  if (!screen || !screenOn(screen.name, block.settings(), block.options.ideas !== false)) return <>{notFound}</>;
+  if (!screen || !screenOn(screen.name, block.settings(), block.options.ideas)) return <>{notFound}</>;
   const query = params ?? search;
   const Own = screens?.[screen.name];
   if (Own) return <Own screen={screen} params={query} />;
@@ -62,7 +66,7 @@ export function SupportRoute({ path, params, screens, notFound = null }: Support
 }
 
 /** Whether the app's settings have this screen on (a screen turned off is `notFound`). */
-function screenOn(name: SupportScreenName, s: SupportSettingValues, ideas: boolean): boolean {
+function screenOn(name: SupportScreenName, s: SupportSettingValues, ideas: boolean | undefined): boolean {
   switch (name) {
     case "inbox":
     case "thread":
@@ -71,7 +75,8 @@ function screenOn(name: SupportScreenName, s: SupportSettingValues, ideas: boole
       return s.support.feedback;
     case "ideas":
     case "shipped":
-      return ideas && s.support.ideas;
+      // An `ideas` option the app gave wins over the setting, as in createSupport.
+      return ideas ?? s.support.ideas;
     case "home":
     case "message":
       return s.support.messenger;

@@ -65,6 +65,10 @@
       "types": "./dist/email.d.ts",
       "import": "./dist/email.js"
     },
+    "./email-notifications": {
+      "types": "./dist/email-notifications.d.ts",
+      "import": "./dist/email-notifications.js"
+    },
     "./ai": {
       "types": "./dist/ai.d.ts",
       "import": "./dist/ai.js"

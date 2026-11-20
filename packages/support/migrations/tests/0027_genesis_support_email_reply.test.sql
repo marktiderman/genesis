@@ -5,7 +5,7 @@
 -- People: a1 wrote the ticket; b2 is staff (a handler); c3 is nobody.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(14);
+select plan(17);
 
 create function pg_temp.person(n text) returns uuid language sql immutable as $$
   select ('00000000-0000-4000-8000-0000000026' || n)::uuid $$;
@@ -58,6 +58,16 @@ select lives_ok($$select pg_temp.reply('a1', 'genesis-reply-a1@example.test', '<
 select is(pg_temp.reply('a1', 'genesis-reply-a1@example.test', '<m1@mail.test>', 'Still broken'),
   (select id from genesis_chat.messages where body = 'Still broken'), 'and the first email, delivered again days on, is the same message');
 reset role;
+
+select ok((select relrowsecurity from pg_class where oid = 'private.genesis_support_email_posts'::regclass), 'the posts table has row level security');
+-- One email answering two tickets is a message in each (the chat client id names the ticket).
+insert into public.tickets (id, user_id, type, message, tenant_id)
+values ('00000000-0000-4000-8000-0000000026f1', pg_temp.person('a1'), 'bug', 'Another', '00000000-0000-4000-8000-00000000000f');
+set local role service_role;
+select lives_ok($$select public.support_email_reply('00000000-0000-4000-8000-0000000026f1', pg_temp.person('a1'), 'genesis-reply-a1@example.test', '<m1@mail.test>', 'Still broken')$$,
+  'the same Message-ID on another ticket');
+reset role;
+select is((select count(*)::int from genesis_chat.messages where body = 'Still broken'), 2, 'posts there too');
 
 insert into private.genesis_support_email_posts (ticket_id, email_id, posted_id)
 select '00000000-0000-4000-8000-0000000026f0', 'loop' || g, gen_random_uuid() from generate_series(1, 20) g;
