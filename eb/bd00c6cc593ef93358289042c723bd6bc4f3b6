@@ -1,0 +1,35 @@
+.changeset/genesis-support-settings.md
+  s_ca8e075e853203::t_dbaa8f1a8d661b 20
+.changeset/genesis-support-staff-tools.md
+  s_ca8e075e853203::t_c42d04c2dd86b4 22
+apps/genesis-rn-starter/supabase/migrations/20261026000100_genesis_support_default_hooks.sql
+  s_ca8e075e853203::t_0238d0b9628dee 8,37
+apps/genesis-rn-starter/supabase/migrations/20261026000200_genesis_support_hook_defaults.sql
+  s_ca8e075e853203::t_245474ba339ab5 11,48,71
+packages/support/README.md
+  s_ca8e075e853203::t_6b62fad636d4aa 92-93
+packages/support/migrations/0021_genesis_support_default_hooks.sql
+  s_ca8e075e853203::t_cfaa8bd4d819b8 8,37
+packages/support/migrations/0023_genesis_support_hook_defaults.sql
+  s_ca8e075e853203::t_198cfde6d75b9e 11,48,71
+packages/support/migrations/tests/0023_genesis_support_hook_defaults.test.sql
+  s_ca8e075e853203::t_b14b20549a80fb 8,27,39,50-62,66
+packages/support/package.json
+  s_ca8e075e853203::t_d39b44dd9d9849 240
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ebbd00c6cc593ef93358289042c723bd6bc4f3b6",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
