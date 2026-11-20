@@ -66,7 +66,7 @@ export default defineConfig({
     "src/components/resource/index.ts",
     "src/components/resource/rules.ts",
     // Experimental spreadsheet grid, on its own subpath so nobody else
-    // inherits its @tanstack/react-virtual peer (DATA-STUDIO.md decision 20).
+    // inherits its @tanstack/react-virtual peer (DATA.md decision 20).
     "src/components/sheet-grid/sheet-grid.tsx",
     // Rich text, on its own subpaths so only apps that import the editor
     // need the optional @tiptap/* peers. `/rich-text` (renderer + server-safe

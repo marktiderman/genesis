@@ -64,7 +64,7 @@ The ten pieces of how an app looks and works (ADR 0018). Each combines freely wi
 |---|---|---|
 | **resource** | the typed contract for one data source a view reads and writes (`defineResource`). | entity, model, collection, schema (for this). |
 | **record** | one item of a resource. Use "row" only inside grid and sheet UIs. | entity, item (in APIs), document. |
-| **view** | the rules for a resource's list, whatever its view type: scope, filters, sort, paging, selection, permissions, live updates and URL state (`defineView`). How it shows is its **view type**. | list config, table config. Data Studio's saved grids are **saved views**. |
+| **view** | the rules for a resource's list, whatever its view type: scope, filters, sort, paging, selection, permissions, live updates and URL state (`defineView`). How it shows is its **view type**. | list config, table config. Genesis Data's saved grids are **saved views**. |
 | **view type** | how a view shows: table, list, grid, board, calendar, gallery, inbox, or one an app registers (`<ResourceView type>`, `defineViewType`, `registerViewType`; ADR 0021). Sheet is planned. | mode (except the `mode` prop, `type`'s alias), list UI, layout (for this). |
 | **segment** | a named tab over a list with its own filter and an optional count (`defineView`'s `segments`; ADR 0017). | preset (a screen's fixed columns and filter), saved view (a person's own), tab (for this). |
 | **filter** (on a view) | a field a person can narrow a list by, drawn by the platform (`defineView`'s `filters`): choices, a range or "contains". | facet, filter config. |
@@ -72,6 +72,8 @@ The ten pieces of how an app looks and works (ADR 0018). Each combines freely wi
 | **type switcher** | the control that switches a list between the view types its view supports (`ViewTypeSwitcher`, a view's `types`; ADR 0017). | view toggle (ResourcePage's older table, list and grid control), mode picker. |
 | **client layer** | an app's own layer over Genesis, in one folder (`src/client/`, `genesis.config.json` `client.dir`): its provider and defaults, its ResourceView wrapper, one view per resource with its appearance, its cells, parts and registered view types (ADR 0020). | surface (a custom view), wrapper folder, app shell (the navigation frame). |
 | **record view** | the description of one record's page (`defineRecordView`), which a **record page** renders. | resource workspace (removed earlier; `m.workspace.*` message keys and the `native-resource-workspace-menu` testID still carry it), detail panel. |
+| **Genesis Data** | the table and record editor over an app's own tables (`@marktiderman/genesis-data`, `-data-server`, `genesis data init`; ADR 0025). Its exported names (`DataStudio`, `createStudioHandler`), the `genesis_studio` schema and the `genesis_studio_login` role keep the old word. | Data Studio, the studio, genesis-studio (the deprecated package names). |
+| **Genesis Studio** | the creator suite: the tools for designing, building, maintaining and supporting an app. Defined when its first tool ships in Genesis (ADR 0025). | Studio for Genesis Data. |
 | **table** | a Postgres table. Never used for a resource. |  |
 | **data provider** | the implementation behind resources (`DataProvider`, `createSupabaseProvider`). |  |
 | **adapter** | an implementation of a Genesis interface for an outside system: a switchboard backend, a storage backend or an AI vendor. | driver, connector (for this), and provider (for AI vendors). |
@@ -89,7 +91,7 @@ The ten pieces of how an app looks and works (ADR 0018). Each combines freely wi
 | **tenant** | the isolation boundary that owns rows (`tenant_id`) and that the feature gate scopes to. | practice, account (for this), team (for this), org (as a type), company (for this), organisation (British spelling). |
 | **organization** | what a tenant is, as people say it. A user-facing label an app chooses, never a Genesis type or column (ADR 0007). |  |
 | **location** | a place a tenant runs (a site, a campus, a studio): a workspace kind and a table (`location_id`, ADR 0007). It is optional; a tenant with one place never sees the word. |  |
-| **workspace** | where the viewer is working: one tenant, a roll-up of several, or personal (ADR 0004, `defineWorkspace`, `WorkspaceScope`). | workspace for the Data Studio UI, for forms-studio's page, or for a pnpm workspace in public API docs. |
+| **workspace** | where the viewer is working: one tenant, a roll-up of several, or personal (ADR 0004, `defineWorkspace`, `WorkspaceScope`). | workspace for Genesis Data UI, for forms-studio's page, or for a pnpm workspace in public API docs. |
 | **scope** | the row filter a workspace gives views (`ResourceScope`, `{ tenantId }`, `{ personId }`). | context (for this). Always qualify OAuth scopes as "OAuth scope". |
 | **space** | a collab sharing unit with a subject, an audience, roles and visibility (`genesis-collab`, `space_id`). | room, workspace (for this). |
 | **user** | an auth login (`userId`). | account (for the login), principal, actor (outside audit logs). |

@@ -14,9 +14,9 @@ export const Teams = () => <ResourceView view={teams} pagination="server" />;
 export const Mixed = () => <ResourcePage<League> resource="leagues" tree={{ getParentId }} pagination="client" />;
 `;
 
-const AUTH_OK = `import { jwtVerifier, switchToUser } from "@marktiderman/genesis-studio-server/auth";
-const { supabaseVerifier } = require("@marktiderman/genesis-studio-server/auth");
-import { createStudioHandler } from "@marktiderman/genesis-studio-server";
+const AUTH_OK = `import { jwtVerifier, switchToUser } from "@marktiderman/genesis-data-server/auth";
+const { supabaseVerifier } = require("@marktiderman/genesis-data-server/auth");
+import { createStudioHandler } from "@marktiderman/genesis-data-server";
 export { jwtVerifier, switchToUser, supabaseVerifier, createStudioHandler };
 `;
 
@@ -60,9 +60,9 @@ describe("studio-server-auth-import", () => {
   it("flags deep imports of studio-server files and a CommonJS require of its root", async () => {
     const found = await only("studio-server-auth-import", {
       "src/auth.ts": [
-        'import { switchToUser } from "@marktiderman/genesis-studio-server/dist/switch.js";',
-        'const auth = require("@marktiderman/genesis-studio-server/src/auth");',
-        'const server = require("@marktiderman/genesis-studio-server");',
+        'import { switchToUser } from "@marktiderman/genesis-data-server/dist/switch.js";',
+        'const auth = require("@marktiderman/genesis-data-server/src/auth");',
+        'const server = require("@marktiderman/genesis-data-server");',
       ].join("\n"),
     });
     expect(found.map((f) => [f.line, f.level])).toEqual([
@@ -70,18 +70,18 @@ describe("studio-server-auth-import", () => {
       [2, "warn"],
       [3, "warn"],
     ]);
-    expect(found.every((f) => f.message.includes("@marktiderman/genesis-studio-server/auth"))).toBe(true);
+    expect(found.every((f) => f.message.includes("@marktiderman/genesis-data-server/auth"))).toBe(true);
   });
 
   it("reads .cjs and .mjs files, which the default scan leaves out", async () => {
     const found = await only("studio-server-auth-import", {
-      "src/server.cjs": 'const { switchToUser } = require("@marktiderman/genesis-studio-server");\n',
-      "src/worker.mjs": 'import { switchToUser } from "@marktiderman/genesis-studio-server/dist/switch.js";\n',
-      "src/fine.cjs": 'const auth = require("@marktiderman/genesis-studio-server/auth");\n',
-      "src/server.test.cjs": 'require("@marktiderman/genesis-studio-server");\n',
+      "src/server.cjs": 'const { switchToUser } = require("@marktiderman/genesis-data-server");\n',
+      "src/worker.mjs": 'import { switchToUser } from "@marktiderman/genesis-data-server/dist/switch.js";\n',
+      "src/fine.cjs": 'const auth = require("@marktiderman/genesis-data-server/auth");\n',
+      "src/server.test.cjs": 'require("@marktiderman/genesis-data-server");\n',
       // The scan's exclusions and the app's own ignore apply here too.
-      "src/client.gen.cjs": 'require("@marktiderman/genesis-studio-server");\n',
-      "vendor/legacy.cjs": 'require("@marktiderman/genesis-studio-server");\n',
+      "src/client.gen.cjs": 'require("@marktiderman/genesis-data-server");\n',
+      "vendor/legacy.cjs": 'require("@marktiderman/genesis-data-server");\n',
       "genesis.config.json": JSON.stringify({ doctor: { ignore: ["vendor/**"] } }),
     });
     expect(found.map((f) => [f.file, f.line])).toEqual([

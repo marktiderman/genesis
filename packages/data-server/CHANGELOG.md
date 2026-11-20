@@ -1,0 +1,230 @@
+# @marktiderman/genesis-data-server
+
+Published as `@marktiderman/genesis-studio-server` until this rename (ADR 0025); the history below is that package's.
+
+## 0.6.0
+
+### Minor Changes
+
+- 153d7d1: Moves to postgres.js 4 (`postgres` `^4.1.0`, was `^3.4.9`) for the pools Studio opens from a connection string.
+
+  **A pool you pass in can be postgres.js 3.4 or 4.** `createPostgresDatabase(connection)` and the outbox worker's `database` now take a `PostgresPool`, typed by the methods Studio calls on it (`begin`, `unsafe`, `end`, and a transaction's `unsafe` and `savepoint`), instead of the dependency's own `postgres.Sql`. A v3 or a v4 pool typechecks without a cast; passing a connection string needs no change. `PostgresPool` and `PostgresTransaction` are exported. `PostgresOptions.ssl`, which applies only to the pool Studio opens, still names postgres.js 4's `ssl` option.
+
+  A pool you pass in keeps its own version's behaviour. What postgres.js 4 changes for an app on it:
+
+  - Parameters are sent untyped (`infer: false` by default), so the server types them. Studio's own queries cast every parameter through text (`$1::text::uuid`) and run each transaction in UTC, so they behave as before; check your own queries that pass a `Date`, boolean, Buffer or bigint, and a `Date` for a `timestamp` or `date` column in a session that isn't in UTC.
+  - A transaction the server rolled back now rejects, and an unsafe `BEGIN` outside `sql.begin` is rejected.
+  - A query that can't be built or serialized now aborts its transaction, where v3 skipped it. Inside a savepoint (Studio's bulk writes and imports run each row in one) it fails only that savepoint.
+  - postgres.js 4 is ESM only (Node 20.19+ or 22.12+, which this package's engines already require).
+
+  Fixed: Studio's own pool now sends a JS `Date` parameter as its UTC instant. It sent `String(date)` (`… GMT-0500 (Eastern Standard Time)`), which Postgres refused: on postgres.js 3 for every `Date`, and on 4 wherever the server typed the parameter as a date or time (an untyped value into such a column, or `$n::timestamptz`); a `Date` cast through `$n::text` worked on 4. A `Date` written to a `date` column stores the UTC calendar day of its instant, so a local midnight east of UTC (in Tokyo, say) is stored as the day before; pass a `YYYY-MM-DD` string to store a local day.
+
+  From postgres.js 4.1.0 (the floor): `PGSSLMODE` is now honoured. `require` actually uses TLS and fails against a server without it, and `verify-full` verifies, where 4.0 and earlier connected in plain text. Check `PGSSLMODE` in any environment that sets it before you upgrade. 4.1.0 also fixes a prepared-statement cache that kept every query's values and rows (about 1.1 GB with 10 connections); Studio's own pool sets `prepare: false`, but a v4 pool you pass in should be 4.1 or later.
+
+## 0.5.4
+
+### Patch Changes
+
+- a5a8fdf: Custom views (ADR 0019): a screen an app draws itself over a view, while Genesis keeps the view's data and states.
+
+  - genesis-ui (`/data`): `<CustomView view type="list|board|calendar">{(state) => …}</CustomView>` and `useCustomView` load the view's rows with its scope, preset, filters, URL state, live updates and permissions, and draw loading, empty (the view's `copy.empty` words) and error with a retry, each replaceable (`loading`, `empty`, `error`). The headless view query every view type shares is exported: `useViewListParams`, `useViewList` (paging, sort, search, selection, the open record, `urlState`, `can`), `useViewPermissions`, `useViewBoard` (columns from the board block, the move with its guards, refusal and conflict) and `useViewCalendarRange` (one window's rows, live). ResourceBoard and ResourceCalendar now load through `useViewBoard` and `useViewCalendarRange`, unchanged on screen. `useReducedMotion` (`/hooks`, `/data`).
+  - genesis-core (`/resource-view`): `groupRows(view, rows, options)` groups rows by the view's `groupBy` on any platform.
+  - genesis-design-system: `THEME_PARTS` gains `custom-view` (`data-view-type`, `data-state`), `custom-view-loading`, `custom-view-empty` and `custom-view-error`.
+  - genesis-cli: doctor rules `app-part-name` (an app's own `data-slot` starts `app-` and doesn't clash with a Genesis part), `app-part-colors` (custom views and app parts take colours from roles only) and `custom-view-states` (a custom view doesn't draw its own loading, empty or error), all warn.
+
+  View types and record pages (ADR 0021):
+
+  - genesis-ui (`/data`): a view-type registry (`defineViewType`, `registerViewType`, `resolveViewType`, `listViewTypes`); `<ResourceView type>` is the preferred prop (`mode` stays as its alias) and dispatches through it, with `gallery` now its own type. `open` (`side-peek`, `center-peek`, `page`) and `recordView` on ResourceView; ResourcePage's `detail` takes the same words beside `panel`, `modal` and `route` (`detailMode`, `recordOpen`). The board and the calendar honour the open mode (`open`, `recordView`, `onNavigate`). A peek draws the view's record view when it names one: `RecordPeek`, and `RecordView presentation="peek"` (sections as tabs that switch in place; `section` and `sectionHref` are optional there). RecordView draws the document template.
+  - genesis-core (`/resource-view`): `defineView`'s `open` (`RecordOpen`, `RECORD_OPEN_MODES`) and `recordView`; `defineRecordView`'s `template` (`standard`, `document`) and `document` (`cover`, `icon`, `properties`, `body`). A field's form-control hint is `control` (`ControlHint`, `fieldControl`); `widget` and `WidgetHint` stay as deprecated aliases every reader still reads.
+  - genesis-ui-native: `NativeResourceView` takes `type` (`list`, `grid`, `gallery`), `mode` its alias; `NativeResourceViewType`.
+  - genesis-studio, genesis-studio-server and `genesis introspect` read `control` beside `widget`.
+  - genesis-design-system: parts `board`, `board-column`, `board-card`, `calendar`, `calendar-event`, `gallery`, `record-page`, `record-peek` and the document template's `record-page-cover`, `-icon`, `-title`, `-properties` and `-body`.
+  - genesis-cli: the ui doctor rule `lists-use-resource-view` accepts a file that defines or registers a view type, and a KanbanBoard fed by `useViewBoard`.
+
+## 0.5.3
+
+### Patch Changes
+
+- 6af1095: A checked-in contract can give a text column the new `widget: "tel"`; it was ignored before.
+
+## 0.5.2
+
+### Patch Changes
+
+- 1ed0cba: Package layers. Every package's package.json now says where it sits: `genesis.layer`
+  (`foundation`, `primitive`, `module` or `tooling`), `genesis.group` (`core`, `data`, `ai`,
+  `forms`, `collaboration`, `shells` or `modules`) and, on the foundation packages, `essential`.
+  Dependencies only point down, and the repo's CI fails when one doesn't (docs/PACKAGE-STRATEGY.md,
+  "Layers").
+
+  - genesis-features: `PackageMeta`, `ModuleMeta`, `PACKAGE_LAYERS`, `PACKAGE_GROUPS`,
+    `readPackageMeta` and `packageLayerProblems` (also from `/blocks`). The feature `layer` that
+    meant one component is now `"element"`; `"primitive"` is still accepted as its deprecated name,
+    and `findFeatures(…, { layer: "element" })` finds both, until the next major.
+  - genesis-sites, genesis-support and genesis-product are modules: each declares a
+    `genesis.module` card (name, summary, blocks, schema, install line, docs) and ships a
+    `SKILL.md`. genesis-product gains a `product-board` block (`genesis add product-board`), and
+    marks `/node` and its `genesis-product` bin as tooling.
+  - genesis-cli: `genesis features find --layer element` (`--layer primitive` still works).
+
+## 0.5.1
+
+### Patch Changes
+
+- 9a254df: Each package declares what `genesis doctor` enforces for it in its package.json (`genesis.doctor`): "use X instead" rules such as `core/direct-data-access` (no `supabase.from` / `.rpc` in screens), `ui-native/lists-use-native-resource-view`, `forms-react/forms-use-genesis-forms`, `notifications/notify-through-notifier`, `chat/chat-uses-genesis-chat`, `studio/raw-tables-use-studio`, `studio-server/handler-on-server`, `supabase/client-from-genesis`, `native/app-root`, `connect/secrets-use-connect`, `extension/checked-messaging`, `features/no-env-feature-switches`, `support/feedback-uses-support` and `forms/server-check-on-server`, plus primitives for the catalog; packages with nothing to enforce say why. Apps get the rules on install, with no config. Every rule ships as a warning. `forms/server-check-on-server` and `studio-server/handler-on-server` (a server-only import in a `.tsx`/`.jsx` screen) skip route modules whose server code never reaches the browser: ones that export a `loader` or `action` (declared or in an `export { … }` list), call `createServerFn(`, or start with a `"use server"` directive (`clientLoader` and `loaderData` don't count); they become errors in a later minor release.
+
+  Features: doctor-package-rules
+
+## 0.5.0
+
+### Minor Changes
+
+- 5f44692: New `@marktiderman/genesis-studio-server/auth` entry: the token checks (`jwtAuth`, `jwtVerifier`, `supabaseAuth`, `supabaseVerifier`, `bearerToken`) and the identity switch (`switchToUser`, `IdentitySwitchError`, `DEFAULT_SWITCH_ROLES`), with no database connection, handler or browser client. It ships as ESM and CommonJS (`import` and `require` conditions, `.d.cts` types, `typesVersions` for TypeScript's `node` resolution), so a server that builds to CommonJS, such as NestJS, can use it instead of copying the code. The CommonJS build loads `jose` (ESM-only) with Node's `require(esm)`, unflagged from Node 20.19 and 22.12, so the package's `engines` is now `^20.19.0 || >=22.12.0` (was `>=20`; Node 20 reached end of life in April 2026). The package root is unchanged and still exports the same names.
+
+### Patch Changes
+
+- 7d27855: A database login that wasn't granted the role it switches to now fails with `IdentitySwitchError` ("the database login can't switch to it … grant authenticated to <login>"), with the database's 42501 as its `cause`, in both `switchToUser` and the studio handler. Before, `set_config('role', …)` ran outside the switch's error handling, so it surfaced as a bare 42501 that read as the caller lacking a permission. Other database errors during the switch (a missing role, a lost connection) still pass through unchanged.
+
+## 0.4.0
+
+### Minor Changes
+
+- 0d8925a: Export the identity switch for an app's own API: `switchToUser` runs inside any transaction (postgres.js, or Drizzle's `sql` with `tx.execute`). It sets the role, the JWT claims and an allow-listed `request.headers` (credential headers refused), then checks `current_user`. `jwtVerifier` and `supabaseVerifier` verify a raw token, such as a socket handshake's. The studio handler now uses the same switch, and also clears `request.headers` on every transaction.
+
+### Patch Changes
+
+- 319d36d: Harden `switchToUser`:
+  - It switches only to `authenticated` or `anon` unless `allowRoles` lists others, and it refuses a token whose `role` claim names a different role.
+  - A check in SQL now aborts the transaction when the switch didn't take, when the role bypasses RLS, or when the login is a superuser or BYPASSRLS (`allowPrivilegedLogin` is for local development).
+  - A statement timeout below 1 ms is refused.
+  - More credential-like header names are refused.
+  - `request.method`, `request.path` and `request.cookies` are cleared on every switch.
+
+## 0.3.1
+
+### Patch Changes
+
+- 6c180f6: A unique violation (`23505`) is now its own write outcome, `duplicate`, instead of `invalid`. A caller that keeps one live row per key (a draft, a natural-key upsert) can adopt the existing row; `fields` and the safe message are unchanged. Studio server answers it with 409.
+
+## 0.3.0
+
+### Minor Changes
+
+- 36e114c: `@marktiderman/genesis-core` is now a peer dependency at `^1.6.0` (studio-server had it as a
+  dependency at `^1.3.0`), as it is for `genesis-studio`: an app's lockfile can no longer keep an
+  older core nested under studio-server while the app runs a newer one. `genesis-cli` loads
+  studio-server, so it declares the same peer. Apps already depend on genesis-core; any `^1.6.0`
+  release satisfies both.
+
+## 0.2.1
+
+### Patch Changes
+
+- bcf1248: The studio server runs on Cloudflare Workers, where Lovable deploys TanStack Start apps. A
+  database connection there belongs to the request that opened it, so the server now opens one
+  per transaction and closes it after (`createPostgresDatabase(url, { perRequest })`, on by
+  default on Workers), and one handler serves every request. `genesis studio init` writes
+  `process.env["X"]` (for `noPropertyAccessFromIndexSignature`) and says `bun add` for a text
+  `bun.lock`.
+
+## 0.2.0
+
+### Minor Changes
+
+- 9667f9a: **Data Studio P1 — the studio people want to live in** (docs/DATA-STUDIO.md P1).
+
+  - **studio-server:**
+    - **Create and delete:** creates and deletes run as the user and are audited, and deletes are version-checked.
+    - **Audit history:** a record's history, limited to fields the user may read.
+    - **`describe()`:** reports relations (`one`, `many`, or `through` a junction), a label field, and the fields a new row may set.
+    - **Multi-field server sort.**
+    - **Rule-bearing writes (decision 29):** `resources[name].functions` routes create, update or delete through the app's own database functions.
+    - **The `outbox` audit sink and `createOutboxWorker`:**
+      - delivery is at least once and in order per record;
+      - claiming uses SKIP LOCKED, so two workers never send the same entry;
+      - retries use backoff with jitter (10 attempts over about a day);
+      - failed entries move to a dead-letter table with an alert, until replayed;
+      - a run that fails before delivering (a refused login, a missing grant) is reported to `onError`;
+      - delivered rows can be pruned.
+    - **Writes run at REPEATABLE READ.** A write carried by an app function stays conflict-checked even where the user can't take a row lock. A delete takes no row lock, so DELETE rights alone are enough.
+    - With `loginRole`, `record_history` refuses any login but the studio's, like `record_audit`.
+    - **`byResource` rules** gain `create`, `delete` and `history`.
+    - Re-run `npx genesis-studio-server sql` as a new migration: it adds the outbox tables and the history function, and is safe to run again.
+  - **studio:**
+    - **The record pop-up:** a schema-built form (react-hook-form + zod: required, numbers, dates, enums, JSON), related records, history, delete with confirmation, and a copyable link.
+    - New peers: `react-hook-form` ^7, `zod` ^3.25 or ^4, and `@hookform/resolvers` ^5.1 (the first with Zod 4 support).
+    - **Rows and links:** adding a row; relation pickers that search on the server; and labels for link cells, one query per linked table per page.
+    - **Server-side list controls:** a filter builder with operators by field type, multi-field sort and group-by, all kept in the URL.
+    - **Saved views:** filters, sort, search, grouping and visible columns.
+    - **CSV export:** every filtered row (up to 10 000), with cells that would run as spreadsheet formulas neutralised.
+    - **Controls follow the provider:** they hide what it can't serve, and disabled actions say why.
+
+- a642bc0: **Data Studio P2 — power editing** (docs/DATA-STUDIO.md P2).
+
+  - **studio-server:**
+    - `updateMany` and `deleteMany` run in one transaction, each row version-checked in its own savepoint. Every failure is listed, then nothing is kept.
+    - `import` inserts every row for real, in its own savepoint, so the database checks each value, constraint and row rule. Nothing is coerced. A dry run rolls back and lists every failing row.
+    - `undo` makes a compensating, audited write for the user's own change, and refuses when the row has changed since. A deleted row comes back with its own key or not at all.
+    - Re-run `npx genesis-studio-server sql` as a new migration: it adds `genesis_studio.audit_entry`, which with `loginRole` refuses any login but the studio's.
+  - **studio:**
+    - **Sheet view** (`?view=sheet`), built on `SheetGrid`. A paste across rows is saved in one transaction through `updateMany`. If any row fails, nothing is saved and the failing cells are marked.
+    - **Undo:** Cmd/Ctrl+Z, plus an Undo button in the activity panel and in a record's History.
+    - **Bulk actions:** "Set a field…" and "Delete" on selected rows, all or none.
+    - **CSV import:** map the columns, check every row with a dry run, then import in one transaction.
+    - **`forms` prop:** form sections, and fields shown only when a condition holds, declared in code.
+
+- 69d7f90: **Data Studio P3 — workflow** (docs/DATA-STUDIO.md P3).
+
+  - **studio-server:**
+    - **Row actions:** `resources[name].actions` maps a named action to the app's function `fn(record_key jsonb)`. It runs as the user, at the version they saw, and its effect on the row is audited as `run:<name>`. `authorize` is asked `{ action: "run", rowAction }`, and `byResource` takes `actions: true | string[]`. The studio never undoes an action.
+    - **Comments:** `authorize` allows `{ action: "comment" }` (`byResource`: `comment: true`). Comments are stored by security definer functions, only for rows the user can see, and the author is always the token's `sub`.
+    - **`contracts`:** a checked-in contract from `genesis introspect` wins over discovery for labels, the label field, descriptions and type-compatible widgets. Types, keys and permissions still come from the live database.
+    - `@genesis {…}` settings are left out of the comments the studio shows as descriptions.
+    - **Hardening:** with `loginRole`, the read functions (`record_history`, `audit_entry`, `record_comments`) now refuse any other login, as the write functions already did. They stay the handler's, even if a Data API is pointed at `genesis_studio`.
+    - **Migration:** re-run `npx genesis-studio-server sql` as a new migration. It adds `genesis_studio.comments`, `add_comment` and `record_comments`, and widens the audit log's `action` check to allow `run:<name>`.
+  - **studio:**
+    - **Board view** (`?view=kanban&by=…`): one column per value of an enum or yes/no field, 50 cards per column with **Load more**. Moving a card is a version-checked update, by drag or by the keyboard **Move to** menu.
+    - **Calendar view** (`?view=calendar&by=…&month=YYYY-MM`): one request per month, up to 200 rows. Timestamps are placed on the viewer's day.
+    - The record pop-up runs row actions, asking first when the action has a `confirm` question, and has a **Comments** tab.
+    - Contract labels are used wherever a field is named.
+    - **Fix:** signing in again as the same user (a new token, the same `sessionKey`) now brings the studio back. Before, it stayed on the sign-in screen until a reload.
+  - **genesis-cli:** **`genesis introspect`** writes `resources.genesis.ts` from the Postgres catalog or a PostgREST/Supabase OpenAPI document. Labels and widgets come from `@genesis {…}` in table and column comments. The output is deterministic, and `--check` fails CI on drift.
+
+- 69d7f90: **The Data Studio turns on in any app, for every table.**
+
+  - **genesis-cli:** `genesis studio init` writes one migration to review (the studio's `NOINHERIT` login and the audit trail), the server and a page, then prints the remaining steps. The server is a Next.js route, or a Supabase Edge Function for Vite and Lovable apps.
+  - **studio-server:**
+    - **`supabaseStudio({ url, database })`:** the handler for a Supabase project in one call.
+    - **`databaseDecides()`:** every table, every action, bounded by the user's grants and row-level security. `who` defaults to any signed-in, non-anonymous user.
+    - **No version trigger needed.** A table without a trusted version column is checked against a fingerprint of the row's readable values (`VersionField.kind: "row"`), so it's editable and stale edits are still refused. A configured `versionField` that can't be trusted still makes the table read-only.
+    - **Policies are read too.** A granted table that no row-level security policy lets you update, insert or delete shows that action as off, with the reason, instead of failing on every try.
+    - **CORS:** the handler answers preflights for `allowedOrigins`, so it can run on another origin.
+    - **`supabaseAuth` inside the local Supabase stack** (`http://kong:8000`) also accepts the browser's localhost issuer. Hosted projects keep the exact issuer check.
+    - **`createSupabaseStudioProvider(supabase)`** in `/client`: it sends the session's token and reports user changes.
+  - **studio:**
+    - `router` is optional (the page's query string), and no `sessionKey` is needed with a provider that reports its session.
+    - **`standalone.css`:** every class the studio uses, prebuilt, for apps without Tailwind v4. Its small reset applies only inside the studio and its pop-ups, and the app's own theme variables win.
+  - **core:** `VersionField.kind` may be `"row"`.
+
+### Patch Changes
+
+- Updated dependencies [9667f9a]
+- Updated dependencies [a642bc0]
+- Updated dependencies [69d7f90]
+- Updated dependencies [69d7f90]
+  - @marktiderman/genesis-core@1.3.0
+
+## 0.1.0
+
+### Minor Changes
+
+- 8b251da: **Genesis Data Studio, milestone P0 — "fix a real row"** (docs/DATA-STUDIO.md). Two new packages, first published at 0.1.0.
+
+  - **`@marktiderman/genesis-studio-server`** — a web-standard `Request → Response` handler that always acts as the signed-in user over a direct Postgres connection (`set local role` plus their verified claims, per transaction). Schema discovery with per-user column rights, list and read, and a single-cell update that is version-checked under a row lock, confirms the database advanced the version, and commits its audit entry in the same transaction. Composite keys. A deny-by-default `authorize()` (`byResource` for the common case) that can never grant more than the database. `supabaseAuth` / `jwtAuth`, the `genesis-studio-server sql` setup migration (tamper-proof audit log), and a browser client at `/client`.
+  - **`@marktiderman/genesis-studio`** — `<DataStudio>`: a table sidebar and a sheet grid built on genesis-ui's `ResourcePage`, with in-place edits whose outcome is shown (saved with its audit entry, or not saved and why). Routing through an adapter (`createSearchParamsRouter`, `useHistoryRouter`, `useMemoryRouter`); sign-in is a slot. Experimental.
+
+### Patch Changes
+
+- Updated dependencies [8b251da]
+- Updated dependencies [1a9d899]
+  - @marktiderman/genesis-core@1.2.0

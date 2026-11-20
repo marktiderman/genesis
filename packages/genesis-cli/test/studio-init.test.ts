@@ -35,15 +35,15 @@ describe("genesis studio init", () => {
     const page = plan.files.find((f) => f.path === "src/pages/DataStudioPage.tsx")!.content;
     expect(page).toContain('import { supabase } from "@/integrations/supabase/client";');
     expect(page).toContain("/functions/v1/genesis-studio");
-    expect(page).toContain('import "@marktiderman/genesis-studio/standalone.css";');
+    expect(page).toContain('import "@marktiderman/genesis-data/standalone.css";');
     expect(plan.files.find((f) => f.path === "supabase/config.toml")).toMatchObject({ append: true, content: expect.stringContaining("verify_jwt = false") });
     expect(plan.steps[0]).toContain('<Route path="/admin/data"');
     expect(plan.install).toContain("@hookform/resolvers@>=5.1.0 <8");
     // The browser client and the Edge Function run the exact server this CLI was built with.
-    const { version } = JSON.parse(readFileSync(new URL("../../studio-server/package.json", import.meta.url), "utf8"));
-    expect(plan.install).toContain(`@marktiderman/genesis-studio-server@${version}`);
+    const { version } = JSON.parse(readFileSync(new URL("../../data-server/package.json", import.meta.url), "utf8"));
+    expect(plan.install).toContain(`@marktiderman/genesis-data-server@${version}`);
     const fn = plan.files.find((f) => f.path === "supabase/functions/genesis-studio/index.ts")!.content;
-    expect(fn).toContain(`npm:@marktiderman/genesis-studio-server@${version}"`);
+    expect(fn).toContain(`npm:@marktiderman/genesis-data-server@${version}"`);
   });
 
   it("writes one migration with a NOINHERIT login, the audit trail, and no password", () => {
@@ -165,16 +165,25 @@ describe("TanStack Start apps", () => {
     expect(page).toContain('variant="plain"');
     expect(page).not.toContain("standalone.css");
     const server = plan.files.find((f) => f.path === "src/routes/api/studio.ts")!.content;
-    expect(server).toContain('await import("@marktiderman/genesis-studio-server")');
+    expect(server).toContain('await import("@marktiderman/genesis-data-server")');
     // Bracket access works under noPropertyAccessFromIndexSignature.
     expect(server).toContain('process.env["STUDIO_DATABASE_URL"]!');
     expect(server).not.toMatch(/process\.env\.[A-Z]/);
-    expect(plan.files.find((f) => f.path === "src/styles.css")!.content).toContain('@source "../node_modules/@marktiderman/genesis-studio/dist";');
+    expect(plan.files.find((f) => f.path === "src/styles.css")!.content).toContain('@source "../node_modules/@marktiderman/genesis-data/dist";');
   });
 
   it("has Tailwind scan genesis-ui too, when the app doesn't yet", () => {
     const bare = { ...facts, read: (p: string) => (p === "src/styles.css" ? '@import "tailwindcss" source(none);\n' : facts.read(p)) };
     const css = planStudioInit(bare).files.find((f) => f.path === "src/styles.css")!.content;
-    expect(css).toBe('@import "tailwindcss" source(none);\n@source "../node_modules/@marktiderman/genesis-ui/dist";\n@source "../node_modules/@marktiderman/genesis-studio/dist";\n');
+    expect(css).toBe('@import "tailwindcss" source(none);\n@source "../node_modules/@marktiderman/genesis-ui/dist";\n@source "../node_modules/@marktiderman/genesis-data/dist";\n');
+  });
+
+  it("adds the genesis-data source once, and to an app set up under the old name", () => {
+    const withCss = (css: string) => ({ ...facts, read: (p: string) => (p === "src/styles.css" ? css : facts.read(p)) });
+    const ui = '@import "tailwindcss" source(none);\n@source "../node_modules/@marktiderman/genesis-ui/dist";\n';
+    const already = `${ui}@source "../node_modules/@marktiderman/genesis-data/dist";\n`;
+    expect(planStudioInit(withCss(already)).files.find((f) => f.path === "src/styles.css")).toBeUndefined();
+    const old = `${ui}@source "../node_modules/@marktiderman/genesis-studio/dist";\n`;
+    expect(planStudioInit(withCss(old)).files.find((f) => f.path === "src/styles.css")!.content).toContain('@source "../node_modules/@marktiderman/genesis-data/dist";');
   });
 });

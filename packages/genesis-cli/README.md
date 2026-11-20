@@ -38,12 +38,13 @@ npx @marktiderman/genesis-cli doctor [--strict] [--json] [--build] [--config <pa
 Checks an app against the Genesis it has installed. See [genesis doctor](#genesis-doctor).
 
 ```bash
-npx @marktiderman/genesis-cli studio init
+npx @marktiderman/genesis-cli data init
 ```
 
-Turns the Data Studio on in an existing Supabase app. It writes three things:
+Turns Genesis Data on in an existing Supabase app (it was `genesis studio init`, which still works
+and says it's been renamed). It writes three things:
 
-- **One migration to review:** the studio's `NOINHERIT` login and the audit trail. It holds no
+- **One migration to review:** Genesis Data's `NOINHERIT` login and the audit trail. It holds no
   password.
 - **The server:** a Next.js route when the app has an `app/` router; otherwise a Supabase Edge
   Function, `supabase/functions/genesis-studio`, with `verify_jwt = false` added to
@@ -64,7 +65,7 @@ schemas: without `contracts.schemas`, the ones the existing contract's `// Sourc
 `-o`, `-s` and `--database-env` override them; paths are relative to the app's root, where you run
 the command. With `--openapi`, only a single configured schema carries over (else `public`).
 
-Writes `resources.genesis.ts` (or `contracts.out`), a checked-in contract for the Data Studio: every table in the
+Writes `resources.genesis.ts` (or `contracts.out`), a checked-in contract for Genesis Data: every table in the
 schemas, with its key, fields (type, database type, nullability, defaults, enum values, links)
 and a row type per table. Enum values come from enum types and from single-column `CHECK`s that
 list values (`status in ('open', 'done')`). A view Postgres can update on its own takes its
@@ -388,7 +389,7 @@ mapping so a migration an overlay's app already applied is never copied a second
 
 It never overwrites a file the app has: one with other text is reported and left alone. A second
 run creates and changes nothing. `--dry-run` prints the plan and writes nothing. `genesis add
---list` lists the blocks the app can add. `genesis studio init` is unchanged.
+--list` lists the blocks the app can add. `genesis data init` works as before.
 
 In an app whose database files live elsewhere ([A phone app beside a web app](#a-phone-app-beside-a-web-app)),
 `add` copies none of the block's migrations, pgTAP tests, Edge Functions or `config.toml`
@@ -952,7 +953,7 @@ Exit codes: `0` pass, `1` findings, `2` the doctor couldn't run (bad config, Gen
 | `core/views-stay-platform-neutral` | warn | Declared by genesis-core (see [Package rules](#package-rules)). A `*.view.ts` file (a view description web and native share) that imports a platform module: a router (`react-router*`, `@tanstack/react-router`, `@tanstack/react-start`, `next`, `expo-router`), `react-dom`, `react-native` or `react-native-*`, `expo*`, icon sets (`lucide-react`, `lucide-react-native`), or Genesis UI (`genesis-ui`, `genesis-ui-native`, `genesis-native`). Direct imports only: keep what the view imports platform-neutral too. |
 | `iso-date-slice` | warn | A day cut from an ISO timestamp: `.toISOString().slice(0, 10)`, `.substring(0, 10)`, `.substr(0, 10)`, `.split("T")[0]` or `.split("T").at(0)`. That's the day in UTC, which for an evening in the Americas is already tomorrow. Use `personDay(person)` or `dayIn(zone)` from `@marktiderman/genesis-core/dates`. Test files are skipped; where UTC is what you mean (a log name, a UTC report), allow it with a reason. |
 | `resource-view-tree` | error | A `<ResourceView>` or `<ResourcePage>` with `tree` and `pagination="server"` or `"cursor"` (bare or in braces). A tree is built from every row on the client, so the screen throws when it renders. Leave `pagination` unset. Only the tag's own attributes count, not a `tree` inside an expression. ([Tree mode](../../docs/RESOURCE-VIEW.md#tree-mode)) |
-| `studio-server-auth-import` | warn | An import of a studio-server file the package doesn't export (`@marktiderman/genesis-studio-server/dist/…`, `/src/…`, `/lib/…`), or a CommonJS `require("@marktiderman/genesis-studio-server")` of the ESM-only root. Besides the doctor's scan it reads the app's `.cjs` and `.mjs` files (tests skipped), where a `require` usually is. Both fail at run time with `ERR_PACKAGE_PATH_NOT_EXPORTED`. Use `@marktiderman/genesis-studio-server/auth`: the token checks and `switchToUser`, for `import` and `require`. An ESM import of the root is fine. |
+| `studio-server-auth-import` | warn | An import of a studio-server file the package doesn't export (`@marktiderman/genesis-data-server/dist/…`, `/src/…`, `/lib/…`), or a CommonJS `require("@marktiderman/genesis-data-server")` of the ESM-only root. Besides the doctor's scan it reads the app's `.cjs` and `.mjs` files (tests skipped), where a `require` usually is. Both fail at run time with `ERR_PACKAGE_PATH_NOT_EXPORTED`. Use `@marktiderman/genesis-data-server/auth`: the token checks and `switchToUser`, for `import` and `require`. An ESM import of the root is fine. |
 | `removed-scope-name` | error | A "practice" name genesis-core 2 removed, in a file that imports a Genesis package: a view field's `timeZone: "practice"` (a string value in a view definition), NativeResourceView's `practiceTimeZone`, `resolveZone("practice", …)`, or DisplayTimeZones' `practice`. `defineView` refuses the first when the view loads and the rest are type errors; this lists them in CI. `genesis codemod genesis-core-2-scope-names` rewrites every one. It reads only Genesis API usage, the same shapes the codemod rewrites (see its row above); comments and an app's own `practice` settings, props and `resolveZone` are skipped. |
 | `app-part-name` | warn | An app element's own `data-slot` that doesn't start `app-`. An app style reaches an app's own part by name, so it is `app-<name>` and never matches a Genesis part; a name the installed design system's `THEME_PARTS` already uses is called out, since every app style's rules for that part would hit the app's element. Files inside an overlay of the component package are skipped (ADR 0018). |
 | `app-part-colors` | warn | In a custom view (a file that renders `<CustomView>` or calls `useCustomView`) or a file with an app part (`data-slot="app-…"`): a colour property (`color`, `backgroundColor`, `borderColor`, `fill`, …) or a Tailwind colour utility with an arbitrary value (`bg-[var(--x)]`) that reads a custom property the theme stylesheets don't declare as a colour role. Take colours from roles (`hsl(var(--primary))`, `bg-primary`), so the app brand and dark mode reach the view. Literal colours stay `raw-color`'s (ADR 0019). |

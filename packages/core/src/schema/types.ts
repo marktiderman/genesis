@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// The one schema model (docs/DATA-STUDIO.md decisions 11, 12, 13, 30)
+// The one schema model (docs/DATA.md decisions 11, 12, 13, 30)
 //
 // Promoted from @marktiderman/genesis-switchboard, which keeps deprecated
 // aliases for one deprecation window. Everything here is a type or a pure
@@ -300,7 +300,7 @@ export type FilterOperator =
 
 /**
  * What a provider can do. A UI hides any control the provider cannot serve,
- * instead of letting it error (DATA-STUDIO.md decision 9).
+ * instead of letting it error (DATA.md decision 9).
  */
 export interface ProviderCapabilities {
   /** Server-side text search across fields. */

@@ -21,7 +21,7 @@ on:
       - "packages/forms-native/figma/**"
       - "packages/forms-web/figma/**"
       - "packages/sites/figma/**"
-      - "packages/studio/figma/**"
+      - "packages/data/figma/**"
       - "scripts/check-code-connect.mjs"
       - ".github/workflows/code-connect.yml"
   pull_request:
@@ -37,7 +37,7 @@ on:
       - "packages/forms-native/figma/**"
       - "packages/forms-web/figma/**"
       - "packages/sites/figma/**"
-      - "packages/studio/figma/**"
+      - "packages/data/figma/**"
       - "scripts/check-code-connect.mjs"
       - ".github/workflows/code-connect.yml"
   workflow_dispatch:

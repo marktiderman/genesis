@@ -94,7 +94,7 @@ writeFileSync(
     "",
   ].join("\n"),
 );
-// The sample app's dev server, in `--mode supabase`, serves /studio against this project.
+// The sample app's dev server, in `--mode supabase`, serves /data against this project.
 writeFileSync(
   join(here, "..", "..", ".env.supabase.local"),
   [

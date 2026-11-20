@@ -51,7 +51,7 @@
 - [`AI-COACHING-RESEARCH.md`](./AI-COACHING-RESEARCH.md): reference for `AI.md`: lessons from an
   app that ran AI in production, and what the leading fitness, health, coaching and goal apps do
   with AI, with sources.
-- [`DATA-STUDIO.md`](./DATA-STUDIO.md): proposal for an Airtable-style data workspace built on the
+- [`DATA.md`](./DATA.md): proposal for an Airtable-style data workspace built on the
   data-bound layer. It covers the server handler that acts as the user, the generated schema contract,
   write safety, the roadmap, and the decisions still open.
 - [`FORMS.md`](./FORMS.md): proposal for Genesis Forms, an open-source, schema-driven form system

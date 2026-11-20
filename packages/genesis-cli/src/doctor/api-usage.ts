@@ -7,7 +7,7 @@
  * - `studio-server-auth-import`: an import of a studio-server file the package doesn't export
  *   (`…/dist/switch`, `…/src/auth`), or a CommonJS `require` of the package's root, which has no
  *   `require` condition. Both fail at run time (`ERR_PACKAGE_PATH_NOT_EXPORTED`);
- *   `@marktiderman/genesis-studio-server/auth` has the token checks and the identity switch, for
+ *   `@marktiderman/genesis-data-server/auth` has the token checks and the identity switch, for
  *   `import` and `require`. A warning: a bundler may resolve a deep path today and not tomorrow.
  * - `removed-scope-name`: a "practice" name genesis-core 2 removed (`timeZone: "practice"`,
  *   `practiceTimeZone`, `resolveZone("practice")`, DisplayTimeZones' `practice`), in a file that
@@ -110,11 +110,12 @@ export function checkTreeViews(ctx: DoctorContext): void {
   }
 }
 
-const STUDIO_SERVER = "@marktiderman/genesis-studio-server";
+// Genesis Data's server, by its name and by its old one (the deprecated genesis-studio-server).
+const SERVER_NAMES = ["@marktiderman/genesis-data-server", "@marktiderman/genesis-studio-server"];
 /** An import, export-from, dynamic import or require of a studio-server file it doesn't export. */
-const DEEP = /\b(?:from|import|require)\s*\(?\s*["']@marktiderman\/genesis-studio-server\/(dist|src|lib)\/[^"']*["']/g;
+const DEEP = /\b(?:from|import|require)\s*\(?\s*["'](@marktiderman\/genesis-(?:data|studio)-server)\/(dist|src|lib)\/[^"']*["']/g;
 /** A CommonJS require of the package root, which only has an `import` condition. */
-const ROOT_REQUIRE = /\brequire\s*\(\s*["']@marktiderman\/genesis-studio-server["']\s*\)/g;
+const ROOT_REQUIRE = /\brequire\s*\(\s*["'](@marktiderman\/genesis-(?:data|studio)-server)["']\s*\)/g;
 
 /**
  * The files this rule reads: the doctor's scan, plus the app's `.cjs` and `.mjs` files, which the
@@ -134,15 +135,15 @@ function moduleFiles(ctx: DoctorContext): { path: string; code: string }[] {
 
 export function checkStudioServerImports(ctx: DoctorContext): void {
   for (const file of moduleFiles(ctx)) {
-    if (!file.code.includes(STUDIO_SERVER)) continue;
+    if (!SERVER_NAMES.some((name) => file.code.includes(name))) continue;
     for (const m of file.code.matchAll(DEEP)) {
       ctx.report({
         rule: "studio-server-auth-import",
         level: "warn",
         file: file.path,
         line: lineAt(file.code, m.index ?? 0),
-        subject: `${STUDIO_SERVER}/${m[1]}`,
-        message: `imports a studio-server file the package doesn't export, which fails at run time; the token checks and switchToUser are in ${STUDIO_SERVER}/auth (import or require)`,
+        subject: `${m[1]}/${m[2]}`,
+        message: `imports a Genesis Data server file the package doesn't export, which fails at run time; the token checks and switchToUser are in ${m[1]}/auth (import or require)`,
       });
     }
     for (const m of file.code.matchAll(ROOT_REQUIRE)) {
@@ -151,8 +152,8 @@ export function checkStudioServerImports(ctx: DoctorContext): void {
         level: "warn",
         file: file.path,
         line: lineAt(file.code, m.index ?? 0),
-        subject: STUDIO_SERVER,
-        message: `requires ${STUDIO_SERVER}, which is ESM-only and fails under require(); ${STUDIO_SERVER}/auth (the token checks and switchToUser) ships for require too`,
+        subject: m[1]!,
+        message: `requires ${m[1]}, which is ESM-only and fails under require(); ${m[1]}/auth (the token checks and switchToUser) ships for require too`,
       });
     }
   }

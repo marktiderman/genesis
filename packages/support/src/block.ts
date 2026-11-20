@@ -125,7 +125,7 @@ export function supportContributions(options: SupportBlockOptions = {}): BlockCo
       { package: "@marktiderman/genesis-support", file: "migrations/0004_genesis_support_tickets.sql", test: "migrations/tests/0004_genesis_support_tickets.test.sql" },
       // Zero config in Genesis's own wrappers: the reserved tenant and platform admins as staff, where the app has no hooks.
       { package: "@marktiderman/genesis-support", file: "migrations/0023_genesis_support_hook_defaults.sql", test: "migrations/tests/0023_genesis_support_hook_defaults.test.sql" },
-      // The Data Studio's keys after the rename, and an agent's unread count.
+      // Genesis Data's keys after the rename, and an agent's unread count.
       { package: "@marktiderman/genesis-support", file: "migrations/0016_genesis_support_ticket_fixes.sql", test: "migrations/tests/0016_genesis_support_ticket_fixes.test.sql" },
       // The context dump's table (createDiagnostics): own rows, staff read, 10 an hour, 90 days.
       { package: "@marktiderman/genesis-support", file: "migrations/0019_genesis_support_diagnostics.sql", test: "migrations/tests/0019_genesis_support_diagnostics.test.sql" },

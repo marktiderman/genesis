@@ -11,7 +11,7 @@ const glossary = `
 | **primitive** | a reusable capability. | service (as a kind), capability (as a layer), and "primitive" for UI atoms. |
 | **foundation** | the layer every app needs. |  |
 | **layer** | \`foundation \\| primitive\`. | tier (for packages), level. |
-| **view** | a list's description. | list config, table config. Data Studio's saved grids are **saved views**. |
+| **view** | a list's description. | list config, table config. Genesis Data's saved grids are **saved views**. |
 | **shells** | the app shells group. | "App shells" (the retired group name), or for a pnpm workspace in public api docs. |
 
 Prose with | a pipe | is not a table row.

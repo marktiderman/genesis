@@ -1,7 +1,7 @@
 "use client";
 
 // ResourceView's sheet type (`type="sheet"`): a view's rows as a spreadsheet on genesis-ui's
-// SheetGrid, the same grid the Data Studio's sheet uses. Only the view's writable fields are
+// SheetGrid, the same grid Genesis Data's sheet uses. Only the view's writable fields are
 // editable, each row through the view's guards and the screen's `can` (a refused cell says why),
 // and every change goes through the resource's own update, row by row, so the provider's rules
 // and a versioned resource's check apply. The last change can be undone.
