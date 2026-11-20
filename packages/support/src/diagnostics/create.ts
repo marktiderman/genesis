@@ -196,11 +196,14 @@ export function createDiagnostics(options: DiagnosticsOptions): Diagnostics {
   // that throws keeps the last values it gave; one that has never answered means no dumps.
   let settings = supportSettingValues(typeof options.appSettings === "function" ? { "diagnostics.enabled": false } : options.appSettings).diagnostics;
   let answered = typeof options.appSettings !== "function";
+  // Set once the queue exists: an answer that turns diagnostics (or the queue) off empties it.
+  let queueOff: (() => void) | null = null;
   const settingsNow = () => {
     if (typeof options.appSettings !== "function") return settings;
     try {
       settings = supportSettingValues(options.appSettings()).diagnostics;
       answered = true;
+      if (!settings.enabled || !settings.offlineQueue) queueOff?.();
     } catch {
       // keep the last values
     }
@@ -273,6 +276,18 @@ export function createDiagnostics(options: DiagnosticsOptions): Diagnostics {
     void Promise.resolve()
       .then(() => storage.removeItem(key))
       .catch((error: unknown) => problem("diagnostics: clearing the queue failed", error));
+  }
+  // Switched off after the queue was made: what waits in it is dropped, never sent later.
+  if (queue) {
+    let cleared = false;
+    queueOff = () => {
+      if (cleared) return;
+      cleared = true;
+      void queue
+        .clear()
+        .catch((error: unknown) => problem("diagnostics: clearing the queue failed", error))
+        .finally(() => (cleared = false));
+    };
   }
   // Anything left from the last run goes as soon as it can.
   if (queue) void Promise.resolve().then(() => queue.flush().catch((error: unknown) => problem("diagnostics: flushing the queue failed", error)));

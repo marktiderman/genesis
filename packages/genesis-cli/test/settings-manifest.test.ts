@@ -19,6 +19,7 @@ function app(config: unknown, name = "@acme/field-app"): string {
     "package.json": JSON.stringify({ name, dependencies: { [SUPPORT]: "^0.12.0" } }),
     [`node_modules/${SUPPORT}/package.json`]: JSON.stringify({ name: SUPPORT, version: "0.12.0", genesis: { settings: declared } }),
     "genesis.config.json": JSON.stringify(config),
+    "supabase/migrations/20260101000000_genesis_settings.sql": "-- the settings block's copy\n",
   });
 }
 
@@ -95,6 +96,7 @@ describe("genesis settings sync (the command)", () => {
       [`node_modules/${SUPPORT}/package.json`]: readFileSync(`${root}/node_modules/${SUPPORT}/package.json`, "utf8"),
       "genesis.config.json": "{}",
       "supabase/.temp/project-ref": `${REF}\n`,
+      "genesis.lock.json": JSON.stringify({ version: 1, blocks: { settings: { package: "@marktiderman/genesis-supabase" } }, files: {} }),
     });
   };
   function io(over: Partial<Parameters<typeof runSettingsSync>[1]> = {}) {
@@ -150,6 +152,17 @@ describe("genesis settings sync (the command)", () => {
     const t = io();
     expect(await runSettingsSync({ dir: app({ preset: "maximum" }), yes: true, projectRef: REF }, t.io)).toBe(1);
     expect(t.calls).toEqual([]);
+  });
+
+  it("skips, with exit 0, an app without the settings block (a deploy step runs it in every app)", async () => {
+    const root = makeApp(null, { "package.json": JSON.stringify({ name: "plain-app" }), "genesis.config.json": "{}", "supabase/.temp/project-ref": `${REF}\n` });
+    const t = io();
+    expect(await runSettingsSync({ dir: root, yes: true }, t.io)).toBe(0);
+    expect(t.out.join("\n")).toMatch(/No settings block here/);
+    expect(t.calls).toEqual([]);
+    const printed = io();
+    expect(await runSettingsSync({ dir: root, print: true }, printed.io)).toBe(0);
+    expect(printed.out).toEqual([]);
   });
 
   it("--print prints the SQL and runs nothing", async () => {

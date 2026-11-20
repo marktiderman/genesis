@@ -315,6 +315,7 @@ describe("the settings block", () => {
     expect(resolved.migrations).toEqual([
       { package: "@marktiderman/genesis-supabase", file: "migrations/0020_genesis_settings.sql", test: "migrations/tests/0020_genesis_settings.test.sql", feature: "settings" },
       { package: "@marktiderman/genesis-supabase", file: "migrations/0021_genesis_settings_integer.sql", test: "migrations/tests/0021_genesis_settings_integer.test.sql", feature: "settings" },
+      { package: "@marktiderman/genesis-supabase", file: "migrations/0022_genesis_platform_admins.sql", test: "migrations/tests/0022_genesis_platform_admins.test.sql", feature: "settings" },
       { package: "@marktiderman/genesis-supabase", file: "migrations/0023_genesis_settings_tenant_person.sql", test: "migrations/tests/0023_genesis_settings_tenant_person.test.sql", feature: "settings" },
     ]);
     for (const m of resolved.migrations) {
@@ -325,6 +326,7 @@ describe("the settings block", () => {
     expect(manifest.migrations).toEqual([
       { file: "migrations/0020_genesis_settings.sql", test: "migrations/tests/0020_genesis_settings.test.sql" },
       { file: "migrations/0021_genesis_settings_integer.sql", test: "migrations/tests/0021_genesis_settings_integer.test.sql" },
+      { file: "migrations/0022_genesis_platform_admins.sql", test: "migrations/tests/0022_genesis_platform_admins.test.sql" },
       { file: "migrations/0023_genesis_settings_tenant_person.sql", test: "migrations/tests/0023_genesis_settings_tenant_person.test.sql" },
     ]);
   });

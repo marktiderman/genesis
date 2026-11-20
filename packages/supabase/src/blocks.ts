@@ -137,6 +137,8 @@ export const settingsBlock = defineBlock({
       { package: PACKAGE, file: "migrations/0020_genesis_settings.sql", test: "migrations/tests/0020_genesis_settings.test.sql" },
       // Whole numbers: a fraction is refused for a key declared `integer`.
       { package: PACKAGE, file: "migrations/0021_genesis_settings_integer.sql", test: "migrations/tests/0021_genesis_settings_integer.test.sql" },
+      // A default platform-admin list, so an app with no SQL of its own can have an admin.
+      { package: PACKAGE, file: "migrations/0022_genesis_platform_admins.sql", test: "migrations/tests/0022_genesis_platform_admins.test.sql" },
       // The tenant and person layers, and Realtime refresh.
       { package: PACKAGE, file: "migrations/0023_genesis_settings_tenant_person.sql", test: "migrations/tests/0023_genesis_settings_tenant_person.test.sql" },
     ],
