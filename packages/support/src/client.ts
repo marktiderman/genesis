@@ -14,6 +14,7 @@ import type { FeedbackStatus } from "./contract";
 import { attachmentBytes, sanitizeContext, type FeedbackDelivery, type FeedbackRecord, type FeedbackSink, type FeedbackType } from "./record";
 import { toDesk, toDeskLogEntry, toTicketDesk, type DeskLogEntry, type DeskTarget, type SupportDesk, type TicketDesk } from "./desks";
 import { isMissingFunction, type SupportChatAttachment, type SupportChatClient, type SupportChatMessage, type SupportThreadInfo } from "./chat";
+import { supportSettingValues, type SupportSettingsInput } from "./settings";
 
 /** Any supabase-js client; the app's generated Database types don't need to list the support tables. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -349,12 +350,18 @@ export interface SupportClient extends FeedbackSink {
    * assignee picker. Refused (`42501`) unless the signed-in person is an agent there. Needs migration 0022.
    */
   staffList?(options?: { tenantId?: string | null }): Promise<SupportPerson[]>;
+  /** Whether the signed-in person may add or remove the desk's agents (null: the app's own desk), as `setAgent` decides. Needs migration 0034. */
+  canManageAgents?(options?: { tenantId?: string | null }): Promise<boolean>;
   /** Agents: the name and email of the people among `ids` who wrote a ticket they handle; anyone else is left out. Needs migration 0022. */
   reporters?(ids: readonly string[]): Promise<SupportReporter[]>;
   /** Agents: the tenants (with the app's label) a requester belongs to, for the details panel. Needs migration 0022. */
   requesterTenants?(personId: string): Promise<RequesterTenant[]>;
   /** The help desks the signed-in person works: the app's own, and each tenant's they admin or are an agent of. Needs migration 0029. */
   myDesks?(): Promise<SupportDesk[]>;
+  /** Whoever manages a desk's agents: the people in its tenant whose name or email matches `query` (2 to 100 characters; at most 25). Needs migration 0034. */
+  searchPeople?(input: { tenantId?: string | null; query: string; limit?: number }): Promise<SupportReporter[]>;
+  /** The signed-in person's tickets, each with its desk and the desk's name (null for the app's own). Needs migration 0029. */
+  myTicketDesks?(): Promise<MyTicketDesk[]>;
   /** Tenant admins: turn the tenant's own help desk on or off (kept in its log, with `reason`). Needs migration 0029. */
   setDesk?(tenantId: string, enabled: boolean, reason?: string | null): Promise<void>;
   /** A ticket's handlers: where it is, whether it can go up or back, and its last move; null for anyone else. Needs migration 0029. */
@@ -412,11 +419,22 @@ export interface TicketDiagnostics {
 export interface SupportPerson {
   id: string;
   name: string | null;
+  /** From `staffList` with migration 0034: their role at the desk (their agent row's, else admin for whoever manages agents, else agent). */
+  role?: TicketAgentRole;
+  /** From `staffList` with migration 0034: true only for an agent row the caller can remove with `setAgent(…, null)`. */
+  removable?: boolean;
 }
 
 /** Who wrote a ticket, as an agent sees them (migration 0022). */
 export interface SupportReporter extends SupportPerson {
   email: string | null;
+}
+
+/** One of the signed-in person's tickets and the desk it is at: `label` is the app's `private.genesis_tenant_label`, null for the app's own desk. */
+export interface MyTicketDesk {
+  ticketId: string;
+  tenantId: string;
+  label: string | null;
 }
 
 /** One tenant a requester belongs to, with the app's label for it (`private.genesis_tenant_label`), or null. */
@@ -439,6 +457,11 @@ export interface SupportClientOptions {
    * migration applied, a report's thread runs on genesis-chat. Without either, support_replies.
    */
   chat?: SupportChatClient | false;
+  /**
+   * Genesis settings (what `resolveSettings` returned, or the values alone): with
+   * `support.chatThreads` off, threads stay on support_replies even when `chat` is given.
+   */
+  settings?: SupportSettingsInput | null;
   /** Told once when a chat client was given but the block's migration isn't applied. Default `console.warn`. */
   onChatUnavailable?: (message: string) => void;
   bucket?: string;
@@ -623,7 +646,7 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
   };
 
   // The support-chat block: learned on first use (the database function is there or not).
-  const chat = options.chat || null;
+  const chat = options.chat && supportSettingValues(options.settings ?? null).support.chatThreads ? options.chat : null;
   let chatInstalled: boolean | null = chat ? null : false;
   const conversations = new Map<string, string>();
   const warn = options.onChatUnavailable ?? ((message: string) => console.warn(message));
@@ -988,7 +1011,15 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
     },
     async staffList({ tenantId = null } = {}) {
       const rows = must<Row[]>("staffList", await supabase.rpc("support_agents_list", { tenant: tenantId }));
-      return (rows ?? []).map((r) => ({ id: String(r["user_id"]), name: (r["full_name"] as string | null) ?? null }));
+      return (rows ?? []).map((r) => ({
+        id: String(r["user_id"]),
+        name: (r["full_name"] as string | null) ?? null,
+        ...(r["role"] === "agent" || r["role"] === "admin" ? { role: r["role"] as TicketAgentRole } : {}),
+        ...(typeof r["removable"] === "boolean" ? { removable: r["removable"] as boolean } : {}),
+      }));
+    },
+    async canManageAgents({ tenantId = null } = {}) {
+      return must<boolean | null>("canManageAgents", await supabase.rpc("support_can_manage_agents", { tenant: tenantId })) === true;
     },
     async reporters(ids) {
       if (!ids.length) return [];
@@ -1023,6 +1054,14 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
     },
     async deskHistory({ tenantId = null, limit = 50 } = {}) {
       return (must<Row[]>("deskHistory", await supabase.rpc("support_desk_history", { tenant: tenantId, max_rows: limit })) ?? []).map(toDeskLogEntry);
+    },
+    async searchPeople({ tenantId, query, limit = 10 }) {
+      const rows = must<Row[]>("searchPeople", await supabase.rpc("support_people_search", { tenant: await scope(tenantId), q: query, lim: limit }));
+      return (rows ?? []).map((r) => ({ id: String(r["user_id"]), name: (r["full_name"] as string | null) ?? null, email: (r["email"] as string | null) ?? null }));
+    },
+    async myTicketDesks() {
+      const rows = must<Row[]>("myTicketDesks", await supabase.rpc("support_my_ticket_desks"));
+      return (rows ?? []).map((r) => ({ ticketId: String(r["ticket_id"]), tenantId: String(r["tenant_id"]), label: (r["label"] as string | null) ?? null }));
     },
     async requesterTenants(personId) {
       const rows = must<Row[]>("requesterTenants", await supabase.rpc("support_requester_tenants", { person: personId }));

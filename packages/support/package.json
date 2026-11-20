@@ -467,8 +467,8 @@
             "test": "migrations/tests/0022_genesis_support_staff_tools.test.sql"
           },
           {
-            "file": "migrations/0034_genesis_support_requester_labels.sql",
-            "test": "migrations/tests/0034_genesis_support_requester_labels.test.sql"
+            "file": "migrations/0034_genesis_support_agent_admin.sql",
+            "test": "migrations/tests/0034_genesis_support_agent_admin.test.sql"
           }
         ],
         "steps": [
@@ -736,8 +736,7 @@
             "feature": "support-helpdesk-ai",
             "needs": "secret:ANTHROPIC_API_KEY",
             "store": "edge",
-            "planned": true,
-            "summary": "Planned (nothing reads it yet): AI answers that cite the help center and hand off to a person (needs the person's consent and a provider key)."
+            "summary": "AI answers that cite the help center and hand off to a person (needs the person's consent, the tenant's opt-in and a provider key)."
           },
           "ideas": {
             "type": "boolean",
@@ -756,8 +755,7 @@
               "min": false
             },
             "feature": "support-chat",
-            "planned": true,
-            "summary": "Planned (nothing reads it yet): A report's thread runs on genesis-chat: live, with files, an assignee and internal notes."
+            "summary": "A report's thread runs on genesis-chat (with a chat client and the support-chat block): live, with files, an assignee and internal notes. Off: support_replies."
           },
           "email": {
             "type": "boolean",

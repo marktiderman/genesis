@@ -8,7 +8,7 @@
 -- settings tables (0020) and support 0020's readers.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(61);
+select plan(66);
 
 create function pg_temp.person(n text) returns uuid language sql immutable as $$
   select ('00000000-0000-4000-8000-0000000024' || n)::uuid $$;
@@ -248,6 +248,18 @@ select is(private.genesis_support_help_center_on('00000000-0000-4000-8000-000000
 delete from public.genesis_settings where key = 'support.helpCenter';
 delete from public.genesis_tenant_settings where key = 'support.helpCenter';
 
+-- support.aiAnswers is tenant-scoped too: a tenant's own false turns its AI answers off.
+create schema if not exists genesis_ai;
+create table if not exists genesis_ai.budgets (scope text primary key, monthly_usd numeric);
+insert into genesis_ai.budgets (scope, monthly_usd) values ('default', 50) on conflict (scope) do update set monthly_usd = 50;
+insert into public.tenant_features (tenant_id, feature_id, enabled, reason)
+values ('00000000-0000-4000-8000-0000000000c0', 'support-helpdesk-ai', true, 'test');
+update public.genesis_app_manifest set catalogue = catalogue || '{"support.aiAnswers": {"type": "boolean", "applies": "runtime", "scope": "tenant", "defaults": {"max": true, "standard": false, "min": false}}}';
+select is(private.genesis_support_ai_on('00000000-0000-4000-8000-0000000000c0'), true, 'a tenant that opted in, with a budget, has AI answers');
+insert into public.genesis_tenant_settings (tenant_id, key, value) values ('00000000-0000-4000-8000-0000000000c0', 'support.aiAnswers', 'false');
+select is(private.genesis_support_ai_on('00000000-0000-4000-8000-0000000000c0'), false, 'its own support.aiAnswers false turns them off on the server');
+delete from public.genesis_tenant_settings where key = 'support.aiAnswers';
+
 insert into public.genesis_settings (key, value) values ('support.desks', 'false');
 select is(private.genesis_support_desks_on(), false, 'support.desks false in genesis_settings turns desks off');
 select is(private.genesis_support_helpdesk_on('00000000-0000-4000-8000-0000000000b0'), false, 'desks off: a desk row counts for nothing');
@@ -263,6 +275,21 @@ reset role;
 delete from public.genesis_settings where key = 'support.desks';
 update public.genesis_app_manifest set preset = 'standard';
 select is(private.genesis_support_desks_on(), false, 'the standard preset has desks off (its default in the synced catalogue)');
+
+-- 6. The requester's desks ---------------------------------------------------------------------
+
+select pg_temp.sign_in('a1');
+set local role authenticated;
+select ok((select bool_and(t.user_id = pg_temp.person('a1')) from public.support_my_ticket_desks() m join public.tickets t on t.id = m.ticket_id),
+  'a requester sees only their own tickets'' desks');
+reset role;
+select pg_temp.sign_in('a1');
+set local role authenticated;
+select is((select label from public.support_my_ticket_desks() where ticket_id = (select id from t where name = 'a1')), 'Acme',
+  'named through the app''s tenant label hook');
+select is((select count(*)::int from public.support_my_ticket_desks() where tenant_id = '00000000-0000-4000-8000-00000000000f' and label is not null), 0,
+  'the app''s own desk has no name');
+reset role;
 
 select ok(not has_function_privilege('anon', 'public.support_set_desk(uuid, boolean, text)', 'execute'), 'anon can''t switch a desk');
 select ok(not has_function_privilege('authenticated', 'private.genesis_support_move(uuid, uuid, text, text)', 'execute'), 'nor move a ticket by the back door');

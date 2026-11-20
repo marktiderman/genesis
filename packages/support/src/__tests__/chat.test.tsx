@@ -180,7 +180,7 @@ describe("the support client's thread", () => {
       { package: "@marktiderman/genesis-support", file: "migrations/0015_genesis_support_agent_tools_bounds.sql", test: "migrations/tests/0015_genesis_support_agent_tools_bounds.test.sql" },
       { package: "@marktiderman/genesis-support", file: "migrations/0018_genesis_support_agent_queue.sql", test: "migrations/tests/0018_genesis_support_agent_queue.test.sql" },
       { package: "@marktiderman/genesis-support", file: "migrations/0022_genesis_support_staff_tools.sql", test: "migrations/tests/0022_genesis_support_staff_tools.test.sql" },
-      { package: "@marktiderman/genesis-support", file: "migrations/0034_genesis_support_requester_labels.sql", test: "migrations/tests/0034_genesis_support_requester_labels.test.sql" },
+      { package: "@marktiderman/genesis-support", file: "migrations/0034_genesis_support_agent_admin.sql", test: "migrations/tests/0034_genesis_support_agent_admin.test.sql" },
     ]);
   });
 });

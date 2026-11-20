@@ -83,7 +83,8 @@ export interface SupportOptions {
   supabase: SupportSupabase;
   /**
    * genesis-chat's client (`createChatClient(supabase)`): with the support-chat block's migration
-   * applied, a report's thread runs on genesis-chat (live, with files). Without it, support_replies.
+   * applied, a report's thread runs on genesis-chat (live, with files). Without it, or with the
+   * `support.chatThreads` setting off, support_replies.
    */
   chat?: SupportChatClient;
   /** Opens a path (expo-router's `router.push`). */
@@ -279,7 +280,7 @@ export function createSupport(given: SupportOptions): SupportBlock {
   });
   const copy = resolveSupportCopy(options.copy);
   const paths = supportPaths(options.basePath);
-  const client = createSupportClient(options.supabase, { chat: options.chat, ...(options.tenantId !== undefined ? { tenantId: options.tenantId } : {}) });
+  const client = createSupportClient(options.supabase, { chat: initialSettings.support.chatThreads ? options.chat : false, ...(options.tenantId !== undefined ? { tenantId: options.tenantId } : {}) });
   const platform = options.platform ?? Platform.OS;
   let route: string | null = null;
   const zones = options.zones ?? [];

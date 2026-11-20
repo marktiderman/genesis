@@ -31,7 +31,7 @@ the manifest is written, the server gates use the package defaults (resolveSetti
 `private.genesis_setting(key, tenant)` instead (genesis-supabase 0023; null until the manifest
 declares the key).
 
-🟡 **Deprecated, still honored for one release** (support 0030, 0033):
+🟡 **Deprecated, still honored for one release and removed in the next minor** (support 0030, 0033):
 
 - `private.genesis_support_verify_prompt_enabled()`: set `support.verifyPrompt` to true instead.
 - An app's own `private.genesis_support_person_name` or `private.genesis_support_tenant_label`:
@@ -50,7 +50,13 @@ $$;
 revoke execute on function private.genesis_support_requester_labels(uuid[]) from public, anon, authenticated;
 ```
 
-🟢 `support.email` is no longer marked planned (the inbound route reads it). The `sentry` step no
+🟡 **`support_agents_list` returns two more columns** (support 0034): `role` and `removable`. SQL of
+your own that reads it by column name is unaffected; one that expects exactly two columns needs them.
+
+🟢 No support setting is planned any more: `support.email` gates reply by email, `support.aiAnswers`
+gates a tenant's AI answers in the database (0029, under `support_ai_enabled`), and
+`support.chatThreads` off keeps threads on support_replies (pass `settings` to `createSupportClient`
+on the web). The `sentry` step no
 longer offers to save its DSN as a setting and `ai.key-budget` has no budget field, since no package
 reads either; `github.issues` saves
 the repository to `support.githubRepo`.

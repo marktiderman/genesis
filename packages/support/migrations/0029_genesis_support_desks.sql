@@ -30,7 +30,8 @@
 --   requesters      0022's support_requester_tenants gains each tenant's `role` for the person
 --                   (the app's private.genesis_tenant_role hook, else admin, agent or member).
 --   settings        read through genesis-supabase's private.genesis_setting (0023), as the screens
---                   resolve them. support.agentDesk off refuses every agent read (0009's inbox
+--                   resolve them. support.aiAnswers off (for the app, or a tenant's own value)
+--                   turns off that tenant's AI answers (0010's support_ai_enabled). support.agentDesk off refuses every agent read (0009's inbox
 --                   check); support.helpCenter off (for the app, or a tenant's own value) refuses
 --                   that tenant's help center reads (0010's checks);
 --                   support.desks needs support.agentDesk. support.messenger has no data of its
@@ -103,6 +104,39 @@ begin
   return private.genesis_setting('support.desks') is distinct from 'false'::jsonb and private.genesis_support_agent_desk_on();
 end;
 $$;
+
+-- support.aiAnswers, for a tenant (it is tenant-scoped): 0010's AI gate (support_ai_enabled, which
+-- support_ask, the client and the answer task all ask) is off while it is off, before the tenant's
+-- opt-in and budget are checked.
+create or replace function private.genesis_support_ai_on(tenant uuid)
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  if tenant is null or to_regclass('public.tenant_features') is null then
+    return false;
+  end if;
+  if to_regprocedure('private.genesis_setting(text,uuid)') is not null then
+    if private.genesis_setting('support.aiAnswers', tenant) = 'false'::jsonb then
+      return false;
+    end if;
+  end if;
+  if to_regclass('genesis_ai.budgets') is null then
+    return false;
+  end if;
+  return private.genesis_support_helpdesk_on(tenant)
+     and exists (select 1 from public.tenant_features f
+                  where f.tenant_id = tenant and f.feature_id = 'support-helpdesk-ai' and f.enabled)
+     and coalesce((select b.monthly_usd is not null from genesis_ai.budgets b
+                    where b.scope in ('tenant:' || tenant::text, 'default')
+                    order by b.scope = 'default' limit 1), false);
+end;
+$$;
+
+revoke execute on function private.genesis_support_ai_on(uuid) from public, anon, authenticated;
 
 revoke execute on function private.genesis_support_agent_desk_on() from public, anon, authenticated;
 revoke execute on function private.genesis_support_help_center_on(uuid) from public, anon, authenticated;
@@ -854,6 +888,31 @@ $$;
 revoke execute on function private.genesis_support_help_access(uuid) from public, anon, authenticated;
 revoke execute on function public.support_help_readable(uuid) from public, anon;
 grant execute on function public.support_help_readable(uuid) to authenticated, service_role;
+
+-- The requester's desks, for the messenger -----------------------------------------------------
+
+-- The signed-in person's tickets and the desk each is at, with the desk's name (the app's
+-- private.genesis_tenant_label; null for the app's own desk), so the messenger names each one.
+create or replace function public.support_my_ticket_desks()
+returns table (ticket_id uuid, tenant_id uuid, label text)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select t.id, t.tenant_id,
+         case when t.tenant_id = private.genesis_support_default_tenant_id() then null
+              else private.genesis_support_tenant_label(t.tenant_id) end
+    from public.tickets t
+   where auth.uid() is not null and t.user_id = auth.uid()
+   order by t.created_at desc, t.id
+$$;
+
+comment on function public.support_my_ticket_desks() is
+  'The signed-in person''s tickets, each with its desk and the desk''s name (null for the app''s own). Genesis support.';
+
+revoke execute on function public.support_my_ticket_desks() from public, anon;
+grant execute on function public.support_my_ticket_desks() to authenticated;
 
 -- 0030's notification of a moved ticket, when 0030 came first (it makes this trigger itself after 0029).
 do $$
