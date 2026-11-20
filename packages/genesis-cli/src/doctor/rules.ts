@@ -102,6 +102,7 @@ export const BUILTIN_RULES = [
   "setting-requires",
   "setup-incomplete",
   "secret-missing",
+  "platform-admin-missing",
   "genesis-config-unknown-key",
   // the app's eslint config loads Genesis's lint rules (eslint-config.ts)
   "genesis-eslint-config",

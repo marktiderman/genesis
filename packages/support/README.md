@@ -126,8 +126,9 @@ a dump with no ticket, support staff. The short-id lookup follows the same rule.
   again, but only while it is still exactly that stand-in (its body and its "Genesis default:"
   comment), and answers from Genesis's own wrapper. An app's hook written over the stand-in with
   `create or replace` before 0023 runs keeps its own body, so it is kept.
-- **Staff** are the app's platform admins (genesis-supabase's `private.genesis_platform_admin`),
-  asked in Genesis's own wrapper (0023); without that hook nobody is staff.
+- **Staff** are the app's platform admins (genesis-supabase's `private.genesis_platform_admin`, or,
+  without that hook, the people in genesis-supabase 0022's `genesis_platform_admins` list), asked in
+  Genesis's own wrapper (0023, 0029); without either nobody is staff.
 - **No viewer-people default.** `private.genesis_viewer_people` is the tenancy boundary chat, work
   and entitlements read, so Genesis never defines it. Without it a ticket goes to the app's own desk,
   and organisations' help desks stay closed until the app defines it.

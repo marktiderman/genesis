@@ -59,11 +59,11 @@ describe("genesis init --template native --beside <web-app>", () => {
     expect(Object.keys(lock.files).filter((f) => f.startsWith("supabase/"))).toEqual([]);
     expect(lock.migrations).toBeUndefined();
     // Every block the starter carries that is on: recorded here, so it can be added there.
-    expect(Object.keys(lock.blocks).sort()).toEqual(["account", "app-updates", "chat", "notifications", "push", "support-feedback"]);
+    expect(Object.keys(lock.blocks).sort()).toEqual(["account", "app-updates", "chat", "notifications", "push", "settings", "support-feedback"]);
     // The web app has notifications' 0001, which provides push's 0005 and supersedes its sender, so
     // push needs nothing there; the rest are what to add there, database only, in one line.
     expect(result.beside).toMatchObject({ app: "../app", shared: true });
-    expect([...result.beside!.missing].sort()).toEqual(["account", "app-updates", "chat", "support-feedback"]);
+    expect([...result.beside!.missing].sort()).toEqual(["account", "app-updates", "chat", "settings", "support-feedback"]);
     expect(result.beside!.line).toBe(`In ../app (it holds this app's database), run: ${result.beside!.missing.map((id) => `genesis add ${id} --database-only`).join(" && ")}`);
     expect(result.steps[0]).toBe(result.beside!.line);
     expect(files["README.md"]).toContain("The database is ../app's");
