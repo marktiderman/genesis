@@ -902,7 +902,17 @@ genesis-notifications' `genesis_notify`, with no code of the app's own:
 - **`support.message`** to the ticket's desk's agents: a new ticket, the person writing again, a
   ticket moved to the desk (`escalated`, `returned`, `moved`). Nobody else once someone who still
   handles it has it (genesis-chat tells them). Only while `support.staffAlerts` is on. Whom it tells
-  is the app's `private.genesis_support_staff_to_notify(ticket uuid) returns uuid[]` when it has one.
+  is the app's `private.genesis_support_staff_to_notify(ticket uuid) returns uuid[]` when it has one
+  (the app answers for that list: it is used as given). Without it, the logins that are agents of the
+  ticket's tenant among (never a scan of every login, unless `support.agentListScan` is on):
+  - the tenant's `ticket_agents` rows, each person resolved to its login through the optional
+    `private.genesis_person_login(person uuid) returns uuid` (without it, the person id is the login,
+    as in zero config);
+  - for the app's own desk, `private.genesis_support_staff_list() returns setof uuid` (the app's
+    staff; a staff predicate alone can't be listed, so an app whose staff are only
+    `genesis_support_staff` names them here);
+  - `private.genesis_tenant_admin_list(tenant uuid) returns setof uuid`, the tenant's admins.
+  At most 200; never the ticket's own person or an anonymous login.
 - **`support.reply`** to the person when support answers (not on an email ticket, whose answers go
   out as email already), one email per ticket however many replies.
 - **`support.verify`** to the person with the verify prompt.

@@ -53,10 +53,13 @@ export function SupportRoute({ path, params, screens, notFound = null }: Support
   const current = (block.options.useCurrentRoute ?? noPath)();
   const search = (block.options.router?.useSearchParams ?? noParams)();
   const where = path ?? current;
-  // A path the route file passes is where the person is: links from here keep its zone.
+  // A path the route file passes is where the person is (when the block has no route hook of its
+  // own): links from here keep its zone, and leaving puts the route back as it was.
+  const tracked = Boolean(block.options.useCurrentRoute);
   useEffect(() => {
-    if (path) block.noteRoute(path);
-  }, [block, path]);
+    if (!path || tracked) return undefined;
+    return block.noteRoute(path);
+  }, [block, path, tracked]);
   const screen = supportScreenOf(where, block.paths.inbox, block.options.zones);
   if (!screen || !screenOn(screen.name, block.settings(), block.options.ideas)) return <>{notFound}</>;
   const query = params ?? search;
