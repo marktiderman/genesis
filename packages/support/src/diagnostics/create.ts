@@ -503,7 +503,16 @@ export function createDiagnostics(options: DiagnosticsOptions): Diagnostics {
     },
     flush: () => (queue ? queue.flush() : Promise.resolve({ sent: 0, kept: 0, dropped: 0 })),
     pending: () => (queue ? queue.size() : Promise.resolve(0)),
-    clearQueue: () => (queue ? queue.clear() : Promise.resolve()),
+    // Without a queue (diagnostics off), feedback an earlier run kept may still be stored: forget it too.
+    clearQueue: async () => {
+      if (queue) return queue.clear();
+      if (!options.offline) return;
+      try {
+        await options.offline.storage.removeItem(options.offline.key ?? DEFAULT_QUEUE_KEY);
+      } catch (error) {
+        problem("diagnostics: clearing the queue failed", error);
+      }
+    },
   };
   return diagnostics;
 }

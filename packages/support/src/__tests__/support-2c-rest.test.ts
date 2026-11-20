@@ -147,6 +147,18 @@ describe("feedback in the offline queue", () => {
     expect(kinds()).toEqual(["feedback"]);
   });
 
+  it("forgets kept feedback on clearQueue() even while diagnostics are off", async () => {
+    const { t } = transport(() => false);
+    const storage = memoryQueueStorage();
+    const d = createDiagnostics({ app: { id: "acme" }, transport: t, user: () => ({ id: "alice" }), offline: { storage, autoRetry: false } });
+    await d.submitFeedback(record);
+    const off = createDiagnostics({ app: { id: "acme" }, transport: t, offline: { storage, autoRetry: false }, appSettings: { "diagnostics.enabled": false } });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(storage.data.has(KEY)).toBe(true);
+    await off.clearQueue();
+    expect(storage.data.size).toBe(0);
+  });
+
   it("throws, as before, without an offline queue", async () => {
     const { t } = transport(() => false);
     const d = createDiagnostics({ app: { id: "acme" }, transport: t });
