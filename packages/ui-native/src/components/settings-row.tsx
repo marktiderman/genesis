@@ -29,16 +29,22 @@ export interface NativeSettingsRowProps {
   onPress?: () => void;
   /** The drill-in chevron, for a row that opens a sub-page. */
   showChevron?: boolean;
+  /** How many lines the description shows. Default 2; `null` wraps it whole (a value: an id, a URL, a message). */
+  descriptionLines?: number | null;
+  /** The description can be selected and copied. Default false. */
+  selectable?: boolean;
   disabled?: boolean;
   className?: string;
   testID?: string;
 }
 
-export function NativeSettingsRow({ label, description, children, onPress, showChevron, disabled, className, testID = "settings-row" }: NativeSettingsRowProps) {
+export function NativeSettingsRow({ label, description, children, onPress, showChevron, descriptionLines, selectable, disabled, className, testID = "settings-row" }: NativeSettingsRowProps) {
   return (
     <NativeListItem
       title={label}
       subtitle={description}
+      {...(descriptionLines !== undefined ? { subtitleLines: descriptionLines } : {})}
+      {...(selectable ? { subtitleSelectable: true } : {})}
       trailing={children}
       onPress={onPress}
       showChevron={showChevron}

@@ -20,10 +20,10 @@ export interface FakeOptions {
 
 export function fakeSupabase({ userId: firstUser = "00000000-0000-4000-8000-0000000000a1", respond, upload, rpc }: FakeOptions = {}) {
   let userId = firstUser;
-  const listeners = new Set<(event: string) => void>();
   const calls: Call[] = [];
   const uploads: Array<{ bucket: string; path: string; body: unknown; options: unknown }> = [];
   const rpcs: Array<{ fn: string; args: unknown }> = [];
+  const authListeners = new Set<(event: string, session: unknown) => void>();
   const from = (table: string) => {
     const call: Call = { table, ops: [] };
     calls.push(call);
@@ -51,9 +51,9 @@ export function fakeSupabase({ userId: firstUser = "00000000-0000-4000-8000-0000
     },
     auth: {
       getSession: async () => ({ data: { session: userId ? { user: { id: userId } } : null }, error: null }),
-      onAuthStateChange: (listener: (event: string) => void) => {
-        listeners.add(listener);
-        return { data: { subscription: { unsubscribe: () => listeners.delete(listener) } } };
+      onAuthStateChange: (callback: (event: string, session: unknown) => void) => {
+        authListeners.add(callback);
+        return { data: { subscription: { id: "fake", callback, unsubscribe: () => void authListeners.delete(callback) } } };
       },
     },
     storage: {
@@ -66,12 +66,14 @@ export function fakeSupabase({ userId: firstUser = "00000000-0000-4000-8000-0000
       }),
     },
   };
+  /** Tell the client's auth listeners an event happened ("SIGNED_OUT"), as supabase-js does. */
+  const emitAuth = (event: string) => authListeners.forEach((listener) => listener(event, null));
   /** Signs another login in (or, with null, signs out), as Supabase's auth tells its listeners. */
   const signIn = (next: string | null) => {
     userId = next;
-    for (const listener of listeners) listener(next ? "SIGNED_IN" : "SIGNED_OUT");
+    emitAuth(next ? "SIGNED_IN" : "SIGNED_OUT");
   };
-  return { client: client as unknown as SupportSupabase, calls, uploads, rpcs, signIn };
+  return { client: client as unknown as SupportSupabase, calls, uploads, rpcs, emitAuth, authListeners, signIn };
 }
 
 /** The first argument of the first `op` in a call. */

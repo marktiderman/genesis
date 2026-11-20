@@ -17,6 +17,7 @@ import * as Updates from "expo-updates";
 import { AppState, Linking, Platform } from "react-native";
 import { createUpdates, supabasePolicySource, useVersionSignature, versionSignature } from "@marktiderman/genesis-native/updates";
 import starter from "../../starter.config";
+import buildMetadata from "../../build-metadata.json";
 import { observability } from "./observability";
 import { supabase } from "./supabase";
 
@@ -28,6 +29,8 @@ export function createStarterUpdates() {
     platform: Platform.OS,
     application: Application,
     updates: Updates,
+    // The commit and build time `genesis build-stamp` wrote (EAS runs it after install).
+    buildMetadata,
     policy: supabasePolicySource(supabase),
     storage: AsyncStorage,
     appState: AppState,
@@ -50,7 +53,7 @@ function useBlockSignature(): string {
 }
 
 function useModuleSignature(): string {
-  return versionSignature({ application: Application, updates: Updates, platform: Platform.OS }).short;
+  return versionSignature({ application: Application, updates: Updates, platform: Platform.OS, buildMetadata }).short;
 }
 
 /**

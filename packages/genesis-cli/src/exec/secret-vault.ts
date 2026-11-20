@@ -28,8 +28,11 @@ export const SECRET_NAME = /^[A-Z][A-Z0-9_]*$/;
 /** A value shorter than this couldn't be redacted without mangling ordinary text, so it is refused (no real token is this short). */
 export const MIN_SECRET_LENGTH = 8;
 
-/** A value longer than this is refused (a PEM key or a service-account JSON fits; redaction scans every output for it). */
+/** A value `set` takes is at most this long (a PEM key fits): it is typed in and handed to a tool. */
 export const MAX_SECRET_LENGTH = 65_536;
+
+/** A value `hide` takes is at most this long: redaction is linear, so a large service-account key is fine. */
+export const MAX_HIDDEN_LENGTH = 4 * 1024 * 1024;
 
 export const REDACTED = "[redacted]";
 
@@ -43,6 +46,10 @@ export function assertSecretName(name: string): void {
 
 export class SecretVault {
   readonly #values = new Map<string, string>();
+  /** Held for redaction only: no name, never handed to a tool. */
+  readonly #hidden = new Set<string>();
+  /** The needles, compiled once per change to what is held (not per `redact`). */
+  #compiled: Needle[] | null = null;
 
   /** A vault holding these values (the engine's older `Record` form). */
   static from(source: SecretVault | Readonly<Record<string, string>> | undefined): SecretVault {
@@ -58,6 +65,19 @@ export class SecretVault {
     if (value.length > MAX_SECRET_LENGTH) throw new SecretError(`${name}: the value is longer than ${MAX_SECRET_LENGTH} characters`);
     if (value.includes("\0")) throw new SecretError(`${name}: the value has a NUL byte`);
     this.#values.set(name, value);
+    this.#compiled = null;
+  }
+
+  /**
+   * Hold a value for redaction only (one found in the environment, say): it is never handed to a
+   * tool. Same rules as `set`, but up to MAX_HIDDEN_LENGTH characters.
+   */
+  hide(value: string): void {
+    if (typeof value !== "string" || value.trim().length < MIN_SECRET_LENGTH) throw new SecretError(`the value is empty or shorter than ${MIN_SECRET_LENGTH} characters`);
+    if (value.length > MAX_HIDDEN_LENGTH) throw new SecretError(`the value is longer than ${MAX_HIDDEN_LENGTH} characters`);
+    if (value.includes("\0")) throw new SecretError("the value has a NUL byte");
+    this.#hidden.add(value);
+    this.#compiled = null;
   }
 
   has(name: string): boolean {
@@ -78,20 +98,25 @@ export class SecretVault {
 
   drop(name: string): void {
     this.#values.delete(name);
+    this.#compiled = null;
   }
 
   clear(): void {
     this.#values.clear();
+    this.#hidden.clear();
+    this.#compiled = null;
   }
 
-  /** Every string that must never be shown: each value and each line of 8+ characters of a multi-line one. */
-  #needles(): string[] {
+  /** Every string that must never be shown (each value and each line of 8+ characters of a multi-line one), compiled. */
+  #needles(): Needle[] {
+    if (this.#compiled) return this.#compiled;
     const out = new Set<string>();
-    for (const value of this.#values.values()) {
+    for (const value of [...this.#values.values(), ...this.#hidden]) {
       out.add(value);
       if (/[\r\n]/.test(value)) for (const line of value.split(/\r?\n/)) if (line.trim().length >= 8) out.add(line);
     }
-    return [...out];
+    this.#compiled = [...out].map((text) => ({ text, z: text.includes("\\") ? null : zArray(text) }));
+    return this.#compiled;
   }
 
   /**
@@ -101,16 +126,19 @@ export class SecretVault {
    * by every match that starts inside it and runs past its end (two values that overlap, or a
    * periodic value over a longer run), so no part of any shows.
    *
-   * Linear in practice: for a value without a backslash, one Z-array pass gives, at each place, how
-   * far the text matches it raw; an escape can only start where that raw run stops, and only on a
-   * backslash, so the unit-by-unit matcher runs only there, from that unit.
+   * Linear in the text: a needle longer than the text is skipped before any work (every form of it
+   * is at least as long). For a value without a backslash, its Z-array (computed once, when it is
+   * held) gives in one pass over the text how far the text matches it raw at each place; an escape
+   * can only start where that raw run stops, and only on a backslash, so the unit-by-unit matcher
+   * runs only there, from that unit.
    */
   redact(text: string): string {
     if (typeof text !== "string" || !text) return text;
-    const needles = this.#needles();
-    if (!needles.length) return text;
-    const plain = needles.map((needle) => !needle.includes("\\"));
-    const lcp = needles.map((needle, n) => (plain[n] ? rawPrefixLengths(text, needle) : null));
+    const fitting = this.#needles().filter((n) => n.text.length <= text.length);
+    if (!fitting.length) return text;
+    const needles = fitting.map((n) => n.text);
+    const plain = fitting.map((n) => n.z !== null);
+    const lcp = fitting.map((n) => (n.z ? rawPrefixLengths(text, n.text, n.z) : null));
     /** Where the longest match of any needle starting at `j` ends, or -1. */
     const endAt = (j: number): number => {
       let end = -1;
@@ -251,14 +279,16 @@ export function matchEscaped(text: string, start: number, needle: string, from =
   return end;
 }
 
-/**
- * At each index of `text`, how many units of `needle` the text matches raw from there (the Z
- * algorithm over needle + NUL + text: linear in both; a held value never has a NUL).
- */
-function rawPrefixLengths(text: string, needle: string): Int32Array {
-  const s = `${needle}\0${text}`;
-  const m = needle.length;
+/** A held string, and its Z-array when it has no backslash (computed once, when held). */
+interface Needle {
+  text: string;
+  z: Int32Array | null;
+}
+
+/** The Z-array of `s`: at each index, how many units from there match the start of `s` (`z[0]` is its length). */
+function zArray(s: string): Int32Array {
   const z = new Int32Array(s.length);
+  z[0] = s.length;
   for (let k = 1, l = 0, r = 0; k < s.length; k++) {
     if (k < r) z[k] = Math.min(r - k, z[k - l]!);
     while (k + z[k]! < s.length && s.charCodeAt(z[k]!) === s.charCodeAt(k + z[k]!)) z[k] = z[k]! + 1;
@@ -267,7 +297,28 @@ function rawPrefixLengths(text: string, needle: string): Int32Array {
       r = k + z[k]!;
     }
   }
-  return z.subarray(m + 1);
+  return z;
+}
+
+/**
+ * At each index of `text`, how many units of `needle` the text matches raw from there: one pass
+ * over the text using the needle's own Z-array (`zn`), linear in the text.
+ */
+function rawPrefixLengths(text: string, needle: string, zn: Int32Array): Int32Array {
+  const n = text.length;
+  const m = needle.length;
+  const out = new Int32Array(n);
+  // [l, r): the rightmost window where text matches the needle's start.
+  for (let k = 0, l = 0, r = 0; k < n; k++) {
+    let len = k < r ? Math.min(r - k, zn[k - l]!) : 0;
+    if (k + len >= r) {
+      while (len < m && k + len < n && text.charCodeAt(k + len) === needle.charCodeAt(len)) len++;
+      l = k;
+      r = k + len;
+    }
+    out[k] = len;
+  }
+  return out;
 }
 
 /** The value of the 4 hex digits (either case) at `at`, or -1. */

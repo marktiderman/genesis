@@ -4,7 +4,7 @@
  * mark-up, shake to report, and hooks that feed genesis-ui-native's
  * `InboxPage` and `ThreadPage` for the person's reports, the idea board and
  * "you asked, we shipped", an agent's help desk queues and ticket threads
- * (`useAgentInbox`, `useAgentThread`), and the context dump's phone sections and "Send
+ * (`useAgentInbox`, `useAgentThread`) with desk controls and a Settings row into it, and the context dump's phone sections and "Send
  * diagnostics" (`nativeSections`, `observabilitySection`, `SendDiagnosticsRow`).
  *
  * @stability Beta
@@ -20,6 +20,7 @@ export {
   type PendingFeedback,
   type PendingScreenshot,
   type SupportBlock,
+  type SupportErrorSource,
   type SupportOptions,
 } from "./support";
 export { FeedbackForm, type FeedbackFormProps } from "./feedback-form";
@@ -57,6 +58,7 @@ export {
   type AgentThreadOptions,
   type AgentThreadProps,
 } from "./agent";
-export { AgentTicketDiagnostics, type AgentTicketDiagnosticsProps } from "./diagnostics-viewer";
+export { AgentTicketDiagnostics, dumpHeading, type AgentTicketDiagnosticsProps } from "./diagnostics-viewer";
+export { AgentDeskControls, AgentDeskSwitch, type AgentDeskControlsProps, type AgentDeskSwitchProps } from "./desks";
 export { SupportRoute, type SupportRouteProps, type SupportScreenProps } from "./route";
 export { listenForShake, type AccelerometerLike, type AccelerometerMeasurement, type CaptureOptions, type ShakeOptions, type ViewShotLike } from "./modules";

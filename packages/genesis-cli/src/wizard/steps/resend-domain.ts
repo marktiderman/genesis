@@ -3,7 +3,7 @@
  * added to Resend (or found there) with the DNS records to add. Verified when Resend says the
  * domain is `verified`; until then "Check again" shows the records.
  */
-import { defineSetupStep } from "@marktiderman/genesis-config/setup";
+import { defineSetupStep } from "./define.js";
 import type { SecretVault } from "../../exec/secret-vault.js";
 import { needsSecret, OFFLINE, printable, request, secretSetters, StepError, type StepContext, type StepRunner } from "./framework.js";
 

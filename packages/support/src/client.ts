@@ -77,7 +77,11 @@ export interface SupportReport {
   userId?: string | null;
   /** Its help desk's tenant (migration 0004): which desk it is at. Absent where the read doesn't carry it. */
   tenantId?: string | null;
-  /** When the person confirmed the fix (migration 0003); null while a fixed report awaits their answer. */
+  /**
+   * When the person confirmed the fix (migration 0003): null while it isn't confirmed. The support
+   * client always reads it; a client of your own that doesn't leaves it out, and then nothing asks
+   * "Is it fixed?".
+   */
   verifiedAt?: string | null;
 }
 
@@ -496,7 +500,7 @@ export interface SupportClientOptions {
 }
 
 const REPORT_COLUMNS =
-  "id, user_id, type, title, message, status, feature_id, route, app_version, created_at, updated_at, last_staff_reply_at, last_user_reply_at, user_read_at, staff_read_at, pin:context->pin, about_label:context->>about_label, tenant_id, verified_at";
+  "id, user_id, type, title, message, status, feature_id, route, app_version, created_at, updated_at, last_staff_reply_at, last_user_reply_at, user_read_at, staff_read_at, verified_at, pin:context->pin, about_label:context->>about_label, tenant_id";
 const IDEA_COLUMNS = "id, title, body, status, feature_id, shipped_at, vote_count, created_at";
 
 type Row = Record<string, unknown>;
@@ -559,16 +563,17 @@ function toReport(r: Row): SupportReport {
     lastUserReplyAt: (r["last_user_reply_at"] as string | null) ?? null,
     userReadAt: (r["user_read_at"] as string | null) ?? null,
     staffReadAt: (r["staff_read_at"] as string | null) ?? null,
+    verifiedAt: (r["verified_at"] as string | null) ?? null,
     userId: (r["user_id"] as string | null) ?? null,
     ...("tenant_id" in r ? { tenantId: (r["tenant_id"] as string | null) ?? null } : {}),
-    ...("verified_at" in r ? { verifiedAt: (r["verified_at"] as string | null) ?? null } : {}),
   };
   return { ...report, unread: isUnread(report) };
 }
 
 /** A report marked fixed that the person hasn't confirmed yet: the "Is it fixed?" question is theirs to answer (`verify`). */
 export function awaitsVerification(t: Pick<SupportReport, "status" | "verifiedAt">): boolean {
-  return t.status === "addressed" && !t.verifiedAt;
+  // Only where the read says when it was confirmed: `verifiedAt` null, not left out.
+  return t.status === "addressed" && t.verifiedAt === null;
 }
 
 /** Since when a ticket's requester has waited, from its reply times: for a queue read before migration 0013. */

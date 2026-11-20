@@ -11,4 +11,4 @@ export default function MessagesStack() {
 }
 
 /** A screen in this tab that throws shows Try again here; the tab bar and the other tabs keep working. */
-export { ScreenErrorBoundary as ErrorBoundary } from "@/lib/observability";
+export { ScreenErrorBoundary as ErrorBoundary } from "@/lib/errors";
