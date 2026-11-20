@@ -837,6 +837,23 @@ Each resource is emitted as its own `as const satisfies ResourceContract<Row>` c
 setting, like an unknown `widget`, fails to compile), with a row type and a field-name union
 (`PublicBrandsField`), and `contracts` collects them by `schema.table`.
 
+## genesis settings sync
+
+Writes the app manifest (genesis-supabase's settings block, `genesis_app_manifest`) through the
+linked Supabase project: the Genesis packages installed and their versions, the preset, the
+`settings` of genesis.config.json and the settings catalogue the installed packages declare.
+`set_genesis_setting` checks every value a platform admin sets against that catalogue, and refuses
+every value until the manifest is written, so run it on every deploy, after the migrations:
+
+```bash
+supabase db push
+genesis settings sync            # --app-id <id> when package.json's name isn't one
+genesis settings sync --print    # the SQL, for a pipeline that runs it with psql
+```
+
+It runs `supabase db query --linked` (as `genesis doctor --database` does), so the CLI handles no
+key. A server can write the same row at start with genesis-supabase's `writeAppManifest`.
+
 ## genesis doctor
 
 `genesis doctor` checks that an app uses Genesis instead of working around it. Every built-in

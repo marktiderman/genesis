@@ -27,7 +27,7 @@ import type { SupportChatClient } from "../chat";
 import { fill, resolveSupportCopy, type SupportCopy, type SupportCopyOverrides } from "../copy";
 import { composeCollectors, createContextCollector, type ContextCollector, type FeedbackSink, type ScreenshotContentType } from "../record";
 import type { Diagnostics } from "../diagnostics/create";
-import { DIAGNOSTICS_DEFAULTS } from "../diagnostics/report";
+import type { DiagnosticReport } from "../diagnostics/report";
 import { listenForShake, type AccelerometerLike, type ShakeOptions, type ViewShotLike } from "./modules";
 import { SendDiagnosticsRow } from "./diagnostics";
 import { supportSettingValues, type SupportSettingsInput, type SupportSettingValues } from "../settings";
@@ -46,7 +46,27 @@ export interface PendingFeedback {
   screenshot: PendingScreenshot | null;
   /** Extra context to send with the report (the devtools overlay's debug report). */
   extra?: Record<string, unknown>;
+  /** The dump the shake made: it goes with the report, or on its own if none is sent. */
+  shakeDump?: ShakeDump | null;
 }
+
+/**
+ * The dump a shake makes. The feedback screen it opens claims it and sends it with the report
+ * (one dump, linked both ways); unclaimed, or claimed and left without a report, it goes on its own.
+ */
+export interface ShakeDump {
+  /** The screen takes it: true unless it has already gone (or been claimed). */
+  claim(): boolean;
+  /** The dump (null when it couldn't be made), for `submitFeedback({ report })`. */
+  report(): Promise<DiagnosticReport | null>;
+  /** It went with a report. */
+  sent(): void;
+  /** No report after all: send it on its own (once). */
+  sendAlone(): void;
+}
+
+/** How long a shake's dump waits for the feedback screen to claim it before it goes on its own. */
+const SHAKE_DUMP_CLAIM_MS = 15_000;
 
 export interface SupportOptions {
   /** The app's Supabase client (migration 0006 applied). */
@@ -105,7 +125,7 @@ export interface SupportOptions {
   appState?: { addEventListener(type: "change", listener: (state: string) => void): { remove(): void } };
   /** `@react-native-community/netinfo`: queued dumps go when the connection is back. */
   netInfo?: { addEventListener(listener: (state: { isConnected: boolean | null }) => void): () => void };
-  /** Send a dump when the phone is shaken. Default true. */
+  /** Send a dump when the phone is shaken (with the report the shake opens, when one is sent). Default true. */
   dumpOnShake?: boolean;
   /** Send a dump with every piece of feedback. Default true. */
   dumpOnFeedback?: boolean;
@@ -118,17 +138,23 @@ export interface SupportOptions {
   onError?: (error: Error, where: "capture" | "shake" | "diagnostics") => void;
   /**
    * Genesis settings: what `resolveSettings` (or genesis-supabase's `resolveAppSettings`) returned,
-   * the values alone, or a function that reads them now (the person's `shake.enabled` is read at
-   * each shake). It decides the idea board (`support.ideas`), the Settings rows
-   * (`support.feedback`, `support.inbox`), the reply expectation, shake to report (`shake.*`) and
-   * the dump (`diagnostics.*`). An option given here wins over its setting. Without either, the
-   * `max` preset: everything on.
+   * the values alone, or a function that reads them now. It decides the idea board
+   * (`support.ideas`), the Settings rows (`support.feedback`, `support.inbox`), the reply
+   * expectation and shake to report's thresholds (`shake.*`), read once at creation; and
+   * `shake.enabled` and the dump (`diagnostics.enabled`, `dumpOnShake`, `dumpOnFeedback`,
+   * `sendFromSettings`), read each time they're used, so with a function a change applies without a
+   * restart. An option given here wins over its setting. Without either, the `max` preset:
+   * everything on.
    */
   appSettings?: SupportSettingsInput | (() => SupportSettingsInput | null | undefined);
 }
 
 export interface SupportBlock extends NativeBlock<typeof SUPPORT_BLOCK_ID> {
-  /** The options with the settings applied (an option the app gave wins over its setting). */
+  /**
+   * The options with the settings applied (an option the app gave wins over its setting).
+   * `diagnostics`, `dumpOnShake` and `dumpOnFeedback` read the settings each time: `diagnostics` is
+   * undefined while `diagnostics.enabled` is off.
+   */
   readonly options: SupportOptions;
   /** Support's settings now (the `max` preset where none are given). */
   settings(): SupportSettingValues;
@@ -136,10 +162,10 @@ export interface SupportBlock extends NativeBlock<typeof SUPPORT_BLOCK_ID> {
   readonly copy: SupportCopy;
   readonly paths: SupportPaths;
   readonly collector: ContextCollector;
-  /** The context dump, when the app passed `diagnostics`. */
+  /** The context dump, when the app passed `diagnostics` and `diagnostics.enabled` is on now. */
   readonly diagnostics: Diagnostics | null;
   /** Capture the screen (if it can and `screenshot` isn't false), then open the feedback screen. */
-  openFeedback(options?: { screenshot?: boolean; extra?: Record<string, unknown>; delayMs?: number }): Promise<void>;
+  openFeedback(options?: { screenshot?: boolean; extra?: Record<string, unknown>; delayMs?: number; shakeDump?: ShakeDump | null }): Promise<void>;
   /** Hand the feedback screen what it opens with (`takePending` empties it). */
   takePending(): PendingFeedback | null;
   peekPending(): PendingFeedback | null;
@@ -191,17 +217,30 @@ function applySettings(options: SupportOptions, s: SupportSettingValues): Suppor
     ideas: options.ideas ?? s.support.ideas,
     ...(replyExpectation !== undefined ? { replyExpectation } : {}),
     shake,
-    // Diagnostics off: no dump anywhere (shake, feedback, the devtools row), whatever was passed.
-    ...(s.diagnostics.enabled ? {} : { diagnostics: undefined }),
-    dumpOnShake: options.dumpOnShake ?? s.diagnostics.dumpOnShake,
-    dumpOnFeedback: options.dumpOnFeedback ?? s.diagnostics.dumpOnFeedback,
   };
 }
 
 export function createSupport(given: SupportOptions): SupportBlock {
-  const readSettings = (): SupportSettingValues => supportSettingValues(typeof given.appSettings === "function" ? given.appSettings() : given.appSettings);
+  let lastSettings: SupportSettingValues | null = null;
+  // Read each time: a settings function follows the database. One that throws keeps its last values.
+  const readSettings = (): SupportSettingValues => {
+    try {
+      lastSettings = supportSettingValues(typeof given.appSettings === "function" ? given.appSettings() : given.appSettings);
+    } catch {
+      lastSettings ??= supportSettingValues(null);
+    }
+    return lastSettings;
+  };
   const initialSettings = readSettings();
   const options = applySettings(given, initialSettings);
+  // The dump's switches follow the settings at use. Diagnostics off: no dump anywhere (shake,
+  // feedback, the devtools row), whatever was passed.
+  const liveDiagnostics = (): Diagnostics | undefined => (given.diagnostics && readSettings().diagnostics.enabled ? given.diagnostics : undefined);
+  Object.defineProperties(options, {
+    diagnostics: { get: liveDiagnostics, enumerable: true, configurable: true },
+    dumpOnShake: { get: () => given.dumpOnShake ?? readSettings().diagnostics.dumpOnShake, enumerable: true, configurable: true },
+    dumpOnFeedback: { get: () => given.dumpOnFeedback ?? readSettings().diagnostics.dumpOnFeedback, enumerable: true, configurable: true },
+  });
   const copy = resolveSupportCopy(options.copy);
   const paths = supportPaths(options.basePath);
   const client = createSupportClient(options.supabase, { chat: options.chat, ...(options.tenantId !== undefined ? { tenantId: options.tenantId } : {}) });
@@ -269,7 +308,43 @@ export function createSupport(given: SupportOptions): SupportBlock {
 
   // The devtools overlay's "Send diagnostics" (its `devtoolsDiagnostics` slot), beside "Copy debug info".
   function DevtoolsDiagnostics({ copy: copyText }: { copy: (text: string) => unknown }) {
-    return <SendDiagnosticsRow diagnostics={options.diagnostics ?? null} copy={copyText} copyText={copy.diagnostics} hideHint testID="genesis-support-devtools-diagnostics" />;
+    const diagnostics = options.diagnostics;
+    if (!diagnostics || !readSettings().diagnostics.sendFromSettings) return null;
+    return <SendDiagnosticsRow diagnostics={diagnostics} copy={copyText} copyText={copy.diagnostics} hideHint testID="genesis-support-devtools-diagnostics" />;
+  }
+
+  // A shake's dump: made now, sent with the report the shake opens, or on its own.
+  function makeShakeDump(diagnostics: Diagnostics): ShakeDump {
+    const made = diagnostics.collect({ trigger: "shake" }).catch((error: unknown) => {
+      report(error, "diagnostics");
+      return null;
+    });
+    let state: "waiting" | "claimed" | "done" = "waiting";
+    const sendAlone = () => {
+      if (state === "done") return;
+      state = "done";
+      clearTimeout(timer);
+      void made
+        .then((dump) => (dump ? diagnostics.send({ trigger: "shake", report: dump }) : null))
+        .catch((error: unknown) => report(error, "diagnostics"));
+    };
+    const timer = setTimeout(() => {
+      if (state === "waiting") sendAlone();
+    }, SHAKE_DUMP_CLAIM_MS);
+    return {
+      claim() {
+        if (state !== "waiting") return false;
+        state = "claimed";
+        clearTimeout(timer);
+        return true;
+      },
+      report: () => made,
+      sent() {
+        state = "done";
+        clearTimeout(timer);
+      },
+      sendAlone,
+    };
   }
 
   const block: SupportBlock = {
@@ -278,10 +353,12 @@ export function createSupport(given: SupportOptions): SupportBlock {
       ...declaration.contributes,
       slots: {
         devtoolsFeedback: DevtoolsFeedback as ComponentType<never>,
-        ...(options.diagnostics && initialSettings.diagnostics.sendFromSettings ? { devtoolsDiagnostics: DevtoolsDiagnostics as ComponentType<never> } : {}),
+        ...(given.diagnostics ? { devtoolsDiagnostics: DevtoolsDiagnostics as ComponentType<never> } : {}),
       },
     },
-    diagnostics: options.diagnostics ?? null,
+    get diagnostics() {
+      return liveDiagnostics() ?? null;
+    },
     platforms: ["native"],
     options,
     settings: readSettings,
@@ -289,8 +366,11 @@ export function createSupport(given: SupportOptions): SupportBlock {
     copy,
     paths,
     collector,
-    async openFeedback({ screenshot = true, extra, delayMs = 0 } = {}) {
-      if (opening) return;
+    async openFeedback({ screenshot = true, extra, delayMs = 0, shakeDump = null } = {}) {
+      if (opening) {
+        shakeDump?.sendAlone();
+        return;
+      }
       opening = true;
       try {
         // Let a sheet that is closing (the devtools overlay) get out of the picture first.
@@ -306,7 +386,8 @@ export function createSupport(given: SupportOptions): SupportBlock {
             report(error, "capture");
           }
         }
-        setPending({ route, screenshot: shot, extra });
+        pending?.shakeDump?.sendAlone();
+        setPending({ route, screenshot: shot, extra, shakeDump });
         options.navigate(paths.feedback);
       } finally {
         opening = false;
@@ -327,12 +408,16 @@ export function createSupport(given: SupportOptions): SupportBlock {
       const current = (options.useCurrentRoute ?? noRoute)();
       useEffect(() => {
         if (current) route = current;
-        if (current) options.diagnostics?.recordRoute(current);
+        if (current) given.diagnostics?.recordRoute(current);
       }, [current]);
       useEffect(() => {
-        const diagnostics = options.diagnostics;
+        const diagnostics = given.diagnostics;
         if (!diagnostics) return;
-        const flush = () => void diagnostics.flush().catch((error: unknown) => report(error, "diagnostics"));
+        const flush = () => {
+          // Diagnostics switched off since: what's queued waits.
+          if (!liveDiagnostics()) return;
+          void diagnostics.flush().catch((error: unknown) => report(error, "diagnostics"));
+        };
         const app = options.appState?.addEventListener("change", (state) => {
           diagnostics.setForeground(state === "active");
           if (state === "active") flush();
@@ -357,10 +442,9 @@ export function createSupport(given: SupportOptions): SupportBlock {
               if (route && route.startsWith(paths.inbox)) return;
               // The person turned shake to report off (shake.enabled is theirs to change).
               if (!readSettings().shake.enabled) return;
-              if (options.diagnostics && (options.dumpOnShake ?? DIAGNOSTICS_DEFAULTS.dumpOnShake)) {
-                options.diagnostics.send({ trigger: "shake" }).catch((error: unknown) => report(error, "diagnostics"));
-              }
-              void block.openFeedback();
+              const diagnostics = options.diagnostics;
+              const shakeDump = diagnostics && options.dumpOnShake ? makeShakeDump(diagnostics) : null;
+              void block.openFeedback({ shakeDump });
             },
             options.shake || {},
           );

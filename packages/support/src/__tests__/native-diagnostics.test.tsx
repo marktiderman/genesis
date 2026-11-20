@@ -117,21 +117,53 @@ function harness(diagnostics: ReturnType<typeof createDiagnostics>, extra: Parti
 }
 
 describe("createSupport({ diagnostics })", () => {
-  it("records the route and sends a dump on a shake", async () => {
+  it("records the route and makes a dump on a shake; left without a report, it goes on its own", async () => {
     const transport = memoryTransport();
     const diagnostics = createDiagnostics({ app: { id: "acme" }, transport, randomId: () => ID });
     const acc = accelerometer();
     const { navigate, wrap } = harness(diagnostics, { accelerometer: acc });
-    render(wrap(<span />));
+    const view = render(wrap(<span />));
     let t = 0;
     vi.spyOn(Date, "now").mockImplementation(() => t);
     acc.jolt(3);
     t = 100;
     acc.jolt(3);
+    await waitFor(() => expect(navigate).toHaveBeenCalled());
+    // The feedback screen opens, and the person leaves it without sending.
+    view.rerender(wrap(<FeedbackForm sentAlert={false} />));
+    expect(transport.sent).toHaveLength(0);
+    view.rerender(wrap(<span />));
     await waitFor(() => expect(transport.sent).toHaveLength(1));
     expect(transport.sent[0]).toMatchObject({ trigger: "shake", session: { route: "/orders/:id" } });
+    vi.restoreAllMocks();
+  });
+
+  it("sends a shake's dump with the report it opens: one dump, linked both ways", async () => {
+    const transport = memoryTransport();
+    const diagnostics = createDiagnostics({ app: { id: "acme" }, transport, randomId: () => ID });
+    const acc = accelerometer();
+    const onSent = vi.fn();
+    const { fake, navigate, wrap } = harness(diagnostics, { accelerometer: acc });
+    const view = render(wrap(<span />));
+    let t = 0;
+    vi.spyOn(Date, "now").mockImplementation(() => t);
+    acc.jolt(3);
+    t = 100;
+    acc.jolt(3);
     await waitFor(() => expect(navigate).toHaveBeenCalled());
     vi.restoreAllMocks();
+    view.rerender(wrap(<FeedbackForm sentAlert={false} onSent={onSent} />));
+    fireEvent.change(screen.getByTestId("genesis-support-feedback-message"), { target: { value: "It froze" } });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("genesis-support-feedback-send"));
+    });
+    await waitFor(() => expect(onSent).toHaveBeenCalledTimes(1));
+    const insert = fake.calls.find((c) => c.table === "support_reports")?.ops.find(([op]) => op === "insert")?.[1][0] as { context: Record<string, unknown> };
+    expect(insert.context["diagnosticsId"]).toBe(ID);
+    view.rerender(wrap(<span />));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(transport.sent).toHaveLength(1);
+    expect(transport.sent[0]).toMatchObject({ id: ID, trigger: "shake", feedbackId: REPORT });
   });
 
   it("sends no dump on a shake with dumpOnShake false", async () => {

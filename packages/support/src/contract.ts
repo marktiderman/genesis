@@ -143,8 +143,17 @@ function privateSegment(segment: string): string | null {
   // `top-10-tips-2024`) switches once or has separators, and stays.
   if (/^[A-Za-z0-9]{6,12}$/.test(s) && (s.match(/[A-Za-z](?=\d)|\d(?=[A-Za-z])/g) ?? []).length >= 2) return ":token";
   // A slug: words and numbers joined by `-` (`top-10-tips-2024`), each part all letters or all
-  // digits. A token's parts mix them.
-  if (/^[A-Za-z]+(?:-(?:[A-Za-z]+|\d+))+$/.test(s)) return null;
+  // digits. A token's parts mix them. Two shapes look like slugs and aren't: a long run of digits
+  // (`card-4111111111111111`: a card, an account, a phone) and a grouped code, three or more parts
+  // of one length with both letters and digits (`ABCD-EFGH-1234-5678`).
+  if (/^[A-Za-z]+(?:-(?:[A-Za-z]+|\d+))+$/.test(s)) {
+    const parts = s.split("-");
+    if (parts.some((part) => /^\d{7,}$/.test(part))) return ":token";
+    const width = parts[0]?.length ?? 0;
+    const grouped = parts.length >= 3 && width >= 3 && parts.every((part) => part.length === width);
+    if (grouped && parts.some((part) => /^\d+$/.test(part))) return ":token";
+    return null;
+  }
   // A long run of letters and digits with a digit in it reads as a token or a code, not a word.
   if (s.length >= 16 && /\d/.test(s) && /^[A-Za-z0-9_.~-]+$/.test(s)) return ":token";
   return null;

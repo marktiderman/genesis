@@ -6,7 +6,7 @@
  *
  *   <SettingsSubPage testID="support-feedback"><FeedbackForm onSent={() => router.back()} /></SettingsSubPage>
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Alert, Image, Modal, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
@@ -39,6 +39,21 @@ export function FeedbackForm({ defaultType = "bug", onSent, sentAlert = true, te
   useEffect(() => {
     block.takePending();
   }, [block]);
+  // The shake's dump goes with this report; left without one, it goes on its own.
+  const [shakeDump] = useState(() => origin?.shakeDump ?? null);
+  const claimed = useRef(false);
+  useEffect(() => {
+    if (!shakeDump) return;
+    claimed.current = Boolean(block.options.diagnostics && block.options.dumpOnFeedback !== false && shakeDump.claim());
+    if (!claimed.current) {
+      shakeDump.sendAlone();
+      return;
+    }
+    return () => {
+      claimed.current = false;
+      shakeDump.sendAlone();
+    };
+  }, [block, shakeDump]);
   const [type, setType] = useState<FeedbackType>(defaultType);
   const [message, setMessage] = useState("");
   const [screenshot, setScreenshot] = useState<PendingScreenshot | null>(origin?.screenshot ?? null);
@@ -71,9 +86,16 @@ export function FeedbackForm({ defaultType = "bug", onSent, sentAlert = true, te
       };
       const { diagnostics, dumpOnFeedback = true, feedbackSink } = block.options;
       const sink = feedbackSink ?? block.client;
-      // With diagnostics, a dump goes with it (linked both ways); a failed dump never fails the report.
+      // With diagnostics, a dump goes with it (linked both ways): the shake's, if a shake opened
+      // this, else one made now. A failed dump never fails the report.
+      const withShake = diagnostics && dumpOnFeedback && shakeDump && claimed.current ? shakeDump : null;
+      const made = withShake ? await withShake.report() : null;
       const delivery: FeedbackDelivery & { diagnostics?: DiagnosticsDelivery | null } =
-        diagnostics && dumpOnFeedback ? await diagnostics.submitFeedback(record, { sink }) : await sink.submit(record);
+        diagnostics && dumpOnFeedback ? await diagnostics.submitFeedback(record, { sink, report: made }) : await sink.submit(record);
+      if (withShake) {
+        withShake.sent();
+        claimed.current = false;
+      }
       void queryClient.invalidateQueries({ queryKey: [SUPPORT_QUERY_ROOT, "reports"] });
       setMessage("");
       setScreenshot(null);

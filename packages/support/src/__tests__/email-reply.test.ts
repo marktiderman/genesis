@@ -75,6 +75,11 @@ describe("stripReply", () => {
     expect(stripReply("", "<style>p{}</style><p>Works now</p><div class=\"gmail_quote\">On … wrote: old</div>")).toBe("Works now");
   });
 
+  it("keeps a reply laid out in a <header>, and still drops a real <head>", () => {
+    expect(stripReply("", "<header><p>Hi</p></header><p>It works after the update</p>")).toBe("Hi\nIt works after the update");
+    expect(stripReply("", "<html><head><title>x</title></head><body><header><p>Thanks</p></header><p>Fixed</p></body></html>")).toBe("Thanks\nFixed");
+  });
+
   it("stays fast on a hostile 500 KB body", () => {
     const hostile = "<div class=\"" + "gmail_quot ".repeat(25_000) + "<style>" + "<".repeat(200_000);
     const lines = ("on " + "x".repeat(3000) + "\n").repeat(150);

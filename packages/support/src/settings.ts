@@ -70,7 +70,7 @@ export const DIAGNOSTICS_SETTING_SPECS = {
   dumpOnFeedback: { type: "boolean", default: true, requires: ["diagnostics.enabled"], summary: "Send a dump with every piece of feedback, linked by its id." },
   sendFromSettings: { type: "boolean", default: true, requires: ["diagnostics.enabled"], summary: "\"Send diagnostics\" for everyone (Settings, the Development screen)." },
   offlineQueue: { type: "boolean", default: true, requires: ["diagnostics.enabled"], summary: "Keep a dump that couldn't be sent and try again when back online." },
-  maxBytes: { type: "number", integer: true, default: 262_144, min: 65_536, max: 1_048_576, summary: "A dump's size, JSON before gzip; over it the oldest entries go first." },
+  maxBytes: { type: "number", integer: true, default: 262_144, min: 65_536, max: 524_288, summary: "A dump's size, JSON before gzip; over it the oldest entries go first. At most 512 KB, the most the database stores." },
   perHour: { type: "number", integer: true, default: 10, min: 1, max: 100, summary: "Dumps one person may send in an hour." },
   retentionDays: { type: "number", integer: true, default: 90, min: 7, max: 365, summary: "Days a dump is kept before the cleanup removes it." },
 } as const satisfies Record<string, SettingSpec>;

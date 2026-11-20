@@ -741,17 +741,18 @@ preset and genesis.config.json.
   and lock, and from where: `admin`, `wizard`, `cli`, `central`, `server` or `database`), written only
   by a trigger.
 - **`genesis_app_manifest`**: one row, what the app runs: its packages and versions, preset, file
-  settings and the settings catalogue. Write it with the service role on every deploy and at app start
-  (`writeAppManifest`). `set_genesis_setting` checks values against its catalogue (declared, runtime, the
-  right type, in bounds); until it is written, every write is refused.
+  settings and the settings catalogue. Write it on every deploy, after the migrations, with
+  `genesis settings sync` (genesis-cli, through the linked project), or from your server at start with
+  the service role (`writeAppManifest`). `set_genesis_setting` checks values against its catalogue
+  (declared, runtime, the right type, in bounds); until it is written, every write is refused.
 - **Who may change settings** is your hook, `private.genesis_platform_admin(person uuid) returns
   boolean` (ADR 0003's platform zone). Without it nobody can (`42501`, with a hint): a fresh install
   fails closed, as tenant features do.
 - **Server code** is told apart from a person by the request's role, never by a JWT claim: the
   service role, any role that bypasses row security, or a connection that never switched role. So a
   direct database login (`psql`, a migration, a BI tool on its own login) counts as server code: it
-  reads the layers without signing in and its writes are recorded as `server` (or the source it names
-  in `genesis.setting_source`), unchecked against the catalogue. Give people API access, never a
+  reads the layers without signing in and its writes are recorded as `database` (the service role's
+  as `server`; either can name its source in `genesis.setting_source`), unchecked against the catalogue. Give people API access, never a
   database login.
 - **Reading.** `genesis_settings_layers()` gives any signed-in person (and server code) the layers,
   not resolved values: the preset, the file settings for every declared key (build-time ones too:
@@ -769,7 +770,7 @@ preset and genesis.config.json.
 ```ts
 import { resolveAppSettings, setGenesisSetting, writeAppManifest } from "@marktiderman/genesis-supabase";
 
-// On deploy, with the service role:
+// On deploy, `genesis settings sync` writes the manifest. Or at server start, with the service role:
 await writeAppManifest(admin, { appId: "sample-app", packages, preset: "max", fileSettings, catalogue });
 
 // In the app, for any signed-in person:
