@@ -1,5 +1,79 @@
 # @marktiderman/genesis-supabase
 
+## 0.16.0
+
+### Minor Changes
+
+- 71cb0e2: **Whole-number settings.** A number setting can be declared `integer: true` (a count, days,
+  milliseconds): `settingValueProblem` and `resolveSettings` refuse a fraction for it, the doctor
+  reads it from package.json `genesis.settings`, and `catalogueManifest` writes it. genesis-supabase
+  migration `0021_genesis_settings_integer.sql` makes `set_genesis_setting` refuse a fraction for such
+  a key too, so the database never stores a value every reader would skip.
+- 95bab84: The `settings` block: migration `0020_genesis_settings.sql` adds `genesis_settings` (the database
+  layer of Genesis settings, with locks), `genesis_setting_changes` (every change, trigger-written,
+  with its source) and `genesis_app_manifest` (one row: packages, preset, file settings and the
+  settings catalogue). Platform admins change runtime settings through `set_genesis_setting` and
+  `clear_genesis_setting`, gated by the app's `private.genesis_platform_admin(person)` hook (without it
+  nobody can, as with tenant features), and checked against the synced catalogue. Any signed-in
+  person, and server code, reads the layers (not resolved values; build-time file values included)
+  with `genesis_settings_layers()`. Writes refuse a key genesis.config.json locks and `null` for a key
+  with a default; the history can't be edited or deleted, only pruned after a year
+  (`genesis_prune_setting_changes`, service role). Client helpers: `readSettingsLayers`,
+  `resolveAppSettings`, `setGenesisSetting`, `clearGenesisSetting`, `genesisSettingHistory`, and
+  `writeAppManifest` for the service role on deploy.
+
+### Patch Changes
+
+- 4b7af48: Depends on `@marktiderman/genesis-config` (the new name of `@marktiderman/genesis-features`)
+  instead of genesis-features. No change to what the package exports. `@marktiderman/genesis/features`
+  now re-exports genesis-config.
+- f4e39b1: Docs: two settings linked to one feature switch it off when either is false; the settings results
+  have no prototype, so read them directly or with `Object.prototype.hasOwnProperty.call` (their own
+  `hasOwnProperty` throws); a direct database login counts as server code for Genesis settings; and
+  `GENESIS_CONFIG_KEYS` is kept by hand, so a new top-level genesis.config.json key is added there.
+- 33b8d83: **Support settings and zero config.** genesis-support declares its settings with genesis-config:
+  `support.*` (the feedback form, the person's inbox, messenger, agent desk, help center, AI answers,
+  idea board, chat threads, email, reply by email, desks, staff alerts, the GitHub sink, the webhook,
+  the contact fallback), `diagnostics.*` (on, when a dump goes, its size, the hourly limit, retention)
+  and `shake.*` (a person's own switch, and how hard), each with `max` / `standard` / `min` defaults,
+  secrets by name and store, and in package.json `genesis.settings` for `genesis doctor`. New:
+  `supportSettings`, `diagnosticsSettings`, `shakeSettings`, `supportSettingsCatalogue`,
+  `resolveSupportSettings`, `supportSettingValues`. `createSupport`, `createDiagnostics`,
+  `FeedbackPanel` and `createDiagnosticsHandler` take `appSettings` (explicit options still win;
+  without either, the `max` preset). `Diagnostics.enabled` says whether dumps are on. Migration
+  `0020_genesis_support_settings.sql` reads `diagnostics.perHour` and `diagnostics.retentionDays` in
+  the database; `0021_genesis_support_default_hooks.sql` (a stand-in default tenant for 0004) and
+  `0023_genesis_support_hook_defaults.sql` (Genesis's own wrappers answer with the reserved tenant
+  `bda1457d-053b-422c-8887-e046e54b8344` and the platform admins as staff when the app has no hooks)
+  let support run with no SQL of the app's own; Genesis keeps no function of the app's hook names and
+  defines no viewer-people hook. The CommonJS server build bundles genesis-config's
+  settings resolver.
+
+  genesis-native's devtools overlay declares `devtools.*` (`overlay`, `shakeToOpen`, `hold`, `flags`,
+  `signOut`); `createDevtools({ appSettings })` takes parts away, never turns the overlay on in a
+  production build. genesis-supabase's `genesis-support-cleanup` leaves the dumps' age to the database
+  (the setting) unless `GENESIS_SUPPORT_DIAGNOSTICS_RETENTION_DAYS` is set.
+
+- 7d5b8d7: `genesis fix` secrets, second review: the hidden prompt refuses (and throws away) the rest of a
+  multi-line paste however slowly it arrives, input already waiting when it starts, and zero-width,
+  bidi and separator characters; it backspaces over whole characters, accepts a CRLF Enter split
+  across two reads, puts the terminal back on an external SIGINT, and stdin is drained before exit.
+  Redaction catches every JSON-escaped form of a value (Go's `&`-style escapes, either case),
+  and `--json` keeps a Date as its ISO string. genesis-supabase's README adds the jobs secret to Vault
+  in the dashboard rather than with SQL.
+- 6ae0571: `genesis-support-cleanup` also deletes context dumps past their retention (genesis-support's migration 0019, `support_purge_diagnostics`), 90 days by default or `GENESIS_SUPPORT_DIAGNOSTICS_RETENTION_DAYS`. Without 0019 it leaves them alone. Its answer gains `diagnostics` (how many went).
+
+  The cleanup purges dumps a batch at a time until a short batch, at most 20 batches a run. `genesis-support-notify` puts the whole issue body in one fence longer than any run of backticks the person typed, and neutralises mentions and links in the issue title. The intake function's copy of the wire contract replaces phone numbers and short codes in a route, as genesis-support's does.
+
+- 4ecdce8: `genesis-support-notify` takes new reports from `public.tickets`, the table genesis-support's migration 0004 renamed `support_reports` to. Before, it skipped every report sent after that migration. A webhook still on `support_reports` (an app that hasn't applied 0004) keeps working; point it at `tickets` once 0004 is applied. The handler exports the accepted names as `REPORT_TABLES`.
+- Updated dependencies [818908b]
+- Updated dependencies [4b7af48]
+- Updated dependencies [f4e39b1]
+- Updated dependencies [6c40ccc]
+- Updated dependencies [95bab84]
+- Updated dependencies [71cb0e2]
+  - @marktiderman/genesis-config@0.11.0
+
 ## 0.15.1
 
 ### Patch Changes

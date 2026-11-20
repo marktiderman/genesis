@@ -1,5 +1,50 @@
 # @marktiderman/genesis-native
 
+## 0.12.0
+
+### Minor Changes
+
+- 33b8d83: **Support settings and zero config.** genesis-support declares its settings with genesis-config:
+  `support.*` (the feedback form, the person's inbox, messenger, agent desk, help center, AI answers,
+  idea board, chat threads, email, reply by email, desks, staff alerts, the GitHub sink, the webhook,
+  the contact fallback), `diagnostics.*` (on, when a dump goes, its size, the hourly limit, retention)
+  and `shake.*` (a person's own switch, and how hard), each with `max` / `standard` / `min` defaults,
+  secrets by name and store, and in package.json `genesis.settings` for `genesis doctor`. New:
+  `supportSettings`, `diagnosticsSettings`, `shakeSettings`, `supportSettingsCatalogue`,
+  `resolveSupportSettings`, `supportSettingValues`. `createSupport`, `createDiagnostics`,
+  `FeedbackPanel` and `createDiagnosticsHandler` take `appSettings` (explicit options still win;
+  without either, the `max` preset). `Diagnostics.enabled` says whether dumps are on. Migration
+  `0020_genesis_support_settings.sql` reads `diagnostics.perHour` and `diagnostics.retentionDays` in
+  the database; `0021_genesis_support_default_hooks.sql` (a stand-in default tenant for 0004) and
+  `0023_genesis_support_hook_defaults.sql` (Genesis's own wrappers answer with the reserved tenant
+  `bda1457d-053b-422c-8887-e046e54b8344` and the platform admins as staff when the app has no hooks)
+  let support run with no SQL of the app's own; Genesis keeps no function of the app's hook names and
+  defines no viewer-people hook. The CommonJS server build bundles genesis-config's
+  settings resolver.
+
+  genesis-native's devtools overlay declares `devtools.*` (`overlay`, `shakeToOpen`, `hold`, `flags`,
+  `signOut`); `createDevtools({ appSettings })` takes parts away, never turns the overlay on in a
+  production build. genesis-supabase's `genesis-support-cleanup` leaves the dumps' age to the database
+  (the setting) unless `GENESIS_SUPPORT_DIAGNOSTICS_RETENTION_DAYS` is set.
+
+- 6ae0571: - `versionSignature({ buildMetadata })` and `createUpdates({ buildMetadata })`: the commit, OTA number and release the app stamps into its bundle at publish time. The signature carries `commit`, `otaNumber` and `release` (null without it; optional on the type, so signatures made by hand still type-check), and its text names them. The one-line `short` is unchanged. `BuildMetadata` is exported from `/updates`.
+  - The devtools overlay has a `devtoolsDiagnostics` slot beside "Copy debug info" (`{ debugInfo, close, copy }`), which genesis-support fills with "Send diagnostics" when `createSupport` is given `diagnostics`.
+  - The scrubber also catches phone numbers written in spaced digit groups (`44 20 7946 0958`), and `scrubValueStrict` scrubs without the pass for Sentry's id field names, for data that isn't a Sentry event.
+  - Phone numbers in spaced groups are caught only in phone shapes (a trunk `0`, or a country code then two groups of 4), so counts, durations and dates stay; North American numbers without separators (`5555550101`) are caught, epoch times and ids are not.
+
+### Patch Changes
+
+- 4b7af48: Depends on `@marktiderman/genesis-config` (the new name of `@marktiderman/genesis-features`)
+  instead of genesis-features. No change to what the package exports. `@marktiderman/genesis/features`
+  now re-exports genesis-config.
+- Updated dependencies [818908b]
+- Updated dependencies [4b7af48]
+- Updated dependencies [f4e39b1]
+- Updated dependencies [6c40ccc]
+- Updated dependencies [95bab84]
+- Updated dependencies [71cb0e2]
+  - @marktiderman/genesis-config@0.11.0
+
 ## 0.11.0
 
 ### Minor Changes
