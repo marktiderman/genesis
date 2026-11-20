@@ -1,0 +1,31 @@
+apps/sample/app/routes/design-system.tsx
+  s_ca8e075e853203::t_a798333a927521 92-93
+apps/sample/app/routes/packages.$name.tsx
+  s_ca8e075e853203::t_e45f83ef1e6eda 60-61
+apps/sample/stories/FormBuilder.stories.tsx
+  s_ca8e075e853203::t_b5c5757522f86e 64-65
+packages/ui/src/components/data/DataTable.tsx
+  s_ca8e075e853203::t_3ef30decf1c45e 1589-1590
+packages/ui/src/components/layout/AppShell.tsx
+  s_ca8e075e853203::t_ec6de6c9ed0fe1 959-960
+packages/ui/src/components/ui/alert.tsx
+  s_ca8e075e853203::t_e66e657d072b5f 52-53
+packages/ui/src/components/ui/tabs.tsx
+  s_ca8e075e853203::t_16d3a532d13be6 55-56
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7c71d4a35594ac029503ed144fdc6a65bfd69bef",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
