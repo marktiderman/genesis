@@ -320,6 +320,8 @@ export function planMigrations(
       continue;
     }
     const copy = copies.length > 1 ? tracked[0] : copies[0];
+    const drafts = copies.length > 1 ? copies.filter((m) => m !== copy).map((m) => m.name) : [];
+    const draftNote = drafts.length ? `${drafts.join(", ")} ${drafts.length > 1 ? "share" : "shares"} its name: the app's own, left alone` : "";
     if (src.source === null || sourceSha === null) {
       rows.push({ ...base, state: "unavailable", ...(copy ? { copy: copy.path } : {}), detail: `${src.package} isn't installed, or doesn't ship ${src.file}` });
       continue;
@@ -366,7 +368,8 @@ export function planMigrations(
       state = "differs";
       detail = "has the package migration's name but other text and no header; treated as the app's own";
     }
-    const row: MigrationRow = { ...base, state, copy: copy.path, ...(detail ? { detail: `${detail}${state === "current" ? "" : renamed}` } : {}) };
+    const full = [detail ? `${detail}${state === "current" ? "" : renamed}` : "", draftNote].filter(Boolean).join("; ");
+    const row: MigrationRow = { ...base, state, copy: copy.path, ...(full ? { detail: full } : {}) };
     if (state !== "current") {
       // A forward migration already written for this exact pair of texts carries it.
       const done = app.find((m) => m.forward && m.forward.package === src.package && m.forward.file === src.file && m.forward.sha256 === sourceSha && m.forward.copySha256 === copySha);

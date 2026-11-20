@@ -3,6 +3,7 @@ import { cpSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { runAdd } from "../src/blocks/add.js";
+import { runMigrate } from "../src/blocks/migrate.js";
 import { BUILTIN_RULES, runDoctor } from "../src/doctor/index.js";
 import { runFixCommand } from "../src/fix/command.js";
 import { expoApp, fixturePackage, linkWorkspacePackage, NOW, read } from "./blocks-helpers.js";
@@ -56,18 +57,30 @@ describe("migration-pending and migration-drift", () => {
     expect((await of(root, "migration-drift")).map((f) => f.file)).toEqual([copy]);
   });
 
-  it("migration-drift: the app's own earlier draft under the same name doesn't drift beside the tracked copy; two drafts and no header still do", async () => {
+  it("migration-drift: the app's own earlier draft under the same name doesn't drift beside the tracked copy; no header or two headers still do", async () => {
     const root = await appWithBlock();
+    const copy = "supabase/migrations/20261101120000_fixture_notes.sql";
     const draft = "supabase/migrations/20261001120000_fixture_notes.sql";
+    const published = read(root, copy);
     writeFileSync(path.join(root, draft), "-- the app's draft, before the package shipped\ncreate table if not exists notes (id uuid primary key);\n");
     expect(await of(root, "migration-drift")).toEqual([]);
+    // The copy is current, and its row names the draft as the app's own.
+    const row = (await runMigrate({ root, dryRun: true, now: NOW })).plan.rows.find((r) => r.file === "migrations/0001_fixture_notes.sql");
+    expect([row?.state, row?.copy, row?.detail]).toEqual(["current", copy, "20261001120000_fixture_notes.sql shares its name: the app's own, left alone"]);
     // The tracked copy edited: it drifts, and the draft beside it still doesn't.
-    const copy = "supabase/migrations/20261101120000_fixture_notes.sql";
-    writeFileSync(path.join(root, copy), read(root, copy).replace("primary key", "primary key, extra int"));
+    writeFileSync(path.join(root, copy), published.replace("primary key", "primary key, extra int"));
     expect((await of(root, "migration-drift")).map((f) => f.file)).toEqual([copy]);
     // Without a header to tell them apart, it's left alone and reported.
     writeFileSync(path.join(root, copy), "create table if not exists notes (id uuid primary key, other int);\n");
-    expect((await of(root, "migration-drift")).length).toBe(1);
+    const none = await of(root, "migration-drift");
+    expect(none.map((f) => f.file)).toEqual([draft]);
+    expect(none[0]!.message).toMatch(/2 files hold it/);
+    // Two files with its header: which is the copy can't be told either.
+    writeFileSync(path.join(root, copy), published);
+    writeFileSync(path.join(root, draft), published);
+    const two = await of(root, "migration-drift");
+    expect(two.map((f) => f.file)).toEqual([draft]);
+    expect(two[0]!.message).toMatch(/2 files hold it/);
   });
 
   it("migration-drift: an edited copy, with the guided forward-migration fix", async () => {

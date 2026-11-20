@@ -6,7 +6,9 @@
  *   isn't in the app yet, so the database the app deploys lacks what the installed package needs.
  *   Fix: `migrate.copy` (`genesis migrate`, which copies it in as a new timestamped file).
  * - `migration-drift` (warn): a copy the app edited, or one whose package text changed since it was
- *   copied, or a same-named file with other text. An applied migration is never rewritten. Fix:
+ *   copied, or a same-named file with other text. When several files share the name and exactly one
+ *   carries the migration's header, that one is the copy and the others are the app's own drafts.
+ *   An applied migration is never rewritten. Fix:
  *   `migrate.forward` (`genesis migrate --forward` writes a forward migration to fill in).
  *
  * Only an app whose genesis.lock.json lists blocks is checked; an app whose database files live in
@@ -50,13 +52,18 @@ export async function checkMigrationDrift(ctx: DoctorContext): Promise<void> {
         message: `${row.package} ships the migration ${row.file}${row.block ? ` (the ${row.block} block)` : ""}, which isn't in the app yet; genesis migrate copies it in (genesis fix migrate.copy)`,
       });
     } else if (DRIFT_STATES.has(row.state) && !row.forward) {
-      const what = row.state === "edited" ? "was edited in the app after it was copied" : row.state === "changed-upstream" ? `changed in ${row.package} since it was copied` : `has the same name as ${row.package}'s ${row.file} but other text`;
+      // Several files hold it and their headers can't tell which is the copy: a forward migration
+      // doesn't settle that, giving exactly one of them the migration's header does.
+      const several = row.state === "differs" && row.detail?.includes("files hold it");
+      const what = row.state === "edited" ? "was edited in the app after it was copied" : row.state === "changed-upstream" ? `changed in ${row.package} since it was copied` : several ? `holds ${row.package}'s ${row.file} with other files: ${row.detail}` : `has the same name as ${row.package}'s ${row.file} but other text`;
       ctx.report({
         rule: DRIFT_RULE,
         level: "warn",
         file: row.copy ?? LOCK_FILE,
         subject,
-        message: `${row.copy ?? row.file} ${what}; an applied migration is never rewritten. genesis migrate --forward writes a forward migration to carry the change (genesis fix migrate.forward)`,
+        message: several
+          ? `${row.copy ?? row.file} ${what}. Which one is the copy can't be told: exactly one of them should carry the migration's genesis-migration header`
+          : `${row.copy ?? row.file} ${what}; an applied migration is never rewritten. genesis migrate --forward writes a forward migration to carry the change (genesis fix migrate.forward)`,
       });
     }
   }
