@@ -1,0 +1,33 @@
+packages/data-server/test/p3.integration.test.ts
+  s_ee1136e5d8692a::t_500aca9b960f27 182
+packages/data-server/src/handler.ts
+  s_ee1136e5d8692a::t_500aca9b960f27 190,254,260,266,462
+packages/data-server/test/p1.integration.test.ts
+  s_ee1136e5d8692a::t_500aca9b960f27 203,210
+packages/genesis-cli/README.md
+  s_ee1136e5d8692a::t_500aca9b960f27 47
+packages/genesis-cli/src/studio/init.ts
+  s_ee1136e5d8692a::t_500aca9b960f27 107,145,195,287
+packages/data-server/src/setup-sql.ts
+  s_ee1136e5d8692a::t_500aca9b960f27 76,81
+packages/data/src/DataStudio.tsx
+  s_ee1136e5d8692a::t_500aca9b960f27 305
+packages/genesis-cli/src/studio/wire-route.ts
+  s_ee1136e5d8692a::t_500aca9b960f27 67
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "43382b6fcf36ded4e9aa2358c0eed886f56dfd6f",
+  "prompts": {},
+  "sessions": {
+    "s_ee1136e5d8692a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7ae1bc89-ab61-49a4-ad8e-066febd5d1ba",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
