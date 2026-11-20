@@ -1,0 +1,25 @@
+packages/genesis-cli/README.md
+  s_200f253970ab9c::t_e85a5bd9e6bd40 986
+packages/genesis-cli/src/blocks/migrations.ts
+  s_200f253970ab9c::t_92ff6968ea0b24 323-325
+packages/genesis-cli/src/doctor/migration-drift.ts
+  s_200f253970ab9c::t_834360548343fc 12-15
+packages/genesis-cli/test/doctor-migration-drift.test.ts
+  s_200f253970ab9c::t_c9db493d8d094f 2,69-75
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "70040270a864c3a1c06749c3a3d9b333ae7f705a",
+  "prompts": {},
+  "sessions": {
+    "s_200f253970ab9c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4f09a01c-1db0-40e0-9f05-42ee07759e38",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
