@@ -11,6 +11,26 @@ This file is appended to (never rewritten) at every release. Newest version on t
 
 ---
 
+## Settings: tenant and person values, Realtime refresh — `@marktiderman/genesis-supabase` (migration `0022_genesis_settings_tenant_person.sql`), `@marktiderman/genesis-config` (settings protocol) (**minor**)
+
+🔴 **Apply migration 0022 before you deploy code on this genesis-supabase**, if your app uses the
+settings block. `readSettingsLayers` and `resolveAppSettings` (and so `watchAppSettings`) now call
+`genesis_settings_layers(tenant)`, which 0022 adds; without it they fail with "function not found".
+`genesis migrate` copies the migration. 0020's `genesis_settings_layers()` stays as it was, so SQL and
+Edge Functions that call it keep working.
+
+🟡 **Check what `resolveAppSettings` now reads.** Without `tenant` or `person` in its options it
+resolves with the stored tenant layer (of `tenantId`, when given) and the signed-in person's own
+values, where it used to resolve with none. Passing `tenant` or `person` still replaces the stored ones.
+
+🟢 Tenant admins can set tenant-scope keys only once your app has `private.genesis_tenant_admin(tenant,
+person)` (the tenant-features hook); without it, tenant writes are refused. Add the foreign key from
+`genesis_tenant_settings.tenant_id` (and `genesis_scoped_setting_changes.tenant_id`) to your tenant
+table, as the migration's header shows. 0022 adds a policy on `realtime.messages`
+(`genesis_settings_listen`) for its private channels; a project without Realtime is unaffected.
+
+---
+
 ## Support staff: platform admins handle tickets when the app names no staff — `@marktiderman/genesis-support` (migration `0023_genesis_support_hook_defaults.sql`; **minor**)
 
 🟡 **Check who your staff are** if your app defines `private.genesis_platform_admin(person)` (the

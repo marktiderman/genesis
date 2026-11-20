@@ -1,8 +1,10 @@
 /**
- * Genesis settings: the client half of `migrations/0020_genesis_settings.sql`. Read the layers the
- * database holds and resolve them with genesis-config's `resolveSettings` (the one resolver, on
- * every platform); platform admins set, lock and clear runtime settings; the service role writes
- * the app manifest (with the catalogue the database checks values against) on deploy.
+ * Genesis settings: the client half of `migrations/0020_genesis_settings.sql` and
+ * `0022_genesis_settings_tenant_person.sql`. Read the layers the database holds and resolve them
+ * with genesis-config's `resolveSettings` (the one resolver, on every platform); platform admins
+ * set, lock and clear runtime settings, tenant admins their tenant's values and each person their
+ * own; `watchAppSettings` re-resolves when a layer changes (Realtime); the service role writes the
+ * app manifest (with the catalogue the database checks values against) on deploy.
  */
 import {
   catalogueManifest,
@@ -25,6 +27,15 @@ export interface SettingsClient {
   rpc: (fn: any, ...rest: any[]) => PromiseLike<{ data: unknown; error: PostgrestErrorLike | null }>;
 }
 
+/** A client with Realtime, for {@link watchAppSettings}. A `SupabaseClient` fits. */
+export interface RealtimeSettingsClient extends SettingsClient {
+  // Loose for the same reason as `rpc`: supabase-js's channel types are overloaded.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  channel: (name: string, options: { config: { private: true } }) => any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  removeChannel: (channel: any) => unknown;
+}
+
 /** The service-role client {@link writeAppManifest} writes with. */
 export interface ManifestClient {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -35,7 +46,9 @@ type RpcResult = { data: unknown; error: null } | { data: null; error: Postgrest
 
 /**
  * What `genesis_settings_layers` returns: the layers to resolve (not resolved values): the preset,
- * the file's settings for every declared key (build-time keys too) and the database layer for runtime keys.
+ * the file's settings for every declared key (build-time keys too), the database layer for runtime
+ * keys, the tenant's layer (keys declared `scope: "tenant"`) and the signed-in person's (keys
+ * declared `scope: "person"`).
  *
  * @stability Beta
  */
@@ -43,6 +56,10 @@ export interface StoredSettingsLayers {
   preset: SettingsPreset;
   file: SettingsLayerValues;
   database: SettingsLayerValues;
+  /** The tenant's values; empty when no tenant was asked for. */
+  tenant: SettingsLayerValues;
+  /** The signed-in person's own values; empty for server code. */
+  person: SettingsLayerValues;
   /** When the manifest was last written; null before the first deploy wrote it. */
   reportedAt: string | null;
 }
@@ -53,33 +70,43 @@ function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
+function storedLayer(raw: unknown): SettingsLayerValues {
+  const out: Record<string, { value: unknown; locked?: boolean }> = {};
+  for (const [key, entry] of Object.entries(isObject(raw) ? raw : {})) {
+    if (!isObject(entry) || !("value" in entry)) continue;
+    out[key] = entry.locked === true ? { value: entry.value, locked: true } : { value: entry.value };
+  }
+  return out;
+}
+
 /**
- * The preset, the file's settings and the database layer, for any signed-in person or server code:
- * `genesis_settings_layers`. Throws a `SupabaseQueryError` (`42501`) when nobody is signed in.
+ * The stored layers, for any signed-in person or server code: `genesis_settings_layers`. With
+ * `tenantId`, the tenant's layer too (its members and admins, platform admins and server code
+ * only). Throws a `SupabaseQueryError` (`42501`) when nobody is signed in, or the caller may not
+ * read that tenant.
  *
  * @stability Beta
  */
-export async function readSettingsLayers(client: SettingsClient): Promise<StoredSettingsLayers> {
-  const data = must((await client.rpc("genesis_settings_layers")) as RpcResult);
+export async function readSettingsLayers(client: SettingsClient, options: { tenantId?: string } = {}): Promise<StoredSettingsLayers> {
+  const data = must((await client.rpc("genesis_settings_layers", { tenant: options.tenantId ?? null })) as RpcResult);
   const raw = isObject(data) ? data : {};
-  const database: Record<string, { value: unknown; locked?: boolean }> = {};
-  for (const [key, entry] of Object.entries(isObject(raw.database) ? raw.database : {})) {
-    if (!isObject(entry) || !("value" in entry)) continue;
-    database[key] = entry.locked === true ? { value: entry.value, locked: true } : { value: entry.value };
-  }
   return {
     preset: (typeof raw.preset === "string" && PRESETS.includes(raw.preset) ? raw.preset : "max") as SettingsPreset,
     file: settingsLayerFromFile(isObject(raw.file) ? raw.file : {}),
-    database,
+    database: storedLayer(raw.database),
+    tenant: storedLayer(raw.tenant),
+    person: storedLayer(raw.person),
     reportedAt: typeof raw.reportedAt === "string" ? raw.reportedAt : null,
   };
 }
 
 /** @stability Beta */
 export interface ResolveAppSettingsOptions {
-  /** The tenant's values (keys declared `scope: "tenant"`), from wherever the app keeps them. */
+  /** The tenant whose stored values to resolve with (keys declared `scope: "tenant"`). */
+  tenantId?: string;
+  /** The tenant's values, in place of the stored ones (from wherever the app keeps them). */
   tenant?: SettingsLayerValues;
-  /** The person's values (keys declared `scope: "person"`). */
+  /** The person's values, in place of the signed-in person's stored ones (keys declared `scope: "person"`). */
   person?: SettingsLayerValues;
   /**
    * The layers the build itself carries (the preset and genesis.config.json `settings`); when given,
@@ -100,14 +127,75 @@ export interface ResolveAppSettingsOptions {
  * @stability Beta
  */
 export async function resolveAppSettings(client: SettingsClient, catalogue: SettingsCatalogue, options: ResolveAppSettingsOptions = {}): Promise<ResolvedSettings> {
-  const stored = await readSettingsLayers(client);
+  const stored = await readSettingsLayers(client, options.tenantId !== undefined ? { tenantId: options.tenantId } : {});
   return resolveSettings(catalogue, {
     preset: options.build?.preset ?? stored.preset,
     file: options.build?.file ?? stored.file,
     database: stored.database,
-    ...(options.tenant ? { tenant: options.tenant } : {}),
-    ...(options.person ? { person: options.person } : {}),
+    tenant: options.tenant ?? stored.tenant,
+    person: options.person ?? stored.person,
   });
+}
+
+/** @stability Beta */
+export interface WatchAppSettingsOptions extends ResolveAppSettingsOptions {
+  /** The signed-in person's id, to hear when their own values change. */
+  personId?: string;
+  /** Called with the resolved settings now, and again after every change. */
+  onChange: (settings: ResolvedSettings) => void;
+  /** Called when a read fails (the last good settings stay where they are). */
+  onError?: (error: unknown) => void;
+}
+
+/**
+ * Resolve the settings now and again whenever a layer changes: the database layer, the tenant's
+ * (`tenantId`) or the person's (`personId`). It listens on the private Realtime channels migration
+ * 0022 broadcasts on (each change names the layer and key, never the value), re-reads after a
+ * reconnect, and returns the function that stops it. Not wanted? Call {@link resolveAppSettings}
+ * instead: nothing listens.
+ *
+ * ```ts
+ * const stop = watchAppSettings(supabase, catalogue, { tenantId, personId: user.id, onChange: setSettings });
+ * ```
+ *
+ * @stability Beta
+ */
+export function watchAppSettings(client: RealtimeSettingsClient, catalogue: SettingsCatalogue, options: WatchAppSettingsOptions): () => void {
+  let stopped = false;
+  let latest = 0;
+  const refresh = () => {
+    const mine = ++latest;
+    resolveAppSettings(client, catalogue, options).then(
+      (settings) => {
+        if (!stopped && mine === latest) options.onChange(settings);
+      },
+      (error: unknown) => {
+        if (!stopped && mine === latest) options.onError?.(error);
+      },
+    );
+  };
+  const topics = [
+    "genesis-settings",
+    ...(options.tenantId ? [`genesis-settings:tenant:${options.tenantId}`] : []),
+    ...(options.personId ? [`genesis-settings:person:${options.personId}`] : []),
+  ];
+  const channels = topics.map((topic) => {
+    let joined = false;
+    return client
+      .channel(topic, { config: { private: true } })
+      .on("broadcast", { event: "changed" }, refresh)
+      .subscribe((status: string) => {
+        // The first join follows the read below; a later one is a reconnect, which may have missed changes.
+        if (status !== "SUBSCRIBED") return;
+        if (joined) refresh();
+        joined = true;
+      });
+  });
+  refresh();
+  return () => {
+    stopped = true;
+    for (const channel of channels) void client.removeChannel(channel);
+  };
 }
 
 /** @stability Beta */
@@ -116,25 +204,56 @@ export interface SetGenesisSettingInput {
   key: string;
   /** The value; `null` for "not set". */
   value: unknown;
-  /** Lock it, so tenant and person values can't change it. Default false. */
+  /** Lock it, so tenant and person values can't change it. Default false. The database layer only. */
   locked?: boolean;
+  /**
+   * The layer to write: `database` (default; platform admins), `tenant` (the tenant's admins, keys
+   * declared `scope: "tenant"`, with `tenant`) or `person` (the signed-in person's own value, keys
+   * declared `scope: "person"`).
+   */
+  layer?: GenesisSettingLayer;
+  /** The tenant's id, for the `tenant` layer. */
+  tenant?: string;
+}
+
+/** The layers stored in the app's database. @stability Beta */
+export type GenesisSettingLayer = "database" | "tenant" | "person";
+
+function layerCall(verb: "set" | "clear", input: { layer?: GenesisSettingLayer; tenant?: string; locked?: boolean }): { fn: string; args: Record<string, unknown> } {
+  const layer = input.layer ?? "database";
+  if (layer !== "database" && input.locked) throw new TypeError(`${verb}GenesisSetting: only the database layer locks a value`);
+  if (layer === "tenant" && !input.tenant) throw new TypeError(`${verb}GenesisSetting: the tenant layer needs a tenant`);
+  if (layer === "tenant") return { fn: `${verb}_genesis_tenant_setting`, args: { tenant: input.tenant } };
+  if (layer === "person") return { fn: `${verb}_genesis_person_setting`, args: {} };
+  return { fn: `${verb}_genesis_setting`, args: {} };
 }
 
 /**
- * Set a runtime setting in the database layer: `set_genesis_setting`. Only platform admins (the
- * app's `private.genesis_platform_admin` hook); throws a `SupabaseQueryError` otherwise (`42501`),
- * or for a value the synced catalogue refuses (`22023`: an unknown or build-time key, one
- * genesis.config.json locks, the wrong type, out of bounds, or `null` for a key with a default).
+ * Set a runtime setting: in the database layer (`set_genesis_setting`, platform admins: the app's
+ * `private.genesis_platform_admin` hook), a tenant's layer (`set_genesis_tenant_setting`, the
+ * tenant's admins: `private.genesis_tenant_admin`) or the signed-in person's
+ * (`set_genesis_person_setting`). Throws a `SupabaseQueryError` when the caller may not (`42501`),
+ * or for a value the synced catalogue refuses (`22023`: an unknown or build-time key, one a lower
+ * layer locks, a key of another scope, the wrong type, out of bounds, or `null` for a key with a default).
  *
  * @stability Beta
  */
 export async function setGenesisSetting(client: SettingsClient, input: SetGenesisSettingInput): Promise<void> {
-  must((await client.rpc("set_genesis_setting", { key: input.key, value: input.value === undefined ? null : input.value, locked: input.locked ?? false })) as RpcResult);
+  const { fn, args } = layerCall("set", input);
+  const value = input.value === undefined ? null : input.value;
+  must((await client.rpc(fn, fn === "set_genesis_setting" ? { key: input.key, value, locked: input.locked ?? false } : { ...args, key: input.key, value })) as RpcResult);
 }
 
-/** Remove a setting from the database layer, so the file, preset or default applies again: `clear_genesis_setting`. Platform admins only. @stability Beta */
-export async function clearGenesisSetting(client: SettingsClient, key: string): Promise<void> {
-  must((await client.rpc("clear_genesis_setting", { key })) as RpcResult);
+/**
+ * Remove a value from a layer, so the layers below apply again: the database layer (default;
+ * platform admins), a tenant's (`{ layer: "tenant", tenant }`, its admins) or the signed-in
+ * person's own (`{ layer: "person" }`).
+ *
+ * @stability Beta
+ */
+export async function clearGenesisSetting(client: SettingsClient, key: string, options: { layer?: GenesisSettingLayer; tenant?: string } = {}): Promise<void> {
+  const { fn, args } = layerCall("clear", options);
+  must((await client.rpc(fn, { ...args, key })) as RpcResult);
 }
 
 /** One change to the database layer. A null `new_value` with `new_locked` null is a cleared setting. @stability Beta */
