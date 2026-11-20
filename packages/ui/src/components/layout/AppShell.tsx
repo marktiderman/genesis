@@ -956,7 +956,8 @@ function NavGroup({
           <button
             type="button"
             className={cn(
-              "shrink-0 rounded-lg p-1.5 text-sidebar-foreground transition-colors hover:bg-sidebar-accent",
+              // 44×44 on touch, like the row beside it (docs/RESPONSIVE.md rule 3).
+              "inline-flex shrink-0 items-center justify-center rounded-lg p-1.5 text-sidebar-foreground transition-colors hover:bg-sidebar-accent pointer-coarse:size-11",
               groupHighlight && "text-sidebar-primary",
               item.disabled && "pointer-events-none opacity-40",
             )}

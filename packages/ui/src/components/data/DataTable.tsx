@@ -1586,7 +1586,8 @@ export function DataTable<T>({
                       return col.sortable ? (
                         <button
                           type="button"
-                          className="-mx-1 flex w-[calc(100%+0.5rem)] min-w-0 items-center rounded px-1 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          // 44px tall on touch (docs/RESPONSIVE.md rule 3).
+                          className="-mx-1 flex w-[calc(100%+0.5rem)] min-w-0 items-center rounded px-1 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:min-h-11"
                           onClick={(e) => handleSort(col.key, e.shiftKey)}
                           onKeyDown={(e) => {
                             // Alt+←/→ moves the column past its visible neighbour.
