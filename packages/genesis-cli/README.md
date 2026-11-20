@@ -1647,9 +1647,12 @@ the plan is refused). Nothing is written otherwise. One apply runs at a time.
   runs over MCP: it returns `genesis fix <id>` for the person to run at a terminal, and the step's
   id. `genesis setup --step <id>`, and a `setup_steps` tool listing the steps, arrive with the setup
   wizard; until then the command is `genesis fix <id>`.
-- The approval shows a proposed setting's value in full and each file's changed lines (up to
-  12,000 characters; past that it says how to read the rest). A message too long to show whole is
-  refused, never cut.
+- The approval shows the person exactly what applies: a proposed setting's value in full and each
+  file's changed lines, with invisible and direction-changing characters (U+2028, U+202E,
+  zero-width) shown as their codes. Nothing in it is hidden or cut: a plan whose changed lines
+  pass 12,000 characters, or whose message would hold a secret's value or a secret-shaped literal
+  (a private key, a provider token), isn't offered for approval; `fix_apply` says why and gives
+  the command (or the file) for the person.
 - `upgrade.release` runs the package manager attached to the terminal, so it returns its
   `genesis fix` command too.
 
@@ -1657,11 +1660,11 @@ the plan is refused). Nothing is written otherwise. One apply runs at a time.
 `server-env` secret as set or missing from the server's own environment (only whether it is
 there), and the other stores as `unknown`; it reads no `.env` file. Every result and error is
 scrubbed of the values of secret-looking environment variables (`*_TOKEN`, `*_KEY`, `*SECRET*`,
-`DATABASE_URL`, …) and of the settings' declared secrets (also as JSON escapes them), of URL
+`DATABASE_URL`, `*PASSPHRASE*`, `*_PWD`, `*SALT*`, …) and of the settings' declared secrets (also as JSON escapes them), of URL
 passwords, and of secret-shaped literals (a private key block, GitHub, Slack, Stripe, `sk-`, AWS
-and JWT tokens) wherever they appear, a planned file's content included; a planned file's
-content is shown up to 8,000 characters (the hash covers all of it); a result is at most 60,000
-characters. Errors are MCP errors with a message, never a stack.
+and JWT tokens) wherever they appear, a planned file's content included, before anything is
+clipped. A planned file's content is shown up to 8,000 characters (the plan's hash covers all of
+it; a file's own hashes aren't shown); a result is at most 60,000 characters. Errors are MCP errors with a message, never a stack.
 
 | Option | |
 | --- | --- |
@@ -1670,7 +1673,9 @@ characters. Errors are MCP errors with a message, never a stack.
 | `--offline` | `genesis-behind` and `upgrades_status` read only their cache. |
 
 Logs go to stderr; stdout is the protocol's. While it serves, every child process gets a safe
-stdio: stdin ignored and stdout sent to stderr, so nothing a fix runs can write into the protocol.
+stdio (`fork` included, with its ipc channel): stdin ignored and stdout sent to stderr, so nothing
+a fix runs can write into the protocol; what the server and in-process commands write to stderr is
+scrubbed like the results.
 
 ## genesis figma:routes
 

@@ -12,36 +12,39 @@ import { primitivesCatalog } from "../doctor/primitives.js";
 import type { DeclaringPackage, Finding } from "../doctor/types.js";
 import type { Fix, FixPlan } from "../fix/types.js";
 import { clip, MAX_FILE_CHARS, MAX_FINDINGS, MAX_PLAN_CHARS } from "./bounds.js";
-import { sha256 } from "../fix/engine.js";
 
 /** A request the tools refuse, with a message for the agent (an MCP InvalidParams error). */
 export class ToolInputError extends Error {
   override name = "ToolInputError";
 }
 
-/** A finding as the tools show it: the message clipped. */
-export function slimFinding(f: Finding) {
+/** Scrubs a string before it is clipped (a clip that cuts a secret in half would leave its start unredacted). */
+export type Scrubber = (text: string) => string;
+const same: Scrubber = (t) => t;
+
+/** A finding as the tools show it: the message scrubbed, then clipped. */
+export function slimFinding(f: Finding, sc: Scrubber = same) {
   return {
     rule: f.rule,
     level: f.level,
     file: f.file,
     ...(f.line ? { line: f.line } : {}),
-    message: clip(f.message, 600),
-    ...(f.subject ? { subject: clip(f.subject, 200) } : {}),
+    message: clip(sc(f.message), 600),
+    ...(f.subject ? { subject: clip(sc(f.subject), 200) } : {}),
     ...(f.rules ? { rules: f.rules } : {}),
     ...(f.fix ? { fix: f.fix } : {}),
   };
 }
 
 /** The doctor's findings, filtered to `rules` and bounded. */
-export function findingsReport(findings: readonly Finding[], rules?: readonly string[]) {
+export function findingsReport(findings: readonly Finding[], rules?: readonly string[], sc: Scrubber = same) {
   const picked = rules?.length ? findings.filter((f) => rules.includes(f.rule) || f.rules?.some((r) => rules.includes(r))) : findings;
   const shown = picked.slice(0, MAX_FINDINGS);
   const byFix = new Map<string, number>();
   for (const f of picked) if (f.fix && f.fix.kind !== "manual") byFix.set(f.fix.id, (byFix.get(f.fix.id) ?? 0) + 1);
   return {
     total: picked.length,
-    findings: shown.map(slimFinding),
+    findings: shown.map((f) => slimFinding(f, sc)),
     ...(picked.length > shown.length ? { truncated: `${picked.length - shown.length} more findings not listed; pass rules to narrow` } : {}),
     fixes: [...byFix].map(([id, count]) => ({ id, findings: count })).sort((a, b) => a.id.localeCompare(b.id)),
   };
@@ -183,28 +186,31 @@ export function resolveFixTarget(request: { fixId?: string; rule?: string; file?
   throw new ToolInputError(covering.length ? `no finding of ${rule} now, and ${covering.map((f) => f.id).join(", ")} cover it: pass fixId` : `no finding of ${rule}${request.file || request.subject ? " there" : ""}, and no fix covers it`);
 }
 
-/** A plan as the tools show it: each file's content up to a limit (its hash covers all of it). */
-export function boundedPlan(plan: FixPlan) {
+/**
+ * A plan as the tools show it: each file's content (scrubbed) up to a limit; the plan's hash covers
+ * all of it. A file's own hashes aren't shown: a hash of text holding a secret is a way to test
+ * guesses at it.
+ */
+export function boundedPlan(plan: FixPlan, sc: Scrubber = same) {
   let budget = MAX_PLAN_CHARS;
   return {
     fixId: plan.fixId,
     summary: plan.summary,
     files: plan.files.map((f) => {
+      const content = sc(f.content);
       const room = Math.max(0, Math.min(MAX_FILE_CHARS, budget));
-      const shown = f.content.length <= room ? f.content : null;
+      const shown = content.length <= room ? content : null;
       budget -= shown?.length ?? 0;
       return {
         path: f.path,
         action: f.beforeHash === null ? "create" : "write",
-        why: f.why,
-        beforeHash: f.beforeHash,
-        contentSha256: sha256(f.content),
-        ...(shown !== null ? { content: shown } : { contentOmitted: `${f.content.length} characters; genesis fix ${plan.fixId} --plan --json prints it whole` }),
+        why: sc(f.why),
+        ...(shown !== null ? { content: shown } : { contentOmitted: `${content.length} characters; genesis fix ${plan.fixId} --plan --json prints it whole` }),
       };
     }),
-    commands: plan.commands.map((c) => ({ run: [c.tool, ...c.args].join(" "), ...(c.stdinSecret ? { stdinSecret: c.stdinSecret } : {}), why: c.why })),
+    commands: plan.commands.map((c) => ({ run: sc([c.tool, ...c.args].join(" ")), ...(c.stdinSecret ? { stdinSecret: c.stdinSecret } : {}), why: sc(c.why) })),
     secrets: plan.secrets,
-    ...(plan.manual ? { manual: clip(plan.manual, 4_000) } : {}),
+    ...(plan.manual ? { manual: clip(sc(plan.manual), 4_000) } : {}),
     hash: plan.hash,
   };
 }
