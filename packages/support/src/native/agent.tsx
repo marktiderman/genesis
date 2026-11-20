@@ -172,7 +172,7 @@ function useReporters(ids: readonly string[]) {
   return useMemo(() => new Map((query.data ?? []).map((r) => [r.id, r])), [query.data]);
 }
 
-/** The help desk's agents (`client.staffList`), for names and the assignee picker. Empty without it. */
+/** The help desk's agents with a login (`client.staffList`), for names and the assignee picker. Empty without it. */
 function useStaff(tenant: string | null, enabled: boolean): SupportPerson[] {
   const { client } = useSupport();
   const me = useSignedInId(undefined);
@@ -183,7 +183,8 @@ function useStaff(tenant: string | null, enabled: boolean): SupportPerson[] {
     staleTime: 5 * 60_000,
     retry: retryUnlessRefused,
   });
-  return query.data ?? [];
+  // An agent row with no login can't be assigned or named on a ticket.
+  return useMemo(() => (query.data ?? []).flatMap((s) => (s.id === null ? [] : [{ ...s, id: s.id }])), [query.data]);
 }
 
 /** The words the agent desk needs that support's copy doesn't have, in English by default. */

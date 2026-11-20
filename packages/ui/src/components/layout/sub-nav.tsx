@@ -212,7 +212,7 @@ export function SubNavTabs({
                     : "text-muted-foreground hover:text-foreground",
                 )
               : cn(
-                  "flex items-center gap-1.5 border-b-2 pb-2.5 pt-2 text-sm transition-colors motion-reduce:transition-none",
+                  "flex items-center justify-center gap-1.5 border-b-2 pb-2.5 pt-2 text-sm transition-colors motion-reduce:transition-none pointer-coarse:min-h-11 pointer-coarse:min-w-11",
                   active
                     ? "border-primary font-semibold text-foreground"
                     : "border-transparent text-muted-foreground hover:text-foreground",

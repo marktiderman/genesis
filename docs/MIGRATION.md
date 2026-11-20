@@ -31,12 +31,9 @@ the manifest is written, the server gates use the package defaults (resolveSetti
 `private.genesis_setting(key, tenant)` instead (genesis-supabase 0023; null until the manifest
 declares the key).
 
-🟡 **Deprecated, still honored for one release and removed in the next minor** (support 0030, 0033):
-
-- `private.genesis_support_verify_prompt_enabled()`: set `support.verifyPrompt` to true instead.
-- An app's own `private.genesis_support_person_name` or `private.genesis_support_tenant_label`:
-  define `private.genesis_person_name(person)` and `private.genesis_tenant_label(tenant)`, which
-  support asks first.
+🟡 **Deprecated, still honored for one release and removed in the next minor** (support 0033):
+`private.genesis_support_verify_prompt_enabled()`. Set `support.verifyPrompt` to true instead. The
+hook turns the prompt on only where no layer sets the key; a value set, or locked, wins.
 
 🔴 **`private.genesis_support_requester_label(report)` is no longer called** (support 0034, the
 support-chat block), and the report's `by_requester_capped` (`byRequesterCapped`) is gone: every
@@ -50,16 +47,45 @@ $$;
 revoke execute on function private.genesis_support_requester_labels(uuid[]) from public, anon, authenticated;
 ```
 
-🟡 **`support_agents_list` returns two more columns** (support 0034): `role` and `removable`. SQL of
-your own that reads it by column name is unaffected; one that expects exactly two columns needs them.
+🔴 **`SupportClientOptions.settings` is removed** (`createSupportClient`). The server now decides
+whether threads run on chat: with `support.chatThreads` off, `support_chat_conversation` (0034)
+answers none, so every client stays on support_replies whatever `chat` it was given. Drop `settings`
+from the options, apply 0034, and set `support.chatThreads` in genesis.config.json or the settings
+screen where you passed it before (and write the manifest on deploy).
 
-🟢 No support setting is planned any more: `support.email` gates reply by email, `support.aiAnswers`
-gates a tenant's AI answers in the database (0029, under `support_ai_enabled`), and
-`support.chatThreads` off keeps threads on support_replies (pass `settings` to `createSupportClient`
-on the web). The `sentry` step no
-longer offers to save its DSN as a setting and `ai.key-budget` has no budget field, since no package
-reads either; `github.issues` saves
-the repository to `support.githubRepo`.
+🟡 **`client.staffList` returns `SupportStaffMember[]`**: `id` (the login) is null for an agent row
+whose person has no login, listed so it can be seen and removed by its `personId`. Check for null
+before using `id` as a login.
+
+🟡 **Agents by person record** (support 0034). `ticket_agents` holds the tenant's person record, so
+`support_set_agent` takes a person id, and a null tenant is now the app's own desk there too (it was
+refused). `support_agents_list` returns `user_id`, `person_id`, `full_name`, `role` and `removable`;
+SQL of your own that expects its two old columns needs the new ones. `support_people_search`
+returns `person_id`, `user_id`, `full_name` and `email`. To let it search all your people with your
+own indexes, define:
+
+```sql
+create function private.genesis_people_search(tenant uuid, q text, lim integer)
+returns table (person_id uuid, login uuid) language sql stable set search_path = '' as $$
+  select p.id, p.user_id from public.people p
+   where p.tenant_id = tenant and (p.name ilike q || '%' or p.email ilike q || '%') limit lim
+$$;
+revoke execute on function private.genesis_people_search(uuid, text, integer) from public, anon, authenticated;
+```
+
+Without it, the search covers the people support already knows at that desk (its agents, the
+app's staff and tenant admin lists, the 500 most recent requesters).
+
+🟡 **`support.email` is enforced on the server** (support 0031): while it is off,
+`support_receive_email` files nothing and `support_claim_outbound_emails` sends nothing (queued
+replies wait). Under the `standard` and `min` presets it is off: turn it on to keep the channel.
+
+🟢 No support setting is planned any more: `support.aiAnswers` gates a tenant's AI answers in the
+database (0029, under `support_ai_enabled`), and `support.chatThreads` off makes
+`support_chat_conversation` answer none, so every client stays on support_replies (0034). The
+`sentry` step no longer offers to save its DSN as a setting and `ai.key-budget` has no budget
+field, since no package reads either; `github.issues` saves the repository to
+`support.githubRepo`.
 
 ## Settings: tenant and person values, Realtime refresh — `@marktiderman/genesis-supabase` (migration `0023_genesis_settings_tenant_person.sql`), `@marktiderman/genesis-config` (settings protocol) (**minor**)
 

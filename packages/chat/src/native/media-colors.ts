@@ -10,6 +10,8 @@ export const MEDIA_FRAME = "#111111";
 /** Behind controls and labels laid over a picture. */
 export const MEDIA_SCRIM = "rgba(0,0,0,0.5)";
 export const MEDIA_SCRIM_LIGHT = "rgba(0,0,0,0.35)";
+/** A notice laid over a picture (the photo viewer's "saved"): near-opaque, so it reads on any photo. */
+export const MEDIA_NOTICE = "rgba(40,40,40,0.92)";
 /** A tint-bubble card's fill, over the tint. */
 export const ON_TINT_FILL = "rgba(255,255,255,0.16)";
 export const ON_TINT_FILL_STRONG = "rgba(255,255,255,0.2)";

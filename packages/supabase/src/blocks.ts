@@ -149,6 +149,30 @@ export const settingsBlock = defineBlock({
 });
 
 /**
+ * The Settings host block: what the in-app Settings screen's server
+ * (`createSettingsHandler` from `/settings/server`) needs on top of the settings
+ * block: who is looking, proposals a platform admin decides, Vault set and rotate
+ * (write-only), and one paged history. Needs the settings block.
+ *
+ * @stability Beta
+ */
+export const settingsHostBlock = defineBlock({
+  id: "settings-host",
+  requires: ["settings"],
+  platforms: ["web"],
+  contributes: {
+    migrations: [
+      { package: PACKAGE, file: "migrations/0024_genesis_settings_host.sql", test: "migrations/tests/0024_genesis_settings_host.test.sql" },
+    ],
+    privacy: {
+      notes: [
+        "Keeps who proposed a setting change, the value and their reason, until that person is deleted; and who set each Vault secret and when, never its value.",
+      ],
+    },
+  },
+});
+
+/**
  * The jobs block: a background-job queue and named schedules that call the
  * app's job route. Server only; the route is `createJobsHandler` from `/jobs`.
  *

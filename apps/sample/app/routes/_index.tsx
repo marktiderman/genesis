@@ -131,7 +131,8 @@ function ModuleCard({ p }: { p: GenesisPackage }) {
             Owns the <code className="rounded bg-muted px-1">{m.schema}</code> schema
           </p>
         ) : null}
-        <pre className="overflow-x-auto rounded-md border border-border bg-muted/40 px-3 py-1.5 text-xs"><code>{m.install}</code></pre>
+        {/* Scrolls sideways on a phone: focusable, so the keyboard can scroll it too. */}
+        <pre tabIndex={0} aria-label={`Install ${m.name}`} className="overflow-x-auto rounded-md border border-border bg-muted/40 px-3 py-1.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><code>{m.install}</code></pre>
       </CardHeader>
     </Card>
   );
@@ -242,7 +243,7 @@ export default function Home() {
             them level 2. Start with <code className="rounded bg-muted px-1 text-sm">{INIT_COMMAND}</code> and the
             packages marked essential. This list is read from the repository at build time.
           </p>
-          <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_16rem]">
+          <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_16rem]">
             <div className="space-y-4">
               {LAYER_BANDS.map((band) => (
                 <section
@@ -257,7 +258,7 @@ export default function Home() {
                   </div>
                   <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{band.blurb}</p>
                   {band.layer === "module" ? (
-                    <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                    <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                       {packagesIn("module").flatMap((g) => g.packages).map((p) => (
                         <ModuleCard key={p.name} p={p} />
                       ))}
@@ -267,7 +268,7 @@ export default function Home() {
                       {packagesIn(band.layer).map((g) => (
                         <div key={g.group} data-testid={`group-${band.layer}-${g.group}`}>
                           <h4 className="text-sm font-medium">{GROUP_LABELS[g.group]}</h4>
-                          <ul className="mt-2 grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+                          <ul className="mt-2 grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
                             {g.packages.map((p) => (
                               <PackageLink key={p.name} p={p} />
                             ))}

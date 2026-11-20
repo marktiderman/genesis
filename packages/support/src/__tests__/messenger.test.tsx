@@ -9,6 +9,7 @@ import { answerHelpQuestion, HELP_AI_REFUSALS, HELP_ANSWER_FEATURE, supportHelpA
 import { useHelpAsk, type HelpAnswerResponse } from "../help-ask";
 import { SupportHelpCenterAdmin, SupportMessenger, SupportMessengerLauncher } from "../web-chat";
 import { fakeSupabase } from "./fake-supabase";
+import { QueryProviders } from "./query-providers";
 
 afterEach(cleanup);
 
@@ -72,7 +73,11 @@ function fakeClient(over: Partial<SupportClient> = {}) {
   } as unknown as SupportClient & Record<string, ReturnType<typeof vi.fn>>;
 }
 
-const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>{children}</QueryClientProvider>;
+// A fresh cache per screen.
+const wrapper = QueryProviders;
+
+/** The "Is it fixed?" question is asked only with `support.verifyPrompt` on. */
+const VERIFY_ON = { "support.verifyPrompt": true };
 
 function show(client: SupportClient, props: Partial<Parameters<typeof SupportMessenger>[0]> = {}) {
   render(<SupportMessenger client={client} tenantId="ta" {...props} />, { wrapper });
@@ -231,6 +236,100 @@ describe("SupportMessenger", () => {
     fireEvent.click(await screen.findByText("Where is my invoice?"));
     expect(await screen.findByTestId("genesis-support-messenger-thread-closed")).toBeTruthy();
     expect(screen.queryByRole("textbox")).toBeNull();
+  });
+
+  it("asks \"Is it fixed?\" on a fixed conversation, and confirms it", async () => {
+    const verify = vi.fn(async () => undefined);
+    const client = fakeClient({ report: vi.fn(async () => ticket({ status: "addressed", verifiedAt: null })), verify });
+    show(client, { spaces: ["messages"], settings: VERIFY_ON });
+    fireEvent.click(await screen.findByText("Where is my invoice?"));
+    expect((await screen.findByTestId("genesis-support-messenger-verify")).textContent).toContain("Is it fixed?");
+    fireEvent.click(screen.getByTestId("genesis-support-messenger-verify-fixed"));
+    await waitFor(() => expect(verify).toHaveBeenCalledWith("t1", true, undefined));
+  });
+
+  it("asks nothing with support.verifyPrompt off, as in every preset", async () => {
+    show(fakeClient({ report: vi.fn(async () => ticket({ status: "addressed", verifiedAt: null })), verify: vi.fn() }), { spaces: ["messages"] });
+    fireEvent.click(await screen.findByText("Where is my invoice?"));
+    expect(await screen.findByTestId("genesis-support-messenger-thread-closed")).toBeTruthy();
+    expect(screen.queryByTestId("genesis-support-messenger-verify")).toBeNull();
+  });
+
+  it("answers once, however often it's pressed, and the card goes", async () => {
+    const verify = vi.fn(async () => undefined);
+    show(fakeClient({ report: vi.fn(async () => ticket({ status: "addressed", verifiedAt: null })), verify }), { spaces: ["messages"], settings: VERIFY_ON });
+    fireEvent.click(await screen.findByText("Where is my invoice?"));
+    const fixed = await screen.findByTestId("genesis-support-messenger-verify-fixed");
+    fireEvent.click(fixed);
+    fireEvent.click(fixed);
+    await waitFor(() => expect(screen.queryByTestId("genesis-support-messenger-verify")).toBeNull());
+    expect(verify).toHaveBeenCalledTimes(1);
+  });
+
+  it("reopens a fixed conversation with what's still wrong", async () => {
+    const verify = vi.fn(async () => undefined);
+    show(fakeClient({ report: vi.fn(async () => ticket({ status: "addressed", verifiedAt: null })), verify }), { spaces: ["messages"], settings: VERIFY_ON });
+    fireEvent.click(await screen.findByText("Where is my invoice?"));
+    fireEvent.click(await screen.findByTestId("genesis-support-messenger-verify-reopen"));
+    fireEvent.change(screen.getByTestId("genesis-support-messenger-verify-note"), { target: { value: "Still blank" } });
+    fireEvent.click(screen.getByTestId("genesis-support-messenger-verify-reopen-send"));
+    await waitFor(() => expect(verify).toHaveBeenCalledWith("t1", false, "Still blank"));
+  });
+
+  it("says when the answer wasn't saved, and asks nothing once it's confirmed", async () => {
+    const verify = vi.fn(async () => Promise.reject(new Error("down")));
+    show(fakeClient({ report: vi.fn(async () => ticket({ status: "addressed", verifiedAt: null })), verify }), { spaces: ["messages"], settings: VERIFY_ON });
+    fireEvent.click(await screen.findByText("Where is my invoice?"));
+    fireEvent.click(await screen.findByTestId("genesis-support-messenger-verify-fixed"));
+    expect((await screen.findByTestId("genesis-support-messenger-verify-failed")).getAttribute("role")).toBe("alert");
+    cleanup();
+    show(fakeClient({ report: vi.fn(async () => ticket({ status: "addressed", verifiedAt: "2026-11-04T00:00:00Z" })), verify }), { spaces: ["messages"], settings: VERIFY_ON });
+    fireEvent.click(await screen.findByText("Where is my invoice?"));
+    expect(await screen.findByTestId("genesis-support-messenger-thread-closed")).toBeTruthy();
+    expect(screen.queryByTestId("genesis-support-messenger-verify")).toBeNull();
+  });
+
+  it("keeps the note when reopening fails, and moves focus to the note and back", async () => {
+    const verify = vi.fn(async () => Promise.reject(new Error("down")));
+    show(fakeClient({ report: vi.fn(async () => ticket({ status: "addressed", verifiedAt: null })), verify }), { spaces: ["messages"], settings: VERIFY_ON });
+    fireEvent.click(await screen.findByText("Where is my invoice?"));
+    fireEvent.click(await screen.findByTestId("genesis-support-messenger-verify-reopen"));
+    const note = screen.getByTestId("genesis-support-messenger-verify-note");
+    await waitFor(() => expect(document.activeElement).toBe(note));
+    fireEvent.change(note, { target: { value: "Still blank" } });
+    fireEvent.click(screen.getByTestId("genesis-support-messenger-verify-reopen-send"));
+    expect((await screen.findByTestId("genesis-support-messenger-verify-failed")).getAttribute("role")).toBe("alert");
+    expect(verify).toHaveBeenCalledWith("t1", false, "Still blank");
+    expect((screen.getByTestId("genesis-support-messenger-verify-note") as HTMLTextAreaElement).value).toBe("Still blank");
+    fireEvent.click(screen.getByTestId("genesis-support-messenger-verify-cancel"));
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId("genesis-support-messenger-verify-reopen")));
+  });
+
+  it("names each conversation's desk when Messages lists every desk", async () => {
+    const client = fakeClient({
+      myReports: vi.fn(async () => [ticket(), ticket({ id: "t2", message: "Second" }), ticket({ id: "t3", message: "Third" })]),
+      signedInId: vi.fn(async () => "me"),
+      myTicketDesks: vi.fn(async () => [
+        { ticketId: "t1", tenantId: "acme", label: "Acme", isDefault: false },
+        { ticketId: "t2", tenantId: "north", label: "Northside", isDefault: false },
+        { ticketId: "t3", tenantId: "app", label: null, isDefault: true },
+      ]),
+    });
+    show(client, { spaces: ["messages"], allTenants: true });
+    await waitFor(() => expect(screen.getByTestId("genesis-support-messenger-messages").textContent).toContain("Open · Acme"));
+    expect(screen.getByTestId("genesis-support-messenger-messages").textContent).toContain("Open · Northside");
+    // The app's own desk by the copy's name for it.
+    expect(screen.getByTestId("genesis-support-messenger-messages").textContent).toContain("Open · Support");
+  });
+
+  it("switches spaces on genesis-ui's tab bar, with the unread count on Messages", async () => {
+    show(fakeClient({ ticketsInTenant: vi.fn(async () => [ticket({ unread: true })]) }));
+    const bar = await screen.findByTestId("genesis-support-messenger-space");
+    expect(bar.getAttribute("data-slot")).toBe("tab-bar");
+    // The count is in the tab's accessible name, after its visible label (genesis-ui reads it from hidden text).
+    expect(await screen.findByRole("button", { name: "Messages (1)" })).toBe(screen.getByTestId("genesis-support-messenger-space-messages"));
+    fireEvent.click(screen.getByTestId("genesis-support-messenger-space-messages"));
+    expect(await screen.findByTestId("genesis-support-messenger-messages")).toBeTruthy();
   });
 
   it("browses and reads an article, with a way to a person", async () => {

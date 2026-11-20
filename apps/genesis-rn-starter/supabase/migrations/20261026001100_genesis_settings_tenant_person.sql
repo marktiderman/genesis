@@ -23,7 +23,9 @@
 -- private.genesis_setting(key, tenant) is the server's one reader: a key's value resolved as
 -- resolveSettings resolves it (default and preset from the synced catalogue's `defaults`, then the
 -- file, the database and the given tenant's value, with locks), for server gates such as
--- genesis-support's. Null for a key the catalogue doesn't declare.
+-- genesis-support's; private.genesis_setting_entry also says which layer gave it and whether it is
+-- locked. Null for a key the catalogue doesn't declare. Values are checked by one function,
+-- private.genesis_setting_value_problem, which 0021's genesis_setting_problem now calls too.
 --
 -- The app hooks (as in 0004_genesis_tenant_features; none is created here):
 --   private.genesis_tenant_admin(tenant uuid, person uuid) returns boolean  who may set a tenant's
@@ -547,11 +549,12 @@ $rt$;
 
 -- The server's reader --------------------------------------------------------------------------
 
--- Whether a value fits a catalogue entry, as genesis-config's settingValueProblem decides: its
--- type, bounds (a list's length), options, a whole number where `integer`, null only where
--- `nullable`.
-create or replace function private.genesis_setting_fits(def jsonb, setting_value jsonb)
-returns boolean
+-- Why a value doesn't fit a catalogue entry, or null when it does: genesis-config's
+-- settingValueProblem in SQL (null only where `nullable`, the type, a list's items, a whole number
+-- where `integer`, bounds, options). The one value check: set_genesis_setting's and the tenant and
+-- person writes' (through genesis_setting_problem below) and the resolver's.
+create or replace function private.genesis_setting_value_problem(setting_key text, def jsonb, setting_value jsonb)
+returns text
 language plpgsql
 immutable
 set search_path = ''
@@ -561,45 +564,111 @@ declare
   given text := coalesce(jsonb_typeof(setting_value), 'null');
   n numeric;
 begin
+  -- JSON null is "not set": only for a key whose default is null.
   if given = 'null' then
-    return def -> 'nullable' = 'true'::jsonb;
+    if def -> 'nullable' = 'true'::jsonb then
+      return null;
+    end if;
+    return format('%s can''t be null: it has a default, so set a value', setting_key);
   end if;
-  if not (kind = 'boolean' and given = 'boolean' or kind = 'number' and given = 'number' or kind = 'string' and given = 'string'
-          or kind = 'list' and given = 'array' or kind = 'object' and given = 'object') then
-    return false;
+  if kind = 'boolean' and given <> 'boolean'
+     or kind = 'number' and given <> 'number'
+     or kind = 'string' and given <> 'string'
+     or kind = 'list' and given <> 'array'
+     or kind = 'object' and given <> 'object' then
+    return format('%s must be a %s', setting_key, kind);
   end if;
   if kind = 'list' and exists (select 1 from jsonb_array_elements(setting_value) e where jsonb_typeof(e) not in ('string', 'number')) then
-    return false;
+    return format('%s must be a list of strings or numbers', setting_key);
+  end if;
+  -- A number declared whole (catalogueManifest's `integer: true`): no fraction.
+  if kind = 'number' and def -> 'integer' = 'true'::jsonb
+     and setting_value::text::numeric <> trunc(setting_value::text::numeric) then
+    return format('%s must be a whole number', setting_key);
   end if;
   if kind in ('number', 'list') then
+    -- A bound that isn't a number is a malformed catalogue entry: say so, never raise on the cast.
+    if def ? 'min' and jsonb_typeof(def -> 'min') <> 'number'
+       or def ? 'max' and jsonb_typeof(def -> 'max') <> 'number' then
+      return format('the synced catalogue''s entry for %s is malformed (write the manifest again: writeAppManifest)', setting_key);
+    end if;
     n := case when kind = 'number' then setting_value::text::numeric else jsonb_array_length(setting_value) end;
-    if kind = 'number' and def -> 'integer' = 'true'::jsonb and n <> trunc(n)
-       or jsonb_typeof(def -> 'min') = 'number' and n < (def ->> 'min')::numeric
-       or jsonb_typeof(def -> 'max') = 'number' and n > (def ->> 'max')::numeric then
-      return false;
+    if def ? 'min' and n < (def ->> 'min')::numeric then
+      return format('%s must be at least %s%s', setting_key, def ->> 'min', case when kind = 'list' then ' items' else '' end);
+    end if;
+    if def ? 'max' and n > (def ->> 'max')::numeric then
+      return format('%s must be at most %s%s', setting_key, def ->> 'max', case when kind = 'list' then ' items' else '' end);
     end if;
   end if;
-  if jsonb_typeof(def -> 'options') = 'array' and kind in ('string', 'number') then
-    return (def -> 'options') @> jsonb_build_array(setting_value);
+  if def ? 'options' and kind in ('string', 'number') and not (def -> 'options') @> jsonb_build_array(setting_value) then
+    return format('%s must be one of %s', setting_key, def -> 'options');
   end if;
-  if jsonb_typeof(def -> 'options') = 'array' and kind = 'list' then
-    return not exists (select 1 from jsonb_array_elements(setting_value) e where not (def -> 'options') @> jsonb_build_array(e));
+  if def ? 'options' and kind = 'list' and exists (
+    select 1 from jsonb_array_elements(setting_value) e where not (def -> 'options') @> jsonb_build_array(e)
+  ) then
+    return format('%s may only hold %s', setting_key, def -> 'options');
   end if;
-  return true;
+  return null;
 end;
 $$;
 
--- One key's value, resolved on the server the way resolveSettings resolves it on a client, so a
--- server gate and the screen agree: the default for the manifest's preset (the synced catalogue's
+-- 0021's check of a write, with its value checks from the function above.
+create or replace function private.genesis_setting_problem(setting_key text, setting_value jsonb)
+returns text
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  cat jsonb;
+  def jsonb;
+  kind text;
+  file_entry jsonb;
+begin
+  if setting_key is null or setting_key !~ '^[a-z][a-zA-Z0-9]*(-[a-z0-9]+)*\.[a-z][a-zA-Z0-9]*$' then
+    return format('%s isn''t a setting key (namespace.key)', coalesce(setting_key, 'null'));
+  end if;
+  select m.catalogue, m.file_settings -> setting_key into cat, file_entry from public.genesis_app_manifest m limit 1;
+  if cat is null or cat = '{}'::jsonb then
+    return 'no settings catalogue has been synced yet (write the manifest on deploy: writeAppManifest)';
+  end if;
+  def := cat -> setting_key;
+  if def is null or jsonb_typeof(def) <> 'object' then
+    return format('%s isn''t a setting any installed package declares', setting_key);
+  end if;
+  kind := def ->> 'type';
+  if kind is null or kind not in ('boolean', 'number', 'string', 'list', 'object')
+     or (def ? 'min' and jsonb_typeof(def -> 'min') <> 'number')
+     or (def ? 'max' and jsonb_typeof(def -> 'max') <> 'number')
+     or (def ? 'integer' and def -> 'integer' <> 'true'::jsonb)
+     or (def ? 'options' and jsonb_typeof(def -> 'options') <> 'array')
+     or coalesce(def ->> 'applies', 'runtime') not in ('build', 'runtime') then
+    return format('the synced catalogue''s entry for %s is malformed (write the manifest again: writeAppManifest)', setting_key);
+  end if;
+  if def ->> 'applies' = 'build' then
+    return format('%s applies at build time: change it in genesis.config.json', setting_key);
+  end if;
+  -- A value genesis.config.json locks: no later layer may change it, so don't store one.
+  if jsonb_typeof(file_entry) = 'object' and (select count(*) from jsonb_object_keys(file_entry)) = 2
+     and file_entry ? 'value' and file_entry -> 'locked' = 'true'::jsonb then
+    return format('%s is locked by genesis.config.json: change it there', setting_key);
+  end if;
+  return private.genesis_setting_value_problem(setting_key, def, setting_value);
+end;
+$$;
+
+-- One key, resolved on the server the way resolveSettings resolves it on a client, so a server
+-- gate and the screen agree: the default for the manifest's preset (the synced catalogue's
 -- `defaults`), then genesis.config.json's value, the database layer's, and, for a key declared
 -- `scope: "tenant"` with a tenant given, that tenant's. A lock (the file's `{ "value", "locked":
 -- true }`, or genesis_settings.locked) ends the layers; a value that doesn't fit the key is
 -- skipped, and a bad locked value still locks. A build-time key takes the file's value only. The
 -- person layer is the person's own device's: no server gate reads it.
--- Null for a key the synced catalogue doesn't declare (or before the manifest is written): the
--- caller's own zero-config answer applies. Server code only (security definer, no grants).
-create or replace function private.genesis_setting(key text, tenant uuid default null)
-returns jsonb
+-- `layer` is where the value came from (default, preset, file, database, tenant) and `locked`
+-- whether a layer locked it, as resolveSettings' sources say. All null for a key the synced
+-- catalogue doesn't declare (or before the manifest is written). Server code only.
+create or replace function private.genesis_setting_entry(key text, tenant uuid default null, out value jsonb, out layer text, out locked boolean)
 language plpgsql
 stable
 security definer
@@ -608,25 +677,27 @@ as $$
 declare
   m public.genesis_app_manifest;
   def jsonb;
-  resolved jsonb;
-  locked boolean := false;
-  layer text;
+  step text;
   entry jsonb;
   candidate jsonb;
   candidate_locks boolean;
 begin
   select * into m from public.genesis_app_manifest limit 1;
-  def := m.catalogue -> genesis_setting.key;
+  def := m.catalogue -> genesis_setting_entry.key;
   if jsonb_typeof(def) is distinct from 'object' then
-    return null;
+    return;
   end if;
-  resolved := def -> 'defaults' -> (case when m.preset in ('max', 'standard', 'min') then m.preset else 'max' end);
-  foreach layer in array array['file', 'database', 'tenant'] loop
+  value := def -> 'defaults' -> (case when m.preset in ('max', 'standard', 'min') then m.preset else 'max' end);
+  layer := case when (def -> 'defaults' ->> 'max') is distinct from (def -> 'defaults' ->> 'standard')
+                  or (def -> 'defaults' ->> 'max') is distinct from (def -> 'defaults' ->> 'min')
+                then 'preset' else 'default' end;
+  locked := false;
+  foreach step in array array['file', 'database', 'tenant'] loop
     exit when locked;
     candidate := null;
     candidate_locks := false;
-    if layer = 'file' then
-      entry := m.file_settings -> genesis_setting.key;
+    if step = 'file' then
+      entry := m.file_settings -> genesis_setting_entry.key;
       continue when entry is null;
       if jsonb_typeof(entry) = 'object' and jsonb_typeof(entry -> 'locked') = 'boolean'
          and (select array_agg(k order by k) from jsonb_object_keys(entry) k) = array['locked', 'value'] then
@@ -637,21 +708,32 @@ begin
       end if;
     elsif coalesce(def ->> 'applies', 'runtime') = 'build' then
       continue;
-    elsif layer = 'database' then
-      select s.value, s.locked into candidate, candidate_locks from public.genesis_settings s where s.key = genesis_setting.key;
+    elsif step = 'database' then
+      select s.value, s.locked into candidate, candidate_locks from public.genesis_settings s where s.key = genesis_setting_entry.key;
       continue when not found;
     else
       continue when tenant is null or def ->> 'scope' is distinct from 'tenant';
-      select t.value into candidate from public.genesis_tenant_settings t where t.tenant_id = tenant and t.key = genesis_setting.key;
+      select t.value into candidate from public.genesis_tenant_settings t where t.tenant_id = tenant and t.key = genesis_setting_entry.key;
       continue when not found;
     end if;
     locked := coalesce(candidate_locks, false);
-    if private.genesis_setting_fits(def, candidate) then
-      resolved := candidate;
+    if private.genesis_setting_value_problem(genesis_setting_entry.key, def, candidate) is null then
+      value := candidate;
+      layer := step;
     end if;
   end loop;
-  return resolved;
 end;
+$$;
+
+-- Just the value: what a server gate asks.
+create or replace function private.genesis_setting(key text, tenant uuid default null)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select (private.genesis_setting_entry(key, tenant)).value
 $$;
 
 comment on function private.genesis_setting(text, uuid) is
@@ -691,5 +773,7 @@ revoke execute on function private.genesis_settings_tenant_admin(uuid) from publ
 revoke execute on function private.genesis_scoped_setting_problem(text, text, jsonb) from public, anon, authenticated;
 revoke execute on function private.genesis_settings_announce() from public, anon, authenticated;
 revoke execute on function private.genesis_record_scoped_setting_change() from public, anon, authenticated;
-revoke execute on function private.genesis_setting_fits(jsonb, jsonb) from public, anon, authenticated;
+revoke execute on function private.genesis_setting_value_problem(text, jsonb, jsonb) from public, anon, authenticated;
+revoke execute on function private.genesis_setting_problem(text, jsonb) from public, anon, authenticated;
+revoke execute on function private.genesis_setting_entry(text, uuid) from public, anon, authenticated;
 revoke execute on function private.genesis_setting(text, uuid) from public, anon, authenticated;

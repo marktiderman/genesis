@@ -27,6 +27,19 @@ describe("genesis init --template native", () => {
     for (const f of Object.keys(files)) expect(f).not.toMatch(/^(node_modules|\.expo|ios|android)\/|release\.test\.ts$/);
   });
 
+  it("stamps every build: the stamp scripts and the ignored stamp come along, the starter's own stamp doesn't", async () => {
+    // A stamp left in the starter folder (its scripts write one) is the CLI builder's, not the app's.
+    writeFileSync(path.join(PACKAGES, "..", "apps", "genesis-rn-starter", "build-metadata.json"), '{"commit":"not-the-app"}\n');
+    const { files } = await init();
+    expect(files["build-metadata.json"]).toBeUndefined();
+    expect(files[".gitignore"]).toMatch(/^build-metadata\.json$/m);
+    const scripts = (JSON.parse(files["package.json"]!) as { scripts: Record<string, string> }).scripts;
+    expect(scripts["eas-build-post-install"]).toBe('genesis build-stamp && node .eas/scripts/native-release.mjs stamped build-metadata.json "$GENESIS_CHANNEL"');
+    for (const name of ["start", "ios", "android", "typecheck", "test"]) expect(scripts[name], name).toMatch(/^genesis build-stamp && /);
+    expect(files[".eas/scripts/native-release.mjs"]).toContain('command === "stamped"');
+    expect(JSON.parse(files["eas.json"]!).build.production.env.GENESIS_CHANNEL).toBe("production");
+  });
+
   it("renames the app everywhere the starter's values were", async () => {
     const { files } = await init({ displayName: "Trail Notes", scheme: "trailnotes" });
     expect(files["starter.config.ts"]).toContain('name: "Trail Notes"');

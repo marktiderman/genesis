@@ -6,12 +6,12 @@
 // ResourcePage and DataTable; nothing here is a second list.
 
 import { createContext, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, Filter, Images, Inbox, Kanban, LayoutGrid, List, Sheet, Table2, X, type LucideIcon } from "lucide-react";
 import {
   encodeRecordKey,
   resourceKeys,
-  useDataProvider,
+  useOptionalDataProvider,
   useViewer,
   type DataRow,
   type FieldSchema,
@@ -303,20 +303,21 @@ export const reasonOf = (allowed: true | string) => (allowed === true ? undefine
  * capabilities say it runs no actions for this resource (`actions: false`) runs none of them.
  */
 export function useServedActions(view: AnyView): { runnable: boolean; served: ReadonlySet<string> | null; versionField?: string } {
-  const provider = useDataProvider();
-  const asked = !!provider.runAction && !!provider.capabilities && view.actions().length > 0;
+  // No provider (a list over rows it was given): no provider runs actions.
+  const provider = useOptionalDataProvider();
+  const describe = provider?.describe;
+  const asked = !!provider?.runAction && !!provider.capabilities && view.actions().length > 0;
   const capabilities = useCapabilities(view.resource, { enabled: asked });
   const described = useQuery({
     queryKey: ["__describe", view.resource],
-    queryFn: () => provider.describe!(view.resource),
-    enabled: !!provider.describe && view.actions().length > 0,
+    queryFn: describe && view.actions().length > 0 ? () => describe.call(provider, view.resource) : skipToken,
     staleTime: Infinity,
   });
   const served = described.data?.actions ? new Set(described.data.actions.map((a) => a.name)) : null;
   const versionField = capabilities.data?.version?.field;
   // Not runnable until the provider has answered: an action shown before then (or after a failed
   // answer) could run without its version, or be one the provider doesn't serve.
-  const runnable = !!provider.runAction && (!asked || capabilities.isSuccess) && capabilities.data?.actions !== false;
+  const runnable = !!provider?.runAction && (!asked || capabilities.isSuccess) && capabilities.data?.actions !== false;
   return { runnable, served, ...(versionField ? { versionField } : {}) };
 }
 
@@ -356,7 +357,7 @@ export function useListActions<T extends Row>(
 ): ListActionsResult<T> {
   const m = useUiMessages();
   const viewer = useViewer();
-  const provider = useDataProvider();
+  const provider = useOptionalDataProvider();
   const queryClient = useQueryClient();
   const { runnable, served, versionField } = useServedActions(view as AnyView);
   const [confirming, setConfirming] = useState<Confirming | null>(null);
@@ -403,7 +404,7 @@ export function useListActions<T extends Row>(
     async (action: ResolvedViewAction, row: T) => {
       try {
         if (options.onRun) await options.onRun(action.name, row);
-        else await provider.runAction!(view.resource, { id: idOf(row), action: action.name, ...atVersion(row) });
+        else if (provider?.runAction) await provider.runAction(view.resource, { id: idOf(row), action: action.name, ...atVersion(row) });
       } catch (error) {
         toast.error(error instanceof Error ? error.message : String(error));
       } finally {
@@ -497,7 +498,7 @@ export function useListActions<T extends Row>(
               for (const r of allowed) {
                 try {
                   if (options.onRun) await options.onRun(a.name, r);
-                  else await provider.runAction!(view.resource, { id: idOf(r), action: a.name, ...atVersion(r) });
+                  else if (provider?.runAction) await provider.runAction(view.resource, { id: idOf(r), action: a.name, ...atVersion(r) });
                   done += 1;
                 } catch (error) {
                   skipped.count += 1;
@@ -552,11 +553,12 @@ function download(name: string, text: string) {
  * by core's `exportCsv` (formula-safe), with the view's words for coded values unless `raw`.
  */
 export function useViewExport(view: AnyView, preset: string): ((query: ResourceListQuery) => Promise<void>) | undefined {
-  const provider = useDataProvider();
+  // Export pages through the provider: a list over rows it was given has none, so no export.
+  const provider = useOptionalDataProvider();
   const m = useUiMessages();
   const plan = view.exportPlan(preset);
   return useMemo(() => {
-    if (!plan) return undefined;
+    if (!plan || !provider) return undefined;
     return async (query: ResourceListQuery) => {
       const fields = plan.columns.map((c) => c.field).filter((f): f is FieldSchema => !!f);
       try {

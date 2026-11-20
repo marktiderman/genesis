@@ -1,32 +1,58 @@
 -- @feat:support-chat
--- Genesis support 0034: managing a desk's agents, and the report's requester labels from one hook
--- (after 0015_genesis_support_agent_tools_bounds.sql and 0022_genesis_support_staff_tools.sql).
+-- Genesis support 0034: managing a desk's agents, threads on chat by setting, and the report's
+-- requester labels from one hook (after 0015_genesis_support_agent_tools_bounds.sql,
+-- 0022_genesis_support_staff_tools.sql and 0030_genesis_support_notifications.sql).
 --
---   who manages agents   private.genesis_support_manages_agents(tenant, person): the tenant's
+-- People and logins. ticket_agents holds a tenant's person record (the app's
+-- private.genesis_viewer_people maps a login to its records); a login is its own person only where
+-- the app has no records (zero config). Every function here speaks both: `person_id` is what
+-- support_set_agent takes, `user_id` the login. One function says which records a login is in a
+-- tenant (private.genesis_support_people_in), and 0004's private.genesis_support_agent, the admin
+-- agent check below and the people search all ask it, so a login added at the app's own desk
+-- under zero config is an agent there.
+--
+--   who manages agents   private.genesis_support_manages_agents(tenant, login): the tenant's
 --                        admins, its admin agents (ticket_agents.role = 'admin') and, for the
---                        app's own desk, the app's staff. support_set_agent, the new
---                        support_can_manage_agents(tenant) (null: the app's own desk) and
---                        support_people_search all ask it, so the screens show the admin exactly
---                        to whom the database allows it.
---   support_agents_list  now also returns each login's `role` (its ticket_agents row's, else admin
---                        for someone who manages agents, else agent) and `removable` (true only
---                        for a ticket_agents row the caller may delete). support.agentListScan is
---                        read through genesis-supabase's private.genesis_setting (0023), as support
---                        0033 moves every reader there and drops 0020's.
+--                        app's own desk, the app's staff. A null tenant is the app's own desk in
+--                        every function. support_set_agent and the new support_can_manage_agents
+--                        both ask it, so the screens show the admin exactly to whom the database
+--                        allows it.
+--   support_agents_list  now returns each agent's login, person record, `role` (admin for a tenant
+--                        admin, or the app's staff at its own desk, whatever their row says; else
+--                        their ticket_agents row's; else admin for someone who manages agents, else
+--                        agent) and `removable` (true only for a ticket_agents row the caller may
+--                        delete whose removal takes their access: never for an admin by hook).
+--                        Every agent row is listed, with a null login when its person has none,
+--                        so it can still be seen and removed.
+--                        support.agentListScan is read through genesis-supabase's
+--                        private.genesis_setting (0023), as support 0033 moves every reader there.
 --   support_people_search(tenant, q, lim)
---                        whoever manages a desk's agents finds the people in its tenant by name or
---                        email, to add an agent or link an email requester: the people the app's
---                        private.genesis_tenant_member(tenant, person) names, else its
---                        private.genesis_viewer_people; every login for the app's own desk. Never
---                        an anonymous login; at most 25.
+--                        a desk's agents (who may link an email ticket to its person; adding an
+--                        agent still needs the rule above) find people in its tenant by name or
+--                        email: the app's optional hook
+--                        private.genesis_people_search(tenant uuid, q text, lim integer)
+--                          returns table (person_id uuid, login uuid)
+--                        searches its own people (with its own indexes); without it, the people
+--                        support already knows at that desk: its agents, the app's staff and
+--                        tenant admin lists, and the 500 most recent requesters. Either way the
+--                        cost follows the desk, never the number of logins; every candidate must
+--                        be one of the tenant's people (its record through genesis_viewer_people,
+--                        or, at the app's own desk with no records, the login itself). Never an
+--                        anonymous login; at most 25. Deliberately open to every agent of the desk,
+--                        not only those who manage agents: linking an email ticket needs it, so
+--                        any agent can read the names and emails of the tenant's people who match
+--                        (25 per query).
+--   chat threads         support_chat_conversation, which clients ask to pick a thread, answers null
+--                        while support.chatThreads is off (support_chat_threads_on), so threads
+--                        stay on support_replies for every client.
 --   requester labels     support_agent_report asks only the set-based hook 0015 added:
 --                          private.genesis_support_requester_labels(reports uuid[])
 --                            returns table (report_id uuid, label text)
 --                        0014's one-ticket private.genesis_support_requester_label(report) is no
---                        longer called (it can be the set-based hook's body: `select r,
---                        private.genesis_support_requester_label(r) from unnest(reports) r`), and
---                        every open ticket is labelled, so the answer no longer has
---                        by_requester_capped.
+--                        longer called: the report raises a warning while it is the only one (it
+--                        can be the set-based hook's body: `select r,
+--                        private.genesis_support_requester_label(r) from unnest(reports) r`).
+--                        Every open ticket is labelled, so the answer has no by_requester_capped.
 --
 -- Use: copy this file into your app's `supabase/migrations/` under a new timestamped name
 -- (`genesis migrate` does it). Never edit it once applied; change it with a new migration.
@@ -35,9 +61,67 @@
 
 create schema if not exists private;
 
--- Who manages a desk's agents -------------------------------------------------------------------
+-- People and who manages agents -------------------------------------------------------------------
 
-create or replace function private.genesis_support_manages_agents(tenant uuid, person uuid)
+-- The one rule for who a login is in a tenant: its person records there, through the app's
+-- private.genesis_viewer_people (0004's tenants_of); at the app's own desk, the login itself when
+-- the app gives it no record there (zero config, where a login is its own person). Empty when the
+-- login isn't one of the tenant's people. Everything below that matches a login against
+-- ticket_agents asks this.
+create or replace function private.genesis_support_people_in(tenant uuid, login uuid)
+returns setof uuid
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  if tenant is null or login is null then
+    return;
+  end if;
+  return query select v.person_id from private.genesis_support_tenants_of(login) v where v.tenant_id = tenant;
+  if not found and tenant = private.genesis_support_default_tenant_id() then
+    return next login;
+  end if;
+end;
+$$;
+
+revoke execute on function private.genesis_support_people_in(uuid, uuid) from public, anon, authenticated;
+
+-- A login's person record in a tenant (the first, by id, of the rule above), or null.
+create or replace function private.genesis_support_person_in(tenant uuid, login uuid)
+returns uuid
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select p from private.genesis_support_people_in(tenant, login) p order by p limit 1
+$$;
+
+revoke execute on function private.genesis_support_person_in(uuid, uuid) from public, anon, authenticated;
+
+-- The role of the login's agent row in a tenant (admin over agent when it has several records
+-- there), or null without one.
+create or replace function private.genesis_support_agent_row_role(tenant uuid, login uuid)
+returns text
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select a.role from public.ticket_agents a
+   where a.tenant_id = tenant and a.person_id in (select p from private.genesis_support_people_in(tenant, login) p)
+   order by a.role = 'admin' desc
+   limit 1
+$$;
+
+revoke execute on function private.genesis_support_agent_row_role(uuid, uuid) from public, anon, authenticated;
+
+-- 0004's agent check, with the rule above: an agent row for the login's person in the tenant (so at
+-- the app's own desk under zero config, the row support_set_agent stores for the login itself), a
+-- tenant admin, or, in the default tenant, the app's staff hook.
+create or replace function private.genesis_support_agent(tenant uuid, person uuid)
 returns boolean
 language plpgsql
 stable
@@ -48,12 +132,33 @@ begin
   if tenant is null or person is null then
     return false;
   end if;
-  return private.genesis_support_tenant_admin(tenant, person)
-      or exists (select 1 from public.ticket_agents a
-                  join private.genesis_support_tenants_of(person) v
-                    on v.tenant_id = a.tenant_id and v.person_id = a.person_id
-                 where a.tenant_id = tenant and a.role = 'admin')
-      or (tenant = private.genesis_support_default_tenant_id() and private.genesis_support_staff_hook(person));
+  if private.genesis_support_agent_row_role(tenant, person) is not null then
+    return true;
+  end if;
+  if private.genesis_support_tenant_admin(tenant, person) then
+    return true;
+  end if;
+  return tenant = private.genesis_support_default_tenant_id()
+     and private.genesis_support_staff_hook(person);
+end;
+$$;
+
+revoke execute on function private.genesis_support_agent(uuid, uuid) from public, anon, authenticated;
+
+create or replace function private.genesis_support_manages_agents(tenant uuid, login uuid)
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  if tenant is null or login is null then
+    return false;
+  end if;
+  return private.genesis_support_tenant_admin(tenant, login)
+      or private.genesis_support_agent_row_role(tenant, login) is not distinct from 'admin'
+      or (tenant = private.genesis_support_default_tenant_id() and private.genesis_support_staff_hook(login));
 end;
 $$;
 
@@ -75,7 +180,10 @@ comment on function public.support_can_manage_agents(uuid) is
 revoke execute on function public.support_can_manage_agents(uuid) from public, anon;
 grant execute on function public.support_can_manage_agents(uuid) to authenticated;
 
--- 0004's support_set_agent, with its rule from the one function above.
+-- 0004's support_set_agent: a null tenant is the app's own desk, and its rule is the function above.
+-- `person` is the tenant's person record (a support_people_search or support_agents_list person_id),
+-- or a login, which stands for its record in that tenant (through genesis_viewer_people) when it
+-- has one there.
 create or replace function public.support_set_agent(tenant uuid, person uuid, role text)
 returns void
 language plpgsql
@@ -84,19 +192,24 @@ set search_path = ''
 as $$
 declare
   me uuid := auth.uid();
+  resolved uuid := coalesce(tenant, private.genesis_support_default_tenant_id());
+  record_id uuid;
 begin
-  if me is null or tenant is null or person is null or not private.genesis_support_manages_agents(tenant, me) then
+  if me is null or person is null or not private.genesis_support_manages_agents(resolved, me) then
     raise exception 'support_set_agent: not allowed' using errcode = '42501';
   end if;
+  -- A login stands for its person record here.
+  select v.person_id into record_id from private.genesis_support_tenants_of(person) v where v.tenant_id = resolved order by v.person_id limit 1;
+  person := coalesce(record_id, person);
   if role is null then
-    delete from public.ticket_agents a where a.tenant_id = tenant and a.person_id = person;
+    delete from public.ticket_agents a where a.tenant_id = resolved and a.person_id = person;
     return;
   end if;
   if role not in ('agent', 'admin') then
     raise exception 'support_set_agent: role is agent or admin' using errcode = '22023';
   end if;
   insert into public.ticket_agents (tenant_id, person_id, role, created_by)
-  values (tenant, person, role, me)
+  values (resolved, person, role, me)
   on conflict (tenant_id, person_id) do update set role = excluded.role;
 end;
 $$;
@@ -105,7 +218,7 @@ $$;
 
 drop function if exists public.support_agents_list(uuid);
 create function public.support_agents_list(tenant uuid default null)
-returns table (user_id uuid, full_name text, role text, removable boolean)
+returns table (user_id uuid, person_id uuid, full_name text, role text, removable boolean)
 language plpgsql
 stable
 security definer
@@ -134,57 +247,51 @@ begin
     end;
   end if;
   return query
-    select n.id, n.name,
-           coalesce(n.row_role, case when private.genesis_support_manages_agents(resolved, n.id) then 'admin' else 'agent' end),
-           manages and n.row_role is not null
-      from (
-        select u.id, private.genesis_support_person_name(u.id) as name,
-               (select a.role from public.ticket_agents a where a.tenant_id = resolved and a.person_id = u.id) as row_role
-          from auth.users u
-         where u.id in (
-                 select me
-                 union select a.person_id from public.ticket_agents a where a.tenant_id = resolved
-                 union select unnest(listed)
-                 -- Every login, only when the app turns it on (support.agentListScan): slow on a big app.
-                 union select x.id from auth.users x where scan
-               )
-           and (to_jsonb(u) ->> 'is_anonymous') is distinct from 'true'
-           and private.genesis_support_agent(resolved, u.id)
-      ) n
-     order by n.name nulls last, n.id
+    with agent_rows as (
+      -- Every agent row, by person record, with the login it belongs to: null when that isn't a
+      -- login (its person has none, or it was deleted), still listed so it can be seen and removed.
+      select (select u.id from auth.users u where u.id = private.genesis_support_person_login(a.person_id)) as login,
+             a.person_id as person, a.role as row_role
+        from public.ticket_agents a where a.tenant_id = resolved
+    ), logins as (
+      -- Agents by login (the caller, the staff list, every login with the scan), with their record here.
+      select l.login, private.genesis_support_person_in(resolved, l.login) as person, null::text as row_role
+        from (select me as login
+              union select unnest(listed)
+              -- Every login, only when the app turns it on (support.agentListScan): slow on a big app.
+              union select x.id from auth.users x where scan) l
+       where l.login is not null and l.login not in (select r.login from agent_rows r where r.login is not null)
+    )
+    select n.login, n.person, private.genesis_support_person_name(n.login),
+           case when n.hooked then 'admin'
+                else coalesce(n.row_role, case when private.genesis_support_manages_agents(resolved, n.login) then 'admin' else 'agent' end) end,
+           -- Removing a row takes nothing from someone the app's hooks make an admin here: not removable.
+           manages and n.row_role is not null and not n.hooked
+      from (select a.*,
+                   private.genesis_support_tenant_admin(resolved, a.login)
+                   or (resolved = private.genesis_support_default_tenant_id() and private.genesis_support_staff_hook(a.login)) as hooked
+              from (select * from agent_rows union all select * from logins) a) n
+      left join auth.users u on u.id = n.login
+     -- An agent row is always listed; anyone else only when they are an agent here, never an
+     -- anonymous login.
+     where n.row_role is not null
+        or ((to_jsonb(u) ->> 'is_anonymous') is distinct from 'true'
+            and private.genesis_support_agent(resolved, n.login))
+     order by 3 nulls last, n.login nulls last, n.person
      limit 200;
 end;
 $$;
 
 comment on function public.support_agents_list(uuid) is
-  'The logins that handle a tenant''s tickets, with a name, their role and whether the caller can remove them (null tenant: the app''s own). Only for the tenant''s agents. Genesis support.';
+  'The logins that handle a tenant''s tickets, with their person record there, a name, their role and whether the caller can remove them (null tenant: the app''s own). Only for the tenant''s agents. Genesis support.';
 
 revoke execute on function public.support_agents_list(uuid) from public, anon;
 grant execute on function public.support_agents_list(uuid) to authenticated;
 
--- People in a desk's tenant, for whoever manages its agents ---------------------------------------
-
--- Is this login one of the tenant's people? The app's private.genesis_tenant_member(tenant, person)
--- when it has one, else its private.genesis_viewer_people (0004's tenants_of).
-create or replace function private.genesis_support_tenant_member(tenant uuid, person uuid)
-returns boolean
-language plpgsql
-stable
-security definer
-set search_path = ''
-as $$
-begin
-  if to_regprocedure('private.genesis_tenant_member(uuid,uuid)') is not null then
-    return coalesce(private.genesis_tenant_member(tenant, person), false);
-  end if;
-  return exists (select 1 from private.genesis_support_tenants_of(person) v where v.tenant_id = tenant);
-end;
-$$;
-
-revoke execute on function private.genesis_support_tenant_member(uuid, uuid) from public, anon, authenticated;
+-- People in a desk's tenant, for its agents --------------------------------------------------------
 
 create or replace function public.support_people_search(tenant uuid, q text, lim integer default 10)
-returns table (user_id uuid, full_name text, email text)
+returns table (person_id uuid, user_id uuid, full_name text, email text)
 language plpgsql
 stable
 security definer
@@ -192,36 +299,113 @@ set search_path = ''
 as $$
 declare
   resolved uuid := coalesce(tenant, private.genesis_support_default_tenant_id());
-  own_desk boolean := resolved = private.genesis_support_default_tenant_id();
   words text := btrim(coalesce(q, ''));
+  cap integer := greatest(1, least(coalesce(lim, 10), 25));
   pattern text;
+  candidates uuid[] := '{}';
+  more uuid[];
 begin
-  if not private.genesis_support_manages_agents(resolved, auth.uid()) then
-    raise exception 'support_people_search: only whoever manages the desk''s agents' using errcode = '42501';
+  -- One rule for search and linking: anyone who handles this desk's tickets (who may link an email
+  -- ticket to its person with support_link_requester). At the app's own desk too: the candidates
+  -- are the people that desk already handles (or the app's own search), never every login.
+  -- Adding an agent (support_set_agent) is the narrower rule above.
+  if not private.genesis_support_agent(resolved, auth.uid()) then
+    raise exception 'support_people_search: only the desk''s agents' using errcode = '42501';
   end if;
   if char_length(words) < 2 or char_length(words) > 100 then
     raise exception 'support_people_search: search with 2 to 100 characters' using errcode = '22023';
   end if;
   pattern := '%' || replace(replace(replace(words, '\', '\\'), '%', '\%'), '_', '\_') || '%';
+  if to_regprocedure('private.genesis_people_search(uuid,text,integer)') is not null then
+    -- The app searches its own people; it answers for its matches, and the checks below still run.
+    select coalesce(array_agg(distinct h.login), '{}') into candidates
+      from (select x.login from private.genesis_people_search(resolved, words, 100) x where x.login is not null limit 100) h;
+  else
+    -- The people support knows at this desk.
+    select coalesce(array_agg(distinct k.login), '{}') into candidates from (
+      select private.genesis_support_person_login(a.person_id) as login from public.ticket_agents a where a.tenant_id = resolved
+      union
+      select r.user_id from (select t.user_id from public.tickets t
+                              where t.tenant_id = resolved and t.user_id is not null
+                              order by t.updated_at desc limit 500) r
+    ) k where k.login is not null;
+    if resolved = private.genesis_support_default_tenant_id() and to_regprocedure('private.genesis_support_staff_list()') is not null then
+      begin
+        execute 'select coalesce(array_agg(s), ''{}'') from private.genesis_support_staff_list() s where s is not null' into more;
+        candidates := candidates || more;
+      exception when others then
+        raise warning 'support_people_search: private.genesis_support_staff_list() failed: %', sqlerrm;
+      end;
+    end if;
+    if to_regprocedure('private.genesis_tenant_admin_list(uuid)') is not null then
+      begin
+        execute 'select coalesce(array_agg(s), ''{}'') from private.genesis_tenant_admin_list($1) s where s is not null' into more using resolved;
+        candidates := candidates || more;
+      exception when others then
+        raise warning 'support_people_search: private.genesis_tenant_admin_list(tenant) failed: %', sqlerrm;
+      end;
+    end if;
+  end if;
   return query
-    select n.id, n.name, n.email
+    select n.person, n.login, n.name, n.email
       from (
-        select u.id, private.genesis_support_person_name(u.id) as name, u.email::text as email
+        select u.id as login, private.genesis_support_person_in(resolved, u.id) as person,
+               private.genesis_support_person_name(u.id) as name, u.email::text as email
           from auth.users u
-         where (to_jsonb(u) ->> 'is_anonymous') is distinct from 'true'
-           and (own_desk or private.genesis_support_tenant_member(resolved, u.id))
+         where u.id = any (candidates)
+           and (to_jsonb(u) ->> 'is_anonymous') is distinct from 'true'
       ) n
-     where n.name ilike pattern or n.email ilike pattern
-     order by n.name nulls last, n.email, n.id
-     limit greatest(1, least(coalesce(lim, 10), 25));
+     where n.person is not null and (n.name ilike pattern or n.email ilike pattern)
+     order by n.name nulls last, n.email, n.login
+     limit cap;
 end;
 $$;
 
 comment on function public.support_people_search(uuid, text, integer) is
-  'People in a desk''s tenant whose name or email matches, for whoever manages its agents (at most 25). Genesis support.';
+  'People in a desk''s tenant whose name or email matches, with their person record there, for the desk''s agents (at most 25): the app''s private.genesis_people_search, else the people support knows at that desk. Genesis support.';
 
 revoke execute on function public.support_people_search(uuid, text, integer) from public, anon;
 grant execute on function public.support_people_search(uuid, text, integer) to authenticated;
+
+-- support.chatThreads: threads on genesis-chat, decided on the server ----------------------------
+
+-- support.chatThreads, through genesis-supabase's one resolver (0023); without it, or before the
+-- manifest is synced, on. Readable by anyone signed in: it says only whether threads run on chat.
+create or replace function public.support_chat_threads_on()
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  if to_regprocedure('private.genesis_setting(text,uuid)') is null then
+    return true;
+  end if;
+  return private.genesis_setting('support.chatThreads') is distinct from 'false'::jsonb;
+end;
+$$;
+
+comment on function public.support_chat_threads_on() is
+  'Whether support threads run on genesis-chat (the support.chatThreads setting). Genesis support.';
+
+revoke execute on function public.support_chat_threads_on() from public, anon;
+grant execute on function public.support_chat_threads_on() to authenticated, service_role;
+
+-- 0005's conversation lookup, which clients ask to pick the thread: null while support.chatThreads
+-- is off, so every client stays on support_replies (which the block keeps mirrored) whatever it
+-- was given.
+create or replace function public.support_chat_conversation(report uuid)
+returns uuid
+language sql
+stable
+security invoker
+set search_path = ''
+as $$
+  select c.id from genesis_chat.conversations c
+   where public.support_chat_threads_on()
+     and c.kind = 'support' and c.subject_type = 'support_report' and c.subject_id = report::text
+$$;
 
 -- The report's requester labels -------------------------------------------------------------------
 
@@ -284,6 +468,8 @@ begin
                            from private.genesis_support_requester_labels(open_ids) x
                           order by x.report_id) l on l.report_id = o.id
              group by 1) g;
+  elsif to_regprocedure('private.genesis_support_requester_label(uuid)') is not null then
+    raise warning 'support_agent_report: private.genesis_support_requester_label(report) is no longer called; define private.genesis_support_requester_labels(reports uuid[]) (it can wrap the one-ticket hook)';
   end if;
   return result || jsonb_build_object('by_requester', groups);
 end;

@@ -49,7 +49,8 @@ const AlertDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn("text-sm [&_p]:leading-relaxed", className)}
+    // A long token (an env var name, a URL) breaks rather than push the page sideways (rule 2).
+    className={cn("text-sm [overflow-wrap:anywhere] [&_p]:leading-relaxed", className)}
     {...props}
   />
 ));

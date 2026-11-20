@@ -7,6 +7,11 @@
  * Tabs: Values (every key with its value, the layer it came from and its lock), Health (the
  * doctor's findings with their fixes), Secrets (set or missing, never a value), Upgrades and Audit.
  *
+ * Who is looking decides the slice ({@link SettingsViewer}, from the host): a platform admin sees
+ * all of it and decides the pending proposals; a tenant admin sees and writes only their tenant's
+ * `scope: "tenant"` keys, and a person only their own `scope: "person"` keys, each with Values and
+ * Audit, and a Propose button for a key the app locked.
+ *
  * Beta: it ships before the maintainer's design review, so its look and props may change in a minor.
  *
  * @stability Beta
@@ -75,9 +80,11 @@ import {
   type SettingsFindingLevel,
   type SettingsFixRef,
   type SettingsPlan,
+  type SettingsProposalEntry,
   type SettingsSecretStatus,
   type SettingsState,
   type SettingsUpgrades,
+  type SettingsViewer,
   type SettingsWriteLayer,
   type UpgradeDistance,
 } from "./settings-protocol";
@@ -123,6 +130,7 @@ export interface GenesisSettingsCopy {
   clearLayer: (layer: string) => string;
   invalidJson: string;
   changeInRepo: string;
+  /** The "Change in repo" button's name: it must contain `changeInRepo`, the text the button shows (WCAG 2.5.3). */
   changeInRepoLabel: (key: string) => string;
   changeInRepoTitle: (key: string) => string;
   changeInRepoDescription: string;
@@ -130,6 +138,31 @@ export interface GenesisSettingsCopy {
   pullRequestOpened: string;
   /** The host returned the change to commit, but opened no pull request. */
   proposalSnippet: string;
+  /** The subtitle for a tenant admin's slice. */
+  tenantSlice: string;
+  /** The subtitle for a person's own slice. */
+  personSlice: string;
+  propose: string;
+  proposeLabel: (key: string) => string;
+  proposeTitle: (key: string) => string;
+  proposeDescription: string;
+  proposeReason: string;
+  sendProposal: string;
+  proposalSent: string;
+  proposalsTitle: string;
+  myProposalsTitle: string;
+  proposalBy: (who: string, when: string) => string;
+  /** Whose request a proposal is: a tenant's (its id) or the person's own. */
+  proposalFor: (tenant: string | undefined) => string;
+  /** Said on every pending proposal a platform admin decides. */
+  approveWritesAppWide: string;
+  approveForTenant: string;
+  approveForTenantLabel: (key: string) => string;
+  proposalStatus: Record<SettingsProposalEntry["status"], string>;
+  approve: string;
+  approveLabel: (key: string) => string;
+  decline: string;
+  declineLabel: (key: string) => string;
   readOnly: string;
   healthEmpty: string;
   healthEmptyDescription: string;
@@ -214,12 +247,34 @@ export const GENESIS_SETTINGS_COPY: GenesisSettingsCopy = {
   clearLayer: (layer) => `Clear the ${layer} value`,
   invalidJson: "That isn't valid JSON.",
   changeInRepo: "Change in repo",
-  changeInRepoLabel: (key) => `Change ${key} in the repo`,
+  // Starts with the button's visible text, so the name contains it (WCAG 2.5.3), as `Edit ${key}` does.
+  changeInRepoLabel: (key) => `Change in repo: ${key}`,
   changeInRepoTitle: (key) => `Change ${key} in the repo`,
   changeInRepoDescription: "This key is set in genesis.config.json and reviewed like code. Commit this change:",
   openPullRequest: "Open pull request",
   pullRequestOpened: "Pull request opened.",
   proposalSnippet: "No pull request was opened. Commit this change:",
+  tenantSlice: "Your organization's settings.",
+  personSlice: "Your own settings.",
+  propose: "Propose…",
+  proposeLabel: (key) => `Propose a change to ${key}`,
+  proposeTitle: (key) => `Propose a change to ${key}`,
+  proposeDescription: "The app has locked this value. A platform admin will approve or decline your proposal.",
+  proposeReason: "Why",
+  sendProposal: "Send proposal",
+  proposalSent: "Proposal sent. A platform admin will decide.",
+  proposalsTitle: "Proposals waiting for a decision",
+  myProposalsTitle: "Your proposals",
+  proposalBy: (who, when) => `${who} · ${when}`,
+  proposalFor: (tenant) => (tenant ? `Asked for tenant ${tenant}` : "Asked for themselves"),
+  approveWritesAppWide: "Approve for everyone writes the app-wide value: every tenant and person gets it unless they set their own.",
+  approveForTenant: "Approve for this tenant only",
+  approveForTenantLabel: (key) => `Approve the proposal for ${key} for the asking tenant only`,
+  proposalStatus: { pending: "Waiting", approved: "Approved", declined: "Declined" },
+  approve: "Approve for everyone",
+  approveLabel: (key) => `Approve the proposal for ${key}`,
+  decline: "Decline",
+  declineLabel: (key) => `Decline the proposal for ${key}`,
   readOnly: "Read-only here",
   healthEmpty: "Nothing needs attention",
   healthEmptyDescription: "The doctor found no problems.",
@@ -285,6 +340,12 @@ export interface GenesisSettingsProps {
    */
   capabilities?: Partial<SettingsCapabilities>;
   copy?: Partial<GenesisSettingsCopy>;
+  /**
+   * The tenant whose settings to show, for a tenant admin: the host answers with that tenant's
+   * slice when the signed-in person administers it. Without it, a platform admin sees everything
+   * and anyone else their own person settings.
+   */
+  tenant?: string;
   defaultTab?: GenesisSettingsTab;
   /** Opens a guided fix's setup step (the wizard routes to it). Without it, a step shows its CLI command. */
   onOpenStep?: (step: string) => void;
@@ -348,6 +409,7 @@ export function GenesisSettings({
   client,
   capabilities: narrow,
   copy: copyOverride,
+  tenant,
   defaultTab = "values",
   onOpenStep,
   auditPageSize = 25,
@@ -367,7 +429,7 @@ export function GenesisSettings({
     const mine = ++loads.current;
     setLoading(true);
     try {
-      const next = await client.state({ auditLimit: auditPageSize });
+      const next = await client.state({ auditLimit: auditPageSize, ...(tenant !== undefined ? { tenant } : {}) });
       if (mine !== loads.current) return;
       setState(next);
       setLoadError(null);
@@ -376,13 +438,17 @@ export function GenesisSettings({
     } finally {
       if (mine === loads.current) setLoading(false);
     }
-  }, [client, auditPageSize]);
+  }, [client, auditPageSize, tenant]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
   const caps = useMemo(() => (state ? intersectCapabilities(state.capabilities, narrow) : null), [state, narrow]);
+  // A tenant admin or a person sees their own slice: Values and Audit.
+  const scoped = state?.viewer !== undefined && state.viewer.scope !== "platform";
+  const tabs: readonly GenesisSettingsTab[] = scoped ? ["values", "audit"] : ["values", "health", "secrets", "upgrades", "audit"];
+  const subtitle = state?.viewer?.scope === "tenant" ? copy.tenantSlice : state?.viewer?.scope === "person" ? copy.personSlice : copy.description;
 
   const refresh = (
     <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading} testID={tid(testID, "refresh")}>
@@ -395,7 +461,7 @@ export function GenesisSettings({
       {header ? (
         <PageHeader
           title={copy.title}
-          subtitle={state ? `${state.app.name} · ${copy.description}` : copy.description}
+          subtitle={state ? `${state.app.name} · ${subtitle}` : subtitle}
           actions={refresh}
         />
       ) : (
@@ -419,9 +485,9 @@ export function GenesisSettings({
       {!state || !caps ? (
         loading ? <PageLoading label={copy.loading} testID={tid(testID, "loading")} /> : null
       ) : (
-        <Tabs value={tab} onValueChange={(v) => setTab(v as GenesisSettingsTab)} defaultValue={defaultTab}>
+        <Tabs value={tabs.includes(tab) ? tab : "values"} onValueChange={(v) => setTab(v as GenesisSettingsTab)} defaultValue={defaultTab}>
           <TabsList className="max-w-full justify-start overflow-x-auto [scrollbar-width:thin]">
-            {(["values", "health", "secrets", "upgrades", "audit"] as const).map((t) => (
+            {tabs.map((t) => (
               <TabsTrigger key={t} value={t} data-testid={tid(testID, "tab", t)}>
                 {copy.tabs[t]}
                 {t === "health" && state.findings.length ? (
@@ -438,19 +504,23 @@ export function GenesisSettings({
             ))}
           </TabsList>
           <TabsContent value="values" className="pt-4">
-            <ValuesTab state={state} caps={caps} client={client} copy={copy} testID={testID} onChanged={load} />
+            <ValuesTab state={state} caps={caps} client={client} copy={copy} testID={testID} onChanged={load} tenant={tenant} />
           </TabsContent>
-          <TabsContent value="health" className="pt-4">
-            <HealthTab state={state} caps={caps} client={client} copy={copy} testID={testID} onChanged={load} onOpenStep={onOpenStep} />
-          </TabsContent>
-          <TabsContent value="secrets" className="pt-4">
-            <SecretsTab secrets={state.secrets} caps={caps} client={client} copy={copy} testID={testID} onChanged={load} />
-          </TabsContent>
-          <TabsContent value="upgrades" className="pt-4">
-            <UpgradesTab initial={state.upgrades} caps={caps} client={client} copy={copy} testID={testID} onChanged={load} />
-          </TabsContent>
+          {scoped ? null : (
+            <>
+              <TabsContent value="health" className="pt-4">
+                <HealthTab state={state} caps={caps} client={client} copy={copy} testID={testID} onChanged={load} onOpenStep={onOpenStep} />
+              </TabsContent>
+              <TabsContent value="secrets" className="pt-4">
+                <SecretsTab secrets={state.secrets} caps={caps} client={client} copy={copy} testID={testID} onChanged={load} />
+              </TabsContent>
+              <TabsContent value="upgrades" className="pt-4">
+                <UpgradesTab initial={state.upgrades} caps={caps} client={client} copy={copy} testID={testID} onChanged={load} />
+              </TabsContent>
+            </>
+          )}
           <TabsContent value="audit" className="pt-4">
-            <AuditTab state={state} client={client} copy={copy} testID={testID} pageSize={auditPageSize} />
+            <AuditTab state={state} client={client} copy={copy} testID={testID} pageSize={auditPageSize} tenant={tenant} />
           </TabsContent>
         </Tabs>
       )}
@@ -492,9 +562,14 @@ function useReturnFocus() {
 // Values
 // ---------------------------------------------------------------------------
 
-type Editing = { def: SettingDef; mode: "edit" | "repo"; nonce: number };
+type Editing = { def: SettingDef; mode: "edit" | "repo" | "propose"; nonce: number };
 
-function ValuesTab({ state, caps, client, copy, testID, onChanged }: TabProps & { state: SettingsState }) {
+/** The keys a viewer's slice holds: every key for the platform, else the keys of their scope. */
+function inSlice(def: SettingDef, viewer: SettingsViewer | undefined): boolean {
+  return !viewer || viewer.scope === "platform" || def.scope === viewer.scope;
+}
+
+function ValuesTab({ state, caps, client, copy, testID, onChanged, tenant }: TabProps & { state: SettingsState; tenant: string | undefined }) {
   const [filter, setFilter] = useState("");
   // The sheet stays mounted and opens and closes, so Radix returns focus to the button that opened it.
   const [editing, setEditing] = useState<Editing | null>(null);
@@ -505,14 +580,16 @@ function ValuesTab({ state, caps, client, copy, testID, onChanged }: TabProps & 
     const q = filter.trim().toLowerCase();
     const byNs = new Map<string, SettingDef[]>();
     for (const def of [...state.catalogue].sort((a, b) => a.key.localeCompare(b.key))) {
+      if (!inSlice(def, state.viewer)) continue;
       if (q && !def.key.toLowerCase().includes(q) && !(def.summary ?? "").toLowerCase().includes(q)) continue;
       byNs.set(def.namespace, [...(byNs.get(def.namespace) ?? []), def]);
     }
     return [...byNs.entries()].sort(([a], [b]) => a.localeCompare(b));
-  }, [state.catalogue, filter]);
+  }, [state.catalogue, state.viewer, filter]);
 
   return (
     <div className="flex flex-col gap-6">
+      <ProposalsSection state={state} caps={caps} client={client} copy={copy} testID={testID} onChanged={onChanged} />
       <div className="flex max-w-sm flex-col gap-1.5">
         <Label htmlFor={filterId}>{copy.filterLabel}</Label>
         <Input
@@ -535,6 +612,8 @@ function ValuesTab({ state, caps, client, copy, testID, onChanged }: TabProps & 
                 value={state.resolved.values[def.key]}
                 source={state.resolved.sources[def.key]}
                 caps={caps}
+                viewer={state.viewer}
+                canPropose={caps.proposeChanges === true}
                 copy={copy}
                 testID={testID}
                 onEdit={(mode, opener) => {
@@ -556,10 +635,97 @@ function ValuesTab({ state, caps, client, copy, testID, onChanged }: TabProps & 
         client={client}
         copy={copy}
         testID={testID}
+        tenant={tenant}
         onClose={() => setOpen(false)}
         onChanged={onChanged}
       />
     </div>
+  );
+}
+
+/**
+ * Proposals: a platform admin approves or declines each pending one (when the host can decide);
+ * anyone else sees how their own were decided.
+ */
+function ProposalsSection({ state, caps, client, copy, testID, onChanged }: TabProps & { state: SettingsState }) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const proposals = state.proposals ?? [];
+  const platform = !state.viewer || state.viewer.scope === "platform";
+  const shown = platform ? proposals.filter((p) => p.status === "pending") : proposals;
+  if (!shown.length) return null;
+  const canDecide = platform && caps.writeDatabase && typeof client.decideProposal === "function";
+  const decide = async (p: SettingsProposalEntry, approve: boolean, layer?: "tenant") => {
+    if (!client.decideProposal) return;
+    setBusy(p.id);
+    setError(null);
+    try {
+      await client.decideProposal({ id: p.id, approve, ...(layer ? { layer } : {}) });
+      await onChanged();
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+  const def = (key: string) => state.catalogue.find((d) => d.key === key);
+  return (
+    <Section title={platform ? copy.proposalsTitle : copy.myProposalsTitle} testID={tid(testID, "proposals")}>
+      {error ? <InlineAlert variant="destructive" description={error} testID={tid(testID, "proposals-error")} /> : null}
+      <div className="divide-y">
+        {shown.map((p) => {
+          const rowId = tid(testID, "proposal", p.id);
+          return (
+            <SettingsRow
+              key={p.id}
+              testID={rowId}
+              label={
+                <span className="flex flex-wrap items-center gap-1.5">
+                  <span className="break-all font-mono text-sm">{p.key}</span>
+                  <span className="text-sm" data-testid={tid(rowId, "value")}>
+                    → {formatValue(p.value, copy)}
+                  </span>
+                  {p.locked ? <Lock aria-label={copy.lock} className="size-3" /> : null}
+                </span>
+              }
+              description={
+                <span className="flex flex-col gap-0.5">
+                  {p.reason ? <span className="whitespace-pre-wrap" data-testid={tid(rowId, "reason")}>{p.reason}</span> : null}
+                  <span>{copy.proposalBy(p.proposedBy ?? "", copy.formatTime(p.proposedAt))}</span>
+                  <span data-testid={tid(rowId, "for")}>{copy.proposalFor(p.tenant)}</span>
+                  {def(p.key)?.summary ? <span>{def(p.key)!.summary}</span> : null}
+                  {canDecide && p.status === "pending" ? (
+                    <span className="text-foreground" data-testid={tid(rowId, "app-wide")}>
+                      {copy.approveWritesAppWide}
+                    </span>
+                  ) : null}
+                </span>
+              }
+            >
+              {canDecide && p.status === "pending" ? (
+                <>
+                  <Button size="sm" variant="outline" onClick={() => void decide(p, false)} disabled={busy !== null} aria-label={copy.declineLabel(p.key)} testID={tid(rowId, "decline")}>
+                    {copy.decline}
+                  </Button>
+                  {p.tenant && p.canApproveForTenant ? (
+                    <Button size="sm" variant="outline" onClick={() => void decide(p, true, "tenant")} disabled={busy !== null} aria-label={copy.approveForTenantLabel(p.key)} testID={tid(rowId, "approve-tenant")}>
+                      {copy.approveForTenant}
+                    </Button>
+                  ) : null}
+                  <Button size="sm" onClick={() => void decide(p, true)} disabled={busy !== null} aria-label={copy.approveLabel(p.key)} testID={tid(rowId, "approve")}>
+                    {copy.approve}
+                  </Button>
+                </>
+              ) : (
+                <Badge variant={p.status === "approved" ? "success" : p.status === "declined" ? "muted" : "info"} data-testid={tid(rowId, "status")}>
+                  {copy.proposalStatus[p.status] ?? p.status}
+                </Badge>
+              )}
+            </SettingsRow>
+          );
+        })}
+      </div>
+    </Section>
   );
 }
 
@@ -568,6 +734,8 @@ function ValueRow({
   value,
   source,
   caps,
+  viewer,
+  canPropose,
   copy,
   testID,
   onEdit,
@@ -576,11 +744,15 @@ function ValueRow({
   value: unknown;
   source: SettingSource | undefined;
   caps: SettingsCapabilities;
+  viewer: SettingsViewer | undefined;
+  canPropose: boolean;
   copy: Copy;
   testID: string;
   onEdit: (mode: Editing["mode"], opener: HTMLElement) => void;
 }) {
-  const writable = settingWritability(def, source, caps);
+  const writable = settingWritability(def, source, caps, viewer);
+  // A tenant admin or a person can't change a value the app locked in its database: they propose it.
+  const proposable = canPropose && viewer !== undefined && viewer.scope !== "platform" && !writable.layers.length && source?.lockedBy === "database";
   // A key only the repo can change here (a build key, or one the file layer locked) on a host that
   // can't write files: it changes through a pull request or by hand.
   const repoOnly = !writable.layers.length && writable.refused.file === "capability" && (def.applies === "build" || source?.lockedBy === "file");
@@ -616,6 +788,10 @@ function ValueRow({
       {writable.layers.length ? (
         <Button variant="outline" size="sm" onClick={(e) => onEdit("edit", e.currentTarget)} aria-label={copy.editLabel(def.key)} testID={tid(rowId, "edit")}>
           {copy.edit}
+        </Button>
+      ) : proposable ? (
+        <Button variant="outline" size="sm" onClick={(e) => onEdit("propose", e.currentTarget)} testID={tid(rowId, "propose")} aria-label={copy.proposeLabel(def.key)}>
+          {copy.propose}
         </Button>
       ) : repoOnly ? (
         <Button variant="ghost" size="sm" onClick={(e) => onEdit("repo", e.currentTarget)} testID={tid(rowId, "repo")} aria-label={copy.changeInRepoLabel(def.key)}>
@@ -714,7 +890,7 @@ function fromDraft(def: SettingDef, draft: string, copy: Copy): { value: unknown
 }
 
 /** The edit sheet. Its body is keyed on the key and mode, so each opening starts from the current value. */
-function ValueSheet({ open, ...props }: TabProps & { open: boolean; editing: Editing | null; state: SettingsState; onClose: () => void }) {
+function ValueSheet({ open, ...props }: TabProps & { open: boolean; editing: Editing | null; state: SettingsState; tenant: string | undefined; onClose: () => void }) {
   return (
     <Sheet open={open && props.editing !== null} onOpenChange={(o) => (o ? undefined : props.onClose())}>
       {props.editing ? <ValueSheetBody key={props.editing.nonce} {...props} editing={props.editing} /> : null}
@@ -730,12 +906,13 @@ function ValueSheetBody({
   client,
   copy,
   testID,
+  tenant,
   onClose,
   onChanged,
-}: TabProps & { editing: Editing; state: SettingsState; onClose: () => void }) {
+}: TabProps & { editing: Editing; state: SettingsState; tenant: string | undefined; onClose: () => void }) {
   const def = editing.def;
   const source = state.resolved.sources[def.key];
-  const writable = settingWritability(def, source, caps);
+  const writable = settingWritability(def, source, caps, state.viewer);
   // The database when the value already comes from there; else the file layer when the host can
   // write it (reviewed like code), the database being an explicit choice.
   const preferred = preferredWriteLayer(writable, source);
@@ -753,7 +930,11 @@ function ValueSheetBody({
     !editing || editing.mode !== "edit" || !layer || !source || SETTINGS_LAYERS.indexOf(source.layer) <= SETTINGS_LAYERS.indexOf(layer) ? null : source.layer;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [proposal, setProposal] = useState<{ url?: string; snippet: string } | null>(null);
+  const [proposal, setProposal] = useState<{ url?: string; snippet?: string; sent?: boolean } | null>(null);
+  const [reason, setReason] = useState("");
+  // Only the app's own layers (file, database) hold a lock.
+  const lockable = layer === "file" || layer === "database";
+  const layerTenant = layer === "tenant" ? tenant : undefined;
   const baseId = useId();
   const sheetId = tid(testID, "value-sheet");
 
@@ -776,32 +957,45 @@ function ValueSheetBody({
   const save = () =>
     run(async () => {
       if (!layer || "problem" in parsed) return;
-      await client.setValue({ key: def.key, value: parsed.value, locked, layer });
+      await client.setValue({ key: def.key, value: parsed.value, layer, ...(lockable ? { locked } : {}), ...(layerTenant !== undefined ? { tenant: layerTenant } : {}) });
       onClose();
       await onChanged();
     });
   const clear = () =>
     run(async () => {
       if (!layer) return;
-      await client.clearValue({ key: def.key, layer });
+      await client.clearValue({ key: def.key, layer, ...(layerTenant !== undefined ? { tenant: layerTenant } : {}) });
       onClose();
       await onChanged();
     });
   const propose = () =>
     run(async () => {
       if ("problem" in parsed) return;
-      const result = await client.propose({ key: def.key, value: parsed.value, locked });
-      setProposal(result.pullRequestUrl ? { url: result.pullRequestUrl, snippet: result.snippet } : { snippet: result.snippet });
+      const asking = editing.mode === "propose";
+      const result = await client.propose({
+        key: def.key,
+        value: parsed.value,
+        ...(asking ? {} : { locked }),
+        ...(asking && reason.trim() ? { reason: reason.trim() } : {}),
+        ...(asking && tenant !== undefined ? { tenant } : {}),
+      });
+      if (asking) {
+        setProposal({ sent: true });
+        await onChanged();
+        return;
+      }
+      setProposal({ ...(result.pullRequestUrl ? { url: result.pullRequestUrl } : {}), ...(result.snippet !== undefined ? { snippet: result.snippet } : {}) });
     });
 
   const repo = editing.mode === "repo";
+  const asking = editing.mode === "propose";
   const inputId = `${baseId}-value`;
   return (
     <>
       <SheetContent data-testid={sheetId} className="flex flex-col gap-4 sm:max-w-lg" onCloseAutoFocus={returnFocus}>
         <SheetHeader>
-          <SheetTitle>{repo ? copy.changeInRepoTitle(def.key) : copy.editTitle(def.key)}</SheetTitle>
-          <SheetDescription>{repo ? copy.changeInRepoDescription : def.summary ?? copy.editDescription}</SheetDescription>
+          <SheetTitle>{repo ? copy.changeInRepoTitle(def.key) : asking ? copy.proposeTitle(def.key) : copy.editTitle(def.key)}</SheetTitle>
+          <SheetDescription>{repo ? copy.changeInRepoDescription : asking ? copy.proposeDescription : def.summary ?? copy.editDescription}</SheetDescription>
         </SheetHeader>
         <div className="flex flex-col gap-4 px-4">
           <div className="flex flex-col gap-1.5">
@@ -813,7 +1007,7 @@ function ValueSheetBody({
               </p>
             ) : null}
           </div>
-          {!repo && writable.layers.length > 1 ? (
+          {!repo && !asking && writable.layers.length > 1 ? (
             <div className="flex flex-col gap-1.5">
               <span className="text-sm font-medium" id={`${baseId}-layer`}>
                 {copy.writeLayer}
@@ -828,13 +1022,20 @@ function ValueSheetBody({
               </RadioGroup>
             </div>
           ) : null}
-          <div className="flex items-start gap-2">
-            <Checkbox id={`${baseId}-lock`} checked={locked} onCheckedChange={(c) => setLocked(c === true)} data-testid={tid(sheetId, "lock")} />
-            <div className="flex flex-col gap-0.5">
-              <Label htmlFor={`${baseId}-lock`}>{copy.lock}</Label>
-              <span className="text-xs text-muted-foreground">{copy.lockHint}</span>
+          {asking ? (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor={`${baseId}-reason`}>{copy.proposeReason}</Label>
+              <Textarea id={`${baseId}-reason`} value={reason} maxLength={1000} rows={3} onChange={(e) => setReason(e.target.value)} data-testid={tid(sheetId, "reason")} />
             </div>
-          </div>
+          ) : repo || lockable ? (
+            <div className="flex items-start gap-2">
+              <Checkbox id={`${baseId}-lock`} checked={locked} onCheckedChange={(c) => setLocked(c === true)} data-testid={tid(sheetId, "lock")} />
+              <div className="flex flex-col gap-0.5">
+                <Label htmlFor={`${baseId}-lock`}>{copy.lock}</Label>
+                <span className="text-xs text-muted-foreground">{copy.lockHint}</span>
+              </div>
+            </div>
+          ) : null}
           {overriddenBy ? (
             <InlineAlert variant="info" description={copy.overriddenBy(layerLabel(copy, overriddenBy))} testID={tid(sheetId, "overridden")} />
           ) : null}
@@ -844,7 +1045,9 @@ function ValueSheetBody({
             </pre>
           ) : null}
           {proposal ? (
-            proposal.url ? (
+            proposal.sent ? (
+              <InlineAlert variant="success" title={copy.proposalSent} testID={tid(sheetId, "proposal")} />
+            ) : proposal.url ? (
               <InlineAlert variant="success" title={copy.pullRequestOpened} description={proposal.url} testID={tid(sheetId, "proposal")} />
             ) : (
               <InlineAlert variant="info" title={copy.proposalSnippet} description={proposal.snippet} testID={tid(sheetId, "proposal")} />
@@ -853,7 +1056,7 @@ function ValueSheetBody({
           {error ? <InlineAlert variant="destructive" description={error} testID={tid(sheetId, "error")} /> : null}
         </div>
         <SheetFooter className="mt-auto flex-col gap-2 sm:flex-row sm:justify-end">
-          {!repo && layer && layerHas ? (
+          {!repo && !asking && layer && layerHas ? (
             <Button variant="ghost" onClick={() => void clear()} disabled={busy} testID={tid(sheetId, "clear")}>
               {copy.clearLayer(layerLabel(copy, layer))}
             </Button>
@@ -861,7 +1064,11 @@ function ValueSheetBody({
           <Button variant="outline" onClick={onClose} testID={tid(sheetId, "cancel")}>
             {copy.cancel}
           </Button>
-          {repo ? (
+          {asking ? (
+            <Button onClick={() => void propose()} disabled={busy || problem !== null || proposal?.sent === true} testID={tid(sheetId, "send")}>
+              {copy.sendProposal}
+            </Button>
+          ) : repo ? (
             caps.proposeChanges ? (
               <Button onClick={() => void propose()} disabled={busy || problem !== null} testID={tid(sheetId, "propose")}>
                 {copy.openPullRequest}
@@ -1480,12 +1687,14 @@ function AuditTab({
   copy,
   testID,
   pageSize,
+  tenant,
 }: {
   state: SettingsState;
   client: SettingsClient;
   copy: Copy;
   testID: string;
   pageSize: number;
+  tenant: string | undefined;
 }) {
   const initial = state.audit;
   const [entries, setEntries] = useState<readonly SettingsAuditEntry[]>(initial?.entries ?? []);
@@ -1504,7 +1713,7 @@ function AuditTab({
       setBusy(true);
       setError(null);
       try {
-        const page = await client.audit({ ...(cursor !== undefined ? { cursor } : {}), limit: pageSize });
+        const page = await client.audit({ ...(cursor !== undefined ? { cursor } : {}), limit: pageSize, ...(tenant !== undefined ? { tenant } : {}) });
         if (mine !== pages.current) return;
         const got = Array.isArray(page?.entries) ? page.entries : [];
         setEntries((prev) => (append ? [...prev, ...got] : got));
@@ -1518,7 +1727,7 @@ function AuditTab({
         }
       }
     },
-    [client, pageSize],
+    [client, pageSize, tenant],
   );
 
   useEffect(() => {

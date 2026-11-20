@@ -8,7 +8,7 @@
 -- People: a1 writes and belongs to tenant b0; b2 is staff; d3 is b0's tenant admin.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(22);
+select plan(24);
 
 create function pg_temp.person(n text) returns uuid language sql immutable as $$
   select ('00000000-0000-4000-8000-0000000025' || n)::uuid $$;
@@ -182,6 +182,16 @@ language sql stable set search_path = '' as $$
 insert into public.ticket_agents (tenant_id, person_id) values ('00000000-0000-4000-8000-0000000000b0', '00000000-0000-4000-8000-0000000025ff');
 drop function private.genesis_tenant_admin_list(uuid);
 select is(private.genesis_support_person_login('00000000-0000-4000-8000-0000000025ff'), pg_temp.person('d3'), 'an agent row''s person resolves to its login through the app''s hook');
+select ok(private.genesis_support_person_login('00000000-0000-4000-8000-0000000025fe') is null, 'a person the hook gives no login: null, never the person id');
+create or replace function private.genesis_person_login(person uuid) returns uuid
+language plpgsql stable set search_path = '' as $$
+begin
+  raise exception 'person_login hook broke';
+end $$;
+select throws_ok($$select private.genesis_support_person_login('00000000-0000-4000-8000-0000000025ff')$$, 'P0001', 'person_login hook broke', 'a hook that raises surfaces its error');
+create or replace function private.genesis_person_login(person uuid) returns uuid
+language sql stable set search_path = '' as $$
+  select '00000000-0000-4000-8000-0000000025d3'::uuid where person = '00000000-0000-4000-8000-0000000025ff'::uuid $$;
 
 -- 7. Whom to tell, with many logins -----------------------------------------------------------------
 

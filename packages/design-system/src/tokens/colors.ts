@@ -19,7 +19,8 @@ export const neutral = {
 export const semantic = {
   success: { DEFAULT: "#10B981", light: "#D1FAE5", dark: "#065F46" },
   warning: { DEFAULT: "#F59E0B", light: "#FEF3C7", dark: "#92400E" },
-  error: { DEFAULT: "#EF4444", light: "#FEE2E2", dark: "#991B1B" },
+  // Text-safe on white (5.4:1) and under white text as a fill: it is the destructive role on the web.
+  error: { DEFAULT: "#CA2121", light: "#FEE2E2", dark: "#991B1B" },
   info: { DEFAULT: "#3B82F6", light: "#DBEAFE", dark: "#1E40AF" },
 } as const;
 

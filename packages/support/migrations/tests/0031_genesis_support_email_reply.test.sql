@@ -5,7 +5,7 @@
 -- People: a1 wrote the ticket; b2 is staff (a handler); c3 is nobody.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(17);
+select plan(20);
 
 create function pg_temp.person(n text) returns uuid language sql immutable as $$
   select ('00000000-0000-4000-8000-0000000026' || n)::uuid $$;
@@ -74,6 +74,17 @@ select '00000000-0000-4000-8000-0000000026f0', 'loop' || g, gen_random_uuid() fr
 set local role service_role;
 select throws_ok($$select pg_temp.reply('a1', 'genesis-reply-a1@example.test', '<m6@mail.test>')$$, 'GS429', null, 'a mail loop stops at 20 an hour');
 reset role;
+
+-- support.email off: the channel is closed on the server.
+insert into public.genesis_app_manifest (app_id, catalogue) values ('email-test',
+  '{"support.email": {"type": "boolean", "applies": "runtime", "scope": "app", "defaults": {"max": true, "standard": false, "min": false}}}');
+insert into public.genesis_settings (key, value) values ('support.email', 'false');
+set local role service_role;
+select is(public.support_receive_email(jsonb_build_object('messageId', 'off1@example.test', 'from', jsonb_build_object('email', 'pat@example.test'),
+  'to', jsonb_build_array('help@app.example.test'), 'subject', 'Hello', 'text', 'Hello')), null, 'support.email off: no mail is filed');
+select is((select count(*)::int from public.support_claim_outbound_emails(20)), 0, '... and nothing goes out');
+reset role;
+select is((select count(*)::int from public.support_email_messages where message_id = 'off1@example.test'), 0, 'nothing was stored');
 
 select * from finish();
 rollback;

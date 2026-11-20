@@ -72,6 +72,10 @@
     "./web-handoff/server": {
       "types": "./dist/web-handoff-server.d.ts",
       "import": "./dist/web-handoff-server.js"
+    },
+    "./settings/server": {
+      "types": "./dist/settings-server.d.ts",
+      "import": "./dist/settings-server.js"
     }
   },
   "files": [
@@ -384,6 +388,40 @@
           "Add your first platform admin by a confirmed email: the SQL in the genesis-supabase README (Settings), which adds nobody when no confirmed person, or more than one, has that email (genesis doctor reports an empty list). The list, public.genesis_platform_admins, starts empty, so nobody can change a setting until then. An app with its own model creates private.genesis_platform_admin(person uuid) returns boolean instead, and the list is unused.",
           "On every deploy, after the migrations, write the app manifest: genesis settings sync (through the linked project), or writeAppManifest(admin, { appId, packages, preset, fileSettings, catalogue }) with the service-role client from your server at start. Until it is written, set_genesis_setting refuses every value.",
           "Read settings with resolveAppSettings(supabase, catalogue) from @marktiderman/genesis-supabase, and feed the gate with withSettings from @marktiderman/genesis-config."
+        ]
+      },
+      "settings-host": {
+        "feature": {
+          "name": "Settings screen in the app",
+          "summary": "The in-app Settings screen's server: each person's slice (platform admin, tenant admin, person), proposals a platform admin approves or declines, Vault secrets set and rotated write-only, and one paged history.",
+          "keywords": [
+            "settings",
+            "platform admin",
+            "tenant admin",
+            "vault",
+            "proposals"
+          ],
+          "audience": [
+            "admin",
+            "developer"
+          ]
+        },
+        "requires": [
+          "settings"
+        ],
+        "platforms": [
+          "web"
+        ],
+        "migrations": [
+          {
+            "file": "migrations/0024_genesis_settings_host.sql",
+            "test": "migrations/tests/0024_genesis_settings_host.test.sql"
+          }
+        ],
+        "steps": [
+          "Write the screen's route with genesis settings init (Next.js, TanStack Start, React Router or Expo Router): it serves createSettingsHandler from @marktiderman/genesis-supabase/settings/server with the publishable key, never the service role.",
+          "Mount <GenesisSettings client={createSettingsClient(fetch, { baseUrl, token })} capabilities={APP_HOST_CAPABILITIES} /> on the platform-admin page; for a tenant's admins, pass tenant={tenantId}.",
+          "Run genesis settings sync on every deploy: the screen's catalogue is the manifest's."
         ]
       }
     },

@@ -55,10 +55,9 @@ $$;
 
 revoke execute on function private.genesis_support_staff_alerts_on() from public, anon, authenticated;
 
--- A name to show, never an email address (notification data shows on lock screens): the app's
--- private.genesis_person_name(person) hook, else (deprecated, for one release) an app's own
--- private.genesis_support_person_name, else the login's metadata. A hook that errors gives the
--- fallback: a name is never worth failing a notification for.
+-- A name to show, never an email address (notification data shows on lock screens). 0022's
+-- reader (the app's private.genesis_person_name hook, else the login's metadata) when the
+-- support-chat block is there; else the same hook and metadata here.
 create or replace function private.genesis_support_notify_name(person uuid)
 returns text
 language plpgsql
@@ -72,18 +71,20 @@ begin
   if person is null then
     return 'Someone';
   end if;
-  begin
+  if to_regprocedure('private.genesis_support_person_name(uuid)') is not null then
+    name := private.genesis_support_person_name(person);
+  else
     if to_regprocedure('private.genesis_person_name(uuid)') is not null then
-      name := nullif(btrim(private.genesis_person_name(person)), '');
-    elsif to_regprocedure('private.genesis_support_person_name(uuid)') is not null then
-      name := private.genesis_support_person_name(person);
+      begin
+        name := nullif(btrim(private.genesis_person_name(person)), '');
+      exception when others then
+        name := null;
+      end;
     end if;
-  exception when others then
-    name := null;
-  end;
-  if name is null then
-    select nullif(btrim(coalesce(u.raw_user_meta_data ->> 'full_name', u.raw_user_meta_data ->> 'name')), '')
-      into name from auth.users u where u.id = person;
+    if name is null then
+      select nullif(btrim(coalesce(u.raw_user_meta_data ->> 'full_name', u.raw_user_meta_data ->> 'name')), '')
+        into name from auth.users u where u.id = person;
+    end if;
   end if;
   -- A name, never an address: a full_name that is an email shows as Someone.
   return case when name is null or position('@' in name) > 0 then 'Someone' else left(name, 200) end;
@@ -92,8 +93,8 @@ $$;
 
 revoke execute on function private.genesis_support_notify_name(uuid) from public, anon, authenticated;
 
--- A desk's name for the person, or null for the app's own: the app's private.genesis_tenant_label
--- hook, else (deprecated, for one release) an app's own private.genesis_support_tenant_label.
+-- A desk's name for the person, or null for the app's own: 0022's reader (the app's
+-- private.genesis_tenant_label hook) when the support-chat block is there; else the hook here.
 create or replace function private.genesis_support_notify_label(tenant uuid)
 returns text
 language plpgsql
@@ -105,11 +106,11 @@ begin
   if tenant is null or tenant = private.genesis_support_default_tenant_id() then
     return null;
   end if;
-  if to_regprocedure('private.genesis_tenant_label(uuid)') is not null then
-    return left(nullif(btrim(private.genesis_tenant_label(tenant)), ''), 200);
-  end if;
   if to_regprocedure('private.genesis_support_tenant_label(uuid)') is not null then
     return private.genesis_support_tenant_label(tenant);
+  end if;
+  if to_regprocedure('private.genesis_tenant_label(uuid)') is not null then
+    return left(nullif(btrim(private.genesis_tenant_label(tenant)), ''), 200);
   end if;
   return null;
 exception when others then
@@ -151,8 +152,9 @@ $$;
 revoke execute on function private.genesis_support_notify(text, uuid[], jsonb, text, uuid, text) from public, anon, authenticated;
 
 -- The login a tenant's person record belongs to: the app's optional hook
--- private.genesis_person_login(person uuid) returns uuid, else the person id itself (zero config,
--- where a login is its own person). A hook that errors gives the id itself.
+-- private.genesis_person_login(person uuid) returns uuid, whose answer is used as given (null: the
+-- person has no login); without the hook, the person id itself (zero config, where a login is its
+-- own person). A hook that errors raises. Callers handle a null login.
 create or replace function private.genesis_support_person_login(person uuid)
 returns uuid
 language plpgsql
@@ -164,9 +166,7 @@ begin
   if person is null or to_regprocedure('private.genesis_person_login(uuid)') is null then
     return person;
   end if;
-  return coalesce(private.genesis_person_login(person), person);
-exception when others then
-  return person;
+  return private.genesis_person_login(person);
 end;
 $$;
 
@@ -176,7 +176,8 @@ revoke execute on function private.genesis_support_person_login(uuid) from publi
 -- handles it has it (genesis-chat tells them). Never its own person, never an anonymous login.
 -- Candidates come from what names agents (never a scan of every login, in the writer's
 -- transaction): the tenant's ticket_agents rows (each person's login through the app's optional
--- private.genesis_person_login(person uuid) returns uuid, else the person id), the app's staff list (the optional hook
+-- private.genesis_person_login(person uuid) returns uuid, else the person id; one with no login is
+-- left out), the app's staff list (the optional hook
 -- private.genesis_support_staff_list() returns setof uuid, as 0022's agent list reads it) for the
 -- app's own desk, and its tenant admins (the optional hook
 -- private.genesis_tenant_admin_list(tenant uuid) returns setof uuid). Each is checked as an agent of
@@ -235,7 +236,10 @@ begin
         select u.id
           from auth.users u
          where u.id in (
-                 select private.genesis_support_person_login(a.person_id) from public.ticket_agents a where a.tenant_id = t.tenant_id
+                 -- A row whose person has no login (null) names nobody.
+                 select l.login from (select private.genesis_support_person_login(a.person_id) as login
+                                        from public.ticket_agents a where a.tenant_id = t.tenant_id) l
+                  where l.login is not null
                  union select unnest(listed)
                  union select unnest(admins)
                  union select x.id from auth.users x where scan

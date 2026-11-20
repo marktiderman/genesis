@@ -5,7 +5,7 @@ import {
   type InfiniteData,
   type UseInfiniteQueryResult,
 } from "@tanstack/react-query";
-import { useDataProvider } from "../provider/context";
+import { requireDataProvider, useOptionalDataProvider } from "../provider/context";
 import type {
   BaseRecord,
   FilterParam,
@@ -117,7 +117,10 @@ export function useInfiniteResource<T extends BaseRecord = BaseRecord>(
     live,
     keepPreviousData = false,
   } = options;
-  const provider = useDataProvider();
+  // Needed only to read: a disabled hook (ResourcePage over rows it was given) has none.
+  const provider = useOptionalDataProvider();
+  // A hook that reads still fails loudly without one, as it renders.
+  if (enabled) requireDataProvider(provider);
 
   const [sorts, setSortsRaw] = useState<SortParam[]>(() =>
     defaultSorts && defaultSorts.length > 0 ? defaultSorts : defaultSort ? [defaultSort] : [],
@@ -165,7 +168,7 @@ export function useInfiniteResource<T extends BaseRecord = BaseRecord>(
     initialPageParam: { page: 1, cursor: null },
     queryFn: ({ pageParam }) => {
       const { perPage: size, ...rest } = params;
-      return provider.getList<T>(resource, {
+      return requireDataProvider(provider).getList<T>(resource, {
         ...rest,
         pagination: { page: pageParam.page, perPage: size, cursor: pageParam.cursor },
       });

@@ -103,6 +103,8 @@ export {
 export {
   DataProviderRoot,
   useDataProvider,
+  useOptionalDataProvider,
+  requireDataProvider,
   useStorage,
   GenesisProvider,
   type DataProviderRootProps,

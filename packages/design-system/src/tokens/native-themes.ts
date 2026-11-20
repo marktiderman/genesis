@@ -23,7 +23,7 @@ export const nativeThemeLight = {
   "mutedForeground": "#52525b",
   "accent": "#f4f4f5",
   "accentForeground": "#18181b",
-  "destructive": "#ef4444",
+  "destructive": "#ca2121",
   "destructiveForeground": "#fafafa",
   "border": "#e4e4e7",
   "input": "#e4e4e7",

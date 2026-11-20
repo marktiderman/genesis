@@ -16,7 +16,9 @@ import {
 } from "@marktiderman/genesis-config/settings-protocol";
 import { GenesisSettings } from "@marktiderman/genesis-config/settings/react";
 
-const meta: Meta<typeof GenesisSettings> = { title: "Config/GenesisSettings", component: GenesisSettings };
+// A whole screen: shown at the page's width, not shrunk to its content as "centered" would (its
+// truncated title and subtitle would then set the width, and the page would scroll sideways).
+const meta: Meta<typeof GenesisSettings> = { title: "Config/GenesisSettings", component: GenesisSettings, parameters: { layout: "padded" } };
 export default meta;
 type Story = StoryObj<typeof GenesisSettings>;
 

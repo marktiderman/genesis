@@ -8,9 +8,13 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle } from "../ui/sheet";
 import { cn } from "../../utils";
 import { useUiMessages } from "../../messages";
 
-/** A badge a screen reader can say: a count or a word; anything else stays visual. */
-function badgeLabel(label: string, badge: ReactNode): string | undefined {
-  return typeof badge === "string" || typeof badge === "number" ? `${label} (${badge})` : undefined;
+/**
+ * A badge a screen reader can say (a count or a word), read after the label as " (3)"; anything
+ * else stays visual. It is hidden text in the tab, not an aria-label, so the visible label is
+ * always part of the tab's name (WCAG 2.5.3).
+ */
+function badgeText(badge: ReactNode): string | undefined {
+  return typeof badge === "string" || typeof badge === "number" ? ` (${badge})` : undefined;
 }
 
 /** One tab in a `TabBar`. */
@@ -70,7 +74,6 @@ export function TabBar({ items, value, onChange, max = TAB_BAR_MAX, label, class
               type="button"
               onClick={() => onChange(item.key)}
               aria-current={active ? "page" : undefined}
-              aria-label={badgeLabel(item.label, item.badge)}
               data-slot="tab-bar-item"
               data-active={active || undefined}
               className={itemClass(active)}
@@ -84,7 +87,10 @@ export function TabBar({ items, value, onChange, max = TAB_BAR_MAX, label, class
                   </span>
                 ) : null}
               </span>
-              <span className="max-w-full truncate px-0.5">{item.label}</span>
+              <span className="max-w-full truncate px-0.5">
+                {item.label}
+                {badgeText(item.badge) ? <span className="sr-only">{badgeText(item.badge)}</span> : null}
+              </span>
             </button>
           );
         })}

@@ -26,6 +26,8 @@ export interface SupportDesk {
 /** What happened at a desk (`support_desk_log`). */
 export type DeskAction = "turned_on" | "turned_off" | "escalated" | "returned" | "moved";
 
+const DESK_ACTIONS: readonly DeskAction[] = ["turned_on", "turned_off", "escalated", "returned", "moved"];
+
 /** A ticket's desk, for its handlers (`support_ticket_desk`). */
 export interface TicketDesk {
   tenantId: string;
@@ -66,7 +68,8 @@ export interface DeskLogEntry {
   ticketId: string | null;
   /** Where a ticket went. */
   toTenantId: string | null;
-  action: DeskAction;
+  /** `other` for an action this version doesn't know (a newer database's). */
+  action: DeskAction | "other";
   reason: string | null;
   actorId: string | null;
   actorName: string | null;
@@ -166,7 +169,7 @@ export function toDeskLogEntry(r: Row): DeskLogEntry {
     tenantId: String(r["tenant_id"]),
     ticketId: str(r["ticket_id"]),
     toTenantId: str(r["to_tenant"]),
-    action: r["action"] as DeskAction,
+    action: DESK_ACTIONS.find((a) => a === r["action"]) ?? "other",
     reason: str(r["reason"]),
     actorId: str(r["actor"]),
     actorName: str(r["actor_name"]),

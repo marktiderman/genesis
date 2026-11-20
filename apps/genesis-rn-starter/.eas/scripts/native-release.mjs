@@ -62,6 +62,10 @@
 //     Before publishing: fails unless `expo-updates runtimeversion:resolve` (its output in
 //     <resolved.txt>) gives the runtime version the plan matched, so a mismatched update is never
 //     published.
+//   node .eas/scripts/native-release.mjs stamped <build-metadata.json> <channel>
+//     After `genesis build-stamp`, before a build is bundled or an update published: fails unless
+//     the stamp names the commit, when it was built and <channel>, so no release ships a phone that
+//     can't say which code it runs.
 //
 // Genesis template (templates/eas/scripts/native-release.mjs). genesis upgrade refreshes it; change
 // the lane through genesis.config.json `release`, not here.
@@ -515,6 +519,14 @@ export function checkRuntime(text, platform, expected) {
 
 const readJson = (file) => JSON.parse(readFileSync(file, "utf8"));
 
+/** Fails unless `genesis build-stamp`'s output names the commit, the build time and `channel`. */
+export function checkStamp(stamp, channel) {
+  if (!channel?.trim()) throw new Error("No channel to check the build stamp against: set GENESIS_CHANNEL in the eas.json profile's env (or pass the release channel). Nothing was released.");
+  const missing = ["commit", "builtAt", "channel"].filter((key) => typeof stamp?.[key] !== "string" || !stamp[key].trim());
+  if (missing.length) throw new Error(`build-metadata.json has no ${missing.join(", ")}: run genesis build-stamp in a git checkout, with --channel or GENESIS_CHANNEL. Nothing was released.`);
+  if (stamp.channel !== channel) throw new Error(`build-metadata.json is stamped for channel "${stamp.channel}", not "${channel}". Nothing was released.`);
+}
+
 async function main(command, args, env) {
   if (command === "snapshot") {
     if (!args[0]) throw new Error("snapshot needs a file to write.");
@@ -594,12 +606,16 @@ async function main(command, args, env) {
     const name = args[0] ?? "";
     if (!name) throw new Error("installed needs a package name.");
     if (!installedAt(process.cwd(), name)) throw new Error(`${name} isn't installed here (looked in node_modules from ${process.cwd()} up). Install it in the app: the release only runs tools the app installed, never one fetched for the run. Nothing was published.`);
+  } else if (command === "stamped") {
+    const [file, channel] = args;
+    if (!file) throw new Error("stamped needs <build-metadata.json> <channel>.");
+    checkStamp(readJson(file), channel);
   } else if (command === "runtime") {
     const [file, platform, expected] = args;
     if (!file || !PLATFORMS.includes(platform)) throw new Error("runtime needs <resolved.txt> <platform> <runtime version>.");
     checkRuntime(readFileSync(file, "utf8"), platform, expected);
   } else {
-    throw new Error(`Unknown command "${command ?? ""}": snapshot, mask, require, plan, update, profile-env, with-profile, channel, environment, latest-commit, published-group, runtime-printed, installed or runtime.`);
+    throw new Error(`Unknown command "${command ?? ""}": snapshot, mask, require, plan, update, profile-env, with-profile, channel, environment, latest-commit, published-group, runtime-printed, installed, stamped or runtime.`);
   }
 }
 

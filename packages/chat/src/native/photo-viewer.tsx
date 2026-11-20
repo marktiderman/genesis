@@ -28,6 +28,7 @@ import type { ChatMessage } from "../core/types";
 import { fill } from "./copy";
 import { useChatNative } from "./context";
 import { fromServer, type BubbleAttachment } from "./media";
+import { MEDIA_NOTICE, MEDIA_SCRIM, ON_MEDIA } from "./media-colors";
 import { haptic } from "./modules";
 
 export interface ChatPhoto {
@@ -156,8 +157,8 @@ export function ChatPhotoViewer({ photos, initialIndex = 0, onClose, testID = "c
       // The result of Save or Share shows where the caption goes.
       renderCaption={() =>
         notice ? (
-          <View accessibilityLiveRegion="assertive" testID={`${testID}-notice`} style={{ alignSelf: "center", backgroundColor: "rgba(40,40,40,0.92)", borderRadius: 14, paddingHorizontal: 16, paddingVertical: 10 }}>
-            <NativeText style={{ color: "#FFFFFF", textAlign: "center" }}>{notice}</NativeText>
+          <View accessibilityLiveRegion="assertive" testID={`${testID}-notice`} style={{ alignSelf: "center", backgroundColor: MEDIA_NOTICE, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 10 }}>
+            <NativeText style={{ color: ON_MEDIA, textAlign: "center" }}>{notice}</NativeText>
           </View>
         ) : null
       }
@@ -176,9 +177,9 @@ function ViewerButton({ icon, label, onPress, disabled = false, testID }: { icon
       disabled={disabled}
       onPress={onPress}
       hitSlop={6}
-      style={{ width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.45)", opacity: disabled ? 0.5 : 1 }}
+      style={{ width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: MEDIA_SCRIM, opacity: disabled ? 0.5 : 1 }}
     >
-      <NativeIcon name={icon} size={22} color="#FFFFFF" />
+      <NativeIcon name={icon} size={22} color={ON_MEDIA} />
     </Pressable>
   );
 }

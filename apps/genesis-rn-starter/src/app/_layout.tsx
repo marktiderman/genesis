@@ -4,11 +4,15 @@ import { Stack } from "expo-router";
 import { GenesisNativeApp } from "@marktiderman/genesis-native";
 import { shell } from "@/lib/app";
 import { wrapRoot } from "@/lib/observability";
+import { useWatchStarterSettings } from "@/lib/settings";
+import starter from "../../starter.config";
 
 SplashScreen.preventAutoHideAsync();
 
 // The whole root: GenesisNativeApp owns theme, data, boot, errors and the session. Keep it short (a test holds it to 30 lines).
 function RootLayout() {
+  // Genesis settings for whoever is signed in, live, while the app runs (support reads them).
+  useWatchStarterSettings(starter.features.support);
   return (
     <GenesisNativeApp {...shell} splash={SplashScreen}>
       <Stack screenOptions={{ headerShown: false }} />

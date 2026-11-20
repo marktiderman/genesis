@@ -4,7 +4,9 @@
  *
  * - the **CLI host** (`genesis setup`, the localhost wizard) reads and writes the files, and the
  *   database through the developer's linked project;
- * - the **app host** (the platform-admin Settings screen) writes the database layer only.
+ * - the **app host** (the Settings screen in the app, served by genesis-supabase's
+ *   `createSettingsHandler`) writes the app's database: the database layer for platform admins,
+ *   a tenant's layer for its admins, a person's own layer for them.
  *
  * One endpoint, `POST`, JSON in and out, a bearer token in a header (never a cookie), every request
  * `{ v, op, … }`. What a host can do is its {@link SettingsCapabilities}; the screen hides or
@@ -41,7 +43,9 @@ export const SETTINGS_PROTOCOL_VERSION = 1;
  *   rotate Vault secrets only (`setSecret`, write-only), when it says so.
  * - `runCli`: run `supabase`, `gh`, `eas` and the package manager (the CLI host).
  * - `agent`: "Fix with Claude" (the CLI host, when the Agent SDK is installed).
- * - `proposeChanges`: open a pull request for a file-layer change (`propose`). Optional; off when absent.
+ * - `proposeChanges`: propose a change the caller can't make: the CLI host opens a pull request for
+ *   a file-layer change; the app host stores a database-layer proposal a platform admin approves or
+ *   declines (`propose`, `decideProposal`). Optional; off when absent.
  *
  * @stability Beta
  */
@@ -248,6 +252,52 @@ export interface SettingsAuditPage {
 }
 
 /**
+ * Who is looking, as the host decided it from the caller's sign-in. `platform`: a platform admin,
+ * who sees and writes every key. `tenant`: an admin of `tenant`, who sees and writes only the keys
+ * declared `scope: "tenant"`, for that tenant. `person`: anyone else, who sees and writes only the
+ * keys declared `scope: "person"`, for themselves. The CLI host leaves it out (the developer is
+ * the platform).
+ *
+ * @stability Beta
+ */
+export interface SettingsViewer {
+  scope: "platform" | "tenant" | "person";
+  /** The tenant a `tenant` viewer administers. */
+  tenant?: string;
+}
+
+/** @stability Beta */
+export type SettingsProposalStatus = "pending" | "approved" | "declined";
+
+/**
+ * A stored proposal: who asked for which value and why, for their tenant (a tenant's admin) or for
+ * themselves. A platform admin approves it for everyone (the database layer, as by `setValue`),
+ * approves it for the asking tenant only (its layer, when `canApproveForTenant`), or declines it.
+ *
+ * @stability Beta
+ */
+export interface SettingsProposalEntry {
+  id: string;
+  key: string;
+  value: unknown;
+  locked?: boolean;
+  reason?: string;
+  /** Who proposed it: an email or a user id. */
+  proposedBy?: string;
+  /** The tenant whose admin asked; absent when a person asked for themselves. */
+  tenant?: string;
+  /** ISO time. */
+  proposedAt: string;
+  status: SettingsProposalStatus;
+  /** Approving for the asking tenant alone passes the tenant layer's checks now (its scope, no lock). */
+  canApproveForTenant?: boolean;
+  /** Where an approved proposal's value was written. */
+  approvedLayer?: "database" | "tenant";
+  decidedBy?: string;
+  decidedAt?: string;
+}
+
+/**
  * What `state` returns: everything the screen draws.
  *
  * `layers` are the raw file and database layers (what each holds for a key, and whether it is
@@ -268,6 +318,10 @@ export interface SettingsState {
   capabilities: SettingsCapabilities;
   upgrades?: SettingsUpgrades;
   audit?: SettingsAuditPage;
+  /** Who is looking. Absent: the platform (the CLI host). */
+  viewer?: SettingsViewer;
+  /** Proposals: every pending one for a platform admin, the caller's own otherwise. */
+  proposals?: readonly SettingsProposalEntry[];
 }
 
 /** A file a fix writes. `diff` is unified, for the screen; the host keeps the content. @stability Beta */
@@ -316,17 +370,26 @@ export interface SettingsApplyResult {
   pullRequestUrl?: string;
 }
 
-/** What `propose` returns: a pull request, or the change to make by hand. @stability Beta */
+/**
+ * What `propose` returns. A file-layer proposal (the CLI host): a pull request, or the
+ * genesis.config.json fragment to commit by hand. A database-layer proposal (the app host): the
+ * stored proposal's id.
+ *
+ * @stability Beta
+ */
 export interface SettingsProposal {
   pullRequestUrl?: string;
   /** The genesis.config.json fragment to commit. */
-  snippet: string;
+  snippet?: string;
+  /** The stored proposal, for a platform admin to approve or decline. */
+  id?: string;
 }
 
 /**
  * The layers a request can write. `tenant` writes the tenant the request names (its admins only,
  * keys declared `scope: "tenant"`); `person` writes the signed-in person's own value (keys declared
- * `scope: "person"`). The Settings screen itself writes only `file` and `database`.
+ * `scope: "person"`). The Settings screen writes `file` and `database` for the platform, and the
+ * viewer's own layer for a tenant admin or a person ({@link SettingsViewer}).
  *
  * @stability Beta
  */
@@ -334,8 +397,9 @@ export type SettingsWriteLayer = "file" | "database" | "tenant" | "person";
 
 /**
  * Every request. `audit` takes a cursor from the last page; `upgrades` with `refresh` skips the
- * host's cache. `tenant` names the tenant: the one whose layer `state` returns, and the one a
- * `tenant`-layer `setValue` or `clearValue` writes.
+ * host's cache. `tenant` names the tenant: the one whose layer `state` returns, the one a
+ * `tenant`-layer `setValue` or `clearValue` writes, and, for that tenant's admin, the slice whose
+ * history `audit` pages and whose keys `propose` may name.
  *
  * @stability Beta
  */
@@ -346,15 +410,16 @@ export type SettingsRequest =
   | { op: "plan"; fixId: string }
   | { op: "apply"; fixId: string; expect: string }
   | { op: "upgrades"; refresh?: boolean }
-  | { op: "audit"; cursor?: string; limit?: number }
-  | { op: "propose"; key: string; value: unknown; locked?: boolean }
+  | { op: "audit"; cursor?: string; limit?: number; tenant?: string }
+  | { op: "propose"; key: string; value: unknown; locked?: boolean; reason?: string; tenant?: string }
+  | { op: "decideProposal"; id: string; approve: boolean; layer?: "database" | "tenant" }
   | { op: "setSecret"; name: string; store: "vault"; value: string };
 
 /** A request on the wire. @stability Beta */
 export type SettingsWireRequest = SettingsRequest & { v: number };
 
 /** The ops, for a host's router. @stability Beta */
-export const SETTINGS_OPS = ["state", "setValue", "clearValue", "plan", "apply", "upgrades", "audit", "propose", "setSecret"] as const;
+export const SETTINGS_OPS = ["state", "setValue", "clearValue", "plan", "apply", "upgrades", "audit", "propose", "decideProposal", "setSecret"] as const;
 /** @stability Beta */
 export type SettingsOp = (typeof SETTINGS_OPS)[number];
 
@@ -368,6 +433,7 @@ export interface SettingsResponses {
   upgrades: SettingsUpgrades;
   audit: SettingsAuditPage;
   propose: SettingsProposal;
+  decideProposal: { ok: true };
   setSecret: { ok: true };
 }
 
@@ -435,8 +501,10 @@ export interface SettingsClient {
   plan(fixId: string): Promise<SettingsPlan>;
   apply(fixId: string, expect: string): Promise<SettingsApplyResult>;
   upgrades(params?: { refresh?: boolean }): Promise<SettingsUpgrades>;
-  audit(params?: { cursor?: string; limit?: number }): Promise<SettingsAuditPage>;
-  propose(params: { key: string; value: unknown; locked?: boolean }): Promise<SettingsProposal>;
+  audit(params?: { cursor?: string; limit?: number; tenant?: string }): Promise<SettingsAuditPage>;
+  propose(params: { key: string; value: unknown; locked?: boolean; reason?: string; tenant?: string }): Promise<SettingsProposal>;
+  /** Approve (write the value) or decline a stored proposal. Platform admins. Optional: a host without proposals leaves it out. */
+  decideProposal?(params: { id: string; approve: boolean; layer?: "database" | "tenant" }): Promise<void>;
   /**
    * Set or rotate a Vault secret. Write-only: the host stores it and never returns it, and the
    * screen forgets it once sent. Optional: a host without it can't set secrets from the screen.
@@ -611,11 +679,20 @@ export function createSettingsClient(fetchFn: FetchLike, options: SettingsClient
       checkAnswer(Array.isArray(upgrades.packages) && upgrades.packages.every((p) => isObject(p) && typeof p.name === "string") ? null : "packages", "upgrades", m);
       return upgrades;
     },
-    audit: (params) => call({ op: "audit", ...(params?.cursor !== undefined ? { cursor: params.cursor } : {}), ...(params?.limit !== undefined ? { limit: params.limit } : {}) }),
-    async propose({ key, value, locked }) {
-      const proposal = await call({ op: "propose", key, value, ...(locked !== undefined ? { locked } : {}) });
-      checkAnswer(typeof proposal.snippet === "string" ? null : "snippet", "propose", m);
+    audit: (params) =>
+      call({
+        op: "audit",
+        ...(params?.cursor !== undefined ? { cursor: params.cursor } : {}),
+        ...(params?.limit !== undefined ? { limit: params.limit } : {}),
+        ...(params?.tenant !== undefined ? { tenant: params.tenant } : {}),
+      }),
+    async propose({ key, value, locked, reason, tenant }) {
+      const proposal = await call({ op: "propose", key, value, ...(locked !== undefined ? { locked } : {}), ...(reason !== undefined ? { reason } : {}), ...(tenant !== undefined ? { tenant } : {}) });
+      checkAnswer(typeof proposal.snippet === "string" || typeof proposal.id === "string" ? null : "snippet or id", "propose", m);
       return proposal;
+    },
+    async decideProposal({ id, approve, layer }) {
+      await call({ op: "decideProposal", id, approve, ...(layer !== undefined ? { layer } : {}) });
     },
     async setSecret({ name, value }) {
       await call({ op: "setSecret", name, store: "vault", value });
@@ -627,7 +704,8 @@ export function createSettingsClient(fetchFn: FetchLike, options: SettingsClient
 export type SettingWriteRefusal =
   | "build"
   | "capability"
-  | "locked";
+  | "locked"
+  | "scope";
 
 /** Where a key can be written from this screen, or why it can't. @stability Beta */
 export interface SettingWritability {
@@ -649,11 +727,29 @@ const LAYER_INDEX = new Map<SettingsLayer, number>(SETTINGS_LAYERS.map((layer, i
  * The app host (`writeDatabase` only) therefore writes runtime keys in the database layer and
  * shows build keys read-only, with "change in repo".
  *
+ * A `tenant` or `person` viewer writes its own layer only, and only keys declared with that scope
+ * (the tenant and person layers are in the app's database, so they need `writeDatabase` too); a
+ * key the file or database layer locked is refused there.
+ *
  * @stability Beta
  */
-export function settingWritability(def: Pick<SettingDef, "applies">, source: { lockedBy?: SettingsLayer } | undefined, capabilities: SettingsCapabilities): SettingWritability {
+export function settingWritability(
+  def: Pick<SettingDef, "applies"> & { scope?: SettingDef["scope"] },
+  source: { lockedBy?: SettingsLayer } | undefined,
+  capabilities: SettingsCapabilities,
+  viewer?: SettingsViewer,
+): SettingWritability {
   const layers: SettingsWriteLayer[] = [];
   const refused: SettingWritability["refused"] = {};
+  if (viewer && viewer.scope !== "platform") {
+    const layer = viewer.scope;
+    if (def.applies === "build") refused[layer] = "build";
+    else if (def.scope !== layer) refused[layer] = "scope";
+    else if (!capabilities.writeDatabase) refused[layer] = "capability";
+    else if (source?.lockedBy && (LAYER_INDEX.get(source.lockedBy) ?? 0) < (LAYER_INDEX.get(layer) ?? 0)) refused[layer] = "locked";
+    else layers.push(layer);
+    return { layers, refused };
+  }
   for (const layer of ["file", "database"] as const) {
     if (layer === "database" && def.applies === "build") {
       refused[layer] = "build";

@@ -102,8 +102,9 @@ const UI_PATH_RE = /\/(components|ui)\/(ui|composites|patterns|layout|data)\//;
 const PACKAGE_UI_RE = /^\/packages\/[^/]+\/(src|wizard\/src)\//;
 
 // genesis-ui and genesis-ui-native ARE the primitives: they cannot import @marktiderman/genesis-*,
-// so they would score CUSTOM by construction (the PR #382 failure under SCAN_PATHS below). Out of
-// the DEFAULT scope (a change to them is named as excluded); a SCAN_PATHS that names them wins.
+// so they would score CUSTOM by construction (the PR #382 failure under SCAN_PATHS below). A glob
+// (`packages/*/src`: every package's UI) never takes them in, and a change to them is named as
+// excluded; a SCAN_PATHS entry that names their folder without a glob (`packages`) still does.
 const OWN_PRIMITIVES_RE = /^packages\/(ui|ui-native)\//;
 
 // ── The general case: nothing component-shaped may vanish ────────────────────
@@ -272,8 +273,10 @@ function compileScanPath(spec) {
 // Treat it as "everything".
 const scanMatchers = scanPaths.length > 0 ? scanPaths.map(compileScanPath) : [compileScanPath('')];
 
-const defaultScope = !process.env.SCAN_PATHS;
-const inScanPaths = (relPath) => !(defaultScope && OWN_PRIMITIVES_RE.test(toPosix(relPath))) && scanMatchers.some((m) => m.re.test(toPosix(relPath)));
+const inScanPaths = (relPath) => {
+  const p = toPosix(relPath);
+  return scanMatchers.some((m) => m.re.test(p) && !(String(m.spec).includes('*') && OWN_PRIMITIVES_RE.test(p)));
+};
 
 // Set when the git commands below FAIL (as opposed to legitimately having no
 // base, e.g. a local run on main). The full-scan fallback answers a different
