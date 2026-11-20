@@ -570,12 +570,18 @@ describe("genesis mcp: adversarial review", () => {
   });
 
   it("costs the text, not the held secrets: 2,000 small leaves with a 1 MiB secret held", () => {
-    const vault = secretVault([`${"s".repeat(1024 * 1024 - 8)}-secret!`]);
     const findings = Array.from({ length: 2_000 }, (_, i) => `finding ${i}`);
-    const started = performance.now();
-    const text = boundedJson({ findings }, vault);
-    expect(performance.now() - started).toBeLessThan(500);
-    expect(JSON.parse(text).findings).toHaveLength(2_000);
+    const timed = (vault: ReturnType<typeof secretVault>) => {
+      const started = performance.now();
+      const text = boundedJson({ findings }, vault);
+      return { ms: performance.now() - started, text };
+    };
+    timed(secretVault([])); // warm up
+    // Against the same work with nothing held, so a slow machine slows both.
+    const baseline = Math.max(timed(secretVault([])).ms, 5);
+    const held = timed(secretVault([`${"s".repeat(1024 * 1024 - 8)}-secret!`]));
+    expect(held.ms).toBeLessThan(baseline * 10);
+    expect(JSON.parse(held.text).findings).toHaveLength(2_000);
   });
 
   it("while the settings catalogue doesn't load, only the doctor's tools answer, redacted by every readable secret name", async () => {
@@ -598,6 +604,23 @@ describe("genesis mcp: adversarial review", () => {
     const stubbed = await connect(root, { server: { env, deps: { doctor: async () => ({ ok: false, genesis: { uiPackage: "u", uiVersion: "1" }, errors: 0, warnings: 1, infos: 0, findings: [leaky] }) as never } } });
     expect(JSON.stringify(await stubbed.call("doctor_run"))).toContain("relay [redacted] and [redacted]");
     expect(stubbed.seen.join("\n")).not.toContain(OTHER_SECRET);
+  });
+
+  it("a package whose declaration doesn't parse: tools fail closed, and the doctor still redacts the secrets it names", async () => {
+    const BAD = "@marktiderman/genesis-bad";
+    const BAD_SECRET = "bad-relay-value-5678";
+    const bad = { namespace: "bad", keys: { relay: { type: "boolean", default: false, needs: "secret:BAD_RELAY" }, odd: { type: "nonsense", default: 1 } } };
+    const root = app({
+      "package.json": JSON.stringify({ name: "app", dependencies: { [SUPPORT]: "^0.12.0", [BAD]: "^0.1.0" } }),
+      [`node_modules/${BAD}/package.json`]: JSON.stringify({ name: BAD, version: "0.1.0", genesis: { settings: bad } }),
+    });
+    const env = { SUPPORT_GITHUB_TOKEN: SECRET, BAD_RELAY: BAD_SECRET, PATH: "/usr/bin" };
+    const { call } = await connect(root, { server: { env } });
+    await expect(call("settings_get")).rejects.toThrow(/settings catalogue doesn't load.*genesis-bad/);
+    const leaky = { rule: "r", level: "warn" as const, file: "f", line: 1, message: `relay ${BAD_SECRET}` };
+    const stubbed = await connect(root, { server: { env, deps: { doctor: async () => ({ ok: false, genesis: { uiPackage: "u", uiVersion: "1" }, errors: 0, warnings: 1, infos: 0, findings: [leaky] }) as never } } });
+    expect(JSON.stringify(await stubbed.call("doctor_run"))).toContain("relay [redacted]");
+    expect(stubbed.seen.join("\n")).not.toContain(BAD_SECRET);
   });
 
   it("scrubs what is written to stderr", () => {
