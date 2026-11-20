@@ -1,6 +1,5 @@
 {
-  "packages/chat/src/native/media-colors.ts": 7,
-  "packages/chat/src/native/photo-viewer.tsx": 4,
+  "packages/chat/src/native/media-colors.ts": 8,
   "packages/design-system/src/app-styles/define.ts": 3,
   "packages/design-system/src/app-styles/starters.ts": 337,
   "packages/design-system/src/design-systems/color.ts": 6,

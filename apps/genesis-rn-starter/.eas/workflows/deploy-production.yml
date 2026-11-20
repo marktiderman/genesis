@@ -251,6 +251,10 @@ jobs:
             set-output update_group ""
             exit 0
           fi
+          # The bundle names its commit, build time and channel (build-metadata.json, git-ignored):
+          # stamped for this release, and nothing is published when the stamp can't say them.
+          npx --no genesis build-stamp --channel "production"
+          node .eas/scripts/native-release.mjs stamped build-metadata.json "production"
           # No --environment: with it, eas update bundles with the EAS environment over the profile's
           # values. CI=1: it then takes the environment it's given; EXPO_NO_DOTENV as --environment sets it.
           node .eas/scripts/native-release.mjs with-profile eas.json "production" ios -- env CI=1 EXPO_NO_DOTENV=1 npx --yes eas-cli@26.0.0 update --channel "production" --platform ios --message "Release $COMMIT_SHA" --json --non-interactive > "$scratch/update-ios.json"
@@ -362,6 +366,10 @@ jobs:
             set-output update_group ""
             exit 0
           fi
+          # The bundle names its commit, build time and channel (build-metadata.json, git-ignored):
+          # stamped for this release, and nothing is published when the stamp can't say them.
+          npx --no genesis build-stamp --channel "production"
+          node .eas/scripts/native-release.mjs stamped build-metadata.json "production"
           # No --environment: with it, eas update bundles with the EAS environment over the profile's
           # values. CI=1: it then takes the environment it's given; EXPO_NO_DOTENV as --environment sets it.
           node .eas/scripts/native-release.mjs with-profile eas.json "production" android -- env CI=1 EXPO_NO_DOTENV=1 npx --yes eas-cli@26.0.0 update --channel "production" --platform android --message "Release $COMMIT_SHA" --json --non-interactive > "$scratch/update-android.json"

@@ -25,6 +25,20 @@ const QUERY_METHODS = ["select", "insert", "update", "upsert", "delete", "eq", "
 const listeners = new Set<Listener>();
 let current: FakeSession | null = null;
 
+/**
+ * Genesis settings as stored (`genesis_settings_layers`): what the app reads for whoever is
+ * signed in. Each layer maps a key to `{ value }`; empty, the app runs on the `max` preset.
+ */
+export const settingsLayers: { database: Record<string, { value: unknown }>; person: Record<string, Record<string, { value: unknown }>> } = { database: {}, person: {} };
+
+/** Realtime broadcast handlers by topic, from the channels joined now. */
+const broadcasts = new Map<string, Set<() => void>>();
+
+/** Tells the app a settings layer changed, as migration 0023's broadcast does. */
+export function broadcastSettingsChange(topic = "genesis-settings"): void {
+  for (const handler of broadcasts.get(topic) ?? []) handler();
+}
+
 /** What the next calls answer. `resetSupabase` puts every field back. */
 export const next: {
   /** The next sign-in or sign-up fails with this Supabase error code. */
@@ -104,17 +118,40 @@ export const fakeSupabase = {
     updateUser: jest.fn(async () => ({ data: { user: current?.user ?? null }, error: null })),
   },
   from: jest.fn((_table: string) => query({ data: [], error: null, count: 0 })),
-  rpc: jest.fn((fn: string, _args?: object) => (fn === "delete_my_account" ? deleteMyAccount() : query({ data: null, error: null, count: 0 }))),
+  rpc: jest.fn((fn: string, _args?: object) => {
+    if (fn === "delete_my_account") return deleteMyAccount();
+    if (fn === "genesis_settings_layers") {
+      const person = current ? (settingsLayers.person[current.user.id] ?? {}) : {};
+      return query({ data: { database: settingsLayers.database, person }, error: null, count: 0 });
+    }
+    return query({ data: null, error: null, count: 0 });
+  }),
   // Edge Functions (genesis-apple-revoke): every call succeeds.
   functions: { invoke: jest.fn(async (_name: string, _options?: object) => ({ data: { ok: true }, error: null })) },
   // genesis-chat's tables and functions (the Messages tab): an empty inbox.
   schema: jest.fn((_schema: string) => ({ from: fakeSupabase.from, rpc: fakeSupabase.rpc })),
-  // Realtime (chat's live hints): channels that join and never hear anything.
-  channel: jest.fn((_topic: string, _options?: object) => {
-    const channel = { on: () => channel, subscribe: () => channel, send: async () => "ok" };
+  // Realtime: chat's live hints never hear anything; settings hear `broadcastSettingsChange`.
+  channel: jest.fn((topic: string, _options?: object) => {
+    const handlers = new Set<() => void>();
+    const channel = {
+      topic,
+      handlers,
+      on: (type: string, _filter: object, handler: () => void) => {
+        if (type === "broadcast") handlers.add(handler);
+        return channel;
+      },
+      subscribe: () => {
+        for (const handler of handlers) (broadcasts.get(topic) ?? broadcasts.set(topic, new Set()).get(topic)!).add(handler);
+        return channel;
+      },
+      send: async () => "ok",
+    };
     return channel;
   }),
-  removeChannel: jest.fn(async (_channel: unknown) => "ok"),
+  removeChannel: jest.fn(async (channel: { topic: string; handlers: Set<() => void> }) => {
+    for (const handler of channel.handlers) broadcasts.get(channel.topic)?.delete(handler);
+    return "ok";
+  }),
 };
 
 /** `sessionReady` from `src/lib/supabase.ts`, the boot step that wipes a session left by an earlier install. */
@@ -123,6 +160,8 @@ export const sessionReady = jest.fn(async (): Promise<unknown> => false);
 /** Starts a test signed in as `email` (or signed out), with no listeners or scripted answers left from the last one. */
 export function resetSupabase(email: string | null): void {
   listeners.clear();
+  broadcasts.clear();
+  Object.assign(settingsLayers, { database: {}, person: {} });
   current = email ? sessionFor(email) : null;
   Object.assign(next, { authError: null, confirmEmail: false, deleteError: null, holdDelete: false });
   releaseHeld = () => {};
@@ -138,6 +177,8 @@ export function resetSupabase(email: string | null): void {
     fakeSupabase.from,
     fakeSupabase.rpc,
     fakeSupabase.functions.invoke,
+    fakeSupabase.channel,
+    fakeSupabase.removeChannel,
   ]) {
     fn.mockClear();
   }

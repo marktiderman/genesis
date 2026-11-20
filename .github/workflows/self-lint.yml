@@ -70,5 +70,8 @@ jobs:
     uses: ./.github/workflows/genesis-lint.yml
     with:
       paths: 'apps'
+      # The packages' UI (support's screens, chat's, the wizard) is classified too; genesis-ui and
+      # genesis-ui-native, the primitives themselves, are named as excluded, not scored.
+      coverage-paths: 'apps packages/*/src packages/genesis-cli/wizard/src'
       node-version: '22'
       # No pnpm-version: it comes from package.json `packageManager` (pnpm@11.26.0).

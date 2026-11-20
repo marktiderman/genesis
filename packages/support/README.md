@@ -119,7 +119,8 @@ genesis-supabase's settings when they're there, else 10 and 90 as before.
 
 Zero config means no settings to choose: with none stored, the `max` preset turns everything on.
 It doesn't mean no code. The app passes support what only it has, once, and runs one command on
-every deploy. `apps/genesis-rn-starter/src/lib/support.ts` does all of it, so copy from there.
+every deploy. `apps/genesis-rn-starter/src/lib/` (`support.ts`, `settings.ts`, `health.ts`, `errors.ts`) does all
+of it, so copy from there.
 
 - **Its route files.** Two per navigation zone, each one line (`index.tsx` and `[...route].tsx`
   under `basePath`, exporting `SupportRoute`), and `createSupport`'s `router` (`Stack.Screen`,
@@ -132,14 +133,18 @@ every deploy. `apps/genesis-rn-starter/src/lib/support.ts` does all of it, so co
   `healthChecksSection`, and `user`.
 - **Health checks**: `healthChecks.register(...supabaseHealthChecks(supabase))`, and
   genesis-native's `createDevtools({ checks: healthChecks })`.
-- **The build stamp**: `"eas-build-post-install": "genesis build-stamp"` in the app's
-  package.json, and the `build-metadata.json` it writes imported as `buildMetadata`.
+- **The build stamp**: `build-metadata.json`, written by `genesis build-stamp` (git-ignored) and
+  imported as `buildMetadata`. The app's scripts that bundle, typecheck or test run it first; EAS
+  builds run it in `eas-build-post-install` with the profile's `GENESIS_CHANNEL`; the release
+  lanes run it before every `eas update`, and `native-release.mjs stamped` refuses a release
+  whose stamp has no commit, build time or channel.
 - **"Send diagnostics"** under Settings → About: `<SendDiagnosticsRow />`.
 - **"Contact support" on the error screens**: genesis-native's fatal screen and screen boundary
   take `contact: support.contact()`.
 - **Live settings**: `watchAppSettings(supabase, supportSettingsCatalogue(), { personId, onChange })`
-  from genesis-supabase, with `appSettings: () => latest` on `createSupport` and
-  `createDiagnostics`. Without it, settings are read once (or not at all: the `max` preset).
+  from genesis-supabase, started again whenever the signed-in person changes (not on a token
+  refresh), with the last person's values dropped meanwhile; `appSettings` on `createSupport` and
+  `createDiagnostics` reads the latest. Without it, the `max` preset.
 - **On every deploy, after the migrations: `genesis settings sync`.** It writes the app's manifest
   (`genesis_app_manifest`); until it has run, `set_genesis_setting` refuses every value, so no
   setting can be changed from the database and support stays on its preset.
