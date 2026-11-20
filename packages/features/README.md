@@ -175,8 +175,9 @@ only for a key whose default is `null`.
 
 `resolveSettings` never throws: it skips a bad entry and reports it in `problems` (an unknown
 key, a value of the wrong type or out of bounds, a tenant or person value for a key without that
-scope, a runtime layer setting a build-time key, a change to a locked value, a key on while one it
-requires is off, an unknown preset, which resolves on `max`). Every map it returns has no prototype,
+scope, a runtime layer setting a build-time key, a change to a locked value, an unknown preset,
+which resolves on `max`). A key on while one it requires is off keeps its value: that problem is
+only reported. Every map it returns has no prototype,
 so a key such as `__proto__` or `constructor` is just an unknown key. `sources` says which layer set each value and which locked it.
 
 **Reading a result.** `values`, `sources` and the maps `settingsGateContext` returns have no
@@ -253,7 +254,7 @@ it.
   "server-env"?, ci? }` (`canSetSecret`). The app host may set and rotate Vault secrets only, when
   the host itself reports `{ vault: true }` (`APP_HOST_CAPABILITIES` is a mask that allows it but
   doesn't grant it): the `setSecret` op is write-only, the value is never returned, and the screen
-  drops it once sent. Other stores are set through `genesis setup`. The host side comes with the
+  drops it once sent. Other stores are set from a terminal with `genesis fix secrets.set`. The host side comes with the
   app's settings handler.
 
 **Fixes.** An automatic fix is planned first (`plan`): the screen shows the files it writes (with
@@ -262,7 +263,8 @@ confirm, then applies it with the plan's `hash` (`apply(fixId, expect)`). A host
 that changed in between (`stale_plan`), and the screen offers to plan again. A plan needing more
 than the host can do shows its `genesis fix <id>` command instead. The app host applies a fix only
 when it writes the database layer and nothing else (`databaseOnly` on the fix, `layers` on the
-plan). A guided fix opens its setup step (`onOpenStep`, or `genesis setup --step <id>`); a manual
+plan). A guided fix opens its setup step (`onOpenStep`), or shows its `genesis fix <id>` command (the
+wizard's `genesis setup --step <id>` isn't available yet); a manual
 fix shows its instructions. Links (`href`, `notesUrl`) are followed only when `http:`, `https:` or
 on the same site (`safeHref`).
 

@@ -109,7 +109,17 @@ export function scrubDeep(value: unknown, values: readonly string[]): unknown {
  * before serialising, then the text once more.
  */
 export function boundedJson(value: unknown, values: readonly string[]): string {
-  const text = scrub(JSON.stringify(scrubDeep(value, values), null, 2), values);
+  const json = JSON.stringify(scrubDeep(value, values), null, 2);
+  let text = scrub(json, values);
+  if (text !== json) {
+    // The second pass found something only the escaped form showed; its redaction may have cut an
+    // escape or a quote, so the result is checked, and wrapped as a string when it isn't JSON.
+    try {
+      JSON.parse(text);
+    } catch {
+      text = JSON.stringify({ redacted: true, note: "A secret was redacted from this result, which left it unreadable as JSON; here it is as text.", text });
+    }
+  }
   if (text.length <= MAX_RESULT_CHARS) return text;
   return JSON.stringify({ truncated: true, note: `The result was ${text.length} characters; it is cut to ${MAX_RESULT_CHARS}. Narrow the request.`, partial: text.slice(0, MAX_RESULT_CHARS - 500) });
 }

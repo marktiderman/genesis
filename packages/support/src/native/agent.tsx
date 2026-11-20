@@ -483,7 +483,7 @@ export function useAgentThread(ticketId: string, options: AgentThreadOptions = {
     void queryClient.invalidateQueries({ queryKey: supportAgentKeys.ticket(me ?? null, tenant, ticketId) });
     void queryClient.invalidateQueries({ queryKey: supportAgentKeys.queues(me ?? null, tenant) });
     void queryClient.invalidateQueries({ queryKey: supportAgentKeys.counts(me ?? null, tenant) });
-  }, [queryClient, tenant, ticketId]);
+  }, [queryClient, me, tenant, ticketId]);
 
   // Live on chat: a message from the requester or another agent reads the thread again.
   useEffect(() => (focused && live ? client.subscribe(ticketId, refresh) : undefined), [client, focused, live, ticketId, refresh]);
@@ -503,7 +503,7 @@ export function useAgentThread(ticketId: string, options: AgentThreadOptions = {
         ]),
       )
       .catch(() => undefined);
-  }, [client, focused, known, latest, ticketId, tenant, queryClient]);
+  }, [client, focused, known, latest, ticketId, tenant, queryClient, me]);
 
   const [draft, setDraft] = useState("");
   const [mode, setMode] = useState<string>(REPLY);

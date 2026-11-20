@@ -111,6 +111,8 @@ export function supportContributions(options: SupportBlockOptions = {}): BlockCo
       { package: "@marktiderman/genesis-support", file: "migrations/0020_genesis_support_settings.sql", test: "migrations/tests/0020_genesis_support_settings.test.sql" },
       // A dump sent with a ticket is read by whoever handles that ticket; staff read only dumps with none.
       { package: "@marktiderman/genesis-support", file: "migrations/0026_genesis_support_diagnostics_access.sql", test: "migrations/tests/0026_genesis_support_diagnostics_access.test.sql" },
+      // A whole number stored as 10.0 reads as 10 in the dump's settings readers.
+      { package: "@marktiderman/genesis-support", file: "migrations/0028_genesis_support_diagnostics_fixes.sql", test: "migrations/tests/0028_genesis_support_diagnostics_fixes.test.sql" },
     ],
     privacy: {
       collects: [
@@ -124,7 +126,7 @@ export function supportContributions(options: SupportBlockOptions = {}): BlockCo
         "Feedback is sent only when the person taps Send, and a screenshot only when they include it, after they can hide parts of it.",
         "Reports, screenshots and replies are visible only to the person, the app's support staff and anyone the app names to handle the report, and go when the person deletes them or their account.",
         "Feedback includes the app version, the screen's path (never its query string; private-looking segments are replaced), the platform and basic device facts.",
-        "With diagnostics on, a context dump goes with each piece of feedback, on a shake and when the person taps Send diagnostics: the build and update, device facts (model, OS, locale, time zone, screen, network type, permission states), the recent screens as paths, flags in effect, and recent errors, breadcrumbs and console lines. The person is an id and a role only; emails, phone numbers, tokens, keys and query strings are removed on the device and again on the server. A dump never carries a screenshot. Dumps are capped at 256 KB, limited to 10 an hour, readable only by the person and the app's support staff, and deleted after 90 days.",
+        "With diagnostics on, a context dump goes with each piece of feedback, on a shake and when the person taps Send diagnostics: the build and update, device facts (model, OS, locale, time zone, screen, network type, permission states), the recent screens as paths, flags in effect, and recent errors, breadcrumbs and console lines. The person is an id and a role only; emails, phone numbers, tokens, keys and query strings are removed on the device and again on the server. A dump never carries a screenshot. Dumps are capped at 256 KB, limited to 10 an hour and deleted after 90 days by default (the app's diagnostics settings can change these), and are readable only by the person and the app's support staff.",
       ],
     },
   };

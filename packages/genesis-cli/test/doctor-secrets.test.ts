@@ -136,6 +136,11 @@ describe("secret stores", () => {
       const signedOut: ToolRunner = async () => ({ code: 4, stdout: "", stderr: "To get started with GitHub CLI, please run:  gh auth login" });
       expect(await readSecretNames("github", root, { run: signedOut })).toEqual({ ok: false, reason: expect.stringMatching(/exited 4: .*gh auth login/) });
       expect(await readSecretNames("server-env", root)).toEqual({ ok: false, reason: expect.any(String) });
+      // An invalid environment name: an answer, and gh never asked (it would list the repository's secrets).
+      let asked = 0;
+      const counted: ToolRunner = async () => (asked++, { code: 0, stdout: "[]", stderr: "" });
+      expect(await readSecretNames("github", root, { run: counted, githubEnvironment: "prod env" })).toEqual({ ok: false, reason: expect.stringMatching(/release\.environment "prod env" isn't an environment name/) });
+      expect(asked).toBe(0);
     } finally {
       removeTempDir(root);
     }
@@ -148,6 +153,9 @@ describe("secret stores", () => {
       expect(storeOptions(root)).toEqual({ githubEnvironment: "production", easEnvironment: "preview" });
       writeFileSync(path.join(root, "genesis.config.json"), JSON.stringify({}));
       expect(storeOptions(root)).toEqual({});
+      // An invalid name is kept, so it is reported, never replaced by the repository's secrets.
+      writeFileSync(path.join(root, "genesis.config.json"), JSON.stringify({ release: { environment: "prod env" } }));
+      expect(storeOptions(root)).toEqual({ githubEnvironment: "prod env" });
     } finally {
       removeTempDir(root);
     }
@@ -270,6 +278,9 @@ const settings = {
     serverKey: { type: "boolean", default: false, needs: "secret:SERVICE_ROLE", store: "server-env" },
     inbox: { type: "boolean", default: true },
     agentDesk: { type: "boolean", default: true, requires: ["support.inbox"] },
+    // Planned: declared ahead of its code. On (as max turns it on), but dormant in the doctor.
+    email: { type: "boolean", default: true, needs: "secret:RESEND_API_KEY", planned: true },
+    webhookUrl: { type: "string", default: null, needs: "secret:PLANNED_SIGNING_SECRET", setup: "webhook.url", planned: true },
   },
 };
 const blocks = {
@@ -304,7 +315,7 @@ describe("the settings check: setup and secrets", () => {
     const root = secretsApp();
     const result = await runDoctor({ root });
     expect(list(result.findings)).toEqual([
-      "setup-incomplete info genesis.config.json support.githubRepo [settings.setup]: support.githubRepo isn't set up yet (reports become GitHub issues), so it stays off: genesis setup --step github.issues",
+      "setup-incomplete info genesis.config.json support.githubRepo [settings.setup]: support.githubRepo isn't set up yet (reports become GitHub issues), so it stays off: set settings.support.githubRepo in genesis.config.json, and the secret GITHUB_TOKEN (its guided step, github.issues, comes with genesis setup, which isn't available yet)",
     ]);
     expect(calls()).toBe("");
   });
@@ -318,7 +329,7 @@ describe("the settings check: setup and secrets", () => {
       "secret-missing warn supabase secrets AI_PROVIDER_KEY [secrets.set]: AI_PROVIDER_KEY isn't set in supabase secrets; settings.support.aiAnswers needs it",
       "secret-missing warn supabase secrets SUPPORT_WEBHOOK_URL [secrets.set]: SUPPORT_WEBHOOK_URL isn't set in supabase secrets; function genesis-support-notify needs it",
       "secret-missing warn supabase vault GENESIS_SUPPORT_WEBHOOK_SECRET [secrets.set]: GENESIS_SUPPORT_WEBHOOK_SECRET isn't set in supabase vault; settings.support.webhooks needs it",
-      "setup-incomplete info genesis.config.json support.githubRepo [settings.setup]: support.githubRepo isn't set up yet (reports become GitHub issues), so it stays off: genesis setup --step github.issues",
+      "setup-incomplete info genesis.config.json support.githubRepo [settings.setup]: support.githubRepo isn't set up yet (reports become GitHub issues), so it stays off: set settings.support.githubRepo in genesis.config.json, and the secret GITHUB_TOKEN (its guided step, github.issues, comes with genesis setup, which isn't available yet)",
     ]);
     // GITHUB_TOKEN only a dormant key and a function need: setup-incomplete covers it. NEVER_ASKED's function isn't deployed.
     expect(JSON.stringify(result.findings)).not.toMatch(/GITHUB_TOKEN isn't|NEVER_ASKED/);
@@ -339,6 +350,12 @@ describe("the settings check: setup and secrets", () => {
       "secret-missing warn supabase secrets GITHUB_TOKEN [secrets.set]: GITHUB_TOKEN isn't set in supabase secrets; settings.support.githubRepo and function genesis-support-notify need it",
     ]);
     expect(list(result.findings).some((l) => l.startsWith("setup-incomplete"))).toBe(false);
+  });
+
+  it("never asks for a planned key's secret or setup, even when the key is on", async () => {
+    const root = secretsApp({ settings: { "support.email": true } });
+    const result = await runDoctor({ root, network: true, database: false });
+    expect(JSON.stringify(result.findings)).not.toMatch(/RESEND_API_KEY|PLANNED_SIGNING_SECRET|support\.webhookUrl|support\.email/);
   });
 
   it("gives an info, not an error, for a store it can't check", async () => {
@@ -518,7 +535,8 @@ describe("the settings and secrets fixes", () => {
     const root = secretsApp();
     const t = io();
     expect(await runFixCommand({ root, target: "setup-incomplete", yes: true, network: false }, t.io)).toBe(0);
-    expect(t.out.join("\n")).toContain("- support.githubRepo: genesis setup --step github.issues (or set settings.support.githubRepo in genesis.config.json and its secret GITHUB_TOKEN");
+    expect(t.out.join("\n")).toContain("- support.githubRepo: set settings.support.githubRepo in genesis.config.json and its secret GITHUB_TOKEN");
+    expect(t.out.join("\n")).not.toContain("genesis setup --step");
     expect(calls()).toBe("");
   });
 });
