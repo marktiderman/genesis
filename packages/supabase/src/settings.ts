@@ -155,12 +155,21 @@ export async function resolveAppSettings(client: SettingsClient, catalogue: Sett
   });
 }
 
+/**
+ * The app's settings as {@link resolveAppSettings} and {@link watchAppSettings} give them: every
+ * key's value, with the layer it came from (genesis-config's `ResolvedSettings`). Hand it to a
+ * package's `appSettings`.
+ *
+ * @stability Beta
+ */
+export type AppSettings = ResolvedSettings;
+
 /** @stability Beta */
 export interface WatchAppSettingsOptions extends ResolveAppSettingsOptions {
   /** The signed-in person's id, to hear when their own values change. */
   personId?: string;
   /** Called with the resolved settings now, and again after every change. */
-  onChange: (settings: ResolvedSettings) => void;
+  onChange: (settings: AppSettings) => void;
   /**
    * Called when a read fails, or a channel can't be joined or times out (`CHANNEL_ERROR`,
    * `TIMED_OUT`: for example Realtime is off, or the listen policy is missing). The last good
@@ -201,9 +210,14 @@ export function watchAppSettings(client: RealtimeSettingsClient, catalogue: Sett
     ...(options.tenantId ? [`genesis-settings:tenant:${options.tenantId}`] : []),
     ...(options.personId ? [`genesis-settings:person:${options.personId}`] : []),
   ];
-  const channels = topics.map((topic) => {
-    let joined = false;
-    return client
+  const pending = leaving.get(client) ?? new Map<string, Promise<void>>();
+  leaving.set(client, pending);
+  const channels: { topic: string; channel: unknown }[] = [];
+  // `rejoin`: this watch waited for an earlier one's channel to go, so its first join may follow changes the read missed.
+  const join = (topic: string, rejoin: boolean) => {
+    if (stopped) return;
+    let joined = rejoin;
+    const channel = client
       .channel(topic, { config: { private: true } })
       .on("broadcast", { event: "changed" }, refresh)
       .subscribe((status: string, error?: unknown) => {
@@ -217,13 +231,43 @@ export function watchAppSettings(client: RealtimeSettingsClient, catalogue: Sett
         if (joined) refresh();
         joined = true;
       });
-  });
+    channels.push({ topic, channel });
+  };
+  for (const topic of topics) {
+    const gone = pending.get(topic);
+    if (gone) void gone.then(() => join(topic, true));
+    else join(topic, false);
+  }
   refresh();
   return () => {
     stopped = true;
-    for (const channel of channels) void client.removeChannel(channel);
+    for (const { topic, channel } of channels) {
+      // Whatever removal answers ("ok", "timed out", an error), the old channel is no longer in the client's way.
+      const done = new Promise<void>((resolve) => {
+        try {
+          Promise.resolve(client.removeChannel(channel)).then(
+            () => resolve(),
+            () => resolve(),
+          );
+        } catch {
+          resolve();
+        }
+      });
+      pending.set(topic, done);
+      void done.then(() => {
+        if (pending.get(topic) === done) pending.delete(topic);
+      });
+    }
   };
 }
+
+/**
+ * Each client's settings channels still being removed, by topic. realtime-js hands a new
+ * `channel(topic)` the one still leaving under that topic, and `subscribe()` on it does nothing,
+ * so a watch started right after another stopped (a sign-in, a sign-out) waits for the old
+ * channel to go before it joins.
+ */
+const leaving = new WeakMap<object, Map<string, Promise<void>>>();
 
 /** @stability Beta */
 export interface SetGenesisSettingInput {

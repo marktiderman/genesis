@@ -630,7 +630,8 @@ describe("rendering the templates", () => {
   });
 
   it("pr-preview publishes the update for the platforms it builds", () => {
-    const platformOf = (platforms: ("ios" | "android")[]) => yaml("release/pr-preview.yml", ctx({ platforms })).jobs.publish_update.params.platform;
+    const platformOf = (platforms: ("ios" | "android")[]) =>
+      /eas-cli@[\d.]+ update [^\n]*--platform (\S+)/.exec((yaml("release/pr-preview.yml", ctx({ platforms })).jobs.publish_update.steps as { run?: string }[]).map((s) => s.run ?? "").join("\n"))?.[1];
     expect(platformOf(["android"])).toBe("android");
     expect(platformOf(["ios"])).toBe("ios");
     expect(platformOf(["ios", "android"])).toBe("all");
@@ -786,7 +787,7 @@ describe("the plan script", () => {
   it("the build profile's env, following extends, as $GITHUB_ENV lines; a line break or a missing profile refused", () => {
     const eas = { build: { base: { env: { APP_VARIANT: "base", KEEP: "1" } }, production: { extends: "base", env: { APP_VARIANT: "production", EXPO_PUBLIC_APP_VARIANT: "production" } } } };
     expect(plan.profileEnv(eas, "production")).toEqual(["APP_VARIANT=production", "KEEP=1", "EXPO_PUBLIC_APP_VARIANT=production"]);
-    expect(plan.profileEnv(JSON.parse(readFileSync(path.join(TEMPLATES, "eas/eas.json"), "utf8")), "production")).toEqual(["APP_VARIANT=production", "EXPO_PUBLIC_APP_VARIANT=production"]);
+    expect(plan.profileEnv(JSON.parse(readFileSync(path.join(TEMPLATES, "eas/eas.json"), "utf8")), "production")).toEqual(["APP_VARIANT=production", "EXPO_PUBLIC_APP_VARIANT=production", "GENESIS_CHANNEL=production"]);
     expect(() => plan.profileEnv({ build: { production: { env: { X: "a\nb" } } } }, "production")).toThrow(/line break/);
     expect(() => plan.profileEnv({ build: {} }, "production")).toThrow(/no build profile/);
     expect(() => plan.profileEnv({ build: { a: { extends: "b" }, b: { extends: "a" } } }, "a")).toThrow(/loop/);

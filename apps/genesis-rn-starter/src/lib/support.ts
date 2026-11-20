@@ -7,9 +7,9 @@
  * passes it to GenesisNativeApp's `blocks`; it also fills the devtools overlay's
  * "Send feedback" and "Send diagnostics".
  *
- * Zero config: every screen comes from `SupportRoute` (`support-route.tsx`), the
+ * Zero config: every screen comes from `SupportRoute` (two one-line route files), the
  * context dump goes with every report and every shake, and Genesis settings
- * (Supabase's `genesis_settings` and the tenant and person layers, watched live) switch parts on and off; with
+ * (watched live: `settings.ts`) switch parts on and off; with
  * none stored, everything is on.
  *
  * Staff: the people in `public.genesis_platform_admins` (support's staff-admin-list
@@ -27,64 +27,21 @@ import * as Updates from "expo-updates";
 import { AppState, Platform } from "react-native";
 import * as ViewShot from "react-native-view-shot";
 import { versionSignature } from "@marktiderman/genesis-native/updates";
-import { watchAppSettings, type WatchAppSettingsOptions } from "@marktiderman/genesis-supabase";
-import {
-  createDiagnostics,
-  healthChecks,
-  healthChecksSection,
-  supabaseHealthChecks,
-  supabaseTransport,
-  supportSettingsCatalogue,
-} from "@marktiderman/genesis-support";
+import { createDiagnostics, healthChecksSection, supabaseTransport } from "@marktiderman/genesis-support";
 import { createSupport, nativeSections, observabilitySection } from "@marktiderman/genesis-support/native";
 import starter from "../../starter.config";
 import buildMetadata from "../../build-metadata.json";
 import { copy } from "@/copy";
 import { env } from "./env";
+import { healthChecks } from "./health";
 import { observability } from "./observability";
+import { starterSettings } from "./settings";
 import { supabase } from "./supabase";
 
 /** Where the support screens live: `src/app/(app)/settings/support/`. */
 export const supportBasePath = "/settings/support";
 
-/** Supabase reachable and a session on this device: the devtools overlay runs them, the dump carries them. */
-healthChecks.register(...supabaseHealthChecks(supabase));
-
 const warn = (where: string) => (error: unknown) => console.warn(`[support] ${where}: ${error instanceof Error ? error.message : String(error)}`);
-
-/**
- * Genesis settings, as last read: `undefined` until the first read answers (the `max` preset
- * meanwhile). Kept current by `watchStarterSettings`; support and the dump read it each time.
- */
-let appSettings: Parameters<WatchAppSettingsOptions["onChange"]>[0] | undefined;
-
-/**
- * Follows Genesis settings for whoever is signed in (their own values too), re-reading on every
- * change the settings migrations broadcast. Without the table or Realtime, it warns and support keeps the
- * `max` preset. Returns the stop.
- */
-export function watchStarterSettings(): () => void {
-  const catalogue = supportSettingsCatalogue();
-  let person: string | null | undefined;
-  let stop: (() => void) | undefined;
-  const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-    const next = session?.user.id ?? null;
-    if (next === person) return;
-    person = next;
-    stop?.();
-    stop = watchAppSettings(supabase, catalogue, {
-      ...(next ? { personId: next } : {}),
-      onChange: (settings) => {
-        appSettings = settings;
-      },
-      onError: warn("settings"),
-    });
-  });
-  return () => {
-    stop?.();
-    data.subscription.unsubscribe();
-  };
-}
 
 /** The context dump: the phone's sections, Sentry's last event, the health checks, the person's id. */
 export function createStarterDiagnostics() {
@@ -99,7 +56,7 @@ export function createStarterDiagnostics() {
     user: async () => ({ id: (await supabase.auth.getSession()).data.session?.user.id ?? null }),
     // A dump that can't go now waits on the phone and goes when the app is back online.
     offline: { storage: AsyncStorage },
-    appSettings: () => appSettings,
+    appSettings: starterSettings.current,
     onProblem: warn("diagnostics"),
   });
 }
@@ -119,12 +76,10 @@ export function createStarterSupport() {
     diagnostics: createStarterDiagnostics(),
     appState: AppState,
     netInfo: NetInfo,
-    appSettings: () => appSettings,
+    appSettings: starterSettings.current,
     onError: (error, where) => console.warn(`[support] ${where}: ${error.message}`),
   });
 }
 
 /** The support block, or `undefined` with `features.support` off. */
 export const support = starter.features.support ? createStarterSupport() : undefined;
-
-if (support) watchStarterSettings();

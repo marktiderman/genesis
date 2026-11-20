@@ -289,6 +289,22 @@ describe("design-system-coverage — SCAN_PATHS is honored on the diff branch", 
     expect(json.excluded).toEqual(["apps/web/src/components/ui/other.tsx"]);
   });
 
+  it("takes every package's UI through a glob, but never genesis-ui's own primitives", () => {
+    const dir = makeRepo();
+    markBase(dir);
+    commit(dir, {
+      "packages/support/src/native/route.tsx": EXTENDED,
+      "packages/ui/src/components/ui/accordion.tsx": CUSTOM,
+      "packages/ui-native/src/components/button.tsx": CUSTOM,
+    });
+
+    const { json } = run(dir, { SCAN_PATHS: "apps packages/*/src" });
+
+    expect(json.total).toBe(1);
+    expect(json.extended).toBe(1);
+    expect(json.excluded.sort()).toEqual(["packages/ui-native/src/components/button.tsx", "packages/ui/src/components/ui/accordion.tsx"]);
+  });
+
   it("honors multiple comma-separated SCAN_PATHS entries", () => {
     const dir = makeRepo();
     markBase(dir);
