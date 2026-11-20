@@ -700,11 +700,18 @@ export function withSettings(ctx: GateContext, catalogue: SettingsCatalogue, res
   };
 }
 
-/** One key as the database checks it (genesis_app_manifest.catalogue): no defaults, no secrets. @stability Beta */
+/**
+ * One key as the database checks and resolves it (genesis_app_manifest.catalogue): its defaults by
+ * preset (genesis-supabase's `private.genesis_setting` starts from them), never a secret.
+ *
+ * @stability Beta
+ */
 export interface SettingManifestEntry {
   type: SettingType;
   applies: SettingApplies;
   scope: SettingScope;
+  /** The default for each preset (the same value three times for a plain default). */
+  defaults: PresetDefaults<unknown>;
   min?: number;
   max?: number;
   options?: readonly (string | number)[];
@@ -716,7 +723,8 @@ export interface SettingManifestEntry {
 
 /**
  * The catalogue as the database's manifest stores it, so `set_genesis_setting` can check a value
- * (type, bounds, runtime only) without the packages' code. Written on deploy with the manifest.
+ * (type, bounds, runtime only) and `private.genesis_setting` can resolve one (from its defaults)
+ * without the packages' code. Written on deploy with the manifest.
  *
  * @stability Beta
  */
@@ -727,6 +735,7 @@ export function catalogueManifest(catalogue: SettingsCatalogue): { [key: string]
       type: def.type,
       applies: def.applies,
       scope: def.scope,
+      defaults: { max: def.defaults.max, standard: def.defaults.standard, min: def.defaults.min },
       ...(def.min !== undefined ? { min: def.min } : {}),
       ...(def.max !== undefined ? { max: def.max } : {}),
       ...(def.options !== undefined ? { options: def.options } : {}),

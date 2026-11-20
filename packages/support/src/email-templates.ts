@@ -1,5 +1,5 @@
 /**
- * Support's emails (the notifications of migration 0025, sent by genesis-notifications' runner):
+ * Support's emails (the notifications of migration 0030, sent by genesis-notifications' runner):
  * genesis-notifications' default email (heading, body, Open button, unsubscribe link) with the
  * message itself as the body (the notification's `body`, its whole text up to 4,000 characters), a
  * subject a ticket's emails share so mail apps keep one thread, and, when replies by email are set up,

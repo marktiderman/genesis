@@ -1,5 +1,5 @@
 /**
- * Desks (migration 0024): each tenant's own help desk, switched on by its admins, and tickets
+ * Desks (migration 0029): each tenant's own help desk, switched on by its admins, and tickets
  * moved between desks. The database decides who handles what; these types and functions only
  * read its answers and pick among them (which desk an inbox opens, which a picker offers).
  *
