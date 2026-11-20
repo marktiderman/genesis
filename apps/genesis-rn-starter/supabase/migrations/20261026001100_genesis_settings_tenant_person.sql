@@ -587,6 +587,11 @@ begin
     return format('%s must be a whole number', setting_key);
   end if;
   if kind in ('number', 'list') then
+    -- A bound that isn't a number is a malformed catalogue entry: say so, never raise on the cast.
+    if def ? 'min' and jsonb_typeof(def -> 'min') <> 'number'
+       or def ? 'max' and jsonb_typeof(def -> 'max') <> 'number' then
+      return format('the synced catalogue''s entry for %s is malformed (write the manifest again: writeAppManifest)', setting_key);
+    end if;
     n := case when kind = 'number' then setting_value::text::numeric else jsonb_array_length(setting_value) end;
     if def ? 'min' and n < (def ->> 'min')::numeric then
       return format('%s must be at least %s%s', setting_key, def ->> 'min', case when kind = 'list' then ' items' else '' end);
