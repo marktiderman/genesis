@@ -87,6 +87,11 @@ export function readLock(root: string): GenesisLock {
 
 /** Keys sorted, so the file diffs cleanly. */
 export function writeLock(root: string, lock: GenesisLock): void {
+  replaceApp(root, LOCK_FILE, lockText(lock));
+}
+
+/** genesis.lock.json's text for a lock, as writeLock writes it. */
+export function lockText(lock: GenesisLock): string {
   const sorted = <T>(o: Record<string, T>) => Object.fromEntries(Object.entries(o).sort(([a], [b]) => a.localeCompare(b)));
   const out = {
     version: 1,
@@ -96,7 +101,7 @@ export function writeLock(root: string, lock: GenesisLock): void {
     files: sorted(lock.files),
     ...(lock.migrations && Object.keys(lock.migrations).length ? { migrations: sorted(lock.migrations) } : {}),
   };
-  replaceApp(root, LOCK_FILE, `${JSON.stringify(out, null, 2)}\n`);
+  return `${JSON.stringify(out, null, 2)}\n`;
 }
 
 /** The `migrations` key for a package migration. */

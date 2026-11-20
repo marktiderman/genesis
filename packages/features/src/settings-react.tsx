@@ -998,8 +998,8 @@ function FixHint({
   if (fix.kind === "guided" && !safeHref(fix.href) && !(onOpenStep && fix.step)) {
     return (
       <span data-testid={tid(testID, "cli")}>
-        {/* `genesis setup --step` comes with the setup wizard; until then the CLI's fix, which asks at a terminal. */}
-        {copy.runInTerminal} <Code>genesis fix {fix.id}</Code>
+        {/* A guided fix with a step opens in the setup wizard; without one, the CLI's fix, which asks at a terminal. */}
+        {copy.runInTerminal} <Code>{fix.step ? `genesis setup --step ${fix.step}` : `genesis fix ${fix.id}`}</Code>
       </span>
     );
   }
