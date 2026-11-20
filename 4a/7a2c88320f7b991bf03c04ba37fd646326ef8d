@@ -1,0 +1,55 @@
+.changeset/setup-wizard.md
+  s_ca8e075e853203::t_2c8d624c755773 12-15,17-20
+features.json
+  s_5cf92f35ac2d0a::t_5ab90ae9617dab 8349,8381-8382
+features.ts
+  s_ca8e075e853203::t_031043ebee5d09 3642,3657-3658
+packages/genesis-cli/README.md
+  s_ca8e075e853203::t_f4386b61477d21 22-23,1668-1683,1686-1697
+packages/genesis-cli/src/cli.ts
+  s_ca8e075e853203::t_294593bca739bc 72,96,98-103,105-106,115,300,305-306,314-320,322
+packages/genesis-cli/src/wizard/command.ts
+  s_ca8e075e853203::t_5fc70600f85e13 20-21,32-41,43,60,65-69
+packages/genesis-cli/src/wizard/headless.ts
+  s_ca8e075e853203::t_0c912a4d7a9e4b 2-3,12-16,43-44,105,118-124,186-190
+packages/genesis-cli/src/wizard/host.ts
+  s_ca8e075e853203::t_dbf82d11c12158 58-59,83-84,147-187,310-311,321,352-353,443
+packages/genesis-cli/src/wizard/init.ts
+  s_ca8e075e853203::t_0234a7cbe2a561 38-43,57,59,65,67,69
+packages/genesis-cli/src/wizard/security.ts
+  s_ca8e075e853203::t_a9ee2fbaf25146 5-11,27,29,49,85-87,104-105
+packages/genesis-cli/src/wizard/server.ts
+  s_ca8e075e853203::t_facc19624f0172 5-8,21,50,52-53,64-65,96-99,103,105-111,116-125,168-174,202,215-234,290-294,298-299
+packages/genesis-cli/test/wizard.test.ts
+  s_ca8e075e853203::t_7c6d4a17088ab5 14-15,62-83,94,100-101,136-138,160-162,171-175,218-259,338-341,445-510,516,528-545
+packages/genesis-cli/wizard/src/app.tsx
+  s_ca8e075e853203::t_680186a534f426 69,192,439-440
+packages/genesis-cli/wizard/src/client.ts
+  s_ca8e075e853203::t_be10d1945c17ab 2-5,16-21,23-26,28-30,32,49
+packages/genesis-cli/wizard/src/main.tsx
+  s_ca8e075e853203::t_7e94b97f939b41 7-12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4a7a2c88320f7b991bf03c04ba37fd646326ef8d",
+  "prompts": {},
+  "sessions": {
+    "s_5cf92f35ac2d0a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "63f176d9-9b0f-4f51-bb21-a1ffbd02cc4c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
