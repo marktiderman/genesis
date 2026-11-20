@@ -234,11 +234,11 @@ export function createGenesisMcpServer(options: GenesisMcpOptions): Server {
       return { runnable: false as const, reason: `nothing to apply${plan.manual ? `: ${sc(plan.manual, 1_000)}` : ""}` };
     }
     if (plan.secrets.length || plan.commands.some((c) => c.stdinSecret) || (fix.kind === "guided" && fix.step)) {
-      // `genesis setup --step <id>` arrives with the setup wizard; until then the CLI's fix, which asks at a terminal.
+      // The person runs it: the wizard's step when the fix has one, else the CLI's fix, which asks at a terminal.
       return {
         runnable: false as const,
         reason: `${fix.id} needs ${plan.secrets.length ? `secrets (${plan.secrets.join(", ")})` : "a person's input"}: it never runs over MCP. The person runs it at a terminal.`,
-        command: `genesis fix ${fix.id}`,
+        command: fix.step ? `genesis setup --step ${fix.step}` : `genesis fix ${fix.id}`,
         ...(fix.step ? { step: fix.step } : {}),
       };
     }
@@ -375,6 +375,17 @@ export function createGenesisMcpServer(options: GenesisMcpOptions): Server {
           behind,
           ...(behind && behind.kind !== "current" ? { fix: "upgrade.release: genesis fix upgrade.release opens the upgrade pull request (the person runs it)" } : {}),
         };
+      },
+    },
+    {
+      name: "setup_steps",
+      title: "Genesis setup steps",
+      description: "The guided setup steps this app's settings name (github.issues, sentry…): the keys each configures and whether they are set, the secrets they need by name, and the command that opens it (genesis setup --step <id>, for the person: a step's secrets are never set over MCP).",
+      inputSchema: schema({}),
+      readOnly: true,
+      async run() {
+        const { setupSteps } = await import("../wizard/steps.js");
+        return { steps: setupSteps(root) };
       },
     },
     {

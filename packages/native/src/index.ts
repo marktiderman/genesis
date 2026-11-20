@@ -34,6 +34,8 @@ export {
   FatalScreen,
   type FatalScreenKind,
   type FatalScreenViewProps,
+  type FatalScreenContact,
+  contactHref,
   PlainFatalScreen,
   GenesisErrorBoundary,
   installGlobalErrorHandler,

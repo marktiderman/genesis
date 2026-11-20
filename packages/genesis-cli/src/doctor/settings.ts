@@ -10,8 +10,8 @@
  *   can't be used, or two packages declaring the same key. **info**: the database layer couldn't be read.
  * - `setting-requires` **warn**: a key that is on while a key it requires is off.
  * - `setup-incomplete` **info**: a key with a setup step or a secret it needs that isn't set yet
- *   (the feature stays dormant; the finding names the setting and secret to set, and `genesis fix
- *   settings.setup` lists them; the guided step itself comes with `genesis setup`). Nothing fails.
+ *   (the feature stays dormant; the finding names `genesis setup --step <id>`, or the setting and
+ *   secret to set when the key has no step). Nothing fails.
  * - `secret-missing` **warn**: a secret an on key (`needs`) or a deployed Edge Function
  *   (`functions[].secrets`) reads isn't in its store; checked by name only through the
  *   developer's CLIs (src/exec/secret-stores.ts), only when the network is on. **info**: a store
@@ -312,7 +312,7 @@ export function settingsCheck(options: SettingsCheckOptions = {}): (ctx: DoctorC
       // Nothing reads a planned key yet, so there is nothing to set up.
       if (def.planned) continue;
       if (resolved.values[def.key] !== null || !["default", "preset"].includes(resolved.sources[def.key]?.layer ?? "")) continue;
-      const how = `set settings.${def.key} in ${FILE}${def.secret ? `, and the secret ${def.secret.name}` : ""}${def.setup ? ` (its guided step, ${def.setup}, comes with genesis setup, which isn't available yet)` : ""}`;
+      const how = def.setup ? `genesis setup --step ${def.setup}` : `set settings.${def.key} in ${FILE}${def.secret ? `, and the secret ${def.secret.name}` : ""}`;
       ctx.report({ rule: "setup-incomplete", level: "info", file: FILE, subject: def.key, message: `${def.key} isn't set up yet${def.summary ? ` (${def.summary})` : ""}, so it stays off: ${how}` });
     }
 

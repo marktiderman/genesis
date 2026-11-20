@@ -30,7 +30,8 @@ import type { Diagnostics } from "../diagnostics/create";
 import type { DiagnosticReport } from "../diagnostics/report";
 import { listenForShake, type AccelerometerLike, type ShakeOptions, type ViewShotLike } from "./modules";
 import { SendDiagnosticsRow } from "./diagnostics";
-import { supportSettingValues, type SupportSettingsInput, type SupportSettingValues } from "../settings";
+import { supportContact, supportSettingValues, type SupportContactInfo, type SupportSettingsInput, type SupportSettingValues } from "../settings";
+import { isUnderPath, stripZone, zoneOf } from "../routes";
 
 /** A screenshot waiting for the feedback screen. `uri` is a data URI. */
 export interface PendingScreenshot {
@@ -119,6 +120,22 @@ export interface SupportOptions {
   shake?: false | ShakeOptions;
   /** Default `/support`. The route files live under it. */
   basePath?: string;
+  /**
+   * The app's other navigation zones, as route prefixes (`["/admin", "/coach"]`): each is its own
+   * stack with support mounted under it (`/admin` + `basePath`). A link support opens stays in the
+   * zone the person is in, and `SupportRoute` renders the right screen in each, so one route file
+   * per zone (two with an index) replaces a copy of every screen. Leave it out with one zone.
+   */
+  zones?: readonly string[];
+  /**
+   * What `SupportRoute` needs from the router (expo-router): `Screen` sets the stack header
+   * (`Stack.Screen`), `useSearchParams` reads `?q=` and `?collection=` on the help center
+   * (`useLocalSearchParams`). Without them, no header options and no search params.
+   */
+  router?: {
+    Screen?: ComponentType<{ options?: Record<string, unknown> }>;
+    useSearchParams?: () => Readonly<Record<string, string | string[] | undefined>>;
+  };
   copy?: SupportCopyOverrides;
   /** The Settings rows' section (default `support`), or `false` for none. */
   settings?: false | { section?: string };
@@ -181,6 +198,15 @@ export interface SupportBlock extends NativeBlock<typeof SUPPORT_BLOCK_ID> {
   subscribePending(listener: () => void): () => void;
   /** The route the person is on, as the root last saw it. */
   currentRoute(): string | null;
+  /**
+   * Tell support the route the person is on, for a screen that reads it itself (`SupportRoute`'s
+   * `path`, when the block has no `useCurrentRoute`). Returns the undo, for when the screen goes.
+   */
+  noteRoute(path: string): () => void;
+  /** The navigation zone the person is in (one of `zones`), or "" for none. */
+  zone(): string;
+  /** Where people can write when the app can't help (`support.contactEmail` / `contactUrl`), or null: for Help and for genesis-native's fatal screens (`contact`). */
+  contact(): SupportContactInfo | null;
   readonly Root: ComponentType<NativeBlockRootProps>;
 }
 
@@ -256,6 +282,15 @@ export function createSupport(given: SupportOptions): SupportBlock {
   const client = createSupportClient(options.supabase, { chat: options.chat, ...(options.tenantId !== undefined ? { tenantId: options.tenantId } : {}) });
   const platform = options.platform ?? Platform.OS;
   let route: string | null = null;
+  const zones = options.zones ?? [];
+  // Every link support opens stays in the zone the person is in.
+  const appNavigate = options.navigate;
+  // Support's own hrefs are always unzoned (`paths`), so the zone is put in front, never guessed
+  // from the href (a basePath that starts like a zone would look zoned already).
+  options.navigate = (href: string) => {
+    const zone = zoneOf(route ?? "", zones);
+    appNavigate(zone && href.startsWith("/") ? `${zone}${href}` : href);
+  };
   let pending: PendingFeedback | null = null;
   const listeners = new Set<() => void>();
   const setPending = (next: PendingFeedback | null) => {
@@ -448,6 +483,16 @@ export function createSupport(given: SupportOptions): SupportBlock {
       return () => listeners.delete(listener);
     },
     currentRoute: () => route,
+    noteRoute(path) {
+      const before = route;
+      if (path) route = path;
+      // Leaving the screen puts back what was there (unless something has moved it on since).
+      return () => {
+        if (route === path) route = before;
+      };
+    },
+    zone: () => zoneOf(route ?? "", zones),
+    contact: () => supportContact(typeof given.appSettings === "function" ? given.appSettings() : given.appSettings),
     Root: function SupportRoot({ children }) {
       const current = (options.useCurrentRoute ?? noRoute)();
       useEffect(() => {
@@ -484,7 +529,7 @@ export function createSupport(given: SupportOptions): SupportBlock {
             options.accelerometer,
             () => {
               // Already on a support screen: shaking again does nothing.
-              if (route && route.startsWith(paths.inbox)) return;
+              if (route && isUnderPath(stripZone(route, zones), paths.inbox)) return;
               // The person turned shake to report off (shake.enabled is theirs to change).
               if (!readSettings().shake.enabled) return;
               const diagnostics = options.diagnostics;
