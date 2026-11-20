@@ -1,0 +1,57 @@
+packages/genesis-cli/src/wizard/steps/resend-domain.ts
+  s_ca8e075e853203::t_3d0c143e29f28b 1-93
+packages/features/src/setup.ts
+  s_ca8e075e853203::t_f9bb52567c2b0c 1-176
+packages/genesis-cli/src/wizard/steps/supabase-link.ts
+  s_ca8e075e853203::t_7d863782c4ba49 1-121
+packages/genesis-cli/src/wizard/steps/sentry.ts
+  s_ca8e075e853203::t_b454962950aa5e 1-66
+packages/genesis-cli/src/exec/supabase-query.ts
+  s_ca8e075e853203::t_23d598c4069834 1-30
+packages/genesis-cli/src/wizard/steps/ai-key-budget.ts
+  s_ca8e075e853203::t_4e1fe555ef1af1 1-42
+packages/genesis-cli/src/wizard/steps/index.ts
+  s_ca8e075e853203::t_f15e234fae5640 1-88
+packages/genesis-cli/src/wizard/steps/eas-push.ts
+  s_ca8e075e853203::t_c793370245a248 1-42
+packages/genesis-cli/src/wizard/step-command.ts
+  s_ca8e075e853203::t_0501ec13e862ca 1-92
+packages/genesis-cli/src/wizard/steps/framework.ts
+  s_ca8e075e853203::t_4dd26f67d79498 1-203
+packages/genesis-cli/src/wizard/steps/github-issues.ts
+  s_ca8e075e853203::t_6f635c60617ddc 1-49
+packages/genesis-cli/src/cli.ts
+  s_ca8e075e853203::t_737f45e8c5df47 301,325-347,349
+packages/genesis-cli/src/doctor/settings.ts
+  s_ca8e075e853203::t_8119eb751b7705 44,160
+packages/genesis-cli/src/exec/secret-stores.ts
+  s_ca8e075e853203::t_ad5df48a07b3c9 7,32,175,178,195
+packages/genesis-cli/src/fix/command.ts
+  s_ca8e075e853203::t_16c73af861895b 55
+packages/genesis-cli/src/wizard/headless.ts
+  s_ca8e075e853203::t_3c5f89a98d5d42 31,172,174-179
+packages/genesis-cli/src/wizard/host.ts
+  s_ca8e075e853203::t_baa773b69d9680 47-49,72-73,103,243,285-289,318,447,513,516-532
+packages/genesis-cli/test/doctor-secrets.test.ts
+  s_ca8e075e853203::t_40996595ac7cb5 223,225-226,330
+packages/genesis-cli/wizard/src/app.tsx
+  s_ca8e075e853203::t_2a925de2226e93 44,51-60,68,262-355,376,383,481
+packages/genesis-cli/wizard/src/client.ts
+  s_ca8e075e853203::t_4453526e6862f0 102,164-187
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ffeb5ae62fdf27bc1df7b5df7414147b8258fbe2",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
