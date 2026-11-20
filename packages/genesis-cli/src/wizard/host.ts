@@ -55,6 +55,8 @@ export interface WizardHostOptions {
   configPath?: string;
   /** Reach npm, the advisory endpoints and the secret stores. Default false. */
   network?: boolean;
+  /** init: what `genesis init --preset/--without` chose, for the Preset and Packages screens to start from. */
+  initial?: { preset?: string; without?: string[] };
   /** A fix's output as it runs, redacted (the server sends it on `/events`). */
   publish?: (event: string, data: unknown) => void;
   /** Test seams. */
@@ -77,6 +79,8 @@ export const CLI_CAPABILITIES: SettingsCapabilities = Object.freeze({
   agent: false,
   proposeChanges: false,
 }) as SettingsCapabilities;
+
+const STALE_MESSAGE = "The app changed after this plan was made, so nothing was written. Plan it again and read the new plan before applying.";
 
 class HostError extends Error {
   constructor(
@@ -140,9 +144,47 @@ function appName(root: string): string {
 }
 
 /** The package manager a new or existing app installs with: its lockfile's, else pnpm when it has pnpm settings (the starter's), else npm. */
-function appPackageManager(root: string): PackageManager {
-  const found = findLockfile(root);
-  if (found) return found.pm;
+const MANAGERS: readonly PackageManager[] = ["pnpm", "bun", "yarn", "npm"];
+
+function readPackageJson(dir: string): Record<string, unknown> | null {
+  try {
+    const json = JSON.parse(fs.readFileSync(path.join(dir, "package.json"), "utf8")) as unknown;
+    return json && typeof json === "object" && !Array.isArray(json) ? (json as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The workspace root an app sits in: the nearest folder above it with pnpm-workspace.yaml or a package.json `workspaces`. */
+function workspaceRoot(root: string): string | null {
+  for (let dir = path.dirname(path.resolve(root)); ; dir = path.dirname(dir)) {
+    if (fs.existsSync(path.join(dir, "pnpm-workspace.yaml")) || readPackageJson(dir)?.workspaces !== undefined) return dir;
+    if (path.dirname(dir) === dir) return null;
+  }
+}
+
+/** A lockfile in this folder itself (never a parent's). */
+function lockfileIn(dir: string): PackageManager | null {
+  const found = findLockfile(dir);
+  return found && path.resolve(found.dir) === path.resolve(dir) ? found.pm : null;
+}
+
+/**
+ * The package manager an app installs with: package.json `packageManager` (the app's, else its
+ * workspace root's); else a lockfile in the app's folder or its workspace root (never another
+ * folder above it); else pnpm when the app has pnpm settings (the starter's); else npm.
+ */
+export function appPackageManager(root: string): PackageManager {
+  const ws = workspaceRoot(root);
+  for (const dir of [root, ...(ws ? [ws] : [])]) {
+    const declared = readPackageJson(dir)?.packageManager;
+    const name = typeof declared === "string" ? declared.split("@")[0] : undefined;
+    if (name && (MANAGERS as readonly string[]).includes(name)) return name as PackageManager;
+  }
+  for (const dir of [root, ...(ws ? [ws] : [])]) {
+    const pm = lockfileIn(dir);
+    if (pm) return pm;
+  }
   return fs.existsSync(path.join(root, "pnpm-workspace.yaml")) ? "pnpm" : "npm";
 }
 
@@ -265,6 +307,8 @@ export function createWizardHost(options: WizardHostOptions): WizardHost {
     } catch (err) {
       if (err instanceof ProposalError || err instanceof InitChoiceError) throw new HostError("bad_request", err.message);
       if (err instanceof FixError) throw new HostError("error", err.message, 500);
+      // The starter's own checks (a folder that isn't empty, a switch that isn't there) are the person's to correct.
+      if (recipe.kind === "init" && err instanceof Error) throw new HostError("bad_request", err.message);
       throw err;
     }
     recipes.set(plan.hash, recipe);
@@ -274,7 +318,7 @@ export function createWizardHost(options: WizardHostOptions): WizardHost {
 
   const apply = async (fixId: string, expect: string, secretValues: Record<string, unknown> | undefined): Promise<SettingsApplyResult> => {
     const recipe = recipes.get(expect);
-    if (!recipe) throw new HostError("stale_plan", "This plan wasn't made here (or has expired): plan it again and read it before applying.", 409);
+    if (!recipe) throw new HostError("stale_plan", "This plan is no longer current (it was applied, expired or made elsewhere). Nothing was written: plan it again and read the new plan.", 409);
     const vault = new SecretVault();
     const log = (m: string) => publish("log", { fixId, line: vault.redact(m) });
     try {
@@ -305,8 +349,8 @@ export function createWizardHost(options: WizardHostOptions): WizardHost {
     } catch (err) {
       publish("apply", { fixId, state: "failed" });
       if (err instanceof HostError) throw new HostError(err.code, vault.redact(err.message), err.status);
-      if (err instanceof StalePlanError) throw new HostError("stale_plan", vault.redact(err.message), 409);
-      if (err instanceof FileConflictError) throw new HostError("stale_plan", vault.redact(err.message), 409);
+      // The engine's own wording names the CLI; the page plans again instead.
+      if (err instanceof StalePlanError || err instanceof FileConflictError) throw new HostError("stale_plan", STALE_MESSAGE, 409);
       if (err instanceof SecretError) throw new HostError("bad_request", vault.redact(err.message));
       if (err instanceof ProposalError || err instanceof InitChoiceError) throw new HostError("bad_request", vault.redact(err.message));
       throw new HostError("error", vault.redact(err instanceof Error ? err.message : String(err)), 500);
@@ -396,7 +440,7 @@ export function createWizardHost(options: WizardHostOptions): WizardHost {
     defaultPreset: "max",
     capabilities: CLI_CAPABILITIES,
     ...(mode === "init"
-      ? { switches: starterSwitches(), folderEmpty: !existsSync(initRoot) || fs.readdirSync(initRoot).length === 0 }
+      ? { switches: starterSwitches(), folderEmpty: !existsSync(initRoot) || fs.readdirSync(initRoot).length === 0, ...(options.initial ? { initial: options.initial } : {}) }
       : { steps: safeSteps(), needsInstall: existsSync(path.join(root, "package.json")) && !existsSync(path.join(root, "node_modules")) }),
   });
 

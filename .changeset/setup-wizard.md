@@ -9,11 +9,14 @@ and the guided setup steps the installed packages' settings name; `--step <id>` 
 Preset, Packages, Review), the same app `genesis init <slug> --template native` makes, then installs
 its packages. Every write is a fix plan you read and apply by its hash; a stale plan, or one the
 wizard didn't make, is refused. A secret is typed into a password field and reaches your signed-in
-CLI on stdin only; no page, answer, event or log holds it. The server listens on 127.0.0.1 only,
-with a per-run key in the link's fragment, and refuses another Host, a write without its own
-Origin, a cross-site fetch and anything but JSON.
+CLI on stdin only; no page, answer, event or log holds it. The server listens on 127.0.0.1 only and
+refuses another Host (localhost included), a write without its own Origin, a cross-site fetch and
+anything but JSON. Its session key never appears in a URL or a command line: the link carries a
+one-time launch code that the page swaps for it.
 
-`genesis setup --yes` (the default without a terminal) runs headless: `--preset` and `--without`,
-every automatic fix, then the dormant checklist (`genesis setup --step <id>`). `genesis init <name>
+`genesis setup --yes` runs headless: `--preset` and `--without`, every automatic fix, then the
+dormant checklist (`genesis setup --step <id>`). Without `--yes` and without a terminal it applies
+nothing: it prints the plans and the checklist and exits 1 when there is something to apply.
+`--preset` and `--without` never imply `--yes`. `genesis init <name>
 --preset standard|min` sets a new app's preset. `genesis mcp` adds the read-only `setup_steps` tool,
 and a fix with a setup step now returns `genesis setup --step <id>`.

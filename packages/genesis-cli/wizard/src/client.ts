@@ -1,7 +1,8 @@
 /**
- * The page's side of the wizard's API. The token arrives in the URL fragment (never sent to the
- * server in a URL), moves to sessionStorage, and leaves the address bar; every request sends it as
- * a bearer token. No cookies.
+ * The page's side of the wizard's API. The link the CLI opens carries a one-time launch code in
+ * its fragment (never sent to the server in a URL); the page swaps it for the session token at
+ * `POST /session`, clears the address bar, and keeps the token in sessionStorage. Every request
+ * sends it as a bearer token. No cookies.
  *
  * `wizardSettingsClient` is the settings protocol's client with the CLI host's rule on top: every
  * write is a plan the person approves. A value change is planned (`settings.plan`), shown, and
@@ -12,19 +13,25 @@ import { createSettingsClient, SettingsProtocolError, SETTINGS_PROTOCOL_VERSION,
 
 const KEY = "genesis-wizard-token";
 
-/** Read the fragment once: keep the token, return the step to open, and clear the address bar. */
-export function takeFragment(): { step?: string } {
+/**
+ * Read the fragment once: swap its launch code for the session token, return the step to open,
+ * and clear the address bar. A used or expired code leaves no token; the page then says to open
+ * a new link.
+ */
+export async function takeFragment(): Promise<{ step?: string }> {
   const params = new URLSearchParams(window.location.hash.slice(1));
-  const token = params.get("t");
-  if (token) {
-    try {
-      sessionStorage.setItem(KEY, token);
-    } catch {
-      /* private mode: the request will say to open the link again */
-    }
-    history.replaceState(null, "", window.location.pathname);
-  }
+  const code = params.get("c");
   const step = params.get("step");
+  if (window.location.hash) history.replaceState(null, "", window.location.pathname);
+  if (code) {
+    try {
+      const res = await fetch("/session", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ code }), credentials: "omit" });
+      const json = (await res.json().catch(() => null)) as { token?: unknown } | null;
+      if (res.ok && typeof json?.token === "string") sessionStorage.setItem(KEY, json.token);
+    } catch {
+      /* the first request says to open a new link */
+    }
+  }
   return step ? { step } : {};
 }
 
@@ -39,7 +46,7 @@ export function token(): string | null {
 /** One wizard op: `{v, op, …}` to `/api`. Throws SettingsProtocolError with the host's message. */
 export async function call<T>(op: string, body: Record<string, unknown> = {}): Promise<T> {
   const t = token();
-  if (!t) throw new SettingsProtocolError("unauthenticated", "Open the wizard from the link the CLI printed.");
+  if (!t) throw new SettingsProtocolError("unauthenticated", "This page has no session: open the link genesis setup printed (each link works once; run it again for a new one).");
   const res = await fetch("/api", {
     method: "POST",
     headers: { "content-type": "application/json", accept: "application/json", authorization: `Bearer ${t}` },

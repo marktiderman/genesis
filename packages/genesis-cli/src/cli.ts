@@ -69,7 +69,7 @@ program
     false,
   )
   .option("--preset <preset>", "The settings preset: max (the default, written as nothing), standard or min")
-  .option("-y, --yes", "No wizard: with no name, set up the app in --target (or here) headless, as genesis setup --yes", false)
+  .option("-y, --yes", "No wizard: with no name, set up the app in --target (or here) headless, as genesis setup --yes (without it and without a terminal, the plans are printed and nothing is applied)", false)
   .option("--port <port>", "The wizard's first port to try (default 4400; it tries ten)")
   .option("--no-open", "Print the wizard's link; don't open a browser")
   .option("--offline", "Don't reach npm, the advisory endpoints or the secret stores", false)
@@ -93,10 +93,17 @@ program
     if (consumer === undefined) {
       const root = path.resolve(opts.target ?? process.cwd());
       const interactive = process.stdin.isTTY && process.stdout.isTTY;
+      const hasApp = existsSync(path.join(root, "package.json")) || existsSync(path.join(root, "genesis.config.json"));
       if (!opts.yes && interactive) {
+        // A new app's wizard starts from --preset and --without; an existing app's changes them only with --yes.
+        if (hasApp && (opts.preset !== undefined || opts.without !== undefined)) {
+          console.error("✗ This folder has an app: --preset and --without change it only with --yes (genesis setup --yes --preset …). Leave them out to open the wizard.");
+          process.exitCode = 1;
+          return;
+        }
         const { runWizard } = await import("./wizard/command.js");
-        const hasApp = existsSync(path.join(root, "package.json")) || existsSync(path.join(root, "genesis.config.json"));
-        process.exitCode = await runWizard({ mode: hasApp ? "setup" : "init", root, port: wizardPort(opts.port), open: opts.open !== false, network: networkOn(opts.offline ?? false), out: (l) => console.log(l) });
+        const initial = { ...(opts.preset ? { preset: opts.preset } : {}), ...(opts.without ? { without: splitList(opts.without) } : {}) };
+        process.exitCode = await runWizard({ mode: hasApp ? "setup" : "init", root, port: wizardPort(opts.port), open: opts.open !== false, network: networkOn(opts.offline ?? false), ...(Object.keys(initial).length ? { initial } : {}), out: (l) => console.log(l) });
         return;
       }
       if (!existsSync(path.join(root, "package.json"))) {
@@ -105,7 +112,7 @@ program
         return;
       }
       const { runSetupHeadless } = await import("./wizard/headless.js");
-      process.exitCode = await runSetupHeadless({ root, network: networkOn(opts.offline ?? false), ...(opts.preset ? { preset: opts.preset } : {}), ...(opts.without ? { without: splitList(opts.without) } : {}), out: (l) => console.log(l), err: (l) => console.error(l) });
+      process.exitCode = await runSetupHeadless({ root, apply: opts.yes === true, network: networkOn(opts.offline ?? false), ...(opts.preset ? { preset: opts.preset } : {}), ...(opts.without ? { without: splitList(opts.without) } : {}), out: (l) => console.log(l), err: (l) => console.error(l) });
       return;
     }
     if (opts.template !== undefined) {
@@ -290,13 +297,13 @@ function wizardPort(text: string | undefined): number | undefined {
 
 program
   .command("setup")
-  .description("Open the setup wizard on localhost for this app: the doctor's findings with their fixes, the settings, secrets (set through your signed-in CLIs, never shown) and upgrades. Every change is a plan you approve. With --yes (or no terminal) it runs headless: applies the automatic fixes and prints the dormant checklist")
+  .description("Open the setup wizard on localhost for this app: the doctor's findings with their fixes, the settings, secrets (set through your signed-in CLIs, never shown) and upgrades. Every change is a plan you approve. With --yes it runs headless: applies the automatic fixes and prints the dormant checklist. With no terminal and no --yes it prints the plans, applies nothing and exits 1 when there is something to apply")
   .option("--step <id>", "Open on one guided setup step (headless: print that step's checklist)")
   .option("--port <port>", "The first port to try (default 4400; it tries ten)")
   .option("--no-open", "Print the link; don't open a browser")
   .option("-y, --yes", "Headless: apply every automatic fix, print the guided ones, exit", false)
-  .option("--preset <preset>", "Headless: set the settings preset (max, standard or min)")
-  .option("--without <switches>", "Headless: starter.config.ts feature switches to turn off, comma-separated")
+  .option("--preset <preset>", "With --yes: set the settings preset (max, standard or min)")
+  .option("--without <switches>", "With --yes: starter.config.ts feature switches to turn off, comma-separated")
   .option("-c, --config <path>", "Config file (default: genesis.config.json, then package.json \"genesis\")")
   .option("-d, --dir <dir>", "The app's folder", process.cwd())
   .option("--offline", "Don't reach npm, the advisory endpoints or the secret stores", false)
@@ -304,9 +311,15 @@ program
     const root = path.resolve(opts.dir);
     const interactive = process.stdin.isTTY && process.stdout.isTTY;
     const network = networkOn(opts.offline);
-    if (opts.yes || !interactive || opts.preset !== undefined || opts.without !== undefined) {
+    // --preset and --without never imply --yes: at a terminal they need it; without one, they are planned and printed.
+    if (interactive && !opts.yes && (opts.preset !== undefined || opts.without !== undefined)) {
+      console.error("✗ --preset and --without apply with --yes (genesis setup --yes --preset …). Leave them out to open the wizard.");
+      process.exitCode = 1;
+      return;
+    }
+    if (opts.yes || !interactive) {
       const { runSetupHeadless } = await import("./wizard/headless.js");
-      process.exitCode = await runSetupHeadless({ root, network, ...(opts.config ? { configPath: opts.config } : {}), ...(opts.step ? { step: opts.step } : {}), ...(opts.preset ? { preset: opts.preset } : {}), ...(opts.without ? { without: splitList(opts.without) } : {}), out: (l) => console.log(l), err: (l) => console.error(l) });
+      process.exitCode = await runSetupHeadless({ root, network, apply: opts.yes, ...(opts.config ? { configPath: opts.config } : {}), ...(opts.step ? { step: opts.step } : {}), ...(opts.preset ? { preset: opts.preset } : {}), ...(opts.without ? { without: splitList(opts.without) } : {}), out: (l) => console.log(l), err: (l) => console.error(l) });
       return;
     }
     const { runWizard } = await import("./wizard/command.js");

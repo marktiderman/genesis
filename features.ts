@@ -3639,7 +3639,7 @@ export const features = defineFeatures({
   },
   "setup-wizard": {
     name: "genesis setup",
-    summary: "The setup wizard on localhost, on the doctor's engine: genesis setup opens the app's findings with their fixes, its settings, secrets by name and upgrades (the shared Settings screen) plus its guided setup steps; genesis init with no name makes a new app from App, Preset, Packages and Review. Every write is a fix plan the person reads and applies with its hash; a secret is typed into the page, sent once to the developer's signed-in CLI on stdin, and never shown, logged or kept. The server binds 127.0.0.1 only, with a per-run token in the URL fragment and Host and Origin checks. --yes runs it headless: every automatic fix, and the dormant checklist.",
+    summary: "The setup wizard on localhost, on the doctor's engine: genesis setup opens the app's findings with their fixes, its settings, secrets by name and upgrades (the shared Settings screen) plus its guided setup steps; genesis init with no name makes a new app from App, Preset, Packages and Review. Every write is a fix plan the person reads and applies with its hash; a secret is typed into the page, sent once to the developer's signed-in CLI on stdin, and never shown, logged or kept. The server binds 127.0.0.1 only, checks Host and Origin, and its session token never appears in a URL or a command line (the link carries a one-time launch code). --yes runs it headless: every automatic fix, and the dormant checklist; without --yes and without a terminal it only prints the plans.",
     category: "Tooling",
     status: "building",
     horizon: "now",
@@ -3654,7 +3654,8 @@ export const features = defineFeatures({
       "The server listens on 127.0.0.1 only and refuses a request with another Host, a non-GET without the server's own Origin, a cross-site fetch, a wrong or missing token, or a body that isn't JSON; no response carries a CORS header.",
       "Every write is a plan this run made, applied with its hash through the fix engine; a direct setValue is refused and a stale plan is planned again.",
       "No secret's value appears in a page, an answer, an event or a log line, even when the tool echoes it or fails.",
-      "genesis setup --yes applies the automatic fixes, lists the guided ones and the dormant setup steps (genesis setup --step <id>), and exits 0 unless a fix it applied failed.",
+      "genesis setup --yes applies the automatic fixes, lists the guided ones and the dormant setup steps (genesis setup --step <id>), and exits 0 unless a fix it applied failed; without --yes and without a terminal it applies nothing, prints the plans and exits 1 when there is something to apply.",
+      "A launch code works once: the page swaps it for the session token, and a second use is refused.",
       "Not yet: each guided step's runner (walk the service, verify it live), the Brand and Data screens, and Fix with Claude.",
     ],
     reviewedAt: "2026-11-19",

@@ -17,6 +17,8 @@ export interface WizardCommandOptions {
   open?: boolean;
   step?: string;
   network?: boolean;
+  /** `genesis init --preset/--without`: the init screens start from these. */
+  initial?: { preset?: string; without?: string[] };
   out: (line: string) => void;
 }
 
@@ -27,9 +29,18 @@ export function wizardDir(): string | undefined {
   return undefined;
 }
 
-/** Open a link in the default browser: a fixed program per platform, the link as one argument, no shell. */
+/** The browser launcher's argv for a link. */
+export function launchArgs(url: string, platform: NodeJS.Platform = process.platform): [string, ...string[]] {
+  return platform === "darwin" ? ["open", url] : platform === "win32" ? ["rundll32", "url.dll,FileProtocolHandler", url] : ["xdg-open", url];
+}
+
+/**
+ * Open a link in the default browser: a fixed program per platform, the link as one argument, no
+ * shell. The link holds a one-time launch code, never the session token: a launcher's argv can be
+ * read by other users of the machine (/proc/<pid>/cmdline), and the code is spent once the page uses it.
+ */
 export function openBrowser(url: string): void {
-  const [cmd, args] = process.platform === "darwin" ? ["open", [url]] : process.platform === "win32" ? ["rundll32", ["url.dll,FileProtocolHandler", url]] : ["xdg-open", [url]];
+  const [cmd, ...args] = launchArgs(url);
   try {
     const child = spawn(cmd, args, { shell: false, detached: true, stdio: "ignore" });
     child.on("error", () => {});
@@ -46,13 +57,16 @@ export async function runWizard(options: WizardCommandOptions): Promise<number> 
     root: options.root,
     ...(options.configPath ? { configPath: options.configPath } : {}),
     network: options.network ?? false,
+    ...(options.initial ? { initial: options.initial } : {}),
     publish: (event, data) => server?.publish(event, data),
   });
   const dir = wizardDir();
   server = await startWizardServer({ api: host, ...(dir ? { staticDir: dir } : {}), ...(options.port ? { port: options.port } : {}), ...(options.step ? { step: options.step } : {}), log: () => {} });
-  options.out(`Genesis ${options.mode === "init" ? "init" : "setup"} is open at:`);
-  options.out(`  ${server.url}`);
-  options.out("The link holds this run's key: don't share it. Ctrl-C stops the wizard; it also stops after 30 minutes idle.");
+  // The browser launcher gets its own one-time code (its argv can be read by other users); the
+  // terminal gets another. Each works once, then the page holds the session itself.
+  options.out(`Genesis ${options.mode === "init" ? "init" : "setup"} is running at ${server.origin}`);
+  options.out(`  Open: ${server.launchUrl()}`);
+  options.out("  (a one-time link: it stops working once opened. Ctrl-C stops the wizard; it also stops after 30 minutes idle.)");
   if (options.open !== false) openBrowser(server.url);
   const stop = () => void server!.close();
   process.once("SIGINT", stop);

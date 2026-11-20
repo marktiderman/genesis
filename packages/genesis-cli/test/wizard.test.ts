@@ -11,7 +11,8 @@ import * as path from "node:path";
 import { afterAll, afterEach, describe, expect, it } from "vitest";
 import type { Finding } from "../src/doctor/types.js";
 import type { ToolRunner } from "../src/exec/run.js";
-import { createWizardHost, type WizardHostOptions } from "../src/wizard/host.js";
+import { appPackageManager, createWizardHost, type WizardHostOptions } from "../src/wizard/host.js";
+import { checkInitChoices } from "../src/wizard/init.js";
 import { runSetupHeadless } from "../src/wizard/headless.js";
 import { checkApiRequest, newToken } from "../src/wizard/security.js";
 import { startWizardServer, staticFile, type WizardServer } from "../src/wizard/server.js";
@@ -58,6 +59,28 @@ function send(port: number, options: { method?: string; path?: string; headers?:
   });
 }
 
+/** Stream a body far past 1 MB until the server answers; report its status and whether it closed the connection. */
+function oversized(port: number, headers: Record<string, string>, declare: boolean): Promise<{ status: number; closed: boolean }> {
+  return new Promise((resolve) => {
+    let status = 0;
+    const req = httpRequest({ host: "127.0.0.1", port, method: "POST", path: "/api", headers: { host: `127.0.0.1:${port}`, ...headers, ...(declare ? { "content-length": String(50_000_000) } : {}) }, setHost: false }, (res) => {
+      status = res.statusCode ?? 0;
+      res.resume();
+      res.on("close", () => resolve({ status, closed: true }));
+    });
+    req.on("error", () => resolve({ status, closed: true }));
+    const chunk = "x".repeat(64 * 1024);
+    let sent = 0;
+    const pump = () => {
+      while (!status && sent < 50_000_000) {
+        sent += chunk.length;
+        if (!req.write(chunk)) return void req.once("drain", pump);
+      }
+    };
+    pump();
+  });
+}
+
 const apiHeaders = (port: number, extra: Record<string, string> = {}) => ({ origin: `http://127.0.0.1:${port}`, "content-type": "application/json", authorization: `Bearer ${TOKEN}`, ...extra });
 const api = (port: number, body: unknown, extra: Record<string, string> = {}) => send(port, { method: "POST", path: "/api", headers: apiHeaders(port, extra), body: JSON.stringify(body) });
 
@@ -68,13 +91,14 @@ async function start(handle: (body: unknown) => Promise<{ status: number; body: 
 }
 
 describe("the wizard's server", () => {
-  it("listens on 127.0.0.1 only, and puts the token in the link's fragment, never its path or query", async () => {
+  it("listens on 127.0.0.1 only, and its link carries a one-time launch code, never the token", async () => {
     const server = await start();
     expect(server.origin).toBe(`http://127.0.0.1:${server.port}`);
     const url = new URL(server.url);
     expect(url.hostname).toBe("127.0.0.1");
     expect(url.pathname + url.search).toBe("/");
-    expect(new URLSearchParams(url.hash.slice(1)).get("t")).toBe(TOKEN);
+    expect(server.url).not.toContain(TOKEN);
+    expect(new URLSearchParams(url.hash.slice(1)).get("c")).toMatch(/^[A-Za-z0-9_-]{43}$/);
     // Not reachable on another address of this machine.
     await expect(new Promise((resolve, reject) => httpRequest({ host: "::1", port: server.port, path: "/" }, resolve).on("error", reject).end())).rejects.toThrow();
   });
@@ -109,7 +133,9 @@ describe("the wizard's server", () => {
       expect(r.status, p).toBe(403);
     }
     expect((await send(server.port, { headers: { host: "127.0.0.1:1" } })).status).toBe(403);
-    expect((await send(server.port, { headers: { host: `localhost:${server.port}` } })).status).toBe(200);
+    // Not localhost either: it may resolve to ::1, where the server doesn't listen.
+    expect((await send(server.port, { headers: { host: `localhost:${server.port}` } })).status).toBe(403);
+    expect((await send(server.port, {})).status).toBe(200);
   });
 
   it("refuses a write without the server's own Origin, and any cross-site fetch", async () => {
@@ -120,7 +146,6 @@ describe("the wizard's server", () => {
     expect((await api(server.port, body, { origin: "http://evil.test" })).status).toBe(403);
     expect((await api(server.port, body, { origin: `http://127.0.0.1:${server.port + 1}` })).status).toBe(403);
     expect((await api(server.port, body, { origin: "null" })).status).toBe(403);
-    // localhost's origin with 127.0.0.1's Host: not the same origin.
     expect((await api(server.port, body, { origin: `http://localhost:${server.port}` })).status).toBe(403);
     expect((await api(server.port, body, { "sec-fetch-site": "cross-site" })).status).toBe(403);
     expect((await send(server.port, { headers: { "sec-fetch-site": "cross-site" } })).status).toBe(403);
@@ -132,7 +157,9 @@ describe("the wizard's server", () => {
     expect((await api(server.port, { v: 1 }, { "content-type": "text/plain" })).status).toBe(415);
     expect((await api(server.port, { v: 1 }, { "content-type": "application/x-www-form-urlencoded" })).status).toBe(415);
     expect((await send(server.port, { method: "POST", path: "/api", headers: apiHeaders(server.port), body: "{not json" })).status).toBe(400);
-    expect((await send(server.port, { method: "POST", path: "/api", headers: apiHeaders(server.port), body: `"${"x".repeat(1_100_000)}"` })).status).toBe(413);
+    // Past 1 MB it answers 413 and drops the connection, without reading the rest: declared, or streamed.
+    expect(await oversized(server.port, apiHeaders(server.port), true)).toEqual({ status: 413, closed: true });
+    expect(await oversized(server.port, apiHeaders(server.port), false)).toEqual({ status: 413, closed: true });
     expect((await send(server.port, { method: "GET", path: "/api", headers: apiHeaders(server.port) })).status).toBe(405);
   });
 
@@ -141,7 +168,11 @@ describe("the wizard's server", () => {
     const replies = [await send(server.port, {}), await api(server.port, { v: 1 }), await api(server.port, { v: 1 }, { origin: "http://evil.test" }), await send(server.port, { method: "OPTIONS", path: "/api", headers: { origin: "http://evil.test" } })];
     for (const r of replies) {
       expect(Object.keys(r.headers).filter((h) => h.startsWith("access-control-"))).toEqual([]);
-      expect(r.headers["content-security-policy"]).toContain("default-src 'self'");
+      const csp = String(r.headers["content-security-policy"]);
+      expect(csp).toContain("default-src 'self'");
+      // Inline styles for the dialogs' positioning, and nothing more: no inline or remote script.
+      expect(csp).toContain("style-src 'self' 'unsafe-inline'");
+      expect(csp).not.toMatch(/script-src|unsafe-eval|\*/);
       expect(r.headers["x-frame-options"]).toBe("DENY");
     }
   });
@@ -184,7 +215,48 @@ describe("the wizard's server", () => {
     const h = { host: "127.0.0.1:4400", origin: "http://127.0.0.1:4400", authorization: `Bearer ${TOKEN}`, "content-type": "application/json" };
     expect(checkApiRequest("POST", h, 4400, TOKEN)).toBeNull();
     expect(checkApiRequest("POST", { ...h, host: "localhost:4400" }, 4400, TOKEN)?.status).toBe(403);
-    expect(checkApiRequest("POST", { ...h, host: "localhost:4400", origin: "http://localhost:4400" }, 4400, TOKEN)).toBeNull();
+    expect(checkApiRequest("POST", { ...h, host: "localhost:4400", origin: "http://localhost:4400" }, 4400, TOKEN)?.status).toBe(403);
+  });
+
+  it("swaps a launch code for the token once; a second use, a made-up code or a foreign origin is refused", async () => {
+    const server = await start();
+    const code = new URLSearchParams(new URL(server.url).hash.slice(1)).get("c")!;
+    const swap = (c: string, headers: Record<string, string> = {}) => send(server.port, { method: "POST", path: "/session", headers: { origin: server.origin, "content-type": "application/json", ...headers }, body: JSON.stringify({ code: c }) });
+    // From another site, the code isn't spent.
+    expect((await swap(code, { origin: "http://evil.test" })).status).toBe(403);
+    expect((await swap(code, { "content-type": "text/plain" })).status).toBe(415);
+    const first = await swap(code);
+    expect(first.status).toBe(200);
+    expect(JSON.parse(first.body)).toEqual({ token: TOKEN });
+    const second = await swap(code);
+    expect(second.status).toBe(401);
+    expect(second.body).not.toContain(TOKEN);
+    expect((await swap("x".repeat(43))).status).toBe(401);
+    // Each link is its own code: the terminal's still works after the browser's was used.
+    const other = new URLSearchParams(new URL(server.launchUrl()).hash.slice(1)).get("c")!;
+    expect(other).not.toBe(code);
+    expect((await swap(other)).status).toBe(200);
+    expect((await swap(other)).status).toBe(401);
+  });
+
+  it("refuses an expired launch code", async () => {
+    const server = await start();
+    const code = new URLSearchParams(new URL(server.url).hash.slice(1)).get("c")!;
+    const now = Date.now;
+    Date.now = () => now() + 11 * 60_000;
+    try {
+      expect((await send(server.port, { method: "POST", path: "/session", headers: { origin: server.origin, "content-type": "application/json" }, body: JSON.stringify({ code }) })).status).toBe(401);
+    } finally {
+      Date.now = now;
+    }
+  });
+
+  it("never names the token in the browser launcher's arguments", async () => {
+    const spawned: string[][] = [];
+    const { launchArgs } = await import("../src/wizard/command.js");
+    const server = await start();
+    spawned.push(launchArgs(server.url, "linux"), launchArgs(server.url, "darwin"), launchArgs(server.url, "win32"));
+    for (const argv of spawned) expect(argv.join(" ")).not.toContain(TOKEN);
   });
 });
 
@@ -263,6 +335,10 @@ describe("the wizard's host: every write is a plan applied by its hash", () => {
     const r = await call("apply", { fixId: plan.fixId, expect: plan.hash });
     expect(r.status).toBe(409);
     expect(r.body).toMatchObject({ error: { code: "stale_plan" } });
+    // Worded for the page, not the terminal.
+    const msg = (r.body as { error: { message: string } }).error.message;
+    expect(msg).toContain("Plan it again");
+    expect(msg).not.toMatch(/genesis fix|--plan/);
     expect(JSON.parse(readFileSync(path.join(root, "genesis.config.json"), "utf8"))).toEqual({ preset: "min" });
   });
 
@@ -366,12 +442,78 @@ describe("genesis init from the wizard", () => {
   });
 });
 
+describe("the init choices", () => {
+  it("are checked before anything touches the disk, and a bad one is a 400", async () => {
+    // The root doesn't exist: a choice that reached the disk would fail differently.
+    const { call } = host(path.join(tempDir(), "missing", "deeper"), { mode: "init" });
+    for (const app of [
+      { slug: "Bad Slug" },
+      { slug: "a" },
+      { slug: "sample-app", folder: ".git" },
+      { slug: "sample-app", folder: "apps/.hidden" },
+      { slug: "sample-app", folder: "apps/./x" },
+      { slug: "sample-app", folder: "/abs" },
+      { slug: "sample-app", bundleId: "not a bundle" },
+      { slug: "sample-app", scheme: "Bad Scheme" },
+      { slug: "sample-app", displayName: 'say "hi"' },
+      { slug: "sample-app", without: ["../x"] },
+    ]) {
+      const r = await call("init.plan", { app });
+      expect(r.status, JSON.stringify(app)).toBe(400);
+      expect(r.body).toMatchObject({ error: { code: "bad_request" } });
+    }
+    expect(checkInitChoices({ slug: "sample-app", folder: "apps/sample.app", bundleId: "com.acme.app", scheme: "acme" })).toMatchObject({ folder: "apps/sample.app" });
+  });
+
+  it("a folder that isn't empty is a 400 too", async () => {
+    const root = tempDir();
+    mkdirSync(path.join(root, "sample-app"));
+    writeFileSync(path.join(root, "sample-app", "keep.txt"), "x");
+    const { call } = host(root, { mode: "init" });
+    expect((await call("init.plan", { app: { slug: "sample-app" } })).status).toBe(400);
+  });
+
+  it("start from genesis init --preset and --without", async () => {
+    const { call } = host(tempDir(), { mode: "init", initial: { preset: "standard", without: ["chat"] } });
+    expect((await call("wizard.info")).body).toMatchObject({ initial: { preset: "standard", without: ["chat"] } });
+  });
+});
+
+describe("the install's package manager", () => {
+  it("is package.json's packageManager, else a lockfile in the app or its workspace root, never another parent's", () => {
+    const outer = tempDir();
+    // A lockfile in an unrelated folder above the app: ignored.
+    writeFileSync(path.join(outer, "yarn.lock"), "");
+    const app = path.join(outer, "app");
+    mkdirSync(app);
+    writeFileSync(path.join(app, "package.json"), JSON.stringify({ name: "app" }));
+    expect(appPackageManager(app)).toBe("npm");
+    writeFileSync(path.join(app, "pnpm-workspace.yaml"), "");
+    expect(appPackageManager(app)).toBe("pnpm");
+    writeFileSync(path.join(app, "bun.lock"), "");
+    expect(appPackageManager(app)).toBe("bun");
+    writeFileSync(path.join(app, "package.json"), JSON.stringify({ name: "app", packageManager: "yarn@4.1.0" }));
+    expect(appPackageManager(app)).toBe("yarn");
+
+    // A member of a workspace: the workspace root's lockfile and packageManager count.
+    const ws = tempDir();
+    writeFileSync(path.join(ws, "package.json"), JSON.stringify({ name: "ws", workspaces: ["apps/*"] }));
+    writeFileSync(path.join(ws, "yarn.lock"), "");
+    const member = path.join(ws, "apps", "one");
+    mkdirSync(member, { recursive: true });
+    writeFileSync(path.join(member, "package.json"), JSON.stringify({ name: "one" }));
+    expect(appPackageManager(member)).toBe("yarn");
+    writeFileSync(path.join(ws, "package.json"), JSON.stringify({ name: "ws", workspaces: ["apps/*"], packageManager: "pnpm@11.0.0" }));
+    expect(appPackageManager(member)).toBe("pnpm");
+  });
+});
+
 describe("genesis setup --yes", () => {
   it("applies the automatic fixes, sets the preset, and prints the dormant checklist", async () => {
     const root = wizardApp({ settings: { "support.bogus": true } });
     const out: string[] = [];
     const err: string[] = [];
-    const code = await runSetupHeadless({ root, preset: "min", out: (l) => out.push(l), err: (l) => err.push(l) });
+    const code = await runSetupHeadless({ root, preset: "min", apply: true, out: (l) => out.push(l), err: (l) => err.push(l) });
     expect(err).toEqual([]);
     expect(code).toBe(0);
     const config = JSON.parse(readFileSync(path.join(root, "genesis.config.json"), "utf8"));
@@ -381,6 +523,24 @@ describe("genesis setup --yes", () => {
     expect(text).toContain("✔ settings.preset");
     expect(text).toContain("✔ settings.remove-unknown");
     expect(text).toContain("genesis setup --step github.issues");
+  });
+
+  it("without --yes, prints the plans, applies nothing and exits 1; --preset doesn't imply --yes", async () => {
+    const root = wizardApp({ settings: { "support.bogus": true } });
+    const before = readFileSync(path.join(root, "genesis.config.json"), "utf8");
+    const out: string[] = [];
+    const err: string[] = [];
+    expect(await runSetupHeadless({ root, preset: "min", out: (l) => out.push(l), err: (l) => err.push(l) })).toBe(1);
+    expect(readFileSync(path.join(root, "genesis.config.json"), "utf8")).toBe(before);
+    expect(out.join("\n")).toMatch(/settings\.preset \(not applied\)[\s\S]*settings\.remove-unknown \(not applied\)/);
+    expect(out.join("\n")).toContain("genesis setup --step github.issues");
+    expect(err.join("\n")).toContain("Nothing was applied: 2 plans above. Run it again with --yes");
+  });
+
+  it("without --yes and nothing to apply, exits 0", async () => {
+    const root = wizardApp();
+    const out: string[] = [];
+    expect(await runSetupHeadless({ root, out: (l) => out.push(l), err: (l) => out.push(l) })).toBe(0);
   });
 
   it("refuses an unknown preset and says when a step is set up", async () => {

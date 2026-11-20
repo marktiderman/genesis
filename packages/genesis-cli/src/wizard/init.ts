@@ -35,7 +35,12 @@ export class InitChoiceError extends Error {
   override name = "InitChoiceError";
 }
 
-const FOLDER = /^(?:[A-Za-z0-9._-]+\/)*[A-Za-z0-9_-][A-Za-z0-9._-]*$/;
+/** Path segments of letters, digits, `_`, `-` and inner dots; no segment starts with a dot (no `.`, `..`, `.git`). */
+const FOLDER = /^[A-Za-z0-9_-][A-Za-z0-9._-]*(?:\/[A-Za-z0-9_-][A-Za-z0-9._-]*)*$/;
+/** The same checks initNative makes, made here first so a bad choice never reaches the disk. */
+const SLUG = /^[a-z][a-z0-9-]{1,40}$/;
+const BUNDLE = /^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9]*)+$/;
+const SCHEME = /^[a-z][a-z0-9+.-]*$/;
 
 /** The choices, checked: a known preset, switches as names, and a folder inside the root. Throws InitChoiceError. */
 export function checkInitChoices(raw: unknown): InitChoices {
@@ -49,15 +54,19 @@ export function checkInitChoices(raw: unknown): InitChoices {
   };
   const slug = str("slug", 41);
   if (!slug) throw new InitChoiceError("the app needs a slug");
+  if (!SLUG.test(slug)) throw new InitChoiceError(`"${slug}" isn't an app slug: lowercase letters, digits and -, starting with a letter`);
   const folder = str("folder", 200);
-  if (folder !== undefined && (!FOLDER.test(folder) || folder.split("/").some((p) => p === ".." || p === "."))) throw new InitChoiceError("the folder must be a path inside this folder");
+  if (folder !== undefined && !FOLDER.test(folder)) throw new InitChoiceError("the folder must be a path inside this folder, with no segment starting with a dot");
   const preset = str("preset", 20);
   if (preset !== undefined && !(SETTINGS_PRESETS as readonly string[]).includes(preset)) throw new InitChoiceError(`preset must be ${SETTINGS_PRESETS.join(", ")}`);
   const without = c.without;
   if (without !== undefined && (!Array.isArray(without) || without.length > 50 || without.some((w) => typeof w !== "string" || !/^[a-zA-Z][a-zA-Z0-9]*$/.test(w)))) throw new InitChoiceError("without must list feature switch names");
   const displayName = str("displayName");
+  if (displayName !== undefined && /["\\\n\r]/.test(displayName)) throw new InitChoiceError("the name can't contain quotes, backslashes or new lines");
   const bundleId = str("bundleId");
+  if (bundleId !== undefined && !BUNDLE.test(bundleId)) throw new InitChoiceError(`"${bundleId}" isn't a bundle id like com.example.app`);
   const scheme = str("scheme", 60);
+  if (scheme !== undefined && !SCHEME.test(scheme)) throw new InitChoiceError(`"${scheme}" isn't a URL scheme`);
   return {
     slug,
     ...(displayName ? { displayName } : {}),

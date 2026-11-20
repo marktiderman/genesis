@@ -2,11 +2,13 @@
  * The setup wizard's request checks (Phase 3 spec §2, "Security"). The server listens on
  * 127.0.0.1 only, and every request must also pass these:
  *
- * - **Host** is `127.0.0.1:<port>` or `localhost:<port>`: a page on another site that rebinds its
- *   own name to 127.0.0.1 (DNS rebinding) sends its own name, and is refused.
- * - **A per-run token.** 32 random bytes, handed to the browser in the URL's fragment (never sent
- *   to the server in a URL), kept in sessionStorage and sent as `Authorization: Bearer`. Compared
- *   in constant time. Only the page's files are served without it; they hold no data.
+ * - **Host** is `127.0.0.1:<port>`: a page on another site that rebinds its own name to 127.0.0.1
+ *   (DNS rebinding) sends its own name, and is refused. Not `localhost`, which may resolve to ::1,
+ *   where the server doesn't listen.
+ * - **A per-run token**, 32 random bytes, sent as `Authorization: Bearer` and compared in constant
+ *   time. It never appears in a URL or a command line: the link the CLI opens carries a one-time
+ *   launch code (in the fragment), which the page swaps for the token at `POST /session`; the code
+ *   then stops working. Only the page's files are served without either; they hold no data.
  * - **Origin**, on every request that isn't a GET: the server's own origin, and the same host the
  *   request names. `Sec-Fetch-Site: cross-site` is refused outright.
  * - **JSON only** for the API: a form post can't reach it (a browser sends one without the
@@ -22,9 +24,9 @@ export function newToken(): string {
   return randomBytes(32).toString("base64url");
 }
 
-/** The hosts the server answers to on this port. */
+/** The hosts the server answers to on this port: its own address only. */
 export function allowedHosts(port: number): string[] {
-  return [`127.0.0.1:${port}`, `localhost:${port}`];
+  return [`127.0.0.1:${port}`];
 }
 
 /** The page's own origins on this port. */
@@ -44,7 +46,7 @@ const one = (value: string | string[] | undefined): string | undefined => (Array
 /** The Host header is this server's own (DNS rebinding sends another). */
 export function checkHost(headers: IncomingHttpHeaders, port: number): Refusal | null {
   const host = one(headers.host)?.toLowerCase();
-  if (!host || !allowedHosts(port).includes(host)) return { status: 403, code: "forbidden", message: "This wizard answers only at 127.0.0.1 or localhost on its own port." };
+  if (!host || !allowedHosts(port).includes(host)) return { status: 403, code: "forbidden", message: "This wizard answers only at 127.0.0.1 on its own port." };
   return null;
 }
 
@@ -80,6 +82,9 @@ export function checkJson(headers: IncomingHttpHeaders): Refusal | null {
   return null;
 }
 
+/** A launch code as the page sends it: 43 base64url characters. */
+export const LAUNCH_CODE = /^[A-Za-z0-9_-]{43}$/;
+
 /** Every check an API request passes, in order: host, origin, token, then JSON for a body. */
 export function checkApiRequest(method: string, headers: IncomingHttpHeaders, port: number, token: string): Refusal | null {
   return checkHost(headers, port) ?? checkOrigin(method, headers, port) ?? checkToken(headers, token) ?? (method === "POST" ? checkJson(headers) : null);
@@ -96,5 +101,6 @@ export const SECURITY_HEADERS: Readonly<Record<string, string>> = Object.freeze(
   "referrer-policy": "no-referrer",
   "cross-origin-opener-policy": "same-origin",
   "cross-origin-resource-policy": "same-origin",
-  "content-security-policy": "default-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+  // Inline styles only: the dialogs and menus (Radix) position themselves with style attributes. No inline script.
+  "content-security-policy": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
 });

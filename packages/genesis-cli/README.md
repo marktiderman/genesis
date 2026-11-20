@@ -19,8 +19,8 @@ npx @marktiderman/genesis-cli init            # no name: the wizard makes a new 
 ```
 
 Opens the setup wizard on localhost: the doctor's findings with their fixes, the settings, the
-secrets and the guided setup steps, where every change is a plan you approve. With `--yes` (or no
-terminal) it runs headless. See [genesis setup](#genesis-setup).
+secrets and the guided setup steps, where every change is a plan you approve. With `--yes` it runs
+headless; with no terminal and no `--yes` it only prints the plans. See [genesis setup](#genesis-setup).
 
 ```bash
 npx @marktiderman/genesis-cli add <block> [--dry-run] [--yes] [--no-install]
@@ -1665,24 +1665,36 @@ wizard shows them with their fixes and walks you through them.
 **The server.** Plain `node:http`, listening on 127.0.0.1 only, on the first free port from 4400
 (`--port`; it tries ten). It prints the link and opens your browser (`--no-open` doesn't).
 
-- **A per-run key.** 32 random bytes in the link's fragment (`#t=…`), which a browser never sends
-  to a server; the page moves it to sessionStorage, clears the address bar, and sends it as
-  `Authorization: Bearer` (compared in constant time). Don't share the link while it runs.
-- **Host** must be `127.0.0.1:<port>` or `localhost:<port>` on every request, so a site that
-  points its own name at 127.0.0.1 (DNS rebinding) is refused. A request that isn't a GET must
-  carry the server's own `Origin`, and `Sec-Fetch-Site: cross-site` is refused outright.
-- **JSON only**, up to 1 MB, at `POST /api {v, op, …}` (the settings protocol's ops, plus the
-  wizard's `wizard.info`, `settings.plan`, `init.plan`, `install.plan` and `step.list`). No CORS
-  headers; a CSP of `default-src 'self'`; nothing cached. `GET /events` streams a fix's output, redacted.
+- **A per-run key.** 32 random bytes, sent as `Authorization: Bearer` (compared in constant time),
+  that never appears in a URL or on a command line. The link carries a one-time launch code in its
+  fragment (`#c=…`, which a browser never sends to a server); the page swaps it for the key at
+  `POST /session`, clears the address bar and keeps the key in sessionStorage. A code works once,
+  for 10 minutes, so the copy in the browser launcher's arguments (which other users of the
+  machine can read) is spent as soon as the page opens. The terminal prints its own one-time
+  link; run `genesis setup` again for a new one.
+- **Host** must be `127.0.0.1:<port>` on every request, so a site that points its own name at
+  127.0.0.1 (DNS rebinding) is refused (`localhost` too: it may resolve to `::1`, where the server
+  doesn't listen). A request that isn't a GET must carry the server's own `Origin`, and
+  `Sec-Fetch-Site: cross-site` is refused outright.
+- **JSON only**, up to 1 MB (past that it answers 413 and drops the connection), at
+  `POST /api {v, op, …}` (the settings protocol's ops, plus the wizard's `wizard.info`,
+  `settings.plan`, `init.plan`, `install.plan` and `step.list`). No CORS headers; a CSP of
+  `default-src 'self'` with inline styles allowed (the dialogs position themselves with them) and no
+  inline script; nothing cached. `GET /events` streams a fix's output, redacted.
 - It stops on Ctrl-C, or after 30 minutes without a request.
 
-**Headless.** `genesis setup --yes` (the default without a terminal, and `genesis init --yes` in an
-existing app) sets `--preset` and turns `--without` switches off, each as a plan; applies every
-automatic fix the doctor's findings name (except `upgrade.release`, which opens a pull request: it
-is listed); and prints the rest: `genesis fix <id>` for each guided fix, and the dormant checklist,
-`genesis setup --step <id>` for each setup step not done. A dormant feature fails nothing. It exits
-0, or 1 when a fix it applied failed or didn't verify. With `--step <id>` it prints that step's
-checklist only.
+**Headless.** `genesis setup --yes` (and `genesis init --yes` in an existing app) sets `--preset`
+and turns `--without` switches off, each as a plan; applies every automatic fix the doctor's
+findings name (except `upgrade.release`, which opens a pull request: it is listed); and prints the
+rest: `genesis fix <id>` for each guided fix, and the dormant checklist, `genesis setup --step <id>`
+for each setup step not done. A dormant feature fails nothing. It exits 0, or 1 when a fix it
+applied failed or didn't verify. With `--step <id>` it prints that step's checklist only.
+
+Without `--yes` and without a terminal (CI, a script), it applies nothing, as `genesis fix` doesn't
+without `--yes`: it prints each plan (what it would write or run, and its hash) and the checklist,
+and exits 1 when there is anything to apply. `--preset` and `--without` never imply `--yes`: at a
+terminal they need it (`genesis init` with no name in an empty folder takes them as the wizard's
+starting choices instead).
 
 Not yet: each guided step's runner, which walks the outside service and verifies it live (link
 Supabase, a GitHub token, a Resend domain, Sentry, an AI key, EAS push), the Brand and Data

@@ -1,6 +1,6 @@
 /**
- * `genesis setup --yes` (and `genesis init --yes` in an existing app): the wizard without a
- * browser, for CI and for no terminal. It
+ * `genesis setup` without a browser. With `--yes` (`genesis setup --yes`, or `genesis init --yes`
+ * in an existing app) it
  *
  * 1. sets the preset (`--preset`) and turns starter switches off (`--without`), each as a fix plan;
  * 2. applies every automatic fix the doctor's findings name, through the fix engine (except the
@@ -9,6 +9,11 @@
  *    step not done, `genesis fix <id>` for the rest. A dormant feature fails nothing.
  *
  * Exit 0, or 1 when a fix it applied failed or didn't verify.
+ *
+ * Without `--yes` (no terminal, so no wizard) it applies nothing, as `genesis fix` without `--yes`:
+ * it prints each plan and its hash, and the checklist, and exits 1 when there was anything to
+ * apply, so a script that left the flag out never passes by accident. `--preset` and `--without`
+ * never imply `--yes`.
  */
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -35,6 +40,8 @@ export interface HeadlessOptions {
   /** Only this step's checklist. */
   step?: string;
   network?: boolean;
+  /** Apply the plans (`--yes`). Default false: print them and apply nothing. */
+  apply?: boolean;
   out: (line: string) => void;
   err: (line: string) => void;
   deps?: {
@@ -95,6 +102,7 @@ export async function runSetupHeadless(options: HeadlessOptions): Promise<number
   };
   const ctx = (findings: Finding[]): FixContext => ({ root, findings, network, log: (m) => out(`  ${m}`), recheck: async (rules) => (await doctor()).filter((f) => rules.includes(f.rule)) });
   let code = 0;
+  let pending = 0;
 
   const applyOne = async (fix: Fix, findings: Finding[]) => {
     try {
@@ -105,6 +113,13 @@ export async function runSetupHeadless(options: HeadlessOptions): Promise<number
       }
       if (plan.secrets.length) {
         out(`- ${fix.id}: needs ${plan.secrets.join(", ")}; run genesis fix ${fix.id} at a terminal (or genesis setup)`);
+        return;
+      }
+      if (!options.apply) {
+        pending++;
+        out(`· ${fix.id} (not applied): ${plan.summary}  plan ${plan.hash.slice(0, 12)}`);
+        for (const f of plan.files) out(`    ${f.beforeHash === null ? "create" : "write "} ${f.path}`);
+        for (const c of plan.commands) out(`    run    ${[c.tool, ...c.args].join(" ")}`);
         return;
       }
       const result = await applyPlan(fix, plan, ctx(findings), { expect: plan.hash, ...(deps.run ? { run: deps.run } : {}) });
@@ -167,6 +182,11 @@ export async function runSetupHeadless(options: HeadlessOptions): Promise<number
       for (const k of s.keys) out(`    settings.${k.key}${k.set ? " ✔" : ""}${k.summary ? `: ${k.summary}` : ""}`);
       for (const sec of s.secrets) out(`    secret ${sec.name} (${sec.store})`);
     }
+  }
+  if (!options.apply && pending) {
+    out("");
+    err(`✗ Nothing was applied: ${pending} plan${pending === 1 ? "" : "s"} above. Run it again with --yes to apply ${pending === 1 ? "it" : "them"}, or at a terminal for the wizard.`);
+    return 1;
   }
   return code;
 }

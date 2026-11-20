@@ -66,6 +66,7 @@ interface Info {
   folderEmpty?: boolean;
   steps?: SetupStep[];
   needsInstall?: boolean;
+  initial?: { preset?: string; without?: string[] };
 }
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -188,7 +189,7 @@ function SecretsDialog({ names, onAnswer }: { names: readonly string[] | null; o
       <AlertDialogContent data-testid="wizard-secrets-dialog">
         <AlertDialogHeader>
           <AlertDialogTitle>Type the secrets</AlertDialogTitle>
-          <AlertDialogDescription>Each goes to your signed-in CLI on stdin, once. The wizard never shows, logs or keeps it.</AlertDialogDescription>
+          <AlertDialogDescription>Each goes to your signed-in CLI on stdin, once. The wizard never shows, logs or keeps it. At least 8 characters: a shorter value couldn't be kept out of the output safely.</AlertDialogDescription>
         </AlertDialogHeader>
         <form
           className="flex flex-col gap-3"
@@ -435,8 +436,8 @@ function Field({ id, label, hint, children }: { id: string; label: string; hint?
 function InitScreen({ info, approvals, reload }: { info: Info; approvals: Approvals; reload: () => void }) {
   const [current, setCurrent] = useState(0);
   const [app, setApp] = useState({ slug: "", displayName: "", bundleId: "", folder: "" });
-  const [preset, setPreset] = useState(info.defaultPreset);
-  const [switches, setSwitches] = useState<Record<string, boolean>>(info.switches ?? {});
+  const [preset, setPreset] = useState(info.initial?.preset && info.presets.includes(info.initial.preset) ? info.initial.preset : info.defaultPreset);
+  const [switches, setSwitches] = useState<Record<string, boolean>>(() => ({ ...info.switches, ...Object.fromEntries((info.initial?.without ?? []).filter((w) => info.switches?.[w]).map((w) => [w, false])) }));
   const [plan, setPlan] = useState<SettingsPlan | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
