@@ -18,5 +18,6 @@ one-time launch code that the page swaps for it.
 dormant checklist (`genesis setup --step <id>`). Without `--yes` and without a terminal it applies
 nothing: it prints the plans and the checklist and exits 1 when there is something to apply.
 `--preset` and `--without` never imply `--yes`. `genesis init <name>
---preset standard|min` sets a new app's preset. `genesis mcp` adds the read-only `setup_steps` tool,
+--template native --preset standard|min` sets a new app's preset (checked before anything is
+written; refused without a template). With `CI` set the wizard never opens. `genesis mcp` adds the read-only `setup_steps` tool,
 and a fix with a setup step now returns `genesis setup --step <id>`.

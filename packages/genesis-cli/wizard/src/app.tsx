@@ -41,7 +41,7 @@ import {
 } from "@marktiderman/genesis-ui";
 import { GenesisSettings } from "@marktiderman/genesis-config/settings/react";
 import type { SettingsPlan, SettingsSecretStatus } from "@marktiderman/genesis-config/settings-protocol";
-import { applyPlan, call, CancelledError, changeSetting, subscribe, wizardSettingsClient, type Approvals } from "./client";
+import { applyPlan, call, CancelledError, changeSetting, readPlanFile, subscribe, wizardSettingsClient, type Approvals } from "./client";
 
 interface StepKey {
   key: string;
@@ -77,21 +77,27 @@ function useApprovals() {
   const [secretNames, setSecretNames] = useState<readonly string[] | null>(null);
   const resolvePlan = useRef<((ok: boolean) => void) | null>(null);
   const resolveSecrets = useRef<((v: Record<string, string> | null) => void) | null>(null);
-  const approvals = useMemo<Approvals>(
-    () => ({
+  // One question at a time: a second request waits for the first to be answered, so no answer is lost.
+  const queue = useRef<Promise<unknown>>(Promise.resolve());
+  const approvals = useMemo<Approvals>(() => {
+    const ask = <T,>(open: (resolve: (v: T) => void) => void): Promise<T> => {
+      const run = queue.current.then(() => new Promise<T>(open));
+      queue.current = run.catch(() => undefined);
+      return run;
+    };
+    return {
       confirmPlan: (p) =>
-        new Promise<boolean>((resolve) => {
+        ask<boolean>((resolve) => {
           resolvePlan.current = resolve;
           setPlan(p);
         }),
       askSecrets: (names) =>
-        new Promise((resolve) => {
+        ask<Record<string, string> | null>((resolve) => {
           resolveSecrets.current = resolve;
           setSecretNames(names);
         }),
-    }),
-    [],
-  );
+    };
+  }, []);
   const dialogs = (
     <>
       <PlanDialog
@@ -115,6 +121,41 @@ function useApprovals() {
   return { approvals, dialogs };
 }
 
+/** A planned file's full text, read from the host a page at a time: what applying writes, before you approve it. */
+function FullText({ hash, file }: { hash: string; file: string }) {
+  const [text, setText] = useState<string | null>(null);
+  const [next, setNext] = useState<number | undefined>(0);
+  const [error, setError] = useState<string | null>(null);
+  const more = async () => {
+    try {
+      const page = await readPlanFile(hash, file, next ?? 0);
+      setText((t) => (t ?? "") + page.content);
+      setNext(page.next);
+    } catch (e) {
+      setError(message(e));
+    }
+  };
+  if (text === null)
+    return (
+      <Button size="sm" variant="ghost" onClick={() => void more()} aria-label={`Read all of ${file}`}>
+        Read all
+      </Button>
+    );
+  return (
+    <div className="mt-1 flex flex-col gap-1">
+      <pre className="max-h-96 overflow-auto rounded bg-muted p-2 font-mono text-xs" tabIndex={0} aria-label={`The full text of ${file}`}>
+        {text}
+      </pre>
+      {next !== undefined ? (
+        <Button size="sm" variant="ghost" onClick={() => void more()}>
+          Read more
+        </Button>
+      ) : null}
+      {error ? <p className="text-xs text-destructive">{error}</p> : null}
+    </div>
+  );
+}
+
 function PlanBody({ plan }: { plan: SettingsPlan }) {
   return (
     <div className="flex max-h-[55vh] flex-col gap-3 overflow-y-auto text-sm" data-testid="wizard-plan">
@@ -123,16 +164,16 @@ function PlanBody({ plan }: { plan: SettingsPlan }) {
         <div>
           <p className="font-medium">Files ({plan.files.length})</p>
           <ul className="flex flex-col gap-2">
-            {plan.files.slice(0, 200).map((f) => (
+            {plan.files.map((f) => (
               <li key={f.path}>
                 <code className="font-mono text-xs">
                   {f.created ? "create" : "write"} {f.path}
                 </code>
                 <span className="text-muted-foreground"> · {f.why}</span>
                 {f.diff ? <pre className="mt-1 max-h-48 overflow-auto rounded bg-muted p-2 font-mono text-xs">{f.diff}</pre> : null}
+                <FullText hash={plan.hash} file={f.path} />
               </li>
             ))}
-            {plan.files.length > 200 ? <li className="text-muted-foreground">… and {plan.files.length - 200} more</li> : null}
           </ul>
         </div>
       ) : null}
@@ -347,10 +388,26 @@ function SetupScreen({ info, step, approvals, reload }: { info: Info; step?: str
     setVersion((v) => v + 1);
     reload();
   };
+  // A change made on the shared screen doesn't call `changed`: the steps and their secrets are read again on entering the tab.
+  const [secretsVersion, setSecretsVersion] = useState(0);
+  useEffect(() => {
+    if (secretsVersion === 0) return;
+    void client
+      .state()
+      .then((s) => setSecrets(s.secrets))
+      .catch(() => setSecrets([]));
+  }, [client, secretsVersion]);
+  const showTab = (next: string) => {
+    setTab(next);
+    if (next === "steps") {
+      reload();
+      setSecretsVersion((v) => v + 1);
+    }
+  };
   const steps = info.steps ?? [];
   if (info.needsInstall) return <InstallCard approvals={approvals} onDone={changed} />;
   return (
-    <Tabs value={tab} onValueChange={setTab} defaultValue="health">
+    <Tabs value={tab} onValueChange={showTab} defaultValue="health">
       <TabsList>
         <TabsTrigger value="health" data-testid="wizard-tab-health">
           Health and settings
@@ -363,7 +420,7 @@ function SetupScreen({ info, step, approvals, reload }: { info: Info; step?: str
         <Log lines={lines} />
         <GenesisSettings key={version} client={client} defaultTab="health" header={false} onOpenStep={(id) => {
             setFocus(id);
-            setTab("steps");
+            showTab("steps");
           }} />
       </TabsContent>
       <TabsContent value="steps" className="flex flex-col gap-4 pt-4">

@@ -11,10 +11,15 @@ import * as path from "node:path";
 import { afterAll, afterEach, describe, expect, it } from "vitest";
 import type { Finding } from "../src/doctor/types.js";
 import type { ToolRunner } from "../src/exec/run.js";
-import { appPackageManager, createWizardHost, type WizardHostOptions } from "../src/wizard/host.js";
+import { appPackageManager, createWizardHost, installFix, packagesInstalled, workspaceRoot, type WizardHostOptions } from "../src/wizard/host.js";
+import { planFix } from "../src/fix/engine.js";
+import type { Fix } from "../src/fix/types.js";
 import { checkInitChoices } from "../src/wizard/init.js";
-import { runSetupHeadless } from "../src/wizard/headless.js";
-import { checkApiRequest, newToken } from "../src/wizard/security.js";
+import { atTerminal } from "../src/wizard/interactive.js";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import { runSetupHeadless, withoutFix } from "../src/wizard/headless.js";
+import { checkApiRequest, createToken } from "../src/wizard/security.js";
 import { startWizardServer, staticFile, type WizardServer } from "../src/wizard/server.js";
 import { cleanupApps, makeApp } from "./doctor-helpers.js";
 import { removeTempDir } from "./temp.js";
@@ -63,21 +68,29 @@ function send(port: number, options: { method?: string; path?: string; headers?:
 function oversized(port: number, headers: Record<string, string>, declare: boolean): Promise<{ status: number; closed: boolean }> {
   return new Promise((resolve) => {
     let status = 0;
-    const req = httpRequest({ host: "127.0.0.1", port, method: "POST", path: "/api", headers: { host: `127.0.0.1:${port}`, ...headers, ...(declare ? { "content-length": String(50_000_000) } : {}) }, setHost: false }, (res) => {
+    // `closed` is the socket's own close (a response's close can mean only that the message ended), within 5 s.
+    const timer = setTimeout(() => resolve({ status, closed: false }), 5_000);
+    const req = httpRequest({ host: "127.0.0.1", port, method: "POST", path: "/api", agent: false, headers: { host: `127.0.0.1:${port}`, ...headers, ...(declare ? { "content-length": String(50_000_000) } : {}) }, setHost: false }, (res) => {
       status = res.statusCode ?? 0;
       res.resume();
-      res.on("close", () => resolve({ status, closed: true }));
     });
-    req.on("error", () => resolve({ status, closed: true }));
+    req.on("socket", (socket) =>
+      socket.once("close", () => {
+        clearTimeout(timer);
+        resolve({ status, closed: true });
+      }),
+    );
+    req.on("error", () => {});
+    // One chunk at a time, each after the last was taken, until the server answers.
     const chunk = "x".repeat(64 * 1024);
     let sent = 0;
     const pump = () => {
-      while (!status && sent < 50_000_000) {
-        sent += chunk.length;
-        if (!req.write(chunk)) return void req.once("drain", pump);
-      }
+      if (status || sent >= 50_000_000) return;
+      sent += chunk.length;
+      req.write(chunk, (e) => (e ? undefined : setImmediate(pump)));
     };
-    pump();
+    if (declare) req.flushHeaders();
+    else pump();
   });
 }
 
@@ -104,9 +117,9 @@ describe("the wizard's server", () => {
   });
 
   it("makes a fresh 32-byte token each run", () => {
-    const a = newToken();
+    const a = createToken();
     expect(Buffer.from(a, "base64url")).toHaveLength(32);
-    expect(newToken()).not.toBe(a);
+    expect(createToken()).not.toBe(a);
   });
 
   it("refuses an API request without the token, or with another one", async () => {
@@ -153,13 +166,19 @@ describe("the wizard's server", () => {
   });
 
   it("takes JSON only, of a bounded size", async () => {
-    const server = await start();
+    const handled: unknown[] = [];
+    const server = await start(async (b) => (handled.push(b), { status: 200, body: {} }));
     expect((await api(server.port, { v: 1 }, { "content-type": "text/plain" })).status).toBe(415);
     expect((await api(server.port, { v: 1 }, { "content-type": "application/x-www-form-urlencoded" })).status).toBe(415);
     expect((await send(server.port, { method: "POST", path: "/api", headers: apiHeaders(server.port), body: "{not json" })).status).toBe(400);
-    // Past 1 MB it answers 413 and drops the connection, without reading the rest: declared, or streamed.
+    // Past 1 MB it answers 413 and drops the connection, without reading the rest. Declared up
+    // front, the answer comes before any body is sent. Streamed, the connection is closed while the
+    // client is still writing, so the client may see the reset before the 413: the handler never runs.
     expect(await oversized(server.port, apiHeaders(server.port), true)).toEqual({ status: 413, closed: true });
-    expect(await oversized(server.port, apiHeaders(server.port), false)).toEqual({ status: 413, closed: true });
+    const streamed = await oversized(server.port, apiHeaders(server.port), false);
+    expect(streamed.closed).toBe(true);
+    expect([0, 413]).toContain(streamed.status);
+    expect(handled).toEqual([]);
     expect((await send(server.port, { method: "GET", path: "/api", headers: apiHeaders(server.port) })).status).toBe(405);
   });
 
@@ -549,7 +568,174 @@ describe("genesis setup --yes", () => {
     const err: string[] = [];
     expect(await runSetupHeadless({ root, preset: "huge", out: (l) => out.push(l), err: (l) => err.push(l) })).toBe(1);
     expect(await runSetupHeadless({ root, step: "github.issues", out: (l) => out.push(l), err: (l) => err.push(l) })).toBe(0);
-    expect(out.join("\n")).toContain("github.issues is set up");
+    expect(out.join("\n")).toContain("github.issues: its settings are set. GITHUB_TOKEN isn't verified here");
     expect(await runSetupHeadless({ root, step: "nope", out: (l) => out.push(l), err: (l) => err.push(l) })).toBe(1);
+  });
+});
+
+describe("CodeRabbit review on #847", () => {
+  it("CI is never a terminal, even with a pseudo-terminal on both streams", () => {
+    expect(atTerminal({ stdin: true, stdout: true }, {})).toBe(true);
+    expect(atTerminal({ stdin: true, stdout: true }, { CI: "true" })).toBe(false);
+    expect(atTerminal({ stdin: true, stdout: true }, { CI: "1" })).toBe(false);
+    expect(atTerminal({ stdin: true, stdout: true }, { CI: "false" })).toBe(true);
+    expect(atTerminal({ stdin: true, stdout: false }, {})).toBe(false);
+  });
+
+  const cli = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../dist/cli.js");
+  it.skipIf(!existsSync(cli))("genesis init checks --preset before writing anything, and refuses it without a template", () => {
+    const parent = tempDir();
+    const bad = spawnSync(process.execPath, [cli, "init", "sample-app", "--template", "native", "--preset", "huge", "--target", path.join(parent, "sample-app")], { encoding: "utf8" });
+    expect(bad.status).not.toBe(0);
+    expect(bad.stderr).toContain("--preset must be");
+    expect(existsSync(path.join(parent, "sample-app"))).toBe(false);
+    const scaffold = spawnSync(process.execPath, [cli, "init", "acme", "--preset", "min", "--target", parent], { encoding: "utf8" });
+    expect(scaffold.status).not.toBe(0);
+    expect(scaffold.stderr).toContain("--preset applies to a new app from a template");
+  });
+
+  it("settings.plan checks the layer before a clear, and never removes the file's value for a database clear", async () => {
+    const root = wizardApp({ settings: { "support.inbox": false } });
+    const { call } = host(root);
+    expect((await call("settings.plan", { key: "support.inbox", clear: true, layer: "database" })).status).toBe(501);
+    expect((await call("settings.plan", { key: "support.inbox", clear: true, layer: "file" })).status).toBe(200);
+  });
+
+  it("carries a lock change through the plan", async () => {
+    const root = wizardApp({ settings: { "support.inbox": false } });
+    const { call } = host(root);
+    const lock = (await call("settings.plan", { key: "support.inbox", value: false, locked: true })).body as { plan: { fixId: string; hash: string; files: unknown[] } };
+    expect(lock.plan.files).toHaveLength(1);
+    expect((await call("apply", { fixId: lock.plan.fixId, expect: lock.plan.hash })).body).toMatchObject({ result: { verified: true } });
+    expect(JSON.parse(readFileSync(path.join(root, "genesis.config.json"), "utf8")).settings["support.inbox"]).toEqual({ value: false, locked: true });
+    // Leaving the lock out keeps it; false takes it off.
+    const keep = (await call("settings.plan", { key: "support.inbox", value: true })).body as { plan: { fixId: string; hash: string } };
+    await call("apply", { fixId: keep.plan.fixId, expect: keep.plan.hash });
+    expect(JSON.parse(readFileSync(path.join(root, "genesis.config.json"), "utf8")).settings["support.inbox"]).toEqual({ value: true, locked: true });
+    const unlock = (await call("settings.plan", { key: "support.inbox", value: true, locked: false })).body as { plan: { fixId: string; hash: string } };
+    expect((await call("apply", { fixId: unlock.plan.fixId, expect: unlock.plan.hash })).body).toMatchObject({ result: { verified: true } });
+    expect(JSON.parse(readFileSync(path.join(root, "genesis.config.json"), "utf8")).settings["support.inbox"]).toBe(true);
+    expect((await call("settings.plan", { key: "support.inbox", value: true, locked: "yes" })).status).toBe(400);
+  });
+
+  it("reads every planned file whole, a page at a time, from the plan with that hash", async () => {
+    const root = tempDir();
+    const { call } = host(root, { mode: "init" });
+    const { plan } = (await call("init.plan", { app: { slug: "sample-app" } })).body as { plan: { hash: string; files: Array<{ path: string; diff?: string }> } };
+    expect(plan.files.every((f) => f.diff === undefined)).toBe(true);
+    const target = plan.files.find((f) => f.path === "sample-app/package.json")!;
+    const page = (await call("plan.file", { hash: plan.hash, path: target.path })).body as { content: string; total: number; next?: number };
+    expect(JSON.parse(page.content).name).toBe("sample-app");
+    expect(page.next).toBeUndefined();
+    expect((await call("plan.file", { hash: plan.hash, path: "sample-app/nope" })).status).toBe(404);
+    expect((await call("plan.file", { hash: "0".repeat(64), path: target.path })).status).toBe(409);
+  });
+
+  it("an init plan applies only beneath the folder it was planned in; once an app is made, another init is stale", async () => {
+    const root = tempDir();
+    const { call, h } = host(root, { mode: "init" });
+    const a = ((await call("init.plan", { app: { slug: "first-app" } })).body as { plan: { fixId: string; hash: string } }).plan;
+    const b = ((await call("init.plan", { app: { slug: "second-app" } })).body as { plan: { fixId: string; hash: string } }).plan;
+    expect((await call("apply", { fixId: a.fixId, expect: a.hash })).body).toMatchObject({ result: { verified: true } });
+    expect(h.root()).toBe(path.join(root, "first-app"));
+    const second = await call("apply", { fixId: b.fixId, expect: b.hash });
+    expect(second.status).toBe(409);
+    expect(existsSync(path.join(root, "first-app", "second-app"))).toBe(false);
+    expect(existsSync(path.join(root, "second-app"))).toBe(false);
+  });
+
+  it("a slug with an empty word still gets a display name", async () => {
+    const { call } = host(tempDir(), { mode: "init" });
+    expect((await call("init.plan", { app: { slug: "sample-" } })).status).toBe(200);
+  });
+
+  it("binds the install to the manifest it read, and counts Plug'n'Play as installed", async () => {
+    const root = tempDir();
+    writeFileSync(path.join(root, "package.json"), JSON.stringify({ name: "app", dependencies: { a: "1.0.0" } }));
+    const fix = installFix();
+    const before = await planFix(fix, { root, findings: [] });
+    writeFileSync(path.join(root, "package.json"), JSON.stringify({ name: "app", dependencies: { a: "1.0.0", b: "2.0.0" } }));
+    const after = await planFix(fix, { root, findings: [] });
+    expect(after.hash).not.toBe(before.hash);
+    expect(packagesInstalled(root)).toBe(false);
+    writeFileSync(path.join(root, ".pnp.cjs"), "");
+    expect(packagesInstalled(root)).toBe(true);
+  });
+
+  it("an app outside a workspace's globs doesn't inherit its package manager", () => {
+    const ws = tempDir();
+    writeFileSync(path.join(ws, "package.json"), JSON.stringify({ name: "ws", workspaces: ["apps/*"], packageManager: "yarn@4.0.0" }));
+    const member = path.join(ws, "apps", "one");
+    const outsider = path.join(ws, "examples", "demo");
+    for (const dir of [member, outsider]) {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(path.join(dir, "package.json"), JSON.stringify({ name: path.basename(dir) }));
+    }
+    expect(workspaceRoot(member)).toBe(ws);
+    expect(appPackageManager(member)).toBe("yarn");
+    expect(workspaceRoot(outsider)).toBeNull();
+    expect(appPackageManager(outsider)).toBe("npm");
+    const pnpmWs = tempDir();
+    writeFileSync(path.join(pnpmWs, "pnpm-workspace.yaml"), "packages:\n  - packages/**\n  - '!packages/skip'\n");
+    writeFileSync(path.join(pnpmWs, "pnpm-lock.yaml"), "");
+    for (const rel of ["packages/a/b", "packages/skip"]) {
+      mkdirSync(path.join(pnpmWs, rel), { recursive: true });
+      writeFileSync(path.join(pnpmWs, rel, "package.json"), "{}");
+    }
+    expect(appPackageManager(path.join(pnpmWs, "packages/a/b"))).toBe("pnpm");
+    expect(workspaceRoot(path.join(pnpmWs, "packages/skip"))).toBeNull();
+  });
+});
+
+describe("headless setup refuses what it can't do", () => {
+  const starter = 'export default { features: {\n  emailSignIn: true,\n  appleSignIn: false,\n  googleSignIn: false,\n  chat: true,\n} };\n';
+
+  it("an unknown or unsupported --without fails the run", async () => {
+    const root = wizardApp();
+    const err: string[] = [];
+    expect(await runSetupHeadless({ root, without: ["chat"], apply: true, out: () => {}, err: (l) => err.push(l) })).toBe(1);
+    expect(err.join("\n")).toContain("starter.config.ts isn't here");
+    writeFileSync(path.join(root, "starter.config.ts"), starter);
+    err.length = 0;
+    expect(await runSetupHeadless({ root, without: ["chta"], apply: true, out: () => {}, err: (l) => err.push(l) })).toBe(1);
+    expect(err.join("\n")).toContain("chta isn't a switch");
+    expect(await runSetupHeadless({ root, without: ["chat"], apply: true, out: () => {}, err: () => {} })).toBe(0);
+    // Already off: still fine.
+    expect(await runSetupHeadless({ root, without: ["chat"], apply: true, out: () => {}, err: () => {} })).toBe(0);
+  });
+
+  it("never turns off the last way to sign in", async () => {
+    const root = wizardApp({}, );
+    writeFileSync(path.join(root, "starter.config.ts"), starter);
+    await expect(planFix(withoutFix(["emailSignIn"]), { root, findings: [] })).rejects.toThrow(/nobody could sign in/);
+    expect(readFileSync(path.join(root, "starter.config.ts"), "utf8")).toBe(starter);
+  });
+
+  it("refuses to replace a config that isn't an object", async () => {
+    const root = wizardApp();
+    writeFileSync(path.join(root, "genesis.config.json"), "[]\n");
+    const err: string[] = [];
+    expect(await runSetupHeadless({ root, preset: "min", apply: true, out: () => {}, err: (l) => err.push(l) })).toBe(1);
+    expect(readFileSync(path.join(root, "genesis.config.json"), "utf8")).toBe("[]\n");
+  });
+
+  it("without --yes, a fix blocked on a secret counts as work left", async () => {
+    const root = wizardApp();
+    const out: string[] = [];
+    // An automatic fix whose plan feeds a secret to a tool: headless can't ask for it.
+    const keyed: Fix = { id: "test.keyed", kind: "auto", rules: ["test-keyed"], title: "set a key", plan: () => ({ summary: "sets AI_PROVIDER_KEY", commands: [{ tool: "gh", args: ["secret", "set", "AI_PROVIDER_KEY"], stdinSecret: "AI_PROVIDER_KEY", why: "test" }] }) };
+    const finding: Finding = { rule: "test-keyed", level: "warn", file: "x", line: 0, message: "m", fix: { id: "test.keyed", kind: "auto", title: "set a key" } };
+    const code = await runSetupHeadless({ root, out: (l) => out.push(l), err: (l) => out.push(l), deps: { doctor: async () => ({ findings: [finding] }), extraFixes: [keyed] } });
+    expect(out.join("\n")).toContain("needs AI_PROVIDER_KEY");
+    expect(code).toBe(1);
+  });
+
+  it("keeps a step on the checklist while the doctor says its secret is missing", async () => {
+    const root = wizardApp({ settings: { "support.githubRepo": "acme/sample-app" } });
+    const gh: Finding = { ...missingKey, subject: "GITHUB_TOKEN", message: "GITHUB_TOKEN isn't set" };
+    const out: string[] = [];
+    await runSetupHeadless({ root, step: "github.issues", apply: true, out: (l) => out.push(l), err: (l) => out.push(l), deps: { doctor: async () => ({ findings: [gh] }) } });
+    expect(out.join("\n")).toContain("secret GITHUB_TOKEN (edge): missing");
+    expect(out.join("\n")).not.toContain("its settings are set");
   });
 });

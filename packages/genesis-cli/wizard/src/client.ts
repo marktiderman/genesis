@@ -43,6 +43,17 @@ export function token(): string | null {
   }
 }
 
+/** A page of a planned file's full text (`plan.file`), from the plan with that hash. */
+export interface PlanFilePage {
+  path: string;
+  offset: number;
+  total: number;
+  content: string;
+  next?: number;
+}
+
+export const readPlanFile = (hash: string, file: string, offset = 0) => call<PlanFilePage>("plan.file", { hash, path: file, offset });
+
 /** One wizard op: `{v, op, …}` to `/api`. Throws SettingsProtocolError with the host's message. */
 export async function call<T>(op: string, body: Record<string, unknown> = {}): Promise<T> {
   const t = token();
@@ -125,7 +136,7 @@ export async function applyPlan(plan: SettingsPlan, approvals: Approvals) {
 }
 
 /** Plan a settings change, show it, and apply it on approval. */
-export async function changeSetting(key: string, change: { value: unknown } | { clear: true }, approvals: Approvals) {
+export async function changeSetting(key: string, change: { value: unknown; locked?: boolean } | { clear: true }, approvals: Approvals) {
   const { plan } = await call<{ plan: SettingsPlan }>("settings.plan", { key, ...change });
   if (!plan.files.length) return { fixId: plan.fixId, verified: true, message: plan.summary };
   if (!(await approvals.confirmPlan(plan))) throw new CancelledError();
@@ -151,9 +162,10 @@ export function wizardSettingsClient(approvals: Approvals): SettingsClient {
       if (plan?.secrets.length) return applyPlan(plan, approvals);
       return base.apply(fixId, expect);
     },
-    async setValue({ key, value, layer }) {
+    async setValue({ key, value, layer, locked }) {
       if (layer !== "file") throw new SettingsProtocolError("unsupported", "The wizard writes genesis.config.json; the database layer is the app's own Settings screen.");
-      await changeSetting(key, { value }, approvals);
+      // The lock travels with the value: a save that changes only the lock is planned as that.
+      await changeSetting(key, { value, ...(locked !== undefined ? { locked } : {}) }, approvals);
     },
     async clearValue({ key, layer }) {
       if (layer !== "file") throw new SettingsProtocolError("unsupported", "The wizard writes genesis.config.json; the database layer is the app's own Settings screen.");

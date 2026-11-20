@@ -47,6 +47,8 @@ export interface HeadlessOptions {
   deps?: {
     doctor?: (options: { root: string; configPath?: string; network: boolean }) => Promise<{ findings: Finding[] }>;
     fixes?: BuiltinDeps;
+    /** Fixes added after the registry's (a test's stand-in for a package fix). */
+    extraFixes?: Fix[];
     run?: ToolRunner;
   };
 }
@@ -61,7 +63,10 @@ export function presetFix(preset: SettingsPreset): Fix {
     plan(ctx): FixPlanDraft {
       const file = path.join(ctx.root, CONFIG_FILE);
       const text = fs.existsSync(file) ? fs.readFileSync(file, "utf8") : "{}\n";
-      const json = JSON.parse(text) as Record<string, unknown>;
+      const parsed = JSON.parse(text) as unknown;
+      // Never replace a config the CLI can't read (an array, null…): the person corrects it first.
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error(`${CONFIG_FILE} isn't a JSON object; correct it, then set the preset`);
+      const json = parsed as Record<string, unknown>;
       if ((json.preset ?? "max") === preset) return { summary: `the preset is already ${preset}` };
       const next: Record<string, unknown> = preset === "max" ? Object.fromEntries(Object.entries(json).filter(([k]) => k !== "preset")) : { preset, ...Object.fromEntries(Object.entries(json).filter(([k]) => k !== "preset")) };
       const indent = /^[ \t]+(?=")/m.exec(text)?.[0] ?? "  ";
@@ -70,6 +75,9 @@ export function presetFix(preset: SettingsPreset): Fix {
     verify: (ctx) => ((readGenesisConfig(ctx.root)?.preset ?? "max") === preset ? { ok: true } : { ok: false, message: `the preset isn't ${preset}` }),
   };
 }
+
+/** The starter's sign-in switches: at least one stays on (as genesis init --without checks). */
+const SIGN_INS = ["emailSignIn", "appleSignIn", "googleSignIn"] as const;
 
 /** Turn starter.config.ts switches off (an app made from the RN starter). */
 export function withoutFix(without: readonly string[]): Fix {
@@ -80,11 +88,15 @@ export function withoutFix(without: readonly string[]): Fix {
     title: `turn ${without.join(", ")} off in ${STARTER_CONFIG}`,
     plan(ctx): FixPlanDraft {
       const file = path.join(ctx.root, STARTER_CONFIG);
-      if (!fs.existsSync(file)) return { summary: `${STARTER_CONFIG} isn't here: --without applies to an app made from the RN starter`, manual: "Turn the features off in your own app's config." };
+      // An explicit request that can't be met fails the run, never passes as "nothing to do".
+      if (!fs.existsSync(file)) throw new Error(`${STARTER_CONFIG} isn't here: --without applies to an app made from the RN starter`);
       const text = fs.readFileSync(file, "utf8");
       const switches = parseStarterFeatures(text) ?? {};
       const unknown = without.filter((w) => !(w in switches));
-      if (unknown.length) return { summary: `${unknown.join(", ")} ${unknown.length === 1 ? "isn't a switch" : "aren't switches"} in ${STARTER_CONFIG}`, manual: `The switches: ${Object.keys(switches).join(", ")}.` };
+      if (unknown.length) throw new Error(`${unknown.join(", ")} ${unknown.length === 1 ? "isn't a switch" : "aren't switches"} in ${STARTER_CONFIG} (the switches: ${Object.keys(switches).join(", ")})`);
+      const after = { ...switches, ...Object.fromEntries(without.map((w) => [w, false])) };
+      const signIns = SIGN_INS.filter((k) => k in switches);
+      if (signIns.length && signIns.every((k) => !after[k])) throw new Error(`--without would turn off ${signIns.join(", ")}, every way to sign in, so nobody could sign in`);
       const next = setStarterFeatures(text, Object.fromEntries(without.map((w) => [w, false])));
       return next === text ? { summary: `${without.join(", ")} already off` } : { summary: `turns ${without.join(", ")} off in ${STARTER_CONFIG}`, files: [plannedFile(ctx.root, STARTER_CONFIG, next, "feature switches the setup turned off")] };
     },
@@ -113,6 +125,8 @@ export async function runSetupHeadless(options: HeadlessOptions): Promise<number
       }
       if (plan.secrets.length) {
         out(`- ${fix.id}: needs ${plan.secrets.join(", ")}; run genesis fix ${fix.id} at a terminal (or genesis setup)`);
+        // Work left that this run can't do: without --yes it counts as unapplied.
+        if (!options.apply) pending++;
         return;
       }
       if (!options.apply) {
@@ -140,9 +154,16 @@ export async function runSetupHeadless(options: HeadlessOptions): Promise<number
   }
   if (options.without?.length) await applyOne(withoutFix(options.without), []);
 
+  let findings: Finding[] = [];
+  try {
+    findings = await doctor();
+  } catch (e) {
+    err(`✗ the doctor couldn't run: ${(e as Error).message}`);
+    return 1;
+  }
   if (!options.step) {
-    const findings = await doctor();
-    const { fixes } = await allFixes(discoverPackages(root), deps.fixes ?? {});
+    const { fixes: registered } = await allFixes(discoverPackages(root), deps.fixes ?? {});
+    const fixes = [...registered, ...(deps.extraFixes ?? [])];
     const byId = new Map(fixes.map((f) => [f.id, f]));
     const groups = new Map<string, Finding[]>();
     for (const f of findings) if (f.fix) groups.set(f.fix.id, [...(groups.get(f.fix.id) ?? []), f]);
@@ -166,10 +187,20 @@ export async function runSetupHeadless(options: HeadlessOptions): Promise<number
   } catch (e) {
     err(`! the setup steps couldn't be read: ${(e as Error).message}`);
   }
-  const open = steps.filter((s) => !s.done && (!options.step || s.id === options.step));
+  // A step's settings can be set while its secret is missing: the doctor's secret-missing keeps it open.
+  const missing = new Set(findings.filter((f) => f.rule === "secret-missing" && f.level !== "info" && f.subject).map((f) => f.subject!));
+  const secretGap = (s: (typeof steps)[number]) => s.secrets.filter((x) => missing.has(x.name)).map((x) => x.name);
+  const open = steps.filter((s) => (!s.done || secretGap(s).length > 0) && (!options.step || s.id === options.step));
   if (options.step && !open.length) {
-    if (steps.some((s) => s.id === options.step)) out(`✔ ${options.step} is set up.`);
-    else {
+    const step = steps.find((s) => s.id === options.step);
+    if (step) {
+      const unverified = step.secrets.map((x) => x.name);
+      out(
+        unverified.length
+          ? `✔ ${options.step}: its settings are set. ${unverified.join(", ")} ${unverified.length === 1 ? "isn't" : "aren't"} verified here: genesis doctor (online) checks ${unverified.length === 1 ? "it" : "them"}, and the step's own check comes with its runner.`
+          : `✔ ${options.step}: its settings are set.`,
+      );
+    } else {
       err(`✗ No setup step ${options.step}${steps.length ? ` (the steps: ${steps.map((s) => s.id).join(", ")})` : ""}.`);
       code = 1;
     }
@@ -180,7 +211,7 @@ export async function runSetupHeadless(options: HeadlessOptions): Promise<number
     for (const s of open) {
       out(`- ${s.command}`);
       for (const k of s.keys) out(`    settings.${k.key}${k.set ? " ✔" : ""}${k.summary ? `: ${k.summary}` : ""}`);
-      for (const sec of s.secrets) out(`    secret ${sec.name} (${sec.store})`);
+      for (const sec of s.secrets) out(`    secret ${sec.name} (${sec.store})${missing.has(sec.name) ? ": missing" : ""}`);
     }
   }
   if (!options.apply && pending) {

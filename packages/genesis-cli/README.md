@@ -1670,9 +1670,12 @@ wizard shows them with their fixes and walks you through them.
   bundle id, folder), **Preset** (max, the default, needs no configuration), **Packages** (the
   starter's feature switches) and **Review** (every file it writes). It makes the same app as
   `genesis init <slug> --template native`, then carries on in setup, starting with the install.
-  `genesis init <name>` is unchanged; `--preset` sets the new app's preset there too.
-- **Every write is a plan you approve.** A fix, a setting, the install and a new app are each
-  planned first (the files with their changed lines, the commands, the secrets by name) and
+  `genesis init <name>` is unchanged; with `--template native`, `--preset` sets the new app's
+  preset too (checked before anything is written). A consumer scaffold (no `--template`) has no
+  `genesis.config.json`, so `--preset` is refused there.
+- **Every write is a plan you approve.** A fix, a setting (its value and its lock), the install
+  and a new app are each planned first (every file it writes, with its changed lines and its whole
+  text a page at a time through `plan.file`; the commands; the secrets by name) and
   written by the [fix engine](#genesis-fix) only when you apply that plan: the wizard sends back
   the plan's hash, and a plan it didn't make in this run, or one that went stale (a file changed
   after you read it), is refused and planned again. The wizard writes `genesis.config.json`; the
@@ -1699,7 +1702,7 @@ wizard shows them with their fixes and walks you through them.
   `Sec-Fetch-Site: cross-site` is refused outright.
 - **JSON only**, up to 1 MB (past that it answers 413 and drops the connection), at
   `POST /api {v, op, …}` (the settings protocol's ops, plus the wizard's `wizard.info`,
-  `settings.plan`, `init.plan`, `install.plan` and `step.list`). No CORS headers; a CSP of
+  `settings.plan`, `init.plan`, `install.plan`, `plan.file` and `step.list`). No CORS headers; a CSP of
   `default-src 'self'` with inline styles allowed (the dialogs position themselves with them) and no
   inline script; nothing cached. `GET /events` streams a fix's output, redacted.
 - It stops on Ctrl-C, or after 30 minutes without a request.
@@ -1711,16 +1714,19 @@ rest: `genesis fix <id>` for each guided fix, and the dormant checklist, `genesi
 for each setup step not done. A dormant feature fails nothing. It exits 0, or 1 when a fix it
 applied failed or didn't verify. With `--step <id>` it prints that step's checklist only.
 
-Without `--yes` and without a terminal (CI, a script), it applies nothing, as `genesis fix` doesn't
+Without `--yes` and without a terminal (a script, or CI: with `CI` set, even a pseudo-terminal
+doesn't open the wizard), it applies nothing, as `genesis fix` doesn't
 without `--yes`: it prints each plan (what it would write or run, and its hash) and the checklist,
 and exits 1 when there is anything to apply. `--preset` and `--without` never imply `--yes`: at a
 terminal they need it (`genesis init` with no name in an empty folder takes them as the wizard's
 starting choices instead).
 
-Not yet: each guided step's runner, which walks the outside service and verifies it live (link
-Supabase, a GitHub token, a Resend domain, Sentry, an AI key, EAS push), the Brand and Data
-screens, and Fix with Claude. Until a step's runner arrives, it is set up by its keys and secrets
-in the wizard (`step.start`, `step.submit` and `step.verify` answer `unsupported`).
+**Planned** (`setup-wizard`): each guided step's runner, which walks the outside service and
+verifies it live (link Supabase, a GitHub token, a Resend domain, Sentry, an AI key, EAS push), the
+Brand and Data screens, and Fix with Claude. Until a step's runner arrives, it is set up by its
+keys and secrets in the wizard, and `step.start`, `step.submit` and `step.verify` answer
+`unsupported`. `genesis setup --step <id>` reports a step's settings as set; its secret is checked
+by `genesis doctor` online, and the step stays on the checklist while the doctor says it is missing.
 
 ## genesis mcp
 

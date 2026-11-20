@@ -18,7 +18,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import * as path from "node:path";
-import { checkApiRequest, checkHost, checkJson, checkOrigin, LAUNCH_CODE, newToken, SECURITY_HEADERS, type Refusal } from "./security.js";
+import { checkApiRequest, checkHost, checkJson, checkOrigin, LAUNCH_CODE, createToken, SECURITY_HEADERS, type Refusal } from "./security.js";
 
 /** What answers the API: one request in, a status and a JSON body out. */
 export interface WizardApi {
@@ -113,13 +113,9 @@ function readBody(req: IncomingMessage, max = MAX_BODY_BYTES): Promise<string | 
   });
 }
 
-/**
- * Answer 413 and drop the connection: the rest of an oversized body is never read. The socket goes
- * a moment after the answer, so the client can read it first (closing on unread data resets the
- * connection at once).
- */
+/** Answer 413 and drop the connection: the rest of an oversized body is never read. */
 function tooLarge(req: IncomingMessage, res: ServerResponse): void {
-  res.on("finish", () => setTimeout(() => req.destroy(), 200).unref());
+  res.on("finish", () => req.destroy());
   send(res, 413, "application/json; charset=utf-8", JSON.stringify({ error: { code: "bad_request", message: `The body is over ${MAX_BODY_BYTES} bytes.` } }));
 }
 
@@ -161,7 +157,7 @@ function listen(server: Server, port: number): Promise<boolean> {
 
 /** Start the wizard's server on the first free port from `port`. */
 export async function startWizardServer(options: WizardServerOptions): Promise<WizardServer> {
-  const token = options.token ?? newToken();
+  const token = options.token ?? createToken();
   const log = options.log ?? (() => {});
   const idleMs = options.idleMs ?? DEFAULT_IDLE_MS;
   const streams = new Set<ServerResponse>();
@@ -288,7 +284,7 @@ export async function startWizardServer(options: WizardServerOptions): Promise<W
 
   const origin = `http://127.0.0.1:${port}`;
   const launchUrl = () => {
-    const code = newToken();
+    const code = createToken();
     launchCodes.set(code, Date.now() + LAUNCH_CODE_TTL_MS);
     return `${origin}/#${new URLSearchParams({ c: code, ...(options.step ? { step: options.step } : {}) }).toString()}`;
   };

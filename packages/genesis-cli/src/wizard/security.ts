@@ -20,7 +20,7 @@ import { randomBytes, timingSafeEqual } from "node:crypto";
 import type { IncomingHttpHeaders } from "node:http";
 
 /** A fresh token for one run: 32 random bytes, base64url. */
-export function newToken(): string {
+export function createToken(): string {
   return randomBytes(32).toString("base64url");
 }
 
