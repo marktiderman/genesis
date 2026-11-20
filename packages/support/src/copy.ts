@@ -181,8 +181,10 @@ export const supportCopy = {
     diagnosticsCopy: "Copy",
     diagnosticsCopied: "Copied",
     diagnosticsCopyFailed: "That wasn't copied. Try again, or select the text.",
-    /** What made a dump, by its trigger. */
-    diagnosticsTriggers: { manual: "Sent from the app", shake: "Shake", feedback: "With feedback", crash: "After a crash" },
+    /** What made a dump, by its trigger; `other` for one this version doesn't know. */
+    diagnosticsTriggers: { manual: "Sent from the app", shake: "Shake", feedback: "With feedback", crash: "After a crash", other: "Other" },
+    diagnosticsSentry: "Open in Sentry",
+    diagnosticsIssue: "Open the GitHub issue",
     /** The assignee picker's label. */
     assignTo: "Assign to",
     openFile: "Open file",
@@ -195,6 +197,11 @@ export const supportCopy = {
     earlier: "Earlier conversations",
     earlierEmpty: "No earlier conversations",
     earlierFailed: "Couldn't load the earlier conversations.",
+    earlierNoun: "conversation",
+    earlierNounPlural: "conversations",
+    earlierTitle: "Conversation",
+    earlierStatus: "Status",
+    earlierOpened: "Opened",
     /** The composer's pickers: `@` a teammate (in a note), `!` a saved reply, `?` a help article. */
     mentionsLabel: "Mention a teammate",
     savedRepliesLabel: "Saved replies",
@@ -248,6 +255,23 @@ export const supportCopy = {
     offBody: "New questions go to the app's support; the conversations already here stay to finish.",
     noDeskTitle: "No help desk to answer",
     noDeskBody: "Turn your help desk on in its settings to answer your people here.",
+    loadFailed: "Couldn't load where this conversation is.",
+    /** The desk's log in its card (`deskHistory`): `{by}` who, `{to}` the desk a ticket went to. */
+    log: "Desk log",
+    logNoun: "entry",
+    logNounPlural: "entries",
+    logWhat: "What happened",
+    logWhen: "When",
+    logEmpty: "Nothing has happened at this desk yet.",
+    logFailed: "Couldn't load the desk log.",
+    logSomeone: "Someone",
+    logActions: {
+      turned_on: "{by} turned the desk on",
+      turned_off: "{by} turned the desk off",
+      escalated: "{by} sent a conversation up to {to}",
+      returned: "{by} handed a conversation back to {to}",
+      moved: "{by} moved a conversation to {to}",
+    },
   },
   /** Support's notifications (migration 0030, `supportNotificationTypes`): `{by}`, `{title}`, `{from}`. */
   notifications: {
@@ -266,6 +290,8 @@ export const supportCopy = {
     support: "Support",
     verify: "Is it fixed? {title}",
     verifyBody: "We think this is fixed. Please check it, then confirm or reopen it.",
+    /** Who did it, when the event doesn't name them. */
+    someone: "Someone",
   },
   /** The contact fallback (`support.contactEmail`, `support.contactUrl`), in Help and on error screens. */
   contact: {
@@ -279,7 +305,7 @@ export const supportCopy = {
     supportTitle: "Support isn't available",
     supportBody: "This app doesn't offer help here right now.",
     agentDeskTitle: "The agent desk is off",
-    agentDeskBody: "This app's settings turn the agent desk off (support.agentDesk).",
+    agentDeskBody: "This app has turned its agent desk off, so tickets can't be answered here.",
   },
   /** The details panel's requester card. */
   requester: {
@@ -289,6 +315,66 @@ export const supportCopy = {
     /** A tenant's role for the person, from migration 0029 (an app's own words show as it gives them). */
     roles: { admin: "Admin", agent: "Agent", member: "Member" },
     sentFrom: "Sent from",
+    failed: "Couldn't load who wrote.",
+    /** A desk's admins: make the person who wrote one of its agents. */
+    makeAgent: "Make an agent",
+    madeAgent: "They're now an agent of this help desk",
+    /** An email ticket with no login: link it to the person's login, so it shows in their app. */
+    linkTitle: "Link to a login",
+    linkBody: "This came by email. Link it to the person's login so they see it in the app.",
+    linkSearch: "Find the person",
+    linkSearchPlaceholder: "Name or email",
+    linkNoMatches: "Nobody matches",
+    link: "Link",
+    linked: "Linked to {name}",
+    linkFailed: "That wasn't linked. Try again.",
+    linkSearchFailed: "Couldn't search for people. Try again.",
+    linkConfirmTitle: "Link this conversation?",
+    /** `{email}`: who wrote; `{name}`: the person picked. */
+    linkConfirmBody: "The conversation from {email} goes to {name}'s login: they see it and its replies in the app. It can't be unlinked here.",
+    linkNoEmail: "this email",
+    linkCancel: "Cancel",
+  },
+  /** A help desk's agents (`setAgent`): who answers its tickets. */
+  agents: {
+    title: "Agents",
+    noun: "agent",
+    nounPlural: "agents",
+    name: "Name",
+    unnamed: "Unnamed",
+    emptyTitle: "No agents yet",
+    emptyBody: "Add the people who answer this help desk.",
+    loadFailed: "Couldn't load the agents. Check your connection and try again.",
+    add: "Add an agent",
+    search: "Find a person",
+    searchPlaceholder: "Name or email",
+    noMatches: "Nobody matches",
+    role: "Role",
+    roles: { agent: "Agent", admin: "Admin" },
+    remove: "Remove",
+    searchFailed: "Couldn't search for people. Try again.",
+    checking: "Checking who manages this desk",
+    checkFailed: "Couldn't check who manages this desk. Try again.",
+    notManager: "Only whoever manages this desk's agents can change them.",
+    removeFailed: "They weren't removed. Try again.",
+    removeConfirmTitle: "Remove this agent? They stop seeing this help desk's conversations; you can add them again.",
+    notRemovable: "They manage this desk's agents through the app, so they can't be removed here.",
+    added: "{name} is now an agent",
+    removed: "Removed from the agents",
+    failed: "That didn't change. Try again.",
+  },
+  /** Where the signed-in agent was mentioned in a note (`agentMentions`). */
+  mentions: {
+    title: "My mentions",
+    noun: "mention",
+    nounPlural: "mentions",
+    by: "By",
+    at: "When",
+    open: "Open",
+    someone: "Someone",
+    emptyTitle: "No mentions yet",
+    emptyBody: "When a teammate mentions you in a note, it shows up here.",
+    loadFailed: "Couldn't load your mentions. Check your connection and try again.",
   },
   savedReplies: {
     listLabel: "Saved replies",
@@ -325,6 +411,10 @@ export const supportCopy = {
     timeToClose: "Median time to close",
     byRequester: "Open by customer",
     unknownRequester: "Unknown",
+    customer: "Customer",
+    customerNoun: "customer",
+    customerNounPlural: "customers",
+    openCount: "Open",
     /** A time with nothing to measure. */
     none: "None yet",
     errorTitle: "Couldn't load the report",
@@ -387,6 +477,19 @@ export const supportCopy = {
     aiThanks: "Glad that helped.",
     aiPerson: "Talk to a person",
     aiFailed: "That didn't go through. Try again, or send us a message.",
+    /** A ticket's desk, in a row of Messages when it lists every desk (`allTenants`). `{status}`, `{desk}`. */
+    rowAtDesk: "{status} · {desk}",
+    /** On a conversation marked fixed that the person hasn't answered (`support.verify`). */
+    verifyTitle: "Is it fixed?",
+    verifyBody: "We think this is fixed. Check it, then tell us.",
+    verifyFixed: "Yes, it's fixed",
+    verifyReopen: "No, it's still wrong",
+    verifyNoteLabel: "What's still wrong? (optional)",
+    verifySend: "Reopen it",
+    verifyCancel: "Cancel",
+    verifyThanks: "Thanks for confirming.",
+    verifyReopened: "Reopened. We'll take another look.",
+    verifyFailed: "That wasn't saved. Try again.",
   },
   helpAdmin: {
     listLabel: "Articles",
@@ -422,6 +525,12 @@ export const supportCopy = {
     newCollection: "New collection",
     newCollectionLabel: "Collection name",
     addCollection: "Add",
+    collections: "Collections",
+    collectionNoun: "collection",
+    collectionNounPlural: "collections",
+    collectionsEmpty: "No collections yet",
+    deleteCollectionTitle: "Delete this collection? Its articles stay, in no collection.",
+    deleteCollectionFailed: "That collection wasn't deleted. Try again.",
   },
   status: {
     open: "Open",

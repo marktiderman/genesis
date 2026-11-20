@@ -50,14 +50,29 @@ export function DataProviderRoot({ provider, children }: DataProviderRootProps) 
 // ---------------------------------------------------------------------------
 
 export function useDataProvider(): DataProvider {
-  const ctx = useContext(DataProviderContext);
-  if (!ctx) {
+  return requireDataProvider(useContext(DataProviderContext));
+}
+
+/**
+ * The provider, or the error that says one is missing: for a hook that holds an optional
+ * provider (`useOptionalDataProvider`) and needs it only when it reads or writes.
+ */
+export function requireDataProvider(provider: DataProvider | null | undefined): DataProvider {
+  if (!provider) {
     throw new Error(
       "useDataProvider must be used inside <DataProviderRoot> or <GenesisProvider>. " +
         "Wrap your app (or the relevant subtree) in one of these providers.",
     );
   }
-  return ctx;
+  return provider;
+}
+
+/**
+ * The data provider when there is one, else null: for a screen that also works over rows it was
+ * given (a `ResourceView` with `rows`), where nothing is read or run through a provider.
+ */
+export function useOptionalDataProvider(): DataProvider | null {
+  return useContext(DataProviderContext) ?? null;
 }
 
 export function useStorage(): StorageAdapter {

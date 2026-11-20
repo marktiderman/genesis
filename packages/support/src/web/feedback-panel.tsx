@@ -7,7 +7,7 @@
  * Put it anywhere (a page, a Sheet); `FeedbackLauncher` puts it in a Sheet
  * behind a floating button.
  */
-import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type PointerEvent } from "react";
 import {
   Alert,
   AlertDescription,
@@ -24,7 +24,7 @@ import {
   ToggleGroupItem,
 } from "@marktiderman/genesis-ui";
 import type { SupportClient, SupportReport } from "../client";
-import { resolveSupportCopy, type SupportCopyOverrides } from "../copy";
+import { fill, resolveSupportCopy, type SupportCopyOverrides } from "../copy";
 import { cleanRoute, type FindingSeverity } from "../contract";
 import { createContextCollector, FEEDBACK_TYPES, type ContextCollector, type FeedbackDelivery, type FeedbackRecord, type FeedbackSink, type FeedbackType } from "../record";
 import { annotateScreenshot, canCaptureScreenshot, captureScreenshot, type Redaction, type Stroke, type WebCapture } from "./capture";
@@ -166,7 +166,7 @@ export function useFeedbackDraft(defaultType: FeedbackType = "bug"): FeedbackDra
   return useMemo(() => ({ draft, update, reset }), [draft, update, reset]);
 }
 
-type Status = { kind: "idle" } | { kind: "sending" } | { kind: "sent"; dropped: number; queued?: boolean } | { kind: "error"; message: string };
+type Status = { kind: "idle" } | { kind: "sending" } | { kind: "sent"; dropped: number; queued?: boolean; reference?: string } | { kind: "error"; message: string };
 
 export function FeedbackPanel({ client, diagnostics: dump, collector, copy: overrides, screenshots: screenshotsProp, pins: pinsProp, defaultType = "bug", onSent, onHide, about, captureOnOpen, draft: held, captureRequest, onOpenHelp, severity: severityProp, thanksReplacesForm = false, appSettings }: FeedbackPanelProps) {
   const settings = supportSettingValues(appSettings);
@@ -175,6 +175,7 @@ export function FeedbackPanel({ client, diagnostics: dump, collector, copy: over
   const askSeverity = severityProp ?? settings.support.severity;
   const diagnostics = dump && dump.enabled !== false && settings.diagnostics.enabled && settings.diagnostics.dumpOnFeedback ? dump : undefined;
   const copy = useMemo(() => resolveSupportCopy(overrides), [overrides]);
+  const labelIds = { type: useId(), severity: useId() };
   const collect = useMemo(() => collector ?? webContextCollector(), [collector]);
   const own = useFeedbackDraft(defaultType);
   const { draft, update } = held ?? own;
@@ -272,7 +273,7 @@ export function FeedbackPanel({ client, diagnostics: dump, collector, copy: over
         : await client.submit(record);
       update(
         {
-          status: { kind: "sent", dropped: delivery.attachmentsDropped, ...(delivery.queued ? { queued: true } : {}) },
+          status: { kind: "sent", dropped: delivery.attachmentsDropped, ...(delivery.queued ? { queued: true } : {}), ...(delivery.diagnostics?.shortId ? { reference: delivery.diagnostics.shortId } : {}) },
           message: "",
           shot: null,
           shotFailed: false,
@@ -310,6 +311,7 @@ export function FeedbackPanel({ client, diagnostics: dump, collector, copy: over
             <Alert data-testid="genesis-support-sent" role="status">
               <AlertTitle>{copy.feedback.sentTitle}</AlertTitle>
               <AlertDescription>{status.queued ? copy.feedback.queuedBody : status.dropped ? copy.feedback.sentWithoutScreenshot : copy.feedback.sentBody}</AlertDescription>
+              {status.reference ? <AlertDescription data-testid="genesis-support-sent-reference">{fill(copy.diagnostics.feedbackReference, { id: status.reference })}</AlertDescription> : null}
             </Alert>
             <div className="flex flex-wrap gap-2">
               {onOpenHelp ? (
@@ -325,8 +327,10 @@ export function FeedbackPanel({ client, diagnostics: dump, collector, copy: over
         ) : (
           <>
             <div className="flex flex-col gap-2">
-              <Label>{copy.feedback.typeLabel}</Label>
-              <ToggleGroup type="single" className="flex-wrap justify-start" value={type} onValueChange={(v: string) => v && setType(v as FeedbackType)} aria-label={copy.feedback.typeLabel}>
+              <Label id={labelIds.type}>
+                {copy.feedback.typeLabel}
+              </Label>
+              <ToggleGroup type="single" className="flex-wrap justify-start" value={type} onValueChange={(v: string) => v && setType(v as FeedbackType)} aria-labelledby={labelIds.type}>
                 {FEEDBACK_TYPES.map((t) => (
                   <ToggleGroupItem key={t} value={t} data-testid={`genesis-support-type-${t}`}>
                     {copy.feedback.types[t]}
@@ -347,8 +351,10 @@ export function FeedbackPanel({ client, diagnostics: dump, collector, copy: over
             ) : null}
             {askSeverity && type === "bug" ? (
               <div className="flex flex-col gap-2">
-                <Label>{copy.feedback.severityLabel}</Label>
-                <ToggleGroup type="single" className="flex-wrap justify-start" value={severity} onValueChange={(v: string) => setSeverity((v || "") as FindingSeverity | "")} aria-label={copy.feedback.severityLabel}>
+                <Label id={labelIds.severity}>
+                  {copy.feedback.severityLabel}
+                </Label>
+                <ToggleGroup type="single" className="flex-wrap justify-start" value={severity} onValueChange={(v: string) => setSeverity((v || "") as FindingSeverity | "")} aria-labelledby={labelIds.severity}>
                   {(["low", "medium", "high", "critical"] as const).map((level) => (
                     <ToggleGroupItem key={level} value={level} data-testid={`genesis-support-severity-${level}`}>
                       {copy.feedback.severities[level]}
@@ -411,6 +417,7 @@ export function FeedbackPanel({ client, diagnostics: dump, collector, copy: over
               // The default thanks: under the form, which stays (thanksReplacesForm swaps them).
               <Alert data-testid="genesis-support-sent">
                 <AlertDescription>{status.queued ? copy.feedback.queuedBody : status.dropped ? copy.feedback.sentWithoutScreenshot : copy.feedback.sentBody}</AlertDescription>
+                {status.reference ? <AlertDescription data-testid="genesis-support-sent-reference">{fill(copy.diagnostics.feedbackReference, { id: status.reference })}</AlertDescription> : null}
               </Alert>
             ) : null}
             <Button type="button" onClick={() => void send()} disabled={status.kind === "sending"} data-testid="genesis-support-send">

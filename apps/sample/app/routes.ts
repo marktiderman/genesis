@@ -45,6 +45,8 @@ export default [
     // The old record-page sample moved to the demo app's client pages.
     route("projects/*", "routes/projects.tsx"),
     route("studio", "routes/studio.tsx"),
+    // Genesis settings: <GenesisSettings> over createSettingsHandler (settings/vite-plugin.ts, dev only).
+    route("platform-settings", "routes/platform-settings.tsx"),
     route("features", "routes/features.tsx"),
     // genesis-sites: two demo sites in frames (sites-demo/ serves them).
     route("sites", "routes/sites.tsx"),

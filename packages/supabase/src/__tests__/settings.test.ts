@@ -12,6 +12,7 @@ import {
   resolveAppSettings,
   setGenesisSetting,
   settingsBlock,
+  settingsHostBlock,
   watchAppSettings,
   writeAppManifest,
   type ManifestClient,
@@ -285,7 +286,7 @@ describe("watching settings", () => {
 });
 
 describe("the manifest", () => {
-  it("writes one row with the catalogue the database checks, and no secrets", async () => {
+  it("writes one row with the catalogue the database checks, a secret by name and store only", async () => {
     const upsert = vi.fn(async () => ({ error: null }));
     const from = vi.fn(() => ({ upsert }));
     await writeAppManifest({ from } as unknown as ManifestClient, {
@@ -300,7 +301,8 @@ describe("the manifest", () => {
     expect(options).toEqual({ onConflict: "one" });
     expect(row).toMatchObject({ app_id: "sample-app", preset: "standard", file_settings: { "support.dumpRetentionDays": 30 }, name: null, config_hash: null });
     expect((row.catalogue as Record<string, unknown>)["support.dumpRetentionDays"]).toEqual({ type: "number", applies: "runtime", scope: "app", defaults: { max: 90, standard: 90, min: 90 }, min: 7, max: 365 });
-    expect(JSON.stringify(row)).not.toMatch(/GITHUB_TOKEN/);
+    // The Settings host lists the secret and Vault allows only declared names: the name and store, nothing else.
+    expect((row.catalogue as Record<string, unknown>)["support.githubRepo"]).toMatchObject({ secret: { name: "GITHUB_TOKEN", store: "edge" } });
   });
 
   it("throws when the write fails", async () => {
@@ -329,6 +331,16 @@ describe("the settings block", () => {
       { file: "migrations/0022_genesis_platform_admins.sql", test: "migrations/tests/0022_genesis_platform_admins.test.sql" },
       { file: "migrations/0023_genesis_settings_tenant_person.sql", test: "migrations/tests/0023_genesis_settings_tenant_person.test.sql" },
     ]);
+  });
+
+  it("ships the Settings host's migration in its own block, which needs the settings block", () => {
+    const resolved = resolveBlocks([settingsBlock, settingsHostBlock], undefined, { platform: "web" });
+    expect(resolved.migrations.map((m) => m.file)).toContain("migrations/0024_genesis_settings_host.sql");
+    expect(settingsHostBlock.requires).toEqual(["settings"]);
+    const manifest = JSON.parse(readFileSync(join(packageRoot, "package.json"), "utf8")).genesis.blocks["settings-host"];
+    expect(manifest.requires).toEqual(["settings"]);
+    expect(manifest.migrations).toEqual([{ file: "migrations/0024_genesis_settings_host.sql", test: "migrations/tests/0024_genesis_settings_host.test.sql" }]);
+    for (const m of manifest.migrations) expect(existsSync(join(packageRoot, m.file))).toBe(true);
   });
 
   it("fails closed without the platform-admin hook, and never stores a secret", () => {

@@ -19,7 +19,7 @@
 
 import { useEffect, useRef } from "react";
 import { useQueryClient, type QueryKey } from "@tanstack/react-query";
-import { useDataProvider } from "../provider/context";
+import { useOptionalDataProvider } from "../provider/context";
 import type { ResourceChangeEvent, SubscribeParams } from "../provider/types";
 import { listCouldChange, patchCachedRow } from "./live-cache";
 
@@ -68,9 +68,10 @@ export function useLiveInvalidation(
   queryKey: QueryKey,
   accept?: (event: ResourceChangeEvent) => boolean,
 ): void {
-  const provider = useDataProvider();
+  // No provider (a disabled list over rows it was given): nothing to subscribe to.
+  const provider = useOptionalDataProvider();
   const queryClient = useQueryClient();
-  const on = !!live && enabled;
+  const on = !!live && enabled && !!provider;
   const debounceMs = Math.max(
     0,
     (typeof live === "object" ? live.debounceMs : undefined) ?? DEFAULT_LIVE_DEBOUNCE_MS,
@@ -88,7 +89,7 @@ export function useLiveInvalidation(
   latest.current = { queryKey, accept, params };
 
   useEffect(() => {
-    if (!on) return;
+    if (!on || !provider) return;
     if (typeof provider.subscribe !== "function") {
       if (process.env.NODE_ENV !== "production" && !warnedNoSubscribe.has(provider)) {
         warnedNoSubscribe.add(provider);

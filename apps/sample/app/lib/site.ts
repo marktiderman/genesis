@@ -51,6 +51,7 @@ export const SITE_PAGES: SitePage[] = [
   { path: "/settings", title: "Settings", description: "A settings screen on Genesis components." },
   { path: "/demo", title: "Live demo", description: "A multi-tenant demo app on Genesis: three organizations, three roles, lists, record pages, forms, chat, an assistant and the Data Studio, in your browser." },
   { path: "/studio", title: "Data Studio", description: "An Airtable-style workspace over an app's own tables." },
+  { path: "/platform-settings", title: "Genesis settings", description: "The in-app Settings screen: every setting and its source, health, Vault secrets and proposals, for platform admins; a tenant's or a person's own slice for everyone else." },
   { path: "/features", title: "Features", description: "Genesis's own feature registry, rendered from features.ts." },
   { path: "/sites", title: "Sites", description: "Landing pages and small sites from the Genesis Sites section registry." },
   { path: "/sites-editor", title: "Sites editor", description: "Edit a Genesis Sites page in the visual editor." },

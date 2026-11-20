@@ -9,7 +9,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@marktiderman/genesis-ui";
+import { InlineAlert, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@marktiderman/genesis-ui";
 import { chatKeys, useChat } from "@marktiderman/genesis-chat/react";
 import type { ResolveUser } from "@marktiderman/genesis-chat/web";
 import { FEEDBACK_STATUSES, type FeedbackStatus } from "../contract";
@@ -84,9 +84,7 @@ export function TicketControls({ status, assignee, reporter, staff, onStatus, on
         </div>
       ) : null}
       {failed ? (
-        <p role="alert" className="text-sm text-destructive">
-          {copy.staff.failed}
-        </p>
+        <InlineAlert variant="destructive" description={copy.staff.failed} testID="genesis-support-staff-failed" />
       ) : null}
     </div>
   );
