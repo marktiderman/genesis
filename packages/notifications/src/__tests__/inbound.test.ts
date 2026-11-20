@@ -28,6 +28,27 @@ const received = {
   created_at: "2026-10-29T12:00:00Z",
 };
 
+describe("one sender address", () => {
+  it("takes a quoted name with a comma, and refuses a header naming several addresses", () => {
+    expect(parseAddress('"Doe, Pat" <pat@x.test>')).toEqual({ email: "pat@x.test", name: "Doe, Pat" });
+    expect(parseAddress("pat@x.test, boss@acme.test")).toBeNull();
+    expect(parseAddress("Pat <pat@x.test>, Boss <boss@acme.test>")).toBeNull();
+    expect(parseAddress("boss@acme.test <pat@x.test>")).toBeNull();
+    expect(parseAddress("<pat@x.test> trailing")).toBeNull();
+    expect(parseAddress("a@b@c.test")).toBeNull();
+  });
+
+  it("stays linear on a hostile header", () => {
+    const start = performance.now();
+    for (const n of [1000, 5000, 20000]) expect(parseAddress("a@".repeat(n) + "<")).toBeNull();
+    expect(performance.now() - start).toBeLessThan(100);
+  });
+
+  it("gives no sender for an email whose From names several", () => {
+    expect(inboundEmailOf({ ...received, from: "pat@x.test, boss@acme.test" })).toBeNull();
+  });
+});
+
 describe("inbound email", () => {
   it("parses addresses and Resend's received email", () => {
     expect(parseAddress("Pat <Pat@Example.test>")).toEqual({ email: "pat@example.test", name: "Pat" });

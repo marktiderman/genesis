@@ -5833,6 +5833,158 @@
       "flags": []
     },
     {
+      "id": "support-desks",
+      "name": "Help desk desks",
+      "summary": "Each tenant's own help desk in genesis-support (migration 0024): its tenant admins turn it on or off with every change logged, a question sent to no tenant goes to the sender's one desk that is on (or where the app's hook says), and a ticket's handler sends it up to the app's own desk, hands an escalated one back, or moves it to another desk its person belongs to, each move logged, the thread kept, nobody assigned and a pending one open again. The support.desks setting turns it off (0004's tenant_features rule alone). On the web, the agent inbox's details panel shows who wrote (name, email, tenants with their role) and the desk card with escalate, return and move; SupportDeskPicker and SupportDeskSwitch are a desk picker and a tenant's on/off switch; the messenger can list every desk's conversations (allTenants).",
+      "category": "Support",
+      "status": "building",
+      "claimedBy": "mark",
+      "kind": "pattern",
+      "keywords": [
+        "desks",
+        "escalate",
+        "escalation",
+        "transfer ticket",
+        "route ticket",
+        "multi-tenant help desk",
+        "tenant help desk"
+      ],
+      "platforms": {
+        "web": "building"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-support/web-chat"
+      },
+      "extends": "support-helpdesk",
+      "requires": [
+        "support-helpdesk"
+      ],
+      "reviewedAt": "2026-11-19",
+      "links": {
+        "code": [
+          "packages/support/migrations/0024_genesis_support_desks.sql",
+          "packages/support/src/desks.ts",
+          "packages/support/src/web-chat/desks.tsx",
+          "packages/support/src/client.ts"
+        ],
+        "docs": [
+          "packages/support/README.md"
+        ]
+      },
+      "owner": "mark",
+      "apps": [
+        "web"
+      ],
+      "audience": [
+        "developer",
+        "end user"
+      ],
+      "visibility": "internal",
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "support-route-mount",
+      "name": "Support route mount",
+      "summary": "Every native support screen from one route file per navigation zone: SupportRoute reads the path, takes the zone off, works out the screen (supportScreenOf) and renders Genesis's screen with its header, and createSupport's zones keep every link support opens in the zone the person is in. Replaces a re-export file per screen per zone; the app's own screens go in screens.",
+      "category": "Support",
+      "status": "building",
+      "claimedBy": "mark",
+      "kind": "pattern",
+      "keywords": [
+        "routes",
+        "zones",
+        "basePath",
+        "expo-router",
+        "catch-all",
+        "re-export files"
+      ],
+      "platforms": {
+        "native": "building"
+      },
+      "entry": {
+        "native": "@marktiderman/genesis-support/native"
+      },
+      "extends": "support-feedback",
+      "requires": [
+        "support-feedback"
+      ],
+      "reviewedAt": "2026-11-19",
+      "links": {
+        "code": [
+          "packages/support/src/native/route.tsx",
+          "packages/support/src/routes.ts",
+          "packages/support/src/native/support.tsx"
+        ],
+        "docs": [
+          "packages/support/README.md"
+        ]
+      },
+      "owner": "mark",
+      "apps": [
+        "native"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "support-notifications",
+      "name": "Support notifications",
+      "summary": "Support's default notification types through genesis-notifications (migration 0025): support.message tells a ticket's desk about a new ticket, the person's next message or a ticket moved there (while nobody who handles it has it, and while support.staffAlerts is on), support.reply tells the person support answered (one email per ticket), support.verify asks them to check a fix. supportNotificationTypes adds them to the app's registry; supportEmailTemplates gives their emails the whole message under one subject per ticket.",
+      "category": "Support",
+      "status": "building",
+      "claimedBy": "mark",
+      "kind": "pattern",
+      "keywords": [
+        "staff alerts",
+        "new report alert",
+        "reply notification",
+        "support push",
+        "support email"
+      ],
+      "platforms": {
+        "web": "building",
+        "native": "building"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-support",
+        "native": "@marktiderman/genesis-support"
+      },
+      "extends": "support-feedback",
+      "requires": [
+        "support-feedback",
+        "notifications"
+      ],
+      "reviewedAt": "2026-11-19",
+      "links": {
+        "code": [
+          "packages/support/migrations/0025_genesis_support_notifications.sql",
+          "packages/support/src/notifications.ts",
+          "packages/support/src/email-templates.ts"
+        ],
+        "docs": [
+          "packages/support/README.md"
+        ]
+      },
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native"
+      ],
+      "audience": [
+        "developer",
+        "end user",
+        "operator"
+      ],
+      "visibility": "internal",
+      "access": "all",
+      "flags": []
+    },
+    {
       "id": "chat",
       "name": "Chat",
       "summary": "@marktiderman/genesis-chat, in the app's own Supabase (the genesis_chat schema): conversations of kinds the app registers (direct, group, its own such as a cohort or a support ticket) with start and observer checks the app writes, members with roles and read state (last_read_seq), messages numbered per conversation with an idempotent client id, replies, one level of threads, topics, mentions, reactions, edits, tombstoned deletes and internal notes for observers; photos, files, voice notes with waveforms and videos in a private bucket; live hints on private Realtime topics with typing and recording signals; pins, saved messages and reports; an outbox (push, transcripts, storage cleanup) worked by a server runner. A headless core, React hooks, and web and native renderers on Genesis UI.",
@@ -8576,7 +8728,7 @@
     {
       "id": "support-email",
       "name": "Support over email",
-      "summary": "Email is a support ticket channel (ADR 0011): mail to a support address or a ticket's reply address opens or continues the ticket, staff replies (in the app or support-chat) go back threaded through Resend, and one thread holds app and email.",
+      "summary": "Email is a support ticket channel (ADR 0011): mail to a support address or a ticket's reply address opens or continues the ticket, staff replies (in the app or support-chat) go back threaded through Resend, and one thread holds app and email. Reply by email: support's notification emails carry each recipient's own signed Reply-To, and the inbound route posts the stripped reply as that login (support_email_reply, migration 0027).",
       "category": "Support",
       "status": "building",
       "horizon": "now",
@@ -8606,7 +8758,10 @@
       "links": {
         "code": [
           "packages/support/migrations/0002_genesis_support_email.sql",
-          "packages/support/src/email.ts"
+          "packages/support/src/email.ts",
+          "packages/support/migrations/0027_genesis_support_email_reply.sql",
+          "packages/support/src/email-inbound.ts",
+          "packages/support/src/email-reply.ts"
         ],
         "docs": [
           "docs/adr/0011-support-email-tickets.md"

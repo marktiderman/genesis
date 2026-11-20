@@ -65,6 +65,10 @@
       "types": "./dist/email.d.ts",
       "import": "./dist/email.js"
     },
+    "./email-notifications": {
+      "types": "./dist/email-notifications.d.ts",
+      "import": "./dist/email-notifications.js"
+    },
     "./ai": {
       "types": "./dist/ai.d.ts",
       "import": "./dist/ai.js"
@@ -104,6 +108,7 @@
     "react-native-safe-area-context": ">=4.0.0",
     "zod": "^3.25.0 || ^4.0.0",
     "@marktiderman/genesis-core": "workspace:>=2.13.0 <3.0.0",
+    "@marktiderman/genesis-notifications": "workspace:>=0.4.4 <1.0.0",
     "lucide-react": "^1.0.0"
   },
   "peerDependenciesMeta": {
@@ -149,6 +154,9 @@
     "@marktiderman/genesis-core": {
       "optional": true
     },
+    "@marktiderman/genesis-notifications": {
+      "optional": true
+    },
     "lucide-react": {
       "optional": true
     }
@@ -158,6 +166,7 @@
     "@marktiderman/genesis-chat": "workspace:^",
     "@marktiderman/genesis-core": "workspace:^",
     "@marktiderman/genesis-native": "workspace:^",
+    "@marktiderman/genesis-notifications": "workspace:^",
     "@marktiderman/genesis-ui": "workspace:^",
     "@marktiderman/genesis-ui-native": "workspace:^",
     "@supabase/supabase-js": "^2.118.0",
@@ -261,6 +270,10 @@
           {
             "file": "migrations/0020_genesis_support_settings.sql",
             "test": "migrations/tests/0020_genesis_support_settings.test.sql"
+          },
+          {
+            "file": "migrations/0025_genesis_support_notifications.sql",
+            "test": "migrations/tests/0025_genesis_support_notifications.test.sql"
           },
           {
             "file": "migrations/0026_genesis_support_diagnostics_access.sql",
@@ -490,6 +503,10 @@
           {
             "file": "migrations/0017_genesis_support_help_answers.sql",
             "test": "migrations/tests/0017_genesis_support_help_answers.test.sql"
+          },
+          {
+            "file": "migrations/0024_genesis_support_desks.sql",
+            "test": "migrations/tests/0024_genesis_support_desks.test.sql"
           }
         ],
         "steps": [
@@ -535,6 +552,10 @@
           {
             "file": "migrations/0008_genesis_support_email_tenants.sql",
             "test": "migrations/tests/0008_genesis_support_email_tenants.test.sql"
+          },
+          {
+            "file": "migrations/0027_genesis_support_email_reply.sql",
+            "test": "migrations/tests/0027_genesis_support_email_reply.test.sql"
           }
         ],
         "steps": [
@@ -665,8 +686,7 @@
             "requires": [
               "support.inbox"
             ],
-            "planned": true,
-            "summary": "Planned (nothing reads it yet): The messenger (Home, Messages, Help) on web and phone."
+            "summary": "The messenger (Home, Messages, Help) on web and phone."
           },
           "agentDesk": {
             "type": "boolean",
@@ -678,8 +698,7 @@
             "requires": [
               "support.inbox"
             ],
-            "planned": true,
-            "summary": "Planned (nothing reads it yet): The staff side: the agent inbox on the web and the phone."
+            "summary": "The staff side: the agent inbox on the web and the phone."
           },
           "helpCenter": {
             "type": "boolean",
@@ -689,8 +708,7 @@
               "min": false
             },
             "scope": "tenant",
-            "planned": true,
-            "summary": "Planned (nothing reads it yet): Help articles in collections, searchable, with an admin editor."
+            "summary": "Help articles in collections, searchable, with an admin editor."
           },
           "aiAnswers": {
             "type": "boolean",
@@ -754,8 +772,7 @@
             ],
             "needs": "secret:SUPPORT_REPLY_SIGNING_SECRET",
             "store": "server-env",
-            "planned": true,
-            "summary": "Planned (nothing reads it yet): Reply by email: a signed Reply-To per recipient, quoted text stripped, auto-replies ignored."
+            "summary": "Reply by email: a signed Reply-To per recipient, quoted text stripped, auto-replies ignored."
           },
           "desks": {
             "type": "boolean",
@@ -767,8 +784,7 @@
             "requires": [
               "support.agentDesk"
             ],
-            "planned": true,
-            "summary": "Planned (nothing reads it yet): Desks: each tenant's own help desk, switched on per tenant, with escalate, return and move between desks."
+            "summary": "Desks: each tenant's own help desk, switched on per tenant, with escalate, return and move between desks."
           },
           "staffAlerts": {
             "type": "boolean",
@@ -777,16 +793,14 @@
               "standard": true,
               "min": false
             },
-            "planned": true,
-            "summary": "Planned (nothing reads it yet): Tell staff about a new report (the app's notifiers: email, push, webhook)."
+            "summary": "Tell staff about a new report (the app's notifiers: email, push, webhook)."
           },
           "githubRepo": {
             "type": "string",
             "default": null,
             "needs": "secret:GITHUB_TOKEN",
             "store": "edge",
-            "planned": true,
-            "summary": "Planned (nothing reads it yet): owner/name: open a GitHub issue for each new report. Not set, no issues."
+            "summary": "owner/name: open a GitHub issue for each new report. Not set, no issues."
           },
           "githubIssueDetail": {
             "type": "string",
@@ -795,28 +809,24 @@
               "summary",
               "full"
             ],
-            "planned": true,
-            "summary": "Planned (nothing reads it yet): What an issue carries: the summary only, or (private repositories only) the dump's detail too."
+            "summary": "What an issue carries: the summary only, or (private repositories only) the dump's detail too."
           },
           "webhookUrl": {
             "type": "string",
             "default": null,
             "needs": "secret:SUPPORT_WEBHOOK_SIGNING_SECRET",
             "store": "edge",
-            "planned": true,
-            "summary": "Planned (nothing reads it yet): A signed POST for each new report. Not set, no webhook."
+            "summary": "A signed POST for each new report. Not set, no webhook."
           },
           "contactEmail": {
             "type": "string",
             "default": null,
-            "planned": true,
-            "summary": "Planned (nothing reads it yet): Where people can write when the app can't help (shown in Help and on error screens)."
+            "summary": "Where people can write when the app can't help (shown in Help and on error screens)."
           },
           "contactUrl": {
             "type": "string",
             "default": null,
-            "planned": true,
-            "summary": "Planned (nothing reads it yet): A support page, shown beside the contact email."
+            "summary": "A support page, shown beside the contact email."
           },
           "agentListScan": {
             "type": "boolean",

@@ -49,6 +49,7 @@ export {
   WEBHOOK_HEADERS,
   messengerNotifier,
   notificationsNotifier,
+  supportNotifiersFromSettings,
   hmacSha256Hex,
   issueBody,
   issueDetail,

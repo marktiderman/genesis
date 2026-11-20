@@ -1866,6 +1866,9 @@ importers:
       '@marktiderman/genesis-native':
         specifier: workspace:^
         version: link:../native
+      '@marktiderman/genesis-notifications':
+        specifier: workspace:^
+        version: link:../notifications
       '@marktiderman/genesis-ui':
         specifier: workspace:^
         version: link:../ui
