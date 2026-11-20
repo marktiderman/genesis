@@ -326,7 +326,8 @@ describe("SupportMessenger", () => {
     show(fakeClient({ ticketsInTenant: vi.fn(async () => [ticket({ unread: true })]) }));
     const bar = await screen.findByTestId("genesis-support-messenger-space");
     expect(bar.getAttribute("data-slot")).toBe("tab-bar");
-    await waitFor(() => expect(screen.getByTestId("genesis-support-messenger-space-messages").getAttribute("aria-label")).toBe("Messages (1)"));
+    // The count is in the tab's accessible name, after its visible label (genesis-ui reads it from hidden text).
+    expect(await screen.findByRole("button", { name: "Messages (1)" })).toBe(screen.getByTestId("genesis-support-messenger-space-messages"));
     fireEvent.click(screen.getByTestId("genesis-support-messenger-space-messages"));
     expect(await screen.findByTestId("genesis-support-messenger-messages")).toBeTruthy();
   });
