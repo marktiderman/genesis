@@ -939,7 +939,7 @@ Exit codes: `0` pass, `1` findings, `2` the doctor couldn't run (bad config, Gen
 | `genesis-config-unknown-key` | warn | A top-level key in `genesis.config.json` that no Genesis tool reads (a typo such as `presets` or `setting`), which would otherwise do nothing, silently. The message names the closest known key. The known keys are a hand-kept list, `GENESIS_CONFIG_KEYS` in `src/doctor/settings.ts`: a block or tool that adds a top-level key adds it there in the same change, or every app using it gets this warning. |
 | `invalid-setting` | error / info | The settings layers against the settings catalogue the installed Genesis packages declare (package.json `genesis.settings`, the shape `defineSettings` takes): `genesis.config.json`'s `preset` and `settings`, and the database layer (`genesis_settings`) with `--database` or a linked project. **error**: a setting no installed package declares, a value that doesn't fit its key's type or bounds, a database row a lock or a scope refuses, a package declaration that can't be used, or two packages declaring the same key. **info**: the database layer couldn't be read. The file's shape (`namespace.key` names, a boolean `locked`, a known preset) is checked when the config is read, so a malformed one stops every command. |
 | `setting-requires` | warn | A key that is on while a key it `requires` is off, reported where that key's value comes from: `genesis.config.json`, or `genesis_settings` for a database row (a platform admin's, changed on the Settings screen). |
-| `setup-incomplete` | info | A key with a `setup` step or a secret it `needs` that isn't set yet (its default is `null`): the feature stays dormant, and the finding names the setting and secret to set (the guided `genesis setup --step <id>` comes with the setup wizard, not available yet). A `planned` key (declared, nothing reads it yet) is never reported. Nothing fails. |
+| `setup-incomplete` | info | A key with a `setup` step or a secret it `needs` that isn't set yet (its default is `null`): the feature stays dormant, and the finding names the setting and secret to set, and `genesis setup --step <id>`. A `planned` key (declared, nothing reads it yet) is never reported. Nothing fails. |
 | `secret-missing` | warn / info | A secret the app needs isn't in its store, checked by name only (never a value) through your own signed-in CLIs, only when the network is on. Needed: the secret of every settings key that is on (`needs`, in its `store`), and every secret a deployed Edge Function reads (`functions[].secrets` of a block whose function is in `supabase/functions/`), except one only dormant keys declare; a `planned` key (declared, nothing reads it yet) is always dormant. Stores: `edge` (`supabase secrets list`), `vault` (`vault.secrets` names through `supabase db query --linked`, which goes through the Management API), `ci` (`gh secret list`, in `release.environment` when the app has a release lane; and `eas env:list` when it has `eas.json`), `server-env` (can't be read). **info**: a store that couldn't be checked (a tool missing or signed out, the app not linked). |
 | `genesis-eslint-config` | warn | A native app (with `expo` or `react-native`, or the `native` pack) whose ESLint flat config doesn't load [`@marktiderman/genesis-cli/eslint`](#lint-rules), so `genesis upgrade` can't bring Genesis's lint rules; or loads it without `eslint-plugin-testing-library` in package.json, so the config can't load. The message gives the fix: `genesis codemod genesis-cli-eslint-config`, or the two lines to add. Web apps (Genesis has no web lint rules yet) and apps without a flat config aren't checked. Ratcheted by default: under `--base`, an unchanged config reports it as `info`. |
 | `migration-pending` | warn | A package migration of one of the app's blocks (`genesis.lock.json`) that isn't in the app yet, as `genesis migrate --dry-run` reports it: the database the app deploys lacks what the installed package needs. Fix: `migrate.copy` (`genesis migrate`). An app whose lock lists no blocks, or whose database files live in another app, isn't checked. |
@@ -1664,8 +1664,9 @@ wizard shows them with their fixes and walks you through them.
   (`<GenesisSettings>` from `@marktiderman/genesis-config/settings/react`, the one an app's platform
   admin mounts too) on its Health tab, with the Values, Secrets and Upgrades tabs beside it, and the
   **Guided steps**: every `setup` step the installed packages' settings name (`github.issues`, …),
-  the keys each configures, the secrets they need and whether they are set. `--step <id>` opens on
-  one.
+  the keys each configures, the secrets they need and whether they are set, plus `supabase.link`
+  and `eas.push` when the app has a `supabase/` folder or an `eas.json`. A step with a runner
+  (below) has **Start**, **Run** and **Check**.
 - **`genesis init`** with no name, at a terminal, opens it on an empty folder: **App** (slug, name,
   bundle id, folder), **Preset** (max, the default, needs no configuration), **Packages** (the
   starter's feature switches) and **Review** (every file it writes). It makes the same app as
@@ -1702,7 +1703,8 @@ wizard shows them with their fixes and walks you through them.
   `Sec-Fetch-Site: cross-site` is refused outright.
 - **JSON only**, up to 1 MB (past that it answers 413 and drops the connection), at
   `POST /api {v, op, …}` (the settings protocol's ops, plus the wizard's `wizard.info`,
-  `settings.plan`, `init.plan`, `install.plan`, `plan.file` and `step.list`). No CORS headers; a CSP of
+  `settings.plan`, `init.plan`, `install.plan`, `plan.file`, `step.list`, `step.start`,
+  `step.submit` and `step.verify`). No CORS headers; a CSP of
   `default-src 'self'` with inline styles allowed (the dialogs position themselves with them) and no
   inline script; nothing cached. `GET /events` streams a fix's output, redacted.
 - It stops on Ctrl-C, or after 30 minutes without a request.
@@ -1712,7 +1714,8 @@ and turns `--without` switches off, each as a plan; applies every automatic fix 
 findings name (except `upgrade.release`, which opens a pull request: it is listed); and prints the
 rest: `genesis fix <id>` for each guided fix, and the dormant checklist, `genesis setup --step <id>`
 for each setup step not done. A dormant feature fails nothing. It exits 0, or 1 when a fix it
-applied failed or didn't verify. With `--step <id>` it prints that step's checklist only.
+applied failed or didn't verify. With `--step <id>` it prints that step's checklist only (or, for
+a step no package names, its instructions).
 
 Without `--yes` and without a terminal (a script, or CI: with `CI` set, even a pseudo-terminal
 doesn't open the wizard), it applies nothing, as `genesis fix` doesn't
@@ -1721,12 +1724,36 @@ and exits 1 when there is anything to apply. `--preset` and `--without` never im
 terminal they need it (`genesis init` with no name in an empty folder takes them as the wizard's
 starting choices instead).
 
-**Planned** (`setup-wizard`): each guided step's runner, which walks the outside service and
-verifies it live (link Supabase, a GitHub token, a Resend domain, Sentry, an AI key, EAS push), the
-Brand and Data screens, and Fix with Claude. Until a step's runner arrives, it is set up by its
-keys and secrets in the wizard, and `step.start`, `step.submit` and `step.verify` answer
-`unsupported`. `genesis setup --step <id>` reports a step's settings as set; its secret is checked
-by `genesis doctor` online, and the step stays on the checklist while the doctor says it is missing.
+**Guided steps.** Each walks one outside service and ends with a live check, or stays open.
+`genesis setup --step <id>` at a terminal runs one there; the wizard's Guided steps tab runs the
+same runner. A step is declared with `defineSetupStep` (`@marktiderman/genesis-config/setup`): what
+to do in the service, the values it asks for, the secrets it needs by name, and links.
+
+1. The instructions and links, and what is there now (`step.start`: the Supabase project list, a
+   dry run of the migrations).
+2. The step's values (never a secret), checked against their patterns. A value that a package's
+   setting names this step for is saved to `genesis.config.json` in the same plan.
+3. The plan (`step.submit`), approved by its hash. Each secret it needs is typed in then (hidden at
+   a terminal, a password field in the wizard), held in memory for that run and sent to your
+   signed-in CLI on stdin only, as `genesis fix secrets.set` does; a request to the service carries
+   it in a header. Never argv, a URL, a log line or an answer.
+4. Apply through the [fix engine](#genesis-fix), then the test call. **Check** (`step.verify`)
+   runs it again later; a check that needs a secret asks for it again, since none is kept.
+
+| Step | Runs | Checks |
+|---|---|---|
+| `supabase.link` | `supabase link --project-ref`, `db push`, `functions deploy` for each function in `supabase/functions` | no migration pending, every function deployed |
+| `github.issues` | `GITHUB_TOKEN` to the Edge Function secrets | the token reads the repository, with issues on |
+| `resend.domain` | `RESEND_API_KEY` to the Edge Function secrets; the domain added to Resend (or found) and its DNS records shown | Resend says the domain is `verified` |
+| `sentry` | `SENTRY_AUTH_TOKEN` through `gh secret set`; the `eas env:create` line for you to run | the token reads the project; a test event reaches the DSN, when given |
+| `ai.key-budget` | `ANTHROPIC_API_KEY` to the Edge Function secrets; the budget as a setting | `GET /v1/models` (spends no tokens) |
+| `eas.push` | nothing: a manual step (`eas credentials` asks its own questions) | the EAS CLI is signed in; then a test push to a device build |
+
+`eas env:create` takes a secret only as a flag or a prompt, never stdin, so an EAS secret is always
+a line you run yourself. If `supabase db push` asks for the database password, set
+`SUPABASE_DB_PASSWORD` in the shell you start `genesis` from.
+
+**Planned** (`setup-wizard`): the Brand and Data screens, and Fix with Claude.
 
 ## genesis mcp
 
