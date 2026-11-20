@@ -358,21 +358,21 @@ export interface SupportClient extends FeedbackSink {
   reporters?(ids: readonly string[]): Promise<SupportReporter[]>;
   /** Agents: the tenants (with the app's label) a requester belongs to, for the details panel. Needs migration 0022. */
   requesterTenants?(personId: string): Promise<RequesterTenant[]>;
-  /** The help desks the signed-in person works: the app's own, and each tenant's they admin or are an agent of. Needs migration 0024. */
+  /** The help desks the signed-in person works: the app's own, and each tenant's they admin or are an agent of. Needs migration 0029. */
   myDesks?(): Promise<SupportDesk[]>;
-  /** Tenant admins: turn the tenant's own help desk on or off (kept in its log, with `reason`). Needs migration 0024. */
+  /** Tenant admins: turn the tenant's own help desk on or off (kept in its log, with `reason`). Needs migration 0029. */
   setDesk?(tenantId: string, enabled: boolean, reason?: string | null): Promise<void>;
-  /** A ticket's handlers: where it is, whether it can go up or back, and its last move; null for anyone else. Needs migration 0024. */
+  /** A ticket's handlers: where it is, whether it can go up or back, and its last move; null for anyone else. Needs migration 0029. */
   ticketDesk?(ticketId: string): Promise<TicketDesk | null>;
-  /** A ticket's handlers: the desks it can be moved to. Needs migration 0024. */
+  /** A ticket's handlers: the desks it can be moved to. Needs migration 0029. */
   deskMoveTargets?(ticketId: string): Promise<DeskTarget[]>;
-  /** A desk's handler sends the ticket up to the app's own desk. Needs migration 0024. */
+  /** A desk's handler sends the ticket up to the app's own desk. Needs migration 0029. */
   escalateTicket?(ticketId: string, reason?: string | null): Promise<void>;
-  /** The app's own desk hands an escalated ticket back to the desk that sent it up. Needs migration 0024. */
+  /** The app's own desk hands an escalated ticket back to the desk that sent it up. Needs migration 0029. */
   returnTicket?(ticketId: string, reason?: string | null): Promise<void>;
-  /** A handler moves the ticket to another desk its person belongs to (one of `deskMoveTargets`). Needs migration 0024. */
+  /** A handler moves the ticket to another desk its person belongs to (one of `deskMoveTargets`). Needs migration 0029. */
   moveTicket?(ticketId: string, tenantId: string, reason?: string | null): Promise<void>;
-  /** A desk's agents: its log (switched on or off, tickets in and out), newest first. Null is the app's own. Needs migration 0024. */
+  /** A desk's agents: its log (switched on or off, tickets in and out), newest first. Null is the app's own. Needs migration 0029. */
   deskHistory?(options?: { tenantId?: string | null; limit?: number }): Promise<DeskLogEntry[]>;
   /**
    * The person's answer once a report is marked addressed: fixed (confirmed) or not (reopened).
@@ -428,7 +428,7 @@ export interface SupportReporter extends SupportPerson {
 export interface RequesterTenant {
   tenantId: string;
   label: string | null;
-  /** How they are there (migration 0024): the app's `private.genesis_tenant_role` answer ("Owner", "Client"), else `admin`, `agent` or `member`; absent before 0024. */
+  /** How they are there (migration 0029): the app's `private.genesis_tenant_role` answer ("Owner", "Client"), else `admin`, `agent` or `member`; absent before 0029. */
   role?: string | null;
 }
 

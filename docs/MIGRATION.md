@@ -11,6 +11,45 @@ This file is appended to (never rewritten) at every release. Newest version on t
 
 ---
 
+## Support settings: one resolver, renumbered migrations, deprecated hooks — `@marktiderman/genesis-support` (migrations 0029 to 0034), `@marktiderman/genesis-supabase` (`0023_genesis_settings_tenant_person.sql`), `@marktiderman/genesis-config` (**minor**)
+
+🟡 **Support's unreleased migrations are renumbered after 0028**, so an app that already applied 0026
+and 0028 applies them in order: `0029_genesis_support_desks.sql` (was 0024),
+`0030_genesis_support_notifications.sql` (was 0025), `0031_genesis_support_email_reply.sql` (was
+0027) and `0032_genesis_support_staff_admin_list.sql` (was 0029). Only apps that copied them from a
+pre-release build need to act: rename your copies' files to match, or let `genesis migrate` copy them.
+
+🟡 **Write the manifest again on deploy** (`genesis settings sync`). The catalogue now carries each
+key's `defaults` by preset; genesis-supabase 0023's `private.genesis_setting(key, tenant)` resolves a
+setting on the server from them (default, preset, file, database, then a tenant-scoped key's tenant
+value, with locks), as `resolveSettings` does. Support's server gates read it, so a tenant's
+`support.helpCenter` now closes that tenant's help center on the server, not only on screen. Until
+the manifest is written again, a key with no `defaults` starts from null and the gates stay on.
+
+🟡 **Deprecated, still honored for one release** (support 0030, 0033, 0034):
+
+- `private.genesis_support_verify_prompt_enabled()`: set `support.verifyPrompt` to true instead.
+- `private.genesis_support_setting_int` and `private.genesis_support_setting_bool`: call
+  `private.genesis_setting(key, tenant)`. 0020's `_layers`, `_fits` and `_value` are dropped.
+- An app's own `private.genesis_support_person_name` or `private.genesis_support_tenant_label`:
+  define `private.genesis_person_name(person)` and `private.genesis_tenant_label(tenant)`, which
+  support asks first.
+
+🔴 **`private.genesis_support_requester_label(report)` is no longer called** (support 0034, the
+support-chat block). Define the set-based hook instead; the one-ticket hook can be its body:
+
+```sql
+create function private.genesis_support_requester_labels(reports uuid[])
+returns table (report_id uuid, label text) language sql stable set search_path = '' as $$
+  select r, private.genesis_support_requester_label(r) from unnest(reports) r
+$$;
+revoke execute on function private.genesis_support_requester_labels(uuid[]) from public, anon, authenticated;
+```
+
+🟢 `support.email` is no longer marked planned (the inbound route reads it). The `sentry` and
+`ai.key-budget` setup steps no longer offer to save a setting nothing reads; `github.issues` saves
+the repository to `support.githubRepo`.
+
 ## Settings: tenant and person values, Realtime refresh — `@marktiderman/genesis-supabase` (migration `0023_genesis_settings_tenant_person.sql`), `@marktiderman/genesis-config` (settings protocol) (**minor**)
 
 🟡 **To get tenant and person values, apply migration 0023** (`genesis migrate` copies it), if your

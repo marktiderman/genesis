@@ -1,5 +1,5 @@
 -- @feat:support-helpdesk
--- Genesis support 0024: desks, each tenant's own help desk (after 0004_genesis_support_tickets.sql
+-- Genesis support 0029: desks, each tenant's own help desk (after 0004_genesis_support_tickets.sql
 -- and 0022_genesis_support_staff_tools.sql; 0005 and 0006, the support-chat block, are optional).
 --
 -- 0004 gave every ticket a tenant and every tenant its agents, and let a business take tickets
@@ -29,8 +29,10 @@
 --                   keeps its tenant" lets only these move one, each for its own ticket.
 --   requesters      0022's support_requester_tenants gains each tenant's `role` for the person
 --                   (the app's private.genesis_tenant_role hook, else admin, agent or member).
---   settings        support.agentDesk off refuses every agent read (0009's inbox check);
---                   support.helpCenter off refuses the help center's reads (0010's checks);
+--   settings        read through genesis-supabase's private.genesis_setting (0023), as the screens
+--                   resolve them. support.agentDesk off refuses every agent read (0009's inbox
+--                   check); support.helpCenter off (for the app, or a tenant's own value) refuses
+--                   that tenant's help center reads (0010's checks);
 --                   support.desks needs support.agentDesk. support.messenger has no data of its
 --                   own: the messenger reads the person's tickets and the help center, each gated.
 --   the inbox       support_my_desks (the desks the signed-in login works, for a desk picker),
@@ -38,91 +40,79 @@
 --                   move) and support_desk_move_targets (where it can be moved).
 --
 -- Desks' names come from 0022's private.genesis_tenant_label hook; the app's own desk has none
--- (the client names it). Notifying a desk's agents of a moved ticket is 0025's.
+-- (the client names it). Notifying a desk's agents of a moved ticket is 0030's.
 --
 -- Use: copy this file into your app's `supabase/migrations/` under a new timestamped name
 -- (`genesis migrate` does it). Never edit it once applied; change it with a new migration.
 --
--- Verify: the pgTAP test beside this file (`tests/0024_genesis_support_desks.test.sql`).
+-- Verify: the pgTAP test beside this file (`tests/0029_genesis_support_desks.test.sql`).
 
 create schema if not exists private;
 
--- Settings, by preset ------------------------------------------------------------------------------
+-- Settings ---------------------------------------------------------------------------------------
 
--- A boolean setting: 0020's reader (genesis_support_setting_bool: locked in the file > the
--- database > the file, a value of the wrong type skipped), with the preset's default as its
--- fallback (the manifest's preset, `max` without one). Without 0020, the preset's default.
-create or replace function private.genesis_support_setting_on(setting_key text, on_max boolean, on_standard boolean, on_min boolean)
+-- Each switch is read through genesis-supabase's one resolver, private.genesis_setting (0023: the
+-- preset's default from the synced catalogue, the file, the database, and a tenant-scoped key's
+-- tenant value, with locks), so the server and the screens agree. Without it, or before the
+-- manifest is synced, on: zero config is the max preset.
+
+-- support.agentDesk (app-wide). The agent's reads (0009's inbox tenant) refuse while it is off.
+create or replace function private.genesis_support_agent_desk_on()
 returns boolean
 language plpgsql
 stable
 security definer
 set search_path = ''
 as $$
-declare
-  preset text;
-  fallback boolean;
 begin
-  if to_regclass('public.genesis_app_manifest') is not null then
-    begin
-      execute 'select m.preset from public.genesis_app_manifest m limit 1' into preset;
-    exception when others then
-      preset := null;
-    end;
+  if to_regprocedure('private.genesis_setting(text,uuid)') is null then
+    return true;
   end if;
-  fallback := case coalesce(preset, 'max') when 'standard' then on_standard when 'min' then on_min else on_max end;
-  if to_regprocedure('private.genesis_support_setting_bool(text,boolean)') is null then
-    return fallback;
-  end if;
-  return coalesce(private.genesis_support_setting_bool(setting_key, fallback), fallback);
+  return private.genesis_setting('support.agentDesk') is distinct from 'false'::jsonb;
 end;
 $$;
 
-revoke execute on function private.genesis_support_setting_on(text, boolean, boolean, boolean) from public, anon, authenticated;
-
--- support.agentDesk: max and standard on, min off. The agent's reads (0009's inbox tenant) refuse
--- while it is off.
-create or replace function private.genesis_support_agent_desk_on()
+-- support.helpCenter, for a tenant (it is tenant-scoped): 0010's reads refuse while it is off.
+create or replace function private.genesis_support_help_center_on(tenant uuid default null)
 returns boolean
-language sql
+language plpgsql
 stable
 security definer
 set search_path = ''
 as $$
-  select private.genesis_support_setting_on('support.agentDesk', true, true, false)
+begin
+  if to_regprocedure('private.genesis_setting(text,uuid)') is null then
+    return true;
+  end if;
+  return private.genesis_setting('support.helpCenter', tenant) is distinct from 'false'::jsonb;
+end;
 $$;
 
--- support.helpCenter: max and standard on, min off. 0010's reads refuse while it is off.
-create or replace function private.genesis_support_help_center_on()
-returns boolean
-language sql
-stable
-security definer
-set search_path = ''
-as $$
-  select private.genesis_support_setting_on('support.helpCenter', true, true, false)
-$$;
-
--- support.desks: max on, standard and min off; and it needs support.agentDesk.
+-- support.desks (app-wide), which needs support.agentDesk.
 create or replace function private.genesis_support_desks_on()
 returns boolean
-language sql
+language plpgsql
 stable
 security definer
 set search_path = ''
 as $$
-  select private.genesis_support_setting_on('support.desks', true, false, false) and private.genesis_support_agent_desk_on()
+begin
+  if to_regprocedure('private.genesis_setting(text,uuid)') is null then
+    return true;
+  end if;
+  return private.genesis_setting('support.desks') is distinct from 'false'::jsonb and private.genesis_support_agent_desk_on();
+end;
 $$;
 
 revoke execute on function private.genesis_support_agent_desk_on() from public, anon, authenticated;
-revoke execute on function private.genesis_support_help_center_on() from public, anon, authenticated;
+revoke execute on function private.genesis_support_help_center_on(uuid) from public, anon, authenticated;
 revoke execute on function private.genesis_support_desks_on() from public, anon, authenticated;
 
 -- An app that already has tables by these names (its own desks) stops here, with what to do.
 do $$
 begin
   if to_regclass('public.support_desks') is not null or to_regclass('public.support_desk_log') is not null then
-    raise exception 'genesis support 0024: public.support_desks or public.support_desk_log already exists (an app''s own desks?). Rename or move yours (and its functions: support_set_desk, support_escalate_ticket, support_return_ticket, support_my_desks, support_ticket_desk), then run this migration; see its header.';
+    raise exception 'genesis support 0029: public.support_desks or public.support_desk_log already exists (an app''s own desks?). Rename or move yours (and its functions: support_set_desk, support_escalate_ticket, support_return_ticket, support_my_desks, support_ticket_desk), then run this migration; see its header.';
   end if;
 end;
 $$;
@@ -845,7 +835,7 @@ stable
 security definer
 set search_path = ''
 as $$
-  select private.genesis_support_help_center_on() and public.support_in_tenant(tenant) and private.genesis_support_helpdesk_on(tenant)
+  select private.genesis_support_help_center_on(tenant) and public.support_in_tenant(tenant) and private.genesis_support_helpdesk_on(tenant)
 $$;
 
 create or replace function private.genesis_support_help_access(tenant uuid, out resolved uuid, out agent boolean, out readable boolean)
@@ -856,7 +846,7 @@ set search_path = ''
 as $$
 begin
   resolved := coalesce(tenant, private.genesis_support_default_tenant_id());
-  agent := private.genesis_support_help_center_on() and private.genesis_support_agent(resolved, auth.uid());
+  agent := private.genesis_support_help_center_on(resolved) and private.genesis_support_agent(resolved, auth.uid());
   readable := agent or public.support_help_readable(resolved);
 end;
 $$;
@@ -865,7 +855,7 @@ revoke execute on function private.genesis_support_help_access(uuid) from public
 revoke execute on function public.support_help_readable(uuid) from public, anon;
 grant execute on function public.support_help_readable(uuid) to authenticated, service_role;
 
--- 0025's notification of a moved ticket, when 0025 came first (it makes this trigger itself after 0024).
+-- 0030's notification of a moved ticket, when 0030 came first (it makes this trigger itself after 0029).
 do $$
 begin
   if to_regprocedure('private.genesis_support_moved_notify()') is not null then

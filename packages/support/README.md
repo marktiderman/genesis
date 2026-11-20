@@ -37,26 +37,31 @@ Every support option is a Genesis setting (`@marktiderman/genesis-config`'s
 `messenger`, `agentDesk`, `helpCenter`, `aiAnswers`, `ideas`, `chatThreads`, `email`,
 `replyByEmail`, `desks`, `staffAlerts`; the form's `screenshots`, `pins` and `severity`; the
 GitHub sink's `githubRepo` and `githubIssueDetail`, `webhookUrl`, `contactEmail`, `contactUrl`,
-`replyExpectation`), `diagnostics.*` (`enabled`, `dumpOnShake`, `dumpOnFeedback`,
+`replyExpectation`, `verifyPrompt`), `diagnostics.*` (`enabled`, `dumpOnShake`, `dumpOnFeedback`,
 `sendFromSettings`, `offlineQueue`, `maxBytes`, `perHour`, `retentionDays`) and `shake.*`
 (`enabled`, a person's own switch, and `threshold`, `jolts`, `windowMs`, `cooldownMs`). Each has a
 default per preset. Keys whose summary says **Planned** are declared, with their defaults, but no
-screen or function reads them yet (`aiAnswers`, `chatThreads`, and `email` as a channel switch):
-changing one changes nothing until it's wired. The rest are read where they apply:
+screen or function reads them yet (`aiAnswers`, `chatThreads`): changing one changes nothing until
+it's wired. The rest are read where they apply. The database's own gates read them through
+genesis-supabase's `private.genesis_setting(key, tenant)` (migration 0023), the server's copy of
+`resolveSettings` with the tenant layer, so a tenant's `support.helpCenter` closes its help center on
+the server as on screen (migration 0029):
 
 - `support.messenger`: `SupportMessenger` and its launcher (`settings`) show nothing when off; on
   the phone `SupportRoute` leaves out the messenger's Home and new message.
 - `support.helpCenter`: the messenger leaves Help out; `SupportRoute` leaves out help and articles.
 - `support.agentDesk`: `SupportAgentInbox` says the agent desk is off; `SupportRoute` leaves out
   `agent` and `agent/<id>`.
-- `support.desks`: migration 0024 (desks off is 0004's rule), and the desk card, picker and switch.
-- `support.staffAlerts`: migration 0025 (no `support.message` to staff), the notify Edge Function and
+- `support.desks`: migration 0029 (desks off is 0004's rule), and the desk card, picker and switch.
+- `support.staffAlerts`: migration 0030 (no `support.message` to staff), the notify Edge Function and
   `supportNotifiersFromSettings` (no webhook).
 - `support.githubRepo`, `support.githubIssueDetail`, `support.webhookUrl`: the notify Edge Function
   and `supportNotifiersFromSettings` (`/server`) when the environment doesn't set them; the
   tokens and signing secrets stay in the environment.
 - `support.replyByEmail` (with `support.email`): `supportReplyConfig`, `supportEmailOptions` and
   `handleSupportInbound`.
+- `support.email`: `supportReplyConfig` (reply by email) is off while it is off.
+- `support.verifyPrompt`: migration 0033 (the verify prompt; see below).
 - `support.contactEmail`, `support.contactUrl`: `supportContact(settings)`; the messenger's Help and
   error states (`SupportContact`), the phone's help center (`SupportContactRow`), and
   genesis-native's fatal screens through `contact: support.contact()`.
@@ -103,10 +108,10 @@ is made or sent, and `createDiagnosticsHandler` reads its function (it may be as
 without its dump. The rest (the idea board, the Settings rows, shake thresholds, the offline
 queue) is read when support is created. `diagnostics.maxBytes` goes up to 512 KB, the most the
 database stores. The database reads two of them itself (migration
-`0020_genesis_support_settings.sql`, and `0028_genesis_support_diagnostics_fixes.sql`, which reads
-`10.0` as 10): the dumps a person may send an hour (`diagnostics.perHour`) and how long a dump is
-kept (`diagnostics.retentionDays`), from genesis-supabase's settings tables when they're there,
-else 10 and 90 as before.
+`0020_genesis_support_settings.sql`, read through genesis-supabase's `private.genesis_setting` since
+`0033_genesis_support_settings_resolver.sql`): the dumps a person may send an hour
+(`diagnostics.perHour`) and how long a dump is kept (`diagnostics.retentionDays`), from
+genesis-supabase's settings when they're there, else 10 and 90 as before.
 
 A shake makes a dump at once and hands it to the feedback screen it opens: sent with the report
 (one dump, linked both ways), or on its own when the person leaves without sending one (or after
@@ -128,7 +133,7 @@ a dump with no ticket, support staff. The short-id lookup follows the same rule.
   `create or replace` before 0023 runs keeps its own body, so it is kept.
 - **Staff** are the app's platform admins (genesis-supabase's `private.genesis_platform_admin`, or,
   without that hook, the people in genesis-supabase 0022's `genesis_platform_admins` list), asked in
-  Genesis's own wrapper (0023, 0029); without either nobody is staff.
+  Genesis's own wrapper (0023, 0032); without either nobody is staff.
 - **No viewer-people default.** `private.genesis_viewer_people` is the tenancy boundary chat, work
   and entitlements read, so Genesis never defines it. Without it a ticket goes to the app's own desk,
   and organisations' help desks stay closed until the app defines it.
@@ -698,11 +703,11 @@ is web only, like the inbox before it:
   (`client.savedReplies`, `saveSavedReply`, `deleteSavedReply`).
 - **Reports.** `<SupportAgentReports>` (`client.agentReport`, `support_agent_report`): opened,
   closed, median first response and time to close over a range of days, open now, and open by
-  the requester's company when you define a label hook. Prefer the set-based
+  the requester's company when you define the label hook
   `private.genesis_support_requester_labels(reports uuid[]) returns table (report_id uuid, label
-  text)`, called once for every open ticket (0015). With only the one-ticket
-  `private.genesis_support_requester_label(report)`, the report labels the 1,000 most recently
-  changed open tickets and says so (`byRequesterCapped`).
+  text)`, called once for every open ticket (0015). Since 0034 the one-ticket
+  `private.genesis_support_requester_label(report)` is no longer asked (docs/MIGRATION.md shows the
+  one-line set-based hook that wraps it); `byRequesterCapped` is always false.
 
 ```tsx
 import { SupportAgentReports, SupportSavedRepliesAdmin } from "@marktiderman/genesis-support/web-chat";
@@ -883,9 +888,9 @@ Unassigned, All, Pending, Closed with counts, paged) and `useAgentThread(ticketI
 props: reply or internal note, status, take it / hand it back, the requester's name, email and
 tenants; it marks the ticket read). Query keys are `supportAgentKeys`.
 
-## Desks: each tenant's own help desk (migration 0024)
+## Desks: each tenant's own help desk (migration 0029)
 
-`0024_genesis_support_desks.sql` (in the `support-helpdesk` block, after 0022) makes a tenant's
+`0029_genesis_support_desks.sql` (in the `support-helpdesk` block, after 0022) makes a tenant's
 help desk something its admins run, and lets a ticket move between desks:
 
 - **The switch.** `client.setDesk(tenantId, enabled, reason)` (its tenant admins only, never the
@@ -914,9 +919,9 @@ help desk something its admins run, and lets a ticket move between desks:
 With the `support.desks` setting off (the `standard` and `min` presets) it is 0004 exactly:
 `tenant_features` alone decides, and nothing is switched, routed or moved.
 
-## Notifications: support.message, support.reply, support.verify (migration 0025)
+## Notifications: support.message, support.reply, support.verify (migration 0030)
 
-`0025_genesis_support_notifications.sql` (in the support block) tells people through
+`0030_genesis_support_notifications.sql` (in the support block) tells people through
 genesis-notifications' `genesis_notify`, with no code of the app's own:
 
 - **`support.message`** to the ticket's desk's agents: a new ticket, the person writing again, a
@@ -1009,7 +1014,7 @@ that the sender is that login's email with DMARC passing (aligned with the From 
 `REPLY_MARKER` line or their signature. Auto-replies are already dropped by genesis-notifications'
 inbound router.
 
-**Wired end to end** (migration `0027_genesis_support_email_reply.sql`, in the support-email block,
+**Wired end to end** (migration `0031_genesis_support_email_reply.sql`, in the support-email block,
 and `/email-notifications`, which imports genesis-notifications; `/email` doesn't):
 
 ```ts
@@ -1058,15 +1063,9 @@ feature id, vote counts and read receipts are the server's. See the migration's 
   support-chat thread, so internal notes stay staff-only.
 - The verify loop: `support_verify_report` lets the person confirm a fix (`verified_at`) or reopen
   the report (`in_progress`, `reopened_at`). Addressed and wont_fix stamp `resolved_at`.
-- The verify prompt, off by default. Turn it on with your hook:
-
-  ```sql
-  create function private.genesis_support_verify_prompt_enabled() returns boolean
-  language sql stable set search_path = '' as $$ select true $$;
-  revoke execute on function private.genesis_support_verify_prompt_enabled() from public, anon, authenticated;
-  ```
-
-  Then when someone else marks a report addressed, its person is asked in the thread to check the
+- The verify prompt, off by default. Turn it on with the `support.verifyPrompt` setting (migration
+  0033). The older hook `private.genesis_support_verify_prompt_enabled()` returning true still turns
+  it on for one release (deprecated). Then when someone else marks a report addressed, its person is asked in the thread to check the
   fix (once an hour at most; the reply has `prompt = 'verify'` and isn't counted against anyone's
   limit). It is a staff reply: it marks the report unread for its person, ends their editing, and
   with support-chat is pushed as the marker's message. If it can't be posted, the status change

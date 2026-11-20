@@ -15,7 +15,7 @@
   tenant admin list hooks (`genesis_support_staff_list()`, `genesis_tenant_admin_list(tenant)`),
   never a scan of every login; notifications carry the ticket's tenant.
 - `senderAuthenticated` trusts DMARC only (a DKIM pass from another domain isn't the sender).
-  `support_email_reply` keeps Message-IDs 60 days. 0024 and 0027 stop with a clear message over an
+  `support_email_reply` keeps Message-IDs 60 days. 0029 and 0031 stop with a clear message over an
   app's own `support_desks` or `support_email_reply`.
 - From CodeRabbit's review: switching a desk is serialized; escalation history follows the log's
   own order; `support.agentDesk` off also empties `support_my_desks` and the desk card; names that

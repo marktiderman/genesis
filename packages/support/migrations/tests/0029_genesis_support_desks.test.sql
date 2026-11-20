@@ -1,5 +1,5 @@
 -- @feat:support-helpdesk
--- pgTAP test for 0024_genesis_support_desks.sql: a tenant's admin turns its desk on, a question
+-- pgTAP test for 0029_genesis_support_desks.sql: a tenant's admin turns its desk on, a question
 -- with no tenant goes to the sender's one desk that is on, a ticket goes up to the app's own desk
 -- and back, each move logged, and the support.desks setting off is 0004 exactly. Rolls back.
 --
@@ -8,7 +8,7 @@
 -- settings tables (0020) and support 0020's readers.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(58);
+select plan(61);
 
 create function pg_temp.person(n text) returns uuid language sql immutable as $$
   select ('00000000-0000-4000-8000-0000000024' || n)::uuid $$;
@@ -215,8 +215,10 @@ values ('00000000-0000-4000-8000-0000000000c0', (select id from t where name = '
 select is(private.genesis_support_returns_to((select id from t where name = 'e4b')), '00000000-0000-4000-8000-0000000000b0'::uuid,
   'the desk that sent it up last, by the log''s order');
 
--- 5. The settings, in the database (genesis-config's tables, support 0020's reader) ----------------
+-- 5. The settings, through genesis-supabase's resolver (private.genesis_setting, 0023) ----------------
 
+-- The synced catalogue (writeAppManifest): the keys and their defaults by preset.
+insert into public.genesis_app_manifest (app_id, catalogue) values ('desks-test', '{"support.agentDesk": {"type": "boolean", "applies": "runtime", "scope": "app", "defaults": {"max": true, "standard": true, "min": false}}, "support.helpCenter": {"type": "boolean", "applies": "runtime", "scope": "tenant", "defaults": {"max": true, "standard": true, "min": false}}, "support.desks": {"type": "boolean", "applies": "runtime", "scope": "app", "defaults": {"max": true, "standard": false, "min": false}}}');
 insert into public.genesis_settings (key, value) values ('support.agentDesk', 'false');
 select pg_temp.sign_in('b2');
 set local role authenticated;
@@ -234,6 +236,18 @@ select is(public.support_help_readable('00000000-0000-4000-8000-00000000000f'), 
 reset role;
 delete from public.genesis_settings where key = 'support.helpCenter';
 
+-- support.helpCenter is tenant-scoped: a tenant's own value turns its help center off, and only its.
+insert into public.genesis_tenant_settings (tenant_id, key, value) values ('00000000-0000-4000-8000-00000000000f', 'support.helpCenter', 'false');
+select pg_temp.sign_in('a1');
+set local role authenticated;
+select is(public.support_help_readable('00000000-0000-4000-8000-00000000000f'), false, 'a tenant''s own support.helpCenter false closes its help center on the server');
+reset role;
+select is(private.genesis_support_help_center_on('00000000-0000-4000-8000-0000000000b0'), true, 'another tenant''s stays on');
+insert into public.genesis_settings (key, value, locked) values ('support.helpCenter', 'true', true);
+select is(private.genesis_support_help_center_on('00000000-0000-4000-8000-00000000000f'), true, 'a lock in the database layer holds over the tenant''s value');
+delete from public.genesis_settings where key = 'support.helpCenter';
+delete from public.genesis_tenant_settings where key = 'support.helpCenter';
+
 insert into public.genesis_settings (key, value) values ('support.desks', 'false');
 select is(private.genesis_support_desks_on(), false, 'support.desks false in genesis_settings turns desks off');
 select is(private.genesis_support_helpdesk_on('00000000-0000-4000-8000-0000000000b0'), false, 'desks off: a desk row counts for nothing');
@@ -248,8 +262,7 @@ select throws_ok($$select public.support_set_desk('00000000-0000-4000-8000-00000
 reset role;
 delete from public.genesis_settings where key = 'support.desks';
 update public.genesis_app_manifest set preset = 'standard';
-insert into public.genesis_app_manifest (app_id, preset) select 'desks-test', 'standard' where not exists (select 1 from public.genesis_app_manifest);
-select is(private.genesis_support_desks_on(), false, 'the standard preset has desks off');
+select is(private.genesis_support_desks_on(), false, 'the standard preset has desks off (its default in the synced catalogue)');
 
 select ok(not has_function_privilege('anon', 'public.support_set_desk(uuid, boolean, text)', 'execute'), 'anon can''t switch a desk');
 select ok(not has_function_privilege('authenticated', 'private.genesis_support_move(uuid, uuid, text, text)', 'execute'), 'nor move a ticket by the back door');
