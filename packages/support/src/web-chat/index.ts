@@ -9,9 +9,7 @@
  *
  * Needs `@marktiderman/genesis-chat` (an optional peer of genesis-support): render under its
  * `ChatProvider` in a TanStack QueryClientProvider, with a support client made with the `chat`
- * option. The details panel's and the admin screens' lists are views (genesis-ui's `ResourceView`),
- * so render those under `GenesisProvider` too. Kept out of `/web` so apps without genesis-chat
- * never import it.
+ * option. Kept out of `/web` so apps without genesis-chat never import it.
  *
  * @stability Beta
  */
@@ -29,12 +27,12 @@ export {
   deskName,
   lastMoveLabel,
   supportDeskKeys,
+  supportAgentKeys,
   supportDeskScope,
   useSupportDesks,
   type SupportDeskControlsProps,
   type SupportDeskPickerProps,
   type SupportDeskSwitchProps,
-  type SupportFindPeople,
   type SupportLinkRequesterProps,
   type SupportRequesterPanelProps,
 } from "./desks";

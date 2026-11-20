@@ -9,7 +9,7 @@ import { answerHelpQuestion, HELP_AI_REFUSALS, HELP_ANSWER_FEATURE, supportHelpA
 import { useHelpAsk, type HelpAnswerResponse } from "../help-ask";
 import { SupportHelpCenterAdmin, SupportMessenger, SupportMessengerLauncher } from "../web-chat";
 import { fakeSupabase } from "./fake-supabase";
-import { GenesisTestProviders } from "./genesis-wrapper";
+import { QueryProviders } from "./query-providers";
 
 afterEach(cleanup);
 
@@ -73,8 +73,8 @@ function fakeClient(over: Partial<SupportClient> = {}) {
   } as unknown as SupportClient & Record<string, ReturnType<typeof vi.fn>>;
 }
 
-// A fresh cache per screen, under GenesisProvider: the details panel's lists are views.
-const wrapper = GenesisTestProviders;
+// A fresh cache per screen.
+const wrapper = QueryProviders;
 
 function show(client: SupportClient, props: Partial<Parameters<typeof SupportMessenger>[0]> = {}) {
   render(<SupportMessenger client={client} tenantId="ta" {...props} />, { wrapper });
@@ -268,11 +268,37 @@ describe("SupportMessenger", () => {
     expect(screen.queryByTestId("genesis-support-messenger-verify")).toBeNull();
   });
 
+  it("keeps the note when reopening fails, and moves focus to the note and back", async () => {
+    const verify = vi.fn(async () => Promise.reject(new Error("down")));
+    show(fakeClient({ report: vi.fn(async () => ticket({ status: "addressed", verifiedAt: null })), verify }), { spaces: ["messages"] });
+    fireEvent.click(await screen.findByText("Where is my invoice?"));
+    fireEvent.click(await screen.findByTestId("genesis-support-messenger-verify-reopen"));
+    const note = screen.getByTestId("genesis-support-messenger-verify-note");
+    await waitFor(() => expect(document.activeElement).toBe(note));
+    fireEvent.change(note, { target: { value: "Still blank" } });
+    fireEvent.click(screen.getByTestId("genesis-support-messenger-verify-reopen-send"));
+    expect((await screen.findByTestId("genesis-support-messenger-verify-failed")).getAttribute("role")).toBe("alert");
+    expect(verify).toHaveBeenCalledWith("t1", false, "Still blank");
+    expect((screen.getByTestId("genesis-support-messenger-verify-note") as HTMLTextAreaElement).value).toBe("Still blank");
+    fireEvent.click(screen.getByTestId("genesis-support-messenger-verify-cancel"));
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId("genesis-support-messenger-verify-reopen")));
+  });
+
   it("names each conversation's desk when Messages lists every desk", async () => {
-    const client = fakeClient({ myReports: vi.fn(async () => [ticket({ tenantId: "acme" }), ticket({ id: "t2", message: "Second", tenantId: "north" })]) });
-    show(client, { spaces: ["messages"], allTenants: true, deskLabel: (id) => ({ acme: "Acme", north: "Northside" })[id] });
+    const client = fakeClient({
+      myReports: vi.fn(async () => [ticket({ tenantId: "acme" }), ticket({ id: "t2", message: "Second", tenantId: "north" }), ticket({ id: "t3", message: "Third", tenantId: "app" })]),
+      signedInId: vi.fn(async () => "me"),
+      myTicketDesks: vi.fn(async () => [
+        { ticketId: "t1", tenantId: "acme", label: "Acme" },
+        { ticketId: "t2", tenantId: "north", label: "Northside" },
+        { ticketId: "t3", tenantId: "app", label: null },
+      ]),
+    });
+    show(client, { spaces: ["messages"], allTenants: true });
     await waitFor(() => expect(screen.getByTestId("genesis-support-messenger-messages").textContent).toContain("Open · Acme"));
     expect(screen.getByTestId("genesis-support-messenger-messages").textContent).toContain("Open · Northside");
+    // The app's own desk has no name to show.
+    expect(screen.getByTestId("genesis-support-messenger-messages").textContent).not.toContain("Open · Support");
   });
 
   it("switches spaces on genesis-ui's tab bar, with the unread count on Messages", async () => {
@@ -719,7 +745,7 @@ describe("the block", () => {
   it("brings the help center's migration, after support and its chat", () => {
     const block = defineSupportHelpdeskBlock();
     expect(block.requires).toEqual(["support-feedback", "support-chat"]);
-    expect(block.contributes?.migrations?.map((m) => m.file)).toEqual(["migrations/0010_genesis_support_help_center.sql", "migrations/0017_genesis_support_help_answers.sql", "migrations/0024_genesis_support_desks.sql"]);
+    expect(block.contributes?.migrations?.map((m) => m.file)).toEqual(["migrations/0010_genesis_support_help_center.sql", "migrations/0017_genesis_support_help_answers.sql", "migrations/0029_genesis_support_desks.sql"]);
   });
 });
 

@@ -1,5 +1,5 @@
 -- @feat:support-feedback
--- Genesis support 0029: staff from genesis-supabase's platform-admin list, where the app has no hooks (after 0023_genesis_support_hook_defaults.sql).
+-- Genesis support 0032: staff from genesis-supabase's platform-admin list, where the app has no hooks (after 0023_genesis_support_hook_defaults.sql).
 --
 -- 0023's private.genesis_support_staff_hook(person) made the app's platform admins support staff
 -- through the app's private.genesis_platform_admin(person). genesis-supabase 0022 adds a default for
@@ -17,7 +17,7 @@
 -- Use: copy this file into your app's `supabase/migrations/` under a new timestamped name, after
 -- 0023 (`genesis migrate` orders it). Never edit it once applied; change it with a new migration.
 --
--- Verify: the pgTAP test beside this file (`tests/0029_genesis_support_staff_admin_list.test.sql`).
+-- Verify: the pgTAP test beside this file (`tests/0032_genesis_support_staff_admin_list.test.sql`).
 
 create schema if not exists private;
 

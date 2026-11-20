@@ -167,7 +167,7 @@ export const supportCopy = {
     diagnosticsFailed: "Couldn't load the diagnostics.",
     diagnosticsLoading: "Loading the diagnostics",
     /** How a dump was sent, by its `trigger`. */
-    diagnosticsTriggers: { manual: "Sent by hand", shake: "Shake to report", feedback: "With feedback", crash: "After a crash" } as Record<string, string>,
+    diagnosticsTriggers: { manual: "Sent by hand", shake: "Shake to report", feedback: "With feedback", crash: "After a crash", other: "Other" },
     diagnosticsCopy: "Copy text",
     diagnosticsCopied: "Copied the dump",
     diagnosticsCopyFailed: "Couldn't copy. Select the text and copy it instead.",
@@ -204,7 +204,7 @@ export const supportCopy = {
     sendAnyway: "Send anyway",
     review: "Review",
   },
-  /** Desks (migration 0024): each tenant's own help desk, and moving a ticket between desks. */
+  /** Desks (migration 0029): each tenant's own help desk, and moving a ticket between desks. */
   desks: {
     /** The app's own desk, where `private.genesis_tenant_label` names none. */
     appDesk: "Support",
@@ -244,6 +244,10 @@ export const supportCopy = {
     loadFailed: "Couldn't load where this conversation is.",
     /** The desk's log in its card (`deskHistory`): `{by}` who, `{to}` the desk a ticket went to. */
     log: "Desk log",
+    logNoun: "entry",
+    logNounPlural: "entries",
+    logWhat: "What happened",
+    logWhen: "When",
     logEmpty: "Nothing has happened at this desk yet.",
     logFailed: "Couldn't load the desk log.",
     logSomeone: "Someone",
@@ -255,7 +259,7 @@ export const supportCopy = {
       moved: "{by} moved a conversation to {to}",
     },
   },
-  /** Support's notifications (migration 0025, `supportNotificationTypes`): `{by}`, `{title}`, `{from}`. */
+  /** Support's notifications (migration 0030, `supportNotificationTypes`): `{by}`, `{title}`, `{from}`. */
   notifications: {
     category: "Support",
     categoryDescription: "Conversations with support",
@@ -291,7 +295,7 @@ export const supportCopy = {
     title: "Contact",
     email: "Email",
     tenants: "Belongs to",
-    /** A tenant's role for the person, from migration 0024 (an app's own words show as it gives them). */
+    /** A tenant's role for the person, from migration 0029 (an app's own words show as it gives them). */
     roles: { admin: "Admin", agent: "Agent", member: "Member" },
     sentFrom: "Sent from",
     failed: "Couldn't load who wrote.",
@@ -307,6 +311,12 @@ export const supportCopy = {
     link: "Link",
     linked: "Linked to {name}",
     linkFailed: "That wasn't linked. Try again.",
+    linkSearchFailed: "Couldn't search for people. Try again.",
+    linkConfirmTitle: "Link this conversation?",
+    /** `{email}`: who wrote; `{name}`: the person picked. */
+    linkConfirmBody: "The conversation from {email} goes to {name}'s login: they see it and its replies in the app. It can't be unlinked here.",
+    linkNoEmail: "this email",
+    linkCancel: "Cancel",
   },
   /** A help desk's agents (`setAgent`): who answers its tickets. */
   agents: {
@@ -325,8 +335,13 @@ export const supportCopy = {
     role: "Role",
     roles: { agent: "Agent", admin: "Admin" },
     remove: "Remove",
-    removeConfirmTitle: "Remove this agent?",
-    removeConfirmBody: "They stop seeing this help desk's conversations. You can add them again.",
+    searchFailed: "Couldn't search for people. Try again.",
+    checking: "Checking who manages this desk",
+    checkFailed: "Couldn't check who manages this desk. Try again.",
+    notManager: "Only whoever manages this desk's agents can change them.",
+    removeFailed: "They weren't removed. Try again.",
+    removeConfirmTitle: "Remove this agent? They stop seeing this help desk's conversations; you can add them again.",
+    notRemovable: "They manage this desk's agents through the app, so they can't be removed here.",
     added: "{name} is now an agent",
     removed: "Removed from the agents",
     failed: "That didn't change. Try again.",
@@ -339,6 +354,7 @@ export const supportCopy = {
     by: "By",
     at: "When",
     open: "Open",
+    someone: "Someone",
     emptyTitle: "No mentions yet",
     emptyBody: "When a teammate mentions you in a note, it shows up here.",
     loadFailed: "Couldn't load your mentions. Check your connection and try again.",
@@ -382,8 +398,6 @@ export const supportCopy = {
     customerNoun: "customer",
     customerNounPlural: "customers",
     openCount: "Open",
-    /** Under the list when it counts only some open tickets. `{count}`: how many it counts. */
-    byRequesterCapped: "Counted from the {count} most recently changed open conversations.",
     /** A time with nothing to measure. */
     none: "None yet",
     errorTitle: "Couldn't load the report",
@@ -498,8 +512,8 @@ export const supportCopy = {
     collectionNoun: "collection",
     collectionNounPlural: "collections",
     collectionsEmpty: "No collections yet",
-    deleteCollectionTitle: "Delete this collection?",
-    deleteCollectionBody: "Its articles stay, in no collection.",
+    deleteCollectionTitle: "Delete this collection? Its articles stay, in no collection.",
+    deleteCollectionFailed: "That collection wasn't deleted. Try again.",
   },
   status: {
     open: "Open",

@@ -1,7 +1,7 @@
 -- @feat:support-feedback
--- Genesis support 0025: support's default notifications, through genesis-notifications (after
+-- Genesis support 0030: support's default notifications, through genesis-notifications (after
 -- 0004_genesis_support_tickets.sql; genesis-notifications' 0001_genesis_notifications.sql, the
--- support-chat block's 0022 (names) and the help desk's 0024 (desks) are optional, before or after).
+-- support-chat block's 0022 (names) and the help desk's 0029 (desks) are optional, before or after).
 --
 -- Three types, which the app adds to its `defineNotifications` with `supportNotificationTypes()`
 -- (`@marktiderman/genesis-support`), synced into notification_types as every type is:
@@ -32,12 +32,12 @@
 -- Use: copy this file into your app's `supabase/migrations/` under a new timestamped name
 -- (`genesis migrate` does it). Never edit it once applied; change it with a new migration.
 --
--- Verify: the pgTAP test beside this file (`tests/0025_genesis_support_notifications.test.sql`).
+-- Verify: the pgTAP test beside this file (`tests/0030_genesis_support_notifications.test.sql`).
 
 create schema if not exists private;
 
--- support.staffAlerts: max and standard on, min off. 0024's reader when it is there; else 0020's
--- (genesis_support_setting_bool) with the preset's default; without either, on.
+-- support.staffAlerts (max and standard on, min off), through genesis-supabase's one resolver
+-- (private.genesis_setting, 0023); without it, or before the manifest is synced, on.
 create or replace function private.genesis_support_staff_alerts_on()
 returns boolean
 language plpgsql
@@ -45,30 +45,20 @@ stable
 security definer
 set search_path = ''
 as $$
-declare
-  preset text;
 begin
-  if to_regprocedure('private.genesis_support_setting_on(text,boolean,boolean,boolean)') is not null then
-    return private.genesis_support_setting_on('support.staffAlerts', true, true, false);
+  if to_regprocedure('private.genesis_setting(text,uuid)') is null then
+    return true;
   end if;
-  if to_regclass('public.genesis_app_manifest') is not null then
-    begin
-      execute 'select m.preset from public.genesis_app_manifest m limit 1' into preset;
-    exception when others then
-      preset := null;
-    end;
-  end if;
-  if to_regprocedure('private.genesis_support_setting_bool(text,boolean)') is null then
-    return coalesce(preset, 'max') <> 'min';
-  end if;
-  return coalesce(private.genesis_support_setting_bool('support.staffAlerts', coalesce(preset, 'max') <> 'min'), true);
+  return private.genesis_setting('support.staffAlerts') is distinct from 'false'::jsonb;
 end;
 $$;
 
 revoke execute on function private.genesis_support_staff_alerts_on() from public, anon, authenticated;
 
--- A name to show, never an email address (notification data shows on lock screens).
--- 0022's reader (the app's genesis_person_name hook, else the login's metadata) when it is there.
+-- A name to show, never an email address (notification data shows on lock screens): the app's
+-- private.genesis_person_name(person) hook, else (deprecated, for one release) an app's own
+-- private.genesis_support_person_name, else the login's metadata. A hook that errors gives the
+-- fallback: a name is never worth failing a notification for.
 create or replace function private.genesis_support_notify_name(person uuid)
 returns text
 language plpgsql
@@ -82,20 +72,28 @@ begin
   if person is null then
     return 'Someone';
   end if;
-  if to_regprocedure('private.genesis_support_person_name(uuid)') is not null then
-    name := private.genesis_support_person_name(person);
-  else
-    select left(nullif(btrim(coalesce(u.raw_user_meta_data ->> 'full_name', u.raw_user_meta_data ->> 'name')), ''), 200)
+  begin
+    if to_regprocedure('private.genesis_person_name(uuid)') is not null then
+      name := nullif(btrim(private.genesis_person_name(person)), '');
+    elsif to_regprocedure('private.genesis_support_person_name(uuid)') is not null then
+      name := private.genesis_support_person_name(person);
+    end if;
+  exception when others then
+    name := null;
+  end;
+  if name is null then
+    select nullif(btrim(coalesce(u.raw_user_meta_data ->> 'full_name', u.raw_user_meta_data ->> 'name')), '')
       into name from auth.users u where u.id = person;
   end if;
   -- A name, never an address: a full_name that is an email shows as Someone.
-  return case when name is null or position('@' in name) > 0 then 'Someone' else name end;
+  return case when name is null or position('@' in name) > 0 then 'Someone' else left(name, 200) end;
 end;
 $$;
 
 revoke execute on function private.genesis_support_notify_name(uuid) from public, anon, authenticated;
 
--- A desk's name for the person (0022's tenant label hook), or null for the app's own.
+-- A desk's name for the person, or null for the app's own: the app's private.genesis_tenant_label
+-- hook, else (deprecated, for one release) an app's own private.genesis_support_tenant_label.
 create or replace function private.genesis_support_notify_label(tenant uuid)
 returns text
 language plpgsql
@@ -104,11 +102,18 @@ security definer
 set search_path = ''
 as $$
 begin
-  if tenant is null or tenant = private.genesis_support_default_tenant_id()
-     or to_regprocedure('private.genesis_support_tenant_label(uuid)') is null then
+  if tenant is null or tenant = private.genesis_support_default_tenant_id() then
     return null;
   end if;
-  return private.genesis_support_tenant_label(tenant);
+  if to_regprocedure('private.genesis_tenant_label(uuid)') is not null then
+    return left(nullif(btrim(private.genesis_tenant_label(tenant)), ''), 200);
+  end if;
+  if to_regprocedure('private.genesis_support_tenant_label(uuid)') is not null then
+    return private.genesis_support_tenant_label(tenant);
+  end if;
+  return null;
+exception when others then
+  return null;
 end;
 $$;
 
@@ -221,8 +226,8 @@ begin
       raise warning 'genesis-support: private.genesis_tenant_admin_list(tenant) failed: %', sqlerrm;
     end;
   end if;
-  if to_regprocedure('private.genesis_support_setting_bool(text,boolean)') is not null then
-    scan := private.genesis_support_setting_bool('support.agentListScan', false);
+  if to_regprocedure('private.genesis_setting(text,uuid)') is not null then
+    scan := coalesce(private.genesis_setting('support.agentListScan') = 'true'::jsonb, false);
   end if;
   return coalesce((
     select array_agg(c.id order by c.id)
@@ -311,7 +316,7 @@ create trigger genesis_support_ticket_notify
   after insert on public.tickets
   for each row execute function private.genesis_support_ticket_notify();
 
--- A ticket moved to another desk (0024): that desk, as of a new ticket ------------------------------
+-- A ticket moved to another desk (0029): that desk, as of a new ticket ------------------------------
 
 create or replace function private.genesis_support_moved_notify()
 returns trigger
@@ -346,8 +351,8 @@ $$;
 
 revoke execute on function private.genesis_support_moved_notify() from public, anon, authenticated;
 
--- On the log, written after the move (the ticket at its new desk, nobody's). With 0024 applied
--- already; otherwise 0024 makes the trigger when it finds this function.
+-- On the log, written after the move (the ticket at its new desk, nobody's). With 0029 applied
+-- already; otherwise 0029 makes the trigger when it finds this function.
 do $$
 begin
   if to_regclass('public.support_desk_log') is not null then

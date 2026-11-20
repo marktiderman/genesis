@@ -10,23 +10,24 @@
  * @stability Beta
  */
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { skipToken, useQuery } from "@tanstack/react-query";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger, Button, InlineAlert, Skeleton, toast } from "@marktiderman/genesis-ui";
 import type { SupportClient, TicketDiagnostics } from "../client";
 import { fill, resolveSupportCopy, type SupportCopy, type SupportCopyOverrides } from "../copy";
 import { diagnosticsViewSections } from "../diagnostics/view";
-import { scopeOf } from "./tenant";
+import { DIAGNOSTIC_TRIGGERS, type DiagnosticTrigger } from "../diagnostics/report";
+import { useLoginScope } from "./tenant";
 
 /** Where a dump's Sentry event and GitHub issue are, in the app's own terms. Either may be left out. */
 export interface SupportDiagnosticsLinks {
-  /** The Sentry event's page from its ids (`https://acme.sentry.io/issues/?query=${eventId}`). Shown when the dump carries an event id. */
+  /** The Sentry event's page from its ids (`https://acme.sentry.io/issues/?query=${encodeURIComponent(eventId)}`). Shown when the dump carries an event id. */
   sentry?: (ids: { eventId: string; replayId: string | null }) => string | null;
   /** The GitHub issue the app filed for this dump (`githubIssueNotifier`), or null when there is none. */
   githubIssue?: (dump: TicketDiagnostics) => string | null;
 }
 
 export interface SupportTicketDiagnosticsProps {
-  client: Pick<SupportClient, "ticketDiagnostics">;
+  client: Pick<SupportClient, "ticketDiagnostics" | "signedInId">;
   ticketId: string;
   /** Links to the dump's Sentry event and GitHub issue. Only `https:` links show. */
   links?: SupportDiagnosticsLinks;
@@ -57,6 +58,11 @@ function sentryIds(report: unknown): { eventId: string; replayId: string | null 
   return typeof lastEventId === "string" && lastEventId ? { eventId: lastEventId, replayId: typeof replayId === "string" ? replayId : null } : null;
 }
 
+/** A dump's trigger as the database keeps it, or `other` for one this version doesn't know. */
+function triggerOf(value: string): DiagnosticTrigger | "other" {
+  return DIAGNOSTIC_TRIGGERS.find((t) => t === value) ?? "other";
+}
+
 /** A dump's whole text, section by section, to paste into an issue or a chat. */
 export function diagnosticsText(dump: TicketDiagnostics): string {
   return diagnosticsViewSections(dump.report)
@@ -68,10 +74,10 @@ export function diagnosticsText(dump: TicketDiagnostics): string {
 export function SupportTicketDiagnostics({ client, ticketId, links, copy: overrides, onError }: SupportTicketDiagnosticsProps) {
   const copy = resolveSupportCopy(overrides);
   const read = client.ticketDiagnostics?.bind(client);
+  const scope = useLoginScope(client, null);
   const dumps = useQuery({
-    queryKey: supportDiagnosticsKeys.ticket(scopeOf(client, null), ticketId),
-    queryFn: () => read!(ticketId),
-    enabled: Boolean(read),
+    queryKey: supportDiagnosticsKeys.ticket(scope ?? "", ticketId),
+    queryFn: read && scope ? () => read(ticketId) : skipToken,
     staleTime: 5 * 60_000,
   });
   useEffect(() => {
@@ -88,11 +94,12 @@ export function SupportTicketDiagnostics({ client, ticketId, links, copy: overri
   if (dumps.isError) {
     return <InlineAlert variant="destructive" description={copy.agentInbox.diagnosticsFailed} testID="genesis-support-agent-diagnostics-failed" />;
   }
-  if (!dumps.data.length) return null;
+  const [newest] = dumps.data;
+  if (!newest) return null;
   return (
     <section aria-label={copy.agentInbox.diagnostics} data-testid="genesis-support-agent-diagnostics" className="flex flex-col gap-2">
       <h3 className="text-sm font-medium">{copy.agentInbox.diagnostics}</h3>
-      <Accordion type="single" collapsible defaultValue={dumps.data[0]!.id}>
+      <Accordion type="single" collapsible defaultValue={newest.id}>
         {dumps.data.map((dump) => (
           <AccordionItem key={dump.id} value={dump.id} data-testid="genesis-support-agent-diagnostics-dump">
             <AccordionTrigger className="py-2 text-left text-sm">
@@ -125,7 +132,7 @@ function DumpHeading({ dump, copy }: { dump: TicketDiagnostics; copy: SupportCop
     const date = new Date(dump.createdAt);
     if (!Number.isNaN(date.getTime())) setWhen(date.toLocaleString());
   }, [dump.createdAt]);
-  const trigger = copy.agentInbox.diagnosticsTriggers[dump.trigger] ?? dump.trigger;
+  const trigger = copy.agentInbox.diagnosticsTriggers[triggerOf(dump.trigger)];
   return (
     <span className="flex flex-col">
       <span>{fill(copy.agentInbox.diagnosticsDump, { id: dump.shortId })}</span>

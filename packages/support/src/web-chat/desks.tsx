@@ -10,8 +10,15 @@
  * @stability Beta
  */
 import { useEffect, useId, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   Button,
   Card,
   CardContent,
@@ -43,11 +50,9 @@ import { requesterTenantsLabel, type AgentTicket, type SupportClient, type Suppo
 import { chooseDesk, pickerDesks, type DeskLogEntry, type DeskTarget, type SupportDesk, type TicketDesk } from "../desks";
 import { fill, resolveSupportCopy, type SupportCopy, type SupportCopyOverrides } from "../copy";
 import { mailtoHref, supportSettingValues, type SupportSettingsInput } from "../settings";
-import { scopeOf } from "./tenant";
+import { scopeOf, useLoginScope } from "./tenant";
 import { listView, ViewList } from "./list-view";
 
-/** People the app can find by name or email, for linking an email ticket and adding an agent. Genesis has no directory of the app's people: the app gives one. */
-export type SupportFindPeople = (query: string) => Promise<readonly SupportPerson[]>;
 
 /**
  * Desk query keys, under genesis-support's root (a support write refreshes them too), each scoped
@@ -62,7 +67,8 @@ export const supportDeskKeys = {
   requester: (scope: string, id: string) => ["genesis-support", "desks", scope, "requester", id] as const,
   requesterTenants: (scope: string, id: string) => ["genesis-support", "desks", scope, "requester-tenants", id] as const,
   log: (scope: string, tenantId: string | null) => ["genesis-support", "desks", scope, "log", tenantId] as const,
-  people: (scope: string, query: string) => ["genesis-support", "desks", scope, "people", query] as const,
+  people: (loginScope: string, tenantId: string | null, query: string) => ["genesis-support", "desks", loginScope, "people", tenantId, query] as const,
+  manages: (loginScope: string, tenantId: string | null) => ["genesis-support", "desks", loginScope, "manages", tenantId] as const,
 };
 
 /** A support client's scope for `supportDeskKeys`. */
@@ -98,20 +104,32 @@ export function useSupportDesks(client: SupportClient, options: { enabled?: bool
 export interface SupportRequesterPanelProps {
   client: SupportClient;
   ticket: AgentTicket;
-  /** Genesis settings: with `support.desks` off there's no "Make an agent". Left out, `max`. */
-  settings?: SupportSettingsInput | null;
   copy?: SupportCopyOverrides;
   onError?: (error: unknown) => void;
 }
 
+/** Whether the signed-in login manages a desk's agents (`canManageAgents`); false while unknown or without the method. */
+export function useCanManageAgents(client: SupportClient, tenantId: string | null): { known: boolean; manages: boolean; failed: boolean; error: unknown } {
+  const scope = useLoginScope(client, tenantId);
+  const ask = client.canManageAgents?.bind(client);
+  const manages = useQuery({
+    queryKey: supportDeskKeys.manages(scope ?? "", tenantId),
+    queryFn: ask && scope ? () => ask({ tenantId }) : skipToken,
+    staleTime: 60_000,
+  });
+  return { known: !ask || manages.isSuccess || manages.isError, manages: manages.data === true, failed: manages.isError, error: manages.error };
+}
+
 /**
  * Who wrote: their name and email (a mailto link), the tenants they belong to, and where they wrote
- * from (migration 0022). The desk's admins also get "Make an agent" (`setAgent`).
+ * from (migration 0022). Whoever manages the desk's agents (`canManageAgents`) also gets "Make an
+ * agent" (`setAgent`).
  */
-export function SupportRequesterPanel({ client, ticket, settings, copy: overrides, onError }: SupportRequesterPanelProps) {
+export function SupportRequesterPanel({ client, ticket, copy: overrides, onError }: SupportRequesterPanelProps) {
   const copy = resolveSupportCopy(overrides);
   const queryClient = useQueryClient();
-  const desks = useSupportDesks(client, { enabled: supportSettingValues(settings).support.desks && Boolean(client.setAgent) });
+  const setAgent = client.setAgent?.bind(client);
+  const manage = useCanManageAgents(client, ticket.tenantId);
   const [busy, setBusy] = useState(false);
   const userId = ticket.userId ?? "";
   const who = useQuery({
@@ -129,7 +147,8 @@ export function SupportRequesterPanel({ client, ticket, settings, copy: override
   useEffect(() => {
     if (who.error) onError?.(who.error);
     if (tenants.error) onError?.(tenants.error);
-  }, [who.error, tenants.error, onError]);
+    if (manage.error) onError?.(manage.error);
+  }, [who.error, tenants.error, manage.error, onError]);
   if (who.isLoading || tenants.isLoading) {
     return (
       <div role="status" aria-label={copy.requester.title} data-testid="genesis-support-requester-loading">
@@ -141,16 +160,16 @@ export function SupportRequesterPanel({ client, ticket, settings, copy: override
   const email = who.data?.email ?? ticket.requesterEmail;
   const belongs = tenants.data ? requesterTenantsLabel(tenants.data) : null;
   const sentFrom = [ticket.platform, ticket.appVersion].filter(Boolean).join(" · ");
-  // An admin of this ticket's desk can make the person who wrote one of its agents.
-  const managed = desks.data?.some((d) => d.tenantId === ticket.tenantId && d.manage) ?? false;
   const already = tenants.data?.some((t) => t.tenantId === ticket.tenantId && (t.role === "agent" || t.role === "admin")) ?? false;
-  const canMakeAgent = Boolean(userId && client.setAgent && managed && !already);
+  const canMakeAgent = Boolean(userId && setAgent && manage.manages && !already);
   if (!email && !belongs && !sentFrom && !who.data?.name && !canMakeAgent) return null;
   const makeAgent = async () => {
+    if (!setAgent) return;
     setBusy(true);
     try {
-      await client.setAgent!(ticket.tenantId, userId, "agent");
+      await setAgent(ticket.tenantId, userId, "agent");
       await queryClient.invalidateQueries({ queryKey: supportDeskKeys.requesterTenants(supportDeskScope(client), userId) });
+      await queryClient.invalidateQueries({ queryKey: supportAgentKeys.all });
       toast.success(copy.requester.madeAgent);
     } catch (error) {
       toast.error(copy.agents.failed);
@@ -202,26 +221,39 @@ export function SupportRequesterPanel({ client, ticket, settings, copy: override
   );
 }
 
-/** A search for one of the app's people (`findPeople`), and the pick among those it found. */
+/** Agent lists' query keys (`SupportAgentsAdmin`), under genesis-support's root. */
+export const supportAgentKeys = {
+  all: ["genesis-support", "agents"] as const,
+  list: (scope: string) => ["genesis-support", "agents", scope] as const,
+};
+
+/** A search for people in a desk's tenant (`searchPeople`, for whoever manages its agents), and the pick among those it found. */
 export function PersonSearch({
   client,
-  findPeople,
+  tenantId,
   value,
   onChange,
   words,
   testId,
 }: {
   client: SupportClient;
-  findPeople: SupportFindPeople;
+  /** The desk whose tenant to search (null: the app's own). */
+  tenantId: string | null;
   value: SupportPerson | null;
   onChange: (person: SupportPerson | null) => void;
-  words: { search: string; placeholder: string; noMatches: string; unnamed: string };
+  words: { search: string; placeholder: string; noMatches: string; unnamed: string; failed: string };
   testId: string;
 }) {
   const id = useId();
   const [query, setQuery] = useState("");
   const q = query.trim();
-  const found = useQuery({ queryKey: supportDeskKeys.people(supportDeskScope(client), q), queryFn: () => findPeople(q), enabled: q.length >= 2, staleTime: 30_000 });
+  const scope = useLoginScope(client, tenantId);
+  const search = client.searchPeople?.bind(client);
+  const found = useQuery({
+    queryKey: supportDeskKeys.people(scope ?? "", tenantId, q),
+    queryFn: search && scope && q.length >= 2 ? () => search({ tenantId, query: q }) : skipToken,
+    staleTime: 30_000,
+  });
   const people = found.data ?? [];
   return (
     <div className="flex flex-col gap-2">
@@ -229,7 +261,9 @@ export function PersonSearch({
         <Label htmlFor={id}>{words.search}</Label>
         <Input id={id} type="search" value={query} placeholder={words.placeholder} onChange={(e) => setQuery(e.target.value)} data-testid={`${testId}-search`} />
       </div>
-      {q.length >= 2 && found.isSuccess ? (
+      {q.length < 2 ? null : found.isError ? (
+        <InlineAlert variant="destructive" description={words.failed} testID={`${testId}-search-failed`} />
+      ) : found.isSuccess ? (
         people.length ? (
           <Select value={value?.id ?? ""} onValueChange={(pick) => onChange(people.find((p) => p.id === pick) ?? null)}>
             <SelectTrigger aria-label={words.search} data-testid={`${testId}-pick`}>
@@ -238,7 +272,7 @@ export function PersonSearch({
             <SelectContent>
               {people.map((p) => (
                 <SelectItem key={p.id} value={p.id}>
-                  {p.name?.trim() || words.unnamed}
+                  {personLabel(p, words.unnamed)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -253,11 +287,15 @@ export function PersonSearch({
   );
 }
 
+/** A found person as a pick shows them: their name and email, else whichever there is. */
+function personLabel(p: SupportPerson & { email?: string | null }, unnamed: string): string {
+  const name = p.name?.trim();
+  return name && p.email ? `${name} (${p.email})` : (name || p.email || unnamed);
+}
+
 export interface SupportLinkRequesterProps {
   client: SupportClient;
   ticket: AgentTicket;
-  /** Finds the app's people by name or email. Without it, nothing shows. */
-  findPeople?: SupportFindPeople;
   /** After it's linked (the inbox re-reads the ticket). */
   onLinked?: (ticketId: string) => void;
   copy?: SupportCopyOverrides;
@@ -265,27 +303,34 @@ export interface SupportLinkRequesterProps {
 }
 
 /**
- * An email ticket with no login: link it to the person's login (`linkRequester`), so it shows in
- * their app and its replies reach them there. The database refuses anyone who doesn't handle the
- * ticket, and a person who isn't in its tenant.
+ * An email ticket with no login: find the person in the ticket's tenant (`searchPeople`) and, after
+ * a confirm that names both, link it to their login (`linkRequester`), so it shows in their app. It
+ * can't be undone here. For whoever manages the desk's agents, who may search its people; the
+ * database refuses anyone who doesn't handle the ticket, and a person outside its tenant.
  */
-export function SupportLinkRequester({ client, ticket, findPeople, onLinked, copy: overrides, onError }: SupportLinkRequesterProps) {
+export function SupportLinkRequester({ client, ticket, onLinked, copy: overrides, onError }: SupportLinkRequesterProps) {
   const copy = resolveSupportCopy(overrides);
   const queryClient = useQueryClient();
+  const linkRequester = client.linkRequester?.bind(client);
+  const manage = useCanManageAgents(client, ticket.tenantId);
   const [person, setPerson] = useState<SupportPerson | null>(null);
+  const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
-  if (ticket.channel !== "email" || ticket.userId || !client.linkRequester || !findPeople) return null;
+  if (ticket.channel !== "email" || ticket.userId || !linkRequester || !client.searchPeople || !manage.manages) return null;
+  const name = person ? personLabel(person, copy.agents.unnamed) : "";
   const link = async () => {
     if (!person) return;
     setBusy(true);
     setFailed(false);
     try {
-      await client.linkRequester!(ticket.id, person.id);
+      await linkRequester(ticket.id, person.id);
+      setConfirming(false);
       void queryClient.invalidateQueries({ queryKey: ["genesis-support"] });
-      toast.success(fill(copy.requester.linked, { name: person.name?.trim() || copy.agents.unnamed }));
+      toast.success(fill(copy.requester.linked, { name }));
       onLinked?.(ticket.id);
     } catch (error) {
+      setConfirming(false);
       setFailed(true);
       onError?.(error);
     } finally {
@@ -301,17 +346,33 @@ export function SupportLinkRequester({ client, ticket, findPeople, onLinked, cop
         <p className="text-muted-foreground">{copy.requester.linkBody}</p>
         <PersonSearch
           client={client}
-          findPeople={findPeople}
+          tenantId={ticket.tenantId}
           value={person}
           onChange={setPerson}
-          words={{ search: copy.requester.linkSearch, placeholder: copy.requester.linkSearchPlaceholder, noMatches: copy.requester.linkNoMatches, unnamed: copy.agents.unnamed }}
+          words={{ search: copy.requester.linkSearch, placeholder: copy.requester.linkSearchPlaceholder, noMatches: copy.requester.linkNoMatches, unnamed: copy.agents.unnamed, failed: copy.requester.linkSearchFailed }}
           testId="genesis-support-link-requester"
         />
-        {failed ? <InlineAlert variant="destructive" description={copy.requester.linkFailed} /> : null}
-        <Button size="sm" className="self-start" disabled={!person || busy} onClick={() => void link()} data-testid="genesis-support-link-requester-send">
+        {failed ? <InlineAlert variant="destructive" description={copy.requester.linkFailed} testID="genesis-support-link-requester-failed" /> : null}
+        <Button size="sm" className="self-start" disabled={!person || busy} onClick={() => setConfirming(true)} data-testid="genesis-support-link-requester-send">
           {copy.requester.link}
         </Button>
       </CardContent>
+      <AlertDialog open={confirming} onOpenChange={(open) => (busy ? null : setConfirming(open))}>
+        <AlertDialogContent data-testid="genesis-support-link-requester-confirm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{copy.requester.linkConfirmTitle}</AlertDialogTitle>
+            <AlertDialogDescription>{fill(copy.requester.linkConfirmBody, { email: ticket.requesterEmail ?? copy.requester.linkNoEmail, name })}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy} data-testid="genesis-support-link-requester-cancel">
+              {copy.requester.linkCancel}
+            </AlertDialogCancel>
+            <Button disabled={busy} onClick={() => void link()} data-testid="genesis-support-link-requester-confirm-send">
+              {copy.requester.link}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }
@@ -376,8 +437,8 @@ function DeskControls({ client, ticket, onMoved, allowMove = true, settings, cop
   const canMove = allowMove && Boolean(client.moveTicket) && others.length > 0;
   const canEscalate = d.canEscalate && Boolean(client.escalateTicket);
   const canReturn = d.canReturn && Boolean(client.returnTicket);
-  const hasLog = Boolean(client.deskHistory);
-  if (!moved && !canEscalate && !canReturn && !d.returnsTo && !canMove && !hasLog) return null;
+  const history = client.deskHistory?.bind(client);
+  if (!moved && !canEscalate && !canReturn && !d.returnsTo && !canMove && !history) return null;
   const returnsToName = d.returnsTo ? nameOf(d.returnsTo) : null;
   const sentTo = open?.kind === "escalate" ? appDesk : open?.kind === "return" ? (returnsToName ?? "") : null;
   return (
@@ -404,7 +465,7 @@ function DeskControls({ client, ticket, onMoved, allowMove = true, settings, cop
             {copy.desks.moveTo}
           </Button>
         ) : null}
-        {hasLog ? <DeskLog client={client} tenantId={d.isDefault ? null : d.tenantId} nameOf={nameOf} copy={copy} onError={onError} /> : null}
+        {history ? <DeskLog history={history} scope={supportDeskScope(client)} tenantId={d.isDefault ? null : d.tenantId} nameOf={nameOf} copy={copy} onError={onError} /> : null}
       </CardContent>
       {open ? (
         <MoveDialog
@@ -429,15 +490,29 @@ function DeskControls({ client, ticket, onMoved, allowMove = true, settings, cop
 type DeskLogRow = { id: string; what: string; at: string } & Record<string, unknown>;
 
 /** The desk's log (`deskHistory`), folded away until opened: who turned it on or off, and the conversations that left it. */
-function DeskLog({ client, tenantId, nameOf, copy, onError }: { client: SupportClient; tenantId: string | null; nameOf: (id: string) => string; copy: SupportCopy; onError: ((error: unknown) => void) | undefined }) {
+function DeskLog({
+  history,
+  scope,
+  tenantId,
+  nameOf,
+  copy,
+  onError,
+}: {
+  history: NonNullable<SupportClient["deskHistory"]>;
+  scope: string;
+  tenantId: string | null;
+  nameOf: (id: string) => string;
+  copy: SupportCopy;
+  onError: ((error: unknown) => void) | undefined;
+}) {
   const [open, setOpen] = useState(false);
-  const log = useQuery({ queryKey: supportDeskKeys.log(supportDeskScope(client), tenantId), queryFn: () => client.deskHistory!({ tenantId, limit: 20 }), enabled: open, staleTime: 60_000 });
+  const log = useQuery({ queryKey: supportDeskKeys.log(scope, tenantId), queryFn: open ? () => history({ tenantId, limit: 20 }) : skipToken, staleTime: 60_000 });
   useEffect(() => {
     if (log.error) onError?.(log.error);
   }, [log.error, onError]);
-  const view = listView<DeskLogRow>("support_desk_log", { title: copy.desks.log, noun: copy.desks.log, nounPlural: copy.desks.log, emptyTitle: copy.desks.logEmpty }, [
-    { name: "what", label: copy.desks.log },
-    { name: "at", label: copy.agentInbox.opened, type: "datetime", display: "datetime" },
+  const view = listView<DeskLogRow>("support_desk_log", { title: copy.desks.log, noun: copy.desks.logNoun, nounPlural: copy.desks.logNounPlural, emptyTitle: copy.desks.logEmpty }, [
+    { name: "what", label: copy.desks.logWhat },
+    { name: "at", label: copy.desks.logWhen, type: "datetime", display: "datetime" },
   ]);
   const rows = log.data?.map((e: DeskLogEntry): DeskLogRow => ({
     id: e.id,

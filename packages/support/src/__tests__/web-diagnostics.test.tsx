@@ -61,9 +61,8 @@ describe("FeedbackPanel with diagnostics", () => {
     const submit = vi.fn(async (_record: FeedbackRecord) => ({ id: "11111111-1111-4111-8111-111111111111", attachmentsDropped: 0 }));
     render(<FeedbackPanel client={{ submit }} diagnostics={diagnostics} screenshots={false} pins={false} />);
     // A group of toggles has no control for a label's htmlFor: the label names the group by id.
-    const group = document.querySelector('[aria-labelledby="genesis-support-type-label"]');
-    expect(group?.querySelector("[data-testid=genesis-support-type-bug]")).toBeTruthy();
-    expect(document.getElementById("genesis-support-type-label")?.textContent).toBe("What is it?");
+    const group = screen.getByTestId("genesis-support-type-bug").parentElement;
+    expect(document.getElementById(group?.getAttribute("aria-labelledby") ?? "")?.textContent).toBe("What is it?");
     fireEvent.change(screen.getByTestId("genesis-support-message"), { target: { value: "It broke" } });
     await act(async () => {
       fireEvent.click(screen.getByTestId("genesis-support-send"));

@@ -2,7 +2,7 @@
 "@marktiderman/genesis-support": minor
 ---
 
-**Desks.** Migration `0024_genesis_support_desks.sql` (support-helpdesk block): each tenant's own
+**Desks.** Migration `0029_genesis_support_desks.sql` (support-helpdesk block): each tenant's own
 help desk, switched on by its tenant admins (`support_set_desk`, logged), questions routed to the
 sender's one desk that is on (or the app's `genesis_support_desk_for` hook), and tickets escalated
 to the app's own desk, returned or moved between desks with a log (`support_escalate_ticket`,

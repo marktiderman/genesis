@@ -1,5 +1,5 @@
 /**
- * Support's default notification types (migration 0025 sends them): add them to the app's
+ * Support's default notification types (migration 0030 sends them): add them to the app's
  * `defineNotifications` (genesis-notifications) and sync, and support tells people with no code of
  * the app's own.
  *
@@ -56,7 +56,7 @@ export interface SupportNotificationOptions {
   copy?: SupportCopyOverrides;
 }
 
-/** The type keys migration 0025 sends. @stability Beta */
+/** The type keys migration 0030 sends. @stability Beta */
 export const SUPPORT_NOTIFICATION_TYPES = ["support.message", "support.reply", "support.verify"] as const;
 
 const text = (v: unknown) => (typeof v === "string" ? v.trim() : "");

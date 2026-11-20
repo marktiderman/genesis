@@ -285,8 +285,8 @@ describe("the block", () => {
       },
       {
         package: "@marktiderman/genesis-support",
-        file: "migrations/0025_genesis_support_notifications.sql",
-        test: "migrations/tests/0025_genesis_support_notifications.test.sql",
+        file: "migrations/0030_genesis_support_notifications.sql",
+        test: "migrations/tests/0030_genesis_support_notifications.test.sql",
         feature: SUPPORT_BLOCK_ID,
       },
       {
@@ -303,8 +303,14 @@ describe("the block", () => {
       },
       {
         package: "@marktiderman/genesis-support",
-        file: "migrations/0029_genesis_support_staff_admin_list.sql",
-        test: "migrations/tests/0029_genesis_support_staff_admin_list.test.sql",
+        file: "migrations/0032_genesis_support_staff_admin_list.sql",
+        test: "migrations/tests/0032_genesis_support_staff_admin_list.test.sql",
+        feature: SUPPORT_BLOCK_ID,
+      },
+      {
+        package: "@marktiderman/genesis-support",
+        file: "migrations/0033_genesis_support_settings_resolver.sql",
+        test: "migrations/tests/0033_genesis_support_settings_resolver.test.sql",
         feature: SUPPORT_BLOCK_ID,
       },
     ]);

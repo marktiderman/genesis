@@ -3,7 +3,7 @@
  * option as it is now (a function can change when the viewer changes workspace), so another tenant
  * is a fresh screen with its own cache.
  */
-import { useQuery } from "@tanstack/react-query";
+import { skipToken, useQuery } from "@tanstack/react-query";
 import type { SupportClient } from "../client";
 
 const clientIds = new WeakMap<object, number>();
@@ -19,9 +19,25 @@ function idOf(client: object): number {
   return id;
 }
 
-/** What a screen's data belongs to, for its query keys and its React key. */
+/** A support client and a tenant, for a screen's query keys and its React key. It doesn't name the login: see `useLoginScope`. */
 export function scopeOf(client: object, tenantId: string | null): string {
   return `${idOf(client)}:${tenantId ?? "app"}`;
+}
+
+/**
+ * The client, the signed-in login and the tenant, for the keys of reads that differ by who asks
+ * (dumps, mentions, people search): another login on the same client never reads the last one's
+ * cache. Null until the login is known; a client without `signedInId` keys by the client alone.
+ */
+export function useLoginScope(client: Pick<SupportClient, "signedInId">, tenantId: string | null): string | null {
+  const signedInId = client.signedInId?.bind(client);
+  const login = useQuery({
+    queryKey: ["genesis-support", "login", idOf(client)],
+    queryFn: signedInId ?? skipToken,
+    staleTime: 0,
+  });
+  if (!signedInId) return `${scopeOf(client, tenantId)}:-`;
+  return login.isSuccess ? `${scopeOf(client, tenantId)}:${login.data ?? "signed-out"}` : null;
 }
 
 /** `ready` is false until it's known: a screen doesn't read or write until then, or it could use the wrong tenant. */

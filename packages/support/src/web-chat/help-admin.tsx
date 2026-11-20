@@ -300,22 +300,24 @@ function HelpCenterAdmin({ client, tenantId, articleId, onArticleChange, copy: c
       });
   };
 
+  // A failed delete is the list's own: its delete reports the words, as the agents' does.
   const removeCollection = async (row: CollectionRow) => {
-    setCollectionFailed(false);
     try {
       await required(client.deleteHelpCollection)(row.id);
-      refresh();
     } catch (error) {
-      setCollectionFailed(true);
       report.current?.(error);
+      throw new Error(copy.helpAdmin.deleteCollectionFailed);
     }
+    refresh();
   };
+  const collectionRows = useMemo(() => collections.data?.map((c): CollectionRow => ({ ...c })), [collections.data]);
   const collectionsView = useMemo(
     () =>
       listView<CollectionRow>(
         "support_help_collections",
         { title: copy.helpAdmin.collections, noun: copy.helpAdmin.collectionNoun, nounPlural: copy.helpAdmin.collectionNounPlural, emptyTitle: copy.helpAdmin.collectionsEmpty },
         [{ name: "title", label: copy.helpAdmin.collection }],
+        { name: "remove-collection", label: copy.helpAdmin.delete, confirm: copy.helpAdmin.deleteCollectionTitle },
       ),
     [copy],
   );
@@ -339,9 +341,8 @@ function HelpCenterAdmin({ client, tenantId, articleId, onArticleChange, copy: c
       {(collections.data ?? []).length ? (
         <ViewList
           view={collectionsView}
-          rows={collections.data as CollectionRow[]}
-          onDelete={removeCollection}
-          confirmDelete={{ title: copy.helpAdmin.deleteCollectionTitle, description: copy.helpAdmin.deleteCollectionBody, confirmLabel: copy.helpAdmin.delete, cancelLabel: copy.helpAdmin.cancel }}
+          rows={collectionRows}
+          onAction={removeCollection}
           testId="genesis-support-help-collections"
         />
       ) : null}

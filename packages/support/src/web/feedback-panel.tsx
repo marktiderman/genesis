@@ -7,7 +7,7 @@
  * Put it anywhere (a page, a Sheet); `FeedbackLauncher` puts it in a Sheet
  * behind a floating button.
  */
-import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type PointerEvent } from "react";
 import {
   Alert,
   AlertDescription,
@@ -175,6 +175,7 @@ export function FeedbackPanel({ client, diagnostics: dump, collector, copy: over
   const askSeverity = severityProp ?? settings.support.severity;
   const diagnostics = dump && dump.enabled !== false && settings.diagnostics.enabled && settings.diagnostics.dumpOnFeedback ? dump : undefined;
   const copy = useMemo(() => resolveSupportCopy(overrides), [overrides]);
+  const labelIds = { type: useId(), severity: useId() };
   const collect = useMemo(() => collector ?? webContextCollector(), [collector]);
   const own = useFeedbackDraft(defaultType);
   const { draft, update } = held ?? own;
@@ -326,10 +327,10 @@ export function FeedbackPanel({ client, diagnostics: dump, collector, copy: over
         ) : (
           <>
             <div className="flex flex-col gap-2">
-              <Label id="genesis-support-type-label">
+              <Label id={labelIds.type}>
                 {copy.feedback.typeLabel}
               </Label>
-              <ToggleGroup type="single" className="flex-wrap justify-start" value={type} onValueChange={(v: string) => v && setType(v as FeedbackType)} aria-labelledby="genesis-support-type-label">
+              <ToggleGroup type="single" className="flex-wrap justify-start" value={type} onValueChange={(v: string) => v && setType(v as FeedbackType)} aria-labelledby={labelIds.type}>
                 {FEEDBACK_TYPES.map((t) => (
                   <ToggleGroupItem key={t} value={t} data-testid={`genesis-support-type-${t}`}>
                     {copy.feedback.types[t]}
@@ -350,10 +351,10 @@ export function FeedbackPanel({ client, diagnostics: dump, collector, copy: over
             ) : null}
             {askSeverity && type === "bug" ? (
               <div className="flex flex-col gap-2">
-                <Label id="genesis-support-severity-label">
+                <Label id={labelIds.severity}>
                   {copy.feedback.severityLabel}
                 </Label>
-                <ToggleGroup type="single" className="flex-wrap justify-start" value={severity} onValueChange={(v: string) => setSeverity((v || "") as FindingSeverity | "")} aria-labelledby="genesis-support-severity-label">
+                <ToggleGroup type="single" className="flex-wrap justify-start" value={severity} onValueChange={(v: string) => setSeverity((v || "") as FindingSeverity | "")} aria-labelledby={labelIds.severity}>
                   {(["low", "medium", "high", "critical"] as const).map((level) => (
                     <ToggleGroupItem key={level} value={level} data-testid={`genesis-support-severity-${level}`}>
                       {copy.feedback.severities[level]}

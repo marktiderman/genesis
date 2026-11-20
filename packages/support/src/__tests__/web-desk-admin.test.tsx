@@ -1,13 +1,13 @@
 // @feat:support-desks
 // The help desk's management on the web: agents (setAgent), linking an email ticket to a login,
 // the desk card's states and log, the desk being off, and an agent's mentions.
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Toaster } from "@marktiderman/genesis-ui";
 import { awaitsVerification, createSupportClient, type AgentTicket, type SupportClient, type SupportDesk } from "..";
 import { SupportAgentInbox, SupportAgentsAdmin, SupportDeskControls, SupportDeskSwitch, SupportLinkRequester, SupportMyMentions, SupportRequesterPanel } from "../web-chat";
 import { fakeSupabase } from "./fake-supabase";
-import { GenesisTestProviders } from "./genesis-wrapper";
+import { QueryProviders } from "./query-providers";
 
 afterEach(cleanup);
 
@@ -16,10 +16,10 @@ const stub = (over: Partial<SupportClient>) => over as SupportClient;
 const ticket = (over: Partial<AgentTicket> = {}) => ({ id: "t1", tenantId: "acme", userId: "u9", platform: "ios", appVersion: "1.2.3", requesterEmail: null, channel: null, ...over }) as AgentTicket;
 const show = (node: React.ReactNode) =>
   render(
-    <GenesisTestProviders>
+    <QueryProviders>
       {node}
       <Toaster />
-    </GenesisTestProviders>,
+    </QueryProviders>,
   );
 
 describe("the client's management calls", () => {
@@ -33,37 +33,86 @@ describe("the client's management calls", () => {
   });
 });
 
+/** Opens a genesis-ui Select from the keyboard and picks the option with these words. */
+async function pick(trigger: HTMLElement, name: RegExp | string) {
+  fireEvent.keyDown(trigger, { key: "Enter" });
+  fireEvent.click(await screen.findByRole("option", { name }));
+}
+
+const manager = (over: Partial<SupportClient> = {}) =>
+  stub({
+    canManageAgents: vi.fn(async () => true),
+    staffList: vi.fn(async () => [
+      { id: "u1", name: "Ana", role: "admin" as const, removable: false },
+      { id: "u2", name: "Bo", role: "agent" as const, removable: true },
+    ]),
+    searchPeople: vi.fn(async () => [{ id: "u5", name: "Cy", email: "cy@example.test" }]),
+    setAgent: vi.fn(async () => undefined),
+    ...over,
+  });
+
 describe("agents", () => {
-  it("lists a desk's agents for its admin, and finds people to add by name", async () => {
-    const setAgent = vi.fn(async () => undefined);
-    const findPeople = vi.fn(async () => [{ id: "u5", name: "Cy" }]);
-    const client = stub({
-      myDesks: vi.fn(async () => [desk({ tenantId: "acme", label: "Acme", isDefault: false, manage: true })]),
-      staffList: vi.fn(async () => [{ id: "u1", name: "Ana" }]),
-      setAgent,
-    });
-    show(<SupportAgentsAdmin client={client} tenantId="acme" findPeople={findPeople} />);
-    await waitFor(() => expect(screen.getByTestId("genesis-support-agents-list").textContent).toContain("Ana"));
-    fireEvent.change(screen.getByTestId("genesis-support-agents-search"), { target: { value: "Cy" } });
-    await waitFor(() => expect(findPeople).toHaveBeenCalledWith("Cy"));
-    expect(await screen.findByTestId("genesis-support-agents-pick")).toBeTruthy();
+  it("lists the desk's agents with their roles for whoever manages them", async () => {
+    const client = manager();
+    show(<SupportAgentsAdmin client={client} tenantId="acme" />);
+    expect(screen.getByTestId("genesis-support-agents-loading")).toBeTruthy();
+    await waitFor(() => expect(screen.getByTestId("genesis-support-agents-list").textContent).toContain("Bo"));
+    const list = screen.getByTestId("genesis-support-agents-list").textContent ?? "";
+    expect(list).toContain("Admin");
+    expect(list).toContain("Agent");
+    expect(client.canManageAgents).toHaveBeenCalledWith({ tenantId: "acme" });
     expect(client.staffList).toHaveBeenCalledWith({ tenantId: "acme" });
   });
 
-  it("shows nothing to someone who doesn't run the desk", async () => {
-    const client = stub({ myDesks: vi.fn(async () => [desk({ tenantId: "acme", isDefault: false, manage: false })]), staffList: vi.fn(async () => []), setAgent: vi.fn() });
-    const { container } = show(<SupportAgentsAdmin client={client} tenantId="acme" />);
-    await waitFor(() => expect(client.myDesks).toHaveBeenCalled());
-    expect(container.querySelector("[data-testid=genesis-support-agents]")).toBeNull();
-    expect(client.staffList).not.toHaveBeenCalled();
+  it("adds someone found in the desk's tenant, as an admin", async () => {
+    const client = manager();
+    show(<SupportAgentsAdmin client={client} tenantId="acme" />);
+    fireEvent.change(await screen.findByTestId("genesis-support-agents-search"), { target: { value: "cy" } });
+    await waitFor(() => expect(client.searchPeople).toHaveBeenCalledWith({ tenantId: "acme", query: "cy" }));
+    await pick(await screen.findByTestId("genesis-support-agents-pick"), /Cy/);
+    await pick(screen.getByTestId("genesis-support-agents-role"), "Admin");
+    fireEvent.click(screen.getByTestId("genesis-support-agents-add-send"));
+    await waitFor(() => expect(client.setAgent).toHaveBeenCalledWith("acme", "u5", "admin"));
+    expect(await screen.findByText("Cy is now an agent")).toBeTruthy();
   });
 
-  it("lets the desk's admin make the person who wrote an agent", async () => {
+  it("removes only a removable agent, after a confirm", async () => {
+    const client = manager();
+    show(<SupportAgentsAdmin client={client} tenantId="acme" />);
+    await waitFor(() => expect(screen.getByTestId("genesis-support-agents-list").textContent).toContain("Bo"));
+    // Ana manages the desk through the app: her row offers no Remove.
+    expect((await screen.findByText("Ana")).closest("tr")?.querySelector("[data-testid=resource-row-menu]")).toBeNull();
+    await removeRow("Bo");
+    await waitFor(() => expect(client.setAgent).toHaveBeenCalledWith("acme", "u2", null));
+    expect(client.setAgent).not.toHaveBeenCalledWith("acme", "u1", null);
+  });
+
+  it("works the app's own desk by a null tenant", async () => {
+    const client = manager();
+    show(<SupportAgentsAdmin client={client} tenantId={null} />);
+    await waitFor(() => expect(screen.getByTestId("genesis-support-agents-list").textContent).toContain("Bo"));
+    expect(client.canManageAgents).toHaveBeenCalledWith({ tenantId: null });
+    expect(client.staffList).toHaveBeenCalledWith({ tenantId: null });
+    await removeRow("Bo");
+    await waitFor(() => expect(client.setAgent).toHaveBeenCalledWith(null, "u2", null));
+  });
+
+  it("tells someone who doesn't manage the desk, and says when that couldn't be checked", async () => {
+    const no = manager({ canManageAgents: vi.fn(async () => false) });
+    show(<SupportAgentsAdmin client={no} tenantId="acme" />);
+    expect(await screen.findByTestId("genesis-support-agents-not-manager")).toBeTruthy();
+    expect(no.staffList).not.toHaveBeenCalled();
+    cleanup();
+    show(<SupportAgentsAdmin client={manager({ canManageAgents: vi.fn(async () => Promise.reject(new Error("down"))) })} tenantId="acme" />);
+    expect((await screen.findByTestId("genesis-support-agents-check-failed")).getAttribute("role")).toBe("alert");
+  });
+
+  it("lets whoever manages the desk make the person who wrote an agent", async () => {
     const setAgent = vi.fn(async () => undefined);
     const client = stub({
       reporters: vi.fn(async () => [{ id: "u9", name: "Bo", email: "bo@example.test" }]),
       requesterTenants: vi.fn(async () => [{ tenantId: "acme", label: "Acme", role: "member" }]),
-      myDesks: vi.fn(async () => [desk({ tenantId: "acme", isDefault: false, manage: true })]),
+      canManageAgents: vi.fn(async () => true),
       setAgent,
     });
     show(<SupportRequesterPanel client={client} ticket={ticket()} />);
@@ -80,25 +129,48 @@ describe("agents", () => {
   });
 });
 
+/** Runs a view list row's action from its "More" menu, then confirms. */
+async function removeRow(name: string) {
+  const row = (await screen.findByText(name)).closest("tr");
+  const menu = row?.querySelector<HTMLElement>("[data-testid=resource-row-menu]");
+  if (!menu) throw new Error(`No row menu for ${name}`);
+  fireEvent.pointerDown(menu, { button: 0, ctrlKey: false, pointerType: "mouse" });
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Remove" }));
+  const dialog = await screen.findByRole("alertdialog");
+  fireEvent.click(within(dialog).getByRole("button", { name: "Remove" }));
+}
+
 describe("linking an email ticket", () => {
-  it("finds the person and links the ticket to their login", async () => {
+  const email = ticket({ channel: "email", userId: null, requesterEmail: "bo@example.test" });
+
+  it("finds the person in the ticket's tenant and links after a confirm that names both", async () => {
     const linkRequester = vi.fn(async () => undefined);
     const onLinked = vi.fn();
-    const client = stub({ linkRequester });
-    show(<SupportLinkRequester client={client} ticket={ticket({ channel: "email", userId: null, requesterEmail: "bo@example.test" })} findPeople={async () => [{ id: "u9", name: "Bo" }]} onLinked={onLinked} />);
-    fireEvent.change(screen.getByTestId("genesis-support-link-requester-search"), { target: { value: "bo" } });
-    expect(await screen.findByTestId("genesis-support-link-requester-pick")).toBeTruthy();
-    expect((screen.getByTestId("genesis-support-link-requester-send") as HTMLButtonElement).disabled).toBe(true);
+    const client = manager({ linkRequester, searchPeople: vi.fn(async () => [{ id: "u9", name: "Bo", email: "bo@acme.test" }]) });
+    show(<SupportLinkRequester client={client} ticket={email} onLinked={onLinked} />);
+    fireEvent.change(await screen.findByTestId("genesis-support-link-requester-search"), { target: { value: "bo" } });
+    await waitFor(() => expect(client.searchPeople).toHaveBeenCalledWith({ tenantId: "acme", query: "bo" }));
+    await pick(await screen.findByTestId("genesis-support-link-requester-pick"), /Bo/);
+    fireEvent.click(screen.getByTestId("genesis-support-link-requester-send"));
+    const confirm = await screen.findByTestId("genesis-support-link-requester-confirm");
+    expect(confirm.textContent).toContain("bo@example.test");
+    expect(confirm.textContent).toContain("Bo (bo@acme.test)");
+    expect(linkRequester).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId("genesis-support-link-requester-confirm-send"));
+    await waitFor(() => expect(linkRequester).toHaveBeenCalledWith("t1", "u9"));
+    expect(onLinked).toHaveBeenCalledWith("t1");
   });
 
-  it("shows nothing for a ticket with a login, or without a way to find people", () => {
-    const client = stub({ linkRequester: vi.fn() });
+  it("shows nothing for a ticket with a login, or to someone who can't search the desk's people", async () => {
+    const canManageAgents = vi.fn(async () => false);
     const { container } = show(
       <>
-        <SupportLinkRequester client={client} ticket={ticket({ channel: "email" })} findPeople={async () => []} />
-        <SupportLinkRequester client={client} ticket={ticket({ channel: "email", userId: null })} />
+        <SupportLinkRequester client={manager({ linkRequester: vi.fn() })} ticket={ticket({ channel: "email" })} />
+        <SupportLinkRequester client={manager({ linkRequester: vi.fn(), canManageAgents })} ticket={email} />
       </>,
     );
+    await waitFor(() => expect(canManageAgents).toHaveBeenCalledWith({ tenantId: "acme" }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(container.querySelector("[data-testid=genesis-support-link-requester]")).toBeNull();
   });
 });

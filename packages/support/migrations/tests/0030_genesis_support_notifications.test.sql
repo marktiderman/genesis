@@ -1,5 +1,5 @@
 -- @feat:support-feedback
--- pgTAP test for 0025_genesis_support_notifications.sql: a new ticket and the person's messages
+-- pgTAP test for 0030_genesis_support_notifications.sql: a new ticket and the person's messages
 -- tell the desk's agents (support.message), support's answers tell the person (support.reply), the
 -- verify prompt asks them (support.verify), a move tells the new desk, an assignee silences the rest,
 -- support.staffAlerts off tells no staff, and without genesis-notifications nothing fails. A stand-in
@@ -136,6 +136,7 @@ select ok(not ((select data from pg_temp.last()) ? 'desk'), 'at the app''s desk,
 
 -- 5. Staff alerts off ---------------------------------------------------------------------------------
 
+insert into public.genesis_app_manifest (app_id, catalogue) values ('notify-test', '{"support.staffAlerts": {"type": "boolean", "applies": "runtime", "scope": "app", "defaults": {"max": true, "standard": true, "min": false}}}');
 insert into public.genesis_settings (key, value) values ('support.staffAlerts', 'false');
 select is(private.genesis_support_staff_alerts_on(), false, 'support.staffAlerts false in genesis_settings is read');
 select pg_temp.count() as before \gset

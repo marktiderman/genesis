@@ -12,7 +12,7 @@
  * @stability Beta
  */
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -45,9 +45,9 @@ import { StatCard } from "@marktiderman/genesis-ui/data";
 import { SupportError, type AgentMention, type SavedReply, type SupportClient, type SupportPerson, type TicketAgentRole } from "../client";
 import { fill, resolveSupportCopy, type SupportCopy, type SupportCopyOverrides } from "../copy";
 import { waitedFor } from "./agent-inbox";
-import { scopeOf, useResolvedTenant } from "./tenant";
+import { scopeOf, useLoginScope, useResolvedTenant } from "./tenant";
 import { listView, ViewList } from "./list-view";
-import { PersonSearch, useSupportDesks, type SupportFindPeople } from "./desks";
+import { PersonSearch, supportAgentKeys, useCanManageAgents } from "./desks";
 import type { ResolveUser } from "@marktiderman/genesis-chat/web";
 
 export interface SupportSavedRepliesAdminProps {
@@ -357,11 +357,6 @@ function AgentReports({ client, tenantId = null, from: fromProp, to: toProp, onR
                 rows={data.byRequester.map((g, i): ByRequesterRow => ({ id: String(i), label: g.label ?? copy.reports.unknownRequester, open: g.open }))}
                 testId="genesis-support-reports-by-requester-list"
               />
-              {data.byRequesterCapped ? (
-                <p className="text-xs text-muted-foreground" data-testid="genesis-support-reports-by-requester-capped">
-                  {fill(copy.reports.byRequesterCapped, { count: data.byRequester.reduce((sum, g) => sum + g.open, 0).toLocaleString() })}
-                </p>
-              ) : null}
             </section>
           ) : null}
         </>
@@ -385,23 +380,20 @@ export interface SupportAgentsAdminProps {
   client: SupportClient;
   /** Whose help desk. Null is the app's own. Left out, the client's `tenantId`, else the app's own. */
   tenantId?: string | null;
-  /** Finds the app's people by name or email, to add one. Without it, the list only removes. */
-  findPeople?: SupportFindPeople;
   copy?: SupportCopyOverrides;
   /** Every refused or failed read and change, for reporting. */
   onError?: (error: unknown) => void;
   className?: string;
 }
 
-const agentKeys = {
-  list: (scope: string) => ["genesis-support", "agents", scope] as const,
-};
+type AgentRow = { id: string; name: string; role: string; removable: boolean } & Record<string, unknown>;
 
-type AgentRow = { id: string; name: string } & Record<string, unknown>;
+const AGENT_ROLES: readonly TicketAgentRole[] = ["agent", "admin"];
 
 /**
- * A help desk's agents (`staffList`), for its admins: add someone (`findPeople`) as an agent or an
- * admin, or remove one (`setAgent`). Only the desk's admins see it; the database refuses anyone else.
+ * A help desk's agents (`staffList`, with each one's role), for whoever manages them
+ * (`canManageAgents`): find someone in the desk's tenant (`searchPeople`) and add them as an agent
+ * or an admin, or remove a removable one (`setAgent`). Anyone else is told it isn't theirs.
  */
 export function SupportAgentsAdmin(props: SupportAgentsAdminProps) {
   const tenant = useResolvedTenant(props.client, props.tenantId);
@@ -410,97 +402,129 @@ export function SupportAgentsAdmin(props: SupportAgentsAdminProps) {
   return <AgentsAdmin key={scopeOf(props.client, tenant.tenantId)} {...props} tenantId={tenant.tenantId} />;
 }
 
-function AgentsAdmin({ client, tenantId = null, findPeople, copy: copyOverrides, onError, className }: SupportAgentsAdminProps) {
+function AgentsAdmin({ client, tenantId = null, copy: copyOverrides, onError, className }: SupportAgentsAdminProps) {
   const copy = useMemo(() => resolveSupportCopy(copyOverrides), [copyOverrides]);
   const queryClient = useQueryClient();
   const roleId = useId();
-  const desks = useSupportDesks(client);
-  // `setAgent` takes the desk's tenant: the app's own desk by its id.
-  const desk = desks.data?.find((d) => (tenantId === null ? d.isDefault : d.tenantId === tenantId));
-  const manage = Boolean(desk?.manage && client.setAgent);
-  const agents = useQuery({ queryKey: agentKeys.list(scopeOf(client, tenantId)), queryFn: () => required(client.staffList)({ tenantId }), enabled: manage });
+  const setAgent = client.setAgent?.bind(client);
+  const staffList = client.staffList?.bind(client);
+  const manage = useCanManageAgents(client, tenantId);
+  const scope = useLoginScope(client, tenantId);
+  const agents = useQuery({
+    queryKey: supportAgentKeys.list(scope ?? ""),
+    queryFn: staffList && scope && manage.manages ? () => staffList({ tenantId }) : skipToken,
+  });
   const [person, setPerson] = useState<SupportPerson | null>(null);
   const [role, setRole] = useState<TicketAgentRole>("agent");
   const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [addFailed, setAddFailed] = useState(false);
   const reported = useRef(onError);
   reported.current = onError;
   useEffect(() => {
     if (agents.error) reported.current?.(agents.error);
-  }, [agents.error]);
+    if (manage.error) reported.current?.(manage.error);
+  }, [agents.error, manage.error]);
   const view = useMemo(
-    () => listView<AgentRow>("support_agents", { title: copy.agents.title, noun: copy.agents.noun, nounPlural: copy.agents.nounPlural, emptyTitle: copy.agents.emptyTitle, emptyBody: copy.agents.emptyBody }, [{ name: "name", label: copy.agents.name }]),
+    () =>
+      listView<AgentRow>(
+        "support_agents",
+        { title: copy.agents.title, noun: copy.agents.noun, nounPlural: copy.agents.nounPlural, emptyTitle: copy.agents.emptyTitle, emptyBody: copy.agents.emptyBody },
+        [
+          { name: "name", label: copy.agents.name },
+          { name: "role", label: copy.agents.role },
+        ],
+        { name: "remove", label: copy.agents.remove, confirm: copy.agents.removeConfirmTitle, can: (row) => (row.removable ? true : copy.agents.notRemovable) },
+      ),
     [copy],
   );
-  if (!manage || !desk) return null;
-  const set = async (personId: string, next: TicketAgentRole | null) => {
+  if (!setAgent || !staffList || !client.canManageAgents) return null;
+  if (!manage.known) {
+    return (
+      <div role="status" aria-label={copy.agents.checking} data-testid="genesis-support-agents-loading">
+        <Skeleton className="h-40 w-full" />
+      </div>
+    );
+  }
+  if (manage.failed) return <InlineAlert variant="destructive" description={copy.agents.checkFailed} testID="genesis-support-agents-check-failed" />;
+  if (!manage.manages) return <InlineAlert description={copy.agents.notManager} testID="genesis-support-agents-not-manager" />;
+  const refresh = () => queryClient.invalidateQueries({ queryKey: supportAgentKeys.all });
+  const add = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!person) return;
     setBusy(true);
-    setFailed(false);
+    setAddFailed(false);
     try {
-      await client.setAgent!(desk.tenantId, personId, next);
-      await queryClient.invalidateQueries({ queryKey: agentKeys.list(scopeOf(client, tenantId)) });
-      return true;
+      await setAgent(tenantId, person.id, role);
+      await refresh();
+      toast.success(fill(copy.agents.added, { name: person.name?.trim() || copy.agents.unnamed }));
+      setPerson(null);
     } catch (error) {
-      setFailed(true);
+      setAddFailed(true);
       reported.current?.(error);
-      return false;
     } finally {
       setBusy(false);
     }
   };
-  const add = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!person) return;
-    if (await set(person.id, role)) {
-      toast.success(fill(copy.agents.added, { name: person.name?.trim() || copy.agents.unnamed }));
-      setPerson(null);
-    }
-  };
+  // A failed remove is the list's own: its delete reports the words, as the collections' does.
   const remove = async (row: AgentRow) => {
-    if (await set(row.id, null)) toast.success(copy.agents.removed);
-    else throw new Error(copy.agents.failed);
+    try {
+      await setAgent(tenantId, row.id, null);
+    } catch (error) {
+      reported.current?.(error);
+      throw new Error(copy.agents.removeFailed);
+    }
+    await refresh();
+    toast.success(copy.agents.removed);
   };
   return (
     <section data-testid="genesis-support-agents" aria-label={copy.agents.title} className={cn("flex flex-col gap-3", className)}>
       <ViewList
         view={view}
-        rows={agents.data?.map((a): AgentRow => ({ id: a.id, name: a.name?.trim() || copy.agents.unnamed }))}
+        rows={agents.data?.map((a): AgentRow => ({ id: a.id, name: a.name?.trim() || copy.agents.unnamed, role: copy.agents.roles[a.role ?? "agent"], removable: a.removable === true }))}
         loading={agents.isPending}
         error={agents.isError}
         errorMessage={copy.agents.loadFailed}
         onRetry={() => void agents.refetch()}
-        onDelete={remove}
-        confirmDelete={{ title: copy.agents.removeConfirmTitle, description: copy.agents.removeConfirmBody, confirmLabel: copy.agents.remove, cancelLabel: copy.savedReplies.cancel }}
+        onAction={remove}
         testId="genesis-support-agents-list"
       />
-      {findPeople ? (
+      {client.searchPeople ? (
         <form onSubmit={(e) => void add(e)} className="flex flex-col gap-2" aria-label={copy.agents.add} data-testid="genesis-support-agents-add">
           <PersonSearch
             client={client}
-            findPeople={findPeople}
+            tenantId={tenantId}
             value={person}
             onChange={setPerson}
-            words={{ search: copy.agents.search, placeholder: copy.agents.searchPlaceholder, noMatches: copy.agents.noMatches, unnamed: copy.agents.unnamed }}
+            words={{ search: copy.agents.search, placeholder: copy.agents.searchPlaceholder, noMatches: copy.agents.noMatches, unnamed: copy.agents.unnamed, failed: copy.agents.searchFailed }}
             testId="genesis-support-agents"
           />
           <div className="flex flex-col gap-1">
             <Label htmlFor={roleId}>{copy.agents.role}</Label>
-            <Select value={role} onValueChange={(v) => setRole(v as TicketAgentRole)}>
+            <Select
+              value={role}
+              onValueChange={(value) => {
+                const next = AGENT_ROLES.find((r) => r === value);
+                if (next) setRole(next);
+              }}
+            >
               <SelectTrigger id={roleId} className="w-40" data-testid="genesis-support-agents-role">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="agent">{copy.agents.roles.agent}</SelectItem>
-                <SelectItem value="admin">{copy.agents.roles.admin}</SelectItem>
+                {AGENT_ROLES.map((r) => (
+                  <SelectItem key={r} value={r}>
+                    {copy.agents.roles[r]}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
           <Button type="submit" className="self-start" disabled={!person || busy} data-testid="genesis-support-agents-add-send">
             {copy.agents.add}
           </Button>
+          {addFailed ? <InlineAlert variant="destructive" description={copy.agents.failed} testID="genesis-support-agents-failed" /> : null}
         </form>
       ) : null}
-      {failed ? <InlineAlert variant="destructive" description={copy.agents.failed} testID="genesis-support-agents-failed" /> : null}
     </section>
   );
 }
@@ -523,7 +547,9 @@ type MentionRow = AgentMention & { by: string } & Record<string, unknown>;
 /** Where the signed-in agent was mentioned in an internal note (`agentMentions`, migration 0014), newest first; each opens its ticket. */
 export function SupportMyMentions({ client, resolveUser, onOpen, copy: copyOverrides, onError, className }: SupportMyMentionsProps) {
   const copy = useMemo(() => resolveSupportCopy(copyOverrides), [copyOverrides]);
-  const mentions = useQuery({ queryKey: ["genesis-support", "mentions", scopeOf(client, null)], queryFn: () => required(client.agentMentions)(), enabled: Boolean(client.agentMentions) });
+  const read = client.agentMentions?.bind(client);
+  const scope = useLoginScope(client, null);
+  const mentions = useQuery({ queryKey: ["genesis-support", "mentions", scope ?? ""], queryFn: read && scope ? () => read() : skipToken });
   const reported = useRef(onError);
   reported.current = onError;
   useEffect(() => {
@@ -547,12 +573,12 @@ export function SupportMyMentions({ client, resolveUser, onOpen, copy: copyOverr
     }),
     [onOpen],
   );
-  if (!client.agentMentions) return null;
+  if (!read) return null;
   return (
     <section data-testid="genesis-support-mentions" aria-label={copy.mentions.title} className={className}>
       <ViewList
         view={view}
-        rows={mentions.data?.map((m): MentionRow => ({ ...m, by: m.authorId ? resolveUser(m.authorId).name : copy.desks.logSomeone }))}
+        rows={mentions.data?.map((m): MentionRow => ({ ...m, by: m.authorId ? resolveUser(m.authorId).name : copy.mentions.someone }))}
         loading={mentions.isPending}
         error={mentions.isError}
         errorMessage={copy.mentions.loadFailed}

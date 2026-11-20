@@ -20,7 +20,7 @@ export const sentryStep = defineSetupStep({
   fields: [
     { name: "org", label: "Organization slug", pattern: SLUG, placeholder: "your-org" },
     { name: "project", label: "Project slug", pattern: SLUG, placeholder: "your-app" },
-    { name: "dsn", label: "DSN", pattern: DSN.source.slice(1, -1), placeholder: "https://<key>@o0.ingest.sentry.io/0", optional: true, help: "Project Settings → Client Keys (DSN). Public: it ships in the app.", setting: "dsn" },
+    { name: "dsn", label: "DSN", pattern: DSN.source.slice(1, -1), placeholder: "https://<key>@o0.ingest.sentry.io/0", optional: true, help: "Project Settings → Client Keys (DSN). Public: it ships in the app. Used to send the test event; put it in the app's Sentry setup yourself." },
   ],
   links: [
     { label: "Sentry: new project", url: "https://sentry.io/projects/new/" },

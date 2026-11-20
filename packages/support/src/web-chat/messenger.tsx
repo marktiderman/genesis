@@ -12,7 +12,7 @@
  * @stability Beta
  */
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BookOpen, ChevronLeft, House, MessageCircle } from "lucide-react";
 import {
   Button,
@@ -41,7 +41,7 @@ import { useHelpAsk, type HelpAnswerResponse, type UseHelpAsk } from "../help-as
 import type { OfficeHours } from "../office-hours";
 import { awaitingReplyLine, composeExpectationLine, useReplyExpectation, type ReplyExpectation } from "../reply-expectation";
 import type { FeedbackContext } from "../record";
-import { scopeOf, useResolvedTenant } from "./tenant";
+import { scopeOf, useLoginScope, useResolvedTenant } from "./tenant";
 import { SupportContact } from "./contact";
 import { supportContact, supportSettingValues, type SupportContactInfo, type SupportSettingsInput } from "../settings";
 import { threadAttachments } from "./thread-files";
@@ -58,6 +58,7 @@ export const supportMessengerKeys = {
   article: (scope: string, slug: string) => ["genesis-support", "messenger", "article", scope, slug] as const,
   search: (scope: string, query: string) => ["genesis-support", "messenger", "search", scope, query] as const,
   ai: (scope: string) => ["genesis-support", "messenger", "ai", scope] as const,
+  desks: (loginScope: string) => ["genesis-support", "messenger", "desks", loginScope] as const,
 };
 
 export interface SupportMessengerProps {
@@ -72,11 +73,6 @@ export interface SupportMessengerProps {
    * Default false.
    */
   allTenants?: boolean;
-  /**
-   * The name of a ticket's desk, by its tenant, for Messages with `allTenants`: each row says where
-   * it is ("Fixed · Acme"). Left out, rows don't name a desk.
-   */
-  deskLabel?: (tenantId: string) => string | null | undefined;
   /**
    * Genesis settings (what `resolveSettings` returned, or the values alone): `support.messenger` off
    * shows nothing (the launcher too), `support.helpCenter` off leaves Help out, and
@@ -546,6 +542,7 @@ function Compose({ client, tenantId, scope, tickets, copy, go, report, expectati
 /** A person's conversation. Keyed by ticket, so a draft never follows them to another one. */
 function Conversation({ client, tenantId, scope, contact, tickets, copy, report, expectation, id, resolveUser, active }: Shared & { id: string; resolveUser: ResolveUser | undefined; active: boolean }) {
   const queryClient = useQueryClient();
+  const frame = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -673,27 +670,59 @@ function Conversation({ client, tenantId, scope, contact, tickets, copy, report,
       />
   );
   // Marked fixed: the person answers "Is it fixed?" here (the `support.verify` notification lands on this thread).
-  if (!client.verify || !awaitsVerification(t)) return thread;
+  const verify = client.verify?.bind(client);
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <VerifyCard client={client} ticketId={id} copy={copy} report={report} onDone={refresh} />
+    <div ref={frame} tabIndex={-1} className="flex min-h-0 flex-1 flex-col focus-visible:outline-none" data-testid="genesis-support-messenger-conversation">
+      {verify && awaitsVerification(t) ? (
+        <VerifyCard
+          verify={verify}
+          ticketId={id}
+          copy={copy}
+          report={report}
+          onDone={() => {
+            refresh();
+            // The card goes once it's answered: focus stays in the conversation.
+            frame.current?.focus();
+          }}
+        />
+      ) : null}
       {thread}
     </div>
   );
 }
 
 /** "Is it fixed?": confirm the fix, or reopen it with what's still wrong (`client.verify`). */
-function VerifyCard({ client, ticketId, copy, report, onDone }: { client: SupportClient; ticketId: string; copy: SupportCopy; report: (error: unknown) => void; onDone: () => void }) {
+function VerifyCard({
+  verify,
+  ticketId,
+  copy,
+  report,
+  onDone,
+}: {
+  verify: NonNullable<SupportClient["verify"]>;
+  ticketId: string;
+  copy: SupportCopy;
+  report: (error: unknown) => void;
+  onDone: () => void;
+}) {
   const noteId = useId();
+  const noteRef = useRef<HTMLTextAreaElement>(null);
+  const reopenRef = useRef<HTMLButtonElement>(null);
   const [reopening, setReopening] = useState(false);
+  // Reopen moves to the note; Cancel back to Reopen.
+  const opened = useRef(false);
+  useEffect(() => {
+    if (reopening) noteRef.current?.focus();
+    else if (opened.current) reopenRef.current?.focus();
+    opened.current = reopening;
+  }, [reopening]);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
   const answer = (fixed: boolean) => {
     setBusy(true);
     setFailed(false);
-    client
-      .verify!(ticketId, fixed, fixed ? undefined : note.trim() || undefined)
+    verify(ticketId, fixed, fixed ? undefined : note.trim() || undefined)
       .then(() => {
         toast.success(fixed ? copy.messenger.verifyThanks : copy.messenger.verifyReopened);
         onDone();
@@ -725,7 +754,7 @@ function VerifyCard({ client, ticketId, copy, report, onDone }: { client: Suppor
               <Button size="sm" disabled={busy} onClick={() => answer(true)} data-testid="genesis-support-messenger-verify-fixed">
                 {copy.messenger.verifyFixed}
               </Button>
-              <Button size="sm" variant="outline" disabled={busy} onClick={() => setReopening(true)} data-testid="genesis-support-messenger-verify-reopen">
+              <Button ref={reopenRef} size="sm" variant="outline" disabled={busy} onClick={() => setReopening(true)} data-testid="genesis-support-messenger-verify-reopen">
                 {copy.messenger.verifyReopen}
               </Button>
             </>
@@ -735,7 +764,7 @@ function VerifyCard({ client, ticketId, copy, report, onDone }: { client: Suppor
         {reopening ? (
           <div className="flex flex-col gap-1">
             <Label htmlFor={noteId}>{copy.messenger.verifyNoteLabel}</Label>
-            <Textarea id={noteId} value={note} rows={3} maxLength={10000} onChange={(e) => setNote(e.target.value)} data-testid="genesis-support-messenger-verify-note" />
+            <Textarea ref={noteRef} id={noteId} value={note} rows={3} maxLength={10000} onChange={(e) => setNote(e.target.value)} data-testid="genesis-support-messenger-verify-note" />
           </div>
         ) : null}
       </InlineAlert>
@@ -781,7 +810,7 @@ function ticketsQueryOf(client: SupportClient, tenantId: string | null, allTenan
 
 const SPACE_ICONS: Record<MessengerSpace, ReactNode> = { home: <House />, messages: <MessageCircle />, help: <BookOpen /> };
 
-function Messenger({ client, tenantId: tenantProp, allTenants = false, deskLabel, settings, spaces: spacesProp = SPACES, greeting, askAi, onAiConsent, active = true, resolveUser, context = defaultContext, replyExpectation, officeHours, copy: copyOverrides, onError, className }: SupportMessengerProps) {
+function Messenger({ client, tenantId: tenantProp, allTenants = false, settings, spaces: spacesProp = SPACES, greeting, askAi, onAiConsent, active = true, resolveUser, context = defaultContext, replyExpectation, officeHours, copy: copyOverrides, onError, className }: SupportMessengerProps) {
   const copy = useMemo(() => resolveSupportCopy(copyOverrides), [copyOverrides]);
   const tenantId = tenantProp ?? null;
   const scope = scopeOf(client, tenantId);
@@ -805,9 +834,13 @@ function Messenger({ client, tenantId: tenantProp, allTenants = false, deskLabel
   const aiOn = Boolean(askAi && ai.data);
   const expectation = useReplyExpectation(replyExpectation, officeHours);
   const tickets = useMemo(() => ticketsQueryOf(client, tenantId, allTenants), [client, tenantId, allTenants]);
-  const labels = useRef(deskLabel);
-  labels.current = deskLabel;
-  const deskOf = useCallback((t: Ticket) => (allTenants && t.tenantId && labels.current ? (labels.current(t.tenantId)?.trim() || null) : null), [allTenants]);
+  // With every desk's conversations, each row names its desk (`myTicketDesks`); the app's own has no name to show.
+  const loginScope = useLoginScope(client, null);
+  const readDesks = client.myTicketDesks?.bind(client);
+  const desks = useQuery({ queryKey: supportMessengerKeys.desks(loginScope ?? ""), queryFn: allTenants && readDesks && loginScope ? () => readDesks() : skipToken, staleTime: 60_000 });
+  useReported(desks.error, report);
+  const deskNames = useMemo(() => new Map((desks.data ?? []).map((d) => [d.ticketId, d.label?.trim() || null])), [desks.data]);
+  const deskOf = useCallback((t: Ticket) => deskNames.get(t.id) ?? null, [deskNames]);
   const shared: Shared = { client, tenantId, scope, contact, tickets, copy, go: setScreen, here: screen, report, expectation, deskOf };
   const unread = useQuery({ ...tickets, enabled: spaces.includes("messages") }).data?.filter((t) => t.unread).length ?? 0;
 
@@ -861,7 +894,10 @@ function Messenger({ client, tenantId: tenantProp, allTenants = false, deskLabel
           label={copy.messenger.spacesLabel}
           items={spaces.map((s) => ({ key: s, label: copy.messenger.spaces[s], icon: SPACE_ICONS[s], ...(s === "messages" && unread ? { badge: unread } : {}) }))}
           value={screen.space}
-          onChange={(key) => setScreen({ name: "space", space: key as MessengerSpace })}
+          onChange={(key) => {
+            const space = spaces.find((s) => s === key);
+            if (space) setScreen({ name: "space", space });
+          }}
           testID="genesis-support-messenger-space"
         />
       ) : null}

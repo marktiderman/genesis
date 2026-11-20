@@ -43,7 +43,7 @@ import { fill, resolveSupportCopy, type SupportCopy, type SupportCopyOverrides }
 import { isSitePath } from "../routes";
 import { ComposerPickerList, showMentions, useComposerPicker, type ComposerPicker } from "./composer-pickers";
 import { supportWebKeys } from "./report-thread";
-import { SupportDeskControls, SupportLinkRequester, SupportRequesterPanel, useSupportDesks, type SupportFindPeople } from "./desks";
+import { SupportDeskControls, SupportLinkRequester, SupportRequesterPanel, useSupportDesks } from "./desks";
 import { SupportTicketDiagnostics, type SupportDiagnosticsLinks } from "./diagnostics-viewer";
 import { listView, ViewList } from "./list-view";
 import { supportSettingValues, type SupportSettingsInput } from "../settings";
@@ -93,11 +93,6 @@ export interface SupportAgentInboxProps {
   deskControls?: boolean | { allowMove?: boolean };
   /** A ticket was moved to another desk (it closes here, and the queues refresh). */
   onTicketMoved?: (ticketId: string) => void;
-  /**
-   * Finds the app's people by name or email: with it, an email ticket with no login can be linked
-   * to the person's (`linkRequester`). Genesis has no directory of the app's people, so the app gives one.
-   */
-  findPeople?: SupportFindPeople;
   /** Links from a context dump to its Sentry event and GitHub issue, in the details panel. */
   diagnosticsLinks?: SupportDiagnosticsLinks;
   /**
@@ -610,12 +605,8 @@ function TicketDetails({
   requesterPanel,
   deskControls,
   onMoved,
-  settings,
-  findPeople,
   diagnosticsLinks,
 }: Pick<PaneProps, "client" | "ticket" | "resolveUser" | "copy" | "onError"> & {
-  settings: SupportSettingsInput | null | undefined;
-  findPeople: SupportFindPeople | undefined;
   diagnosticsLinks: SupportDiagnosticsLinks | undefined;
   context?: ((ticket: AgentTicket) => ReactNode) | undefined;
   copyOverrides: SupportCopyOverrides | undefined;
@@ -677,9 +668,9 @@ function TicketDetails({
         />
       ) : null}
       {requesterPanel && !ticket.requesterEmail ? (
-        <SupportRequesterPanel client={client} ticket={ticket} settings={settings ?? null} {...(copyOverrides ? { copy: copyOverrides } : {})} {...(onError ? { onError } : {})} />
+        <SupportRequesterPanel client={client} ticket={ticket} {...(copyOverrides ? { copy: copyOverrides } : {})} {...(onError ? { onError } : {})} />
       ) : null}
-      <SupportLinkRequester client={client} ticket={ticket} {...(findPeople ? { findPeople } : {})} {...(copyOverrides ? { copy: copyOverrides } : {})} {...(onError ? { onError } : {})} />
+      <SupportLinkRequester client={client} ticket={ticket} {...(copyOverrides ? { copy: copyOverrides } : {})} {...(onError ? { onError } : {})} />
       {context ? context(ticket) : null}
       <EarlierConversations client={client} ticket={ticket} copy={copy} onOpen={onOpen} onError={onError} />
     </div>
@@ -747,7 +738,6 @@ function AgentInbox({
   requesterPanel = true,
   deskControls: deskControlsProp,
   onTicketMoved,
-  findPeople,
   diagnosticsLinks,
   settings,
   replyVariables,
@@ -926,8 +916,6 @@ function AgentInbox({
               onError={onError}
               requesterPanel={requesterPanel}
               deskControls={deskControls}
-              settings={settings}
-              findPeople={findPeople}
               diagnosticsLinks={diagnosticsLinks}
               onMoved={(id) => {
                 void queryClient.invalidateQueries({ queryKey: supportInboxKeys.all });
