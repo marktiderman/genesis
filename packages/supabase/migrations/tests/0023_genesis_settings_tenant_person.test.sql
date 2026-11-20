@@ -1,11 +1,11 @@
 -- @feat:settings
--- pgTAP test for 0022_genesis_settings_tenant_person.sql (after 0020 and 0021).
+-- pgTAP test for 0023_genesis_settings_tenant_person.sql (after 0020 and 0021).
 -- Copy into your app's `supabase/tests/database/` and run `supabase test db`.
 -- It writes only its own users, manifest, settings and hooks and rolls everything back. If your app
 -- already has the hooks or a manifest, they are replaced inside this transaction only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(86);
+select plan(88);
 
 -- People: a1 a platform admin; aa the admin of tenant A, ab a member of A; bb the admin of tenant B;
 -- c1 and c2 signed in, in no tenant.
@@ -89,7 +89,7 @@ select ok(
   and not has_function_privilege('anon', 'public.set_genesis_person_setting(text, jsonb)', 'execute')
   and not has_function_privilege('anon', 'public.clear_genesis_person_setting(text)', 'execute')
   and not has_function_privilege('anon', 'public.genesis_settings_layers(uuid)', 'execute')
-  and not has_function_privilege('anon', 'public.genesis_settings_can_read(uuid, uuid)', 'execute'),
+  and not has_function_privilege('anon', 'public.genesis_settings_can_read(uuid, uuid, boolean)', 'execute'),
   'anon can call none of the functions'
 );
 select ok(
@@ -108,7 +108,7 @@ select ok(
      'public.set_genesis_person_setting(text, jsonb)'::regprocedure,
      'public.clear_genesis_person_setting(text)'::regprocedure,
      'public.genesis_settings_layers(uuid)'::regprocedure,
-     'public.genesis_settings_can_read(uuid, uuid)'::regprocedure,
+     'public.genesis_settings_can_read(uuid, uuid, boolean)'::regprocedure,
      'private.genesis_settings_tenant_admin(uuid)'::regprocedure,
      'private.genesis_scoped_setting_problem(text, text, jsonb)'::regprocedure,
      'private.genesis_settings_announce()'::regprocedure,
@@ -210,9 +210,11 @@ select throws_ok($$ delete from public.genesis_person_settings $$, '42501', null
 -- Reads: RLS --------------------------------------------------------------------------------
 select pg_temp.sign_in('ab');
 select is((select count(*)::int from public.genesis_tenant_settings), 2, 'a member of A reads A''s two values');
+select is((select count(*)::int from public.genesis_scoped_setting_changes), 0, '... but not A''s history: only its admins read who changed what');
 select pg_temp.sign_in('aa');
 select is((select count(*)::int from public.genesis_tenant_settings), 2, 'A''s admin reads them too');
 select is((select count(*)::int from public.genesis_person_settings), 0, '... but no one''s person values');
+select is((select count(*)::int from public.genesis_scoped_setting_changes), 2, 'A''s admin reads A''s history, and no person''s');
 select pg_temp.sign_in('bb');
 select is((select count(*)::int from public.genesis_tenant_settings), 0, 'B''s admin can''t read A''s values');
 select is((select count(*)::int from public.genesis_scoped_setting_changes), 0, '... nor A''s history');

@@ -766,19 +766,21 @@ preset and genesis.config.json.
   passes as SQL null) means "not set".
 - **The history is evidence.** Nobody edits it; the service role can't delete it directly, only prune
   rows older than a year with `genesis_prune_setting_changes(older_than)`.
-- **Tenant and person values** (migration `0022_genesis_settings_tenant_person.sql`):
+- **Tenant and person values** (migration `0023_genesis_settings_tenant_person.sql`):
   `genesis_tenant_settings` holds a tenant's value for keys declared `scope: "tenant"`, set by the
   tenant's admins (your `private.genesis_tenant_admin(tenant uuid, person uuid)` hook, the one tenant
   features use) for their own tenant only; `genesis_person_settings` holds a person's own value for
   keys declared `scope: "person"`. Each write is checked like a platform admin's, and refused for a
   key of another scope or one genesis.config.json or the database layer locks. Every change goes to
   `genesis_scoped_setting_changes`. A tenant's members and admins read its values (the optional
-  `private.genesis_tenant_member` hook), a person their own, platform admins everything; the tables
+  `private.genesis_tenant_member` hook) and its admins alone its history; a person reads their own
+  values and history, platform admins everything; the tables
   are written only through the functions. Add a foreign key from `tenant_id` to your tenant table
   (the migration's header shows how); a deleted person takes their values and history with them.
 - **Reading a tenant.** `genesis_settings_layers(tenant)` returns the layers above plus that tenant's
   layer and the signed-in person's own; `readSettingsLayers(supabase, { tenantId })` and
-  `resolveAppSettings(supabase, catalogue, { tenantId })` call it.
+  `resolveAppSettings(supabase, catalogue, { tenantId })` call it. On a database without 0023 they
+  read 0020's layers and leave tenant and person values out, warning once in the console.
 - **Realtime.** A change to any of the three settings tables is broadcast on a private channel
   (`genesis-settings`, `genesis-settings:tenant:<id>`, `genesis-settings:person:<id>`) with the layer
   and key, never the value, to those who may read it. `watchAppSettings` resolves now and again on

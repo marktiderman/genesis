@@ -1,4 +1,4 @@
--- Genesis settings 0022: the tenant and person layers, and Realtime refresh (after
+-- Genesis settings 0023: the tenant and person layers, and Realtime refresh (after
 -- 0020_genesis_settings.sql and 0021_genesis_settings_integer.sql).
 --
 -- resolveSettings (genesis-config) resolves default → preset → file → database → tenant → person.
@@ -45,13 +45,14 @@
 --
 -- Access: writes only through the functions below (security definer). The tables have row level
 -- security on; anon has nothing, authenticated may only select what the policies allow: a tenant's
--- members and admins its values and their history, a person their own, platform admins everything.
+-- members and admins its values (its admins alone the history), a person their own values and
+-- history, platform admins everything.
 -- The service role may write the values directly (recorded, with no person).
 --
 -- Use: copy this file into your app's `supabase/migrations/` under a new timestamped name, after
 -- 0020 and 0021 (`genesis migrate` does it). Never edit it once applied.
 --
--- Verify: the pgTAP test beside this file (`tests/0022_genesis_settings_tenant_person.test.sql`).
+-- Verify: the pgTAP test beside this file (`tests/0023_genesis_settings_tenant_person.test.sql`).
 
 create schema if not exists private;
 
@@ -123,9 +124,10 @@ begin
 end;
 $$;
 
--- Who may read: the person themself, the tenant's members and admins, and platform admins. Also
--- what the policies below and the Realtime channels ask, so it is the one public helper.
-create or replace function public.genesis_settings_can_read(tenant uuid, person uuid)
+-- Who may read: the person themself, the tenant's members and admins (its admins only with
+-- `admins_only`, for the history, which shows who changed what), and platform admins. Also what the
+-- policies below and the Realtime channels ask, so it is the one public helper.
+create or replace function public.genesis_settings_can_read(tenant uuid, person uuid, admins_only boolean default false)
 returns boolean
 language plpgsql
 stable
@@ -147,6 +149,9 @@ begin
   if tenant is null then
     return false;
   end if;
+  if coalesce(admins_only, false) then
+    return private.genesis_settings_tenant_admin(tenant);
+  end if;
   -- Two statements: an expression naming a missing function fails even behind `and`.
   if to_regprocedure('private.genesis_tenant_member(uuid,uuid)') is not null then
     if coalesce(private.genesis_tenant_member(tenant, me), false) then
@@ -157,8 +162,8 @@ begin
 end;
 $$;
 
-comment on function public.genesis_settings_can_read(uuid, uuid) is
-  'Whether the signed-in person may read a tenant''s (tenant, null) or a person''s (null, person) settings: the person themself, the tenant''s members and admins, platform admins. Genesis settings.';
+comment on function public.genesis_settings_can_read(uuid, uuid, boolean) is
+  'Whether the signed-in person may read a tenant''s (tenant, null) or a person''s (null, person) settings: the person themself, the tenant''s members and admins (admins only with admins_only), platform admins. Genesis settings.';
 
 -- Why a value can't be stored in the tenant or person layer; null when it can. 0020's checks, then
 -- the scope, then a lock in the database layer.
@@ -206,7 +211,7 @@ begin
   end if;
   if to_regprocedure('private.genesis_tenant_admin(uuid,uuid)') is null then
     raise exception 'set_genesis_tenant_setting: nobody may change tenant settings yet'
-      using errcode = '42501', hint = 'Create private.genesis_tenant_admin(uuid, uuid) (see migration 0022_genesis_settings_tenant_person).';
+      using errcode = '42501', hint = 'Create private.genesis_tenant_admin(uuid, uuid) (see migration 0023_genesis_settings_tenant_person).';
   end if;
   if not private.genesis_settings_tenant_admin(tenant) then
     raise exception 'set_genesis_tenant_setting: only the tenant''s admins can change its settings' using errcode = '42501';
@@ -239,7 +244,7 @@ begin
   end if;
   if not private.genesis_settings_tenant_admin(tenant) then
     raise exception 'clear_genesis_tenant_setting: only the tenant''s admins can change its settings'
-      using errcode = '42501', hint = 'Create private.genesis_tenant_admin(uuid, uuid) (see migration 0022_genesis_settings_tenant_person).';
+      using errcode = '42501', hint = 'Create private.genesis_tenant_admin(uuid, uuid) (see migration 0023_genesis_settings_tenant_person).';
   end if;
   delete from public.genesis_tenant_settings s where s.tenant_id = tenant and s.key = clear_genesis_tenant_setting.key;
 end;
@@ -481,7 +486,7 @@ create policy genesis_tenant_settings_read on public.genesis_tenant_settings
 create policy genesis_person_settings_read on public.genesis_person_settings
   for select to authenticated using (public.genesis_settings_can_read(null, person_id));
 create policy genesis_scoped_setting_changes_read on public.genesis_scoped_setting_changes
-  for select to authenticated using (public.genesis_settings_can_read(tenant_id, person_id));
+  for select to authenticated using (public.genesis_settings_can_read(tenant_id, person_id, true));
 
 -- Who may listen on the settings channels: anyone signed in on `genesis-settings`, else whoever
 -- may read that tenant's or person's settings.
@@ -524,8 +529,8 @@ grant select, insert, update, delete on table public.genesis_person_settings to 
 revoke all on table public.genesis_scoped_setting_changes from service_role;
 grant select on table public.genesis_scoped_setting_changes to service_role;
 
-revoke execute on function public.genesis_settings_can_read(uuid, uuid) from public, anon;
-grant execute on function public.genesis_settings_can_read(uuid, uuid) to authenticated;
+revoke execute on function public.genesis_settings_can_read(uuid, uuid, boolean) from public, anon;
+grant execute on function public.genesis_settings_can_read(uuid, uuid, boolean) to authenticated;
 revoke execute on function public.set_genesis_tenant_setting(uuid, text, jsonb) from public, anon;
 grant execute on function public.set_genesis_tenant_setting(uuid, text, jsonb) to authenticated;
 revoke execute on function public.clear_genesis_tenant_setting(uuid, text) from public, anon;

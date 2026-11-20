@@ -66,6 +66,28 @@ describe("reading settings", () => {
     expect(layers.person).toEqual({ "support.shakeToReport": { value: false } });
   });
 
+  it("reads 0020's layers alone on a database without migration 0023, saying so once", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    for (const code of ["PGRST202", "42883"]) {
+      const rpc = vi.fn(async (_fn: string, args?: Record<string, unknown>) =>
+        args ? { data: null, error: { message: "Could not find the function public.genesis_settings_layers(tenant)", code } } : { data: stored, error: null },
+      );
+      const r = await resolveAppSettings({ rpc } as SettingsClient, catalogue, { tenantId: "tenant-a" });
+      expect(rpc.mock.calls).toEqual([["genesis_settings_layers", { tenant: "tenant-a" }], ["genesis_settings_layers"]]);
+      expect(r.values["support.dumpRetentionDays"]).toBe(60);
+      expect(r.sources["support.shakeToReport"]!.layer).not.toBe("person");
+    }
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0]![0])).toMatch(/0023_genesis_settings_tenant_person/);
+    warn.mockRestore();
+  });
+
+  it("doesn't fall back on any other error", async () => {
+    const { client, rpc } = fakeClient({ data: null, error: { message: "only the tenant's members can read its settings", code: "42501" } });
+    await expect(readSettingsLayers(client, { tenantId: "tenant-b" })).rejects.toBeInstanceOf(SupabaseQueryError);
+    expect(rpc).toHaveBeenCalledTimes(1);
+  });
+
   it("falls back to max and empty layers before a manifest is written, and drops malformed rows", async () => {
     const { client } = fakeClient({ data: { preset: "huge", file: null, database: { "a.b": 3, "c.d": { value: 1, locked: true } }, reportedAt: null }, error: null });
     expect(await readSettingsLayers(client)).toEqual({ preset: "max", file: {}, database: { "c.d": { value: 1, locked: true } }, tenant: {}, person: {}, reportedAt: null });
@@ -273,7 +295,7 @@ describe("the settings block", () => {
     expect(resolved.migrations).toEqual([
       { package: "@marktiderman/genesis-supabase", file: "migrations/0020_genesis_settings.sql", test: "migrations/tests/0020_genesis_settings.test.sql", feature: "settings" },
       { package: "@marktiderman/genesis-supabase", file: "migrations/0021_genesis_settings_integer.sql", test: "migrations/tests/0021_genesis_settings_integer.test.sql", feature: "settings" },
-      { package: "@marktiderman/genesis-supabase", file: "migrations/0022_genesis_settings_tenant_person.sql", test: "migrations/tests/0022_genesis_settings_tenant_person.test.sql", feature: "settings" },
+      { package: "@marktiderman/genesis-supabase", file: "migrations/0023_genesis_settings_tenant_person.sql", test: "migrations/tests/0023_genesis_settings_tenant_person.test.sql", feature: "settings" },
     ]);
     for (const m of resolved.migrations) {
       expect(existsSync(join(packageRoot, m.file)), m.file).toBe(true);
@@ -283,7 +305,7 @@ describe("the settings block", () => {
     expect(manifest.migrations).toEqual([
       { file: "migrations/0020_genesis_settings.sql", test: "migrations/tests/0020_genesis_settings.test.sql" },
       { file: "migrations/0021_genesis_settings_integer.sql", test: "migrations/tests/0021_genesis_settings_integer.test.sql" },
-      { file: "migrations/0022_genesis_settings_tenant_person.sql", test: "migrations/tests/0022_genesis_settings_tenant_person.test.sql" },
+      { file: "migrations/0023_genesis_settings_tenant_person.sql", test: "migrations/tests/0023_genesis_settings_tenant_person.test.sql" },
     ]);
   });
 

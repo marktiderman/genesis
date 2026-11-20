@@ -138,7 +138,7 @@ export const settingsBlock = defineBlock({
       // Whole numbers: a fraction is refused for a key declared `integer`.
       { package: PACKAGE, file: "migrations/0021_genesis_settings_integer.sql", test: "migrations/tests/0021_genesis_settings_integer.test.sql" },
       // The tenant and person layers, and Realtime refresh.
-      { package: PACKAGE, file: "migrations/0022_genesis_settings_tenant_person.sql", test: "migrations/tests/0022_genesis_settings_tenant_person.test.sql" },
+      { package: PACKAGE, file: "migrations/0023_genesis_settings_tenant_person.sql", test: "migrations/tests/0023_genesis_settings_tenant_person.test.sql" },
     ],
     privacy: {
       notes: ["Keeps who changed an app setting, when and from what to what; a deleted person's changes stay, without the person. No setting holds a secret."],

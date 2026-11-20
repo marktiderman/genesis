@@ -1,6 +1,6 @@
 /**
  * Genesis settings: the client half of `migrations/0020_genesis_settings.sql` and
- * `0022_genesis_settings_tenant_person.sql`. Read the layers the database holds and resolve them
+ * `0023_genesis_settings_tenant_person.sql`. Read the layers the database holds and resolve them
  * with genesis-config's `resolveSettings` (the one resolver, on every platform); platform admins
  * set, lock and clear runtime settings, tenant admins their tenant's values and each person their
  * own; `watchAppSettings` re-resolves when a layer changes (Realtime); the service role writes the
@@ -79,16 +79,30 @@ function storedLayer(raw: unknown): SettingsLayerValues {
   return out;
 }
 
+// Postgres's "no such function" and PostgREST's: the database predates migration 0023.
+const MISSING_FUNCTION = new Set(["42883", "PGRST202"]);
+let warnedWithoutScopedLayers = false;
+
 /**
  * The stored layers, for any signed-in person or server code: `genesis_settings_layers`. With
  * `tenantId`, the tenant's layer too (its members and admins, platform admins and server code
- * only). Throws a `SupabaseQueryError` (`42501`) when nobody is signed in, or the caller may not
- * read that tenant.
+ * only). On a database without migration 0023 it reads 0020's layers and returns no tenant or
+ * person values (saying so once in the console). Throws a `SupabaseQueryError` (`42501`) when
+ * nobody is signed in, or the caller may not read that tenant.
  *
  * @stability Beta
  */
 export async function readSettingsLayers(client: SettingsClient, options: { tenantId?: string } = {}): Promise<StoredSettingsLayers> {
-  const data = must((await client.rpc("genesis_settings_layers", { tenant: options.tenantId ?? null })) as RpcResult);
+  let result = (await client.rpc("genesis_settings_layers", { tenant: options.tenantId ?? null })) as RpcResult;
+  if (result.error && MISSING_FUNCTION.has(result.error.code ?? "")) {
+    if (!warnedWithoutScopedLayers) {
+      warnedWithoutScopedLayers = true;
+      // genesis-allow-console: a set-up hint, once: the app's database is missing a migration.
+      console.warn("Genesis settings: genesis_settings_layers(tenant) isn't in the database, so tenant and person values are left out. Apply genesis-supabase migration 0023_genesis_settings_tenant_person.sql (genesis migrate).");
+    }
+    result = (await client.rpc("genesis_settings_layers")) as RpcResult;
+  }
+  const data = must(result);
   const raw = isObject(data) ? data : {};
   return {
     preset: (typeof raw.preset === "string" && PRESETS.includes(raw.preset) ? raw.preset : "max") as SettingsPreset,
@@ -150,7 +164,7 @@ export interface WatchAppSettingsOptions extends ResolveAppSettingsOptions {
 /**
  * Resolve the settings now and again whenever a layer changes: the database layer, the tenant's
  * (`tenantId`) or the person's (`personId`). It listens on the private Realtime channels migration
- * 0022 broadcasts on (each change names the layer and key, never the value), re-reads after a
+ * 0023 broadcasts on (each change names the layer and key, never the value), re-reads after a
  * reconnect, and returns the function that stops it. Not wanted? Call {@link resolveAppSettings}
  * instead: nothing listens.
  *
