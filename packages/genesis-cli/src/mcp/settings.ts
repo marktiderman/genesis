@@ -52,10 +52,20 @@ export interface PackageSettings {
   declaration: SettingsDeclaration;
 }
 
-/** Every installed Genesis package's settings declarations (package.json `genesis.settings`), and what couldn't be read. */
-export function packageSettings(root: string): { declared: PackageSettings[]; problems: Array<{ package: string; message: string }> } {
+/** A declaration that doesn't parse, as its package.json has it. */
+export interface UnparsedSettings {
+  package: string;
+  raw: unknown;
+}
+
+/**
+ * Every installed Genesis package's settings declarations (package.json `genesis.settings`), what
+ * couldn't be read, and the raw JSON of each declaration that doesn't parse.
+ */
+export function packageSettings(root: string): { declared: PackageSettings[]; problems: Array<{ package: string; message: string }>; unparsed: UnparsedSettings[] } {
   const declared: PackageSettings[] = [];
   const problems: Array<{ package: string; message: string }> = [];
+  const unparsed: UnparsedSettings[] = [];
   for (const [name, dir] of [...installedGenesis(root)].sort(([a], [b]) => a.localeCompare(b))) {
     let raw: unknown;
     try {
@@ -70,10 +80,11 @@ export function packageSettings(root: string): { declared: PackageSettings[]; pr
         declared.push({ package: name, declaration: settingsFromManifest(one, `${name} genesis.settings${Array.isArray(raw) ? `[${i}]` : ""}`) });
       } catch (err) {
         problems.push({ package: name, message: (err as Error).message });
+        unparsed.push({ package: name, raw: one });
       }
     }
   }
-  return { declared, problems };
+  return { declared, problems, unparsed };
 }
 
 /** The catalogue of every installed package's keys; a catalogue that can't be built throws (SettingsError). */
@@ -87,23 +98,47 @@ export class CatalogueError extends Error {
   override name = "CatalogueError";
 }
 
-/** The secret names every settings declaration that could be read names, whether or not they make a catalogue. */
+/** Every secret a raw declaration names: each `"secret:NAME"` string and each `secret: { name }`, wherever they sit. */
+function rawSecretNames(raw: unknown, out: Set<string>): void {
+  if (typeof raw === "string") {
+    const m = /^secret:([A-Za-z_][A-Za-z0-9_]*)$/.exec(raw);
+    if (m) out.add(m[1]!);
+  } else if (Array.isArray(raw)) {
+    for (const v of raw) rawSecretNames(v, out);
+  } else if (raw && typeof raw === "object") {
+    const secret = (raw as { secret?: unknown }).secret;
+    if (secret && typeof secret === "object" && typeof (secret as { name?: unknown }).name === "string") out.add((secret as { name: string }).name);
+    for (const v of Object.values(raw)) rawSecretNames(v, out);
+  }
+}
+
+/**
+ * The secret names every settings declaration names, whether or not they make a catalogue: those
+ * that parse, and those read from the raw JSON of the ones that don't.
+ */
 export function readableSecretNames(root: string): string[] {
-  return packageSettings(root).declared.flatMap((d) => Object.values(d.declaration.keys).flatMap((k) => (k.secret ? [k.secret.name] : [])));
+  const { declared, unparsed } = packageSettings(root);
+  const out = new Set(declared.flatMap((d) => Object.values(d.declaration.keys).flatMap((k) => (k.secret ? [k.secret.name] : []))));
+  for (const u of unparsed) rawSecretNames(u.raw, out);
+  return [...out];
 }
 
 /**
  * The secret names the catalogue declares, so their values are redacted. A catalogue that can't be
- * built is a CatalogueError that says so: without it genesis mcp can't tell which values to redact.
+ * built, or a package whose declaration can't be read (its secrets would go unnamed), is a
+ * CatalogueError that says so: without them genesis mcp can't tell which values to redact.
  */
 export function declaredSecretNames(root: string): string[] {
-  let catalogue: SettingsCatalogue;
+  const refuse = (problem: string) =>
+    new CatalogueError(`The settings catalogue doesn't load, so genesis mcp can't tell which environment values are secrets, and answers nothing but doctor_run and doctor_explain until it does: ${problem} (genesis doctor at a terminal shows it)`);
+  let loaded: ReturnType<typeof loadCatalogue>;
   try {
-    catalogue = loadCatalogue(root).catalogue;
+    loaded = loadCatalogue(root);
   } catch (err) {
-    throw new CatalogueError(`The settings catalogue doesn't load, so genesis mcp can't tell which environment values are secrets, and answers nothing but doctor_run and doctor_explain until it does: ${err instanceof Error ? err.message : String(err)} (genesis doctor at a terminal shows it)`);
+    throw refuse(err instanceof Error ? err.message : String(err));
   }
-  return Object.values(catalogue.keys).flatMap((d) => (d.secret ? [d.secret.name] : []));
+  if (loaded.problems.length) throw refuse(loaded.problems.map((p) => `${p.package}: ${p.message}`).join("; "));
+  return Object.values(loaded.catalogue.keys).flatMap((d) => (d.secret ? [d.secret.name] : []));
 }
 
 const hasKey = (catalogue: SettingsCatalogue, key: string) => Object.prototype.hasOwnProperty.call(catalogue.keys, key);

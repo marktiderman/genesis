@@ -48,8 +48,8 @@ export class SecretVault {
   readonly #values = new Map<string, string>();
   /** Held for redaction only: no name, never handed to a tool. */
   readonly #hidden = new Set<string>();
-  /** The needles, compiled once per change to what is held (not per `redact`). */
-  #compiled: Needle[] | null = null;
+  /** The needles, compiled when what is held changes (`set`, `hide`, `drop`, `clear`), never per `redact`. */
+  #compiled: Needle[] = [];
 
   /** A vault holding these values (the engine's older `Record` form). */
   static from(source: SecretVault | Readonly<Record<string, string>> | undefined): SecretVault {
@@ -65,7 +65,7 @@ export class SecretVault {
     if (value.length > MAX_SECRET_LENGTH) throw new SecretError(`${name}: the value is longer than ${MAX_SECRET_LENGTH} characters`);
     if (value.includes("\0")) throw new SecretError(`${name}: the value has a NUL byte`);
     this.#values.set(name, value);
-    this.#compiled = null;
+    this.#compile();
   }
 
   /**
@@ -77,7 +77,7 @@ export class SecretVault {
     if (value.length > MAX_HIDDEN_LENGTH) throw new SecretError(`the value is longer than ${MAX_HIDDEN_LENGTH} characters`);
     if (value.includes("\0")) throw new SecretError("the value has a NUL byte");
     this.#hidden.add(value);
-    this.#compiled = null;
+    this.#compile();
   }
 
   has(name: string): boolean {
@@ -98,26 +98,29 @@ export class SecretVault {
 
   drop(name: string): void {
     this.#values.delete(name);
-    this.#compiled = null;
+    this.#compile();
   }
 
   clear(): void {
     this.#values.clear();
     this.#hidden.clear();
-    this.#compiled = null;
+    this.#compile();
   }
 
-  /** Every string that must never be shown (each value and each line of 8+ characters of a multi-line one), compiled. */
-  #needles(): Needle[] {
-    if (this.#compiled) return this.#compiled;
-    const out = new Set<string>();
+  /**
+   * Compile every string that must never be shown (each value and each line of 8+ characters of a
+   * multi-line one), keeping the Z-array of each that was already held.
+   */
+  #compile(): void {
+    const texts = new Set<string>();
     for (const value of [...this.#values.values(), ...this.#hidden]) {
-      out.add(value);
-      if (/[\r\n]/.test(value)) for (const line of value.split(/\r?\n/)) if (line.trim().length >= 8) out.add(line);
+      texts.add(value);
+      if (/[\r\n]/.test(value)) for (const line of value.split(/\r?\n/)) if (line.trim().length >= 8) texts.add(line);
     }
-    this.#compiled = [...out].map((text) => ({ text, z: text.includes("\\") ? null : zArray(text) }));
-    return this.#compiled;
+    const before = new Map(this.#compiled.map((n) => [n.text, n]));
+    this.#compiled = [...texts].map((text) => before.get(text) ?? { text, z: text.includes("\\") ? null : zArray(text) });
   }
+
 
   /**
    * The text with every held value replaced by [redacted]. No regular expression is built from a
@@ -134,7 +137,7 @@ export class SecretVault {
    */
   redact(text: string): string {
     if (typeof text !== "string" || !text) return text;
-    const fitting = this.#needles().filter((n) => n.text.length <= text.length);
+    const fitting = this.#compiled.filter((n) => n.text.length <= text.length);
     if (!fitting.length) return text;
     const needles = fitting.map((n) => n.text);
     const plain = fitting.map((n) => n.z !== null);
