@@ -75,8 +75,6 @@ export interface SupportReport {
   unread: boolean;
   /** Who sent it (the person's own id, or for staff the reporter's). */
   userId?: string | null;
-  /** Its help desk's tenant (migration 0004): which desk it is at. Absent where the read doesn't carry it. */
-  tenantId?: string | null;
   /**
    * When the person confirmed the fix (migration 0003): null while it isn't confirmed. The support
    * client always reads it; a client of your own that doesn't leaves it out, and then nothing asks
@@ -500,7 +498,7 @@ export interface SupportClientOptions {
 }
 
 const REPORT_COLUMNS =
-  "id, user_id, type, title, message, status, feature_id, route, app_version, created_at, updated_at, last_staff_reply_at, last_user_reply_at, user_read_at, staff_read_at, verified_at, pin:context->pin, about_label:context->>about_label, tenant_id";
+  "id, user_id, type, title, message, status, feature_id, route, app_version, created_at, updated_at, last_staff_reply_at, last_user_reply_at, user_read_at, staff_read_at, verified_at, pin:context->pin, about_label:context->>about_label";
 const IDEA_COLUMNS = "id, title, body, status, feature_id, shipped_at, vote_count, created_at";
 
 type Row = Record<string, unknown>;
@@ -565,7 +563,6 @@ function toReport(r: Row): SupportReport {
     staffReadAt: (r["staff_read_at"] as string | null) ?? null,
     verifiedAt: (r["verified_at"] as string | null) ?? null,
     userId: (r["user_id"] as string | null) ?? null,
-    ...("tenant_id" in r ? { tenantId: (r["tenant_id"] as string | null) ?? null } : {}),
   };
   return { ...report, unread: isUnread(report) };
 }

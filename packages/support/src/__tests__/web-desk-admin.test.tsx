@@ -202,6 +202,20 @@ describe("the desk card", () => {
     expect(deskHistory).toHaveBeenCalledWith({ tenantId: "acme", limit: 20 });
   });
 
+  it("names an action this version doesn't know, rather than failing", async () => {
+    const fake = fakeSupabase({
+      rpc: (fn) =>
+        fn === "support_desk_history"
+          ? { data: [{ id: 2, tenant_id: "acme", ticket_id: null, to_tenant: null, action: "merged", reason: null, actor: "u1", actor_name: "Ana", at: "2026-11-19T09:00:00Z" }], error: null }
+          : { data: null, error: null },
+    });
+    expect((await createSupportClient(fake.client).deskHistory!({ tenantId: "acme" }))[0]?.action).toBe("other");
+    const deskHistory = vi.fn(async () => [{ id: "2", tenantId: "acme", ticketId: null, toTenantId: null, action: "other" as const, reason: null, actorId: "u1", actorName: "Ana", at: "2026-11-19T09:00:00Z" }]);
+    show(<SupportDeskControls client={stub({ ticketDesk: vi.fn(async () => ({ ...atAcme, canEscalate: false })), deskMoveTargets: vi.fn(async () => []), deskHistory })} ticket={ticket()} />);
+    fireEvent.click(await screen.findByTestId("genesis-support-desk-log-toggle"));
+    await waitFor(() => expect(screen.getByTestId("genesis-support-desk-log").textContent).toContain("Ana changed this desk"));
+  });
+
   it("confirms a switch with a toast", async () => {
     const setDesk = vi.fn(async () => undefined);
     show(<SupportDeskSwitch client={stub({ myDesks: vi.fn(async () => [desk({ tenantId: "acme", isDefault: false, enabled: false, manage: true })]), setDesk })} tenantId="acme" />);
@@ -255,6 +269,31 @@ describe("my mentions", () => {
     act(() => fake.signIn("bo"));
     expect(await screen.findByTestId("genesis-support-mention-m-bo")).toBeTruthy();
     expect(screen.queryByTestId("genesis-support-mention-m-ana")).toBeNull();
+  });
+
+  it("shows nothing of the last login while the next one is read", async () => {
+    let listener: (() => void) | undefined;
+    let resolveNext: ((id: string) => void) | undefined;
+    const signedInId = vi.fn(async () => "ana");
+    const agentMentions = vi.fn(async () => [{ id: "m-ana", reportId: "t1", messageId: "x", authorId: "u1", createdAt: "2026-11-19T09:00:00Z" }]);
+    const client = stub({
+      signedInId,
+      onSignedInChange: (next) => {
+        listener = next;
+        return () => undefined;
+      },
+      agentMentions,
+    });
+    show(<SupportMyMentions client={client} resolveUser={() => ({ name: "Kit" }) as never} onOpen={() => {}} />);
+    expect(await screen.findByTestId("genesis-support-mention-m-ana")).toBeTruthy();
+    signedInId.mockImplementation(() => new Promise<string>((resolve) => (resolveNext = resolve)));
+    agentMentions.mockImplementation(async () => [{ id: "m-bo", reportId: "t2", messageId: "y", authorId: "u1", createdAt: "2026-11-19T10:00:00Z" }]);
+    act(() => listener?.());
+    // In between: the login is being read, and the last one's rows are gone.
+    await waitFor(() => expect(screen.queryByTestId("genesis-support-mention-m-ana")).toBeNull());
+    expect(resolveNext).toBeDefined();
+    act(() => resolveNext?.("bo"));
+    expect(await screen.findByTestId("genesis-support-mention-m-bo")).toBeTruthy();
   });
 
   it("says when the login can't be read, rather than loading for ever", async () => {

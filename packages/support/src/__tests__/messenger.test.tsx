@@ -245,6 +245,17 @@ describe("SupportMessenger", () => {
     await waitFor(() => expect(verify).toHaveBeenCalledWith("t1", true, undefined));
   });
 
+  it("answers once, however often it's pressed, and the card goes", async () => {
+    const verify = vi.fn(async () => undefined);
+    show(fakeClient({ report: vi.fn(async () => ticket({ status: "addressed", verifiedAt: null })), verify }), { spaces: ["messages"] });
+    fireEvent.click(await screen.findByText("Where is my invoice?"));
+    const fixed = await screen.findByTestId("genesis-support-messenger-verify-fixed");
+    fireEvent.click(fixed);
+    fireEvent.click(fixed);
+    await waitFor(() => expect(screen.queryByTestId("genesis-support-messenger-verify")).toBeNull());
+    expect(verify).toHaveBeenCalledTimes(1);
+  });
+
   it("reopens a fixed conversation with what's still wrong", async () => {
     const verify = vi.fn(async () => undefined);
     show(fakeClient({ report: vi.fn(async () => ticket({ status: "addressed", verifiedAt: null })), verify }), { spaces: ["messages"] });
@@ -286,7 +297,7 @@ describe("SupportMessenger", () => {
 
   it("names each conversation's desk when Messages lists every desk", async () => {
     const client = fakeClient({
-      myReports: vi.fn(async () => [ticket({ tenantId: "acme" }), ticket({ id: "t2", message: "Second", tenantId: "north" }), ticket({ id: "t3", message: "Third", tenantId: "app" })]),
+      myReports: vi.fn(async () => [ticket(), ticket({ id: "t2", message: "Second" }), ticket({ id: "t3", message: "Third" })]),
       signedInId: vi.fn(async () => "me"),
       myTicketDesks: vi.fn(async () => [
         { ticketId: "t1", tenantId: "acme", label: "Acme" },

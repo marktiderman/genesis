@@ -292,6 +292,7 @@ export function SupportAgentReports(props: SupportAgentReportsProps) {
 
 function AgentReports({ client, tenantId = null, from: fromProp, to: toProp, onRangeChange, copy: copyOverrides, onError, className }: SupportAgentReportsProps) {
   const copy = useMemo(() => resolveSupportCopy(copyOverrides), [copyOverrides]);
+  const byRequesterList = useMemo(() => byRequesterView(copy), [copy]);
   const ids = { from: useId(), to: useId() };
   const [own, setOwn] = useState(() => {
     const today = new Date();
@@ -353,7 +354,7 @@ function AgentReports({ client, tenantId = null, from: fromProp, to: toProp, onR
                 {copy.reports.byRequester}
               </h3>
               <ViewList
-                view={byRequesterView(copy)}
+                view={byRequesterList}
                 rows={data.byRequester.map((g, i): ByRequesterRow => ({ id: String(i), label: g.label ?? copy.reports.unknownRequester, open: g.open }))}
                 testId="genesis-support-reports-by-requester-list"
               />
@@ -584,7 +585,7 @@ export function SupportMyMentions({ client, resolveUser, onOpen, copy: copyOverr
         loading={mentions.isPending && !login.failed}
         error={mentions.isError || login.failed}
         errorMessage={copy.mentions.loadFailed}
-        onRetry={() => void mentions.refetch()}
+        onRetry={() => (login.failed ? login.retry() : void mentions.refetch())}
         cells={cells}
         testId="genesis-support-mentions-list"
       />

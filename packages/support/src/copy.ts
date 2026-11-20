@@ -271,6 +271,7 @@ export const supportCopy = {
       escalated: "{by} sent a conversation up to {to}",
       returned: "{by} handed a conversation back to {to}",
       moved: "{by} moved a conversation to {to}",
+      other: "{by} changed this desk",
     },
   },
   /** Support's notifications (migration 0030, `supportNotificationTypes`): `{by}`, `{title}`, `{from}`. */

@@ -31,18 +31,22 @@ export interface LoginScope {
   /** The login couldn't be read: show that, not a placeholder for ever. */
   failed: boolean;
   error: unknown;
+  /** Reads the login again (a Retry after `failed`). */
+  retry: () => void;
 }
 
 /**
  * The client, the signed-in login and the tenant, for the keys of reads that differ by who asks:
  * another login on the same client never reads the last one's cache. It reads the login again when
- * someone signs in or out (`onSignedInChange`). A client without `signedInId` serves one login, and
- * keys by the client alone.
+ * someone signs in or out (`onSignedInChange`), and until it has, `scope` is null: nothing keyed by
+ * the last login shows in between. A client without `signedInId` serves one login, and keys by the
+ * client alone.
  */
 export function useLoginScope(client: Pick<SupportClient, "signedInId" | "onSignedInChange">, tenantId: string | null): LoginScope {
   const queryClient = useQueryClient();
   const id = idOf(client);
-  useEffect(() => client.onSignedInChange?.(() => void queryClient.invalidateQueries({ queryKey: ["genesis-support", "login", id] })), [client, queryClient, id]);
+  // Reset, not invalidate: the old login's id goes at once, so no key built from it is read meanwhile.
+  useEffect(() => client.onSignedInChange?.(() => void queryClient.resetQueries({ queryKey: ["genesis-support", "login", id] })), [client, queryClient, id]);
   const signedInId = client.signedInId?.bind(client);
   const login = useQuery({
     queryKey: ["genesis-support", "login", id],
@@ -50,9 +54,10 @@ export function useLoginScope(client: Pick<SupportClient, "signedInId" | "onSign
     staleTime: Infinity,
     retry: false,
   });
-  if (!signedInId) return { scope: `${scopeOf(client, tenantId)}:-`, failed: false, error: null };
-  if (login.isError) return { scope: null, failed: true, error: login.error };
-  return { scope: login.isSuccess ? `${scopeOf(client, tenantId)}:${login.data ?? "signed-out"}` : null, failed: false, error: null };
+  const retry = () => void login.refetch();
+  if (!signedInId) return { scope: `${scopeOf(client, tenantId)}:-`, failed: false, error: null, retry };
+  if (login.isError) return { scope: null, failed: true, error: login.error, retry };
+  return { scope: login.isSuccess ? `${scopeOf(client, tenantId)}:${login.data ?? "signed-out"}` : null, failed: false, error: null, retry };
 }
 
 /** `ready` is false until it's known: a screen doesn't read or write until then, or it could use the wrong tenant. */
