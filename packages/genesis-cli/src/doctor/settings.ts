@@ -16,6 +16,10 @@
  *   (`functions[].secrets`) reads isn't in its store; checked by name only through the
  *   developer's CLIs (src/exec/secret-stores.ts), only when the network is on. **info**: a store
  *   that couldn't be checked (a tool missing or signed out, the app not linked, a server's environment).
+ * - `platform-admin-missing` **warn**: the app has genesis-supabase's default platform-admin list
+ *   (0022), no `private.genesis_platform_admin` hook of its own, and the list is empty, so nobody
+ *   can change a setting or answer support tickets. Read with the database layer. **info**: it
+ *   couldn't be read.
  *
  * The file's shape (a `namespace.key`, a boolean lock, a known preset) is checked when the config
  * is read, so a malformed file stops every command, not only the doctor.
@@ -23,7 +27,7 @@
  * `genesis-config-unknown-key` (warn): a top-level key in genesis.config.json no Genesis tool reads
  * (`presets`, `setting`), which would otherwise do nothing, silently.
  */
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import * as path from "node:path";
 import {
   SettingsError,
@@ -190,6 +194,41 @@ export async function readDatabaseLayer(root: string, run: ToolRunner = runTool)
   }
 }
 
+const ADMINS_TABLE = "genesis_platform_admins";
+// The list counts only while the app has no hook of its own (genesis-supabase 0022).
+const ADMINS_SQL =
+  "select (select count(*) from public.genesis_platform_admins)::int as admins, to_regprocedure('private.genesis_platform_admin(uuid)') is not null as app_hook;\n";
+
+/** Whether the app has genesis-supabase 0022's copy (the default platform-admin list). */
+function hasPlatformAdminsMigration(root: string): boolean {
+  try {
+    return readdirSync(path.join(root, "supabase", "migrations")).some((f) => f.endsWith(`_${ADMINS_TABLE}.sql`));
+  } catch {
+    return false;
+  }
+}
+
+/** How many platform admins the default list holds, and whether the app has its own hook (then the list is unused). */
+export async function readPlatformAdmins(root: string, run: ToolRunner = runTool): Promise<{ ok: true; count: number; appHook: boolean } | { ok: false; reason: string }> {
+  let result;
+  try {
+    result = await run("supabase", ["db", "query", "--linked", "-o", "json", "-f", "/dev/stdin"], { cwd: root, stdin: ADMINS_SQL, timeoutMs: 30_000, passEnv: TOOL_AUTH_ENV["supabase"] ?? [] });
+  } catch (err) {
+    return { ok: false, reason: (err as Error).message };
+  }
+  if (result.code !== 0) return { ok: false, reason: `supabase exited ${result.code}: ${result.stderr.trim().split("\n")[0] ?? ""}`.trim() };
+  try {
+    const parsed = JSON.parse(result.stdout) as unknown;
+    const rows = Array.isArray(parsed) ? parsed : (parsed as { rows?: unknown[] } | null)?.rows;
+    const row = (Array.isArray(rows) ? rows[0] : null) as { admins?: unknown; app_hook?: unknown } | null;
+    const count = Number(row?.admins);
+    if (!row || !Number.isInteger(count) || row.app_hook === undefined) throw new Error("no row");
+    return { ok: true, count, appHook: row.app_hook === true || row.app_hook === "t" || row.app_hook === "true" };
+  } catch {
+    return { ok: false, reason: "supabase's output couldn't be read" };
+  }
+}
+
 const FUNCTION_SECRET = /^[A-Z][A-Z0-9_]*$/;
 
 /**
@@ -280,6 +319,19 @@ export function settingsCheck(options: SettingsCheckOptions = {}): (ctx: DoctorC
       const read = await readDatabaseLayer(ctx.root, run);
       if (read.ok) database = read.layer;
       else ctx.report({ rule: "invalid-setting", level: "info", file: DATABASE_FILE, message: `the database layer wasn't checked: ${read.reason}` });
+    }
+
+    if (wantDatabase && hasPlatformAdminsMigration(ctx.root)) {
+      const admins = await readPlatformAdmins(ctx.root, run);
+      if (!admins.ok) ctx.report({ rule: "platform-admin-missing", level: "info", file: ADMINS_TABLE, message: `the platform admins weren't checked: ${admins.reason}` });
+      else if (!admins.appHook && admins.count === 0) {
+        ctx.report({
+          rule: "platform-admin-missing",
+          level: "warn",
+          file: ADMINS_TABLE,
+          message: `nobody is a platform admin: ${ADMINS_TABLE} is empty and the app has no private.genesis_platform_admin hook of its own, so nobody can change a setting or answer support tickets. Add the first admin by email (genesis fix settings.first-admin shows how)`,
+        });
+      }
     }
 
     const resolved = resolveSettings(catalogue, { ...(config?.preset ? { preset: config.preset } : {}), file: settingsLayerFromFile(config?.settings), ...(database ? { database } : {}) });
