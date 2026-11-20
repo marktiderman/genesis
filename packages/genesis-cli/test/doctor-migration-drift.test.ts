@@ -56,6 +56,20 @@ describe("migration-pending and migration-drift", () => {
     expect((await of(root, "migration-drift")).map((f) => f.file)).toEqual([copy]);
   });
 
+  it("migration-drift: the app's own earlier draft under the same name doesn't drift beside the tracked copy; two drafts and no header still do", async () => {
+    const root = await appWithBlock();
+    const draft = "supabase/migrations/20261001120000_fixture_notes.sql";
+    writeFileSync(path.join(root, draft), "-- the app's draft, before the package shipped\ncreate table if not exists notes (id uuid primary key);\n");
+    expect(await of(root, "migration-drift")).toEqual([]);
+    // The tracked copy edited: it drifts, and the draft beside it still doesn't.
+    const copy = "supabase/migrations/20261101120000_fixture_notes.sql";
+    writeFileSync(path.join(root, copy), read(root, copy).replace("primary key", "primary key, extra int"));
+    expect((await of(root, "migration-drift")).map((f) => f.file)).toEqual([copy]);
+    // Without a header to tell them apart, it's left alone and reported.
+    writeFileSync(path.join(root, copy), "create table if not exists notes (id uuid primary key, other int);\n");
+    expect((await of(root, "migration-drift")).length).toBe(1);
+  });
+
   it("migration-drift: an edited copy, with the guided forward-migration fix", async () => {
     const root = await appWithBlock();
     const copy = "supabase/migrations/20261101120000_fixture_notes.sql";

@@ -311,11 +311,15 @@ export function planMigrations(
     const sameText = (m: AppMigration) => sourceSha !== null && textSha(m.tracked ? m.tracked.body : m.content) === sourceSha;
     // Everything in the folder that already holds this migration, by header, name or text.
     const copies = app.filter((m) => !m.forward && ((m.tracked && m.tracked.package === src.package && m.tracked.file === src.file) || sameName(m) || sameText(m)));
-    if (copies.length > 1) {
+    // Several files can hold it when the app wrote its own draft before the package shipped and then
+    // copied the published one. The copy whose header names this migration is the copy; the others
+    // are the app's own. Without exactly one such header, which is the copy can't be told.
+    const tracked = copies.filter((m) => m.tracked && m.tracked.package === src.package && m.tracked.file === src.file);
+    if (copies.length > 1 && tracked.length !== 1) {
       rows.push({ ...base, state: "differs", copy: copies[0]!.path, detail: `${copies.length} files hold it (${copies.map((m) => m.name).join(", ")}); left alone` });
       continue;
     }
-    const copy = copies[0];
+    const copy = copies.length > 1 ? tracked[0] : copies[0];
     if (src.source === null || sourceSha === null) {
       rows.push({ ...base, state: "unavailable", ...(copy ? { copy: copy.path } : {}), detail: `${src.package} isn't installed, or doesn't ship ${src.file}` });
       continue;
