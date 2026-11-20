@@ -89,7 +89,8 @@ a dump with no ticket, support staff. The short-id lookup follows the same rule.
 **No SQL of your own.** Support runs without any hook of the app's:
 
 - **The app's own tenant** is Genesis's reserved zero-config tenant,
-  `00000000-0000-0000-0000-000000000001`. It is never an organisation's id: don't give one to a real
+  `bda1457d-053b-422c-8887-e046e54b8344`, a fixed random UUID, so a hand-written seed id such as
+  `…0001` never lands on it. It is never an organisation's id: don't give one to a real
   organisation. Migration `0021_genesis_support_default_hooks.sql` (before 0004) defines a stand-in
   `private.genesis_support_default_tenant()` only so 0004 can run; `0023` (right after 0004) drops it
   again, but only while it is still exactly that stand-in (its body and its "Genesis default:"

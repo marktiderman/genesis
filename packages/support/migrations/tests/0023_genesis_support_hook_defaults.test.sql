@@ -5,7 +5,7 @@
 -- `create function` and their own parameter names, and take over. Rolls back.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(17);
+select plan(20);
 
 create function pg_temp.person(n text) returns uuid language sql immutable as $$
   select ('00000000-0000-4000-8000-0000000023' || n)::uuid $$;
@@ -24,7 +24,7 @@ from unnest(array['a1', 'b2', 'c3']) n;
 select is(to_regprocedure('private.genesis_support_default_tenant()'), null, '0021''s stand-in is gone after 0023');
 select is(to_regprocedure('private.genesis_viewer_people(uuid)'), null, 'Genesis defines no viewer-people hook');
 select is(to_regprocedure('private.genesis_support_staff(uuid)'), null, 'nor a staff hook of the app''s name');
-select is(private.genesis_support_default_tenant_id(), '00000000-0000-0000-0000-000000000001'::uuid, 'the app''s own tenant is Genesis''s reserved one');
+select is(private.genesis_support_default_tenant_id(), 'bda1457d-053b-422c-8887-e046e54b8344'::uuid, 'the app''s own tenant is Genesis''s reserved one');
 select is(private.genesis_support_staff_hook(pg_temp.person('b2')), false, 'without a platform-admin hook, nobody is staff');
 
 create function private.genesis_platform_admin(person uuid) returns boolean
@@ -36,7 +36,7 @@ set local role authenticated;
 select lives_ok($$insert into public.tickets (type, message) values ('bug', 'zero-config report')$$, 'a person sends a report');
 select is((select count(*)::int from public.tickets), 1, 'and reads their own');
 reset role;
-select is((select tenant_id from public.tickets where message = 'zero-config report'), '00000000-0000-0000-0000-000000000001'::uuid, 'it lands in the reserved tenant');
+select is((select tenant_id from public.tickets where message = 'zero-config report'), 'bda1457d-053b-422c-8887-e046e54b8344'::uuid, 'it lands in the reserved tenant');
 select pg_temp.sign_in('b2');
 set local role authenticated;
 select is(public.support_is_staff(), true, 'the platform admin is support staff');
@@ -47,10 +47,23 @@ set local role authenticated;
 select is((select count(*)::int from public.tickets), 0, 'someone else reads nothing');
 reset role;
 
+-- 1a. An org seeded with the common id …0001 is just an org: not the app's help desk -------------
+
+create function private.genesis_viewer_people(viewer uuid) returns table (tenant_id uuid, person_id uuid)
+language sql stable set search_path = '' as $$ select '00000000-0000-0000-0000-000000000001'::uuid, viewer where viewer is not null $$;
+select isnt(private.genesis_support_default_tenant_id(), '00000000-0000-0000-0000-000000000001'::uuid, 'the app''s tenant isn''t the common seed id');
+select pg_temp.sign_in('a1');
+set local role authenticated;
+select throws_ok($$insert into public.tickets (type, message, tenant_id) values ('bug', 'to the seeded org', '00000000-0000-0000-0000-000000000001')$$,
+  null, null, 'a member of an org seeded with …0001 can''t file to it: its help desk is off, it isn''t the app''s');
+reset role;
+select is(private.genesis_support_agent('00000000-0000-0000-0000-000000000001', pg_temp.person('b2')), false, 'and the app''s staff don''t handle its tickets');
+drop function private.genesis_viewer_people(uuid);
+
 -- 1b. An app's hook written over the stand-in before 0023 ran is kept --------------------------
 
 create function private.genesis_support_default_tenant() returns uuid language sql stable set search_path = ''
-  as $b$ select '00000000-0000-0000-0000-000000000001'::uuid $b$;
+  as $b$ select 'bda1457d-053b-422c-8887-e046e54b8344'::uuid $b$;
 comment on function private.genesis_support_default_tenant() is 'Genesis default: a stand-in for support 0004, dropped by support 0023. Genesis support 0021.';
 create or replace function private.genesis_support_default_tenant() returns uuid language sql stable set search_path = ''
   as $b$ select '00000000-0000-4000-8000-0000000023f0'::uuid $b$;
