@@ -1,0 +1,41 @@
+packages/genesis-cli/src/exec/secret-vault.ts
+  s_ca8e075e853203::t_1482ea134e77a2 113-114
+  s_ca8e075e853203::t_4420ccf94ce439 102-103
+  s_ca8e075e853203::t_c68d866c927ca5 219-224,227,229,231-233,235-242,264-271,273
+  s_ca8e075e853203::t_12c3982a2434fa 109-112,120-123,127-128
+  s_ca8e075e853203::t_8510015144bd8f 124-126
+  s_ca8e075e853203::t_50c760d7d96187 100-101,117-118,129,131-133,135-137
+  s_ca8e075e853203::t_6aa36b7836315b 243-263
+packages/genesis-cli/test/setup-steps.test.ts
+  s_ca8e075e853203::t_044801f1286968 400
+  s_ca8e075e853203::t_5e018604009d84 399
+  s_cfe03394c0d379::t_1fdafa515be0d1 170-176,190,362,390-398,401-403
+packages/genesis-cli/src/wizard/steps/framework.ts
+  s_ca8e075e853203::t_2bf47fc0cf0303 200-203,212
+packages/genesis-cli/src/wizard/steps/supabase-link.ts
+  s_ca8e075e853203::t_fe50808f202ae1 95
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1388b4d7de3e0cfc272ca92d2595ea563f73db51",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_cfe03394c0d379": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b0c9d35b-ebb9-42c9-9694-dd173757e0d5",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
