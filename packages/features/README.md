@@ -232,37 +232,26 @@ const values: Record<string, string> = checkSetupFields(githubIssues, { repo: "y
 
 ### The Settings screen
 
-One screen, meant for two hosts: the localhost wizard (`genesis setup`) and the app's own
-platform-admin page. `<GenesisSettings>` (`@marktiderman/genesis-config/settings/react`, Beta) draws it, and
-talks to its host only through a `SettingsClient` (`@marktiderman/genesis-config/settings-protocol`, Beta,
-free of zod and React).
+One screen, two hosts: the localhost wizard (`genesis setup`) and the app's own platform-admin
+page. `<GenesisSettings>` (`@marktiderman/genesis-config/settings/react`, Beta) draws it, and talks to its
+host only through a `SettingsClient` (`@marktiderman/genesis-config/settings-protocol`, Beta, free of zod
+and React).
 
 **Beta.** The screen ships before the maintainer's design review: its look, copy keys and props may
 change in a minor release.
 
-**Today the wizard is the only host.** `genesis setup` serves the screen on localhost, and its
-server answers the protocol under `/api`:
-
 ```tsx
-import { createSettingsClient } from "@marktiderman/genesis-config/settings-protocol";
+import { APP_HOST_CAPABILITIES, createSettingsClient } from "@marktiderman/genesis-config/settings-protocol";
 import { GenesisSettings } from "@marktiderman/genesis-config/settings/react";
 
-declare const launchToken: () => string | null;
+declare const accessToken: () => string | null;
 
-// What the wizard's page does (packages/genesis-cli/wizard): the CLI's localhost server is the host.
-const client = createSettingsClient(fetch, { baseUrl: "/api", token: launchToken });
+const client = createSettingsClient(fetch, { baseUrl: "/api/genesis/settings", token: accessToken });
 
-export function WizardSettings() {
-  return <GenesisSettings client={client} defaultTab="health" />;
+export function PlatformSettings() {
+  return <GenesisSettings client={client} capabilities={APP_HOST_CAPABILITIES} />;
 }
 ```
-
-**No app host yet (Phase 4).** Genesis ships no settings handler an app can mount for its own
-platform-admin page, so nothing answers an app's `/api/genesis/settings`, and
-`APP_HOST_CAPABILITIES` below describes that host before it exists. Until then an app changes
-database-layer values with genesis-supabase's `setGenesisSetting` (a platform admin, through
-`set_genesis_setting`, which refuses every value until `genesis settings sync` has written the
-app's manifest).
 
 **Tabs.** Values (every key grouped by package, with its value, the layer it came from and its
 lock), Health (the doctor's findings, each with its fix), Secrets (each secret's name, store and
