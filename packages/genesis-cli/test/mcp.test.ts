@@ -578,15 +578,26 @@ describe("genesis mcp: adversarial review", () => {
     expect(JSON.parse(text).findings).toHaveLength(2_000);
   });
 
-  it("answers nothing while the settings catalogue doesn't load: it can't tell which values are secrets", async () => {
+  it("while the settings catalogue doesn't load, only the doctor's tools answer, redacted by every readable secret name", async () => {
     const OTHER = "@marktiderman/genesis-other";
+    const OTHER_SECRET = "other-secret-value-1234";
+    const other = { namespace: "support", keys: { relay: { type: "boolean", default: false, needs: "secret:OTHER_RELAY" } } };
     const root = app({
       "package.json": JSON.stringify({ name: "app", dependencies: { [SUPPORT]: "^0.12.0", [OTHER]: "^0.1.0" } }),
-      [`node_modules/${OTHER}/package.json`]: JSON.stringify({ name: OTHER, version: "0.1.0", genesis: { settings } }),
+      [`node_modules/${OTHER}/package.json`]: JSON.stringify({ name: OTHER, version: "0.1.0", genesis: { settings: other } }),
     });
-    const { call, seen } = await connect(root);
-    await expect(call("doctor_run")).rejects.toThrow(/settings catalogue doesn't load.*declared twice/);
-    expect(seen.join("\n")).not.toContain(SECRET);
+    const env = { SUPPORT_GITHUB_TOKEN: SECRET, OTHER_RELAY: OTHER_SECRET, PATH: "/usr/bin" };
+    const { call } = await connect(root, { server: { env } });
+    // Every other tool fails closed, naming the problem.
+    await expect(call("settings_get")).rejects.toThrow(/settings catalogue doesn't load.*declared twice/);
+    // The doctor still answers, and reports the catalogue as a finding; doctor_explain answers too.
+    expect(JSON.stringify(await call("doctor_run"))).toMatch(/invalid-setting.*declared twice|declared twice.*invalid-setting/);
+    await expect(call("doctor_explain", { rule: "invalid-setting" })).resolves.toBeTypeOf("object");
+    // What the doctor says is redacted by every secret name a readable declaration names (OTHER_RELAY isn't secret-looking).
+    const leaky = { rule: "r", level: "warn" as const, file: "f", line: 1, message: `relay ${OTHER_SECRET} and ${SECRET}` };
+    const stubbed = await connect(root, { server: { env, deps: { doctor: async () => ({ ok: false, genesis: { uiPackage: "u", uiVersion: "1" }, errors: 0, warnings: 1, infos: 0, findings: [leaky] }) as never } } });
+    expect(JSON.stringify(await stubbed.call("doctor_run"))).toContain("relay [redacted] and [redacted]");
+    expect(stubbed.seen.join("\n")).not.toContain(OTHER_SECRET);
   });
 
   it("scrubs what is written to stderr", () => {

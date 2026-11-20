@@ -82,16 +82,26 @@ export function loadCatalogue(root: string): { catalogue: SettingsCatalogue; dec
   return { catalogue: settingsCatalogue(declared.map((d) => d.declaration)), declared, problems };
 }
 
+/** The settings catalogue doesn't load, so the secrets it declares aren't known. */
+export class CatalogueError extends Error {
+  override name = "CatalogueError";
+}
+
+/** The secret names every settings declaration that could be read names, whether or not they make a catalogue. */
+export function readableSecretNames(root: string): string[] {
+  return packageSettings(root).declared.flatMap((d) => Object.values(d.declaration.keys).flatMap((k) => (k.secret ? [k.secret.name] : [])));
+}
+
 /**
  * The secret names the catalogue declares, so their values are redacted. A catalogue that can't be
- * built is an error that says so: without it genesis mcp can't tell which values to redact.
+ * built is a CatalogueError that says so: without it genesis mcp can't tell which values to redact.
  */
 export function declaredSecretNames(root: string): string[] {
   let catalogue: SettingsCatalogue;
   try {
     catalogue = loadCatalogue(root).catalogue;
   } catch (err) {
-    throw new Error(`The settings catalogue doesn't load, so genesis mcp can't tell which environment values are secrets, and answers nothing until it does: ${err instanceof Error ? err.message : String(err)} (genesis doctor at a terminal shows it)`);
+    throw new CatalogueError(`The settings catalogue doesn't load, so genesis mcp can't tell which environment values are secrets, and answers nothing but doctor_run and doctor_explain until it does: ${err instanceof Error ? err.message : String(err)} (genesis doctor at a terminal shows it)`);
   }
   return Object.values(catalogue.keys).flatMap((d) => (d.secret ? [d.secret.name] : []));
 }
