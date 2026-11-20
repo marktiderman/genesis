@@ -89,7 +89,8 @@ function Section({
 
 function PropBlock({ children }: { children: string }) {
   return (
-    <pre className="mt-3 rounded-lg bg-muted/60 border p-3 text-xs font-mono text-muted-foreground overflow-x-auto">
+    // Scrolls sideways when narrow: focusable, so the keyboard can scroll it too.
+    <pre tabIndex={0} className="mt-3 rounded-lg bg-muted/60 border p-3 text-xs font-mono text-muted-foreground overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
       {children}
     </pre>
   );

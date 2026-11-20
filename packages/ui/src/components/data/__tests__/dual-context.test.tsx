@@ -18,7 +18,11 @@
  * error — i.e. the component and the provider share ONE context instance.
  */
 import { render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { describe, expect, it } from "vitest";
+import { defineResource } from "@marktiderman/genesis-core";
+import { defineView } from "@marktiderman/genesis-core/resource-view";
+import { ResourceView } from "../resource-view/ResourceView";
 
 import { GenesisProvider } from "../../../provider";
 import { RelationField } from "../RelationField";
@@ -89,6 +93,17 @@ describe("dual-context regression (C1): exported components share the provider c
     ).toThrow(
       "useDataProvider must be used inside <DataProviderRoot> or <GenesisProvider>",
     );
+  });
+
+  it("ResourceView over rows it was given renders WITHOUT GenesisProvider: nothing is read through one", () => {
+    const resource = defineResource<{ id: string; title: string }>()({ name: "posts", key: "id", label: "Posts", labelField: "title", fields: [{ name: "id", type: "string" }, { name: "title", type: "string" }] });
+    const view = defineView(resource, { columns: { default: ["title"] }, form: [] });
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ResourceView view={view} rows={[{ id: "1", title: "Hello" }]} layout="compact" urlState={false} />
+      </QueryClientProvider>,
+    );
+    expect(screen.getByText("Hello")).toBeTruthy();
   });
 
   it("RelationField throws expected error when rendered WITHOUT GenesisProvider", () => {

@@ -58,11 +58,13 @@ the server as on screen (migration 0029):
   tokens and signing secrets stay in the environment.
 - `support.replyByEmail` (with `support.email`): `supportReplyConfig`, `supportEmailOptions` and
   `handleSupportInbound`.
-- `support.email`: `supportReplyConfig` (reply by email) is off while it is off.
+- `support.email`: the email channel. While it is off, migration 0031's `support_receive_email`
+  files nothing and `support_claim_outbound_emails` sends nothing, and `supportReplyConfig` (reply
+  by email) is off.
 - `support.aiAnswers`: migration 0029 turns off a tenant's AI answers (`support_ai_enabled`, which
   `support_ask`, the help screens and `answerHelpQuestion` all ask) while it is off for that tenant.
-- `support.chatThreads`: off, threads stay on support_replies even with a chat client
-  (`createSupport`, and `createSupportClient`'s `settings`).
+- `support.chatThreads`: migration 0034 answers no conversation while it is off, so threads stay
+  on support_replies for every client, whatever chat client it was given.
 - `support.verifyPrompt`: migration 0033 (the verify prompt; see below).
 - `support.contactEmail`, `support.contactUrl`: `supportContact(settings)`; the messenger's Help and
   error states (`SupportContact`), the phone's help center (`SupportContactRow`), and
@@ -119,7 +121,8 @@ genesis-supabase's settings when they're there, else 10 and 90 as before.
 
 Zero config means no settings to choose: with none stored, the `max` preset turns everything on.
 It doesn't mean no code. The app passes support what only it has, once, and runs one command on
-every deploy. `apps/genesis-rn-starter/src/lib/support.ts` does all of it, so copy from there.
+every deploy. `apps/genesis-rn-starter/src/lib/` (`support.ts`, `settings.ts`, `health.ts`, `errors.ts`) does all
+of it, so copy from there.
 
 - **Its route files.** Two per navigation zone, each one line (`index.tsx` and `[...route].tsx`
   under `basePath`, exporting `SupportRoute`), and `createSupport`'s `router` (`Stack.Screen`,
@@ -132,14 +135,18 @@ every deploy. `apps/genesis-rn-starter/src/lib/support.ts` does all of it, so co
   `healthChecksSection`, and `user`.
 - **Health checks**: `healthChecks.register(...supabaseHealthChecks(supabase))`, and
   genesis-native's `createDevtools({ checks: healthChecks })`.
-- **The build stamp**: `"eas-build-post-install": "genesis build-stamp"` in the app's
-  package.json, and the `build-metadata.json` it writes imported as `buildMetadata`.
+- **The build stamp**: `build-metadata.json`, written by `genesis build-stamp` (git-ignored) and
+  imported as `buildMetadata`. The app's scripts that bundle, typecheck or test run it first; EAS
+  builds run it in `eas-build-post-install` with the profile's `GENESIS_CHANNEL`; the release
+  lanes run it before every `eas update`, and `native-release.mjs stamped` refuses a release
+  whose stamp has no commit, build time or channel.
 - **"Send diagnostics"** under Settings → About: `<SendDiagnosticsRow />`.
 - **"Contact support" on the error screens**: genesis-native's fatal screen and screen boundary
   take `contact: support.contact()`.
 - **Live settings**: `watchAppSettings(supabase, supportSettingsCatalogue(), { personId, onChange })`
-  from genesis-supabase, with `appSettings: () => latest` on `createSupport` and
-  `createDiagnostics`. Without it, settings are read once (or not at all: the `max` preset).
+  from genesis-supabase, started again whenever the signed-in person changes (not on a token
+  refresh), with the last person's values dropped meanwhile; `appSettings` on `createSupport` and
+  `createDiagnostics` reads the latest. Without it, the `max` preset.
 - **On every deploy, after the migrations: `genesis settings sync`.** It writes the app's manifest
   (`genesis_app_manifest`); until it has run, `set_genesis_setting` refuses every value, so no
   setting can be changed from the database and support stays on its preset.
@@ -245,7 +252,8 @@ opens its next screen there too. A screen of the app's own replaces one of Genes
 shows `unavailable`, by default an empty state that says support isn't available
 (`<SupportRoute unavailable={<Redirect href="/settings" />} />` sends people back instead).
 `onFeedbackSent={(delivery) => …}` hears a report sent from its feedback screen, in place of the
-form's own alert: show a toast and leave the screen there.
+form's own alert: show a toast and leave the screen there. A one-line route file can't pass it, so
+`createSupport({ onFeedbackSent })` takes it too (the route's own wins).
 
 **Settings that change while the app runs.** With `appSettings` as a function, support reads it
 each time: the Settings rows (`support.feedback`, `support.inbox`, `support.agentDesk`), the idea
@@ -553,8 +561,9 @@ The queue is tried when `createDiagnostics` runs, and on reconnect and coming to
 `createSupport({ appState: AppState, netInfo: NetInfo })` on the phone, `flushDiagnosticsOnReconnect(diagnostics)`
 on the web. A refusal (403, a bad dump) isn't kept. Each queued dump remembers who was signed in,
 and is dropped rather than sent under someone else (a shared device). On sign-out the queue is
-cleared: on the phone `createSupport` does it itself (the Supabase client's `SIGNED_OUT`, which also
-drops a shake's dump and a report waiting for the form); on the web (`FeedbackPanel`,
+cleared: on the phone `createSupport` does it itself (the Supabase client's `SIGNED_OUT`, heard from
+creation, so during boot and behind the fatal screen too, and also dropping a shake's dump and a
+report waiting for the form; `support.dispose()` stops listening, for a block you throw away); on the web (`FeedbackPanel`,
 `flushDiagnosticsOnReconnect`) call `diagnostics.clearQueue()` when the person signs out.
 
 Feedback goes in the same queue: `diagnostics.submitFeedback` (what `FeedbackForm` and
@@ -593,7 +602,11 @@ ticket. A dump is scrubbed on the device and again on the server; the viewers re
 only. `SupportTicketDiagnostics` (`/web-chat`) and `AgentTicketDiagnostics` (`/native`) work on
 their own too, and `diagnosticsViewSections(report)` gives the sections as text. On the phone each
 dump is headed with its trigger and local time (`dumpHeading`) and has "Copy" (`copy`, default the
-share sheet).
+share sheet). On the web each dump is headed with its trigger and local time and has "Copy"; give
+`SupportTicketDiagnostics` (or the inbox, as `diagnosticsLinks`) a `SupportDiagnosticsLinks` to link a
+dump to its Sentry event (`sentry({ eventId, replayId })`, shown when the dump carries an event id)
+and its GitHub issue (`githubIssue(dump)`). Only `https:` links show; a dump's own text never becomes
+a link. Its reads are keyed by `supportDiagnosticsKeys`, per client and login.
 
 ### Health checks
 
@@ -988,17 +1001,50 @@ help desk something its admins run, and lets a ticket move between desks:
   move. Roles come from `private.genesis_tenant_role(tenant uuid, person uuid) returns text`, else
   `admin`, `agent` or `member`.
 - **The messenger across desks.** `<SupportMessenger allTenants>` (and the launcher) lists the
-  person's conversations at every desk; a new one still goes to `tenantId`, or where routing sends it.
+  person's conversations at every desk, each row with its desk's name (the app's own by the copy's
+  "Support"); a new one still goes to `tenantId`, or where routing sends it. With the
+  `support.verifyPrompt` setting on, a conversation marked fixed that the person hasn't confirmed
+  asks "Is it fixed?" in its thread, on the web and the phone alike (`asksVerification`), and
+  answers with `client.verify`: confirm, or reopen with what's still wrong.
   `client.myTicketDesks()` (`support_my_ticket_desks`) gives each of the person's own tickets its
-  desk and the desk's name from `private.genesis_tenant_label`.
-- **Managing agents** (migration 0034, the support-chat block). Whoever manages a desk's agents (its
-  tenant admins and admin agents; the app's staff for the app's own desk) is one rule:
-  `client.canManageAgents` (`support_can_manage_agents`) answers exactly as `client.setAgent` decides.
-  `client.staffList` gives each agent's `role` and `removable` (only an agent row the caller can
-  remove). They search the people in that tenant by name or email with `client.searchPeople`
-  (`support_people_search`, at most 25), to add an agent or link an email requester. A tenant's
-  people are those `private.genesis_tenant_member(tenant, person)` names, else
-  `private.genesis_viewer_people`; anonymous logins never show.
+  desk, the desk's name from `private.genesis_tenant_label` and `isDefault` (the app's own desk).
+- **Managing agents** (migration 0034, the support-chat block). Who manages a desk's agents (its
+  tenant admins and admin agents; the app's staff for the app's own desk, which a null tenant means
+  everywhere) is one rule: `client.canManageAgents` answers exactly as `client.setAgent` decides.
+  `ticket_agents` holds the tenant's person record: `client.staffList` gives each agent's login
+  (`id`), `personId`, `role` and `removable`, and `setAgent` takes the `personId`. Every agent row is
+  listed: one whose person has no login comes with a null `id` (`SupportStaffMember`), so it can
+  still be seen and removed; it is never offered as an assignee. Which records a login is in a
+  tenant is one rule (`private.genesis_support_people_in`): its records through
+  `private.genesis_viewer_people`, or, at the app's own desk with no record there, the login itself.
+  So under zero config a login added at the app's own desk is an agent there, and an admin row
+  there manages its agents.
+- **Finding people.** A desk's agents (who also link an email ticket to its person) search people in
+  its tenant by name or email with `client.searchPeople` (`support_people_search`, at most 25): each
+  match has its `personId` (for `setAgent`) and `userId` (for `linkRequester`). Define
+  `private.genesis_people_search(tenant uuid, q text, lim integer) returns table (person_id uuid,
+  login uuid)` to search all your people with your own indexes; without it, the search covers the
+  people support knows at that desk (its agents, the staff and tenant admin lists, the 500 most
+  recent requesters). Only the tenant's people (through `private.genesis_viewer_people`), never an
+  anonymous login. **Deliberately open to every agent of the desk**, not only those who manage its
+  agents, since linking an email ticket needs it: any agent can read the names and emails of the
+  tenant's people who match a query, 25 per query. An app that wants fewer people to see that list
+  narrows who is an agent, or answers `private.genesis_people_search` with less.
+- **On the web** (`/web-chat`). `<SupportAgentsAdmin client tenantId />` lists a desk's agents with
+  their roles for whoever manages them, adds someone found with `searchPeople` as an agent or an
+  admin, and removes a removable one; anyone else is told it isn't theirs. The requester card offers
+  "Make an agent" to them. `<SupportLinkRequester client ticket />` (the inbox shows it to the desk's
+  agents for an email ticket with no login) finds the person and, after a confirm naming the email
+  and the person, links the ticket to their login with `client.linkRequester(ticketId, userId)`
+  (`support_link_requester`). `<SupportMyMentions client resolveUser onOpen />` lists where the
+  signed-in agent was mentioned in a note (`agentMentions`). Agent lists are keyed by
+  `supportAgentKeys`.
+- **Keys by login.** Desk reads are keyed by the client and the signed-in login: `supportDeskKeys`
+  take the scope `useSupportDeskScope(client)` returns (`{ scope, failed, error, retry }`; `scope` is
+  null until the login is known). The client says who is signed in (`client.signedInId()`) and when
+  that changes (`client.onSignedInChange(listener)`, from the app's Supabase auth); a sign-in or
+  sign-out reads the login again, and nothing keyed by the last one shows meanwhile. Migrating:
+  `supportDeskScope(client)` is gone; in a component, use `useSupportDeskScope(client).scope`.
 
 With the `support.desks` setting off (the `standard` and `min` presets) it is 0004 exactly:
 `tenant_features` alone decides, and nothing is switched, routed or moved.
@@ -1016,7 +1062,8 @@ genesis-notifications' `genesis_notify`, with no code of the app's own:
   ticket's tenant among (never a scan of every login, unless `support.agentListScan` is on):
   - the tenant's `ticket_agents` rows, each person resolved to its login through the optional
     `private.genesis_person_login(person uuid) returns uuid` (without it, the person id is the login,
-    as in zero config);
+    as in zero config; with it, its answer is used as given: null leaves that row out, and a hook
+    that raises raises);
   - for the app's own desk, `private.genesis_support_staff_list() returns setof uuid` (the app's
     staff; a staff predicate alone can't be listed, so an app whose staff are only
     `genesis_support_staff` names them here);

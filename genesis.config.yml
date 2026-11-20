@@ -2,8 +2,8 @@
 schema_version: 1
 
 ci:
-  # Threshold is a 0-1 FRACTION, the bar for the apps (self-lint.yml scans `apps`;
-  # 47.0% measured, a web `data-testid` counting). Raise it as testIDs land, never lower.
+  # Threshold is a 0-1 FRACTION, the bar for the apps (`check:testid-coverage` and
+  # self-lint.yml scan `apps`; 47.0% measured, a web `data-testid` counting). Raise it as testIDs land, never lower.
   # The packages' UI source has its own bar (64.8% measured), in package.json's
   # `check:testid-coverage:packages`, which ci.yml's Lint job runs.
   testid-coverage: { threshold: 0.47 }

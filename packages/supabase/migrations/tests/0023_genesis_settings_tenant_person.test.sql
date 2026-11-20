@@ -5,7 +5,7 @@
 -- already has the hooks or a manifest, they are replaced inside this transaction only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(102);
+select plan(109);
 
 -- People: a1 a platform admin; aa the admin of tenant A, ab a member of A; bb the admin of tenant B;
 -- c1 and c2 signed in, in no tenant.
@@ -379,6 +379,22 @@ select is(private.genesis_setting('res.count'), '4'::jsonb, 'a value that doesn'
 select is(private.genesis_setting('res.pinned', pg_temp.tenant('b')), '2'::jsonb, 'a value the file locks holds over the tenant''s');
 select is(private.genesis_setting('res.build'), 'false'::jsonb, 'a build-time key takes only the file''s value');
 select ok(private.genesis_setting('res.unknown') is null, 'a key the catalogue doesn''t declare: null, for the caller''s fallback');
+select is((select row(layer, locked)::text from private.genesis_setting_entry('res.pinned', pg_temp.tenant('b'))), row('file', true)::text,
+  'the entry says which layer gave the value and that it is locked');
+select is((select layer from private.genesis_setting_entry('res.on')), 'preset', '... and when only the preset''s default applies');
+select is(private.genesis_setting_problem('res.count', '2.5'), 'res.count must be a whole number', 'writes and the resolver share one value check');
+
+-- A malformed bound in the catalogue (a min or max that isn't a number): a problem, never a raise.
+update public.genesis_app_manifest set catalogue = catalogue || '{
+    "res.badmin": {"type": "number", "applies": "runtime", "scope": "app", "min": "one", "defaults": {"max": 3, "standard": 3, "min": 3}},
+    "res.badmax": {"type": "list", "applies": "runtime", "scope": "app", "max": {"n": 2}, "defaults": {"max": [], "standard": [], "min": []}}
+  }';
+insert into public.genesis_settings (key, value) values ('res.badmin', '7'), ('res.badmax', '["a"]');
+select is(private.genesis_setting_value_problem('res.badmin', (select catalogue -> 'res.badmin' from public.genesis_app_manifest), '7'),
+  'the synced catalogue''s entry for res.badmin is malformed (write the manifest again: writeAppManifest)', 'a min that isn''t a number is a malformed entry, not a cast error');
+select lives_ok($$ select private.genesis_setting('res.badmin') $$, 'the resolver doesn''t raise on a malformed min');
+select is(private.genesis_setting('res.badmin'), '3'::jsonb, '... and skips the value it can''t check, keeping the default');
+select is(private.genesis_setting('res.badmax'), '[]'::jsonb, 'a list''s max that isn''t a number: the same');
 
 select * from finish();
 rollback;

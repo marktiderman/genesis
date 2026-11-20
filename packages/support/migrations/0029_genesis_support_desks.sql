@@ -891,25 +891,36 @@ grant execute on function public.support_help_readable(uuid) to authenticated, s
 
 -- The requester's desks, for the messenger -----------------------------------------------------
 
--- The signed-in person's tickets and the desk each is at, with the desk's name (the app's
--- private.genesis_tenant_label; null for the app's own desk), so the messenger names each one.
+-- The signed-in person's tickets (the 500 most recent) and the desk each is at, with the desk's name (the app's
+-- private.genesis_tenant_label; null for the app's own desk, and for a desk the app gives no name)
+-- and whether it is the app's own desk, so the messenger names each one.
 create or replace function public.support_my_ticket_desks()
-returns table (ticket_id uuid, tenant_id uuid, label text)
+returns table (ticket_id uuid, tenant_id uuid, label text, is_default boolean)
 language sql
 stable
 security definer
 set search_path = ''
 as $$
-  select t.id, t.tenant_id,
-         case when t.tenant_id = private.genesis_support_default_tenant_id() then null
-              else private.genesis_support_tenant_label(t.tenant_id) end
-    from public.tickets t
-   where auth.uid() is not null and t.user_id = auth.uid()
-   order by t.created_at desc, t.id
+  with mine as materialized (
+    -- The 500 most recent: what a messenger lists.
+    select t.id, t.tenant_id, t.created_at from public.tickets t
+     where auth.uid() is not null and t.user_id = auth.uid()
+     order by t.created_at desc, t.id
+     limit 500
+  ), named as materialized (
+    -- Each desk named once, not once a ticket.
+    select d.tenant_id, d.tenant_id = private.genesis_support_default_tenant_id() as is_default,
+           case when d.tenant_id = private.genesis_support_default_tenant_id() then null
+                else private.genesis_support_tenant_label(d.tenant_id) end as label
+      from (select distinct m.tenant_id from mine m) d
+  )
+  select m.id, m.tenant_id, n.label, n.is_default
+    from mine m join named n on n.tenant_id = m.tenant_id
+   order by m.created_at desc, m.id
 $$;
 
 comment on function public.support_my_ticket_desks() is
-  'The signed-in person''s tickets, each with its desk and the desk''s name (null for the app''s own). Genesis support.';
+  'The signed-in person''s tickets, each with its desk, the desk''s name (null where it has none) and whether it is the app''s own. Genesis support.';
 
 revoke execute on function public.support_my_ticket_desks() from public, anon;
 grant execute on function public.support_my_ticket_desks() to authenticated;

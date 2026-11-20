@@ -12,6 +12,7 @@ import {
   resolveAppSettings,
   setGenesisSetting,
   settingsBlock,
+  settingsHostBlock,
   watchAppSettings,
   writeAppManifest,
   type ManifestClient,
@@ -202,29 +203,48 @@ describe("changing settings", () => {
 });
 
 describe("watching settings", () => {
+  // Like realtime-js: one channel per topic, handed back again while it is still leaving; `subscribe()`
+  // joins only a closed channel; `removeChannel` resolves later, once the channel is gone.
   function realtimeClient(data: unknown) {
     const listeners = new Map<string, () => void>();
     const joins = new Map<string, (status: string, error?: unknown) => void>();
     const removed: string[] = [];
+    const live = new Map<string, { name: string; state: string }>();
     const rpc = vi.fn(async () => ({ data, error: null }));
     const channel = vi.fn((name: string, options: unknown) => {
       expect(options).toEqual({ config: { private: true } });
+      const existing = live.get(name);
+      if (existing) return existing;
+      let onChanged: (() => void) | undefined;
       const ch = {
         name,
+        state: "closed",
         on: (type: string, filter: { event: string }, cb: () => void) => {
           expect([type, filter.event]).toEqual(["broadcast", "changed"]);
-          listeners.set(name, cb);
+          onChanged = cb;
           return ch;
         },
         subscribe: (cb: (status: string, error?: unknown) => void) => {
+          if (ch.state !== "closed") return ch;
+          ch.state = "joined";
+          listeners.set(name, onChanged!);
           joins.set(name, cb);
           return ch;
         },
       };
+      live.set(name, ch);
       return ch;
     });
-    const removeChannel = vi.fn((ch: { name: string }) => {
+    const removeChannel = vi.fn((ch: { name: string; state: string }) => {
       removed.push(ch.name);
+      ch.state = "leaving";
+      return new Promise((resolve) =>
+        setTimeout(() => {
+          ch.state = "closed";
+          live.delete(ch.name);
+          resolve("ok");
+        }, 0),
+      );
     });
     return { client: { rpc, channel, removeChannel } as unknown as RealtimeSettingsClient, rpc, listeners, joins, removed };
   }
@@ -257,6 +277,30 @@ describe("watching settings", () => {
     expect(onChange).toHaveBeenCalledTimes(3);
   });
 
+  it("joins again after a stop (a sign-in, a sign-out): the new watch hears changes, the old one doesn't", async () => {
+    const fake = realtimeClient(stored);
+    const first = vi.fn();
+    const second = vi.fn();
+    const stopFirst = watchAppSettings(fake.client, catalogue, { personId: "p1", onChange: first });
+    const appChannel = fake.joins.get("genesis-settings");
+    stopFirst();
+    watchAppSettings(fake.client, catalogue, { personId: "p2", onChange: second });
+    await flush();
+    await flush();
+    // A fresh channel, joined once the old one was gone.
+    expect(fake.joins.get("genesis-settings")).not.toBe(appChannel);
+    expect(second).toHaveBeenCalledTimes(1);
+    // Its first join may follow changes made while it waited: it reads again.
+    fake.joins.get("genesis-settings")!("SUBSCRIBED");
+    await flush();
+    expect(second).toHaveBeenCalledTimes(2);
+    fake.listeners.get("genesis-settings")!();
+    fake.listeners.get("genesis-settings:person:p2")!();
+    await flush();
+    expect(second).toHaveBeenCalledTimes(3);
+    expect(first).not.toHaveBeenCalled();
+  });
+
   it("reports a channel that can't be joined or times out", async () => {
     const fake = realtimeClient(stored);
     const onError = vi.fn();
@@ -285,7 +329,7 @@ describe("watching settings", () => {
 });
 
 describe("the manifest", () => {
-  it("writes one row with the catalogue the database checks, and no secrets", async () => {
+  it("writes one row with the catalogue the database checks, a secret by name and store only", async () => {
     const upsert = vi.fn(async () => ({ error: null }));
     const from = vi.fn(() => ({ upsert }));
     await writeAppManifest({ from } as unknown as ManifestClient, {
@@ -300,7 +344,8 @@ describe("the manifest", () => {
     expect(options).toEqual({ onConflict: "one" });
     expect(row).toMatchObject({ app_id: "sample-app", preset: "standard", file_settings: { "support.dumpRetentionDays": 30 }, name: null, config_hash: null });
     expect((row.catalogue as Record<string, unknown>)["support.dumpRetentionDays"]).toEqual({ type: "number", applies: "runtime", scope: "app", defaults: { max: 90, standard: 90, min: 90 }, min: 7, max: 365 });
-    expect(JSON.stringify(row)).not.toMatch(/GITHUB_TOKEN/);
+    // The Settings host lists the secret and Vault allows only declared names: the name and store, nothing else.
+    expect((row.catalogue as Record<string, unknown>)["support.githubRepo"]).toMatchObject({ secret: { name: "GITHUB_TOKEN", store: "edge" } });
   });
 
   it("throws when the write fails", async () => {
@@ -329,6 +374,16 @@ describe("the settings block", () => {
       { file: "migrations/0022_genesis_platform_admins.sql", test: "migrations/tests/0022_genesis_platform_admins.test.sql" },
       { file: "migrations/0023_genesis_settings_tenant_person.sql", test: "migrations/tests/0023_genesis_settings_tenant_person.test.sql" },
     ]);
+  });
+
+  it("ships the Settings host's migration in its own block, which needs the settings block", () => {
+    const resolved = resolveBlocks([settingsBlock, settingsHostBlock], undefined, { platform: "web" });
+    expect(resolved.migrations.map((m) => m.file)).toContain("migrations/0024_genesis_settings_host.sql");
+    expect(settingsHostBlock.requires).toEqual(["settings"]);
+    const manifest = JSON.parse(readFileSync(join(packageRoot, "package.json"), "utf8")).genesis.blocks["settings-host"];
+    expect(manifest.requires).toEqual(["settings"]);
+    expect(manifest.migrations).toEqual([{ file: "migrations/0024_genesis_settings_host.sql", test: "migrations/tests/0024_genesis_settings_host.test.sql" }]);
+    for (const m of manifest.migrations) expect(existsSync(join(packageRoot, m.file))).toBe(true);
   });
 
   it("fails closed without the platform-admin hook, and never stores a secret", () => {

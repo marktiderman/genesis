@@ -18,6 +18,8 @@ import {
   SupportRoute,
   useAgentThread,
   useSupportThread,
+  type AccelerometerLike,
+  type AccelerometerMeasurement,
 } from "../native";
 import { fakeSupabase, arg, type Answer, type Call } from "./fake-supabase";
 
@@ -27,6 +29,9 @@ const ALEX = "00000000-0000-4000-8000-0000000000b2";
 const T1 = "11111111-1111-4111-8111-111111111111";
 
 type Rpc = (fn: string, args: Record<string, unknown>) => Answer | undefined;
+
+/** The "Is it fixed?" question is asked only with `support.verifyPrompt` on. */
+const VERIFY_ON = { appSettings: { "support.verifyPrompt": true } };
 
 function harness(rpc: Rpc = () => undefined, respond?: (call: Call) => Answer | undefined, extra: Partial<Parameters<typeof createSupport>[0]> = {}) {
   const fake = fakeSupabase({ userId: ME, rpc: (fn, args) => rpc(fn, args as Record<string, unknown>) ?? { data: null, error: null }, ...(respond ? { respond } : {}) });
@@ -64,6 +69,7 @@ describe("Is it fixed? on the person's thread", () => {
     const { fake, wrap } = harness(
       (fn) => (fn === "support_verify_report" ? ((row = report({ verified_at: "2026-11-20T09:00:00Z" })), { data: null, error: null }) : undefined),
       (call) => (call.table === "support_reports" ? { data: row, error: null } : undefined),
+      VERIFY_ON,
     );
     render(wrap(<PersonThread />));
     expect(await screen.findByText("Is it fixed?")).toBeTruthy();
@@ -86,6 +92,7 @@ describe("Is it fixed? on the person's thread", () => {
         return { data: null, error: null };
       },
       (call) => (call.table === "support_reports" ? { data: row, error: null } : undefined),
+      VERIFY_ON,
     );
     render(wrap(<PersonThread />));
     fireEvent.click(await screen.findByTestId("genesis-support-thread-verify-reopen"));
@@ -96,9 +103,16 @@ describe("Is it fixed? on the person's thread", () => {
     expect((await screen.findByTestId("genesis-support-thread-verified")).textContent).toContain("reopened");
   });
 
+  it("doesn't ask with support.verifyPrompt off, as in every preset", async () => {
+    const { wrap } = harness(undefined, (call) => (call.table === "support_reports" ? { data: report(), error: null } : undefined));
+    render(wrap(<PersonThread />));
+    await screen.findByText("The export is empty");
+    expect(screen.queryByTestId("genesis-support-thread-verify")).toBeNull();
+  });
+
   it("doesn't ask once it is confirmed, or while it is open", async () => {
     for (const row of [report({ verified_at: "2026-11-20T09:00:00Z" }), report({ status: "in_progress" })]) {
-      const { wrap } = harness(undefined, (call) => (call.table === "support_reports" ? { data: row, error: null } : undefined));
+      const { wrap } = harness(undefined, (call) => (call.table === "support_reports" ? { data: row, error: null } : undefined), VERIFY_ON);
       const view = render(wrap(<PersonThread />));
       await screen.findByText("The export is empty");
       expect(screen.queryByTestId("genesis-support-thread-verify")).toBeNull();
@@ -411,40 +425,76 @@ describe("Report this, and About on the feedback form", () => {
   });
 });
 
+/** An accelerometer to shake: `jolt(g)` is one reading across every listener. */
+function fakeAccelerometer() {
+  const listeners = new Set<(measurement: AccelerometerMeasurement) => void>();
+  const accelerometer: AccelerometerLike = {
+    addListener: (listener) => {
+      listeners.add(listener);
+      return { remove: () => void listeners.delete(listener) };
+    },
+  };
+  return { accelerometer, jolt: (g: number) => listeners.forEach((listener) => listener({ x: g, y: 0, z: 0 })) };
+}
+
 describe("sign-out", () => {
   const transport = () => ({ name: "x", send: vi.fn(async () => ({ id: "1", shortId: "1" })) });
-
-  it("forgets the queued dumps and feedback, and a report waiting for the form, and stops listening when the root goes", async () => {
+  const signedOutBlock = () => {
     const fake = fakeSupabase({ userId: ME });
     const diagnostics = createDiagnostics({ app: { id: "acme" }, transport: transport() });
     const clear = vi.spyOn(diagnostics, "clearQueue");
     const block = createSupport({ supabase: fake.client, navigate: vi.fn(), platform: "ios", diagnostics });
+    return { fake, clear, block };
+  };
+
+  it("forgets the queued dumps and feedback, and a report waiting for the form, with the root mounted", async () => {
+    const { fake, clear, block } = signedOutBlock();
     const Root = block.Root;
-    const view = render(<QueryClientProvider client={new QueryClient()}><Root>{null}</Root></QueryClientProvider>);
+    render(<QueryClientProvider client={new QueryClient()}><Root>{null}</Root></QueryClientProvider>);
     await block.openFeedback({ screenshot: false });
     fake.emitAuth("TOKEN_REFRESHED");
     expect(clear).not.toHaveBeenCalled();
     fake.emitAuth("SIGNED_OUT");
     expect(clear).toHaveBeenCalledTimes(1);
     expect(block.peekPending()).toBeNull();
-    view.unmount();
+    block.dispose();
+  });
+
+  it("clears the queue on a sign-out with no root mounted (during boot, behind the fatal screen)", async () => {
+    const { fake, clear, block } = signedOutBlock();
+    const Root = block.Root;
+    // The root came and went (the fatal screen replaced the app): support still listens.
+    render(<QueryClientProvider client={new QueryClient()}><Root>{null}</Root></QueryClientProvider>).unmount();
+    await block.openFeedback({ screenshot: false });
+    fake.emitAuth("SIGNED_OUT");
+    expect(clear).toHaveBeenCalledTimes(1);
+    expect(block.peekPending()).toBeNull();
+    block.dispose();
+  });
+
+  it("stops listening once disposed, and disposing twice is harmless", () => {
+    const { fake, clear, block } = signedOutBlock();
+    expect(fake.authListeners.size).toBe(1);
+    block.dispose();
+    block.dispose();
     expect(fake.authListeners.size).toBe(0);
+    fake.emitAuth("SIGNED_OUT");
+    expect(clear).not.toHaveBeenCalled();
   });
 
   it("never sends a shake's dump once the person signs out", async () => {
     vi.useFakeTimers();
     try {
-      let listener: ((m: { x: number; y: number; z: number }) => void) | null = null;
-      const accelerometer = { addListener: (l: typeof listener) => ((listener = l), { remove() {} }), setUpdateInterval: vi.fn() };
+      const shake = fakeAccelerometer();
       const send = transport();
       const fake = fakeSupabase({ userId: ME });
       const diagnostics = createDiagnostics({ app: { id: "acme" }, transport: send });
-      const block = createSupport({ supabase: fake.client, navigate: vi.fn(), platform: "ios", diagnostics, accelerometer: accelerometer as never });
+      const block = createSupport({ supabase: fake.client, navigate: vi.fn(), platform: "ios", diagnostics, accelerometer: shake.accelerometer });
       const Root = block.Root;
       render(<QueryClientProvider client={new QueryClient()}><Root>{null}</Root></QueryClientProvider>);
-      listener!({ x: 3, y: 0, z: 0 });
+      shake.jolt(3);
       vi.advanceTimersByTime(100);
-      listener!({ x: 3, y: 0, z: 0 });
+      shake.jolt(3);
       await act(async () => {
         await vi.advanceTimersByTimeAsync(10);
       });
@@ -455,6 +505,7 @@ describe("sign-out", () => {
         await vi.advanceTimersByTimeAsync(20_000);
       });
       expect(send.send).not.toHaveBeenCalled();
+      block.dispose();
     } finally {
       vi.useRealTimers();
     }
@@ -493,6 +544,47 @@ describe("SupportRoute without support, and its feedback screen", () => {
   });
 });
 
+describe("createSupport's own onFeedbackSent and live diagnostics", () => {
+  it("hands a report sent from SupportRoute's feedback screen to createSupport's onFeedbackSent", async () => {
+    const fake = fakeSupabase({ userId: ME, respond: (call) => (call.table === "support_reports" ? { data: { id: T1 }, error: null } : undefined) });
+    const sent = vi.fn();
+    const block = createSupport({ supabase: fake.client, navigate: vi.fn(), platform: "ios", basePath: "/s", useCurrentRoute: () => "/s/new", onFeedbackSent: sent });
+    const { Alert } = await import("react-native");
+    vi.mocked(Alert.alert).mockClear();
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <SupportProvider block={block}>
+          <SupportRoute />
+        </SupportProvider>
+      </QueryClientProvider>,
+    );
+    fireEvent.change(screen.getByTestId("genesis-support-feedback-message"), { target: { value: "Thanks" } });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("genesis-support-feedback-send"));
+    });
+    await waitFor(() => expect(sent).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(Alert.alert)).not.toHaveBeenCalled();
+    block.dispose();
+  });
+
+  it("reads diagnostics and Report this each time, from properties defined on the block itself", () => {
+    let values: Record<string, unknown> = {};
+    const fake = fakeSupabase({ userId: ME });
+    const diagnostics = createDiagnostics({ app: { id: "acme" }, transport: { name: "x", send: async () => ({ id: "1", shortId: "1" }) } });
+    const block = createSupport({ supabase: fake.client, navigate: vi.fn(), platform: "ios", diagnostics, appSettings: () => values });
+    // An accessor on the block, not a value copied when it was made (Babel's object spread would copy one).
+    expect(typeof Object.getOwnPropertyDescriptor(block, "diagnostics")?.get).toBe("function");
+    expect(typeof Object.getOwnPropertyDescriptor(block, "reportProblem")?.get).toBe("function");
+    expect(block.diagnostics).toBe(diagnostics);
+    values = { "diagnostics.enabled": false, "support.feedback": false };
+    expect(block.diagnostics).toBeNull();
+    expect(block.reportProblem).toBeUndefined();
+    values = {};
+    expect(block.diagnostics).toBe(diagnostics);
+    block.dispose();
+  });
+});
+
 describe("SupportRoute shows what the hooks say", () => {
   it("shows a failed first message on the new-message screen", async () => {
     const fake = fakeSupabase({ userId: ME, respond: () => ({ data: null, error: { message: "down", code: "08006" } }) });
@@ -513,7 +605,7 @@ describe("SupportRoute shows what the hooks say", () => {
 
   it("asks Is it fixed? on a report's thread", async () => {
     const fake = fakeSupabase({ userId: ME, respond: (call) => (call.table === "support_reports" ? { data: report(), error: null } : undefined) });
-    const block = createSupport({ supabase: fake.client, navigate: vi.fn(), platform: "ios", basePath: "/s", useCurrentRoute: () => `/s/${T1}` });
+    const block = createSupport({ supabase: fake.client, navigate: vi.fn(), platform: "ios", basePath: "/s", useCurrentRoute: () => `/s/${T1}`, ...VERIFY_ON });
     render(
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
         <SupportProvider block={block}>

@@ -3,14 +3,15 @@
  * option as it is now (a function can change when the viewer changes workspace), so another tenant
  * is a fresh screen with its own cache.
  */
-import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { SupportClient } from "../client";
 
-const clientIds = new WeakMap<SupportClient, number>();
+const clientIds = new WeakMap<object, number>();
 let nextClientId = 1;
 
 /** A client's id, so two clients never share a cache. */
-function idOf(client: SupportClient): number {
+function idOf(client: object): number {
   let id = clientIds.get(client);
   if (id === undefined) {
     id = nextClientId++;
@@ -19,9 +20,44 @@ function idOf(client: SupportClient): number {
   return id;
 }
 
-/** What a screen's data belongs to, for its query keys and its React key. */
-export function scopeOf(client: SupportClient, tenantId: string | null): string {
+/** A support client and a tenant, for a screen's query keys and its React key. It doesn't name the login: see `useLoginScope`. */
+export function scopeOf(client: object, tenantId: string | null): string {
   return `${idOf(client)}:${tenantId ?? "app"}`;
+}
+
+/** What reads that differ by who asks are keyed by: `scope` is null until the login is known. */
+export interface LoginScope {
+  scope: string | null;
+  /** The login couldn't be read: show that, not a placeholder for ever. */
+  failed: boolean;
+  error: unknown;
+  /** Reads the login again (a Retry after `failed`). */
+  retry: () => void;
+}
+
+/**
+ * The client, the signed-in login and the tenant, for the keys of reads that differ by who asks:
+ * another login on the same client never reads the last one's cache. It reads the login again when
+ * someone signs in or out (`onSignedInChange`), and until it has, `scope` is null: nothing keyed by
+ * the last login shows in between. A client without `signedInId` serves one login, and keys by the
+ * client alone.
+ */
+export function useLoginScope(client: Pick<SupportClient, "signedInId" | "onSignedInChange">, tenantId: string | null): LoginScope {
+  const queryClient = useQueryClient();
+  const id = idOf(client);
+  // Reset, not invalidate: the old login's id goes at once, so no key built from it is read meanwhile.
+  useEffect(() => client.onSignedInChange?.(() => void queryClient.resetQueries({ queryKey: ["genesis-support", "login", id] })), [client, queryClient, id]);
+  const signedInId = client.signedInId?.bind(client);
+  const login = useQuery({
+    queryKey: ["genesis-support", "login", id],
+    queryFn: signedInId ?? skipToken,
+    staleTime: Infinity,
+    retry: false,
+  });
+  const retry = () => void login.refetch();
+  if (!signedInId) return { scope: `${scopeOf(client, tenantId)}:-`, failed: false, error: null, retry };
+  if (login.isError) return { scope: null, failed: true, error: login.error, retry };
+  return { scope: login.isSuccess ? `${scopeOf(client, tenantId)}:${login.data ?? "signed-out"}` : null, failed: false, error: null, retry };
 }
 
 /** `ready` is false until it's known: a screen doesn't read or write until then, or it could use the wrong tenant. */

@@ -8,7 +8,7 @@
 -- settings tables (0020) and support 0020's readers.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(66);
+select plan(69);
 
 create function pg_temp.person(n text) returns uuid language sql immutable as $$
   select ('00000000-0000-4000-8000-0000000024' || n)::uuid $$;
@@ -283,12 +283,34 @@ set local role authenticated;
 select ok((select bool_and(t.user_id = pg_temp.person('a1')) from public.support_my_ticket_desks() m join public.tickets t on t.id = m.ticket_id),
   'a requester sees only their own tickets'' desks');
 reset role;
+-- Count the label hook's calls: once a desk, not once a ticket (a1 writes to Acme again).
+-- (written as data: the desk's switch is off by this point, and this checks only the reading)
+set local session_replication_role = replica;
+insert into public.tickets (type, message, tenant_id, user_id) values ('question', 'again', '00000000-0000-4000-8000-0000000000b0', pg_temp.person('a1'));
+set local session_replication_role = origin;
+create temp table label_calls (tenant uuid);
+grant all on label_calls to public;
+create or replace function private.genesis_tenant_label(tenant uuid) returns text
+language plpgsql volatile set search_path = '' as $$
+begin
+  insert into pg_temp.label_calls values (tenant);
+  return case tenant when '00000000-0000-4000-8000-0000000000b0'::uuid then 'Acme'
+                     when '00000000-0000-4000-8000-0000000000c0'::uuid then 'Northside' end;
+end $$;
 select pg_temp.sign_in('a1');
 set local role authenticated;
 select is((select label from public.support_my_ticket_desks() where ticket_id = (select id from t where name = 'a1')), 'Acme',
   'named through the app''s tenant label hook');
+reset role;
+select is((select count(*)::int from label_calls), (select count(distinct tenant_id)::int from public.tickets where user_id = pg_temp.person('a1') and tenant_id <> '00000000-0000-4000-8000-00000000000f'),
+  'the hook is asked once a desk, not once a ticket');
+select ok((select count(*) from public.tickets where user_id = pg_temp.person('a1') and tenant_id = '00000000-0000-4000-8000-0000000000b0') > 1, '(a1 has several tickets at Acme)');
+select pg_temp.sign_in('a1');
+set local role authenticated;
 select is((select count(*)::int from public.support_my_ticket_desks() where tenant_id = '00000000-0000-4000-8000-00000000000f' and label is not null), 0,
   'the app''s own desk has no name');
+select ok((select bool_and(is_default = (tenant_id = '00000000-0000-4000-8000-00000000000f')) from public.support_my_ticket_desks()),
+  'and says it is the app''s own, so an unnamed tenant desk is told apart');
 reset role;
 
 select ok(not has_function_privilege('anon', 'public.support_set_desk(uuid, boolean, text)', 'execute'), 'anon can''t switch a desk');

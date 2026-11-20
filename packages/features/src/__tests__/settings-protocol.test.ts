@@ -273,6 +273,38 @@ describe("settingWritability", () => {
     expect(settingWritability(runtime, { lockedBy: "file" }, ALL)).toEqual({ layers: ["file"], refused: { database: "locked" } });
     expect(settingWritability(runtime, { lockedBy: "database" }, ALL)).toEqual({ layers: ["file", "database"], refused: {} });
   });
+  it("gives a tenant admin or a person their own layer, for keys of their scope only", () => {
+    const tenantKey = { applies: "runtime" as const, scope: "tenant" as const };
+    const tenant = { scope: "tenant" as const, tenant: "t-1" };
+    expect(settingWritability(tenantKey, {}, APP_HOST_CAPABILITIES, tenant)).toEqual({ layers: ["tenant"], refused: {} });
+    expect(settingWritability({ applies: "runtime", scope: "app" }, {}, APP_HOST_CAPABILITIES, tenant)).toEqual({ layers: [], refused: { tenant: "scope" } });
+    expect(settingWritability(tenantKey, { lockedBy: "database" }, APP_HOST_CAPABILITIES, tenant)).toEqual({ layers: [], refused: { tenant: "locked" } });
+    expect(settingWritability(tenantKey, {}, NO_SETTINGS_CAPABILITIES, tenant)).toEqual({ layers: [], refused: { tenant: "capability" } });
+    expect(settingWritability({ applies: "runtime", scope: "person" }, {}, APP_HOST_CAPABILITIES, { scope: "person" })).toEqual({ layers: ["person"], refused: {} });
+    // A platform admin writes the app's own layers, as without a viewer.
+    expect(settingWritability(tenantKey, {}, APP_HOST_CAPABILITIES, { scope: "platform" })).toEqual({ layers: ["database"], refused: { file: "capability" } });
+  });
+});
+
+describe("proposals on the wire", () => {
+  it("sends a proposal with its reason, takes a stored id, and decides one", async () => {
+    const fetchFn = vi.fn(async (_url: string, init: { body: string }) => {
+      const body = JSON.parse(init.body) as { op: string };
+      return reply(200, body.op === "propose" ? { id: "12" } : { ok: true });
+    });
+    const client = createSettingsClient(fetchFn, { baseUrl: "/x", token: "t" });
+    expect(await client.propose({ key: "demo.seats", value: 40, reason: "We hired" })).toEqual({ id: "12" });
+    expect(JSON.parse(fetchFn.mock.calls[0]![1].body)).toEqual({ v: SETTINGS_PROTOCOL_VERSION, op: "propose", key: "demo.seats", value: 40, reason: "We hired" });
+    await client.decideProposal!({ id: "12", approve: false });
+    expect(JSON.parse(fetchFn.mock.calls[1]![1].body)).toEqual({ v: SETTINGS_PROTOCOL_VERSION, op: "decideProposal", id: "12", approve: false });
+    await client.decideProposal!({ id: "12", approve: true, layer: "tenant" });
+    expect(JSON.parse(fetchFn.mock.calls[2]![1].body)).toEqual({ v: SETTINGS_PROTOCOL_VERSION, op: "decideProposal", id: "12", approve: true, layer: "tenant" });
+  });
+
+  it("refuses a proposal answer with neither a snippet nor an id", async () => {
+    const client = createSettingsClient(async () => reply(200, {}), { baseUrl: "/x", token: "t" });
+    await expect(client.propose({ key: "a.b", value: 1 })).rejects.toThrow(/snippet or id/);
+  });
 });
 
 describe("settingFileSnippet", () => {

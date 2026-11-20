@@ -13,6 +13,9 @@ export const STARTER_EXCLUDE = [
   /^expo-env\.d\.ts$/,
   /^\.env$/,
   /^\.env\.local$/,
+  // `genesis build-stamp`'s output (git-ignored in the starter): the app writes its own, never
+  // the stamp of whoever built this CLI.
+  /^build-metadata\.json$/,
   // Reads ../../templates to check the starter's copies against them; an app has no monorepo.
   /^__tests__\/release\.test\.ts$/,
 ];

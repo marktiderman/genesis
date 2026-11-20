@@ -904,6 +904,36 @@ settingsCommand
     );
   });
 
+settingsCommand
+  .command("init")
+  .description("Add the in-app Settings screen's server route to a web app: createSettingsHandler from genesis-supabase, for Next.js, TanStack Start, React Router or Expo Router (detected)")
+  .option("-d, --dir <dir>", "The app's folder", process.cwd())
+  .option("--host <host>", "next, tanstack-start, react-router or expo (default: detected)")
+  .option("--route <path>", "The endpoint's path", "/api/genesis/settings")
+  .option("--force", "Overwrite the route file if it exists", false)
+  .action(async (opts: { dir: string; host?: string; route: string; force: boolean }) => {
+    const { planSettingsInit, SETTINGS_HOSTS } = await import("./settings-init.js");
+    if (opts.host && !(SETTINGS_HOSTS as readonly string[]).includes(opts.host)) throw new Error(`--host must be ${SETTINGS_HOSTS.join(", ")}.`);
+    const root = path.resolve(opts.dir);
+    const { existsSync } = await import("node:fs");
+    const packageJson = JSON.parse(await fs.readFile(path.join(root, "package.json"), "utf-8"));
+    const plan = planSettingsInit(
+      { packageJson, exists: (p) => existsSync(path.join(root, p)) },
+      { route: opts.route, ...(opts.host ? { host: opts.host as (typeof SETTINGS_HOSTS)[number] } : {}) },
+    );
+    const target = path.join(root, plan.file.path);
+    if (existsSync(target) && !opts.force) {
+      console.error(`${plan.file.path} exists already: nothing was written (--force replaces it).`);
+      process.exitCode = 1;
+      return;
+    }
+    await fs.mkdir(path.dirname(target), { recursive: true });
+    await fs.writeFile(target, plan.file.content);
+    console.log(`✔ ${plan.file.path} (${plan.host}, POST ${plan.route})`);
+    if (plan.install.length) console.log(`→ Install: ${plan.install.join(" ")}`);
+    for (const step of plan.steps) console.log(`→ ${step}`);
+  });
+
 program
   .command("upgrade")
   .description("Move every @marktiderman/genesis* dependency to one Genesis release, refresh the files Genesis owns and what's generated, run codemods and the doctor")

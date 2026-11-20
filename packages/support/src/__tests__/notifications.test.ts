@@ -27,6 +27,12 @@ describe("support's notification types", () => {
     expect(registry.render("support.message", { ticket_id: "t1", by: "Bo", title: "Export" }).url).toBe("/settings/support/agent/t1");
   });
 
+  it("names an unnamed writer in the copy's words", () => {
+    expect(registry.render("support.message", { ticket_id: "t1", title: "Export", new: true }).title).toBe("Someone: Export");
+    const french = supportNotificationTypes({ copy: { notifications: { someone: "Quelqu'un" } } });
+    expect(french.types["support.message"].render({ ticket_id: "t1", title: "Export", new: true }).title).toBe("Quelqu'un: Export");
+  });
+
   it("tells the person support answered, by email after a while and with no push while chat pushes", () => {
     expect(registry.render("support.reply", { ticket_id: "t1", title: "Export", excerpt: "Fixed", from: "Acme" })).toEqual({
       title: "Acme replied: Export",

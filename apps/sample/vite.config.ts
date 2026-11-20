@@ -4,6 +4,7 @@ import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { defineConfig, loadEnv } from "vite";
 import { sitesDemo } from "./sites-demo/vite-plugin";
+import { settingsDevServer } from "./settings/vite-plugin";
 import { studioDevServer } from "./studio/vite-plugin";
 
 // The footer's version, commit and build date. The version is the umbrella
@@ -36,11 +37,11 @@ export default defineConfig(({ mode }) => ({
   // at the root of https://genesisone.dev, so both default to "/"; set
   // PAGES_BASE (e.g. "/genesis/") only to build for a subpath again.
   base: process.env.PAGES_BASE ?? "/",
-  // The studio handler runs in the dev server only (`apply: "serve"`), so a
-  // production build of this static sample is unchanged by it.
+  // The studio and settings handlers run in the dev server only (`apply: "serve"`), so a
+  // production build of this static sample is unchanged by them.
   // The genesis-sites demo answers /sites-demo/* in dev and preview, and is
   // prerendered into the static build (sites-demo/vite-plugin.ts).
-  plugins: [sitesDemo(), tailwindcss(), reactRouter(), studioDevServer(loadEnv(mode, process.cwd(), "STUDIO_"))],
+  plugins: [sitesDemo(), tailwindcss(), reactRouter(), studioDevServer(loadEnv(mode, process.cwd(), "STUDIO_")), settingsDevServer(loadEnv(mode, process.cwd(), "SETTINGS_"))],
   resolve: { tsconfigPaths: true },
   server: { port: 3200 },
 }));

@@ -17,23 +17,35 @@ export { SupportReportThread, supportWebKeys, type SupportReportThreadProps } fr
 export { SupportStaffThread, type SupportStaffThreadProps } from "./staff-thread";
 export { SupportAgentInbox, supportInboxKeys, type SupportAgentInboxProps } from "./agent-inbox";
 export { SupportContact, type SupportContactProps } from "./contact";
-export { SupportTicketDiagnostics, type SupportTicketDiagnosticsProps } from "./diagnostics-viewer";
+export { SupportTicketDiagnostics, diagnosticsText, supportDiagnosticsKeys, type SupportDiagnosticsLinks, type SupportTicketDiagnosticsProps } from "./diagnostics-viewer";
 export {
   SupportDeskControls,
   SupportDeskPicker,
   SupportDeskSwitch,
+  SupportLinkRequester,
   SupportRequesterPanel,
   deskName,
   lastMoveLabel,
   supportDeskKeys,
-  supportDeskScope,
+  supportAgentKeys,
+  useSupportDeskScope,
   useSupportDesks,
   type SupportDeskControlsProps,
   type SupportDeskPickerProps,
   type SupportDeskSwitchProps,
+  type SupportLinkRequesterProps,
   type SupportRequesterPanelProps,
 } from "./desks";
 export { SupportMessenger, SupportMessengerLauncher, supportMessengerKeys, type MessengerSpace, type SupportMessengerLauncherProps, type SupportMessengerProps } from "./messenger";
 export { SupportHelpCenterAdmin, type SupportHelpCenterAdminProps } from "./help-admin";
-export { SupportSavedRepliesAdmin, SupportAgentReports, type SupportSavedRepliesAdminProps, type SupportAgentReportsProps } from "./agent-tools";
+export {
+  SupportSavedRepliesAdmin,
+  SupportAgentReports,
+  SupportAgentsAdmin,
+  SupportMyMentions,
+  type SupportSavedRepliesAdminProps,
+  type SupportAgentReportsProps,
+  type SupportAgentsAdminProps,
+  type SupportMyMentionsProps,
+} from "./agent-tools";
 export type { HelpAnswerResponse, HelpAskState } from "../help-ask";

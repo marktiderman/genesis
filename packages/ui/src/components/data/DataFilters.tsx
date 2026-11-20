@@ -329,9 +329,9 @@ export function DataFilters({
           </Popover>
         )}
 
-        {/* Status chips */}
+        {/* Status chips: they wrap rather than run past a phone's edge. */}
         {statusChips && statusVariant === "chips" && (
-          <div className="flex items-center gap-1 mr-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-1 mr-1">
             {statusOptions.map((o) => {
               const pressed = statusChips.selected.includes(o.value);
               return (

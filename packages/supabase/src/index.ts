@@ -191,6 +191,7 @@ export {
   watchAppSettings,
   writeAppManifest,
   type AppManifestInput,
+  type AppSettings,
   type GenesisSettingChange,
   type GenesisSettingLayer,
   type ManifestClient,
@@ -222,7 +223,7 @@ export {
   type FeatureRegistryDocument,
   type SyncFeatureRegistryOptions,
 } from "./feature-registry";
-export { accountBlock, eventsBlock, featureMirrorBlock, jobsBlock, settingsBlock, tenantFeaturesBlock, versionedWritesBlock } from "./blocks";
+export { accountBlock, eventsBlock, featureMirrorBlock, jobsBlock, settingsBlock, settingsHostBlock, tenantFeaturesBlock, versionedWritesBlock } from "./blocks";
 export {
   createAuthFormClient,
   fetchAuthSettings,

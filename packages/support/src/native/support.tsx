@@ -25,8 +25,8 @@ import type { HelpAnswerResponse } from "../help-ask";
 import type { OfficeHours } from "../office-hours";
 import type { SupportChatClient } from "../chat";
 import { fill, resolveSupportCopy, type SupportCopy, type SupportCopyOverrides } from "../copy";
-import { composeCollectors, createContextCollector, type ContextCollector, type FeedbackSink, type ScreenshotContentType } from "../record";
-import type { Diagnostics } from "../diagnostics/create";
+import { composeCollectors, createContextCollector, type ContextCollector, type FeedbackDelivery, type FeedbackSink, type ScreenshotContentType } from "../record";
+import type { Diagnostics, DiagnosticsDelivery } from "../diagnostics/create";
 import type { DiagnosticReport } from "../diagnostics/report";
 import { scrubString } from "../diagnostics/scrub";
 import { listenForShake, type AccelerometerLike, type ShakeOptions, type ViewShotLike } from "./modules";
@@ -96,7 +96,7 @@ export interface SupportOptions {
   /**
    * genesis-chat's client (`createChatClient(supabase)`): with the support-chat block's migration
    * applied, a report's thread runs on genesis-chat (live, with files). Without it, or with the
-   * `support.chatThreads` setting off, support_replies.
+   * `support.chatThreads` setting off (the server decides), support_replies.
    */
   chat?: SupportChatClient;
   /** Opens a path (expo-router's `router.push`). */
@@ -173,6 +173,12 @@ export interface SupportOptions {
    * feedback goes to its own API (`httpTransport`), screenshots and dump in one request.
    */
   feedbackSink?: FeedbackSink;
+  /**
+   * A report was sent from `SupportRoute`'s feedback screen: say so your way (a toast) and leave the
+   * screen (`router.back()`). With it, the form shows no alert of its own. `SupportRoute`'s own
+   * `onFeedbackSent` wins, for a route file that sets it.
+   */
+  onFeedbackSent?: (delivery: FeedbackDelivery & { diagnostics?: DiagnosticsDelivery | null; queued?: boolean }) => void;
   /** Every caught error, for reporting. None of them reaches the person as a crash. */
   onError?: (error: Error, where: SupportErrorSource) => void;
   /**
@@ -236,6 +242,11 @@ export interface SupportBlock extends NativeBlock<typeof SUPPORT_BLOCK_ID> {
   contact(): SupportContactInfo | null;
   /** Hands a caught error to `onError` (a reporter that throws is ignored), for support's own screens. */
   report(error: unknown, where: SupportErrorSource): void;
+  /**
+   * Stops what the block listens to for its whole life (sign-out, to clear what the device keeps):
+   * for a block made per test, or an app that throws one away. Calling it again does nothing.
+   */
+  dispose(): void;
   readonly Root: ComponentType<NativeBlockRootProps>;
 }
 
@@ -334,7 +345,7 @@ export function createSupport(given: SupportOptions): SupportBlock {
   });
   const copy = resolveSupportCopy(options.copy);
   const paths = supportPaths(options.basePath);
-  const client = createSupportClient(options.supabase, { chat: initialSettings.support.chatThreads ? options.chat : false, ...(options.tenantId !== undefined ? { tenantId: options.tenantId } : {}) });
+  const client = createSupportClient(options.supabase, { chat: options.chat, ...(options.tenantId !== undefined ? { tenantId: options.tenantId } : {}) });
   const platform = options.platform ?? Platform.OS;
   let route: string | null = null;
   const zones = options.zones ?? [];
@@ -387,12 +398,20 @@ export function createSupport(given: SupportOptions): SupportBlock {
   };
 
   // Sign-out forgets what this device held for the person: the dumps and feedback queued offline,
-  // and a report (and a shake's dump) waiting for the feedback screen. The root listens; apps needn't.
-  const forgetOnSignOut = (event: string) => {
+  // and a report (and a shake's dump) waiting for the feedback screen. Listened to from creation,
+  // not by the root: a sign-out during boot or behind the fatal screen (no root mounted) counts too.
+  // `dispose` stops it.
+  const signOut = options.supabase.auth.onAuthStateChange((event) => {
     if (event !== "SIGNED_OUT") return;
     pending?.shakeDump?.discard();
     setPending(null);
     void given.diagnostics?.clearQueue().catch((error: unknown) => report(error, "diagnostics"));
+  });
+  let disposed = false;
+  const dispose = () => {
+    if (disposed) return;
+    disposed = true;
+    signOut.data.subscription.unsubscribe();
   };
 
   // Where to go once the app's screens are back (the fatal screen's "Report this"): taken by the
@@ -509,7 +528,14 @@ export function createSupport(given: SupportOptions): SupportBlock {
     };
   }
 
-  const block: SupportBlock = {
+  // Read each time: the context dump while `diagnostics.enabled` is on, and genesis-native's
+  // "Report this" while feedback is (the form opens with the error attached).
+  const live = {
+    diagnostics: (): Diagnostics | null => liveDiagnostics() ?? null,
+    reportProblem: (): typeof reportProblem | undefined => (readSettings().support.feedback ? reportProblem : undefined),
+  };
+  const block: SupportBlock = withLive<Omit<SupportBlock, keyof typeof live>, typeof live>(
+    {
     ...declaration,
     contributes: {
       ...declaration.contributes,
@@ -539,15 +565,9 @@ export function createSupport(given: SupportOptions): SupportBlock {
         ...(given.diagnostics ? { devtoolsDiagnostics: DevtoolsDiagnostics as ComponentType<never> } : {}),
       },
     },
-    get diagnostics() {
-      return liveDiagnostics() ?? null;
-    },
-    // genesis-native's error screens offer "Report this" while feedback is on: the form opens with the error attached.
-    get reportProblem() {
-      return readSettings().support.feedback ? reportProblem : undefined;
-    },
     platforms: ["native"],
     report,
+    dispose,
     options,
     settings: readSettings,
     useSettings: useLiveSettings,
@@ -618,10 +638,6 @@ export function createSupport(given: SupportOptions): SupportBlock {
         if (current) liveDiagnostics()?.recordRoute(current);
       }, [current]);
       useEffect(() => {
-        const { data } = options.supabase.auth.onAuthStateChange((event) => forgetOnSignOut(event));
-        return () => data.subscription.unsubscribe();
-      }, []);
-      useEffect(() => {
         const diagnostics = given.diagnostics;
         if (!diagnostics) return;
         const flush = () => {
@@ -667,8 +683,21 @@ export function createSupport(given: SupportOptions): SupportBlock {
       }, []);
       return <SupportProvider block={block}>{children}</SupportProvider>;
     },
-  };
+    },
+    live,
+  );
   return block;
+}
+
+/**
+ * `target` with properties read each time they're read. Defined on the object itself, after it is
+ * made: a getter written in an object literal beside a spread (`{ ...declaration, get x() {} }`) is
+ * read once and copied as a plain value under Babel's object-spread transform, as React Native
+ * builds compile it.
+ */
+function withLive<T extends object, L extends Record<string, () => unknown>>(target: T, live: L): T & { readonly [K in keyof L]: ReturnType<L[K]> } {
+  for (const [key, read] of Object.entries(live)) Object.defineProperty(target, key, { get: read, enumerable: true, configurable: true });
+  return target as T & { readonly [K in keyof L]: ReturnType<L[K]> };
 }
 
 /** How long after a fatal screen's "Report this" the remounted app may still open the form. */

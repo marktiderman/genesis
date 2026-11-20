@@ -36,7 +36,8 @@ export default function Integrations() {
                     <CardDescription>{i.what}</CardDescription>
                     {feature && (
                       <p className="text-xs text-muted-foreground">
-                        {code ? <a className="underline" href={`${REPO}/${code}`}>{feature.name}</a> : feature.name}
+                        {/* Alone on its line, not in running text: 44px tall on touch (rule 3). */}
+                        {code ? <a className="inline-flex items-center underline pointer-coarse:min-h-11" href={`${REPO}/${code}`}>{feature.name}</a> : feature.name}
                       </p>
                     )}
                   </CardHeader>

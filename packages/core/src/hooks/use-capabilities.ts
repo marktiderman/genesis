@@ -1,5 +1,5 @@
-import { useQuery, type UseQueryResult } from "@tanstack/react-query";
-import { useDataProvider } from "../provider/context";
+import { skipToken, useQuery, type UseQueryResult } from "@tanstack/react-query";
+import { useOptionalDataProvider } from "../provider/context";
 import type { ProviderCapabilities } from "../schema/types";
 
 // A stable id per provider object, so capabilities cached for one provider
@@ -35,11 +35,13 @@ export function useCapabilities(
   resource: string | undefined,
   options: { enabled?: boolean } = {},
 ): UseQueryResult<ProviderCapabilities> {
-  const provider = useDataProvider();
+  // Without a provider (a list over rows it was given) there's nothing to ask.
+  const provider = useOptionalDataProvider();
+  const capabilities = provider?.capabilities?.bind(provider);
   return useQuery<ProviderCapabilities>({
-    queryKey: capabilitiesQueryKey(provider, resource),
-    queryFn: () => provider.capabilities!(resource),
-    enabled: (options.enabled ?? true) && !!provider.capabilities,
+    queryKey: provider ? capabilitiesQueryKey(provider, resource) : ["__capabilities", 0, resource ?? ""],
+    queryFn: capabilities ? () => capabilities(resource) : skipToken,
+    enabled: options.enabled ?? true,
     // Fresh for as long as this provider is in use; a swapped-out provider's
     // entry has no observers and is collected after the usual gcTime.
     staleTime: Infinity,

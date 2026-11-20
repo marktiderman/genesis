@@ -38,8 +38,10 @@ export type ThemeRole = (typeof THEME_ROLES)[number];
 
 type NativeToken = keyof typeof nativeThemeLight;
 
-/** A text-safe red for the destructive role in both schemes (about 5:1 on the dark background). */
+/** A text-safe red for the destructive role on the light background (5.4:1 on white). */
 const DESTRUCTIVE_TEXT = nativeColors.semantic.error.DEFAULT;
+/** On the dark background the error red is too dark to read; a lighter red reads at about 5:1. */
+const DESTRUCTIVE_TEXT_DARK = "#ef4444";
 
 interface RoleSource {
   /** The web theme token (its CSS variable switches with the scheme by itself). */
@@ -68,7 +70,7 @@ const ROLE_SOURCES: Record<Exclude<ThemeRole, "tint">, RoleSource> = {
   tertiaryLabel: { token: "mutedForeground", ios: "tertiaryLabel", material: m("neutral2_500", "neutral2_400") },
   separator: { token: "border", ios: "separator", material: m("neutral2_200", "neutral2_700") },
   fill: { token: "secondary", ios: "tertiarySystemFill", material: m("neutral2_100", "neutral2_800") },
-  destructive: { token: "destructive", ios: "systemRed", light: DESTRUCTIVE_TEXT as `#${string}`, dark: DESTRUCTIVE_TEXT as `#${string}` },
+  destructive: { token: "destructive", ios: "systemRed", light: DESTRUCTIVE_TEXT as `#${string}`, dark: DESTRUCTIVE_TEXT_DARK },
   success: { token: "success", ios: "systemGreen" },
   warning: { token: "warning", ios: "systemOrange" },
 };

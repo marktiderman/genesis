@@ -3,6 +3,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
+import { checkStamp } from "../.eas/scripts/native-release.mjs";
 import { checkRollout } from "../.eas/scripts/rollout-health.mjs";
 
 const root = join(__dirname, "..");
@@ -29,7 +30,7 @@ const workflow = (file: string) => parse(read(`.eas/workflows/${file}`)) as Work
 const workflowFiles = readdirSync(join(root, ".eas/workflows")).filter((f) => f.endsWith(".yml"));
 const easJson = JSON.parse(read("eas.json")) as {
   cli: { appVersionSource: string };
-  build: Record<string, { extends?: string; environment?: string; channel?: string; env?: { APP_VARIANT?: string }; distribution?: string; uploadSourceMaps?: boolean; ios?: { simulator?: boolean } }>;
+  build: Record<string, { extends?: string; environment?: string; channel?: string; env?: { APP_VARIANT?: string; GENESIS_CHANNEL?: string }; distribution?: string; uploadSourceMaps?: boolean; ios?: { simulator?: boolean } }>;
   submit: { production: { ios: Record<string, string>; android: Record<string, string> } };
 };
 
@@ -178,10 +179,13 @@ describe("EAS workflows", () => {
   });
 
   it.each(["pr-preview.yml", "e2e.yml"])("%s can't reach production", (file) => {
-    expect(read(`.eas/workflows/${file}`)).not.toMatch(/eas(-cli)?(@[\d.]+)? (update|submit)/);
+    // The one command of its own: pr-preview's update, to the pull request's channel (stamped first).
+    const own = file === "pr-preview.yml" ? ["publish_update"] : [];
+    const commands = [...read(`.eas/workflows/${file}`).matchAll(/eas(?:-cli)?(?:@[\d.]+)? (update|submit)\b.*/g)].map((m) => m[0]);
+    expect(commands).toEqual(own.length ? [expect.stringMatching(/^eas-cli@[\d.]+ update --channel "\$PREVIEW_CHANNEL" /)] : []);
     for (const [id, job] of Object.entries(workflow(file).jobs)) {
       expect(["submit", "testflight", "update-rollout"], `${file} ${id}`).not.toContain(job.type);
-      expect(job.steps, `${file} ${id}`).toBeUndefined();
+      if (!own.includes(id)) expect(job.steps, `${file} ${id}`).toBeUndefined();
       expect(job.environment ?? "", `${file} ${id}`).not.toBe("production");
       expect(job.params?.profile ?? "", `${file} ${id}`).not.toBe("production");
       expect(job.params?.channel ?? "", `${file} ${id}`).not.toBe("production");
@@ -228,7 +232,9 @@ describe("EAS workflows", () => {
   });
 
   it("pr-preview publishes to the pull request's own channel", () => {
-    expect(workflow("pr-preview.yml").jobs.publish_update?.params?.channel).toBe("pr-${{ github.event.pull_request.number }}");
+    const job = workflow("pr-preview.yml").jobs.publish_update!;
+    expect(job.env?.PREVIEW_CHANNEL).toBe("pr-${{ github.event.pull_request.number }}");
+    expect(job.environment).toBe("preview");
   });
 
   it("rollout promotes only after the health check, whose limits no input can change", () => {
@@ -292,5 +298,39 @@ describe("Maestro flows", () => {
   it("the development bundle id is the starter's with .dev (what APP_VARIANT=development builds)", async () => {
     const starter = (await import("../starter.config")).default;
     expect(appId).toBe(`${starter.app.bundleId}.dev`);
+  });
+});
+
+describe("the build stamp", () => {
+  const stamp = { version: "0.1.0", commit: "3f2a9c1b".padEnd(40, "0"), branch: "main", builtAt: "2026-11-20T00:00:00.000Z", channel: "production" };
+
+  it("lets a release through only when the stamp names its commit, its build time and the release's channel", () => {
+    expect(() => checkStamp(stamp, "production")).not.toThrow();
+    expect(() => checkStamp({ ...stamp, commit: null }, "production")).toThrow(/no commit/);
+    expect(() => checkStamp({ ...stamp, builtAt: "" }, "production")).toThrow(/no builtAt/);
+    expect(() => checkStamp({ ...stamp, channel: null }, "production")).toThrow(/no channel/);
+    expect(() => checkStamp(stamp, "preview")).toThrow(/stamped for channel "production", not "preview"/);
+    expect(() => checkStamp(stamp, "")).toThrow(/set GENESIS_CHANNEL/);
+  });
+
+  it("is stamped and checked by every EAS build, on the channel its profile builds for", () => {
+    const pkg = JSON.parse(read("package.json")) as { scripts: Record<string, string> };
+    expect(pkg.scripts["eas-build-post-install"]).toBe('genesis build-stamp && node .eas/scripts/native-release.mjs stamped build-metadata.json "$GENESIS_CHANNEL"');
+    for (const name of Object.keys(easJson.build)) expect(profile(name).env?.GENESIS_CHANNEL, name).toBe(profile(name).channel);
+  });
+
+  it("is stamped for the channel, and checked, before every update is published", () => {
+    const publishing = [
+      ...["update_ios", "update_android"].map((job) => ({ job, channel: "production", run: workflow("deploy-production.yml").jobs[job]!.steps!.map((s) => s.run ?? "").join("\n") })),
+      { job: "publish_update", channel: "$PREVIEW_CHANNEL", run: workflow("pr-preview.yml").jobs["publish_update"]!.steps!.map((s) => s.run ?? "").join("\n") },
+    ];
+    for (const { job, channel, run } of publishing) {
+      const stamped = run.indexOf(`npx --no genesis build-stamp --channel "${channel}"`);
+      const checked = run.indexOf(`node .eas/scripts/native-release.mjs stamped build-metadata.json "${channel}"`);
+      const published = run.search(/eas-cli@[\d.]+ update/);
+      expect(stamped, job).toBeGreaterThan(-1);
+      expect(checked, job).toBeGreaterThan(stamped);
+      expect(published, job).toBeGreaterThan(checked);
+    }
   });
 });

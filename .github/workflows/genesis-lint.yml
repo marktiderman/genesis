@@ -68,6 +68,10 @@ on:
         description: 'Glob of paths to scan (passed through to the scripts that accept it)'
         type: string
         default: 'apps'
+      coverage-paths:
+        description: 'Paths design-system-coverage classifies, comma- or space-separated globs (default: paths). A repo whose packages ship UI adds them here; the import rules keep to paths.'
+        type: string
+        default: ''
 
 jobs:
   legacy-imports:
@@ -332,7 +336,7 @@ jobs:
         env:
           GITHUB_BASE_REF: ${{ github.base_ref || 'main' }}
           PR_BODY: ${{ github.event.pull_request.body }}
-          SCAN_PATHS: ${{ inputs.paths }}
+          SCAN_PATHS: ${{ inputs.coverage-paths || inputs.paths }}
         run: node scripts/design-system-coverage.mjs
 
       - name: Upload design-system coverage report

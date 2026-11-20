@@ -8,14 +8,14 @@
       "environment": "development",
       "channel": "development",
       "distribution": "internal",
-      "env": { "APP_VARIANT": "development", "EXPO_PUBLIC_APP_VARIANT": "development" }
+      "env": { "APP_VARIANT": "development", "EXPO_PUBLIC_APP_VARIANT": "development", "GENESIS_CHANNEL": "development" }
     },
     "preview": {
       "environment": "preview",
       "channel": "preview",
       "distribution": "internal",
       "uploadSourceMaps": true,
-      "env": { "APP_VARIANT": "preview", "EXPO_PUBLIC_APP_VARIANT": "preview" },
+      "env": { "APP_VARIANT": "preview", "EXPO_PUBLIC_APP_VARIANT": "preview", "GENESIS_CHANNEL": "preview" },
       "android": { "buildType": "apk" }
     },
     "e2e": {
@@ -28,7 +28,7 @@
       "distribution": "store",
       "uploadSourceMaps": true,
       "autoIncrement": true,
-      "env": { "APP_VARIANT": "production", "EXPO_PUBLIC_APP_VARIANT": "production" }
+      "env": { "APP_VARIANT": "production", "EXPO_PUBLIC_APP_VARIANT": "production", "GENESIS_CHANNEL": "production" }
     }
   },
   "submit": {

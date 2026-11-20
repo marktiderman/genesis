@@ -969,8 +969,10 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
               ) : null}
             </div>
           ) : null}
-          <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[17rem_minmax(0,1fr)_20rem]" inert={busy || undefined} aria-busy={busy || undefined}>
-            <aside className="flex min-h-0 flex-col border-b border-border lg:border-b-0 lg:border-r" aria-label="Sections and pages" onKeyDown={keepDeleteInPanel}>
+          {/* On a phone the panels stack above and below the canvas at their own height and the
+              column scrolls, so the canvas never covers their tabs; side by side from lg. */}
+          <div className="grid min-h-0 flex-1 grid-cols-1 overflow-y-auto lg:grid-cols-[17rem_minmax(0,1fr)_20rem] lg:overflow-visible" inert={busy || undefined} aria-busy={busy || undefined}>
+            <aside className="flex flex-col border-b border-border lg:min-h-0 lg:border-b-0 lg:border-r" aria-label="Sections and pages" onKeyDown={keepDeleteInPanel}>
               <Tabs defaultValue="add" value={leftTab} onValueChange={setLeftTab} className="flex min-h-0 flex-1 flex-col">
                 <TabsList className={cn("m-2 grid", readOnly ? "grid-cols-2" : "grid-cols-3")}>
                   {readOnly ? null : <TabsTrigger value="add">Add</TabsTrigger>}
@@ -1026,7 +1028,7 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
             <section className="relative min-h-[28rem] min-w-0 bg-muted" aria-label="Page canvas" data-gs-canvas="">
               <Puck.Preview />
             </section>
-            <aside className="flex min-h-0 flex-col border-t border-border lg:border-l lg:border-t-0" aria-label="Section settings and publishing" onKeyDown={keepDeleteInPanel}>
+            <aside className="flex flex-col border-t border-border lg:min-h-0 lg:border-l lg:border-t-0" aria-label="Section settings and publishing" onKeyDown={keepDeleteInPanel}>
               <Tabs defaultValue="edit" value={rightTab} onValueChange={setRightTab} className="flex min-h-0 flex-1 flex-col">
                 <TabsList className="m-2 grid grid-cols-2">
                   <TabsTrigger value="edit">Edit</TabsTrigger>
