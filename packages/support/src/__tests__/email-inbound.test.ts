@@ -128,11 +128,24 @@ describe("the inbound route", () => {
     expect(calls[0]?.args["p_message_id"]).toBe("resend:re_1");
   });
 
-  it("trusts DKIM, or SPF with DMARC, and nothing else", () => {
-    expect(senderAuthenticated({ dkim: "PASS" })).toBe(true);
+  it("trusts DMARC, aligned with the From domain, and nothing else", () => {
+    expect(senderAuthenticated({ dkim: "pass", spf: "pass", dmarc: "PASS" })).toBe(true);
     expect(senderAuthenticated({ spf: "pass", dmarc: "pass" })).toBe(true);
+    // A pass for a domain of the sender's own (d=evil.test), not the From's.
+    expect(senderAuthenticated({ dkim: "pass", spf: "pass", dmarc: "fail" })).toBe(false);
+    expect(senderAuthenticated({ dkim: "pass" })).toBe(false);
     expect(senderAuthenticated({ spf: "pass" })).toBe(false);
     expect(senderAuthenticated(null)).toBe(false);
+  });
+
+  it("drops a reply DKIM-signed by another domain (d=evil) with DMARC failing", async () => {
+    const { client, calls } = rpc();
+    const outcomes: string[] = [];
+    await supportReplyRoute(client, { ...config, onOutcome: (o) => outcomes.push(o) })(
+      email({ from: { email: "pat@example.test", name: null }, authentication: { dkim: "pass", dkim_domain: "evil.test", spf: "pass", dmarc: "fail" } }),
+    );
+    expect(outcomes).toEqual(["unauthenticated"]);
+    expect(calls).toEqual([]);
   });
 });
 

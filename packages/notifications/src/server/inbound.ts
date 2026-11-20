@@ -63,15 +63,65 @@ export interface InboundEmailHandlerOptions extends HttpDeps {
   now?: () => number;
 }
 
-const ADDRESS = /<?([^<>\s]+@[^<>\s]+)>?\s*$/;
 const unbracket = (id: unknown) => (typeof id === "string" && id.trim() ? id.trim().replace(/^<|>$/g, "") : null);
 
-/** "Pat <Pat@Example.test>" → { email: "pat@example.test", name: "Pat" }. */
+/** One bare address: something@something, no spaces, brackets, quotes or commas, one "@". */
+function bareAddress(text: string): string | null {
+  if (!text || text.length > 320) return null;
+  let at = -1;
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charCodeAt(i);
+    // space, tab, newline, ", ,, <, >, ;, and control characters
+    if (c <= 0x20 || c === 0x22 || c === 0x2c || c === 0x3c || c === 0x3e || c === 0x3b || c === 0x7f) return null;
+    if (c === 0x40) {
+      if (at !== -1) return null;
+      at = i;
+    }
+  }
+  return at > 0 && at < text.length - 1 ? text.toLowerCase() : null;
+}
+
+/**
+ * "Pat <Pat@Example.test>" → { email: "pat@example.test", name: "Pat" }. One address only: a header
+ * naming several (`a@x.test, b@y.test`, or a second address in the display name) is no sender, so a
+ * route can't be handed the wrong one. Linear in the length of the header.
+ */
 export function parseAddress(value: string): { email: string; name: string | null } | null {
-  const m = ADDRESS.exec(value.trim());
-  if (!m) return null;
-  const name = value.slice(0, value.lastIndexOf(m[0])).trim().replace(/^"|"$/g, "");
-  return { email: m[1]!.toLowerCase(), name: name || null };
+  const v = value.trim();
+  if (!v || v.length > 998) return null;
+  // Outside a quoted display name: at most one "<…>", and no list separator.
+  let quoted = false;
+  let open = -1;
+  let close = -1;
+  for (let i = 0; i < v.length; i++) {
+    const c = v[i];
+    if (c === "\\" && quoted) {
+      i++;
+      continue;
+    }
+    if (c === '"') quoted = !quoted;
+    else if (quoted) continue;
+    else if (c === "<") {
+      if (open !== -1) return null;
+      open = i;
+    } else if (c === ">") {
+      if (open === -1 || close !== -1) return null;
+      close = i;
+    } else if (c === "," || c === ";") return null;
+  }
+  if (quoted) return null;
+  if (open === -1 && close === -1) {
+    const email = bareAddress(v);
+    return email ? { email, name: null } : null;
+  }
+  if (open === -1 || close === -1 || close < open || v.slice(close + 1).trim()) return null;
+  const email = bareAddress(v.slice(open + 1, close).trim());
+  if (!email) return null;
+  const display = v.slice(0, open).trim();
+  // A second address hidden in an unquoted display name.
+  if (!display.startsWith('"') && display.includes("@")) return null;
+  const name = display.replace(/^"|"$/g, "").trim();
+  return { email, name: name || null };
 }
 
 const header = (headers: unknown, name: string): string | null => {

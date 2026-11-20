@@ -8,7 +8,7 @@
  * - **In.** `supportReplyRoute` is a route for genesis-notifications' `createInboundEmailHandler`
  *   (which checks the webhook's signature, fetches the email and flags automatic mail): it takes an
  *   email sent to a reply address, verifies the token, drops automatic mail and mail whose sender the
- *   receiving server didn't authenticate, strips the quoted history and signature (`stripReply`), and
+ *   receiving server didn't authenticate (DMARC), strips the quoted history and signature (`stripReply`), and
  *   posts the rest with `support_email_reply` (migration 0027), which posts it as that login.
  * - **Both.** `supportReplyConfig(env, settings)` reads the set-up, and `handleSupportInbound` is the
  *   whole inbound endpoint: 503 until it is set up, then the reply route (and any routes of yours).
@@ -115,16 +115,16 @@ export function supportEmailOptions(options: {
 
 /**
  * Whether the receiving server vouched for the From address (Resend's `authentication`, worked out
- * on receipt, never read from the message's headers): DKIM "pass" (Resend gives it only when the
- * signature's domain is the From domain), or SPF "pass" with DMARC "pass". Anything else, or nothing
- * at all, isn't trusted.
+ * on receipt, never read from the message's headers): DMARC "pass", which means SPF or DKIM passed
+ * for a domain aligned with the From domain. A DKIM or SPF pass alone proves only that some domain
+ * signed or sent it (`d=evil.test`), so it isn't trusted; nor is no result at all.
  *
  * @stability Beta
  */
 export function senderAuthenticated(authentication: Record<string, unknown> | null | undefined): boolean {
   if (!authentication) return false;
-  const result = (k: string) => (typeof authentication[k] === "string" ? (authentication[k] as string).toLowerCase() : "");
-  return result("dkim") === "pass" || (result("spf") === "pass" && result("dmarc") === "pass");
+  const dmarc = authentication["dmarc"];
+  return typeof dmarc === "string" && dmarc.trim().toLowerCase() === "pass";
 }
 
 /** The part of a service-role Supabase client the route uses. */
@@ -165,7 +165,7 @@ export function supportReplyRoute(
       return true;
     };
     if (email.autoSubmitted) return done("automatic", "dropped an automatic email");
-    if (!senderAuthenticated(email.authentication)) return done("unauthenticated", "dropped a reply whose sender isn't authenticated (DKIM, or SPF and DMARC)");
+    if (!senderAuthenticated(email.authentication)) return done("unauthenticated", "dropped a reply whose sender isn't authenticated (DMARC)");
     const body = stripReply(email.text, email.html);
     if (!body) return done("empty", "dropped an empty reply");
     const { error } = await client.rpc("support_email_reply", {

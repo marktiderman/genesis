@@ -21,8 +21,10 @@
 -- desk (the tenant, when it isn't the app's own) with escalated / returned / moved for a move.
 --
 -- Whom support.message tells: the app's hook private.genesis_support_staff_to_notify(ticket uuid)
--- returns uuid[] when it has one, else every login that is an agent of the ticket's tenant (read from
--- auth.users through the agent check: fine for a help desk's few hundred logins, and a hook for more).
+-- returns uuid[] when it has one (the app answers for whom it names: they are told without another
+-- check), else the agents of the ticket's tenant among its ticket_agents rows, the app's staff list
+-- and tenant admin list hooks (private.genesis_support_staff_list(),
+-- private.genesis_tenant_admin_list(tenant)): never a scan of every login unless support.agentListScan.
 --
 -- A notification that can't be sent (genesis-notifications not installed, the types not synced yet)
 -- is a warning in the log, never a failed ticket or message.
@@ -34,7 +36,8 @@
 
 create schema if not exists private;
 
--- support.staffAlerts: max and standard on, min off.
+-- support.staffAlerts: max and standard on, min off. 0024's reader when it is there; else 0020's
+-- (genesis_support_setting_bool) with the preset's default; without either, on.
 create or replace function private.genesis_support_staff_alerts_on()
 returns boolean
 language plpgsql
@@ -43,18 +46,22 @@ security definer
 set search_path = ''
 as $$
 declare
-  raw jsonb;
+  preset text;
 begin
   if to_regprocedure('private.genesis_support_setting_on(text,boolean,boolean,boolean)') is not null then
     return private.genesis_support_setting_on('support.staffAlerts', true, true, false);
   end if;
-  if to_regprocedure('private.genesis_support_setting(text)') is not null then
-    raw := private.genesis_support_setting('support.staffAlerts');
-    if jsonb_typeof(raw) = 'boolean' then
-      return raw::text::boolean;
-    end if;
+  if to_regclass('public.genesis_app_manifest') is not null then
+    begin
+      execute 'select m.preset from public.genesis_app_manifest m limit 1' into preset;
+    exception when others then
+      preset := null;
+    end;
   end if;
-  return true;
+  if to_regprocedure('private.genesis_support_setting_bool(text,boolean)') is null then
+    return coalesce(preset, 'max') <> 'min';
+  end if;
+  return coalesce(private.genesis_support_setting_bool('support.staffAlerts', coalesce(preset, 'max') <> 'min'), true);
 end;
 $$;
 
@@ -106,7 +113,8 @@ $$;
 
 revoke execute on function private.genesis_support_notify_label(uuid) from public, anon, authenticated;
 
--- Tells these logins, never failing the caller.
+-- Tells these logins, never failing the caller. The ticket's tenant goes with it (its sender
+-- identity and defaults), unless it is the app's own.
 create or replace function private.genesis_support_notify(type text, users uuid[], data jsonb, idempotency_key text, ticket uuid, collapse_key text)
 returns void
 language plpgsql
@@ -115,6 +123,7 @@ set search_path = ''
 as $$
 declare
   recipients jsonb;
+  tenant uuid;
 begin
   if to_regprocedure('public.genesis_notify(text,jsonb,jsonb,text,text,text,integer,uuid,jsonb,text)') is null then
     return;
@@ -124,8 +133,9 @@ begin
   if recipients is null then
     return;
   end if;
+  select nullif(t.tenant_id, private.genesis_support_default_tenant_id()) into tenant from public.tickets t where t.id = ticket;
   begin
-    perform public.genesis_notify(type, recipients, data, idempotency_key, ticket::text, collapse_key);
+    perform public.genesis_notify(type, recipients, data, idempotency_key, ticket::text, collapse_key, null, tenant);
   exception when others then
     raise warning 'genesis-support: notification % (%) not sent: %', type, idempotency_key, sqlerrm;
   end;
@@ -135,7 +145,13 @@ $$;
 revoke execute on function private.genesis_support_notify(text, uuid[], jsonb, text, uuid, text) from public, anon, authenticated;
 
 -- Whom to tell about a ticket: the app's hook, else its desk's agents, unless someone who still
--- handles it has it (genesis-chat tells them). Never its own person.
+-- handles it has it (genesis-chat tells them). Never its own person, never an anonymous login.
+-- Candidates come from what names agents (never a scan of every login, in the writer's
+-- transaction): the tenant's ticket_agents rows, the app's staff list (the optional hook
+-- private.genesis_support_staff_list() returns setof uuid, as 0022's agent list reads it) for the
+-- app's own desk, and its tenant admins (the optional hook
+-- private.genesis_tenant_admin_list(tenant uuid) returns setof uuid). Each is checked as an agent of
+-- the tenant. support.agentListScan (0022) adds every login, for an app that wants it. At most 200.
 create or replace function private.genesis_support_staff_to_tell(ticket uuid)
 returns uuid[]
 language plpgsql
@@ -146,12 +162,16 @@ as $$
 declare
   t public.tickets;
   assignee uuid;
+  listed uuid[] := '{}';
+  admins uuid[] := '{}';
+  scan boolean := false;
 begin
   select * into t from public.tickets x where x.id = ticket;
   if t.id is null then
     return '{}';
   end if;
   if to_regprocedure('private.genesis_support_staff_to_notify(uuid)') is not null then
+    -- The app answers for whom its hook names: they are told as they are.
     return coalesce((select array_agg(u) from unnest(private.genesis_support_staff_to_notify(ticket)) u
                       where u is distinct from t.user_id), '{}');
   end if;
@@ -162,13 +182,41 @@ begin
       return '{}';
     end if;
   end if;
+  if t.tenant_id = private.genesis_support_default_tenant_id()
+     and to_regprocedure('private.genesis_support_staff_list()') is not null then
+    begin
+      execute 'select coalesce(array_agg(s), ''{}'') from private.genesis_support_staff_list() s where s is not null' into listed;
+    exception when others then
+      raise warning 'genesis-support: private.genesis_support_staff_list() failed: %', sqlerrm;
+    end;
+  end if;
+  if to_regprocedure('private.genesis_tenant_admin_list(uuid)') is not null then
+    begin
+      execute 'select coalesce(array_agg(s), ''{}'') from private.genesis_tenant_admin_list($1) s where s is not null' into admins using t.tenant_id;
+    exception when others then
+      raise warning 'genesis-support: private.genesis_tenant_admin_list(tenant) failed: %', sqlerrm;
+    end;
+  end if;
+  if to_regprocedure('private.genesis_support_setting_bool(text,boolean)') is not null then
+    scan := private.genesis_support_setting_bool('support.agentListScan', false);
+  end if;
   return coalesce((
-    select array_agg(u.id order by u.id)
-      from (select u.id from auth.users u
-             where u.id is distinct from t.user_id
-               and private.genesis_support_agent(t.tenant_id, u.id)
-             order by u.id
-             limit 200) u
+    select array_agg(c.id order by c.id)
+      from (
+        select u.id
+          from auth.users u
+         where u.id in (
+                 select a.person_id from public.ticket_agents a where a.tenant_id = t.tenant_id
+                 union select unnest(listed)
+                 union select unnest(admins)
+                 union select x.id from auth.users x where scan
+               )
+           and u.id is distinct from t.user_id
+           and (to_jsonb(u) ->> 'is_anonymous') is distinct from 'true'
+           and private.genesis_support_agent(t.tenant_id, u.id)
+         order by u.id
+         limit 200
+      ) c
   ), '{}');
 end;
 $$;
@@ -258,8 +306,9 @@ begin
     return null;
   end if;
   perform private.genesis_support_notify('support.message', private.genesis_support_staff_to_tell(t.id),
-    private.genesis_support_notify_data(t, coalesce(nullif(btrim(new.reason), ''), t.message))
-      || jsonb_build_object('by', case when new.actor is not null then private.genesis_support_notify_name(new.actor)
+    -- A move between tenants' desks keeps the first desk's words to itself.
+    private.genesis_support_notify_data(t, coalesce(case when new.action <> 'moved' then nullif(btrim(new.reason), '') end, t.message))
+      || jsonb_build_object('by', case when new.actor is not null and new.action <> 'moved' then private.genesis_support_notify_name(new.actor)
                                        else private.genesis_support_requester_name(t) end,
                             'new', true, new.action, true),
     'moved:' || new.id::text, t.id, null);

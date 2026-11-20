@@ -8,7 +8,7 @@
 -- People: a1 writes and belongs to tenant b0; b2 is staff; d3 is b0's tenant admin.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(16);
+select plan(20);
 
 create function pg_temp.person(n text) returns uuid language sql immutable as $$
   select ('00000000-0000-4000-8000-0000000025' || n)::uuid $$;
@@ -34,11 +34,17 @@ language sql stable set search_path = '' as $$ select person = '00000000-0000-40
 create or replace function private.genesis_tenant_admin(tenant uuid, person uuid) returns boolean
 language sql stable set search_path = '' as $$
   select tenant = '00000000-0000-4000-8000-0000000000b0'::uuid and person = '00000000-0000-4000-8000-0000000025d3'::uuid $$;
+-- Whom support names as agents (never a scan of every login): the app's staff list and its tenant admins.
+create or replace function private.genesis_support_staff_list() returns setof uuid
+language sql stable set search_path = '' as $$ select '00000000-0000-4000-8000-0000000025b2'::uuid $$;
+create or replace function private.genesis_tenant_admin_list(tenant uuid) returns setof uuid
+language sql stable set search_path = '' as $$
+  select '00000000-0000-4000-8000-0000000025d3'::uuid where tenant = '00000000-0000-4000-8000-0000000000b0'::uuid $$;
 create or replace function private.genesis_support_verify_prompt_enabled() returns boolean
 language sql stable set search_path = '' as $$ select true $$;
 
 -- genesis-notifications' genesis_notify, recording what it was asked.
-create table pg_temp.told (n bigint generated always as identity, type text, users text, data jsonb, key text, collapse text);
+create table pg_temp.told (n bigint generated always as identity, type text, users text, data jsonb, key text, collapse text, tenant uuid);
 grant all on pg_temp.told to public;
 create function public.genesis_notify(p_type text, p_recipients jsonb, p_data jsonb default '{}', p_idempotency_key text default null,
   p_thread_key text default null, p_collapse_key text default null, p_badge integer default null, p_tenant_id uuid default null,
@@ -46,8 +52,8 @@ create function public.genesis_notify(p_type text, p_recipients jsonb, p_data js
 returns table (notification_id uuid, recipient_key text, created boolean)
 language plpgsql security definer set search_path = '' as $$
 begin
-  insert into pg_temp.told (type, users, data, key, collapse)
-  select p_type, string_agg(right(r ->> 'user_id', 2), ',' order by r ->> 'user_id'), p_data, p_idempotency_key, p_collapse_key
+  insert into pg_temp.told (type, users, data, key, collapse, tenant)
+  select p_type, string_agg(right(r ->> 'user_id', 2), ',' order by r ->> 'user_id'), p_data, p_idempotency_key, p_collapse_key, p_tenant_id
     from jsonb_array_elements(p_recipients) r;
   return;
 end $$;
@@ -118,6 +124,7 @@ reset role;
 insert into t select 'q', id from public.tickets where user_id = pg_temp.person('a1') and type = 'question';
 select is((select row(type, users, data ->> 'desk')::text from pg_temp.last()),
   row('support.message', 'd3', '00000000-0000-4000-8000-0000000000b0')::text, 'a desk''s ticket tells its agents, naming the desk');
+select is((select tenant from pg_temp.last()), '00000000-0000-4000-8000-0000000000b0'::uuid, 'in the desk''s tenant (its sender and defaults)');
 
 select pg_temp.sign_in('d3');
 set local role authenticated;
@@ -129,8 +136,8 @@ select ok(not ((select data from pg_temp.last()) ? 'desk'), 'at the app''s desk,
 
 -- 5. Staff alerts off ---------------------------------------------------------------------------------
 
-create or replace function private.genesis_support_setting(setting_key text) returns jsonb
-language sql stable set search_path = '' as $$ select case when setting_key = 'support.staffAlerts' then 'false'::jsonb end $$;
+insert into public.genesis_settings (key, value) values ('support.staffAlerts', 'false');
+select is(private.genesis_support_staff_alerts_on(), false, 'support.staffAlerts false in genesis_settings is read');
 select pg_temp.count() as before \gset
 select pg_temp.sign_in('a1');
 set local role authenticated;
@@ -145,7 +152,7 @@ select is((select type || ':' || users from pg_temp.last()), 'support.reply:a1',
 
 -- 6. A failing or missing notifier --------------------------------------------------------------------
 
-drop function private.genesis_support_setting(text);
+delete from public.genesis_settings where key = 'support.staffAlerts';
 create or replace function public.genesis_notify(p_type text, p_recipients jsonb, p_data jsonb default '{}', p_idempotency_key text default null,
   p_thread_key text default null, p_collapse_key text default null, p_badge integer default null, p_tenant_id uuid default null,
   p_brand jsonb default null, p_secret text default null)
@@ -163,6 +170,15 @@ select pg_temp.sign_in('a1');
 set local role authenticated;
 select lives_ok($$insert into public.tickets (type, message) values ('bug', 'no notifications')$$, 'nor does an app without genesis-notifications');
 reset role;
+
+-- 7. Whom to tell, with many logins -----------------------------------------------------------------
+
+insert into auth.users (id, aud, role, is_anonymous, instance_id)
+select gen_random_uuid(), 'authenticated', 'authenticated', true, '00000000-0000-0000-0000-000000000000' from generate_series(1, 20000);
+select set_config('genesis_test.started', clock_timestamp()::text, true);
+select is((select array_agg(right(u::text, 2)) from unnest(private.genesis_support_staff_to_tell((select id from t where name = 'q'))) u), array['b2'],
+  'with 20,000 more logins, the app''s desk tells its staff');
+select ok(clock_timestamp() - current_setting('genesis_test.started')::timestamptz < interval '200 milliseconds', 'without reading every login');
 
 select ok(not has_function_privilege('authenticated', 'private.genesis_support_notify(text, uuid[], jsonb, text, uuid, text)', 'execute'), 'nobody notifies through support''s function');
 select ok(not has_function_privilege('authenticated', 'private.genesis_support_staff_to_tell(uuid)', 'execute'), 'nor lists whom it tells');

@@ -16,15 +16,17 @@
 --   how        on genesis-chat when the support-chat block is installed (genesis_chat.send_message,
 --              as that login for this one call, as a scheduled post is), else as a support_replies
 --              row (0006's checks and limits, as that login).
---   once       the same email (its Message-ID) is posted once; asking again returns the same id.
+--   once       the same email (its Message-ID) is posted once, for 60 days; asking again returns
+--              the same id.
 --   a loop     at most 20 email replies a ticket an hour (two auto-answering mailboxes stop there):
 --              the rest are refused with GS429, which the route logs and drops.
 --
 -- A refusal is 42501 (who), 22023 (what) or GS429 (too many), never a partial post.
 --
 -- One private table, private.genesis_support_email_posts: each email reply's Message-ID hash, the
--- message it became and when, per ticket (a day's worth for the limit; the hashes for dedupe). It
--- goes with its ticket.
+-- message it became and when, per ticket (60 days of them: an hour's for the limit, the rest for
+-- dedupe). It goes with its ticket. An app's own support_email_reply, or a table of another shape by
+-- that name, stops this file with what to do.
 --
 -- Use: copy this file into your app's `supabase/migrations/` under a new timestamped name
 -- (`genesis migrate` does it). Never edit it once applied; change it with a new migration.
@@ -32,6 +34,28 @@
 -- Verify: the pgTAP test beside this file (`tests/0027_genesis_support_email_reply.test.sql`).
 
 create schema if not exists private;
+
+-- An app's own support_email_reply (one written before this file) is never replaced quietly, and a
+-- table by this name must be this file's.
+do $$
+declare
+  existing text;
+begin
+  select coalesce(obj_description(p.oid, 'pg_proc'), '') into existing
+    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public' and p.proname = 'support_email_reply'
+   limit 1;
+  if existing is not null and existing not like '%Genesis support.%' then
+    raise exception 'genesis support 0027: public.support_email_reply already exists and isn''t Genesis''s (an app''s own reply by email?). Drop or rename yours, and point your inbound route at this one (supportReplyRoute), then run this migration; see its header.';
+  end if;
+  if to_regclass('private.genesis_support_email_posts') is not null
+     and (select array_agg(a.attname::text order by a.attname) from pg_attribute a
+           where a.attrelid = to_regclass('private.genesis_support_email_posts') and a.attnum > 0 and not a.attisdropped)
+         is distinct from array['at', 'email_id', 'posted_id', 'ticket_id'] then
+    raise exception 'genesis support 0027: private.genesis_support_email_posts exists with other columns; rename it, then run this migration.';
+  end if;
+end;
+$$;
 
 create table if not exists private.genesis_support_email_posts (
   ticket_id uuid not null references public.tickets (id) on delete cascade,
@@ -110,7 +134,8 @@ begin
   end;
   perform set_config('request.jwt.claims', coalesce(claims, ''), true);
   perform set_config('request.jwt.claim.sub', coalesce(nullif(claims, '')::jsonb ->> 'sub', ''), true);
-  delete from private.genesis_support_email_posts p where p.ticket_id = t.id and p.at < now() - interval '1 day' and p.email_id <> _email_id;
+  -- Kept 60 days, so a mail server retrying (or someone resending) an old email posts nothing new.
+  delete from private.genesis_support_email_posts p where p.ticket_id = t.id and p.at < now() - interval '60 days' and p.email_id <> _email_id;
   insert into private.genesis_support_email_posts (ticket_id, email_id, posted_id) values (t.id, _email_id, posted)
   on conflict do nothing;
   return posted;

@@ -5,7 +5,7 @@
 -- People: a1 wrote the ticket; b2 is staff (a handler); c3 is nobody.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(12);
+select plan(14);
 
 create function pg_temp.person(n text) returns uuid language sql immutable as $$
   select ('00000000-0000-4000-8000-0000000026' || n)::uuid $$;
@@ -49,6 +49,14 @@ select throws_ok($$select pg_temp.reply('c3', 'genesis-reply-c3@example.test', '
 select throws_ok($$select pg_temp.reply('a1', 'someone@else.test', '<m4@mail.test>')$$, '42501', null, 'never from another address');
 select throws_ok($$select pg_temp.reply('a1', 'genesis-reply-a1@example.test', '<m5@mail.test>', '   ')$$, '22023', null, 'never empty');
 select throws_ok($$select pg_temp.reply('a1', 'genesis-reply-a1@example.test', '')$$, '22023', null, 'never without a Message-ID');
+reset role;
+
+-- An old email again, after other replies: still posted once (kept 60 days).
+update private.genesis_support_email_posts set at = now() - interval '2 days' where email_id = md5('support-email:<m1@mail.test>');
+set local role service_role;
+select lives_ok($$select pg_temp.reply('a1', 'genesis-reply-a1@example.test', '<m7@mail.test>', 'Another thing')$$, 'another reply later');
+select is(pg_temp.reply('a1', 'genesis-reply-a1@example.test', '<m1@mail.test>', 'Still broken'),
+  (select id from genesis_chat.messages where body = 'Still broken'), 'and the first email, delivered again days on, is the same message');
 reset role;
 
 insert into private.genesis_support_email_posts (ticket_id, email_id, posted_id)

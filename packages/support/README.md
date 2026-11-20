@@ -916,7 +916,7 @@ addresses never expire and are never made again.
 `claimsFromAddresses(ring, replyDomain, recipients)` reads it back from an inbound email (bare or
 `Name <address>`). **A valid token says who the email went to, not who answered:** the inbound route
 must check, when the reply arrives, that `userId` is still the ticket's requester or a handler, and
-that the sender is that login's email with SPF and DKIM passing. And
+that the sender is that login's email with DMARC passing (aligned with the From domain). And
 `stripReply(text, html)` keeps what the person wrote, without the quoted history, the
 `REPLY_MARKER` line or their signature. Auto-replies are already dropped by genesis-notifications'
 inbound router.
@@ -939,8 +939,8 @@ createNotificationRunner({ store, registry, email: { provider, appName: "Acme", 
   recipient's signed address as Reply-To (`replyAddress`) and a References header naming the
   ticket, through the runner's `providerFor`, and puts `REPLY_MARKER` at the top.
 - **In.** `supportReplyRoute` (inside `handleSupportInbound`) verifies the token, drops automatic
-  mail and senders the receiving server didn't authenticate (`senderAuthenticated`: DKIM, or SPF and
-  DMARC), strips the quote (`stripReply`: Gmail, Outlook and Apple Mail forms, signatures) and calls
+  mail and senders the receiving server didn't authenticate (`senderAuthenticated`: DMARC, aligned
+  with the From domain; a From naming several addresses is no sender), strips the quote (`stripReply`: Gmail, Outlook and Apple Mail forms, signatures) and calls
   `support_email_reply`, which posts it as the login the email went to: the ticket's person, or one
   of its handlers (as support), only from that login's own address, once per Message-ID, at most 20 a
   ticket an hour. A refusal is logged and dropped; a failure worth retrying makes Resend retry.
