@@ -8,14 +8,17 @@
  * It goes through the linked project (`supabase db query --linked`, or `--project-ref`), as the
  * doctor reads the database layer, so no key is handled here. It names the project and asks before
  * writing (`--yes` skips the question; without a terminal, `--yes` is required). `--print` gives
- * the SQL for a pipeline that runs it its own way (psql with the database URL).
+ * the SQL for a pipeline that runs it its own way (psql with the database URL). An app without the
+ * settings block (no table to write) is skipped with a line and exit 0, so a deploy step can run it
+ * in every app.
  */
 import { createHash } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { catalogueManifest, settingsCatalogue, type SettingsCatalogue } from "@marktiderman/genesis-config/settings";
 import { installedGenesis } from "./blocks/discover.js";
+import { readLock } from "./blocks/lock.js";
 import { GenesisConfigError, readGenesisConfig } from "./doctor/config.js";
 import { installedSettings } from "./doctor/settings.js";
 import { runTool, TOOL_AUTH_ENV, type ToolRunner } from "./exec/run.js";
@@ -161,6 +164,23 @@ export async function syncManifest(root: string, row: ManifestRow, run: ToolRunn
   if (result.code !== 0) throw new ManifestError(`supabase exited ${result.code}: ${result.stderr.trim().split("\n")[0] ?? ""}`.trim());
 }
 
+/**
+ * Whether the app has genesis-supabase's settings block: genesis.lock.json lists it, or the app holds
+ * a copy of its migration. Without it there is no table to write, so sync skips (on every deploy).
+ */
+export function hasSettingsBlock(root: string): boolean {
+  try {
+    if (readLock(root).blocks["settings"]) return true;
+  } catch {
+    // an unreadable lock: look for the migration instead
+  }
+  try {
+    return readdirSync(path.join(root, "supabase", "migrations")).some((f) => /^\d+_genesis_settings\.sql$/.test(f));
+  } catch {
+    return false;
+  }
+}
+
 export interface SettingsSyncOptions {
   dir: string;
   appId?: string;
@@ -183,6 +203,11 @@ export interface SettingsSyncIo {
 /** `genesis settings sync`: the exit code. Names the project and asks before it writes. */
 export async function runSettingsSync(options: SettingsSyncOptions, io: SettingsSyncIo): Promise<number> {
   const root = path.resolve(options.dir);
+  if (!hasSettingsBlock(root)) {
+    // A deploy step runs it in every app: one without the block has nothing to sync, and that's fine.
+    (options.print ? io.err : io.out)("No settings block here (genesis add settings), so there is no manifest to write: skipped.");
+    return 0;
+  }
   try {
     const row = toManifestRow(root, options.appId !== undefined ? { appId: options.appId } : {});
     if (options.print) {

@@ -367,13 +367,21 @@
           {
             "file": "migrations/0021_genesis_settings_integer.sql",
             "test": "migrations/tests/0021_genesis_settings_integer.test.sql"
+          },
+          {
+            "file": "migrations/0022_genesis_platform_admins.sql",
+            "test": "migrations/tests/0022_genesis_platform_admins.test.sql"
+          },
+          {
+            "file": "migrations/0023_genesis_settings_tenant_person.sql",
+            "test": "migrations/tests/0023_genesis_settings_tenant_person.test.sql"
           }
         ],
         "install": [
           "@supabase/supabase-js@^2.118.0"
         ],
         "steps": [
-          "Say who your platform admins are in a migration of your own: create private.genesis_platform_admin(person uuid) returns boolean, and revoke execute on it from public, anon, authenticated (genesis-supabase README, Settings). Without it nobody can change a setting.",
+          "Add your first platform admin by a confirmed email: the SQL in the genesis-supabase README (Settings), which adds nobody when no confirmed person, or more than one, has that email (genesis doctor reports an empty list). The list, public.genesis_platform_admins, starts empty, so nobody can change a setting until then. An app with its own model creates private.genesis_platform_admin(person uuid) returns boolean instead, and the list is unused.",
           "On every deploy, after the migrations, write the app manifest: genesis settings sync (through the linked project), or writeAppManifest(admin, { appId, packages, preset, fileSettings, catalogue }) with the service-role client from your server at start. Until it is written, set_genesis_setting refuses every value.",
           "Read settings with resolveAppSettings(supabase, catalogue) from @marktiderman/genesis-supabase, and feed the gate with withSettings from @marktiderman/genesis-config."
         ]

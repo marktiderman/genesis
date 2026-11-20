@@ -45,7 +45,12 @@ Until then, or to work on Genesis itself, make new apps inside the monorepo:
    For EAS (builds, previews, updates), run `eas init` and put the project id in
    `starter.config.ts` `app.easProjectId`; see [Releasing](#releasing).
 5. Apply `supabase/migrations` to your project (`supabase db push`, or `supabase start` for a
-   local stack) and enable the providers you use in Supabase Auth (below).
+   local stack) and enable the providers you use in Supabase Auth (below). After the migrations,
+   on every deploy, run `genesis settings sync` (it writes the app manifest the Settings screen
+   checks values against). Then add yourself as the first platform admin (settings and the
+   support inbox), by your confirmed email, in the SQL editor: the snippet is in the genesis-supabase
+   README ("Settings"), and `genesis fix settings.first-admin` prints it. `genesis doctor` warns
+   (`platform-admin-missing`) while the list is empty.
 6. `pnpm install`, `pnpm build:packages` at the root, then `pnpm --filter my-app ios`.
 
 Once `genesis-native` is on npm, an app outside the monorepo is the same folder with each

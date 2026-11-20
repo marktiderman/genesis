@@ -3998,7 +3998,7 @@
     {
       "id": "settings-core",
       "name": "Settings",
-      "summary": "Typed settings for every Genesis package: defineSettings(namespace, keys) declares each key (type, a default per preset, scope, build or runtime, requires, bounds, the secret it needs by name), settingsCatalogue merges them, and resolveSettings(catalogue, layers) resolves default → preset → genesis.config.json → the app's genesis_settings table → tenant → person, a lock stopping every later layer, with where each value came from and what was wrong. Switches feed the feature gate (withSettings); genesis.config.json gets preset and settings, checked by the doctor.",
+      "summary": "Typed settings for every Genesis package: defineSettings(namespace, keys) declares each key (type, a default per preset, scope, build or runtime, requires, bounds, the secret it needs by name), settingsCatalogue merges them, and resolveSettings(catalogue, layers) resolves default → preset → genesis.config.json → the app's genesis_settings table → tenant → person, a lock stopping every later layer, with where each value came from and what was wrong. Tenant admins set their tenant's values and each person their own, in the app's database; watchAppSettings re-resolves over Realtime when any layer changes. Switches feed the feature gate (withSettings); genesis.config.json gets preset and settings, checked by the doctor.",
       "category": "Platform",
       "status": "building",
       "horizon": "now",
@@ -4036,8 +4036,13 @@
         "table: genesis_settings",
         "table: genesis_setting_changes",
         "table: genesis_app_manifest",
+        "table: genesis_tenant_settings",
+        "table: genesis_person_settings",
         "rpc: genesis_settings_layers",
-        "rpc: set_genesis_setting"
+        "rpc: set_genesis_setting",
+        "rpc: set_genesis_tenant_setting",
+        "rpc: set_genesis_person_setting",
+        "fn: watchAppSettings"
       ],
       "owner": "mark",
       "apps": [
@@ -4057,13 +4062,16 @@
         "A boolean setting linked to a feature that resolves to false turns the feature off through featureOn (GateContext.off); there is no second gate.",
         "genesis.config.json's preset and settings are checked strictly, and the doctor reports settings the installed packages don't declare or that don't fit.",
         "set_genesis_setting changes a runtime setting only for a platform admin by the app's private.genesis_platform_admin hook, checked against the synced catalogue, with every change audited; without the hook nobody can.",
-        "Not yet: the wizard, tenant and person values in the database (the Settings screen is settings-screen)."
+        "set_genesis_tenant_setting changes a tenant-scope key only for that tenant's admins (private.genesis_tenant_admin), and set_genesis_person_setting a person-scope key only for the signed-in person; a key of another scope, or one the file or database layer locks, is refused. A tenant's members read its values and only its admins its history, a person their own, platform admins everything; an admin of one tenant can't read or write another's.",
+        "A change to the database, tenant or person layer reaches the clients that may read it over private Realtime channels (the layer and key, never the value), and watchAppSettings re-resolves; resolveAppSettings alone doesn't listen.",
+        "Not yet: the wizard (the Settings screen is settings-screen)."
       ],
       "reviewedAt": "2026-10-22",
       "links": {
         "code": [
           "packages/features/src/settings.ts",
           "packages/supabase/migrations/0020_genesis_settings.sql",
+          "packages/supabase/migrations/0023_genesis_settings_tenant_person.sql",
           "packages/supabase/src/settings.ts",
           "packages/genesis-cli/src/doctor/settings.ts"
         ],

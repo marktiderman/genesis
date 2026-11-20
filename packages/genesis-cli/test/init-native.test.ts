@@ -59,7 +59,7 @@ describe("genesis init --template native", () => {
     expect(files[".github/workflows/genesis-upgrade.yml"]).toBeDefined();
     const lock = readLock(target);
     // Every switch that carries a block ships on.
-    expect(Object.keys(lock.blocks).sort()).toEqual(["account", "app-updates", "chat", "notifications", "push", "support-feedback"]);
+    expect(Object.keys(lock.blocks).sort()).toEqual(["account", "app-updates", "chat", "notifications", "push", "settings", "support-feedback"]);
     expect(lockedButMissing(target, lock)).toEqual([]);
     expect(lock.files[".eas/workflows/e2e.yml"]?.source).toBe("@marktiderman/genesis-cli:templates/eas/workflows/e2e.yml");
     expect(lock.files["supabase/functions/genesis-push-send/index.ts"]?.source).toBe("@marktiderman/genesis-supabase:functions/genesis-push-send/index.ts");
@@ -92,7 +92,7 @@ describe("genesis init --template native", () => {
     const { target, files, result } = await init({ without: ["chat", "support", "updates"] });
     const lock = readLock(target);
     // support-feedback's account stays: it's carried by no switch (and other blocks need it).
-    expect(Object.keys(lock.blocks).sort()).toEqual(["account", "notifications", "push"]);
+    expect(Object.keys(lock.blocks).sort()).toEqual(["account", "notifications", "push", "settings"]);
     expect(result.leftOut.sort()).toEqual(["app-updates", "chat", "support-feedback"]);
     expect(lockedButMissing(target, lock)).toEqual([]);
     expect(Object.keys(lock.migrations ?? {}).some((k) => /chat|support|release_policy/.test(k))).toBe(false);

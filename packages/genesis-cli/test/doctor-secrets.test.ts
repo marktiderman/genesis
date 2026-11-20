@@ -238,6 +238,7 @@ case "$(basename "$0") $*" in
   "supabase secrets set"*) echo "Finished supabase secrets set." ;;
   "supabase db query"*)
     case "$input" in
+      *genesis_platform_admins*) if [ -f "$D/admins.json" ]; then cat "$D/admins.json"; else echo '[]'; fi ;;
       *genesis_settings*) if [ -f "$D/db.json" ]; then cat "$D/db.json"; else echo '[]'; fi ;;
       *"from vault.secrets order"*) echo '[{"name":"SOMETHING_ELSE"}]' ;;
       *) echo '[]' ;;
@@ -263,7 +264,7 @@ afterAll(() => {
   cleanupApps();
 });
 beforeEach(() => {
-  for (const f of ["calls.log", "stdin.log", "gh-fail", "db.json"]) rmSync(path.join(stubs, f), { force: true });
+  for (const f of ["calls.log", "stdin.log", "gh-fail", "db.json", "admins.json"]) rmSync(path.join(stubs, f), { force: true });
 });
 afterEach(() => {
   // Whatever happened, no value ever reached a tool's argv.
@@ -382,6 +383,37 @@ describe("the settings check: setup and secrets", () => {
       "invalid-setting error genesis_settings support.inbox [manual:invalid-setting]: support.inbox is locked by the file layer: the database layer can't change it (a row in the database layer; a platform admin changes it on the Settings screen)",
       "invalid-setting error genesis_settings support.nope [manual:invalid-setting]: support.nope isn't a setting any installed package declares (a row in the database layer; a platform admin changes it on the Settings screen)",
     ]);
+  });
+});
+
+describe("platform-admin-missing", () => {
+  const ADMINS = { "supabase/migrations/20261026000900_genesis_platform_admins.sql": "-- 0022's copy\n" };
+  const admins = (findings: Array<{ rule: string; level: string; file: string; message: string; fix?: { id: string } }>) =>
+    findings.filter((f) => f.rule === "platform-admin-missing").map((f) => `${f.level} ${f.file} [${f.fix?.id}]: ${f.message.split(":")[0]}`);
+
+  it("warns, with the first-admin fix, when the default list is in use and empty", async () => {
+    writeFileSync(path.join(stubs, "admins.json"), JSON.stringify([{ admins: 0, app_hook: false }]));
+    const result = await runDoctor({ root: secretsApp({}, ADMINS), database: true });
+    expect(admins(result.findings)).toEqual(["warn genesis_platform_admins [settings.first-admin]: nobody is a platform admin"]);
+    const plan = await planFix(builtinFixes().find((f) => f.id === "settings.first-admin")!, { root: secretsApp({}, ADMINS), findings: [] });
+    expect(plan.manual).toContain("and email_confirmed_at is not null) <> 1 then");
+    expect(plan.manual).toContain("insert into public.genesis_platform_admins (person)");
+  });
+
+  it("is quiet with an admin, with the app's own hook, or without the migration", async () => {
+    writeFileSync(path.join(stubs, "admins.json"), JSON.stringify([{ admins: 1, app_hook: false }]));
+    expect(admins((await runDoctor({ root: secretsApp({}, ADMINS), database: true })).findings)).toEqual([]);
+    writeFileSync(path.join(stubs, "admins.json"), JSON.stringify([{ admins: 0, app_hook: true }]));
+    expect(admins((await runDoctor({ root: secretsApp({}, ADMINS), database: true })).findings)).toEqual([]);
+    writeFileSync(path.join(stubs, "admins.json"), JSON.stringify([{ admins: 0, app_hook: false }]));
+    rmSync(path.join(stubs, "calls.log"), { force: true });
+    expect(admins((await runDoctor({ root: secretsApp(), database: true })).findings)).toEqual([]);
+    expect(calls()).not.toContain("genesis_platform_admins");
+  });
+
+  it("gives an info when the list can't be read", async () => {
+    writeFileSync(path.join(stubs, "admins.json"), "not json");
+    expect(admins((await runDoctor({ root: secretsApp({}, ADMINS), database: true })).findings)).toEqual(["info genesis_platform_admins [manual:platform-admin-missing]: the platform admins weren't checked"]);
   });
 });
 

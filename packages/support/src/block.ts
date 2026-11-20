@@ -121,6 +121,8 @@ export function supportContributions(options: SupportBlockOptions = {}): BlockCo
       { package: "@marktiderman/genesis-support", file: "migrations/0026_genesis_support_diagnostics_access.sql", test: "migrations/tests/0026_genesis_support_diagnostics_access.test.sql" },
       // A whole number stored as 10.0 reads as 10 in the dump's settings readers.
       { package: "@marktiderman/genesis-support", file: "migrations/0028_genesis_support_diagnostics_fixes.sql", test: "migrations/tests/0028_genesis_support_diagnostics_fixes.test.sql" },
+      // Staff from genesis-supabase 0022's platform-admin list, where the app has no hooks.
+      { package: "@marktiderman/genesis-support", file: "migrations/0029_genesis_support_staff_admin_list.sql", test: "migrations/tests/0029_genesis_support_staff_admin_list.test.sql" },
     ],
     privacy: {
       collects: [

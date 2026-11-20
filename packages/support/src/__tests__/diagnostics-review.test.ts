@@ -160,6 +160,38 @@ describe("routes and text", () => {
     ]) expect(cleanRoute(route), route).toBe(route);
   });
 
+  it("redacts letters-only secret keys and whatsapp: links, and keeps long word slugs", () => {
+    // Built at runtime, so the fixtures don't read as real keys to secret scanners.
+    const live = ["sk", "live", "abcdefghijklmnopqrstuvwx"].join("_");
+    const test = ["sk", "test", "AbCdEfGhIjKlMnOp"].join("_");
+    const cases: Array<[string, string]> = [
+      [`/hooks/${live}`, "/hooks/:token"],
+      [`/hooks/${test}/edit`, "/hooks/:token/edit"],
+      ["/hooks/whsec_QWERTYasdfghZXCVBN", "/hooks/:token"],
+      [`/keys/${["sb", "secret", "AbCdEfGh12345678"].join("_")}`, "/keys/:token"],
+      [`/keys/${["sb", "publishable", "QwErTyUiOpAsDfGh"].join("_")}`, "/keys/:token"],
+      [`/keys/${["github", "pat", "11ABCDEFG_abcdefghijk"].join("_")}`, "/keys/:token"],
+      ["/keys/ujzPdeIgxLdGncfBAepfJBdKhoOOLdKL", "/keys/:token"],
+      ["/keys/zdocJisAjIhKtJRlgLKOmxgJTeKdNnFRIBXuDLDx", "/keys/:token"],
+      ["/keys/qwrtzpsdfghjklxcvbnmqwrtzpsdfghj", "/keys/:token"],
+      ["/chat/whatsapp:+15555550101", "/chat/:phone"],
+      ["/chat/whatsapp%3A15555550101", "/chat/:phone"],
+    ];
+    for (const [route, clean] of cases) expect(cleanRoute(route), route).toBe(clean);
+    for (const route of [
+      "/help/how-to-reset-your-password-in-the-settings-screen",
+      "/docs/getting_started_with_notifications_on_android",
+      "/settings/settingsNotificationsPreferencesScreen",
+      "/words/supercalifragilisticexpialidocious",
+      "/skills/sk_basics",
+      "/hooks/whsec_rotation_guide",
+      "/repos/ghs_internal_tools",
+      "/skills/sk_test_driven_development_basics",
+      "/screens/MyAppHomeTabFeedItemDetailViewScreen",
+      "/blog/whyhttpsmattersforyoursmallbusinesssite",
+    ]) expect(cleanRoute(route), route).toBe(route);
+  });
+
   it("scrubs phone numbers written without a separator or in spaced groups", () => {
     expect(scrubString("call +15555550101 now")).toBe("call [phone] now");
     expect(scrubString("ring 44 20 7946 0958")).toBe("ring [phone]");
@@ -250,6 +282,23 @@ describe("the offline queue across people", () => {
       },
     };
   };
+
+  it("empties the queue when a settings answer turns diagnostics or the queue off after it exists", async () => {
+    for (const off of [{ "diagnostics.enabled": false }, { "diagnostics.offlineQueue": false }]) {
+      let answer: Record<string, unknown> = { "diagnostics.enabled": true };
+      const t = transport(() => false);
+      const storage = memoryQueueStorage();
+      const d = createDiagnostics({ app: { id: "acme" }, transport: t, appSettings: () => answer, offline: { storage, autoRetry: false } });
+      expect((await d.send({ trigger: "manual" })).queued).toBe(true);
+      expect(await d.pending()).toBe(1);
+      answer = { "diagnostics.enabled": true, ...off };
+      // Any read of the settings sees the new answer (here, the `enabled` getter).
+      void d.enabled;
+      await new Promise((r) => setTimeout(r, 0));
+      expect(await d.pending()).toBe(0);
+      expect(t.sent).toEqual([]);
+    }
+  });
 
   it("drops a dump queued for someone else when another person is signed in, and clears on sign-out", async () => {
     let online = false;

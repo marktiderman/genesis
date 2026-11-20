@@ -301,6 +301,12 @@ describe("the block", () => {
         test: "migrations/tests/0028_genesis_support_diagnostics_fixes.test.sql",
         feature: SUPPORT_BLOCK_ID,
       },
+      {
+        package: "@marktiderman/genesis-support",
+        file: "migrations/0029_genesis_support_staff_admin_list.sql",
+        test: "migrations/tests/0029_genesis_support_staff_admin_list.test.sql",
+        feature: SUPPORT_BLOCK_ID,
+      },
     ]);
     expect(resolved.privacy[0]!.collects?.every((c) => c.tracking === false)).toBe(true);
   });
