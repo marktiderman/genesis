@@ -494,7 +494,10 @@ project's DSN; a public client key, not a secret) and `observability.sentryOrg` 
 organization's slug, for the support dump viewer's link). A platform admin sets them on the
 in-app Settings screen, with no code and no build; `genesis setup --step sentry` writes both to
 genesis.config.json instead, which installed apps read from their next build or update. Every layer refuses a DSN of the wrong shape (`SENTRY_DSN_PATTERN`, in
-genesis-config, the database and the doctor).
+genesis-config, the database and the doctor). The settings and the DSN helpers are also exported
+from `@marktiderman/genesis-native/observability-settings`, which imports no React or React Native,
+so a web app or a server can put `observabilitySettings` in its own settings catalogue (the synced
+one included) beside its keys.
 
 ```ts
 export const sentry = sentrySink(Sentry, { dsn: process.env.EXPO_PUBLIC_SENTRY_DSN, cache: AsyncStorage, signature });

@@ -784,8 +784,8 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
     }
     if (options.featuresBuild !== false && registryFile(root)) {
       try {
-        const { runFeaturesBuild } = await import("../features.js");
-        for (const f of await runFeaturesBuild({ dir: root })) generated.add(f);
+        const { buildAppFeatures } = await import("../features.js");
+        for (const f of await buildAppFeatures(root, detectPackageManager(root))) generated.add(f);
       } catch (err) {
         warnings.push(`features build failed: ${err instanceof Error ? err.message : String(err)}`);
       }

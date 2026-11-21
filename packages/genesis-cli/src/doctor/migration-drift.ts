@@ -6,7 +6,8 @@
  *   isn't in the app yet, so the database the app deploys lacks what the installed package needs.
  *   Fix: `migrate.copy` (`genesis migrate`, which copies it in as a new timestamped file).
  * - `migration-drift` (warn): a copy the app edited, or one whose package text changed since it was
- *   copied, or a same-named file with other text. When several files share the name and exactly one
+ *   copied, or a same-named file with other text (a difference only in SQL comments and whitespace
+ *   isn't one: it makes the same database). When several files share the name and exactly one
  *   carries the migration's header, that one is the copy and the others are the app's own drafts.
  *   An applied migration is never rewritten. Fix:
  *   `migrate.forward` (`genesis migrate --forward` writes a forward migration to fill in). When

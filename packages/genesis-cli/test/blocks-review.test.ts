@@ -56,7 +56,7 @@ describe("migrations after review", () => {
   it("writes one forward migration, then counts the copy as handled", async () => {
     const root = await added();
     const copy = "supabase/migrations/20261101120000_fixture_notes.sql";
-    writeFileSync(path.join(root, copy), `${read(root, copy)}-- mine\n`);
+    writeFileSync(path.join(root, copy), `${read(root, copy)}alter table public.fixture_notes add column mine int;\n`);
     expect((await runMigrate({ root, forward: true, now: NOW })).written).toHaveLength(1);
     const again = await runMigrate({ root, forward: true, now: NOW });
     expect(again.written).toEqual([]);

@@ -108,7 +108,7 @@ describe("genesis add", () => {
     const root = app();
     await add(root);
     const copy = "supabase/migrations/20261101120000_fixture_notes.sql";
-    const edited = `${read(root, copy)}-- my edit\n`;
+    const edited = `${read(root, copy)}alter table public.fixture_notes add column mine int;\n`;
     writeFileSync(path.join(root, copy), edited);
     const report = await add(root);
     expect(read(root, copy)).toBe(edited);
