@@ -11,7 +11,7 @@ import { readGenesisConfig, validateRepo, type GenesisRepo } from "../doctor/con
 import { runTool, type ToolRunner } from "../exec/run.js";
 import { checksFromWorkflows, type DerivedChecks, type WorkflowFile } from "./checks.js";
 import { aheadBy, applyWrite, branchTip, deleteBranchAt, GitHubError, isSlug, openPulls, readLive, readRuleset, remoteWorkflows, resolveRepo, stagingBranches, workflowListing, workflowsAt, type GitHubDeps } from "./github.js";
-import { covers, DEFAULT_RULESET, formatPlan, matchRuleset, planProtection, protectionSpec, STAGING_REF, STAGING_RULESET, type ConditionalCheck, type LiveRepo, type ProtectionPlan } from "./spec.js";
+import { covers, DEFAULT_RULESET, formatPlan, GITHUB_ACTIONS_APP_ID, matchRuleset, planProtection, protectionSpec, STAGING_REF, STAGING_RULESET, type ConditionalCheck, type LiveRepo, type ProtectionPlan } from "./spec.js";
 
 export * from "./spec.js";
 export { checksFromWorkflows, branchMatches, branchPattern, refPattern, type DerivedChecks, type WorkflowFile } from "./checks.js";
@@ -71,6 +71,12 @@ export interface RepoPlan {
   stagingChecks: string[] | null;
   /** The local ref the checks were read from, when GitHub's workflows couldn't be; null when read from GitHub. */
   localRef: string | null;
+  /**
+   * What couldn't be known (the staging branches couldn't be listed): always said, with or without
+   * writes, and `genesis repo protect` exits 1. Staging is left out of the plan then, never read for
+   * a sample batch.
+   */
+  unknown: string[];
 }
 
 /** The `repo` block, validated strictly: a bad one stops `genesis repo` before any plan. */
@@ -141,9 +147,10 @@ export async function planRepo(options: RepoOptions): Promise<RepoPlan> {
     inventory = (err as Error).message;
   }
   const staging = config.staging ?? (matchRuleset(stagingSpec, live.rulesets, { defaultBranch: live.defaultBranch }) !== undefined || batches.length > 0);
-  const onStaging = staging ? await stagingChecksFor(files, batches, remote) : null;
+  // A failed listing never falls back to the sample batch: staging is left out and said unknown.
+  const onStaging = staging && !inventory ? await stagingChecksFor(files, batches, remote) : null;
   const defaultChecks = config.requiredChecks ?? onDefault.required;
-  const stagingChecks = staging ? (config.stagingChecks ?? onStaging!.required) : null;
+  const stagingChecks = staging && onStaging ? (config.stagingChecks ?? onStaging.required) : null;
   // Per ruleset: a branch's discovery and its own config list decide its cleanup, never the other's.
   // A check the ruleset's config list names is required as named, with a note.
   const scoped = (found: ConditionalCheck[], named: readonly string[] | undefined, branch: string) => ({
@@ -163,21 +170,32 @@ export async function planRepo(options: RepoOptions): Promise<RepoPlan> {
   if (!defaultChecks.includes("Adversarial review")) notes.push(`no "Adversarial review" check on ${live.defaultBranch}: the review gate (review-gate.yml) isn't in this repository`);
   plan.notes.push(...notes);
   const refusals = plan.refusals;
-  if (inventory) refusals.push(`couldn't list ${slug}'s staging branches (${inventory}), so whether and how to protect staging batches is unknown`);
-  // Checks this plan would newly require, on a ref: those no active live ruleset requires there yet.
-  const requiredNow = (ref: string) => new Set(live.rulesets.filter((r) => r.enforcement === "active" && covers(r, ref, live.defaultBranch)).flatMap((r) => r.rules.filter((x) => x.type === "required_status_checks").flatMap((x) => ((x.parameters?.required_status_checks as Array<{ context: string }> | undefined) ?? []).map((c) => c.context))));
+  const unknown = inventory ? [`staging protection unknown: couldn't list ${slug}'s staging branches (${inventory})`] : [];
+  if (inventory) refusals.push(unknown[0]!);
+  // Checks this plan would newly require, on a ref: those no active live ruleset requires there yet
+  // from GitHub Actions. Pinning an unpinned check to Actions is a new requirement too: a merge
+  // queue then needs Actions to report it on the queue's commits.
+  const requiredNow = (ref: string) => new Set(live.rulesets.filter((r) => r.enforcement === "active" && covers(r, ref, live.defaultBranch)).flatMap((r) => r.rules.filter((x) => x.type === "required_status_checks").flatMap((x) => ((x.parameters?.required_status_checks as Array<{ context: string; integration_id?: number }> | undefined) ?? []).filter((c) => c.integration_id === GITHUB_ACTIONS_APP_ID).map((c) => c.context))));
+  const queuedOn = (ref: string) => live.rulesets.some((r) => r.enforcement === "active" && covers(r, ref, live.defaultBranch) && r.rules.some((x) => x.type === "merge_queue"));
   const mainRef = `refs/heads/${live.defaultBranch}`;
   const addedOnMain = defaultChecks.filter((c) => !requiredNow(mainRef).has(c) && !onMain.conditional.some((x) => x.context === c));
   // A merge queue runs the required checks on its own commits (merge_group): a check without that
   // trigger would hold every queued pull request, so it isn't added; the conflict is said.
-  const queued = live.rulesets.some((r) => r.enforcement === "active" && covers(r, mainRef, live.defaultBranch) && r.rules.some((x) => x.type === "merge_queue"));
+  const queued = queuedOn(mainRef);
   const noQueue = queued ? addedOnMain.filter((c) => !onDefault.mergeGroup.includes(c)) : [];
   if (noQueue.length) refusals.push(`${live.defaultBranch} has a merge queue, and ${noQueue.map((c) => `"${c}"`).join(", ")} ${noQueue.length === 1 ? "has" : "have"} no merge_group trigger: requiring ${noQueue.length === 1 ? "it" : "them"} would hold every queued pull request (add merge_group to the workflow, or leave it out with repo.requiredChecks)`);
   // A batch cut before main's workflows changed runs its own: staging checks read from main can't
   // be trusted for it. New staging checks are refused then, unless repo.stagingChecks names them.
+  // Every staging branch is checked: a check already required on one batch can be new on another.
+  const newOn = (b: string) => (stagingChecks ?? []).filter((c) => !requiredNow(`refs/heads/${b}`).has(c) && !onBatches.conditional.some((x) => x.context === c));
+  const addedOnStaging = [...new Set(batches.flatMap(newOn))];
+  // The same merge-queue rule as the default branch, per batch that has a queue.
+  for (const b of staging ? batches : []) {
+    if (!queuedOn(`refs/heads/${b}`)) continue;
+    const bare = newOn(b).filter((c) => !(onStaging?.mergeGroup ?? []).includes(c));
+    if (bare.length) refusals.push(`${b} has a merge queue, and ${bare.map((c) => `"${c}"`).join(", ")} ${bare.length === 1 ? "has" : "have"} no merge_group trigger: requiring ${bare.length === 1 ? "it" : "them"} would hold every queued pull request there`);
+  }
   if (staging && batches.length && !local && !config.stagingChecks) {
-    const sample = `refs/heads/${batches[0]}`;
-    const addedOnStaging = (stagingChecks ?? []).filter((c) => !requiredNow(sample).has(c) && !onBatches.conditional.some((x) => x.context === c));
     if (addedOnStaging.length) {
       const key = (l: Array<{ name: string; sha: string }>) => l.map((f) => `${f.name}@${f.sha}`).join(",");
       const onMainList = key(await workflowListing(deps, slug, live.defaultBranch));
@@ -189,7 +207,7 @@ export async function planRepo(options: RepoOptions): Promise<RepoPlan> {
       if (differ.length) refusals.push(`${differ.join(", ")} ${differ.length === 1 ? "has" : "have"} other workflows than ${live.defaultBranch}, so ${addedOnStaging.map((c) => `"${c}"`).join(", ")} might never report there: merge ${live.defaultBranch} into ${differ.length === 1 ? "it" : "them"}, or name the staging checks in repo.stagingChecks`);
     }
   }
-  return { plan, live, staging, defaultChecks, stagingChecks, localRef };
+  return { plan, live, staging, defaultChecks, stagingChecks, localRef, unknown };
 }
 
 /**
@@ -224,7 +242,8 @@ export async function applyRepoPlan(options: RepoOptions, plan: ProtectionPlan):
     try {
       // Re-read just before the PUT: a ruleset changed since it was planned is never overwritten.
       // (The API has no version condition, so a change in the instant between this read and the PUT can't be caught.)
-      if (w.method === "PUT" && w.ifUpdatedAt) {
+      if (w.method === "PUT" && !w.ifUpdatedAt) throw new GitHubError(`${w.path} has no updated_at to re-check before overwriting it, so it wasn't written`);
+      if (w.method === "PUT") {
         const id = Number(/rulesets\/(\d+)$/.exec(w.path)?.[1]);
         const now = await readRuleset(deps, plan.slug, id);
         if (now.updated_at !== w.ifUpdatedAt) throw new GitHubError(`ruleset "${now.name}" changed since it was planned (${w.ifUpdatedAt} → ${now.updated_at}), so it wasn't overwritten`);
@@ -273,11 +292,13 @@ export interface ProtectCommandOptions extends RepoOptions {
 export async function runRepoProtect(options: ProtectCommandOptions): Promise<number> {
   const out = options.out ?? ((l: string) => console.log(l));
   const result = await planRepo(options);
-  const refused = options.dryRun ? [] : refusalsOf(result, options);
+  // Something unknown fails the run, dry or not, writes or none: "matches" is never said over it.
+  const refused = [...new Set([...result.unknown, ...(options.dryRun ? [] : refusalsOf(result, options))])];
   if (refused.length) {
-    if (options.json) out(JSON.stringify({ repo: result.plan.slug, dryRun: false, refused, written: [], changes: result.plan.changes, notes: result.plan.notes }, null, 2));
+    if (options.json) out(JSON.stringify({ repo: result.plan.slug, dryRun: options.dryRun === true, refused, unknown: result.unknown, written: [], changes: result.plan.changes, notes: result.plan.notes }, null, 2));
     else {
-      out(formatPlan(result.plan, { dryRun: true }));
+      out(result.unknown.length && !result.plan.changes.length ? `${result.plan.slug}: not known to match the Genesis standard` : formatPlan(result.plan, { dryRun: true }));
+      if (result.unknown.length && !result.plan.changes.length) for (const note of result.plan.notes) out(`  note: ${note}`);
       for (const r of refused) out(`✗ ${r}.`);
       out("Nothing was written.");
     }

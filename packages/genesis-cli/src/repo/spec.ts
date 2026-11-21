@@ -476,6 +476,8 @@ export function planProtection(spec: ProtectionSpec, live: LiveRepo, options: Pl
     patch[key] = value;
   }
   const refusals: string[] = [];
+  // A PUT is re-checked against the ruleset's updated_at just before it is made: without one it can't be.
+  for (const w of writes) if (w.method === "PUT" && !w.ifUpdatedAt) refusals.push(`${w.path} has no updated_at, so it can't be re-read before it is overwritten`);
   // Rebase off must leave a way to merge: merge commits are never turned back on by Genesis.
   if (patch.allow_rebase_merge === false && live.settings.allow_merge_commit === false && live.settings.allow_squash_merge === false) {
     refusals.push("turning rebase merging off would leave no merge method (merge commits and squash are off): turn merge commits or squash on first");

@@ -64,6 +64,7 @@ export function repoProtectionCheck(deps: RepoProtectionDeps = {}): (ctx: Doctor
     // The planner's notes (a path-filtered check kept because the config names it, CI it couldn't
     // read, a refusal a real run would make) are info: said, never a change.
     for (const note of [...result.plan.notes, ...result.plan.refusals.map((r) => `a real genesis repo protect would refuse: ${r}`)]) ctx.report({ rule: REPO_PROTECTION_RULE, level: "info", file: FILE, subject: note.slice(0, 120), message: `${result.plan.slug}: ${note}` });
+    for (const u of result.unknown) ctx.report({ rule: REPO_PROTECTION_RULE, level: "warn", file: FILE, subject: "unknown", message: `${result.plan.slug}: ${u}; run genesis repo protect --dry-run again when GitHub answers` });
     for (const c of result.plan.changes) {
       const said = c.kind === "add" ? `lacks ${c.what}` : c.kind === "remove" ? `requires ${c.what}, which it shouldn't` : `differs from the Genesis standard: ${c.what}`;
       ctx.report({ rule: REPO_PROTECTION_RULE, level: "warn", file: FILE, subject: `${c.scope}: ${c.what}`, message: `${result.plan.slug} ${c.scope} ${said}${c.why ? ` (${c.why})` : ""}; ${fix}` });

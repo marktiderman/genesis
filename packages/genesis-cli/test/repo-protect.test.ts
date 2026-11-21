@@ -70,6 +70,7 @@ function handMade(): Ruleset {
       },
     ],
     bypass_actors: [{ actor_id: 5, actor_type: "RepositoryRole", bypass_mode: "always" }],
+    updated_at: "2026-11-21T09:00:00Z",
   };
 }
 
@@ -457,6 +458,64 @@ describe("CodeRabbit round 3", () => {
     const out = JSON.parse(lines.join("\n")) as { refused: string[]; written: unknown[] };
     expect(out.refused.join("\n")).toContain("couldn't list acme/sample-app's staging branches");
     expect(out.written).toEqual([]);
+  });
+
+  it("a failed staging listing is said and fails the run even with nothing to write, and never uses the sample batch", async () => {
+    const top = repoDir(CI_FILES);
+    const staging = { ...handMade(), id: 202, name: "staging-branches", conditions: { ref_name: { include: [STAGING_REF], exclude: [] } }, rules: [{ type: "deletion" }, { type: "non_fast_forward" }] };
+    // Main already matches (the database workflow runs on every pull request): nothing to write.
+    const remote = { ...REMOTE3(), "database.yml": REMOTE3()["database.yml"]!.replace("    paths: ['supabase/**']\n", "") };
+    const state = { rulesets: [handMade(), staging], remote, settings: { allow_rebase_merge: false }, failBranches: true };
+    const result = await planRepo({ root: top, run: fakeGitHub(top, state).run });
+    expect(result.plan.writes).toEqual([]);
+    expect(result.stagingChecks).toBe(null);
+    expect(result.plan.notes.join("\n")).not.toContain("no staging branch yet");
+    const lines: string[] = [];
+    expect(await runRepoProtect({ root: top, run: fakeGitHub(top, state).run, dryRun: true, out: (l) => lines.push(l) })).toBe(1);
+    expect(lines.join("\n")).toContain("not known to match the Genesis standard");
+    expect(lines.join("\n")).toContain("staging protection unknown: couldn't list acme/sample-app's staging branches");
+    expect(lines.join("\n")).not.toContain("matches the Genesis standard\n");
+    const json: string[] = [];
+    expect(await runRepoProtect({ root: top, run: fakeGitHub(top, state).run, json: true, out: (l) => json.push(l) })).toBe(1);
+    expect(JSON.parse(json.join("\n"))).toMatchObject({ unknown: [expect.stringContaining("staging protection unknown")], written: [] });
+    const app = makeApp(null, {});
+    mkdirSync(path.join(app, ".git"));
+    const d = await runDoctor({ root: app, network: true, repo: { run: fakeGitHub(app, state).run, ci: false }, config: { rules: { "genesis-behind": "off" } } });
+    expect(d.findings.some((f) => f.rule === "repo-protection" && f.level === "warn" && f.message.includes("staging protection unknown"))).toBe(true);
+  });
+
+  it("refuses a PUT for a ruleset without updated_at: it can't be re-read before overwriting", () => {
+    const r = handMade();
+    delete r.updated_at;
+    r.enforcement = "evaluate";
+    const plan = planProtection(protectionSpec({ defaultChecks: ["app / App checks", "database / Database and pgTAP", "Adversarial review"], stagingChecks: null }), live([r]));
+    expect(plan.refusals.join("\n")).toContain("rulesets/101 has no updated_at");
+  });
+
+  it("checks every staging branch for new checks: one already required on the first batch is still new on the second", async () => {
+    const top = repoDir(CI_FILES);
+    const gate = "on:\n  pull_request:\n    branches: ['staging/**']\njobs:\n  gate:\n    name: Batch gate\n    runs-on: ubuntu-latest\n";
+    const first: Ruleset = { ...handMade(), id: 401, name: "first-batch", conditions: { ref_name: { include: ["refs/heads/staging/2026-11-10/a"], exclude: [] } }, rules: [{ type: "required_status_checks", parameters: { required_status_checks: [{ context: "Batch gate", integration_id: GITHUB_ACTIONS_APP_ID }] } }] };
+    const remote = { ...REMOTE3(), "gate.yml": gate };
+    const old = { ...REMOTE3() };
+    const result = await planRepo({ root: top, run: fakeGitHub(top, { rulesets: [handMade(), first], remote, branches: ["staging/2026-11-10/a", "staging/2026-11-20/a"], batchRemote: { "staging/2026-11-10/a": remote, "staging/2026-11-20/a": old } }).run });
+    expect(result.plan.refusals.join("\n")).toContain('staging/2026-11-20/a has other workflows than main, so "Batch gate" might never report there');
+  });
+
+  it("a staging batch with a merge queue gets the merge_group refusal, and pinning an unpinned check counts as new", async () => {
+    const top = repoDir(CI_FILES);
+    const gate = "on:\n  pull_request:\n    branches: ['staging/**']\njobs:\n  gate:\n    name: Batch gate\n    runs-on: ubuntu-latest\n";
+    const queue: Ruleset = { ...handMade(), id: 402, name: "batch-queue", conditions: { ref_name: { include: ["refs/heads/staging/2026-11-20/a"], exclude: [] } }, rules: [{ type: "merge_queue", parameters: {} }] };
+    const remote = { ...REMOTE3(), "gate.yml": gate };
+    const result = await planRepo({ root: top, run: fakeGitHub(top, { rulesets: [handMade(), queue], remote, branches: ["staging/2026-11-20/a"], batchRemote: { "staging/2026-11-20/a": remote } }).run, ...{} });
+    expect(result.plan.refusals.join("\n")).toContain('staging/2026-11-20/a has a merge queue, and "Batch gate" has no merge_group trigger');
+
+    // Main with a queue: "app / App checks" is required but unpinned, so pinning it is a new requirement.
+    const queued = handMade();
+    queued.rules.push({ type: "merge_queue", parameters: {} });
+    (queued.rules[3]!.parameters!.required_status_checks as Array<{ context: string; integration_id?: number }>)[0] = { context: "app / App checks" };
+    const pinned = await planRepo({ root: top, run: fakeGitHub(top, { rulesets: [queued], remote: REMOTE3() }).run });
+    expect(pinned.plan.refusals.join("\n")).toContain('main has a merge queue, and "app / App checks" has no merge_group trigger');
   });
 
   it("reconciles a required check whose workflow now runs only on opened as conditional", async () => {

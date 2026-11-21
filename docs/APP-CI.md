@@ -372,10 +372,13 @@ condition, so a change made in the instant between that read and the PUT can sti
 
 **What it refuses** (nothing written, exit 1, `refused` in `--json`; a dry run shows the plan and
 what a real run would refuse): the workflows couldn't be read from GitHub (unless `--use-local`);
-the staging branches couldn't be listed; the default branch has a merge queue and a new required
+the staging branches couldn't be listed (this one fails a dry run too, with or without changes:
+staging protection is then unknown, never read for a sample batch, and the doctor warns); the default branch has a merge queue and a new required
 check has no `merge_group` trigger; a staging batch carries other workflows than the default
 branch, so a new staging check might never report there (merge the default branch into it, or name
-`repo.stagingChecks`); turning rebase off would leave no merge method.
+`repo.stagingChecks`); a staging batch has a merge queue and a new check there has no
+`merge_group` trigger (pinning an unpinned check to GitHub Actions counts as new); a ruleset to
+update has no `updated_at` to re-check; turning rebase off would leave no merge method.
 
 **Deleting a merged staging batch** is `genesis repo prune-staging`, not a rule switched off and on
 again. It deletes a `staging/…` branch only when all of it is on the default branch, no open pull
