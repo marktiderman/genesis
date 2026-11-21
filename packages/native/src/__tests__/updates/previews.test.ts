@@ -246,6 +246,30 @@ describe("channel switching, hardened", () => {
     await expect(make({ updateId: "release-1" }).state()).resolves.toMatchObject({ requested: null, lingering: null });
   });
 
+  it("a release update the checker downloaded with no preview picked is never taken for a preview's", async () => {
+    const storage = memoryStorage();
+    const make = (o: Parameters<typeof fakeUpdates>[0]) => createChannelSwitcher({ updates: fakeUpdates(o), enabled: true, guard: createReloadGuard(), storage });
+    // On the release, the checker downloads R2 (not launched yet): recorded as the build's own.
+    await expect(make({ updateId: "release-1" }).noteRelease("release-2")).resolves.toBe(true);
+    // pr-5 is picked, its download finds nothing, and the relaunch runs R2: not recorded as pr-5's.
+    storage.data.set("genesis:updates:channel", "pr-5");
+    await make({ updateId: "release-2", channel: "pr-5" }).state();
+    expect(storage.data.has("genesis:updates:channel:preview-update")).toBe(false);
+    // After leaving, nothing lingers.
+    storage.data.delete("genesis:updates:channel");
+    await expect(make({ updateId: "release-2" }).state()).resolves.toMatchObject({ requested: null, lingering: null });
+  });
+
+  it("a launch check that finds the preview's channel deleted keeps the notice up while its code still runs", async () => {
+    const gone = new Error("There is no channel named pr-3.");
+    const storage = memoryStorage();
+    storage.data.set("genesis:updates:channel", "pr-3");
+    const switcher = createChannelSwitcher({ updates: fakeUpdates({ updateId: "pr-3-a", channel: "pr-3" }), enabled: true, guard: createReloadGuard(), storage });
+    await switcher.state();
+    await expect(switcher.recover(gone)).resolves.toBe(true);
+    await expect(switcher.state()).resolves.toMatchObject({ requested: null, lingering: "pr-3" });
+  });
+
   it("keeps every preview's updates: concurrent records, and a retry of an older one, drop none", async () => {
     const storage = memoryStorage({ "genesis:updates:channel": "pr-6" });
     const switcher = createChannelSwitcher({ updates: fakeUpdates({ updateId: "x", channel: "pr-6" }), enabled: true, guard: createReloadGuard(), storage });

@@ -94,6 +94,13 @@ describe("missed-value", () => {
     expect(await run(`${plain}let attempts = 0, total = 1;\nexport const u = createUpdates({ onError: () => attempts++ / total, channels: { enabled: __DEV__ } });\n`)).toBe(true);
     // Two holes side by side: the second still reads a regex as a regex.
     expect(await run(`${plain}const value = "}";\nexport const label = \`\${1}\${/[}]/.test(value) ? createUpdates({ channels: { enabled: __DEV__ } }) : ""}\`;\n`)).toBe(true);
+    // The older documented forms keep previews off in release builds too.
+    expect(await run(`${plain}export const u = createUpdates({ channels: { enabled: __DEV__ || isPreview } });\n`)).toBe(true);
+    expect(await run(`${plain}export const u = createUpdates({ channels: { enabled: __DEV__ || TEST_BUILD === "1" } });\n`)).toBe(true);
+    // A namespace import is used (never "missed"), and read for switched-off like a named one.
+    const ns = 'import * as U from "@marktiderman/genesis-native/updates";\n';
+    expect(await run(`${ns}export const u = U.createUpdates({ channels: { enabled: true } });\n`)).toBe(false);
+    expect(await run(`${ns}export const u = U.createUpdates({ channels: { enabled: __DEV__ } });\n`)).toBe(true);
     // A string inside the call quoting the old config isn't the config.
     expect(await run(`${plain}export const u = createUpdates({\n  platform: "ios",\n  channels: { enabled: true },\n  onError: () => console.warn("channels: { enabled: __DEV__ }"),\n});\n`)).toBe(false);
   });

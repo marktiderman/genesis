@@ -138,7 +138,8 @@ export function appScheme(root: string): string | null {
   try {
     const json = JSON.parse(readFileSync(path.join(root, "app.json"), "utf8")) as { expo?: { scheme?: unknown } };
     const scheme = Array.isArray(json.expo?.scheme) ? json.expo?.scheme[0] : json.expo?.scheme;
-    return typeof scheme === "string" ? scheme : null;
+    // The same rule as release.previews.scheme: it's rendered into the workflow, so nothing else gets through.
+    return typeof scheme === "string" && /^[a-z][a-z0-9+.-]{0,39}$/.test(scheme) ? scheme : null;
   } catch {
     return null;
   }
