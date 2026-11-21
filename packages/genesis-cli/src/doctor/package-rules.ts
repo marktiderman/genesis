@@ -246,7 +246,10 @@ export function readDeclaringPackage(dir: string, local: boolean): DeclaringPack
   let real: string;
   try {
     real = realpathSync(dir);
-    stamp = `${real}\n${statSync(file).mtimeMs}\n${local}`;
+    // Keyed on the folder asked for too: the entry holds paths under it (dir, plugin, fixes), and
+    // the same package reached through another link (another app's node_modules, since removed)
+    // must not hand back that link's paths.
+    stamp = `${path.resolve(dir)}\n${real}\n${statSync(file).mtimeMs}\n${local}`;
   } catch {
     return null;
   }
