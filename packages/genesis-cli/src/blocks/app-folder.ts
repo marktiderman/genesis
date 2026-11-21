@@ -11,7 +11,7 @@ import { existsSync } from "node:fs";
 import * as path from "node:path";
 import { readGenesisConfig } from "../doctor/config.js";
 import { APP_FOLDER_PLACEHOLDER } from "./init-native.js";
-import { EXTRA_PATH_MARK } from "./release-render.js";
+import { EXTRA_PATH_MARK, ROOT_PATH_MARK } from "./release-render.js";
 
 const LOCKFILES = new Set(["pnpm-lock.yaml", "yarn.lock", "package-lock.json", "bun.lock", "bun.lockb"]);
 const EAS_WORKFLOW = /^\.eas\/workflows\/[^/]+\.ya?ml$/;
@@ -79,8 +79,8 @@ export function renderOwned(rel: string, text: string, folder: string | null): s
         inList = false;
         return line;
       }
-      // genesis.config.json `release.paths`: already from the repository root.
-      if (item[4]!.includes(EXTRA_PATH_MARK)) return line;
+      // genesis.config.json `release.paths`, and the root's install files: already from the repository root.
+      if (item[4]!.includes(EXTRA_PATH_MARK) || item[4]!.includes(ROOT_PATH_MARK)) return line;
       return `${item[1]}${item[2]}${fromRepositoryRoot(item[3]!, folder)}${item[2]}${item[4]}`;
     })
     .join("\n");

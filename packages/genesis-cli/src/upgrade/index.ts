@@ -49,7 +49,8 @@ import { copyOwned, ownedKeyProblem, refreshOwned, type RefreshOutcome } from ".
 import { localPackageNames } from "../blocks/local.js";
 import { dedupeCommand, detectPackageManager, findLockfile, installCommand, run, shellLine } from "../blocks/pm.js";
 import { starterDir, templatesDir } from "../blocks/templates.js";
-import { adoptTemplates, bumpCallerPins, calledWorkflows, currentSource, MOVED_TEMPLATES, competingReleaseWorkflows, isDedicatedWorkflow, lookupPin, missingTemplateSets, ownedDir, releaseContext, renderPin, repositoryRoot, resolveTemplateNames, TEMPLATE_SETS, type ReleasePin } from "../blocks/release.js";
+import { checkEasEnvironment, checkGithubLink, type EasEnvironmentState, type GithubLink } from "../blocks/eas-link.js";
+import { adoptTemplates, bumpCallerPins, calledWorkflows, currentSource, githubLaneInPlace, githubLaneState, moveToEasHold, previewMoveHold, previewsInReleaseEnvironment, githubReleaseWorkflows, hasPushTrigger, MOVED_TEMPLATES, NATIVE_RELEASE_PATH, pushTriggeredEasWorkflows, competingReleaseWorkflows, isDedicatedWorkflow, lookupPin, missingTemplateSets, ownedDir, releaseContext, renderPin, repositoryRoot, resolveTemplateNames, TEMPLATE_SETS, type ReleasePin } from "../blocks/release.js";
 import { renderRelease, type ReleaseContext } from "../blocks/release-render.js";
 
 /** Whether a workflow pins its Genesis caller of `workflow` to `release` or a later one (by the `# @marktiderman/genesis@<version>` beside it, or the same commit). */
@@ -61,6 +62,7 @@ function pinsAtLeast(text: string, workflow: string, release: ReleasePin): boole
 
 /** The old lane's push-triggered workflow, which the new lane's version replaces only on adoption. */
 const OLD_LANE_FILE = ".eas/workflows/deploy-production.yml";
+const PREVIEW_FILE = ".eas/workflows/pr-preview.yml";
 import { bumpPackageJson, bumpSummary, compareVersions, normaliseReleaseAgeExcludes, pnpmReadsExactExcludes, pnpmWorkspaceFile, releaseAgeExcludeProblems, tidyLocked, UMBRELLA, type BumpChange, type BumpSkip } from "./bump-core.mjs";
 import { breakLines, fetchChangelog, type ChangelogReader } from "./changelog.js";
 import { codemodInstallNote, codemodsFor, uncoveredBreaks, CODEMODS, type Codemod } from "./codemods.js";
@@ -78,6 +80,10 @@ export interface ReleaseLookup extends ChangelogReader {
 
 export interface UpgradeOptions {
   root: string;
+  /** How the EAS project's GitHub link is checked before a move to EAS's release trigger (default: Expo's API, eas-link.ts). */
+  checkGithubLink?: (root: string) => Promise<GithubLink>;
+  /** How the previews' own EAS environment is checked before an old pr-preview.yml moves to it (default: Expo's API). */
+  checkEasEnvironment?: (root: string, name: string) => Promise<EasEnvironmentState>;
   /** An exact umbrella version or a dist-tag. Default `latest`. */
   version?: string;
   /** Read the release from this versions.json instead of npm. */
@@ -134,6 +140,8 @@ export interface UpgradeReport {
   pr?: string;
   /** Each overlay rebased onto the release (overlays.ts), with its checklist. */
   overlays: OverlayPlan[];
+  /** Owned files the upgrade removed (with a dry run, would remove), as shown from the app: the GitHub release workflow an app retires for EAS's trigger. */
+  removed?: string[];
   /** The app is on the old push-triggered EAS lane: its deploy-production.yml was held, and the summary says how to adopt the new lane. */
   oldLane?: boolean;
   /** The release the CI callers now pin. */
@@ -441,6 +449,24 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
   checkSubstitutions(lock.substitutions);
   const appFolder = appFolderOf(root);
   const written = folderSubstitutions(lock.substitutions, appFolder);
+  // An app on GitHub's release trigger that doesn't name one keeps it, written down so it's seen:
+  // the move to EAS's trigger is the app's choice (docs/NATIVE-RELEASE.md, "Moving to EAS's trigger").
+  let pinnedTrigger = false;
+  {
+    const configText = readApp(root, "genesis.config.json");
+    let config: Record<string, unknown> | null = null;
+    try {
+      config = configText === null ? {} : (JSON.parse(configText) as Record<string, unknown>);
+    } catch {
+      config = null; // Not JSON: readGenesisConfig reports it.
+    }
+    const set = config && typeof config.release === "object" && config.release !== null ? (config.release as Record<string, unknown>) : null;
+    if (config && set?.trigger === undefined && githubLaneInPlace(root, appFolder)) {
+      config.release = { trigger: "github", ...(set ?? {}) };
+      if (!options.dryRun) replaceApp(root, "genesis.config.json", `${JSON.stringify(config, null, 2)}\n`);
+      pinnedTrigger = true;
+    }
+  }
   const releaseCtx = releaseContext(root);
   // The release pin: the lock's (what the files were written with) for the merge bases, the new
   // release's for the new text.
@@ -481,6 +507,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
   const valuesBefore = options.dryRun ? null : componentValues(root);
 
   const files = new Set<string>();
+  if (pinnedTrigger) files.add("genesis.config.json");
   const lockEdits: OverlayLockEdit[] = [];
   const codemodRuns: UpgradeReport["codemods"] = [];
   if (!options.dryRun) {
@@ -612,7 +639,36 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
     for (const m of missing ?? []) if (m.kind === "migration") newMigrations.push(`${m.what} (apply in ${home.app}: ${addThereCommand(m.block)})`);
   }
   const refreshed: RefreshOutcome[] = [];
-  const onOldLane = Boolean(lock.files[OLD_LANE_FILE]?.source.startsWith("@marktiderman/genesis-cli:templates/")) && !lock.files[".github/workflows/native-release.yml"];
+  // release.trigger "eas" (the default, ADR 0026): deploy-production.yml takes the push trigger
+  // and the GitHub lane's native-release.yml goes, in the same upgrade, or neither does. Held when
+  // native-release.yml has the app's edits, or another workflow still releases on push: two lanes
+  // would publish each release twice.
+  const easLane = releaseCtx.release.trigger === "eas";
+  const removed: string[] = [];
+  let easHeld: string | null = null;
+  let retireGithub = false;
+  let keptNative: string | null = null;
+  if (easLane && lock.files[OLD_LANE_FILE]) {
+    const dispatcher = githubLaneState(root, { ...(written ? { substitutions: written } : {}), pin: oldPin });
+    const others = [...githubReleaseWorkflows(root, appFolder), ...pushTriggeredEasWorkflows(root).filter((rel) => rel !== OLD_LANE_FILE)];
+    const live = hasPushTrigger(readApp(ownedDir(root, NATIVE_RELEASE_PATH, appFolder), NATIVE_RELEASE_PATH) ?? "");
+    if (dispatcher.state === "kept" && live) {
+      easHeld = `release.trigger is "eas", but ${NATIVE_RELEASE_PATH} still starts each release from GitHub and ${dispatcher.why}: both stay as they are. Remove it and run \`genesis add template release\`, or set release.trigger to "github" in genesis.config.json (docs/NATIVE-RELEASE.md, "Moving to EAS's trigger")`;
+    } else if (others.length) {
+      easHeld = `release.trigger is "eas", but ${others.join(", ")} still release${others.length === 1 ? "s" : ""} on every push: this file keeps its trigger until ${others.length === 1 ? "it is" : "they are"} removed (then \`genesis add template release --replace-rival\`)`;
+    } else {
+      // A live GitHub lane goes only once its replacement is confirmed: the EAS project's GitHub link, and the hook's token.
+      if (live) easHeld = moveToEasHold(releaseCtx, await (options.checkGithubLink ?? checkGithubLink)(root));
+      if (!easHeld) {
+        retireGithub = dispatcher.state === "removable" || (dispatcher.state === "absent" && Boolean(lock.files[NATIVE_RELEASE_PATH]));
+        if (dispatcher.state === "kept") keptNative = `kept: ${dispatcher.why}, so it isn't removed; it has no push trigger, so it doesn't release beside deploy-production.yml. Remove it yourself when you no longer need it`;
+      }
+    }
+  }
+  // Previews in the release's EAS environment (before label-only previews in their own) move only
+  // once theirs exists, so they never stop silently.
+  const previewHold = lock.files[PREVIEW_FILE] && previewsInReleaseEnvironment(root, releaseCtx) ? previewMoveHold(releaseCtx, await (options.checkEasEnvironment ?? checkEasEnvironment)(root, releaseCtx.release.previews.easEnvironment)) : null;
+  const onOldLane = !easLane && Boolean(lock.files[OLD_LANE_FILE]?.source.startsWith("@marktiderman/genesis-cli:templates/")) && !lock.files[NATIVE_RELEASE_PATH];
   // The database's files are the other app's to refresh: entries under supabase/ are left alone.
   const elsewhereEntries = home ? Object.keys(lock.files).filter(isSupabasePath) : [];
   for (const [file, entry] of Object.entries(lock.files)) {
@@ -625,6 +681,16 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
     // An app on the old lane (a push-triggered deploy-production.yml, no native-release.yml): the
     // new deploy-production.yml runs only when native-release.yml starts it, so taking it alone
     // would stop every release. The app moves when it chooses: `genesis add release`.
+    // Decided after the loop, once deploy-production.yml's refresh is known.
+    if (easLane && file === NATIVE_RELEASE_PATH) continue;
+    if (file === PREVIEW_FILE && previewHold) {
+      refreshed.push({ path: file, outcome: "held", detail: previewHold });
+      continue;
+    }
+    if (easLane && file === OLD_LANE_FILE && easHeld) {
+      refreshed.push({ path: file, outcome: "held", detail: easHeld });
+      continue;
+    }
     if (file === OLD_LANE_FILE && onOldLane) {
       refreshed.push({ path: file, outcome: "held", detail: "the native release lane changed: this file stays as it is until you adopt the new lane with `genesis add release` (docs/NATIVE-RELEASE.md, \"Adopting the lane\")" });
       continue;
@@ -707,6 +773,32 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
     if ((outcome.outcome === "conflict" || outcome.outcome === "kept-mine") && !outcome.detail?.includes("already there")) next.add(`${shown}.genesis-next`);
   }
 
+  // The GitHub lane goes only once deploy-production.yml has taken the push trigger (written,
+  // merged or already so): with it left in a .genesis-next, removing native-release.yml would leave
+  // a merge starting nothing.
+  if (easLane && (lock.files[NATIVE_RELEASE_PATH] || retireGithub)) {
+    const file = NATIVE_RELEASE_PATH;
+    const at = ownedDir(root, file, appFolder);
+    const shown = at === root ? file : path.relative(root, path.join(at, file)).split(path.sep).join("/");
+    const deploy = refreshed.find((r) => r.path === OLD_LANE_FILE);
+    // Written, merged, resolved by hand or already so, and (on disk) with the push trigger.
+    // The push trigger in the text the file has after this run: what the refresh wrote, or in a dry
+    // run would write (the new text, or the same three-way merge), else the file on disk. Dry run
+    // and real run agree.
+    const after = deploy?.written ?? readApp(root, OLD_LANE_FILE) ?? "";
+    const taken = deploy && ["updated", "merged", "unchanged", "resolved"].includes(deploy.outcome) && hasPushTrigger(after);
+    if (retireGithub && taken) {
+      // Only a file that's there is a deletion to stage; an absent one only leaves the lock.
+      const there = existsSync(path.join(at, file));
+      if (!options.dryRun && there) rmSync(path.join(at, file));
+      delete lock.files[file];
+      if (there) removed.push(shown);
+      refreshed.push({ path: file, outcome: "removed", detail: "release.trigger is \"eas\": deploy-production.yml now starts each release on EAS, so the GitHub lane is retired (the old text is in git)" });
+    } else if (lock.files[file]) {
+      refreshed.push({ path: file, outcome: "held", detail: easHeld ?? keptNative ?? "kept until deploy-production.yml takes the push trigger: merge its .genesis-next, then run genesis add template release, which retires this file" });
+    }
+  }
+
   // Owned workflows took the new release's pin with their text (or kept the app's, merged); the lock
   // records the pin they were written with.
   if (newPin) {
@@ -784,8 +876,8 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
     }
     if (options.featuresBuild !== false && registryFile(root)) {
       try {
-        const { runFeaturesBuild } = await import("../features.js");
-        for (const f of await runFeaturesBuild({ dir: root })) generated.add(f);
+        const { writeAppFeatures } = await import("../features.js");
+        for (const f of await writeAppFeatures(root, detectPackageManager(root))) generated.add(f);
       } catch (err) {
         warnings.push(`features build failed: ${err instanceof Error ? err.message : String(err)}`);
       }
@@ -825,6 +917,23 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
   if (touched.length || added.length) {
     lines.push("", options.dryRun ? "Files Genesis owns (against the packages installed now; a real run compares with the new versions after the install):" : "Files Genesis owns:", "", ...touched.map((r) => `- ${r.path}: ${r.outcome}${r.detail ? ` (${r.detail})` : ""}`), ...added.map((a) => `- ${a}: added`));
   }
+  if (pinnedTrigger) {
+    lines.push(
+      "",
+      "This app's releases start on GitHub Actions (native-release.yml), so genesis.config.json now says so (`\"release\": { \"trigger\": \"github\" }`) and nothing about them changed. Genesis's default is now EAS's own trigger (ADR 0026), which keeps releasing when GitHub Actions can't run. To move: `genesis add template release --trigger eas` (docs/NATIVE-RELEASE.md, \"Moving to EAS's trigger\").",
+    );
+  }
+  if (removed.length) {
+    lines.push(
+      "",
+      "The native release lane now starts on EAS (release.trigger \"eas\", ADR 0026): deploy-production.yml runs on every push to main, through the EAS project's GitHub link, and GitHub Actions no longer takes part. Before merging this change:",
+      "",
+      "- connect the GitHub repository to the EAS project (expo.dev, project settings, GitHub), if it isn't yet;",
+      `- add EXPO_TOKEN${releaseCtx.release.sentry ? ", SENTRY_AUTH_TOKEN" : ""}${releaseCtx.release.pushHook?.secrets.length ? ` and ${releaseCtx.release.pushHook.secrets.join(", ")}` : ""} to the EAS environment "${releaseCtx.release.easEnvironment}", if they're only in GitHub;`,
+      "- expect JavaScript-only updates to wait for an EAS worker (minutes on a paid plan's priority queue, longer on the free plan) instead of a GitHub runner;",
+      "- to release from GitHub Actions again, run `genesis add template release --trigger github` (it writes native-release.yml back and makes deploy-production.yml dispatch-only).",
+    );
+  }
   if (onOldLane) {
     lines.push(
       "",
@@ -857,7 +966,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
   lines.push("", doctorProblem ? `\`genesis doctor\` couldn't run after the upgrade: ${doctorProblem}` : `\`genesis doctor\` ${doctor === "not run" ? "was not run" : doctor} after the upgrade.`);
   const summary = lines.join("\n");
 
-  const report: UpgradeReport = { version: release.version, changes, skipped, codemods: codemodRuns, breaks, refreshed, added, switchedOff, newMigrations, swaps, doctor, files: [...files].sort(), summary, overlays, ...(bunLock ? { bunLock } : {}), ...(onOldLane ? { oldLane: true } : {}), ...(newPin ? { pin: newPin } : {}) };
+  const report: UpgradeReport = { version: release.version, changes, skipped, codemods: codemodRuns, breaks, refreshed, added, switchedOff, newMigrations, swaps, doctor, files: [...files].sort(), summary, overlays, ...(bunLock ? { bunLock } : {}), ...(onOldLane ? { oldLane: true } : {}), ...(removed.length ? { removed } : {}), ...(newPin ? { pin: newPin } : {}) };
   if (options.pr && !options.dryRun && files.size) report.pr = openPullRequest(root, release.version, report, prBase!);
   return report;
 }
@@ -935,6 +1044,8 @@ function openPullRequest(root: string, version: string, report: UpgradeReport, b
   // What the overlay rebase deleted (a file gone upstream, or the whole overlay), staged as deletions.
   const overlayDirs = report.overlays.filter((o) => !o.skipped && !o.conflicts.length && (o.remove || [...o.writes.values()].includes(null))).map((o) => o.rel);
   if (overlayDirs.length) git("add", "-A", "--", ...overlayDirs);
+  // Owned files the upgrade removed (the GitHub release workflow, for EAS's trigger), staged as deletions.
+  if (report.removed?.length) git("add", "-A", "--", ...report.removed);
   git("commit", "-q", "-m", `chore(deps): upgrade Genesis to ${version}`);
   git("push", "-u", "origin", branch);
   const body = path.join(mkdtempSync(path.join(tmpdir(), "genesis-pr-")), "body.md");

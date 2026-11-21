@@ -234,6 +234,7 @@ interface ManifestJson {
   name?: unknown;
   version?: unknown;
   private?: unknown;
+  deprecated?: unknown;
   genesis?: { doctor?: unknown; overlay?: unknown };
 }
 
@@ -270,6 +271,7 @@ export function readDeclaringPackage(dir: string, local: boolean): DeclaringPack
     local,
     private: json.private === true,
     declaration: null,
+    ...(typeof json.deprecated === "string" && json.deprecated ? { deprecated: json.deprecated } : {}),
   };
   if (local) {
     const state = overlayState(json.name, json);
@@ -289,17 +291,35 @@ export function readDeclaringPackage(dir: string, local: boolean): DeclaringPack
   return pkg;
 }
 
+const DEPENDENCY_FIELDS = ["dependencies", "devDependencies", "peerDependencies", "optionalDependencies"] as const;
+
+/** The names the app's package.json lists in any dependency field. */
+function appDependencyNames(root: string): Set<string> {
+  try {
+    const json = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")) as Record<string, unknown>;
+    return new Set(DEPENDENCY_FIELDS.flatMap((f) => (json[f] && typeof json[f] === "object" ? Object.keys(json[f] as object) : [])));
+  } catch {
+    return new Set();
+  }
+}
+
 /**
  * Every package whose rules apply to the app: the installed Genesis packages
  * (and the Genesis packages installed beside them, for an isolated install), and the app's local packages (a local package wins over an installed one
  * of the same name). Sorted by name.
+ *
+ * A deprecated package (a renamed package's alias, `"deprecated"` in its package.json) counts
+ * only while the app's package.json still lists it: once an upgrade has moved the app to the new
+ * name, the old folder an install leaves in node_modules adds no rules and no agent-guide rows.
  */
 export function discoverPackages(root: string): DeclaringPackage[] {
   const byName = new Map<string, DeclaringPackage>();
   const installed = [...installedGenesis(root).values()];
+  const listed = appDependencyNames(root);
+  const stale = (pkg: DeclaringPackage) => pkg.deprecated !== undefined && !listed.has(pkg.name);
   for (const dir of installed) {
     const pkg = readDeclaringPackage(dir, false);
-    if (pkg) byName.set(pkg.name, pkg);
+    if (pkg && !stale(pkg)) byName.set(pkg.name, pkg);
   }
   // An isolated install (pnpm) keeps a package's own dependencies beside its real folder, not in the
   // app's node_modules: an app on the umbrella package alone still gets the rules of what it re-exports.
@@ -314,7 +334,7 @@ export function discoverPackages(root: string): DeclaringPackage[] {
     for (const entry of readdirSync(scope)) {
       if (byName.has(`@marktiderman/${entry}`) || !GENESIS.test(`@marktiderman/${entry}`)) continue;
       const pkg = readDeclaringPackage(path.join(scope, entry), false);
-      if (pkg) byName.set(pkg.name, pkg);
+      if (pkg && !stale(pkg)) byName.set(pkg.name, pkg);
     }
   }
   let local: ReturnType<typeof localPackages> = [];

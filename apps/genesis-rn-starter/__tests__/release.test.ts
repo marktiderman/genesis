@@ -143,36 +143,35 @@ describe("EAS workflows", () => {
     expect(read(`.eas/workflows/${file}`)).not.toMatch(/expo_[A-Za-z0-9]{20,}|-----BEGIN/);
   });
 
-  it("deploy-production runs only when started (by native-release.yml), for a named commit, with no approval to wait on", () => {
+  it("deploy-production starts on EAS's own push to main (Expo's deploy lane), from main only, with no approval to wait on", () => {
     const { on, jobs } = workflow("deploy-production.yml");
-    // On push it would race native-release.yml on every merge.
-    expect(Object.keys(on)).toEqual(["workflow_dispatch"]);
-    const inputs = (on.workflow_dispatch as { inputs: Record<string, { type?: string; required?: boolean }> }).inputs;
-    expect(inputs.commit_sha).toMatchObject({ type: "string", required: true });
-    // Choices compared as text: eas workflow:run -F sends every value as a string.
-    expect(inputs.ios?.type).toBe("choice");
-    expect(inputs.android?.type).toBe("choice");
+    // release.trigger "eas" (the default render): EAS Workflows starts it; no GitHub workflow does.
+    expect(Object.keys(on)).toEqual(["push", "workflow_dispatch"]);
+    expect((on.push as { branches?: string[] }).branches).toEqual(["main"]);
+    expect(Object.keys(jobs)[0]).toBe("source");
     // main's merge is the approval: an approval job would hold every merge's release.
     expect(Object.values(jobs).filter((j) => j.type === "require-approval")).toEqual([]);
-    // One deploy at a time, and the running one always finishes: never cancel_in_progress. Every
-    // waiting run is kept (queue: max), so one for a platform never replaces one for the other.
+    // One deploy at a time, and the running one always finishes: never cancel_in_progress. As
+    // Expo recommends for deploys, the newest waiting run replaces those in between.
     const { concurrency } = parse(read(".eas/workflows/deploy-production.yml")) as { concurrency?: unknown };
-    expect(concurrency).toEqual({ group: "${{ workflow.filename }}", queue: "max" });
+    expect(concurrency).toEqual({ group: "${{ workflow.filename }}" });
   });
 
   it("deploy-production updates every install, and submits each build in the run that made it", () => {
     const { jobs } = workflow("deploy-production.yml");
-    // Published by the lane's script (the profile's env, the runtime checked), to every install:
-    // eas update with no --rollout-percentage.
+    // Published by the lane's script (publishUpdate: the profile's env, the runtime checked), to
+    // every install: eas update with no --rollout-percentage.
+    const script = read(".eas/scripts/native-release.mjs");
+    expect(script).toContain('deps.eas(["update", "--channel", channel, "--platform", platform, "--message", message, "--json", "--non-interactive"]');
+    expect(script).not.toContain("rollout-percentage");
     for (const platform of ["ios", "android"]) {
       const publish = jobs[`update_${platform}`]?.steps?.map((st) => st.run ?? "").join("\n") ?? "";
-      expect(publish).toContain(`update --channel "production" --platform ${platform}`);
-      expect(publish).not.toContain("rollout-percentage");
-      expect(publish).toContain(`with-profile eas.json "production" ${platform} --`);
-      expect(jobs[`get_${platform}_build`]?.if).toBe(`\${{ inputs.${platform} == 'true' }}`);
-      expect(jobs[`update_${platform}`]?.if).toBe(`\${{ inputs.${platform} == 'true' && needs.get_${platform}_build.outputs.build_id }}`);
-      expect(jobs[`update_${platform}`]?.needs).toEqual([`get_${platform}_build`]);
-      expect(jobs[`build_${platform}`]?.if).toBe(`\${{ inputs.${platform} == 'true' && !needs.get_${platform}_build.outputs.build_id }}`);
+      expect(publish).toContain(`node .eas/scripts/native-release.mjs publish ${platform}`);
+      expect(jobs[`update_${platform}`]?.env).toMatchObject({ RELEASE_CHANNEL: "production", RELEASE_PROFILE: "production" });
+      expect(jobs[`get_${platform}_build`]?.if).toBe(`\${{ needs.source.outputs.${platform} == 'true' }}`);
+      expect(jobs[`update_${platform}`]?.if).toBe(`\${{ needs.source.outputs.${platform} == 'true' && needs.get_${platform}_build.outputs.build_id }}`);
+      expect(jobs[`update_${platform}`]?.needs).toEqual(["source", `get_${platform}_build`]);
+      expect(jobs[`build_${platform}`]?.if).toBe(`\${{ needs.source.outputs.${platform} == 'true' && !needs.get_${platform}_build.outputs.build_id }}`);
       expect(jobs[`submit_${platform}`]?.needs).toEqual([`build_${platform}`]);
       expect(jobs[`submit_${platform}`]?.params?.build_id).toBe(`\${{ needs.build_${platform}.outputs.build_id }}`);
     }
@@ -202,24 +201,10 @@ describe("EAS workflows", () => {
     }
   });
 
-  it("pr-preview runs only for app changes into main, or a Preview label", () => {
+  it("pr-preview runs only when someone labels a pull request Preview (every pull request is an opt-in)", () => {
     const { on } = workflow("pr-preview.yml");
-    expect(Object.keys(on).sort()).toEqual(["pull_request", "pull_request_labeled"]);
-    const pr = on.pull_request as { branches?: string[]; paths?: string[] };
-    expect(pr.branches).toEqual(["main"]);
-    // The app's code folder (genesis init fills it in), then the config a build reads.
-    expect(pr.paths).toEqual([
-      "REPLACE_WITH_APP_FOLDER/**",
-      "app.json",
-      "app.config.*",
-      "eas.json",
-      "package.json",
-      "pnpm-lock.yaml",
-      "yarn.lock",
-      "package-lock.json",
-      "bun.lock",
-      "bun.lockb",
-    ]);
+    // A preview runs the pull request's own code: a reviewer decides when (release.previews.everyPullRequest widens it).
+    expect(Object.keys(on)).toEqual(["pull_request_labeled"]);
     expect(on.pull_request_labeled).toEqual({ labels: ["Preview"] });
   });
 
@@ -263,8 +248,10 @@ describe("EAS workflows", () => {
   it("pr-preview publishes to the pull request's own channel", () => {
     const job = workflow("pr-preview.yml").jobs.publish_update!;
     expect(job.env?.PREVIEW_CHANNEL).toBe("pr-${{ github.event.pull_request.number }}");
-    // The release's environment, so the update matches the TestFlight or store build it loads on.
-    expect(job.environment).toBe("production");
+    // An environment of its own, never the release's: the pull request's code runs in it. It holds
+    // the release's plain values, so the update still matches the build it loads on.
+    expect(job.environment).toBe("preview-release");
+    for (const [id, j] of Object.entries(workflow("pr-preview.yml").jobs)) expect(j.environment ?? "", id).not.toBe("production");
   });
 
   it("rollout promotes only after the health check, whose limits no input can change", () => {
@@ -350,12 +337,15 @@ describe("the build stamp", () => {
   });
 
   it("is stamped for the channel, and checked, before every update is published", () => {
-    const publishing = [
-      ...["update_ios", "update_android"].map((job) => ({ job, channel: "production", run: workflow("deploy-production.yml").jobs[job]!.steps!.map((s) => s.run ?? "").join("\n") })),
-      { job: "publish_update", channel: "$PREVIEW_CHANNEL", run: workflow("pr-preview.yml").jobs["publish_update"]!.steps!.map((s) => s.run ?? "").join("\n") },
-    ];
+    // deploy-production's update jobs stamp and check in publishUpdate, before eas update.
+    const script = read(".eas/scripts/native-release.mjs");
+    const body = script.slice(script.indexOf("export function publishUpdate("));
+    expect(body.indexOf('"build-stamp", "--channel", channel')).toBeGreaterThan(-1);
+    expect(body.indexOf("checkStamp(")).toBeGreaterThan(body.indexOf('"build-stamp"'));
+    expect(body.indexOf('deps.eas(["update"')).toBeGreaterThan(body.indexOf("checkStamp("));
+    const publishing = [{ job: "publish_update", channel: "$PREVIEW_CHANNEL", run: workflow("pr-preview.yml").jobs["publish_update"]!.steps!.map((s) => s.run ?? "").join("\n") }];
     for (const { job, channel, run } of publishing) {
-      const stamped = run.indexOf(`npx --no genesis build-stamp --channel "${channel}"`);
+      const stamped = run.indexOf(`node .eas/scripts/native-release.mjs genesis build-stamp --channel "${channel}"`);
       const checked = run.indexOf(`node .eas/scripts/native-release.mjs stamped build-metadata.json "${channel}"`);
       const published = run.search(/eas-cli@[\d.]+ update/);
       expect(stamped, job).toBeGreaterThan(-1);
