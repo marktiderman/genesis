@@ -53,13 +53,13 @@ export function workflowFiles(top: string): WorkflowFile[] {
  * request into it), never a checkout that may be stale or on another branch. Only when GitHub
  * can't be read are the local files used, and `local` says so, naming the ref they came from.
  */
-export async function workflowsFor(deps: GitHubDeps, slug: string, branch: string, top: string): Promise<{ files: WorkflowFile[]; local: string | null }> {
+export async function workflowsFor(deps: GitHubDeps, slug: string, branch: string, top: string): Promise<{ files: WorkflowFile[]; local: string | null; localRef: string | null }> {
   try {
-    return { files: await workflowsAt(deps, slug, branch), local: null };
+    return { files: await workflowsAt(deps, slug, branch), local: null, localRef: null };
   } catch (err) {
     const head = await deps.run("git", ["rev-parse", "--abbrev-ref", "HEAD"], { cwd: top, timeoutMs: 10_000 }).catch(() => null);
     const ref = head && head.code === 0 ? head.stdout.trim() : "an unknown ref";
-    return { files: workflowFiles(top), local: `the workflows on ${branch} couldn't be read from GitHub (${(err as Error).message}), so the checks come from the local checkout at ${ref}, which may differ from ${branch}` };
+    return { files: workflowFiles(top), localRef: ref, local: `the workflows on ${branch} couldn't be read from GitHub (${(err as Error).message}), so the checks come from the local checkout at ${ref}, which may differ from ${branch}` };
   }
 }
 
@@ -69,6 +69,8 @@ export interface RepoPlan {
   staging: boolean;
   defaultChecks: string[];
   stagingChecks: string[] | null;
+  /** The local ref the checks were read from, when GitHub's workflows couldn't be; null when read from GitHub. */
+  localRef: string | null;
 }
 
 function repoConfig(root: string): GenesisRepo {
@@ -93,7 +95,7 @@ export async function planRepo(options: RepoOptions): Promise<RepoPlan> {
   const { top, slug, deps } = await locate(options);
   const config = repoConfig(options.root);
   const live = await readLive(deps, slug);
-  const { files, local } = await workflowsFor(deps, slug, live.defaultBranch, top);
+  const { files, local, localRef } = await workflowsFor(deps, slug, live.defaultBranch, top);
   const remote = remoteWorkflows(deps);
   const onDefault = await checksFromWorkflows(files, live.defaultBranch, remote);
   const stagingSpec = { name: STAGING_RULESET, target: "branch", enforcement: "active", conditions: { ref_name: { include: [STAGING_REF], exclude: [] } }, rules: [], bypass_actors: [] };
@@ -114,7 +116,16 @@ export async function planRepo(options: RepoOptions): Promise<RepoPlan> {
   if (!files.length) notes.push(`no workflows on ${live.defaultBranch}${local ? ` (nor in ${path.join(top, ".github/workflows")})` : ""}: no required checks were read (name them in repo.requiredChecks)`);
   if (!defaultChecks.includes("Adversarial review")) notes.push(`no "Adversarial review" check on ${live.defaultBranch}: the review gate (review-gate.yml) isn't in this repository`);
   plan.notes.push(...notes);
-  return { plan, live, staging, defaultChecks, stagingChecks };
+  return { plan, live, staging, defaultChecks, stagingChecks, localRef };
+}
+
+/**
+ * A real run never writes required checks read from the local checkout unless asked (`useLocal`):
+ * the checkout may be stale or on another branch. Throws the refusal; a dry run doesn't call it.
+ */
+export function refuseLocal(result: RepoPlan, options: { useLocal?: boolean }): void {
+  if (result.localRef === null || options.useLocal || !result.plan.writes.length) return;
+  throw new GitHubError(`couldn't read ${result.plan.slug}'s workflows from GitHub; re-run when it can, or pass --use-local to accept the local checkout at ${result.localRef}. Nothing was written.`);
 }
 
 /** A short digest of a plan's writes: what a person approved, so a changed repository is noticed. */
@@ -144,8 +155,10 @@ export async function applyRepoPlan(options: RepoOptions, plan: ProtectionPlan):
  * Apply the plan a person approved, by its {@link planDigest}: the repository is read again, and
  * if the writes it needs now differ from the approved ones, nothing is written.
  */
-export async function applyApprovedPlan(options: RepoOptions, digest: string): Promise<string[]> {
-  const { plan } = await planRepo(options);
+export async function applyApprovedPlan(options: RepoOptions & { useLocal?: boolean }, digest: string): Promise<string[]> {
+  const result = await planRepo(options);
+  refuseLocal(result, options);
+  const { plan } = result;
   if (planDigest(plan) !== digest) throw new GitHubError(`The repository changed since the plan was approved (plan ${digest}, now ${planDigest(plan)}): nothing was written. Plan it again.`);
   return applyRepoPlan(options, plan);
 }
@@ -163,6 +176,8 @@ export function digestOf(summary: string): string | null {
 
 export interface ProtectCommandOptions extends RepoOptions {
   dryRun?: boolean;
+  /** Write required checks read from the local checkout when GitHub's workflows can't be read. */
+  useLocal?: boolean;
   json?: boolean;
   out?: (line: string) => void;
 }
@@ -171,6 +186,15 @@ export interface ProtectCommandOptions extends RepoOptions {
 export async function runRepoProtect(options: ProtectCommandOptions): Promise<number> {
   const out = options.out ?? ((l: string) => console.log(l));
   const result = await planRepo(options);
+  if (!options.dryRun) {
+    try {
+      refuseLocal(result, options);
+    } catch (err) {
+      out(formatPlan(result.plan, { dryRun: true }));
+      out(`✗ ${(err as Error).message}`);
+      return 1;
+    }
+  }
   const applied = options.dryRun || !result.plan.writes.length ? [] : await applyRepoPlan(options, result.plan);
   if (options.json) {
     out(JSON.stringify({ repo: result.plan.slug, dryRun: options.dryRun === true, staging: result.staging, requiredChecks: { default: result.defaultChecks, staging: result.stagingChecks }, changes: result.plan.changes, notes: result.plan.notes, writes: options.dryRun ? result.plan.writes : applied }, null, 2));

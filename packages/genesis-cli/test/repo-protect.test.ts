@@ -369,10 +369,13 @@ const CI_FILES = {
   ".github/workflows/review-gate.yml": "on:\n  pull_request_target:\n    branches: ['main']\njobs:\n  review:\n    name: Adversarial review\n    runs-on: ubuntu-latest\n",
 };
 
+/** CI_FILES as GitHub serves them on the default branch. */
+const REMOTE = Object.fromEntries(Object.entries(CI_FILES).map(([k, v]) => [path.basename(k), v]));
+
 describe("genesis repo protect", () => {
   it("--dry-run prints the diff and writes nothing; without it, PUTs the ruleset and PATCHes the settings with the bodies on stdin", async () => {
     const top = repoDir(CI_FILES);
-    const fake = fakeGitHub(top, { rulesets: [handMade()] });
+    const fake = fakeGitHub(top, { rulesets: [handMade()], remote: REMOTE });
     const lines: string[] = [];
     expect(await runRepoProtect({ root: top, run: fake.run, dryRun: true, out: (l) => lines.push(l) })).toBe(0);
     const text = lines.join("\n");
@@ -380,7 +383,7 @@ describe("genesis repo protect", () => {
     expect(text).toContain("~ allow_rebase_merge: true → false");
     expect(fake.calls.some((c) => c.args.includes("-X"))).toBe(false);
 
-    const applied = fakeGitHub(top, { rulesets: [handMade()] });
+    const applied = fakeGitHub(top, { rulesets: [handMade()], remote: REMOTE });
     await runRepoProtect({ root: top, run: applied.run, out: () => {} });
     const writes = applied.calls.filter((c) => c.args.includes("-X"));
     expect(writes.map((c) => c.args.slice(2, 5).join(" "))).toEqual(["-X PUT repos/acme/sample-app/rulesets/101", "-X PATCH repos/acme/sample-app"]);
@@ -421,6 +424,26 @@ describe("where the workflows are read", () => {
     expect(result.plan.changes.some((c) => c.what === 'required check "database / Database and pgTAP"')).toBe(true);
   });
 
+  it("a real run refuses to write checks from the local fallback unless --use-local; a dry run shows the plan", async () => {
+    const top = repoDir(CI_FILES);
+    const dry = fakeGitHub(top, { rulesets: [handMade()] });
+    const shown: string[] = [];
+    expect(await runRepoProtect({ root: top, run: dry.run, dryRun: true, out: (l) => shown.push(l) })).toBe(0);
+    expect(shown.join("\n")).toContain("local checkout at feature-x");
+
+    const real = fakeGitHub(top, { rulesets: [handMade()] });
+    const said: string[] = [];
+    expect(await runRepoProtect({ root: top, run: real.run, out: (l) => said.push(l) })).toBe(1);
+    expect(said.join("\n")).toContain("couldn't read acme/sample-app's workflows from GitHub; re-run when it can, or pass --use-local to accept the local checkout at feature-x");
+    expect(real.calls.some((c) => c.args.includes("-X"))).toBe(false);
+    const digest = planDigest((await planRepo({ root: top, run: real.run })).plan);
+    await expect(applyApprovedPlan({ root: top, run: real.run }, digest)).rejects.toThrow(/--use-local/);
+
+    const accepted = fakeGitHub(top, { rulesets: [handMade()] });
+    expect(await runRepoProtect({ root: top, run: accepted.run, useLocal: true, out: () => {} })).toBe(0);
+    expect(accepted.calls.some((c) => c.args.includes("-X"))).toBe(true);
+  });
+
   it("says why a rebase-only ruleset moves to merge and squash", () => {
     const r = handMade();
     (r.rules[2]!.parameters as Record<string, unknown>).allowed_merge_methods = ["rebase"];
@@ -439,20 +462,20 @@ describe("applying", () => {
 
   it("says which writes landed when one fails, and that it needs the admin role", async () => {
     const top = repoDir(CI_FILES);
-    const fake = fakeGitHub(top, { rulesets: [handMade()], failWrites: ["repos/acme/sample-app"] });
+    const fake = fakeGitHub(top, { rulesets: [handMade()], failWrites: ["repos/acme/sample-app"], remote: REMOTE });
     await expect(runRepoProtect({ root: top, run: fake.run, out: () => {} })).rejects.toThrow(/admin role\)\. Already written: PUT repos\/acme\/sample-app\/rulesets\/101/);
   });
 
   it("applies only the approved plan: a repository that changed since is refused", async () => {
     const top = repoDir(CI_FILES);
-    const before = await planRepo({ root: top, run: fakeGitHub(top, { rulesets: [handMade()] }).run });
+    const before = await planRepo({ root: top, run: fakeGitHub(top, { rulesets: [handMade()], remote: REMOTE }).run });
     const changed = handMade();
     // Someone added a rule since: the PUT that keeps it isn't the PUT that was approved.
     changed.rules.push({ type: "required_signatures" });
-    const now = fakeGitHub(top, { rulesets: [changed] });
+    const now = fakeGitHub(top, { rulesets: [changed], remote: REMOTE });
     await expect(applyApprovedPlan({ root: top, run: now.run }, planDigest(before.plan))).rejects.toThrow(/changed since the plan was approved/);
     expect(now.calls.some((c) => c.args.includes("-X"))).toBe(false);
-    const same = fakeGitHub(top, { rulesets: [handMade()] });
+    const same = fakeGitHub(top, { rulesets: [handMade()], remote: REMOTE });
     expect(await applyApprovedPlan({ root: top, run: same.run }, planDigest(before.plan))).toEqual(["PUT repos/acme/sample-app/rulesets/101", "PATCH repos/acme/sample-app"]);
   });
 });

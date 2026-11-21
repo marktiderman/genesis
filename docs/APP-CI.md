@@ -338,7 +338,8 @@ and rebase merging off.
 
 **Required checks come from the app's CI.** The CLI reads `.github/workflows` on the default
 branch through GitHub (what runs on a pull request, not a local checkout that may be stale or on
-another branch; it falls back to the checkout only when GitHub can't be read, and says so): every job of a
+another branch; it falls back to the checkout only when GitHub can't be read, and says so, and
+then a real run writes nothing unless given `--use-local`): every job of a
 workflow that runs on pull requests into the branch, by the name GitHub gives its check
 (`app / App checks` for a job `app` that calls app-ci; `database / Database and pgTAP` for one that
 calls supabase-ci). A called job the caller turns off (`doctor: false`) isn't required, nor is

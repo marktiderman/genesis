@@ -676,9 +676,10 @@ repoCommand
   .option("--repo <owner/name>", "The GitHub repository (default: the origin remote's)")
   .option("--dry-run", "Print the changes; write nothing", false)
   .option("--json", "Print the plan as JSON", false)
-  .action(async (opts: { dir: string; repo?: string; dryRun?: boolean; json?: boolean }) => {
+  .option("--use-local", "When GitHub's copy of the workflows can't be read, write the checks read from the local checkout", false)
+  .action(async (opts: { dir: string; repo?: string; dryRun?: boolean; json?: boolean; useLocal?: boolean }) => {
     const { runRepoProtect } = await import("./repo/index.js");
-    process.exitCode = await runRepoProtect({ root: path.resolve(opts.dir), dryRun: opts.dryRun === true, json: opts.json === true, ...(opts.repo ? { repo: opts.repo } : {}) });
+    process.exitCode = await runRepoProtect({ root: path.resolve(opts.dir), dryRun: opts.dryRun === true, json: opts.json === true, useLocal: opts.useLocal === true, ...(opts.repo ? { repo: opts.repo } : {}) });
   });
 
 repoCommand
