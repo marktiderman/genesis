@@ -355,7 +355,8 @@ export function sentrySink(sentry: SentryLike, options: SentrySinkOptions): Sent
         if (sentry.close) quietly(() => sentry.close!(CLOSE_TIMEOUT_MS));
       }
       restartPending = false;
-      if (resolved.enabled && !problem && !started && !noticed) {
+      // Only from settings read in this launch: the device's cached copy may be out of date.
+      if (source === "settings" && resolved.enabled && !problem && !started && !noticed) {
         noticed = true;
         if (options.onMissingDsn) options.onMissingDsn();
         // genesis-allow-console: a development set-up notice, before any reporter exists.

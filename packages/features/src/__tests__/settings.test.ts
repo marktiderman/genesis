@@ -636,12 +636,16 @@ describe("patterns", () => {
     expect(settingValueProblem({ type: "string", pattern: "^(foo|bar)$" }, "foo")).toBeNull();
   });
 
-  it("refuses a repetition bound the database can't compile (over 255)", async () => {
+  it("refuses syntax the database can't compile: a bound over 255, named groups, lookbehind, \\k<…>, \\u{…}", async () => {
     const { defineSettings } = await import("../settings");
     expect(() => defineSettings("acme", { s: { type: "string", default: null, pattern: "^[a-z]{1,256}$" } })).toThrow(/more than 255/);
     expect(() => defineSettings("acme", { s: { type: "string", default: null, pattern: "^[a-z]{300}$" } })).toThrow(/more than 255/);
     expect(() => defineSettings("acme", { s: { type: "string", default: null, pattern: "^[a-z]{1,255}$" } })).not.toThrow();
     expect(() => defineSettings("acme", { s: { type: "string", default: null, pattern: "^[a-z]{1,}$" } })).not.toThrow();
+    expect(() => defineSettings("acme", { s: { type: "string", default: null, pattern: "^(?<word>[a-z]+)$" } })).toThrow(/named group or lookbehind/);
+    expect(() => defineSettings("acme", { s: { type: "string", default: null, pattern: "^(?<=a)b$" } })).toThrow(/named group or lookbehind/);
+    expect(() => defineSettings("acme", { s: { type: "string", default: null, pattern: "^(?<w>a)\\k<w>$" } })).toThrow(/database can't compile/);
+    expect(() => defineSettings("acme", { s: { type: "string", default: null, pattern: "^\\u{1F600}$" } })).toThrow(/code-point escape/);
     // An escaped brace is a literal, not a bound.
     expect(() => defineSettings("acme", { s: { type: "string", default: null, pattern: "^x\\{999\\}$" } })).not.toThrow();
   });

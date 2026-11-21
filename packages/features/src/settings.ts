@@ -281,6 +281,11 @@ function settingPatternProblem(pattern: unknown): string | null {
   } catch (err) {
     return `pattern doesn't compile: ${(err as Error).message}`;
   }
+  // JavaScript-only syntax Postgres can't compile, which would make the database refuse every value:
+  // named groups and lookbehind (`(?<`), named backreferences (`\\k<`) and code-point escapes (`\\u{`).
+  for (const [syntax, what] of [[/\(\?</, "a named group or lookbehind ((?<…)"], [/\\k</, "a named backreference (\\k<…>)"], [/\\u\{/, "a code-point escape (\\u{…})"]] as const) {
+    if (syntax.test(pattern)) return `pattern uses ${what}, which the database can't compile`;
+  }
   // An unescaped `{n}` or `{n,m}`: Postgres can't compile a bound over 255, and would refuse every value.
   for (const m of pattern.matchAll(/(\\*)\{(\d+)(?:,(\d*))?\}/g)) {
     if (m[1]!.length % 2 === 1) continue;

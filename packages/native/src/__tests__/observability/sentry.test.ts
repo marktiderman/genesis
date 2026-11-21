@@ -399,6 +399,27 @@ describe("sentrySink from Genesis settings", () => {
     expect(sink.status()).toMatchObject({ running: true, source: "settings" });
   });
 
+  it("starts a build DSN at once with an async cache, and closes it live when the cached settings say off", async () => {
+    const { sentry } = withClose();
+    const off = JSON.stringify({ "observability.enabled": false, "observability.sentryDsn": null });
+    const sink = sentrySink(sentry, { dsn: OTHER, cache: { getItem: vi.fn(async () => off), setItem: vi.fn(async () => {}), removeItem: vi.fn(async () => {}) } });
+    expect(sentry.init).toHaveBeenCalledTimes(1);
+    expect(sink.status().running).toBe(true);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(sentry.close).toHaveBeenCalledWith(2000);
+    expect(sink.status().running).toBe(false);
+  });
+
+  it("gives the missing-DSN notice from read settings only, never from the cached copy", () => {
+    const onMissingDsn = vi.fn();
+    const cache = memoryCache({ [SENTRY_SETTINGS_CACHE_KEY]: JSON.stringify({ "observability.enabled": true, "observability.sentryDsn": null }) });
+    const sink = sentrySink(fakeSentry().sentry, { dsn: null, cache, onMissingDsn });
+    expect(onMissingDsn).not.toHaveBeenCalled();
+    sink.applySettings({ values: { "observability.enabled": true, "observability.sentryDsn": null } });
+    expect(onMissingDsn).toHaveBeenCalledTimes(1);
+  });
+
   it("ignores a cache that throws or holds something else", () => {
     const { sentry } = fakeSentry();
     const broken = { getItem: () => { throw new Error("no storage"); }, setItem: () => { throw new Error("full"); }, removeItem: () => {} };
