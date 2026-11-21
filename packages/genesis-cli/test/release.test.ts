@@ -990,6 +990,15 @@ esac
 describe("genesis add template", () => {
   const nativeApp = (files: Record<string, string> = {}) => makeApp({ "app.json": "{}", "pnpm-lock.yaml": "", ...files });
 
+  it("writes the previews alone into an app with no release lane, with the script pr-preview.yml runs", () => {
+    const root = nativeApp();
+    const results = adoptTemplates(root, resolveTemplateNames(["previews"]));
+    expect(results.map((r) => r.path).sort()).toEqual([".eas/scripts/native-release.mjs", ".eas/workflows/pr-preview.yml", ".fingerprintignore", ".github/workflows/pr-preview-teardown.yml", "fingerprint.config.js"]);
+    const preview = readFileSync(path.join(root, ".eas/workflows/pr-preview.yml"), "utf8");
+    expect(preview).toContain("node .eas/scripts/native-release.mjs stamped");
+    expect(existsSync(path.join(root, ".eas/scripts/native-release.mjs"))).toBe(true);
+  });
+
   it("writes the release lane, records it in the lock, and leaves a file the app already has as .genesis-next", () => {
     const root = nativeApp({ ".eas/workflows/deploy-production.yml": "name: mine\n", "genesis.config.json": JSON.stringify({ release: { platforms: ["ios"] } }) });
     const results = adoptTemplates(root, resolveTemplateNames(["release"]));

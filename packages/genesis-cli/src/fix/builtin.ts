@@ -315,10 +315,10 @@ const adoptMissed: Fix = {
     if (!missed.length) return { summary: "nothing Genesis offers is missed" };
     const ids = [...new Set(missed.map((f) => f.subject ?? f.file))];
     const lane = ids.includes("pr-previews");
+    // A guided fix runs no genesis command itself: the preview lane is a step to take, like the others.
     return {
       summary: `missed: ${ids.join(", ")}`,
-      commands: lane ? [{ tool: "genesis", args: ["add", "template", "previews"], why: "pull request previews on their own channel, and their teardown" }] : [],
-      manual: "Follow each finding's steps in a pull request, or add the id to genesis.config.json doctor.declined with why the app doesn't want it.",
+      manual: `${lane ? "Run genesis add template previews for pull request previews and their teardown. " : ""}Follow each finding's steps in a pull request, or add the id to genesis.config.json doctor.declined with why the app doesn't want it.`,
     };
   },
 };

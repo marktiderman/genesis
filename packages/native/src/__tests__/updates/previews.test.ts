@@ -55,6 +55,7 @@ describe("preview links", () => {
     expect(normalizeLink("acme:///preview?channel=bad%20name", links)).toBe("/preview");
     expect(normalizeLink("https://acme.app/clients/1", links)).toBe("/clients/1");
     expect(normalizeLink("https://acme.app/preview?channel=pr-42", { ...links, previews: false })).toBe("/");
+    expect(normalizeLink("https://acme.app/preview?channel=pr-42", { ...links, ignore: ["/preview"] })).toBeNull();
   });
 });
 
@@ -106,6 +107,49 @@ describe("channel switching, hardened", () => {
     await switcher.reset();
     expect(seen).toHaveBeenLastCalledWith({ requested: null, build: "production" });
     expect(storage.data.get("genesis:updates:channel:build")).toBe("production");
+  });
+
+  it("keeps a pick made while storage was still being read", async () => {
+    let release!: () => void;
+    const slow = memoryStorage();
+    const gate = new Promise<void>((r) => (release = r));
+    const read = slow.getItem as unknown as { mockImplementationOnce: (f: () => Promise<string | null>) => void };
+    read.mockImplementationOnce(async () => {
+      await gate;
+      return null;
+    });
+    const switcher = createChannelSwitcher({ updates: fakeUpdates({ next: { id: "x" } }), enabled: true, guard: createReloadGuard(), storage: slow });
+    const first = switcher.state();
+    const prepared = switcher.prepare("pr-42");
+    release();
+    await Promise.all([first, prepared]);
+    await expect(switcher.state()).resolves.toMatchObject({ requested: "pr-42" });
+  });
+
+  it("reports a fetch that got nothing as an error, not a download", async () => {
+    const updates = fakeUpdates({ next: { id: "x" } });
+    updates.fetchUpdateAsync.mockResolvedValueOnce({ isNew: false, isRollBackToEmbedded: false } as never);
+    const switcher = createChannelSwitcher({ updates, enabled: true, guard: createReloadGuard() });
+    await expect(switcher.prepare("pr-1")).resolves.toMatchObject({ kind: "error" });
+  });
+
+  it("reads a selection-policy answer as nothing newer, and a missing embedded rollback as nothing to load", async () => {
+    const updates = fakeUpdates();
+    const switcher = createChannelSwitcher({ updates, enabled: true, guard: createReloadGuard() });
+    updates.checkForUpdateAsync.mockResolvedValueOnce({ isAvailable: false, isRollBackToEmbedded: false, reason: "updateRejectedBySelectionPolicy" } as never);
+    await expect(switcher.prepare("pr-1")).resolves.toEqual({ kind: "latest" });
+    updates.checkForUpdateAsync.mockResolvedValueOnce({ isAvailable: false, isRollBackToEmbedded: false, reason: "rollbackNoEmbeddedConfiguration" } as never);
+    await expect(switcher.prepare("pr-1")).resolves.toEqual({ kind: "nothing", reason: "none" });
+  });
+
+  it("answers an error when the build can't override the header, instead of rejecting", async () => {
+    const updates = fakeUpdates({ next: { id: "x" } });
+    updates.setUpdateRequestHeadersOverride.mockImplementationOnce(() => {
+      throw new Error("expo-channel-name is not an embedded request header");
+    });
+    const switcher = createChannelSwitcher({ updates, enabled: true, guard: createReloadGuard() });
+    await expect(switcher.prepare("pr-1")).resolves.toMatchObject({ kind: "error" });
+    await expect(switcher.requested()).resolves.toBeNull();
   });
 
   it("runs one write at a time, in order", async () => {

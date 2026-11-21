@@ -16,35 +16,10 @@
  * request header. Pure: no React Native, so it runs anywhere (the web's landing page included).
  */
 import { isChannelName } from "./channels";
+import { cleanPath, parseLink, trimSlashes } from "../link-parse";
 
 /** The app path a preview link opens. */
 export const PREVIEW_PATH = "/preview";
-
-const SCHEME = /^[a-z][a-z0-9+.-]*$/i;
-
-/** `scheme://host/path?query` split by index (no backtracking on a link from outside), or null. */
-function splitUrl(url: string): { scheme: string; host: string; path: string; query: string } | null {
-  const sep = url.indexOf("://");
-  if (sep < 1 || !SCHEME.test(url.slice(0, sep))) return null;
-  const hash = url.indexOf("#", sep + 3);
-  const body = hash < 0 ? url.slice(sep + 3) : url.slice(sep + 3, hash);
-  const q = body.indexOf("?");
-  const beforeQuery = q < 0 ? body : body.slice(0, q);
-  const slash = beforeQuery.indexOf("/");
-  return {
-    scheme: url.slice(0, sep),
-    host: slash < 0 ? beforeQuery : beforeQuery.slice(0, slash),
-    path: slash < 0 ? "" : beforeQuery.slice(slash),
-    query: q < 0 ? "" : body.slice(q),
-  };
-}
-
-/** `s` without its trailing slashes. */
-function trimSlashes(s: string): string {
-  let end = s.length;
-  while (end > 0 && s.charCodeAt(end - 1) === 47) end--;
-  return s.slice(0, end);
-}
 
 function queryParam(query: string, name: string): string | null {
   for (const part of query.replace(/^\?/, "").split("&")) {
@@ -82,32 +57,10 @@ export interface PreviewLinkOptions {
 export function previewLinkChannel(url: string, options: PreviewLinkOptions = {}): { channel: string | null } | null {
   const { schemes = [], hosts = [], path: previewPath = PREVIEW_PATH } = options;
   const base = trimSlashes(previewPath) || PREVIEW_PATH;
-  const trimmed = url.trim();
-  let path: string;
-  let query: string;
-  const match = splitUrl(trimmed);
-  if (match) {
-    const { scheme, host, path: rest, query: q } = match;
-    const s = scheme.toLowerCase();
-    if (s === "http" || s === "https") {
-      const colon = host.lastIndexOf(":");
-      const bare = (colon >= 0 && /^\d+$/.test(host.slice(colon + 1)) ? host.slice(0, colon) : host).toLowerCase();
-      if (!hosts.some((h) => h.toLowerCase() === bare)) return null;
-      path = rest;
-    } else if (schemes.some((x) => x.toLowerCase() === s)) {
-      path = host ? `/${host}${rest}` : rest;
-    } else return null;
-    query = q;
-  } else {
-    const colonAt = trimmed.indexOf(":");
-    if (colonAt > 0 && SCHEME.test(trimmed.slice(0, colonAt))) return null;
-    const noHash = trimmed.split("#")[0] ?? "";
-    const at = noHash.indexOf("?");
-    path = at < 0 ? noHash : noHash.slice(0, at);
-    query = at < 0 ? "" : noHash.slice(at);
-  }
-  path = `/${path}`.split("/").filter(Boolean).join("/");
-  path = `/${path}`;
+  const parsed = parseLink(url, schemes, hosts);
+  if (!parsed) return null;
+  const path = cleanPath(parsed.path);
+  const query = parsed.query;
 
   // Expo's development-client QR names the update URL, whose query names the channel.
   if (path === "/expo-development-client") {

@@ -404,8 +404,11 @@ people already have. No device registration, no new build, and anyone with the l
 1. **The lane.** `pr-preview.yml` fingerprints the pull request as the release builds it. When a
    release build (TestFlight or store) has that fingerprint, the pull request changed no native
    code: it publishes the JavaScript to the branch `pr-<number>`, points the channel of the same
-   name at it, and comments the link and a QR code. When none has it, an update can't load
-   anywhere, so it repacks or builds a preview build instead and says so in the comment.
+   name at it, and comments the link and a QR code. Per platform: one with no matching release
+   build (its native code changed) gets a preview build instead, repacked from a preview build
+   with the preview variant's fingerprint or built, and the comment says so. The update is
+   exported with the release profile's eas.json `env`, as the release lane publishes. The QR
+   code's scheme is `release.previews.scheme`, else the app's resolved Expo config.
    `pr-preview-teardown.yml` deletes the channel and branch when the pull request closes.
 2. **The link.** `https://<origin>/preview?channel=pr-42` (a universal link, with
    `release.previews.origin`) or `<scheme>:///preview?channel=pr-42` (the QR code, with

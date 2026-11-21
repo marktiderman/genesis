@@ -81,6 +81,14 @@ jobs:
     type: fingerprint
     environment: "GENESIS_RELEASE_EAS_ENVIRONMENT"
 
+  fingerprint_preview:
+    name: Fingerprint (as the preview builds it)
+    type: fingerprint
+    environment: preview
+    env:
+      APP_VARIANT: preview
+      EXPO_PUBLIC_APP_VARIANT: preview
+
 #@if ios
   get_release_ios_build:
     name: Find a release iOS build with this fingerprint
@@ -131,6 +139,8 @@ jobs:
     outputs:
       status: ${{ steps.publish.outputs.status }}
       message: ${{ steps.publish.outputs.message }}
+      ios_native: ${{ steps.publish.outputs.ios_native }}
+      android_native: ${{ steps.publish.outputs.android_native }}
     steps:
       - uses: eas/checkout
       - uses: eas/install_node_modules
@@ -139,8 +149,18 @@ jobs:
         run: |
           set -eo pipefail
           platforms=""
-          [ -n "${IOS_BUILD:-}" ] && platforms="ios"
-          [ -n "${ANDROID_BUILD:-}" ] && platforms="${platforms:+$platforms,}android"
+          native=""
+          # Per platform: a release build with this fingerprint takes the update; one without needs a preview build.
+#@if ios
+          if [ -n "${IOS_BUILD:-}" ]; then platforms="ios"; set-output ios_native "false"; else native="ios"; set-output ios_native "true"; fi
+#@end
+#@if android
+          if [ -n "${ANDROID_BUILD:-}" ]; then platforms="${platforms:+$platforms,}android"; set-output android_native "false"; else native="${native:+$native,}android"; set-output android_native "true"; fi
+#@end
+          # The scheme from release.previews.scheme, else the app's resolved Expo config (app.config.ts included).
+          if [ -z "${PREVIEW_SCHEME:-}" ]; then
+            PREVIEW_SCHEME="$(npx --no expo config --type public --json 2>/dev/null | node -e 'let s="";process.stdin.on("data",(d)=>s+=d).on("end",()=>{try{const c=JSON.parse(s);const v=Array.isArray(c.scheme)?c.scheme[0]:c.scheme;process.stdout.write(typeof v==="string"?v:"")}catch{}})' || true)"
+          fi
           scheme_link="${PREVIEW_SCHEME:+$PREVIEW_SCHEME:///preview?channel=$PREVIEW_CHANNEL}"
           link="${PREVIEW_ORIGIN:+$PREVIEW_ORIGIN/preview?channel=$PREVIEW_CHANNEL}"
           link="${link:-$scheme_link}"
@@ -153,10 +173,12 @@ jobs:
             [ -n "$qr" ] && [ "$2" = "link" ] && body="$body<br><img alt=\"Scan to open the preview\" width=\"180\" src=\"$qr\">"
             set-output message "$body<br><sub>The channel and its updates are deleted when this pull request closes.</sub>"
           }
+          native_note=""
+          [ -n "$native" ] && native_note=" Native code changed for $native: install that preview build from this run on expo.dev."
           if [ -z "$platforms" ]; then
-            # Native code changed: no build out there can load this; the preview build below covers it.
+            # Native code changed everywhere: no build out there can load this; the preview builds below cover it.
             set-output status "native"
-            comment "This pull request changes native code, so it can't load in the app people have. Install the preview build from this run on expo.dev, or wait for a new store build." none
+            comment "This pull request changes native code, so it can't load in the app people have.$native_note" none
             exit 0
           fi
           npx --no genesis build-stamp --channel "$PREVIEW_CHANNEL"
@@ -164,24 +186,29 @@ jobs:
           # The channel names the branch; both are created once, and kept in step on every push.
           npx --yes eas-cli@26.0.0 channel:create "$PREVIEW_CHANNEL" --non-interactive >/dev/null 2>&1 || true
           for p in ${platforms//,/ }; do
-            env CI=1 EXPO_NO_DOTENV=1 npx --yes eas-cli@26.0.0 update --branch "$PREVIEW_CHANNEL" --platform "$p" \
+            # With the release profile's eas.json env, as the release lane publishes, so the update matches its build.
+            node .eas/scripts/native-release.mjs with-profile eas.json "GENESIS_RELEASE_PROFILE" "$p" -- env CI=1 EXPO_NO_DOTENV=1 npx --yes eas-cli@26.0.0 update --branch "$PREVIEW_CHANNEL" --platform "$p" \
               --environment "GENESIS_RELEASE_EAS_ENVIRONMENT" --message "PR ${PREVIEW_CHANNEL#pr-}: ${PR_TITLE}" --non-interactive
           done
           npx --yes eas-cli@26.0.0 channel:edit "$PREVIEW_CHANNEL" --branch "$PREVIEW_CHANNEL" --non-interactive
           set-output status "published:$platforms"
-          comment "On a phone with the app ($platforms): <a href=\"$link\">$link</a>, or scan the code. The app asks before switching, shows a Preview banner while you're on it, and Leave goes back." link
+          if [ -z "$link" ]; then
+            comment "Published for $platforms, but the app has no scheme and no release.previews.origin, so there's no link to open it: set one in genesis.config.json.$native_note" none
+          else
+            comment "On a phone with the app ($platforms): <a href=\"$link\">$link</a>, or scan the code. The app asks before switching, shows a Preview banner while you're on it, and Leave goes back.$native_note" link
+          fi
 
 #@if ios
   get_ios_build:
     name: Find a preview iOS build with this fingerprint
-    needs: [publish_update]
-    if: ${{ env.PREVIEW_IOS == 'true' && needs.publish_update.outputs.status == 'native' }}
+    needs: [fingerprint_preview, publish_update]
+    if: ${{ env.PREVIEW_IOS == 'true' && needs.publish_update.outputs.ios_native == 'true' }}
     type: get-build
     environment: preview
     params:
       platform: ios
       profile: preview
-      fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
+      fingerprint_hash: ${{ needs.fingerprint_preview.outputs.ios_fingerprint_hash }}
       wait_for_in_progress: true
 
   repack_ios:
@@ -199,8 +226,8 @@ jobs:
 
   build_ios:
     name: Build a preview iOS build (native code changed)
-    needs: [get_ios_build]
-    if: ${{ env.PREVIEW_IOS == 'true' && needs.publish_update.outputs.status == 'native' && !needs.get_ios_build.outputs.build_id }}
+    needs: [get_ios_build, publish_update]
+    if: ${{ env.PREVIEW_IOS == 'true' && needs.publish_update.outputs.ios_native == 'true' && !needs.get_ios_build.outputs.build_id }}
     type: build
     environment: preview
     params:
@@ -211,13 +238,14 @@ jobs:
 #@if android
   get_android_build:
     name: Find a preview Android build with this fingerprint
-    needs: [publish_update]
-    if: ${{ needs.publish_update.outputs.status == 'native' }}
+    needs: [fingerprint_preview, publish_update]
+    if: ${{ needs.publish_update.outputs.android_native == 'true' }}
     type: get-build
+    environment: preview
     params:
       platform: android
       profile: preview
-      fingerprint_hash: ${{ needs.fingerprint.outputs.android_fingerprint_hash }}
+      fingerprint_hash: ${{ needs.fingerprint_preview.outputs.android_fingerprint_hash }}
       wait_for_in_progress: true
 
   repack_android:
@@ -235,8 +263,8 @@ jobs:
 
   build_android:
     name: Build a preview Android build (native code changed)
-    needs: [get_android_build]
-    if: ${{ needs.publish_update.outputs.status == 'native' && !needs.get_android_build.outputs.build_id }}
+    needs: [get_android_build, publish_update]
+    if: ${{ needs.publish_update.outputs.android_native == 'true' && !needs.get_android_build.outputs.build_id }}
     type: build
     environment: preview
     params:

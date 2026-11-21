@@ -45,7 +45,7 @@ export type ChannelSwitchResult =
 export type ChannelCheck =
   /** An update from the channel is downloaded: `restart` loads it. */
   | { kind: "downloaded" }
-  /** The newest update on the channel is the one running. */
+  /** Nothing newer on the channel than what this phone runs (or expo-updates' selection policy keeps what it runs). */
   | { kind: "latest" }
   /**
    * Nothing on the channel this build can load. `reason`: `"none"` (nothing published for this
@@ -123,6 +123,8 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
   const buildKey = `${storageKey}:build`;
   const listeners = new Set<(state: ChannelState) => void>();
   let cache: ChannelState | null = null;
+  /** The first read of storage, shared: a later publish always wins over it. */
+  let loading: Promise<ChannelState> | null = null;
   let queue: Promise<unknown> = Promise.resolve();
   /** One write at a time, in the order asked. */
   const serial = <T>(task: () => Promise<T>): Promise<T> => {
@@ -164,8 +166,7 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
       report(toError(error));
     }
   };
-  const load = async (): Promise<ChannelState> => {
-    if (cache) return cache;
+  const init = async (): Promise<ChannelState> => {
     const requested = await read(storageKey);
     let build = await read(buildKey);
     // A launch with no override runs on the build's own channel: remember it, since under an
@@ -174,9 +175,11 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
       build = updates.channel;
       await write(buildKey, build);
     }
-    cache = { requested, build };
+    // A pick published while storage was being read is newer: keep it.
+    if (!cache) cache = { requested, build };
     return cache;
   };
+  const load = (): Promise<ChannelState> => (cache ? Promise.resolve(cache) : (loading ??= init()));
   const publish = (next: ChannelState) => {
     cache = next;
     for (const listener of listeners) {
@@ -200,8 +203,23 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
     return name;
   };
   const dropOverride = async () => {
-    updates?.setUpdateRequestHeadersOverride?.(null);
+    try {
+      updates?.setUpdateRequestHeadersOverride?.(null);
+    } catch (error) {
+      report(toError(error));
+    }
     await pick(null);
+  };
+  /** Point the header at `name`; expo-updates throws when the build embeds no expo-channel-name header to override. */
+  const override = (name: string): { kind: "error"; error: Error } | null => {
+    try {
+      updates!.setUpdateRequestHeadersOverride!({ "expo-channel-name": name });
+      return null;
+    } catch (raw) {
+      const error = toError(raw);
+      report(error);
+      return { kind: "error", error };
+    }
   };
   const reload = async (): Promise<ChannelSwitchResult> => {
     const u = updates as UpdatesModuleLike;
@@ -223,12 +241,19 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
     try {
       const check = await u.checkForUpdateAsync();
       if (check.isAvailable || check.isRollBackToEmbedded) {
-        await u.fetchUpdateAsync();
+        const got = (await u.fetchUpdateAsync()) as { isNew?: boolean; isRollBackToEmbedded?: boolean } | undefined;
+        // `{ isNew: false, isRollBackToEmbedded: false }` is a fetch that got nothing (the channel changed in between).
+        if (got && got.isNew === false && !got.isRollBackToEmbedded) {
+          const error = new Error("The preview didn't download. Try again.");
+          report(error);
+          return { kind: "error", error };
+        }
         return { kind: "downloaded" };
       }
       const reason = (check as { reason?: string }).reason;
       if (reason === "updatePreviouslyFailed") return { kind: "nothing", reason: "failed" };
-      if (reason === "noUpdateAvailableOnServer") return { kind: "nothing", reason: "none" };
+      if (reason === "noUpdateAvailableOnServer" || reason === "rollbackNoEmbeddedConfiguration") return { kind: "nothing", reason: "none" };
+      // No reason, or a selection-policy rejection: nothing newer this phone would load.
       return { kind: "latest" };
     } catch (raw) {
       if (isChannelNotFoundError(raw)) {
@@ -248,7 +273,8 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
       return serial(async () => {
         const off = unavailable();
         if (off) return off;
-        updates!.setUpdateRequestHeadersOverride!({ "expo-channel-name": name });
+        const failed = override(name);
+        if (failed) return failed;
         await pick(name);
         const got = await fetch();
         if (got.kind === "gone") return { kind: "error", error: new Error(`There is no channel named ${name}.`) };
@@ -262,7 +288,8 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
       return serial(async () => {
         const off = unavailable();
         if (off) return off;
-        updates!.setUpdateRequestHeadersOverride!({ "expo-channel-name": name });
+        const failed = override(name);
+        if (failed) return failed;
         await pick(name);
         return fetch();
       });

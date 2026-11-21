@@ -442,12 +442,13 @@ function UpdatesParts({ slots, slotProps, children }: Omit<UpdatesRootProps, "bl
       </View>
       {!blocking && banner ? renderSlot(UpdateBanner, slots?.updateBanner, banner, slotProps?.updateBanner) : null}
       {!blocking && whatsNew ? renderSlot(WhatsNewSheet, slots?.whatsNew, whatsNew, slotProps?.whatsNew) : null}
-      {preview && slots?.previewNotice !== null ? renderSlot(PreviewNotice, slots?.previewNotice, preview, slotProps?.previewNotice) : null}
       {blocking ? (
         <View style={FILL} testID="genesis-updates-blocking">
           {blocking}
         </View>
       ) : null}
+      {/* Above a blocking screen too: a preview that forces an upgrade or shows maintenance can still be left. */}
+      {preview && slots?.previewNotice !== null ? renderSlot(PreviewNotice, slots?.previewNotice, preview, slotProps?.previewNotice) : null}
     </View>
   );
 }

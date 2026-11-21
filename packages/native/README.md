@@ -330,10 +330,17 @@ deletes it when the pull request closes (`genesis add template previews`, docs/N
    ```tsx
    import { router, useLocalSearchParams } from "expo-router";
    import { PreviewScreen } from "@marktiderman/genesis-native/updates";
+   import { ScreenContainer } from "@marktiderman/genesis-ui-native/layouts";
 
    export default function Preview() {
      const { channel } = useLocalSearchParams<{ channel?: string }>();
-     return <PreviewScreen channel={channel} onDone={() => router.back()} />;
+     // A link can open this screen with no history behind it: go home then.
+     const done = () => (router.canGoBack() ? router.back() : router.replace("/"));
+     return (
+       <ScreenContainer>
+         <PreviewScreen channel={channel} onDone={done} />
+       </ScreenContainer>
+     );
    }
    ```
 

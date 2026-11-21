@@ -58,6 +58,20 @@ describe("missed-value", () => {
     expect(by["notifications"]!.file).toBe("package.json");
   });
 
+  it("counts a detector only when it's imported from the block's package, and reads switched-off only there", async () => {
+    const off = { manifest: block({ id: "app-updates", detect: { imports: ["createUpdates"], off: [{ pattern: "channels\\s*:\\s*\\{\\s*enabled\\s*:\\s*__DEV__\\s*,?\\s*\\}", message: "dev only" }] } }), from: "installed" };
+    const push = { manifest: block({ id: "push", detect: { imports: ["createPush"] } }), from: "installed" };
+    const { ctx, found } = app(
+      {
+        "src/lib/updates.ts": 'import { createUpdates } from "@marktiderman/genesis-native/updates";\nimport { createPush } from "./my-push";\nexport const u = createUpdates({ channels: { enabled: __DEV__, } });\n',
+        "src/lib/diagnostics.ts": "export const d = { channels: { enabled: __DEV__ } };\n",
+      },
+      { eas: true },
+    );
+    await missedValueCheck({ blocks: async () => [off, push], catalog: () => [] })(ctx);
+    expect(found.map((f) => [f.subject, f.file])).toEqual([["app-updates", "src/lib/updates.ts"], ["push", "genesis.config.json"]]);
+  });
+
   it("takes the catalog's detect for an installed package too old to declare one", async () => {
     const { ctx, found } = app({}, { eas: true });
     const old = [{ manifest: block({ id: "push" }), from: "installed" }];

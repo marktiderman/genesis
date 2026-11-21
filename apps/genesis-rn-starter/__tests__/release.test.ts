@@ -241,6 +241,18 @@ describe("EAS workflows", () => {
     expect(Object.keys(workflow("e2e.yml").on)).toEqual(["workflow_dispatch"]);
   });
 
+  it("pr-preview's jobs list every job whose outputs they read, and fall back per platform", () => {
+    const { jobs } = workflow("pr-preview.yml");
+    for (const [id, job] of Object.entries(jobs)) {
+      const read = new Set([...JSON.stringify(job).matchAll(/needs\.([a-z_]+)\./g)].map((m) => m[1]));
+      const needs = Array.isArray(job.needs) ? job.needs : job.needs ? [job.needs] : [];
+      for (const r of read) expect(needs, `${id} reads needs.${r}`).toContain(r);
+    }
+    expect(jobs.get_android_build?.if).toContain("android_native == 'true'");
+    expect(jobs.get_ios_build?.if).toContain("ios_native == 'true'");
+    expect(jobs.get_android_build?.params?.fingerprint_hash).toContain("needs.fingerprint_preview.");
+  });
+
   it("pr-preview publishes to the pull request's own channel", () => {
     const job = workflow("pr-preview.yml").jobs.publish_update!;
     expect(job.env?.PREVIEW_CHANNEL).toBe("pr-${{ github.event.pull_request.number }}");

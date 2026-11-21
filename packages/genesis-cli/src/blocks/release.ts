@@ -227,8 +227,8 @@ export const TEMPLATE_SETS: Readonly<Record<string, { summary: string; templates
     templates: ["ci/native-release.yml", "release/deploy-production.yml", "release/pr-preview.yml", "ci/pr-preview-teardown.yml", "eas/scripts/native-release.mjs", "expo/fingerprint.config.js", "expo/.fingerprintignore"],
   },
   previews: {
-    summary: "pull request previews alone, for an app that ships its releases another way: pr-preview.yml (EAS) and pr-preview-teardown.yml (GitHub)",
-    templates: ["release/pr-preview.yml", "ci/pr-preview-teardown.yml", "expo/fingerprint.config.js", "expo/.fingerprintignore"],
+    summary: "pull request previews alone, for an app that ships its releases another way: pr-preview.yml (EAS), pr-preview-teardown.yml (GitHub), the script pr-preview.yml runs, the fingerprint config",
+    templates: ["release/pr-preview.yml", "ci/pr-preview-teardown.yml", "eas/scripts/native-release.mjs", "expo/fingerprint.config.js", "expo/.fingerprintignore"],
   },
   eas: { summary: "eas.json and every EAS workflow and script", templates: ["eas/", "release/"] },
   expo: { summary: "the fingerprint config and .fingerprintignore", templates: ["expo/"] },

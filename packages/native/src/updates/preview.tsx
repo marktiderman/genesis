@@ -8,7 +8,7 @@
  * from the notice, for everyone. Bluesky shows the same kind of notice to anyone on a
  * non-standard channel, with "Restore default".
  */
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Pressable, View } from "react-native";
 import { NativeButton, NativeEmptyState, NativeText } from "@marktiderman/genesis-ui-native/components";
 import { useUpdates } from "./block";
@@ -54,8 +54,15 @@ export interface PreviewScreenProps {
 export function PreviewScreen({ channel, onDone, testID = "genesis-preview" }: PreviewScreenProps) {
   const { channels } = useUpdates();
   const state = useChannelStateOf(channels);
-  const [phase, setPhase] = useState<Phase>({ kind: "confirm" });
   const valid = isChannelName(channel ?? "") ? (channel as string) : null;
+  // The phase belongs to one channel: a new link starts over, and a late answer for an earlier one is dropped.
+  const [run, setRun] = useState<{ channel: string | null; phase: Phase }>({ channel: valid, phase: { kind: "confirm" } });
+  const current = useRef(valid);
+  current.current = valid;
+  const phase: Phase = run.channel === valid ? run.phase : { kind: "confirm" };
+  const setPhase = (next: Phase, forChannel: string | null = valid) => {
+    if (forChannel === current.current) setRun({ channel: forChannel, phase: next });
+  };
 
   if (!valid) {
     return <NativeEmptyState testID={`${testID}-invalid`} variant="error" title="This preview link isn't right" body="It doesn't name a preview. Ask for the link again." primaryAction={<NativeButton onPress={onDone}>Close</NativeButton>} />;
@@ -65,15 +72,25 @@ export function PreviewScreen({ channel, onDone, testID = "genesis-preview" }: P
   }
 
   const load = async () => {
-    setPhase({ kind: "working" });
-    setPhase(await channels.prepare(valid));
+    const target = valid;
+    setPhase({ kind: "working" }, target);
+    try {
+      setPhase(await channels.prepare(target), target);
+    } catch (raw) {
+      setPhase({ kind: "error", error: raw instanceof Error ? raw : new Error(String(raw)) }, target);
+    }
   };
   const restart = async () => {
-    setPhase({ kind: "restarting" });
-    const r = await channels.restart();
-    if (r.kind === "blocked") setPhase({ kind: "error", error: new Error("Save or discard what you're editing, then restart the app to open the preview.") });
-    else if (r.kind === "error") setPhase({ kind: "error", error: r.error });
-    else if (r.kind === "unavailable") setPhase(r);
+    const target = valid;
+    setPhase({ kind: "restarting" }, target);
+    try {
+      const r = await channels.restart();
+      if (r.kind === "blocked") setPhase({ kind: "error", error: new Error("Save or discard what you're editing, then restart the app to open the preview.") }, target);
+      else if (r.kind === "error") setPhase({ kind: "error", error: r.error }, target);
+      else if (r.kind === "unavailable") setPhase(r, target);
+    } catch (raw) {
+      setPhase({ kind: "error", error: raw instanceof Error ? raw : new Error(String(raw)) }, target);
+    }
   };
   const already = state.requested === valid;
 
@@ -94,7 +111,7 @@ export function PreviewScreen({ channel, onDone, testID = "genesis-preview" }: P
       case "restarting":
         return { title: "Restarting…", body: "" };
       case "latest":
-        return { title: "You have the newest version", body: `${valid} is already running.`, primary: { label: "Done", onPress: onDone } };
+        return { title: "Nothing newer to load", body: `This phone already has the newest version of ${valid} it can run.`, primary: { label: "Done", onPress: onDone } };
       case "nothing":
         return {
           title: "Nothing to open yet",
@@ -143,10 +160,12 @@ export interface PreviewNoticeProps {
   /** Back to the build's channel (reloads). */
   leave: () => void;
   leaving: boolean;
+  /** Set when leaving couldn't restart the app: the preview's code still runs until it does. */
+  problem?: string | null;
 }
 
 /** A small bar over every screen while a preview is open: which one, and Leave. */
-export function PreviewNotice({ channel, leave, leaving }: PreviewNoticeProps) {
+export function PreviewNotice({ channel, leave, leaving, problem }: PreviewNoticeProps) {
   return (
     <View pointerEvents="box-none" style={{ position: "absolute", top: 0, left: 0, right: 0, alignItems: "center", paddingTop: 54 }}>
       <Pressable
@@ -154,7 +173,7 @@ export function PreviewNotice({ channel, leave, leaving }: PreviewNoticeProps) {
         onPress={leave}
         disabled={leaving}
         accessibilityRole="button"
-        accessibilityLabel={`Preview ${channel}. Leave the preview`}
+        accessibilityLabel={problem ? `Preview ${channel}. ${problem} Try again` : `Preview ${channel}. Leave the preview`}
         className="bg-warning"
         style={({ pressed }) => ({
           flexDirection: "row",
@@ -174,7 +193,7 @@ export function PreviewNotice({ channel, leave, leaving }: PreviewNoticeProps) {
           Preview: {channel}
         </NativeText>
         <NativeText preset="caption" className="text-warning-foreground" style={{ fontWeight: "600", textDecorationLine: "underline" }}>
-          {leaving ? "Leaving…" : "Leave"}
+          {leaving ? "Leaving…" : problem ? "Restart to leave" : "Leave"}
         </NativeText>
       </Pressable>
     </View>
@@ -186,13 +205,24 @@ export function usePreviewNotice(): PreviewNoticeProps | null {
   const { channels } = useUpdates();
   const { requested } = useChannelStateOf(channels);
   const [leaving, setLeaving] = useState(false);
-  if (!requested) return null;
-  return {
-    channel: requested,
-    leaving,
-    leave: () => {
-      setLeaving(true);
-      void channels.reset().finally(() => setLeaving(false));
-    },
+  // Leaving clears the override at once, but the preview's code runs until the app restarts: keep
+  // the notice (and a way to finish) until it does.
+  const [stuck, setStuck] = useState<{ channel: string; problem: string } | null>(null);
+  const channel = requested ?? stuck?.channel ?? null;
+  if (!channel) return null;
+  const finish = async () => {
+    setLeaving(true);
+    try {
+      const r = stuck ? await channels.restart() : await channels.reset();
+      if (r.kind === "reloading") return;
+      const problem =
+        r.kind === "blocked" ? "Save or discard what you're editing, then restart." : r.kind === "error" ? r.error.message || "Couldn't restart the app." : "Close and reopen the app to finish leaving.";
+      setStuck({ channel, problem });
+    } catch (raw) {
+      setStuck({ channel, problem: raw instanceof Error ? raw.message : "Couldn't restart the app." });
+    } finally {
+      setLeaving(false);
+    }
   };
+  return { channel, leaving, problem: stuck?.problem ?? null, leave: () => void finish() };
 }

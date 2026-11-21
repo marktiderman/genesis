@@ -54,7 +54,22 @@ export function appPlatforms(root: string): Set<AppPlatform> {
   return out;
 }
 
-const importsFrom = (code: string, pkg: string) => code.includes(`"${pkg}`) || code.includes(`'${pkg}`);
+/** `import { a, b as c } from "pkg"` and `export { a } from "pkg"`: each named import with the module it comes from. */
+const NAMED_IMPORT = /\b(?:import|export)\s+(?:type\s+)?\{([^}]*)\}\s*from\s*["']([^"']+)["']/g;
+
+/** The names `code` imports from `packages` (or their subpaths). */
+export function namesImportedFrom(code: string, packages: readonly string[]): Set<string> {
+  const out = new Set<string>();
+  for (const m of code.matchAll(NAMED_IMPORT)) {
+    const from = m[2]!;
+    if (!packages.some((p) => from === p || from.startsWith(`${p}/`))) continue;
+    for (const part of m[1]!.split(",")) {
+      const name = part.trim().replace(/^type\s+/, "").split(/\s+as\s+/)[0]!.trim();
+      if (name) out.add(name);
+    }
+  }
+  return out;
+}
 
 /** Whether the app uses `block`, and where it switched it off. */
 export function classify(
@@ -64,13 +79,15 @@ export function classify(
   installed: boolean,
 ): { state: "used" | "missed" | "unknown"; off: { file: string; line: number; message: string }[] } {
   const off: { file: string; line: number; message: string }[] = [];
-  const files = ctx.files.filter((f) => block.packages.some((p) => importsFrom(f.code, p)));
   const names = block.detect?.imports ?? [];
-  const used = locked.has(block.id) || (names.length > 0 && files.some((f) => names.some((n) => new RegExp(`\\b${n}\\b`).test(f.code))));
+  // A detector name counts only when it is imported from one of the block's own packages.
+  const adopting = names.length ? ctx.files.filter((f) => { const got = namesImportedFrom(f.code, block.packages); return names.some((n) => got.has(n)); }) : [];
+  const used = locked.has(block.id) || adopting.length > 0;
   if (used) {
     for (const o of block.detect?.off ?? []) {
       const re = new RegExp(o.pattern, "m");
-      for (const f of ctx.files) {
+      // Only where the block is set up: another config's `enabled: __DEV__` isn't this block's.
+      for (const f of adopting) {
         const m = re.exec(f.code);
         if (m) off.push({ file: f.path, line: f.code.slice(0, m.index).split("\n").length, message: o.message });
       }

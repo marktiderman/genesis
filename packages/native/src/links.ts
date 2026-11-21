@@ -13,6 +13,7 @@
  */
 
 import { PREVIEW_PATH, previewLinkChannel, previewPath } from "./updates/preview-links";
+import { cleanPath, parseLink, type ParsedLink } from "./link-parse";
 
 /** A target path (`"/clients/:id"`, params filled in) or a function of the params. */
 export type LinkTarget = string | ((params: Record<string, string>) => string);
@@ -40,39 +41,7 @@ export interface LinkOptions {
   previews?: false | { path?: string };
 }
 
-const URL_PATTERN = /^([a-z][a-z0-9+.-]*):\/\/([^/?#]*)([^?#]*)(\?[^#]*)?(#.*)?$/i;
-
-interface Parsed {
-  path: string;
-  query: string;
-}
-
-function parse(url: string, schemes: readonly string[], hosts: readonly string[]): Parsed | null {
-  const trimmed = url.trim();
-  const match = URL_PATTERN.exec(trimmed);
-  if (!match) {
-    // Already a path (expo-router passes paths as well as URLs).
-    if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) return null;
-    const noHash = trimmed.split("#")[0] ?? "";
-    const at = noHash.indexOf("?");
-    return at < 0 ? { path: noHash, query: "" } : { path: noHash.slice(0, at), query: noHash.slice(at) };
-  }
-  const [, scheme = "", host = "", path = "", query = ""] = match;
-  const lowerScheme = scheme.toLowerCase();
-  if (lowerScheme === "http" || lowerScheme === "https") {
-    const bareHost = host.toLowerCase().replace(/:\d+$/, "");
-    if (!hosts.some((h) => h.toLowerCase() === bareHost)) return null;
-    return { path, query };
-  }
-  if (!schemes.some((s) => s.toLowerCase() === lowerScheme)) return null;
-  // In `myapp://clients/1`, "clients" sits where a host would.
-  return { path: `/${host}${path}`, query };
-}
-
-function clean(path: string): string {
-  const joined = `/${path}`.replace(/\/{2,}/g, "/");
-  return joined.length > 1 ? joined.replace(/\/$/, "") : joined;
-}
+const clean = cleanPath;
 
 function matchPattern(pattern: string, path: string): Record<string, string> | null {
   const want = clean(pattern).split("/").slice(1);
@@ -117,6 +86,14 @@ function withQuery(path: string, query: string): string {
 /** The app path for `url`, `"/"` when it is unknown, or `null` when it is ignored. */
 export function normalizeLink(url: string, options: LinkOptions): string | null {
   const { schemes = [], hosts = [], map, ignore = [], onUnknown, previews = {} } = options;
+  let parsed: ParsedLink | null;
+  try {
+    parsed = parseLink(url, schemes, hosts);
+  } catch {
+    parsed = null;
+  }
+  // An ignored path stays ignored, a preview's included.
+  if (parsed && ignore.some((pattern) => matchPattern(pattern, clean(parsed.path)))) return null;
   if (previews !== false) {
     const path = previews.path ?? PREVIEW_PATH;
     let preview: { channel: string | null } | null = null;
@@ -131,12 +108,6 @@ export function normalizeLink(url: string, options: LinkOptions): string | null 
     onUnknown?.(url);
     return "/";
   };
-  let parsed: Parsed | null;
-  try {
-    parsed = parse(url, schemes, hosts);
-  } catch {
-    parsed = null;
-  }
   if (!parsed) return unknown();
   const path = clean(parsed.path);
   // "." and ".." would let a link climb out of the path it matched (a `*` capture included).
