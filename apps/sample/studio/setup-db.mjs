@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 // Builds the sample app's studio database on a LOCAL Postgres and writes
-// apps/sample/.env.local so `pnpm dev` serves /studio against it.
+// apps/sample/.env.local so `pnpm dev` serves /data against it.
 //
 //   pnpm --filter sample studio:db        # create, or rebuild from scratch
 //
 // Postgres: STUDIO_ADMIN_DATABASE_URL, default the studio-server test
-// container (`pnpm --filter @marktiderman/genesis-studio-server test:db`
+// container (`pnpm --filter @marktiderman/genesis-data-server test:db`
 // starts it on 127.0.0.1:59432). Refuses any host but localhost: this script
 // drops and recreates a database.
 import { randomBytes } from "node:crypto";
@@ -13,7 +13,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import postgres from "postgres";
-import { studioSetupSql } from "@marktiderman/genesis-studio-server";
+import { studioSetupSql } from "@marktiderman/genesis-data-server";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const adminUrl = new URL(process.env.STUDIO_ADMIN_DATABASE_URL ?? "postgres://postgres:postgres@127.0.0.1:59432/postgres");
@@ -95,4 +95,4 @@ writeFileSync(
   ].join("\n"),
 );
 console.log(`Built ${DATABASE} on ${adminUrl.host} and wrote ${envPath}.`);
-console.log("Run `pnpm --filter sample dev` and open http://localhost:3200/studio");
+console.log("Run `pnpm --filter sample dev` and open http://localhost:3200/data");

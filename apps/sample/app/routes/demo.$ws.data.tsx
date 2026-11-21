@@ -1,9 +1,9 @@
-/** The Data Studio on the demo's in-memory tables: spreadsheet editing as the signed-in role. */
+/** Genesis Data on the demo's in-memory tables: spreadsheet editing as the signed-in role. */
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import { useDataProvider } from "@marktiderman/genesis-core/provider";
 import { FeatureGate } from "@marktiderman/genesis-config/gate/react";
-import { DataStudio, createSearchParamsRouter } from "@marktiderman/genesis-studio";
+import { DataStudio, createSearchParamsRouter } from "@marktiderman/genesis-data";
 import { Alert, AlertDescription, AlertTitle } from "@marktiderman/genesis-ui";
 import { PageHeader } from "@marktiderman/genesis-ui/layout";
 import { useDemo } from "../demo/context";
@@ -23,7 +23,7 @@ export default function DemoData() {
   return (
     <div className="space-y-4 p-4 md:p-6" data-testid="demo-studio">
       <PageHeader
-        title="Data Studio"
+        title="Genesis Data"
         subtitle="The app's own tables, edited like a spreadsheet. In an app it runs as you, under the database's row rules; here, on the demo's in-memory rows."
       />
       <FeatureGate

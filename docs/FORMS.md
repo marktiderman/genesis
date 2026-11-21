@@ -745,7 +745,7 @@ The engine is greenfield; these are the seams where it meets existing Genesis co
 | Extension ladder (`slots`/`slotProps`, `className`) | `<Form>` follows it exactly, with a `FormSlotMap`. The field registry is a finer rung below it. |
 | `DataProvider` (`genesis-core`) | `genesisStore(provider)` implements `FormStore` on any provider, for apps not on Supabase. Lives in `genesis-forms-react` behind an optional peer, so the core stays dependency-free. |
 | `ResourceForm` / `ResourceFormFieldDef` | Left alone at first. Later, `fromResourceFields(defs)` converts configs and `ResourceForm` can render through the engine, which fixes its known gaps: closures as conditions, the `if`-chain renderer, required fields that still validate while hidden. |
-| Data Studio `FieldSchema` | `fromResourceSchema(schema)` builds a form from database metadata, giving Data Studio a public **form view** (like Airtable forms). |
+| Genesis Data `FieldSchema` | `fromResourceSchema(schema)` builds a form from database metadata, giving Genesis Data a public **form view** (like Airtable forms). |
 | FRAMEWORK.md rule 4 ("Forms → react-hook-form + zod") | The one real conflict, because the forms engine owns its state. Proposed amendment: rule 4 covers CRUD forms; form *products* use `genesis-forms`. Decision 2. |
 | Conventions | Changesets, subpath exports, `"use client"` stamping, `check-exports-resolve`, token lint, `testID` → `data-testid`, Storybook stories in `apps/sample`. All apply unchanged. |
 
@@ -858,7 +858,7 @@ layer.
 | **F3 · Builder** | `genesis-forms-builder`: document editor, `/` menu, inspector from `propsSchema`, logic panel and flow map, preview, publish/versioning, translations. **The product's builder app ships on it.** | A non-developer builds and publishes a branching form; a plugin field type appears in the builder with no builder changes. |
 | **F4 · Assessment** | Answer keys, `publicDefinition`, auto + manual grading, rubrics, attempts, assignments, `<ResponseReview>`, `<GradingQueue>`, print layout, `fillBlanks`, matching, ordering. | An exercise is assigned, completed over two sessions, auto- and manually graded, with no answer key in the browser bundle or network traffic. |
 | **F5 · Native + embed** | `genesis-forms-native`, `genesis-forms-embed` (devtools shipped in R1). | The same definition runs in an Expo app and in an embed on a marketing site. |
-| **F6 · Ecosystem** | Plugins (payments, scheduling, signature, captcha), AI assist, MCP server, collaboration, Genesis `ResourceForm` and Data Studio integration. | Third-party field packages exist outside the repo. |
+| **F6 · Ecosystem** | Plugins (payments, scheduling, signature, captcha), AI assist, MCP server, collaboration, Genesis `ResourceForm` and Genesis Data integration. | Third-party field packages exist outside the repo. |
 
 Decided: the builder (F3) ships before assessment (F4).
 

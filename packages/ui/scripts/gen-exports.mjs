@@ -225,7 +225,7 @@ const baseExports = {
   },
   // Components on their OWN folder and subpath because they bring an optional
   // peer nobody else should inherit: the sheet grid (@tanstack/react-virtual,
-  // DATA-STUDIO.md decision 20) and rich text (@tiptap/*). `/rich-text` is
+  // DATA.md decision 20) and rich text (@tiptap/*). `/rich-text` is
   // the editor-free renderer and server-safe helpers; `/rich-text-editor` is
   // the only entry that imports Tiptap. Listed here so a regeneration keeps
   // them; each also needs its `tsup.config.ts` entry.

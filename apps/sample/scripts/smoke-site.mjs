@@ -110,7 +110,7 @@ const queue = [...paths];
 await Promise.all(Array.from({ length: 6 }, async () => {
   while (queue.length) await check(queue.shift());
 }));
-// The demo's behaviour, not just its rendering: roles, workspaces, the Data Studio, intake and reset.
+// The demo's behaviour, not just its rendering: roles, workspaces, Genesis Data, intake and reset.
 // Each step runs in a fresh browser context (its own saved role) and fails on any console error.
 async function demoStep(name, run) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 860 } });
@@ -154,7 +154,7 @@ await demoStep("a client sees only their own records", async ({ page, go, expect
   }
 });
 
-await demoStep("the Data Studio follows the workspace, and a deep link hydrates", async ({ page, go, expect }) => {
+await demoStep("Genesis Data follows the workspace, and a deep link hydrates", async ({ page, go, expect }) => {
   await go("/demo/harbor/data?table=clients");
   await page.getByText("Juniper Coffee Co.").first().waitFor();
   await switcher(page).click();

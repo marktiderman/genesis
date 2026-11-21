@@ -1,6 +1,6 @@
 // =====================================================================
 // The one schema model, from @marktiderman/genesis-core/schema
-// (docs/DATA-STUDIO.md decision 11). Every switchboard module reads it
+// (docs/DATA.md decision 11). Every switchboard module reads it
 // through this file.
 //
 // WHY A RELATIVE PATH AND NOT THE PACKAGE NAME. genesis-core is an OPTIONAL

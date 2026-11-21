@@ -708,17 +708,18 @@ client
     for (const step of plan.steps) console.log(`→ ${step}`);
   });
 
-const studio = program.command("studio").description("The Genesis Data Studio");
+type DataInitOptions = { dir: string; host?: string; route: string; loginRole: string; force: boolean };
 
-studio
-  .command("init")
-  .description("Turn the Data Studio on in this app: a server for every table, a page, and one migration to review")
-  .option("-d, --dir <dir>", "The app's folder", process.cwd())
-  .option("--host <host>", "next, tanstack-start or supabase-function (default: detected)")
-  .option("--route <path>", "Where the page lives", "/admin/data")
-  .option("--login-role <name>", "The studio's database login", "genesis_studio_login")
-  .option("--force", "Overwrite files that already exist", false)
-  .action(async (opts: { dir: string; host?: string; route: string; loginRole: string; force: boolean }) => {
+// `genesis data init` (and its old name, `genesis studio init`): the same options either way.
+const dataInitCommand = (cmd: Command) =>
+  cmd
+    .option("-d, --dir <dir>", "The app's folder", process.cwd())
+    .option("--host <host>", "next, tanstack-start or supabase-function (default: detected)")
+    .option("--route <path>", "Where the page lives", "/admin/data")
+    .option("--login-role <name>", "Genesis Data's database login", "genesis_studio_login")
+    .option("--force", "Overwrite files that already exist", false);
+
+async function runDataInit(opts: DataInitOptions) {
     const { planStudioInit } = await import("./studio/init.js");
     const root = path.resolve(opts.dir);
     const packageJson = JSON.parse(await fs.readFile(path.join(root, "package.json"), "utf-8").catch(() => "{}"));
@@ -782,11 +783,23 @@ studio
     }
     const pm = existsSync(path.join(root, "pnpm-lock.yaml")) ? "pnpm add" : existsSync(path.join(root, "yarn.lock")) ? "yarn add" : existsSync(path.join(root, "bun.lock")) || existsSync(path.join(root, "bun.lockb")) ? "bun add" : "npm install";
     console.log("");
-    console.log(`✔ The Data Studio is set up for ${{ next: "Next.js", "tanstack-start": "TanStack Start", "supabase-function": "a Supabase Edge Function" }[plan.host]}. To finish:`);
+    console.log(`✔ Genesis Data is set up for ${{ next: "Next.js", "tanstack-start": "TanStack Start", "supabase-function": "a Supabase Edge Function" }[plan.host]}. To finish:`);
     // Quote a range with spaces or `<`/`>` so the line pastes into a shell as is.
     console.log(`  1. ${pm} ${plan.install.map((p) => (/[\s<>|]/.test(p) ? `"${p}"` : p)).join(" ")}`);
     plan.steps.forEach((step, i) => console.log(`  ${i + 2}. ${step}`));
-  });
+  }
+
+const data = program.command("data").description("Genesis Data: an app's own tables, edited as the signed-in user");
+dataInitCommand(
+  data.command("init").description("Turn Genesis Data on in this app: a server for every table, a page, and one migration to review"),
+).action(runDataInit);
+
+// The old name, from when Genesis Data was the Data Studio. It still works, and says what it's called now.
+const studio = program.command("studio").description("Renamed: use `genesis data`");
+dataInitCommand(studio.command("init").description("Renamed: use `genesis data init`")).action(async (opts: DataInitOptions) => {
+  console.warn("`genesis studio init` is now `genesis data init`. The old name still works for now.\n");
+  await runDataInit(opts);
+});
 
 async function confirm(question: string): Promise<boolean> {
   if (!process.stdin.isTTY) return false;

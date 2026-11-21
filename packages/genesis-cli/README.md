@@ -38,12 +38,13 @@ npx @marktiderman/genesis-cli doctor [--strict] [--json] [--build] [--config <pa
 Checks an app against the Genesis it has installed. See [genesis doctor](#genesis-doctor).
 
 ```bash
-npx @marktiderman/genesis-cli studio init
+npx @marktiderman/genesis-cli data init
 ```
 
-Turns the Data Studio on in an existing Supabase app. It writes three things:
+Turns Genesis Data on in an existing Supabase app (it was `genesis studio init`, which still works
+and says it's been renamed). It writes three things:
 
-- **One migration to review:** the studio's `NOINHERIT` login and the audit trail. It holds no
+- **One migration to review:** Genesis Data's `NOINHERIT` login and the audit trail. It holds no
   password.
 - **The server:** a Next.js route when the app has an `app/` router; otherwise a Supabase Edge
   Function, `supabase/functions/genesis-studio`, with `verify_jwt = false` added to
@@ -64,7 +65,7 @@ schemas: without `contracts.schemas`, the ones the existing contract's `// Sourc
 `-o`, `-s` and `--database-env` override them; paths are relative to the app's root, where you run
 the command. With `--openapi`, only a single configured schema carries over (else `public`).
 
-Writes `resources.genesis.ts` (or `contracts.out`), a checked-in contract for the Data Studio: every table in the
+Writes `resources.genesis.ts` (or `contracts.out`), a checked-in contract for Genesis Data: every table in the
 schemas, with its key, fields (type, database type, nullability, defaults, enum values, links)
 and a row type per table. Enum values come from enum types and from single-column `CHECK`s that
 list values (`status in ('open', 'done')`). A view Postgres can update on its own takes its
@@ -388,7 +389,7 @@ mapping so a migration an overlay's app already applied is never copied a second
 
 It never overwrites a file the app has: one with other text is reported and left alone. A second
 run creates and changes nothing. `--dry-run` prints the plan and writes nothing. `genesis add
---list` lists the blocks the app can add. `genesis studio init` is unchanged.
+--list` lists the blocks the app can add. `genesis data init` works as before.
 
 In an app whose database files live elsewhere ([A phone app beside a web app](#a-phone-app-beside-a-web-app)),
 `add` copies none of the block's migrations, pgTAP tests, Edge Functions or `config.toml`
@@ -446,14 +447,16 @@ installed packages with the app's copies, and every copy that carries a header:
 | `new` | the package ships a migration the app hasn't copied | copied as a new file, after every existing one |
 | `edited` | the copy no longer matches the text it was copied with | reported; never rewritten |
 | `changed-upstream` | the package now ships different text than the copy was made from | reported; never rewritten |
-| `differs` | a file with the migration's name, other text and no header | treated as the app's own; never rewritten |
+| `differs` | a file with the migration's name, other text and no header; or several files hold the migration and not exactly one carries its header | treated as the app's own; never rewritten |
 | `deleted` | the app deleted a copy `genesis.lock.json` records (its `migrations` map: where each package migration was copied) | reported; never copied again |
 | `provided` | not in the app, but a migration that is (or comes in the same run) provides its objects | never copied |
 
 Every file already in `supabase/migrations` counts as applied: none is ever written again, and a
 new file is created only if its name is free (otherwise it fails). A package migration is copied
 only when nothing in the folder holds it yet, by header, by name or by text, so one a package
-renumbered or moved is never copied twice. Line endings (CRLF or LF) don't count as a change. A
+renumbered or moved is never copied twice. When several files hold it and exactly one carries its
+header (the app wrote a draft before the package shipped, then copied the published one), that one
+is the copy and is checked as usual; the others are the app's own, named in the row's detail. Line endings (CRLF or LF) don't count as a change. A
 symlink in the folder stops the command. A pgTAP test is copied only with its migration, so one you
 deleted stays deleted. `--forward` writes one forward migration stub
 (`<timestamp>_<name>_forward.sql`, with a `genesis-forward` header) for each edited or changed
@@ -952,7 +955,7 @@ Exit codes: `0` pass, `1` findings, `2` the doctor couldn't run (bad config, Gen
 | `core/views-stay-platform-neutral` | warn | Declared by genesis-core (see [Package rules](#package-rules)). A `*.view.ts` file (a view description web and native share) that imports a platform module: a router (`react-router*`, `@tanstack/react-router`, `@tanstack/react-start`, `next`, `expo-router`), `react-dom`, `react-native` or `react-native-*`, `expo*`, icon sets (`lucide-react`, `lucide-react-native`), or Genesis UI (`genesis-ui`, `genesis-ui-native`, `genesis-native`). Direct imports only: keep what the view imports platform-neutral too. |
 | `iso-date-slice` | warn | A day cut from an ISO timestamp: `.toISOString().slice(0, 10)`, `.substring(0, 10)`, `.substr(0, 10)`, `.split("T")[0]` or `.split("T").at(0)`. That's the day in UTC, which for an evening in the Americas is already tomorrow. Use `personDay(person)` or `dayIn(zone)` from `@marktiderman/genesis-core/dates`. Test files are skipped; where UTC is what you mean (a log name, a UTC report), allow it with a reason. |
 | `resource-view-tree` | error | A `<ResourceView>` or `<ResourcePage>` with `tree` and `pagination="server"` or `"cursor"` (bare or in braces). A tree is built from every row on the client, so the screen throws when it renders. Leave `pagination` unset. Only the tag's own attributes count, not a `tree` inside an expression. ([Tree mode](../../docs/RESOURCE-VIEW.md#tree-mode)) |
-| `studio-server-auth-import` | warn | An import of a studio-server file the package doesn't export (`@marktiderman/genesis-studio-server/dist/…`, `/src/…`, `/lib/…`), or a CommonJS `require("@marktiderman/genesis-studio-server")` of the ESM-only root. Besides the doctor's scan it reads the app's `.cjs` and `.mjs` files (tests skipped), where a `require` usually is. Both fail at run time with `ERR_PACKAGE_PATH_NOT_EXPORTED`. Use `@marktiderman/genesis-studio-server/auth`: the token checks and `switchToUser`, for `import` and `require`. An ESM import of the root is fine. |
+| `studio-server-auth-import` | warn | An import of a studio-server file the package doesn't export (`@marktiderman/genesis-data-server/dist/…`, `/src/…`, `/lib/…`), or a CommonJS `require("@marktiderman/genesis-data-server")` of the ESM-only root. Besides the doctor's scan it reads the app's `.cjs` and `.mjs` files (tests skipped), where a `require` usually is. Both fail at run time with `ERR_PACKAGE_PATH_NOT_EXPORTED`. Use `@marktiderman/genesis-data-server/auth`: the token checks and `switchToUser`, for `import` and `require`. An ESM import of the root is fine. |
 | `removed-scope-name` | error | A "practice" name genesis-core 2 removed, in a file that imports a Genesis package: a view field's `timeZone: "practice"` (a string value in a view definition), NativeResourceView's `practiceTimeZone`, `resolveZone("practice", …)`, or DisplayTimeZones' `practice`. `defineView` refuses the first when the view loads and the rest are type errors; this lists them in CI. `genesis codemod genesis-core-2-scope-names` rewrites every one. It reads only Genesis API usage, the same shapes the codemod rewrites (see its row above); comments and an app's own `practice` settings, props and `resolveZone` are skipped. |
 | `app-part-name` | warn | An app element's own `data-slot` that doesn't start `app-`. An app style reaches an app's own part by name, so it is `app-<name>` and never matches a Genesis part; a name the installed design system's `THEME_PARTS` already uses is called out, since every app style's rules for that part would hit the app's element. Files inside an overlay of the component package are skipped (ADR 0018). |
 | `app-part-colors` | warn | In a custom view (a file that renders `<CustomView>` or calls `useCustomView`) or a file with an app part (`data-slot="app-…"`): a colour property (`color`, `backgroundColor`, `borderColor`, `fill`, …) or a Tailwind colour utility with an arbitrary value (`bg-[var(--x)]`) that reads a custom property the theme stylesheets don't declare as a colour role. Take colours from roles (`hsl(var(--primary))`, `bg-primary`), so the app brand and dark mode reach the view. Literal colours stay `raw-color`'s (ADR 0019). |
@@ -981,7 +984,7 @@ Exit codes: `0` pass, `1` findings, `2` the doctor couldn't run (bad config, Gen
 | `platform-admin-missing` | warn / info | The app has genesis-supabase's default platform-admin list (migration 0022's copy), no `private.genesis_platform_admin` hook of its own, and the list is empty, so nobody can change a setting or answer support tickets. Read with the database layer (`--database`, or a linked project when the network is on). **info**: the list couldn't be read. |
 | `genesis-eslint-config` | warn | A native app (with `expo` or `react-native`, or the `native` pack) whose ESLint flat config doesn't load [`@marktiderman/genesis-cli/eslint`](#lint-rules), so `genesis upgrade` can't bring Genesis's lint rules; or loads it without `eslint-plugin-testing-library` in package.json, so the config can't load. The message gives the fix: `genesis codemod genesis-cli-eslint-config`, or the two lines to add. Web apps (Genesis has no web lint rules yet) and apps without a flat config aren't checked. Ratcheted by default: under `--base`, an unchanged config reports it as `info`. |
 | `migration-pending` | warn | A package migration of one of the app's blocks (`genesis.lock.json`) that isn't in the app yet, as `genesis migrate --dry-run` reports it: the database the app deploys lacks what the installed package needs. Fix: `migrate.copy` (`genesis migrate`). An app whose lock lists no blocks, or whose database files live in another app, isn't checked. |
-| `migration-drift` | warn | A copy of a package migration the app edited, one whose package text changed since it was copied, or a same-named file with other text, with no forward migration carrying it. An applied migration is never rewritten. Fix: `migrate.forward` (guided: `genesis migrate --forward` writes the stub, you fill it in). |
+| `migration-drift` | warn | A copy of a package migration the app edited, one whose package text changed since it was copied, or a same-named file with other text (unless another file carries the migration's header: that one is the copy, and a same-named draft beside it is the app's own), with no forward migration carrying it. An applied migration is never rewritten. Fix: `migrate.forward` (guided: `genesis migrate --forward` writes the stub, you fill it in); when several files hold the migration and their headers can't tell which is the copy, giving exactly one of them the migration's `genesis-migration` header clears it instead. |
 | `genesis-behind` | info / warn / error | The installed `@marktiderman/genesis` release against npm's latest, and the advisories published for the installed Genesis packages. See [genesis-behind](#genesis-behind). |
 | `lock-files` | warn / info | `genesis.lock.json` against the files on disk. **warn**: a file the lock owns is missing; `genesis upgrade` never brings a deleted owned file back, so a lock naming files that aren't there passes every upgrade silently. A file you deleted on purpose gets `"deleted": true` in its lock entry: the warning stops and upgrade still leaves it deleted. **info**: a locked file whose checksum differs from the lock's (an app edit, which upgrade three-way merges the next version into, or one waiting on its `.genesis-next`); a file marked deleted that is back; a locked block whose `starter.config.ts` switch is off (upgrade and migrate leave it out, and its files aren't checked); files under `supabase/` the lock still lists in an app whose database lives elsewhere (upgrade leaves them alone, so delete the entries). Also `bun.lock` (at or above the app, with or without `genesis.lock.json`), **warn**: a nested copy of a Genesis package at another version than the root's, when the root's version satisfies the range of the package it's nested under. Bun keeps it across installs, so the app runs two copies; the finding names the entry to delete, then reinstall (`genesis upgrade` does both). |
 | `ratchet-skipped` | warn / error | `--base` was given, but git couldn't compare (not a repository, or the ref isn't fetched). A warning when only the ratchet was skipped (every rule ran at its full level); an error when the config file holds `allow`, `rules` or `packageRules`, which then went uncompared. In CI, check out with `fetch-depth: 0`. |

@@ -3,7 +3,7 @@
 @import "@marktiderman/genesis-design-system/themes/genesis-tailwind4.css";
 @import "@marktiderman/genesis-forms-devtools/styles.css";
 @source "../../../packages/ui/src";
-@source "../../../packages/studio/src";
+@source "../../../packages/data/src";
 @source "../../../packages/forms-web/src";
 @source "../../../packages/forms-devtools/src";
 @source "../../../packages/forms-builder/src";

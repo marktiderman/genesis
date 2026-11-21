@@ -47,7 +47,7 @@ const PROOF = [
   {
     icon: MessagesSquare,
     title: "Chat, sites and data",
-    body: "Chat, landing pages and an Airtable-style Data Studio, in the app's own Supabase.",
+    body: "Chat, landing pages and an Airtable-style Genesis Data, in the app's own Supabase.",
     to: "/chat",
   },
   {

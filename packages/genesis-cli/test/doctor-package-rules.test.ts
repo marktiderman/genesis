@@ -498,26 +498,39 @@ describe("the real package declarations", () => {
     ]);
   });
 
-  it("forms and studio-server flag their server modules in screens as warnings, never in a route module's loader, action or server function", async () => {
+  it("forms and data-server flag their server modules in screens as warnings, never in a route module's loader, action or server function", async () => {
     const root = makeApp(null, {
       ...install("forms", "genesis-forms-rules"),
-      ...install("studio-server", "genesis-studio-server-rules"),
+      ...install("data-server", "genesis-data-server-rules"),
       "src/routes/survey.tsx": 'import { validateSubmission } from "@marktiderman/genesis-forms/server";\nexport async function action() { return validateSubmission(); }\nexport default function S() { return null; }\n',
-      "src/routes/studio.tsx": 'import { createStudioHandler } from "@marktiderman/genesis-studio-server";\nexport const handle = createServerFn().handler(() => createStudioHandler());\n',
+      "src/routes/studio.tsx": 'import { createStudioHandler } from "@marktiderman/genesis-data-server";\nexport const handle = createServerFn().handler(() => createStudioHandler());\n',
       "src/components/Preview.tsx": 'import { validateSubmission } from "@marktiderman/genesis-forms/server";\nexport const P = () => { validateSubmission(); return null; };\n',
-      "src/components/Admin.tsx": 'import { createStudioHandler } from "@marktiderman/genesis-studio-server";\nexport const A = () => null;\n',
+      "src/components/Admin.tsx": 'import { createStudioHandler } from "@marktiderman/genesis-data-server";\nexport const A = () => null;\n',
       "src/routes/listed.tsx": 'import { validateSubmission } from "@marktiderman/genesis-forms/server";\nconst loader = () => validateSubmission();\nexport { loader };\n',
       "src/routes/directive.tsx": '// Server actions\n"use server";\nimport { validateSubmission } from "@marktiderman/genesis-forms/server";\nexport async function save() { return validateSubmission(); }\n',
       "src/routes/client.tsx": 'import { validateSubmission } from "@marktiderman/genesis-forms/server";\nexport async function clientLoader() { return validateSubmission(); }\nexport const C = ({ loaderData }) => null;\n',
-      "src/routes/named.tsx": 'import { createStudioHandler } from "@marktiderman/genesis-studio-server";\n// createServerFn is mentioned, not called\nconst createServerFnLike = 1;\nexport const N = () => createServerFnLike;\n',
+      "src/routes/named.tsx": 'import { createStudioHandler } from "@marktiderman/genesis-data-server";\n// createServerFn is mentioned, not called\nconst createServerFnLike = 1;\nexport const N = () => createServerFnLike;\n',
     });
     const result = await runDoctor({ root, config: {} });
-    expect(brief(result.findings, "forms-rules/").concat(brief(result.findings, "studio-server-rules/"))).toEqual([
+    expect(brief(result.findings, "forms-rules/").concat(brief(result.findings, "data-server-rules/"))).toEqual([
       "forms-rules/server-check-on-server warn src/components/Preview.tsx:1 @marktiderman/genesis-forms/server",
       "forms-rules/server-check-on-server warn src/routes/client.tsx:1 @marktiderman/genesis-forms/server",
-      "studio-server-rules/handler-on-server warn src/components/Admin.tsx:1 @marktiderman/genesis-studio-server",
-      "studio-server-rules/handler-on-server warn src/routes/named.tsx:1 @marktiderman/genesis-studio-server",
+      "data-server-rules/handler-on-server warn src/components/Admin.tsx:1 @marktiderman/genesis-data-server",
+      "data-server-rules/handler-on-server warn src/routes/named.tsx:1 @marktiderman/genesis-data-server",
     ]);
+  });
+
+  it("an app still on the old genesis-studio-server name keeps the handler-on-server warning", async () => {
+    const root = makeApp(null, {
+      ...install("studio-server", "genesis-studio-server"),
+      "src/components/Admin.tsx": 'import { createStudioHandler } from "@marktiderman/genesis-studio-server";\nexport const A = () => null;\n',
+      "src/routes/studio.tsx": 'import { createStudioHandler } from "@marktiderman/genesis-studio-server";\nexport const handle = createServerFn().handler(() => createStudioHandler());\n',
+    });
+    const result = await runDoctor({ root, config: {} });
+    // On the same line as the import's deprecated-import finding, so folded into it ("also …").
+    const rulesOn = (file: string) => result.findings.filter((f) => f.file === file).flatMap((f) => f.rules ?? [f.rule]);
+    expect(rulesOn("src/components/Admin.tsx")).toContain("studio-server/handler-on-server");
+    expect(rulesOn("src/routes/studio.tsx")).not.toContain("studio-server/handler-on-server");
   });
 });
 

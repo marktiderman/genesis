@@ -227,7 +227,7 @@ back. After take theirs, the next save is checked against their version. Until t
 takes theirs, what they typed stays on the form, even when a rolled-back optimistic save refetches
 their row, so neither a second conflict nor closing the sheet loses it. A form's own `onError`
 still receives the conflict (to log it); `ResourceForm` doesn't toast it, since the sheet shows it. `ConflictSheet` (genesis-ui) and `NativeConflictSheet` (genesis-ui-native)
-show it, theirs first; `ResourceForm`, `RecordView`'s settings sections and Data Studio's record
+show it, theirs first; `ResourceForm`, `RecordView`'s settings sections and Genesis Data's record
 panel open it themselves.
 
 ```ts

@@ -204,7 +204,7 @@ Avoid, as of 2026-10-28:
 | `.` | `defineAi`, `defineTask`, types and typed outcomes. No React, no provider SDK, no secrets. | P1 |
 | `/server` | `createAi(config)`: `run`, `stream`, `wrap`, and the request handler that serves tasks by id. The AI SDK is imported here only. Runs on Node; Edge Functions (Deno) after P0 proves it. | P1 |
 | `/react` | `useAiTask(id)`: calls a task by id with ids as arguments. It never imports a task module, so prompts never ship in a bundle. | P1 |
-| `/admin` | The control plane's screens on `ResourceView`: usage and cost, budgets, switches, model rollouts, tenant guidance, BYOK keys. Mountable in Data Studio or an app's admin. | P2 |
+| `/admin` | The control plane's screens on `ResourceView`: usage and cost, budgets, switches, model rollouts, tenant guidance, BYOK keys. Mountable in Genesis Data or an app's admin. | P2 |
 | `migrations/` | The `genesis_ai` schema (below). | P1–P2 |
 
 Domain packages bring their own tasks. Chat gains `@marktiderman/genesis-chat/ai`, the only part of
@@ -417,7 +417,7 @@ mode. A gateway's own figure is recorded alongside when one is used.
 ### The control plane (P2)
 
 `genesis-ai/admin` gives the owner and each tenant's admins one place to manage AI, built on
-`ResourceView` and mountable in Data Studio:
+`ResourceView` and mountable in Genesis Data:
 
 - **Usage and cost** by tenant, task, model and day, from `genesis_ai.usage`.
 - **Budgets:** edit tenant and person limits.

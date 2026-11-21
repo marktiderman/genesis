@@ -1,4 +1,4 @@
-# Genesis Data Studio adoption test: a stock local Supabase project.
+# Genesis Data adoption test: a stock local Supabase project.
 # Ports 586xx and project id genesis-studio-demo keep it clear of other local stacks.
 # Services the studio doesn't need are switched off so the stack starts fast.
 # For detailed configuration reference documentation, visit:

@@ -43,7 +43,7 @@ const FRAMED = ["/forms-frame"];
 /** Old addresses that redirect: prerendered (a static host can't redirect), not in the sitemap. */
 export function redirectPaths(): string[] {
   const slugs = new Set((primitives as { primitives: Array<{ slug: string }> }).primitives.map((p) => p.slug));
-  return ["/showcase/primitives", ...[...slugs].map((s) => `/showcase/primitives/${s}`)];
+  return ["/showcase/primitives", "/studio", ...[...slugs].map((s) => `/showcase/primitives/${s}`)];
 }
 
 export function prerenderPaths(): string[] {
