@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-20",
+  "generatedAt": "2026-11-21",
   "surfaces": {
     "web": {
       "package": "@marktiderman/genesis-ui",
@@ -12633,7 +12633,7 @@
       "subpath": "@marktiderman/genesis-ui-native",
       "filePath": "packages/ui-native/src/components/whats-new-sheet.tsx",
       "stability": "beta",
-      "summary": "WhatsNewSheet — release notes in a sheet, shown once and closed with \"Got it\".\n\nThe one sheet behind genesis-native's updates block (`WhatsNewSheet`) and genesis-product's\n`ProductWhatsNew`: each maps its own notes onto `NativeWhatsNewNote` and renders this.",
+      "summary": "WhatsNewSheet — release notes in a sheet, shown once and closed with \"Got it\".\n\nThe sheet behind genesis-native's updates block (`WhatsNewSheet`), which maps its own notes onto\n`NativeWhatsNewNote` and renders this.",
       "primaryComponent": "NativeWhatsNewSheet",
       "components": [
         {
@@ -27075,7 +27075,7 @@
               "type": "{ search?: boolean; sort?: boolean; } | undefined",
               "required": false,
               "defaultValue": null,
-              "description": "What the data source can do. A control it can't serve is hidden rather\nthan left to error (DATA-STUDIO.md decision 9): `search: false` hides the\nsearch box, `sort: false` the sort select. Pass a provider's\n`capabilities()` straight in. Omitted, both show, as before."
+              "description": "What the data source can do. A control it can't serve is hidden rather\nthan left to error (DATA.md decision 9): `search: false` hides the\nsearch box, `sort: false` the sort select. Pass a provider's\n`capabilities()` straight in. Omitted, both show, as before."
             },
             {
               "name": "cells",
@@ -27996,7 +27996,7 @@
               "type": "{ search?: boolean; sort?: boolean; } | undefined",
               "required": false,
               "defaultValue": null,
-              "description": "What the data source can do. A control it can't serve is hidden rather\nthan left to error (DATA-STUDIO.md decision 9): `search: false` hides the\nsearch box, `sort: false` the sort select. Pass a provider's\n`capabilities()` straight in. Omitted, both show, as before."
+              "description": "What the data source can do. A control it can't serve is hidden rather\nthan left to error (DATA.md decision 9): `search: false` hides the\nsearch box, `sort: false` the sort select. Pass a provider's\n`capabilities()` straight in. Omitted, both show, as before."
             },
             {
               "name": "className",
@@ -28871,7 +28871,7 @@
               "type": "{ search?: boolean; sort?: boolean; } | undefined",
               "required": false,
               "defaultValue": null,
-              "description": "What the data source can do. A control it can't serve is hidden rather\nthan left to error (DATA-STUDIO.md decision 9): `search: false` hides the\nsearch box, `sort: false` the sort select. Pass a provider's\n`capabilities()` straight in. Omitted, both show, as before."
+              "description": "What the data source can do. A control it can't serve is hidden rather\nthan left to error (DATA.md decision 9): `search: false` hides the\nsearch box, `sort: false` the sort select. Pass a provider's\n`capabilities()` straight in. Omitted, both show, as before."
             },
             {
               "name": "cells",
@@ -29806,7 +29806,7 @@
               "type": "{ search?: boolean; sort?: boolean; } | undefined",
               "required": false,
               "defaultValue": null,
-              "description": "What the data source can do. A control it can't serve is hidden rather\nthan left to error (DATA-STUDIO.md decision 9): `search: false` hides the\nsearch box, `sort: false` the sort select. Pass a provider's\n`capabilities()` straight in. Omitted, both show, as before."
+              "description": "What the data source can do. A control it can't serve is hidden rather\nthan left to error (DATA.md decision 9): `search: false` hides the\nsearch box, `sort: false` the sort select. Pass a provider's\n`capabilities()` straight in. Omitted, both show, as before."
             },
             {
               "name": "cells",
@@ -30729,7 +30729,7 @@
               "type": "{ search?: boolean; sort?: boolean; } | undefined",
               "required": false,
               "defaultValue": null,
-              "description": "What the data source can do. A control it can't serve is hidden rather\nthan left to error (DATA-STUDIO.md decision 9): `search: false` hides the\nsearch box, `sort: false` the sort select. Pass a provider's\n`capabilities()` straight in. Omitted, both show, as before."
+              "description": "What the data source can do. A control it can't serve is hidden rather\nthan left to error (DATA.md decision 9): `search: false` hides the\nsearch box, `sort: false` the sort select. Pass a provider's\n`capabilities()` straight in. Omitted, both show, as before."
             },
             {
               "name": "cells",
@@ -31652,7 +31652,7 @@
               "type": "{ search?: boolean; sort?: boolean; } | undefined",
               "required": false,
               "defaultValue": null,
-              "description": "What the data source can do. A control it can't serve is hidden rather\nthan left to error (DATA-STUDIO.md decision 9): `search: false` hides the\nsearch box, `sort: false` the sort select. Pass a provider's\n`capabilities()` straight in. Omitted, both show, as before."
+              "description": "What the data source can do. A control it can't serve is hidden rather\nthan left to error (DATA.md decision 9): `search: false` hides the\nsearch box, `sort: false` the sort select. Pass a provider's\n`capabilities()` straight in. Omitted, both show, as before."
             },
             {
               "name": "cells",
@@ -36567,7 +36567,7 @@
               "type": "{ search?: boolean; sort?: boolean; } | undefined",
               "required": false,
               "defaultValue": null,
-              "description": "What the data source can do. A control it can't serve is hidden rather\nthan left to error (DATA-STUDIO.md decision 9): `search: false` hides the\nsearch box, `sort: false` the sort select. Pass a provider's\n`capabilities()` straight in. Omitted, both show, as before."
+              "description": "What the data source can do. A control it can't serve is hidden rather\nthan left to error (DATA.md decision 9): `search: false` hides the\nsearch box, `sort: false` the sort select. Pass a provider's\n`capabilities()` straight in. Omitted, both show, as before."
             },
             {
               "name": "className",
@@ -37336,7 +37336,7 @@
               "type": "{ search?: boolean; sort?: boolean; } | undefined",
               "required": false,
               "defaultValue": null,
-              "description": "What the data source can do. A control it can't serve is hidden rather\nthan left to error (DATA-STUDIO.md decision 9): `search: false` hides the\nsearch box, `sort: false` the sort select. Pass a provider's\n`capabilities()` straight in. Omitted, both show, as before."
+              "description": "What the data source can do. A control it can't serve is hidden rather\nthan left to error (DATA.md decision 9): `search: false` hides the\nsearch box, `sort: false` the sort select. Pass a provider's\n`capabilities()` straight in. Omitted, both show, as before."
             },
             {
               "name": "className",

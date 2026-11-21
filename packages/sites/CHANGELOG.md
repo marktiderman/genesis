@@ -1,5 +1,12 @@
 # @marktiderman/genesis-sites
 
+## 0.7.6
+
+### Patch Changes
+
+- Updated dependencies [c9541ac]
+  - @marktiderman/genesis-config@0.13.0
+
 ## 0.7.5
 
 ### Patch Changes
