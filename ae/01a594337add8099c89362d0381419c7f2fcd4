@@ -1,0 +1,67 @@
+packages/genesis-cli/src/blocks/eas-link.ts
+  s_7081dae02ae2cb::t_cd20507c3c883c 1-77
+.changeset/eas-owns-release-trigger.md
+  s_7081dae02ae2cb::t_09d8f3ef76a35f 5-9,11-22,24-27
+apps/genesis-rn-starter/.eas/scripts/native-release.mjs
+  s_7081dae02ae2cb::t_26aef57af723b3 522-548,632-645,666
+apps/genesis-rn-starter/.eas/workflows/deploy-production.yml
+  s_7081dae02ae2cb::t_8d625791549a91 77-78,81,84-85,92-94,97-101,107-111,117-132,260,262-263,266,377,379-380,383,387-413
+apps/genesis-rn-starter/.eas/workflows/pr-preview.yml
+  s_7081dae02ae2cb::t_92b6947938043d 57-59,178
+apps/genesis-rn-starter/__tests__/release.test.ts
+  s_7081dae02ae2cb::t_e688d3776ea7ad 355
+docs/MIGRATION.md
+  s_7081dae02ae2cb::t_b65caf39522217 14-49
+docs/NATIVE-RELEASE.md
+  s_7081dae02ae2cb::t_5d0c281b38c52c 40-43,62-63,187-241,269-270,299-305,404-409,456-460,587
+docs/adr/0026-eas-owns-the-release-trigger.md
+  s_7081dae02ae2cb::t_5ce6f27f827d0f 37-38,55-70,76-82,92-95,109-133
+packages/genesis-cli/README.md
+  s_7081dae02ae2cb::t_c7fb52e81a1656 433-448,1226
+packages/genesis-cli/src/blocks/add-template.ts
+  s_7081dae02ae2cb::t_f38526472abe27 9-10,13,23-26,60-82,86-92,111-113
+packages/genesis-cli/src/blocks/release-render.ts
+  s_7081dae02ae2cb::t_986373016c63c8 10,20,48-49,51,64,66,84,95,136-137,160-162,186,188-189,199,239-243,253-255
+packages/genesis-cli/src/blocks/release.ts
+  s_7081dae02ae2cb::t_d83450e35466d1 17,27-28,149-173,186-189,201,322-323,336-351,379-380,417-419,424-426,445,449-453,490-509
+packages/genesis-cli/src/cli.ts
+  s_7081dae02ae2cb::t_9d3356ab994470 825,833,837
+packages/genesis-cli/src/doctor/config.ts
+  s_7081dae02ae2cb::t_1ffd82a19e95a2 225-226,257,260,277-282,333-339
+packages/genesis-cli/src/doctor/native.ts
+  s_7081dae02ae2cb::t_cb9987c527207b 287-289,325-333
+packages/genesis-cli/src/doctor/rules.ts
+  s_7081dae02ae2cb::t_bd45150f700aea 57
+packages/genesis-cli/src/upgrade/index.ts
+  s_7081dae02ae2cb::t_49b51159e89248 52-53,82-83,449-466,507,647,651-652,656-663,781,903-908,916
+packages/genesis-cli/test/doctor-packs.test.ts
+  s_7081dae02ae2cb::t_02454975b4c37a 80,343-344,347-353
+packages/genesis-cli/test/fix-engine.test.ts
+  s_7081dae02ae2cb::t_d3520af6fad9c5 231
+packages/genesis-cli/test/release.test.ts
+  s_7081dae02ae2cb::t_0c892d6c96f6c5 20,35-36,55,117,123,138,161,1538-1539,1550-1552,1569,1596,1600-1742,1757,1761-1779,1787-1801,1805,1807,1813-1814,1824-1852,1855,1859,1862,1864,1866-1881,1890,1894,1896,1904
+templates/ci/native-release.yml
+  s_7081dae02ae2cb::t_d7a5ceb4f1dd20 266,375
+templates/eas/scripts/native-release.mjs
+  s_7081dae02ae2cb::t_905175e53368c1 522-548,632-645,666
+templates/release/deploy-production.yml
+  s_7081dae02ae2cb::t_9c3fe89754c65c 167-168,171,191-192,203-205,216-219,221,228-232,238-257,446,448-449,452,661,663-664,667,739-811
+templates/release/pr-preview.yml
+  s_7081dae02ae2cb::t_1f073180c4493d 57-60,206
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ae01a594337add8099c89362d0381419c7f2fcd4",
+  "prompts": {},
+  "sessions": {
+    "s_7081dae02ae2cb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7a2b62bd-584c-47e8-8b1a-72015db941a7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
