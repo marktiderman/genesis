@@ -8,10 +8,6 @@ on:
   # publishes every local version not yet on npm, which is exactly the retry.
   workflow_dispatch:
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false
-
 # Each job asks for what it needs.
 permissions: {}
 
@@ -20,6 +16,11 @@ jobs:
     name: Release
     # workflow_dispatch can target any ref; only main may version or publish.
     if: github.ref == 'refs/heads/main'
+    # On the job, not the workflow: verify-publish polls npm for up to 30 minutes and must not
+    # hold the next release's queue slot (a second push would cancel the first waiting run).
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     # The `npm` environment allows deployments from `main` ONLY (repo
     # Settings → Environments → npm → deployment branches: main). Every npm
@@ -28,6 +29,12 @@ jobs:
     # cannot mint one: without the environment its OIDC token does not match,
     # and with it GitHub refuses the deployment.
     environment: npm
+    # What was published, for the verify-publish job below.
+    outputs:
+      published: ${{ steps.changesets.outputs.published }}
+      # changesets/action v2 names it published-packages (v1's publishedPackages is always empty here).
+      published_packages: ${{ steps.changesets.outputs['published-packages'] }}
+      published_on_main: ${{ steps.publish_on_main.outputs.published }}
     # Publishing is I/O-bound and short; anything past this is a hang, not work.
     # ci.yml's BILLING CONTRACT rule 3 — the July 2026 runaways (118 and
     # 304-minute runs) had no timeout and ran to GitHub's 6-hour cap.
@@ -287,6 +294,7 @@ jobs:
       # `changeset publish` makes on HEAD are created on GitHub through the API
       # (scripts/create-tag-ref.sh says why not `git push`).
       - name: Publish versions already on main
+        id: publish_on_main
         if: steps.verify.outputs.unpublished == 'true'
         env:
           # RELEASE_TAG_TOKEN is optional and unset by default (docs/RELEASING.md).
@@ -299,6 +307,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           pnpm changeset publish
+          echo "published=true" >> "$GITHUB_OUTPUT"
           sha=$(git rev-parse HEAD)
           for tag in $(git tag --points-at HEAD); do
             case "$tag" in release/*) continue ;; esac
@@ -322,3 +331,42 @@ jobs:
         # No env: NPM_TOKEN is intentionally omitted, since OIDC Trusted Publishing handles auth
         # (id-token: write above). npm still adds an SLSA provenance attestation to trusted
         # publishes, despite publishConfig.provenance: false (see docs/RELEASING.md).
+
+  # "Successfully published" is changesets' word, not npm's. On 2026-11-21 four of sixteen
+  # published versions were missing from the registry for over ten minutes, and one package was
+  # published with `latest` left on its previous version. This job reads the registry until every
+  # published version is there and `latest` points at it (when it's the highest release), for up
+  # to 30 minutes, and on anything still wrong writes the job summary, fails, and opens or updates
+  # one issue labelled `release` (scripts/verify-npm-publish.mjs; docs/RELEASING.md says what to
+  # do). A job of its own, not a step of `release`: it waits on the registry for longer than that
+  # job's timeout, and it needs neither the `npm` environment nor a publish token while it waits.
+  verify-publish:
+    name: Verify npm publish
+    needs: release
+    # Runs even when a later release step failed after a successful publish.
+    if: ${{ !cancelled() && (needs.release.outputs.published == 'true' || needs.release.outputs.published_on_main == 'true') }}
+    runs-on: ubuntu-latest
+    # The script gives up after 30 minutes of polling.
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22.22.1
+
+      # --local adds every public package on this commit, for the "Publish versions already on
+      # main" path, whose publishes changesets/action never sees.
+      - name: Check the registry has what was published
+        env:
+          PUBLISHED_PACKAGES: ${{ needs.release.outputs.published_packages }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUBLISHED_ON_MAIN: ${{ needs.release.outputs.published_on_main }}
+        run: |
+          if [ "$PUBLISHED_ON_MAIN" = true ]; then set -- --local; fi
+          node scripts/verify-npm-publish.mjs published --timeout 30 --issue --expect-some "$@"

@@ -206,6 +206,38 @@ Then re-run Release (Run workflow on `main`) or merge the pending version PR.
 These commands need a recent npm 11 (`npx npm@latest trust ...`) and an npm
 login with 2FA.
 
+## When the npm publish check fails
+
+"Successfully published" is changesets' report, not npm's. On 2026-11-21 four of sixteen
+published versions didn't appear on the registry for over ten minutes, and one package was
+published with `latest` left on its previous version. Two checks read the registry instead
+(`scripts/verify-npm-publish.mjs`):
+
+- **After every publish**, Release's `verify-publish` job reads what changesets/action published
+  (plus every public package on the commit, when "Publish versions already on main" ran). It polls
+  `https://registry.npmjs.org/<name>/<version>` and the package's dist-tags for up to 30 minutes,
+  with backoff, until each version exists and `latest` points at it (when it is the package's
+  highest non-prerelease).
+- **Every day**, the `npm drift` workflow compares every public package's version on `main` with
+  npm: the version exists and `latest` is it. Run it by hand from Actions → npm drift → Run workflow.
+
+Either one, on a problem, fails, writes a table to the job summary and opens (or updates) one
+issue labelled `release` naming each package, version and problem, with the run link. A clean
+drift run closes it. To respond:
+
+1. **Not on npm, and the publish log said it published:** usually registry lag. Run npm drift
+   again after a few minutes. Still missing after an hour: re-run Release (Run workflow on `main`);
+   it publishes any version not yet on npm.
+2. **Not on npm, and the publish failed or never ran** (a cancelled run, a Trusted Publisher
+   refusal): fix the cause (above), then re-run Release.
+3. **`latest` is on the wrong version:** point it at the right one (needs an npm login with 2FA):
+   `npm dist-tag add @marktiderman/<pkg>@<version> latest`.
+4. **A brand-new package not published yet:** expected until its hand publish (A brand-new
+   package, above).
+
+To check by hand, read-only: `node scripts/verify-npm-publish.mjs drift`, or for given versions
+`node scripts/verify-npm-publish.mjs published --timeout 0 --packages '[{"name":"@marktiderman/genesis-cli","version":"1.32.0"}]'`.
+
 ## Moving to a new Expo SDK
 
 The workspace holds one React and one React Native, the versions the native starter's Expo SDK
