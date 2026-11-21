@@ -173,7 +173,8 @@ export async function aheadBy(deps: GitHubDeps, slug: string, base: string, head
   return cmp.ahead_by;
 }
 
-const DELETE_IF_AT = "mutation($repo: ID!, $name: String!, $before: GitObjectID!) { updateRefs(input: { repositoryId: $repo, refUpdates: [{ name: $name, beforeOid: $before, afterOid: \"0000000000000000000000000000000000000000\", force: true }] }) { clientMutationId } }";
+/** Typed as GitHub's schema has them: `RefUpdate.name` is a `GitRefname!`, the oids `GitObjectID`. */
+export const DELETE_IF_AT = "mutation($repo: ID!, $name: GitRefname!, $before: GitObjectID!) { updateRefs(input: { repositoryId: $repo, refUpdates: [{ name: $name, beforeOid: $before, afterOid: \"0000000000000000000000000000000000000000\", force: true }] }) { clientMutationId } }";
 
 /**
  * Delete `branch` only if it still points at `tip`: GraphQL `updateRefs` checks `beforeOid` and

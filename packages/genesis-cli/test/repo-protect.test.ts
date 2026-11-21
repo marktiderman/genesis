@@ -26,6 +26,7 @@ import {
   type LiveRepo,
   type Ruleset,
 } from "../src/repo/index.js";
+import { DELETE_IF_AT } from "../src/repo/github.js";
 import { cleanupApps, makeApp } from "./doctor-helpers.js";
 
 const GENESIS_WORKFLOWS = path.resolve(import.meta.dirname, "../../../.github/workflows");
@@ -380,6 +381,23 @@ describe("CodeRabbit round: planning", () => {
     expect((puts[0]!.body.bypass_actors as unknown[]).length).toBe(0);
     const post = plan.writes.find((w) => w.method === "POST")!;
     expect(post.body).toMatchObject({ name: "staging-branches", conditions: { ref_name: { include: [STAGING_REF] } }, bypass_actors: [{ actor_id: 5, bypass_mode: "always" }] });
+  });
+});
+
+describe("CodeRabbit round 2", () => {
+  it("types the conditional delete as GitHub's schema does (RefUpdate.name is GitRefname!)", () => {
+    expect(DELETE_IF_AT).toContain("$name: GitRefname!");
+    expect(DELETE_IF_AT).toContain("$before: GitObjectID!");
+    expect(DELETE_IF_AT).toContain("$repo: ID!");
+    expect(DELETE_IF_AT).not.toContain("String!");
+  });
+
+  it("puts the staging bypass only on a ruleset whose every include is a staging pattern", () => {
+    const wide: Ruleset = { id: 9, name: "staging-branches", target: "branch", enforcement: "active", conditions: { ref_name: { include: [STAGING_REF, "refs/heads/release/*"], exclude: [] } }, rules: [{ type: "deletion" }, { type: "non_fast_forward" }], bypass_actors: [] };
+    const plan = planProtection(protectionSpec({ defaultChecks: ["app / App checks", "database / Database and pgTAP", "Adversarial review"], stagingChecks: [] }), live([handMade(), wide]));
+    expect(plan.writes.some((w) => w.path.endsWith("/rulesets/9"))).toBe(false);
+    const post = plan.writes.find((w) => w.method === "POST")!;
+    expect(post.body).toMatchObject({ name: "staging-branches-only", conditions: { ref_name: { include: [STAGING_REF] } }, bypass_actors: [{ actor_id: 5 }] });
   });
 });
 

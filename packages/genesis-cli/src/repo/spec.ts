@@ -231,12 +231,15 @@ function targetRefs(spec: Ruleset, defaultBranch: string, options: PlanOptions):
 /**
  * The live ruleset a spec ruleset converges: the one of that name, else one aimed at the same
  * refs, never one another spec ruleset already took (one write per live ruleset). A ruleset that
- * gets the staging bypass must be staging-only: one that also covers the default branch isn't
- * taken for staging, and a separate staging ruleset is created, so the bypass never reaches main.
+ * gets the staging bypass must be staging-only (every include a `refs/heads/staging/…` pattern):
+ * one that also covers the default branch or any other ref isn't taken for staging, and a separate
+ * staging ruleset is created, so the bypass never reaches beyond the batches.
  */
 export function matchRuleset(spec: Ruleset, live: readonly Ruleset[], options: { defaultBranch?: string; taken?: ReadonlySet<number | undefined> } = {}): Ruleset | undefined {
   const main = `refs/heads/${options.defaultBranch ?? "main"}`;
-  const free = live.filter((r) => r.target === spec.target && !(r.id !== undefined && options.taken?.has(r.id)) && (!spec.bypass_actors?.length || !covers(r, main, options.defaultBranch ?? "main")));
+  // A bypass applies to the whole ruleset: only one whose every include is a staging pattern gets it.
+  const stagingOnly = (r: Ruleset) => !covers(r, main, options.defaultBranch ?? "main") && (r.conditions?.ref_name?.include ?? []).every((p) => p.startsWith("refs/heads/staging/"));
+  const free = live.filter((r) => r.target === spec.target && !(r.id !== undefined && options.taken?.has(r.id)) && (!spec.bypass_actors?.length || stagingOnly(r)));
   return free.find((r) => r.name === spec.name) ?? free.find((r) => spec.conditions.ref_name.include.every((i) => r.conditions?.ref_name?.include?.includes(i)));
 }
 
