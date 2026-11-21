@@ -7,11 +7,11 @@
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import * as path from "node:path";
-import { readGenesisConfig, type GenesisRepo } from "../doctor/config.js";
+import { readGenesisConfig, validateRepo, type GenesisRepo } from "../doctor/config.js";
 import { runTool, type ToolRunner } from "../exec/run.js";
 import { checksFromWorkflows, type DerivedChecks, type WorkflowFile } from "./checks.js";
-import { aheadBy, applyWrite, branchTip, deleteBranchAt, GitHubError, isSlug, openPulls, readLive, remoteWorkflows, resolveRepo, stagingBranches, workflowsAt, type GitHubDeps } from "./github.js";
-import { DEFAULT_RULESET, formatPlan, matchRuleset, planProtection, protectionSpec, STAGING_REF, STAGING_RULESET, type ConditionalCheck, type LiveRepo, type ProtectionPlan } from "./spec.js";
+import { aheadBy, applyWrite, branchTip, deleteBranchAt, GitHubError, isSlug, openPulls, readLive, readRuleset, remoteWorkflows, resolveRepo, stagingBranches, workflowListing, workflowsAt, type GitHubDeps } from "./github.js";
+import { covers, DEFAULT_RULESET, formatPlan, matchRuleset, planProtection, protectionSpec, STAGING_REF, STAGING_RULESET, type ConditionalCheck, type LiveRepo, type ProtectionPlan } from "./spec.js";
 
 export * from "./spec.js";
 export { checksFromWorkflows, branchMatches, branchPattern, refPattern, type DerivedChecks, type WorkflowFile } from "./checks.js";
@@ -73,8 +73,10 @@ export interface RepoPlan {
   localRef: string | null;
 }
 
+/** The `repo` block, validated strictly: a bad one stops `genesis repo` before any plan. */
 function repoConfig(root: string): GenesisRepo {
-  return readGenesisConfig(root)?.repo ?? {};
+  const raw = readGenesisConfig(root)?.raw.repo;
+  return raw === undefined ? {} : validateRepo(raw, path.join(root, "genesis.config.json"));
 }
 
 /** Where the plan runs: the repository, its slug and the gh seam. */
@@ -111,7 +113,8 @@ export async function stagingChecksFor(files: readonly WorkflowFile[], batches: 
   const conditional = [...partial, ...each.flatMap((e) => e.conditional)].filter((c, i, list) => list.findIndex((x) => x.context === c.context) === i && !required.includes(c.context));
   const notes = [...new Set(each.flatMap((e) => e.notes))];
   if (!batches.length) notes.push(`no staging branch yet: the staging checks were read for a sample batch name, ${SAMPLE_BATCH}`);
-  return { required, conditional, notes, refs };
+  const mergeGroup = [...new Set(each.flatMap((e) => e.mergeGroup))];
+  return { required, conditional, notes, refs, mergeGroup };
 }
 
 /** Read the repository and plan what brings it to the standard. Reads only. */
@@ -129,7 +132,14 @@ export async function planRepo(options: RepoOptions): Promise<RepoPlan> {
   };
   const onDefault = await checksFromWorkflows(files, live.defaultBranch, remote);
   const stagingSpec = { name: STAGING_RULESET, target: "branch", enforcement: "active", conditions: { ref_name: { include: [STAGING_REF], exclude: [] } }, rules: [], bypass_actors: [] };
-  const batches = await stagingBranches(deps, slug).catch(() => [] as string[]);
+  // A failed listing isn't an empty one: it is said, and nothing is written.
+  let batches: string[] = [];
+  let inventory: string | null = null;
+  try {
+    batches = await stagingBranches(deps, slug);
+  } catch (err) {
+    inventory = (err as Error).message;
+  }
   const staging = config.staging ?? (matchRuleset(stagingSpec, live.rulesets, { defaultBranch: live.defaultBranch }) !== undefined || batches.length > 0);
   const onStaging = staging ? await stagingChecksFor(files, batches, remote) : null;
   const defaultChecks = config.requiredChecks ?? onDefault.required;
@@ -152,6 +162,33 @@ export async function planRepo(options: RepoOptions): Promise<RepoPlan> {
   if (!files.length) notes.push(`no workflows on ${live.defaultBranch}${local ? ` (nor in ${path.join(top, ".github/workflows")})` : ""}: no required checks were read (name them in repo.requiredChecks)`);
   if (!defaultChecks.includes("Adversarial review")) notes.push(`no "Adversarial review" check on ${live.defaultBranch}: the review gate (review-gate.yml) isn't in this repository`);
   plan.notes.push(...notes);
+  const refusals = plan.refusals;
+  if (inventory) refusals.push(`couldn't list ${slug}'s staging branches (${inventory}), so whether and how to protect staging batches is unknown`);
+  // Checks this plan would newly require, on a ref: those no active live ruleset requires there yet.
+  const requiredNow = (ref: string) => new Set(live.rulesets.filter((r) => r.enforcement === "active" && covers(r, ref, live.defaultBranch)).flatMap((r) => r.rules.filter((x) => x.type === "required_status_checks").flatMap((x) => ((x.parameters?.required_status_checks as Array<{ context: string }> | undefined) ?? []).map((c) => c.context))));
+  const mainRef = `refs/heads/${live.defaultBranch}`;
+  const addedOnMain = defaultChecks.filter((c) => !requiredNow(mainRef).has(c) && !onMain.conditional.some((x) => x.context === c));
+  // A merge queue runs the required checks on its own commits (merge_group): a check without that
+  // trigger would hold every queued pull request, so it isn't added; the conflict is said.
+  const queued = live.rulesets.some((r) => r.enforcement === "active" && covers(r, mainRef, live.defaultBranch) && r.rules.some((x) => x.type === "merge_queue"));
+  const noQueue = queued ? addedOnMain.filter((c) => !onDefault.mergeGroup.includes(c)) : [];
+  if (noQueue.length) refusals.push(`${live.defaultBranch} has a merge queue, and ${noQueue.map((c) => `"${c}"`).join(", ")} ${noQueue.length === 1 ? "has" : "have"} no merge_group trigger: requiring ${noQueue.length === 1 ? "it" : "them"} would hold every queued pull request (add merge_group to the workflow, or leave it out with repo.requiredChecks)`);
+  // A batch cut before main's workflows changed runs its own: staging checks read from main can't
+  // be trusted for it. New staging checks are refused then, unless repo.stagingChecks names them.
+  if (staging && batches.length && !local && !config.stagingChecks) {
+    const sample = `refs/heads/${batches[0]}`;
+    const addedOnStaging = (stagingChecks ?? []).filter((c) => !requiredNow(sample).has(c) && !onBatches.conditional.some((x) => x.context === c));
+    if (addedOnStaging.length) {
+      const key = (l: Array<{ name: string; sha: string }>) => l.map((f) => `${f.name}@${f.sha}`).join(",");
+      const onMainList = key(await workflowListing(deps, slug, live.defaultBranch));
+      const differ: string[] = [];
+      for (const b of batches) {
+        const own = await workflowListing(deps, slug, b).then(key, () => null);
+        if (own !== onMainList) differ.push(b);
+      }
+      if (differ.length) refusals.push(`${differ.join(", ")} ${differ.length === 1 ? "has" : "have"} other workflows than ${live.defaultBranch}, so ${addedOnStaging.map((c) => `"${c}"`).join(", ")} might never report there: merge ${live.defaultBranch} into ${differ.length === 1 ? "it" : "them"}, or name the staging checks in repo.stagingChecks`);
+    }
+  }
   return { plan, live, staging, defaultChecks, stagingChecks, localRef };
 }
 
@@ -160,8 +197,15 @@ export async function planRepo(options: RepoOptions): Promise<RepoPlan> {
  * the checkout may be stale or on another branch. Throws the refusal; a dry run doesn't call it.
  */
 export function refuseLocal(result: RepoPlan, options: { useLocal?: boolean }): void {
-  if (result.localRef === null || options.useLocal || !result.plan.writes.length) return;
-  throw new GitHubError(`couldn't read ${result.plan.slug}'s workflows from GitHub; re-run when it can, or pass --use-local to accept the local checkout at ${result.localRef}. Nothing was written.`);
+  const why = refusalsOf(result, options);
+  if (why.length) throw new GitHubError(`${why.join("; ")}. Nothing was written.`);
+}
+
+/** Everything that stops a real run from writing (none when there is nothing to write). */
+export function refusalsOf(result: RepoPlan, options: { useLocal?: boolean }): string[] {
+  if (!result.plan.writes.length) return [];
+  const local = result.localRef !== null && !options.useLocal ? [`couldn't read ${result.plan.slug}'s workflows from GitHub; re-run when it can, or pass --use-local to accept the local checkout at ${result.localRef}`] : [];
+  return [...local, ...result.plan.refusals];
 }
 
 /** A short digest of a plan's writes: what a person approved, so a changed repository is noticed. */
@@ -178,6 +222,13 @@ export async function applyRepoPlan(options: RepoOptions, plan: ProtectionPlan):
   const done: string[] = [];
   for (const w of plan.writes) {
     try {
+      // Re-read just before the PUT: a ruleset changed since it was planned is never overwritten.
+      // (The API has no version condition, so a change in the instant between this read and the PUT can't be caught.)
+      if (w.method === "PUT" && w.ifUpdatedAt) {
+        const id = Number(/rulesets\/(\d+)$/.exec(w.path)?.[1]);
+        const now = await readRuleset(deps, plan.slug, id);
+        if (now.updated_at !== w.ifUpdatedAt) throw new GitHubError(`ruleset "${now.name}" changed since it was planned (${w.ifUpdatedAt} → ${now.updated_at}), so it wasn't overwritten`);
+      }
       await applyWrite(deps, w);
     } catch (err) {
       throw new GitHubError(`${(err as Error).message}. ${done.length ? `Already written: ${done.join(", ")}` : "Nothing was written"}; run genesis repo protect --dry-run to see what is left.`);
@@ -222,21 +273,23 @@ export interface ProtectCommandOptions extends RepoOptions {
 export async function runRepoProtect(options: ProtectCommandOptions): Promise<number> {
   const out = options.out ?? ((l: string) => console.log(l));
   const result = await planRepo(options);
-  if (!options.dryRun) {
-    try {
-      refuseLocal(result, options);
-    } catch (err) {
+  const refused = options.dryRun ? [] : refusalsOf(result, options);
+  if (refused.length) {
+    if (options.json) out(JSON.stringify({ repo: result.plan.slug, dryRun: false, refused, written: [], changes: result.plan.changes, notes: result.plan.notes }, null, 2));
+    else {
       out(formatPlan(result.plan, { dryRun: true }));
-      out(`✗ ${(err as Error).message}`);
-      return 1;
+      for (const r of refused) out(`✗ ${r}.`);
+      out("Nothing was written.");
     }
+    return 1;
   }
   const applied = options.dryRun || !result.plan.writes.length ? [] : await applyRepoPlan(options, result.plan);
   if (options.json) {
-    out(JSON.stringify({ repo: result.plan.slug, dryRun: options.dryRun === true, staging: result.staging, requiredChecks: { default: result.defaultChecks, staging: result.stagingChecks }, changes: result.plan.changes, notes: result.plan.notes, writes: options.dryRun ? result.plan.writes : applied }, null, 2));
+    out(JSON.stringify({ repo: result.plan.slug, dryRun: options.dryRun === true, staging: result.staging, requiredChecks: { default: result.defaultChecks, staging: result.stagingChecks }, changes: result.plan.changes, notes: result.plan.notes, ...(options.dryRun ? { wouldRefuse: refusalsOf(result, options) } : {}), writes: options.dryRun ? result.plan.writes : applied }, null, 2));
     return 0;
   }
   out(formatPlan(result.plan, { dryRun: options.dryRun === true }));
+  if (options.dryRun) for (const r of refusalsOf(result, options)) out(`  a real run would refuse: ${r}`);
   if (applied.length) out(`✔ ${applied.length} write${applied.length === 1 ? "" : "s"}: ${applied.join(", ")}`);
   else if (options.dryRun && result.plan.writes.length) out("Run genesis repo protect (without --dry-run) to apply it; it needs the repository's admin role.");
   return 0;
@@ -294,19 +347,22 @@ export async function runPruneStaging(options: PruneOptions): Promise<number> {
     out(`${slug}: nothing to delete.`);
     return 0;
   }
-  // Checked in a dry run too, so it never lists deletions the real run would refuse.
-  const guard = live.rulesets.find((r) => r.conditions?.ref_name?.include?.some((i) => i.includes("staging")) && r.rules?.some((x) => x.type === "deletion"));
-  if (guard && guard.current_user_can_bypass === "never") {
-    for (const { branch: b } of done) out(`  ${options.dryRun ? "would fail" : "can't delete"} ${b}: no bypass`);
-    out(`✗ Ruleset "${guard.name}" blocks deleting staging branches and this account can't bypass it. genesis repo protect gives the repository's admin role the bypass on staging batches; run this as an admin.`);
-    return 1;
+  // Checked per branch, in a dry run too: every active ruleset whose deletion rule covers that
+  // exact ref (`~ALL` included, exclusions applied) must be one this account can bypass.
+  const blockers = (b: string) => live.rulesets.filter((r) => r.enforcement === "active" && r.rules?.some((x) => x.type === "deletion") && covers(r, `refs/heads/${b}`, live.defaultBranch) && r.current_user_can_bypass === "never");
+  const blocked = done.filter(({ branch }) => blockers(branch).length);
+  for (const { branch } of blocked) out(`  ${options.dryRun ? "would fail" : "can't delete"} ${branch}: no bypass of ${blockers(branch).map((r) => `ruleset "${r.name}"`).join(", ")}`);
+  if (blocked.length) {
+    out(`✗ ${blocked.length === 1 ? "A ruleset blocks deleting it" : "Rulesets block deleting them"} and this account can't bypass ${blocked.length === 1 ? "it" : "them"}. genesis repo protect gives the repository's admin role the bypass on staging batches; run this as an admin.`);
+    if (blocked.length === done.length) return 1;
   }
+  const deletable = done.filter((d) => !blocked.includes(d));
   if (!options.dryRun && !live.nodeId) {
     out(`✗ ${slug}'s id couldn't be read, so a delete can't be made conditional on the checked commit: nothing was deleted.`);
     return 1;
   }
   const deleted: string[] = [];
-  for (const { branch: b, tip } of done) {
+  for (const { branch: b, tip } of deletable) {
     if (options.dryRun) {
       out(`  would delete ${b} at ${tip.slice(0, 12)}: merged into ${live.defaultBranch}`);
       continue;
@@ -320,6 +376,6 @@ export async function runPruneStaging(options: PruneOptions): Promise<number> {
     deleted.push(b);
     out(`  deleted ${b}`);
   }
-  out(options.dryRun ? `${slug}: ${done.length} to delete (dry run: nothing deleted).` : `✔ ${slug}: deleted ${deleted.length}.`);
-  return 0;
+  out(options.dryRun ? `${slug}: ${deletable.length} to delete (dry run: nothing deleted).` : `✔ ${slug}: deleted ${deleted.length}.`);
+  return blocked.length ? 1 : 0;
 }

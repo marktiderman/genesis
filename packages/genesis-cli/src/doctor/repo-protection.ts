@@ -12,6 +12,7 @@ import { existsSync } from "node:fs";
 import * as path from "node:path";
 import type { ToolRunner } from "../exec/run.js";
 import { planRepo } from "../repo/index.js";
+import { readGenesisConfig } from "./config.js";
 import type { DoctorContext } from "./types.js";
 
 export const REPO_PROTECTION_RULE = "repo-protection";
@@ -40,6 +41,17 @@ export function repoProtectionCheck(deps: RepoProtectionDeps = {}): (ctx: Doctor
     // Only in a git repository; whether it has workflows is the default branch's to say (the
     // planner reads them there), never the checkout's, which may be on another branch.
     if (!gitTop(ctx.root)) return;
+    const problem = (() => {
+      try {
+        return readGenesisConfig(ctx.root)?.repoProblem;
+      } catch {
+        return undefined;
+      }
+    })();
+    if (problem) {
+      ctx.report({ rule: REPO_PROTECTION_RULE, level: "warn", file: "genesis.config.json", subject: "repo", message: `branch protection not checked: ${problem}` });
+      return;
+    }
     let result;
     try {
       result = await planRepo({ root: ctx.root, ...(deps.run ? { run: deps.run } : {}) });
@@ -49,6 +61,9 @@ export function repoProtectionCheck(deps: RepoProtectionDeps = {}): (ctx: Doctor
       return;
     }
     const fix = "genesis repo protect --dry-run shows the change; genesis repo protect makes it";
+    // The planner's notes (a path-filtered check kept because the config names it, CI it couldn't
+    // read, a refusal a real run would make) are info: said, never a change.
+    for (const note of [...result.plan.notes, ...result.plan.refusals.map((r) => `a real genesis repo protect would refuse: ${r}`)]) ctx.report({ rule: REPO_PROTECTION_RULE, level: "info", file: FILE, subject: note.slice(0, 120), message: `${result.plan.slug}: ${note}` });
     for (const c of result.plan.changes) {
       const said = c.kind === "add" ? `lacks ${c.what}` : c.kind === "remove" ? `requires ${c.what}, which it shouldn't` : `differs from the Genesis standard: ${c.what}`;
       ctx.report({ rule: REPO_PROTECTION_RULE, level: "warn", file: FILE, subject: `${c.scope}: ${c.what}`, message: `${result.plan.slug} ${c.scope} ${said}${c.why ? ` (${c.why})` : ""}; ${fix}` });

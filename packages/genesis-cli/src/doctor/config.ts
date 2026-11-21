@@ -150,6 +150,12 @@ export interface GenesisConfigFile {
   /** The repository's branch protection (`genesis repo protect`): see {@link validateRepo}. */
   repo?: GenesisRepo;
   /**
+   * A `repo` that isn't the branch-protection block (an app's own value from before Genesis read
+   * the key, or a mistake in it): never fatal here (the Expo plugin reads this file), reported by
+   * the doctor's `repo-protection`, and refused by `genesis repo`, which validates it strictly.
+   */
+  repoProblem?: string;
+  /**
    * A top-level `preset` or `settings` that isn't the settings shape at all (an app that used the
    * key for something of its own before Genesis read it): left out of `preset` / `settings`, and
    * reported by the doctor (`invalid-setting`) with how to move it, so every other command still runs.
@@ -627,7 +633,13 @@ export function parseGenesisConfig(raw: unknown, file = "genesis.config.json"): 
   if (raw.client !== undefined) out.client = validateClient(raw.client, file);
   if (raw.release !== undefined) out.release = validateRelease(raw.release, file);
   if (raw.observability !== undefined) out.observability = validateObservability(raw.observability, file);
-  if (raw.repo !== undefined) out.repo = validateRepo(raw.repo, file);
+  if (raw.repo !== undefined) {
+    try {
+      out.repo = validateRepo(raw.repo, file);
+    } catch (err) {
+      out.repoProblem = `${(err as Error).message}; nothing reads it until it is the branch-protection block (or renamed, if it is the app's own)`;
+    }
+  }
   const legacy = legacySettingsKeys(raw);
   if (legacy.length) out.legacySettingsKeys = legacy;
   if (raw.preset !== undefined && !legacy.some((l) => l.key === "preset")) out.preset = validatePreset(raw.preset, file);

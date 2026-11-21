@@ -39,6 +39,8 @@ export interface DerivedChecks {
   required: string[];
   conditional: ConditionalCheck[];
   notes: string[];
+  /** The checks whose workflow also runs on `merge_group` (a merge queue's commits). */
+  mergeGroup: string[];
 }
 
 /** Reusable workflows whose jobs advise and never gate a merge. */
@@ -244,6 +246,7 @@ export async function checksFromWorkflows(files: readonly WorkflowFile[], branch
   const required: string[] = [];
   const conditional: ConditionalCheck[] = [];
   const notes: string[] = [];
+  const mergeGroup: string[] = [];
   const byPath = new Map(files.map((f) => [f.path.replace(/^\.\//, ""), f.text]));
   for (const file of [...files].sort((a, b) => a.path.localeCompare(b.path))) {
     const doc = parseYaml(file.text);
@@ -252,10 +255,8 @@ export async function checksFromWorkflows(files: readonly WorkflowFile[], branch
       continue;
     }
     const trigger = prTrigger(doc.on, branch);
-    if (!trigger.fires) {
-      if (trigger.partial.length) notes.push(`${file.path} isn't required: ${trigger.partial.join("; ")}, so a pull request can be left without its result`);
-      continue;
-    }
+    if (!trigger.fires && !trigger.partial.length) continue;
+    const onQueue = isObj(doc.on) ? "merge_group" in doc.on : asList(doc.on).includes("merge_group");
     const found: string[] = [];
     for (const [key, raw] of Object.entries(isObj(doc.jobs) ? doc.jobs : {})) {
       if (!isObj(raw)) continue;
@@ -290,10 +291,17 @@ export async function checksFromWorkflows(files: readonly WorkflowFile[], branch
       }
       found.push(caller);
     }
-    if (trigger.paths.length) {
+    if (onQueue) mergeGroup.push(...found);
+    if (!trigger.fires) {
+      // Its checks are known but can't gate: reconciled as conditional (dropped where required,
+      // unless another workflow reports them or the config names them).
+      const why = `${file.path} runs only on ${trigger.partial.join("; ")}, so a pull request can be left without its result`;
+      notes.push(`${file.path} isn't required: ${trigger.partial.join("; ")}, so a pull request can be left without its result`);
+      for (const context of found) conditional.push({ context, why });
+    } else if (trigger.paths.length) {
       const why = `${file.path} runs only on changes to ${trigger.paths.join(", ")}: a pull request that doesn't touch them waits for it forever`;
       for (const context of found) conditional.push({ context, why });
     } else required.push(...found);
   }
-  return { required: [...new Set(required)], conditional: conditional.filter((c, i) => conditional.findIndex((x) => x.context === c.context) === i && !required.includes(c.context)), notes };
+  return { required: [...new Set(required)], conditional: conditional.filter((c, i) => conditional.findIndex((x) => x.context === c.context) === i && !required.includes(c.context)), notes, mergeGroup: [...new Set(mergeGroup)] };
 }

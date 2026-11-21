@@ -2031,7 +2031,8 @@ genesis repo prune-staging       # delete merged staging batches, with the rules
   push, the checks that run on pull requests into a batch, not enforced when a batch is cut.
 - **The admin role bypasses `staging-branches` only** ("always", for `prune-staging`). The default
   branch gets no bypass from Genesis; one it already has is kept as it is.
-- **The settings**: head branches deleted on merge, auto-merge on, rebase merging off.
+- **The settings**: head branches deleted on merge, auto-merge on, rebase merging off (merge
+  commits are never turned back on). docs/APP-CI.md lists what a real run refuses, with exit 1.
 
 The required checks are read from the app's own workflows, on the default branch through GitHub
 (the local checkout only when GitHub can't be read, with a note naming its ref; a real run then

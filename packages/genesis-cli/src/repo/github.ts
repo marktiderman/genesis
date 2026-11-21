@@ -55,7 +55,8 @@ export interface GitHubDeps {
 }
 
 async function gh(deps: GitHubDeps, args: string[], stdin?: string): Promise<string> {
-  const res = await deps.run("gh", ["api", ...args], { cwd: deps.cwd, timeoutMs: 30_000, passEnv: TOOL_AUTH_ENV["gh"] ?? [], ...(stdin !== undefined ? { stdin } : {}) });
+  // Pinned to github.com: GH_HOST (an Enterprise host) must never pick which repository is changed.
+  const res = await deps.run("gh", ["api", "--hostname", "github.com", ...args], { cwd: deps.cwd, timeoutMs: 30_000, passEnv: TOOL_AUTH_ENV["gh"] ?? [], ...(stdin !== undefined ? { stdin } : {}) });
   if (res.code !== 0) {
     const said = (res.stderr.trim() || res.stdout.trim()).split("\n")[0] ?? "";
     const admin = /\b(403|404)\b/.test(res.stderr) && args.includes("-X") ? " (this needs the repository's admin role)" : "";
@@ -93,7 +94,7 @@ export async function readLive(deps: GitHubDeps, slug: string): Promise<LiveRepo
   const own = list.filter((r) => (r.source_type ?? "Repository") === "Repository" && (r.target ?? "branch") === "branch");
   const rulesets = await Promise.all(own.map((r) => ghJson<Ruleset>(deps, [`repos/${slug}/rulesets/${r.id}`])));
   const settings: Partial<MergeSettings> = {};
-  for (const key of ["delete_branch_on_merge", "allow_auto_merge", "allow_rebase_merge", "allow_merge_commit"] as const) if (typeof repo[key] === "boolean") settings[key] = repo[key];
+  for (const key of ["delete_branch_on_merge", "allow_auto_merge", "allow_rebase_merge", "allow_merge_commit", "allow_squash_merge"] as const) if (typeof repo[key] === "boolean") settings[key] = repo[key];
   return { slug, defaultBranch: repo.default_branch ?? "main", settings, rulesets, ...(repo.node_id ? { nodeId: repo.node_id } : {}) };
 }
 
@@ -120,17 +121,42 @@ export function remoteWorkflows(deps: GitHubDeps): RemoteWorkflowReader {
  */
 export async function workflowsAt(deps: GitHubDeps, slug: string, ref: string): Promise<Array<{ path: string; text: string }>> {
   const q = `?ref=${encodeURIComponent(ref)}`;
-  let list: Array<{ type?: string; name?: string; path?: string }>;
+  const files = await workflowListing(deps, slug, ref);
+  return Promise.all(files.map(async (f) => ({ path: `.github/workflows/${f.name}`, text: await gh(deps, ["-H", "Accept: application/vnd.github.raw+json", `repos/${slug}/contents/.github/workflows/${f.name}${q}`]) })));
+}
+
+/** A ruleset as it is now (for the re-read before a PUT). */
+export async function readRuleset(deps: GitHubDeps, slug: string, id: number): Promise<Ruleset> {
+  return ghJson<Ruleset>(deps, [`repos/${slug}/rulesets/${id}`]);
+}
+
+type Listing = Array<{ type?: string; name?: string; sha?: string }>;
+
+/**
+ * The workflow files at `ref`, by name and blob sha (one call). A 404 means "no workflows" only
+ * when a read the token can make shows `.github/workflows` really isn't there (the folders above
+ * list without it); GitHub also answers 404 for a private path the token can't read, and that is
+ * unknown, so it throws and the caller's fallback or refusal applies.
+ */
+export async function workflowListing(deps: GitHubDeps, slug: string, ref: string): Promise<Array<{ name: string; sha: string }>> {
+  const q = `?ref=${encodeURIComponent(ref)}`;
+  let list: Listing;
   try {
     list = await ghJson(deps, [`repos/${slug}/contents/.github/workflows${q}`]);
   } catch (err) {
-    // No .github/workflows on the branch is an answer: no workflows.
-    if (/\b404\b|Not Found/.test((err as Error).message)) return [];
+    if (!/\b404\b|Not Found/.test((err as Error).message)) throw err;
+    const absent = async (folder: string, name: string) => {
+      const above = await ghJson<Listing>(deps, [`repos/${slug}/contents${folder}${q}`]).catch(() => null);
+      return Array.isArray(above) && !above.some((e) => e.name === name && e.type === "dir");
+    };
+    if ((await absent("", ".github")) || (await absent("/.github", "workflows"))) return [];
     throw err;
   }
   if (!Array.isArray(list)) throw new GitHubError(`repos/${slug}/contents/.github/workflows isn't a folder`);
-  const files = list.filter((f) => f.type === "file" && typeof f.name === "string" && /^[A-Za-z0-9._-]+\.ya?ml$/.test(f.name)).sort((a, b) => a.name!.localeCompare(b.name!));
-  return Promise.all(files.map(async (f) => ({ path: `.github/workflows/${f.name}`, text: await gh(deps, ["-H", "Accept: application/vnd.github.raw+json", `repos/${slug}/contents/.github/workflows/${f.name}${q}`]) })));
+  return list
+    .filter((f) => f.type === "file" && typeof f.name === "string" && /^[A-Za-z0-9._-]+\.ya?ml$/.test(f.name))
+    .map((f) => ({ name: f.name!, sha: f.sha ?? "" }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /** Make one write: the body goes on stdin. */
@@ -183,7 +209,7 @@ export const DELETE_IF_AT = "mutation($repo: ID!, $name: GitRefname!, $before: G
  */
 export async function deleteBranchAt(deps: GitHubDeps, repositoryId: string, branch: string, tip: string): Promise<void> {
   if (!OID.test(tip)) throw new GitHubError(`${branch}: not a commit id: ${tip.slice(0, 40)}`);
-  const res = await deps.run("gh", ["api", "graphql", "-f", `query=${DELETE_IF_AT}`, "-f", `repo=${repositoryId}`, "-f", `name=refs/heads/${branch}`, "-f", `before=${tip}`], { cwd: deps.cwd, timeoutMs: 30_000, passEnv: TOOL_AUTH_ENV["gh"] ?? [] });
+  const res = await deps.run("gh", ["api", "--hostname", "github.com", "graphql", "-f", `query=${DELETE_IF_AT}`, "-f", `repo=${repositoryId}`, "-f", `name=refs/heads/${branch}`, "-f", `before=${tip}`], { cwd: deps.cwd, timeoutMs: 30_000, passEnv: TOOL_AUTH_ENV["gh"] ?? [] });
   let errors: unknown = null;
   try {
     errors = (JSON.parse(res.stdout || "{}") as { errors?: unknown }).errors ?? null;

@@ -671,7 +671,7 @@ const repoCommand = program.command("repo").description("The app's GitHub reposi
 
 repoCommand
   .command("protect")
-  .description("Create or converge the rulesets (default branch, staging batches) and merge settings; the required checks come from the app's workflows or genesis.config.json repo.requiredChecks")
+  .description("Create or converge the rulesets (default branch, staging batches) and merge settings; the required checks come from the app's workflows or genesis.config.json repo.requiredChecks. Each ruleset is re-read just before its PUT and left alone if it changed (the API has no version condition, so a change in that instant can still be overwritten); a conflict it can't settle is refused, exit 1")
   .option("-d, --dir <dir>", "The app's folder", process.cwd())
   .option("--repo <owner/name>", "The GitHub repository (default: the origin remote's)")
   .option("--dry-run", "Print the changes; write nothing", false)

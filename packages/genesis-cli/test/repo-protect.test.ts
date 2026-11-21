@@ -88,7 +88,8 @@ describe("protectionSpec", () => {
     ]);
     // No bypass on the default branch: nothing reaches it past the review gate.
     expect(one.rulesets[0]!.bypass_actors).toEqual([]);
-    expect(one.settings).toEqual({ delete_branch_on_merge: true, allow_auto_merge: true, allow_rebase_merge: false, allow_merge_commit: true });
+    // Merge commits are never set: a repository that turned them off keeps them off.
+    expect(one.settings).toEqual({ delete_branch_on_merge: true, allow_auto_merge: true, allow_rebase_merge: false });
 
     const two = protectionSpec({ defaultChecks: [], stagingChecks: ["Adversarial review"] });
     // Present with an empty list, so an existing rule is still reconciled; a new ruleset leaves it out.
@@ -372,15 +373,29 @@ describe("CodeRabbit round: planning", () => {
     expect((plan.writes[0]!.body.conditions as Ruleset["conditions"]).ref_name.exclude).toEqual(["refs/heads/archive/*"]);
   });
 
-  it("never puts the staging bypass on a ruleset that also covers main, and writes each live ruleset once", () => {
-    // Evaluate-only, so both standard rulesets would want to change it: it is still written once.
+  it("leaves a ruleset shared by main and staging as it is: neither main's checks nor the staging bypass go on it", () => {
     const combined: Ruleset = { ...handMade(), id: 55, name: "everything", enforcement: "evaluate", conditions: { ref_name: { include: ["~DEFAULT_BRANCH", STAGING_REF], exclude: [] } }, bypass_actors: [] };
     const plan = planProtection(spec2(), live([combined]));
-    const puts = plan.writes.filter((w) => w.method === "PUT");
-    expect(puts.map((w) => w.path)).toEqual(["repos/acme/sample-app/rulesets/55"]);
-    expect((puts[0]!.body.bypass_actors as unknown[]).length).toBe(0);
-    const post = plan.writes.find((w) => w.method === "POST")!;
-    expect(post.body).toMatchObject({ name: "staging-branches", conditions: { ref_name: { include: [STAGING_REF] } }, bypass_actors: [{ actor_id: 5, bypass_mode: "always" }] });
+    expect(plan.writes.filter((w) => w.method === "PUT")).toEqual([]);
+    const posts = plan.writes.filter((w) => w.method === "POST").map((w) => w.body);
+    expect(posts[0]).toMatchObject({ name: "default", conditions: { ref_name: { include: ["~DEFAULT_BRANCH"] } }, bypass_actors: [] });
+    expect(posts[1]).toMatchObject({ name: "staging-branches", conditions: { ref_name: { include: [STAGING_REF] } }, bypass_actors: [{ actor_id: 5, bypass_mode: "always" }] });
+  });
+
+  it("adopts a default-only ruleset, never one that also targets other branches", () => {
+    const shared: Ruleset = { ...handMade(), id: 66, name: "default", conditions: { ref_name: { include: ["~DEFAULT_BRANCH", "refs/heads/release/*"], exclude: [] } } };
+    const plan = planProtection(protectionSpec({ defaultChecks: ["app / App checks"], stagingChecks: null }), live([shared]));
+    expect(plan.writes.some((w) => w.path.endsWith("/66"))).toBe(false);
+    expect(plan.writes.find((w) => w.method === "POST")!.body).toMatchObject({ name: "default-only", conditions: { ref_name: { include: ["~DEFAULT_BRANCH"] } } });
+    expect(plan.notes.join("\n")).toContain('"default-only", is created; GitHub enforces both');
+  });
+
+  it("refuses to turn rebase off when it would leave no merge method, and never turns merge commits back on", () => {
+    const off = planProtection(protectionSpec({ defaultChecks: ["app / App checks", "database / Database and pgTAP", "Adversarial review"], stagingChecks: null }), live([handMade()], { delete_branch_on_merge: true, allow_auto_merge: true, allow_rebase_merge: true, allow_merge_commit: false, allow_squash_merge: false }));
+    expect(off.refusals.join("\n")).toContain("would leave no merge method");
+    const squash = planProtection(protectionSpec({ defaultChecks: ["app / App checks", "database / Database and pgTAP", "Adversarial review"], stagingChecks: null }), live([handMade()], { delete_branch_on_merge: true, allow_auto_merge: true, allow_rebase_merge: false, allow_merge_commit: false, allow_squash_merge: true }));
+    expect(squash.changes).toEqual([]);
+    expect(squash.refusals).toEqual([]);
   });
 });
 
@@ -398,6 +413,104 @@ describe("CodeRabbit round 2", () => {
     expect(plan.writes.some((w) => w.path.endsWith("/rulesets/9"))).toBe(false);
     const post = plan.writes.find((w) => w.method === "POST")!;
     expect(post.body).toMatchObject({ name: "staging-branches-only", conditions: { ref_name: { include: [STAGING_REF] } }, bypass_actors: [{ actor_id: 5 }] });
+  });
+});
+
+describe("CodeRabbit round 3", () => {
+  const REMOTE3 = () => Object.fromEntries(Object.entries(CI_FILES).map(([k, v]) => [path.basename(k), v]));
+
+  it("a non-object repo value never aborts config loading: the doctor reports it, genesis repo refuses it", async () => {
+    const top = repoDir(CI_FILES, { repo: "sample-app" });
+    const { readGenesisConfig } = await import("../src/doctor/config.js");
+    expect(readGenesisConfig(top)?.repoProblem).toContain('"repo" must be an object');
+    await expect(planRepo({ root: top, run: fakeGitHub(top, { rulesets: [handMade()], remote: REMOTE3() }).run })).rejects.toThrow(/"repo" must be an object/);
+    const app = makeApp(null, { "genesis.config.json": JSON.stringify({ repo: "sample-app" }) });
+    mkdirSync(path.join(app, ".git"));
+    const fake = fakeGitHub(app, { rulesets: [] });
+    const d = await runDoctor({ root: app, network: true, repo: { run: fake.run, ci: false }, config: { rules: { "genesis-behind": "off" } } });
+    expect(d.findings.filter((f) => f.rule === "repo-protection").map((f) => f.level)).toEqual(["warn"]);
+    expect(fake.calls).toEqual([]);
+  });
+
+  it("pins every REST and GraphQL call to github.com", async () => {
+    const top = repoDir(CI_FILES);
+    const fake = fakeGitHub(top, { rulesets: [handMade()], remote: REMOTE3() });
+    await planRepo({ root: top, run: fake.run });
+    const gh = fake.calls.filter((c) => c.args[0] === "gh");
+    expect(gh.length).toBeGreaterThan(3);
+    expect(gh.every((c) => c.args.slice(1, 4).join(" ") === "api --hostname github.com")).toBe(true);
+  });
+
+  it("a 404 on the workflows is empty only when the folders above list without them; otherwise unknown", async () => {
+    const top = repoDir(CI_FILES);
+    const absent = await planRepo({ root: top, run: fakeGitHub(top, { rulesets: [handMade()], workflows404: "absent" }).run });
+    expect(absent.localRef).toBe(null);
+    expect(absent.defaultChecks).toEqual([]);
+    const unknown = await planRepo({ root: top, run: fakeGitHub(top, { rulesets: [handMade()], workflows404: "unreadable" }).run });
+    expect(unknown.localRef).toBe("feature-x");
+  });
+
+  it("refuses to write when the staging inventory fails, and keeps a refused --json run machine-readable", async () => {
+    const top = repoDir(CI_FILES);
+    const lines: string[] = [];
+    expect(await runRepoProtect({ root: top, run: fakeGitHub(top, { rulesets: [handMade()], remote: REMOTE3(), failBranches: true }).run, json: true, out: (l) => lines.push(l) })).toBe(1);
+    const out = JSON.parse(lines.join("\n")) as { refused: string[]; written: unknown[] };
+    expect(out.refused.join("\n")).toContain("couldn't list acme/sample-app's staging branches");
+    expect(out.written).toEqual([]);
+  });
+
+  it("reconciles a required check whose workflow now runs only on opened as conditional", async () => {
+    const files = [{ path: ".github/workflows/l.yml", text: "on:\n  pull_request:\n    types: [opened]\njobs:\n  lint:\n    runs-on: ubuntu-latest\n" }];
+    const out = await checksFromWorkflows(files, "main");
+    expect(out.conditional.map((c) => c.context)).toEqual(["lint"]);
+    const both = await checksFromWorkflows([...files, { path: ".github/workflows/m.yml", text: "on: pull_request\njobs:\n  lint:\n    runs-on: ubuntu-latest\n" }], "main");
+    expect(both.required).toEqual(["lint"]);
+    expect(both.conditional).toEqual([]);
+  });
+
+  it("with a merge queue, refuses to add a check that has no merge_group trigger", async () => {
+    const top = repoDir(CI_FILES);
+    const queued = handMade();
+    queued.rules.push({ type: "merge_queue", parameters: {} });
+    (queued.rules[3]!.parameters!.required_status_checks as unknown[]).splice(0, 1);
+    const result = await planRepo({ root: top, run: fakeGitHub(top, { rulesets: [queued], remote: REMOTE3() }).run });
+    expect(result.plan.refusals.join("\n")).toContain('main has a merge queue, and "app / App checks" has no merge_group trigger');
+  });
+
+  it("refuses new staging checks when a batch's workflows differ from the default branch's", async () => {
+    const top = repoDir(CI_FILES);
+    const old = { ...REMOTE3(), "review-gate.yml": "on: { pull_request: {} }\njobs: {}\n" };
+    const result = await planRepo({ root: top, run: fakeGitHub(top, { rulesets: [handMade()], remote: { ...REMOTE3(), "gate.yml": "on:\n  pull_request:\n    branches: ['staging/**']\njobs:\n  gate:\n    name: Batch gate\n    runs-on: ubuntu-latest\n" }, branches: ["staging/2026-11-20/a"], batchRemote: { "staging/2026-11-20/a": old } }).run });
+    expect(result.plan.refusals.join("\n")).toContain('staging/2026-11-20/a has other workflows than main, so "Batch gate" might never report there');
+  });
+
+  it("re-reads a ruleset just before its PUT and doesn't overwrite one that changed", async () => {
+    const top = repoDir(CI_FILES);
+    const r = { ...handMade(), updated_at: "2026-11-21T10:00:00Z" };
+    const fake = fakeGitHub(top, { rulesets: [r], remote: REMOTE3(), settings: { allow_rebase_merge: false }, rulesetNow: { 101: { updated_at: "2026-11-21T10:05:00Z" } } });
+    (r.rules[2]!.parameters as Record<string, unknown>).allowed_merge_methods = ["merge", "squash", "rebase"];
+    await expect(runRepoProtect({ root: top, run: fake.run, out: () => {} })).rejects.toThrow(/changed since it was planned[\s\S]*Nothing was written/);
+    expect(fake.calls.some((c) => c.args.includes("PUT"))).toBe(false);
+  });
+
+  it("reads a pinned reusable workflow at the ref uses: names", async () => {
+    const top = repoDir({ ".github/workflows/ci.yml": "on: pull_request\njobs:\n  app:\n    uses: marktiderman/genesis/.github/workflows/app-ci.yml@1111111111111111111111111111111111111111\n" });
+    const pinned = { "1111111111111111111111111111111111111111": "on: workflow_call\njobs:\n  app:\n    name: App checks v1\n    runs-on: ubuntu-latest\n", "2222222222222222222222222222222222222222": "on: workflow_call\njobs:\n  app:\n    name: App checks v2\n    runs-on: ubuntu-latest\n" };
+    const result = await planRepo({ root: top, run: fakeGitHub(top, { rulesets: [], remote: { "ci.yml": "on: pull_request\njobs:\n  app:\n    uses: marktiderman/genesis/.github/workflows/app-ci.yml@1111111111111111111111111111111111111111\n" }, pinned }).run });
+    expect(result.defaultChecks).toEqual(["app / App checks v1"]);
+  });
+
+  it("prune checks every covering deletion rule per branch: an exclusion lets one through, ~ALL blocks", async () => {
+    const top = repoDir(CI_FILES);
+    const staging = { ...handMade(), id: 202, name: "staging-branches", conditions: { ref_name: { include: [STAGING_REF], exclude: ["refs/heads/staging/2026-11-01/*"] } }, current_user_can_bypass: "never" };
+    const branches = ["staging/2026-11-01/a", "staging/2026-11-02/a", "staging/2026-11-21/b"];
+    const lines: string[] = [];
+    expect(await runPruneStaging({ root: top, run: fakeGitHub(top, { rulesets: [staging], branches }).run, dryRun: true, out: (l) => lines.push(l) })).toBe(1);
+    expect(lines.join("\n")).toMatch(/would fail staging\/2026-11-02\/a: no bypass of ruleset "staging-branches"[\s\S]*would delete staging\/2026-11-01\/a/);
+    const all = { ...handMade(), id: 303, name: "everything", conditions: { ref_name: { include: ["~ALL"], exclude: [] } }, current_user_can_bypass: "never" };
+    const blocked: string[] = [];
+    expect(await runPruneStaging({ root: top, run: fakeGitHub(top, { rulesets: [all], branches }).run, dryRun: true, out: (l) => blocked.push(l) })).toBe(1);
+    expect(blocked.join("\n")).toContain('no bypass of ruleset "everything"');
   });
 });
 
@@ -449,8 +562,9 @@ interface Fake {
 /** A stable fake commit id per branch. */
 const tipOf = (branch: string) => createHash("sha1").update(branch).digest("hex");
 
-function fakeGitHub(top: string, state: { rulesets: Ruleset[]; settings?: Record<string, unknown>; branches?: string[]; pulls?: unknown[]; ahead?: Record<string, number>; failWrites?: string[]; remote?: Record<string, string>; failDelete?: boolean }): Fake {
+function fakeGitHub(top: string, state: { rulesets: Ruleset[]; settings?: Record<string, unknown>; branches?: string[]; pulls?: unknown[]; ahead?: Record<string, number>; failWrites?: string[]; remote?: Record<string, string>; failDelete?: boolean; failBranches?: boolean; workflows404?: "absent" | "unreadable"; batchRemote?: Record<string, Record<string, string>>; rulesetNow?: Record<number, Partial<Ruleset>>; pinned?: Record<string, string> }): Fake {
   const calls: Fake["calls"] = [];
+  const reads = new Map<string, number>();
   const ok = (stdout: unknown): RunToolResult => ({ code: 0, stdout: typeof stdout === "string" ? stdout : JSON.stringify(stdout), stderr: "" });
   const run: ToolRunner = async (tool, args, options) => {
     calls.push({ args: [tool, ...args], ...(options.stdin !== undefined ? { stdin: options.stdin } : {}) });
@@ -458,19 +572,35 @@ function fakeGitHub(top: string, state: { rulesets: Ruleset[]; settings?: Record
     const target = args.filter((a) => a.startsWith("repos/")).at(-1) ?? "";
     if (args.includes("-X") && !(state.failWrites ?? []).includes(target)) return ok("{}");
     if (args.includes("-X")) return { code: 1, stdout: "", stderr: "gh: Resource not accessible (HTTP 403)" };
-    if (args[1] === "graphql") return state.failDelete ? ok({ errors: [{ message: "Reference has moved" }] }) : ok({ data: { updateRefs: { clientMutationId: null } } });
+    if (args.includes("graphql")) return state.failDelete ? ok({ errors: [{ message: "Reference has moved" }] }) : ok({ data: { updateRefs: { clientMutationId: null } } });
     const refTip = /git\/ref\/heads\/(.+)$/.exec(target);
     if (refTip) return ok({ object: { sha: tipOf(refTip[1]!) } });
     if (target === "repos/acme/sample-app") return ok({ node_id: "R_sample", default_branch: "main", delete_branch_on_merge: true, allow_auto_merge: true, allow_rebase_merge: true, allow_merge_commit: true, ...state.settings });
     if (target.startsWith("repos/acme/sample-app/rulesets?")) return ok(state.rulesets.map((r) => ({ id: r.id, name: r.name, target: r.target, source_type: "Repository" })));
     const rs = /rulesets\/(\d+)$/.exec(target);
-    if (rs) return ok(state.rulesets.find((r) => String(r.id) === rs[1]));
-    if (target.includes("/git/matching-refs/heads/staging/")) return ok((state.branches ?? []).map((b) => ({ ref: `refs/heads/${b}` })));
+    if (rs) {
+      // The first read is the plan's; later ones (the re-read before a PUT) see `rulesetNow`.
+      const n = (reads.get(rs[1]!) ?? 0) + 1;
+      reads.set(rs[1]!, n);
+      const r = state.rulesets.find((x) => String(x.id) === rs[1]);
+      return ok(n > 1 && state.rulesetNow?.[Number(rs[1])] ? { ...r, ...state.rulesetNow[Number(rs[1])] } : r);
+    }
+    if (target.includes("/git/matching-refs/heads/staging/")) return state.failBranches ? { code: 1, stdout: "", stderr: "gh: HTTP 502" } : ok((state.branches ?? []).map((b) => ({ ref: `refs/heads/${b}` })));
+    if (state.workflows404 && target.startsWith("repos/acme/sample-app/contents")) {
+      if (target.startsWith("repos/acme/sample-app/contents/.github/workflows")) return { code: 1, stdout: "", stderr: "gh: Not Found (HTTP 404)" };
+      if (state.workflows404 === "unreadable") return { code: 1, stdout: "", stderr: "gh: Not Found (HTTP 404)" };
+      if (/contents\?ref=/.test(target)) return ok([{ type: "file", name: "README.md" }]);
+    }
+    // A pinned reusable workflow at a given ref (ref-sensitive).
+    const pin = /^repos\/marktiderman\/genesis\/contents\/(.+)\?ref=(.+)$/.exec(target);
+    if (pin && state.pinned?.[decodeURIComponent(pin[2]!)]) return ok(state.pinned[decodeURIComponent(pin[2]!)]);
+    const batch = /^repos\/acme\/sample-app\/contents\/\.github\/workflows\?ref=(.+)$/.exec(target);
+    if (batch && state.batchRemote?.[decodeURIComponent(batch[1]!)]) return ok(Object.entries(state.batchRemote[decodeURIComponent(batch[1]!)]!).map(([name, text]) => ({ type: "file", name, sha: createHash("sha1").update(text).digest("hex") })));
     // The app's own workflows on its default branch: unreadable unless the test gives them.
     if (target.startsWith("repos/acme/sample-app/contents/.github/workflows")) {
       if (!state.remote) return { code: 1, stdout: "", stderr: "gh: connection refused" };
       const file = /workflows\/([^?]+)\?/.exec(target)?.[1];
-      if (!file) return ok(Object.keys(state.remote).map((name) => ({ type: "file", name, path: `.github/workflows/${name}` })));
+      if (!file) return ok(Object.entries(state.remote).map(([name, text]) => ({ type: "file", name, path: `.github/workflows/${name}`, sha: createHash("sha1").update(text).digest("hex") })));
       return ok(state.remote[file] ?? "");
     }
     if (target.includes("/contents/")) return ok(genesisWorkflow(path.basename(target.split("?")[0]!)));
@@ -505,7 +635,8 @@ describe("genesis repo protect", () => {
     const applied = fakeGitHub(top, { rulesets: [handMade()], remote: REMOTE });
     await runRepoProtect({ root: top, run: applied.run, out: () => {} });
     const writes = applied.calls.filter((c) => c.args.includes("-X"));
-    expect(writes.map((c) => c.args.slice(2, 5).join(" "))).toEqual(["-X PUT repos/acme/sample-app/rulesets/101", "-X PATCH repos/acme/sample-app"]);
+    expect(writes.every((c) => c.args.slice(1, 4).join(" ") === "api --hostname github.com")).toBe(true);
+    expect(writes.map((c) => c.args.slice(4, 7).join(" "))).toEqual(["-X PUT repos/acme/sample-app/rulesets/101", "-X PATCH repos/acme/sample-app"]);
     expect(JSON.parse(writes[1]!.stdin!)).toEqual({ allow_rebase_merge: false });
   });
 
@@ -623,12 +754,12 @@ describe("genesis repo prune-staging", () => {
     expect(lines.join("\n")).toContain("keep staging/2026-11-21/b: the newest batch");
     expect(lines.join("\n")).toContain("keep staging/2026-11-05/a: an open pull request comes from it");
     expect(lines.join("\n")).toContain("keep staging/launch-hold: not a dated batch");
-    expect(dry.calls.some((c) => c.args[2] === "graphql")).toBe(false);
+    expect(dry.calls.some((c) => c.args.includes("graphql"))).toBe(false);
 
     const real = fakeGitHub(top, state);
     await runPruneStaging({ root: top, run: real.run, out: () => {} });
     // Deleted only at the commit that was checked (updateRefs with beforeOid), never by name alone.
-    const deletes = real.calls.filter((c) => c.args[2] === "graphql");
+    const deletes = real.calls.filter((c) => c.args.includes("graphql"));
     expect(deletes.map((c) => c.args.filter((a) => /^(repo|name|before)=/.test(a)))).toEqual([["repo=R_sample", "name=refs/heads/staging/2026-11-01/a", `before=${tipOf("staging/2026-11-01/a")}`]]);
     expect(real.calls.some((c) => c.args.includes("DELETE"))).toBe(false);
 
@@ -658,7 +789,9 @@ describe("doctor: repo-protection", () => {
     const fake = fakeGitHub(top, { rulesets: [handMade()] });
     const on = await runDoctor({ root: top, network: true, repo: { run: fake.run, ci: false }, config: { rules: { "genesis-behind": "off" } } });
     const found = on.findings.filter((f) => f.rule === "repo-protection");
-    expect(found.map((f) => f.level)).toEqual(["warn", "warn"]);
+    expect(found.filter((f) => f.level === "warn").length).toBe(2);
+    // The planner's notes reach the doctor as info.
+    expect(found.some((f) => f.level === "info")).toBe(true);
     expect(found.map((f) => f.message).join("\n")).toMatch(/requires required check "database \/ Database and pgTAP"[\s\S]*allow_rebase_merge/);
 
     // A checkout without .github/workflows still gets checked: the default branch's workflows decide.

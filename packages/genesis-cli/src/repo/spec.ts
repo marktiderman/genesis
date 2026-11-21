@@ -65,21 +65,24 @@ export interface Ruleset {
   bypass_actors?: BypassActor[];
   /** Read only: whether the signed-in account can bypass it. */
   current_user_can_bypass?: string;
+  /** Read only: when it last changed (the re-read before a PUT compares it). */
+  updated_at?: string;
 }
 
-/** The repository settings Genesis sets. */
+/** The repository settings Genesis sets, and the merge methods it reads. */
 export interface MergeSettings {
   delete_branch_on_merge: boolean;
   allow_auto_merge: boolean;
   allow_rebase_merge: boolean;
-  allow_merge_commit: boolean;
+  /** Read, never set: a repository that turned merge commits off keeps them off. */
+  allow_merge_commit?: boolean;
+  allow_squash_merge?: boolean;
 }
 
 export const MERGE_SETTINGS: Readonly<MergeSettings> = Object.freeze({
   delete_branch_on_merge: true,
   allow_auto_merge: true,
   allow_rebase_merge: false,
-  allow_merge_commit: true,
 });
 
 /** What the plan compares against: the repository as it is. */
@@ -176,6 +179,12 @@ export interface Write {
   /** `repos/<owner>/<name>/rulesets/<id>`. */
   path: string;
   body: Record<string, unknown>;
+  /**
+   * A PUT's ruleset as it was read (`updated_at`): it is read again just before the PUT, and the
+   * write is refused if it changed. The rulesets API has no version condition, so a change in the
+   * moment between that read and the PUT can still be overwritten.
+   */
+  ifUpdatedAt?: string;
 }
 
 export interface ProtectionPlan {
@@ -184,6 +193,8 @@ export interface ProtectionPlan {
   writes: Write[];
   /** Said, not changed: checks kept that CI doesn't name, CI the plan couldn't read. */
   notes: string[];
+  /** Why nothing may be written (a conflict the plan can't settle): a real run refuses, exit 1. */
+  refusals: string[];
 }
 
 export interface PlanOptions {
@@ -230,7 +241,8 @@ function targetRefs(spec: Ruleset, defaultBranch: string, options: PlanOptions):
 
 /**
  * The live ruleset a spec ruleset converges: the one of that name, else one aimed at the same
- * refs, never one another spec ruleset already took (one write per live ruleset). A ruleset that
+ * refs, never one another spec ruleset already took (one write per live ruleset). The default
+ * branch's goes only on a ruleset aimed at it alone. A ruleset that
  * gets the staging bypass must be staging-only (every include a `refs/heads/staging/…` pattern):
  * one that also covers the default branch or any other ref isn't taken for staging, and a separate
  * staging ruleset is created, so the bypass never reaches beyond the batches.
@@ -239,7 +251,11 @@ export function matchRuleset(spec: Ruleset, live: readonly Ruleset[], options: {
   const main = `refs/heads/${options.defaultBranch ?? "main"}`;
   // A bypass applies to the whole ruleset: only one whose every include is a staging pattern gets it.
   const stagingOnly = (r: Ruleset) => !covers(r, main, options.defaultBranch ?? "main") && (r.conditions?.ref_name?.include ?? []).every((p) => p.startsWith("refs/heads/staging/"));
-  const free = live.filter((r) => r.target === spec.target && !(r.id !== undefined && options.taken?.has(r.id)) && (!spec.bypass_actors?.length || stagingOnly(r)));
+  // The default branch's checks and rules go only on a ruleset aimed at the default branch alone:
+  // one shared with staging or other branches would make them wait for checks that never run there.
+  const defaultOnly = (r: Ruleset) => (r.conditions?.ref_name?.include ?? []).every((p) => p === DEFAULT_BRANCH_REF || p === main);
+  const forMain = spec.conditions.ref_name.include.includes(DEFAULT_BRANCH_REF);
+  const free = live.filter((r) => r.target === spec.target && !(r.id !== undefined && options.taken?.has(r.id)) && (forMain ? defaultOnly(r) : stagingOnly(r)));
   return free.find((r) => r.name === spec.name) ?? free.find((r) => spec.conditions.ref_name.include.every((i) => r.conditions?.ref_name?.include?.includes(i)));
 }
 
@@ -434,7 +450,7 @@ export function planProtection(spec: ProtectionSpec, live: LiveRepo, options: Pl
     if (found?.id !== undefined) taken.add(found.id);
     if (!found) {
       const clash = live.rulesets.some((r) => r.name === want.name);
-      if (clash) notes.push(`ruleset "${want.name}" also covers ${live.defaultBranch} (or another standard ruleset took it), so ${want.bypass_actors?.length ? "the staging bypass can't go on it: " : ""}a separate ruleset, "${want.name}-only", is created`);
+      if (clash) notes.push(`ruleset "${want.name}" covers more than ${want.conditions.ref_name.include.join(", ")} (or another standard ruleset took it), so it is left as it is and a separate ruleset, "${want.name}-only", is created; GitHub enforces both`);
       want = clash ? { ...want, name: `${want.name}-only` } : want;
       const rules = want.rules
         .map((r) => (r.type === "required_status_checks" ? { ...r, parameters: { ...r.parameters, required_status_checks: (r.parameters!.required_status_checks as RequiredCheck[]).filter((c) => !conditional.has(c.context)) } } : r))
@@ -450,7 +466,7 @@ export function planProtection(spec: ProtectionSpec, live: LiveRepo, options: Pl
     }
     const before = changes.length;
     const next = convergeRuleset(want, found, live.defaultBranch, options, changes, notes);
-    if (changes.length > before && found.id !== undefined) writes.push({ method: "PUT", path: `repos/${live.slug}/rulesets/${found.id}`, body: rulesetBody(next) });
+    if (changes.length > before && found.id !== undefined) writes.push({ method: "PUT", path: `repos/${live.slug}/rulesets/${found.id}`, body: rulesetBody(next), ...(found.updated_at ? { ifUpdatedAt: found.updated_at } : {}) });
   }
   const patch: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(spec.settings)) {
@@ -459,8 +475,13 @@ export function planProtection(spec: ProtectionSpec, live: LiveRepo, options: Pl
     changes.push({ scope: "settings", kind: "change", what: `${key}: ${have === undefined ? "unknown" : show(have)} → ${show(value)}` });
     patch[key] = value;
   }
+  const refusals: string[] = [];
+  // Rebase off must leave a way to merge: merge commits are never turned back on by Genesis.
+  if (patch.allow_rebase_merge === false && live.settings.allow_merge_commit === false && live.settings.allow_squash_merge === false) {
+    refusals.push("turning rebase merging off would leave no merge method (merge commits and squash are off): turn merge commits or squash on first");
+  }
   if (Object.keys(patch).length) writes.push({ method: "PATCH", path: `repos/${live.slug}`, body: patch });
-  return { slug: live.slug, changes, writes, notes };
+  return { slug: live.slug, changes, writes, notes, refusals };
 }
 
 const MARK = { add: "+", remove: "-", change: "~" } as const;
