@@ -1,5 +1,16 @@
 # @marktiderman/genesis-supabase
 
+## 0.18.0
+
+### Minor Changes
+
+- 67d5859: Settings: migration `0025_genesis_settings_pattern.sql` makes the database refuse a string setting that doesn't match its key's `pattern` as a whole value (`^(?:pattern)$`, as genesis-config checks it) (genesis-config's new `pattern`, written into the synced catalogue), in `set_genesis_setting`, the tenant and person writes and the server's resolver alike. A `pattern` that isn't a string, or that Postgres can't compile, is reported as a malformed catalogue entry. It is part of the settings block (`genesis migrate` copies it).
+
+### Patch Changes
+
+- Updated dependencies [c9541ac]
+  - @marktiderman/genesis-config@0.13.0
+
 ## 0.17.0
 
 ### Minor Changes

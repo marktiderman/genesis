@@ -1,5 +1,38 @@
 # @marktiderman/genesis-cli
 
+## 1.32.0
+
+### Minor Changes
+
+- 67d5859: Setup: the `sentry` step saves the organization and the DSN as the settings `observability.sentryOrg` and `observability.sentryDsn` (genesis-native declares them) in one write of genesis.config.json, which installed apps read from their next build or update (a change on the in-app Settings screen applies with none). A step may now save several settings in that one write. `settings_propose` checks a value against the key's whole declaration, its `pattern` and whole-number rule included.
+- 514b568: **Genesis Data Studio is now Genesis Data.** The name "Genesis Studio" now belongs to the creator suite (Map, Imago and the tools beside them), and the table and record editor is Studio's Data tool.
+
+  - `@marktiderman/genesis-studio` is now `@marktiderman/genesis-data`, and `@marktiderman/genesis-studio-server` is now `@marktiderman/genesis-data-server`, with the same exports, stylesheets and entries. The server's command is `genesis-data-server`.
+  - The old packages are deprecated aliases that re-export the new ones for two minor versions, so nothing breaks: `genesis-studio-server` still runs the command. `genesis doctor` reports imports of the old names as `deprecated-import`.
+  - An app whose stylesheet scans the old package (`@source ".../genesis-studio/dist"`) still gets the editor's classes: the alias ships genesis-data's built module, unimported, for Tailwind to find. `genesis data init` adds the new `@source` line once, including to an app set up under the old name.
+  - `genesis data init` turns Genesis Data on in an app. `genesis studio init` still works and says it's been renamed.
+  - Unchanged on purpose: the exported names (`DataStudio`, `createStudioHandler`, …), the `genesis_studio` database schema and the `genesis_studio_login` role, so a deployed app needs no migration.
+
+- e1278f3: Previews on the phone, opened by a link, and the doctor's missed-value check.
+
+  - **genesis-native:** preview links (`previewLinkChannel`, `previewLink`, `previewPath`, `PREVIEW_PATH`), read by `normalizeLink` where the app's own `map` has no pattern for the path (an app's `/preview/:id` route keeps its links; `links.previews: false` turns previews off). `PreviewScreen`, `PreviewNotice` (the updates block's new `previewNotice` slot) and `useChannelState`. The channel switcher gains `prepare`, `restart`, `state`, `recover`, `subscribe`, `noteDownloaded`, `noteRelease` and `holdReload`, runs its writes one at a time, remembers the build's channel, and heals when a preview's channel was deleted. `switchTo` and `prepare` are async: a bad channel name, or switching while it's off, now rejects their promise instead of throwing synchronously, so catch it (`await` in a try, or `.catch`). The `channels` docs now turn switching on in release builds (`{ enabled: true }`); it can't work in a development client.
+  - **genesis-cli:** `pr-preview.yml` publishes each pull request as an update on `pr-<number>` for the release builds people already have, and comments a preview link and QR code; it builds a preview only when native code changed. New `pr-preview-teardown.yml` deletes the channel when the pull request closes. `release.previews` (`origin`, `scheme`) and the `previews` template set (`genesis add template previews`). New rule `missed-value` (info) reports blocks an app doesn't use, ones it switched off, and a missing preview lane, with `doctor.declined` for the ones it doesn't want; block manifests take `detect`.
+
+- 907d405: Readable Sentry stack traces by default, web and native, from one switch.
+
+  - **`observability.sentry`** (genesis.config.json, new top-level key): the Sentry organization and project. With both set, `release.sentry` defaults to true, so the release workflows upload each update's source maps; an explicit `release.sentry` still wins. `pr-preview.yml` with Sentry on checks `SENTRY_AUTH_TOKEN` and the uploader before publishing and uploads each platform's preview update.
+  - **New rule `cli/sentry-source-maps`**, declared by genesis-cli through `genesis.doctor.plugin` so every app with the CLI runs it: in an app with an `@sentry/*` package, it flags Metro without `getSentryExpoConfig` (no Debug IDs), a missing `@sentry/react-native/expo` plugin, a workflow that publishes updates without uploading their source maps, and a web Vite build without Sentry's source maps plugin. An app with an empty `observability.sentry` gets one info.
+  - **New fix `cli/sentry-source-maps`** (guided, `genesis.doctor.fixes`): writes `getSentryExpoConfig` into the Metro config, the Expo plugin, `observability.sentry` adopted from the app's own plugin options and `"@sentry/cli": true` in the app's pnpm-workspace.yaml, then lists the `SENTRY_AUTH_TOKEN` step and the rest.
+  - `genesis init --template native` writes a Metro config that builds on `getSentryExpoConfig` when `observability.sentry` is set, and the development EAS profile sets `SENTRY_DISABLE_AUTO_UPLOAD`, so development builds need no token.
+
+### Patch Changes
+
+- 7b2e1ac: `genesis migrate` and the doctor's `migration-drift` no longer flag an app's own earlier draft that shares a package migration's name. When several files hold one package migration and exactly one carries its `genesis-migration` header, that file is the copy and the others are the app's own. Without exactly one header, which file is the copy can't be told, so the migration is still left alone and reported.
+- Updated dependencies [c9541ac]
+- Updated dependencies [514b568]
+  - @marktiderman/genesis-config@0.13.0
+  - @marktiderman/genesis-data-server@0.7.0
+
 ## 1.31.0
 
 ### Minor Changes
