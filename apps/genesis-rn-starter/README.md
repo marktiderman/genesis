@@ -322,8 +322,8 @@ it (App Store Review Guideline 4.8): `defineStarter` refuses Google without Appl
   (and each EAS environment) still works, and wins over the setting. With neither, nothing is
   sent. `src/lib/observability.ts` builds the sink at module scope; `src/lib/app.ts` imports it
   first, and the root layout is exported wrapped (`wrapRoot`). Release and dist come from the
-  version signature, with the update id and channel as tags. Readable stack traces are one switch
-  away (Sentry source maps, below).
+  version signature, with the update id and channel as tags. Readable stack traces are one
+  switch away (Sentry source maps, below).
 - **Errors per tab.** Each tab's `_layout.tsx` exports `ScreenErrorBoundary` (from
   `src/lib/observability.ts`) as its Expo Router `ErrorBoundary`: a screen that throws shows "This
   screen hit a problem" with Try again, the tab bar keeps working, and the error is reported
