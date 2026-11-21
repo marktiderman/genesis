@@ -1,8 +1,10 @@
 /**
  * `expo-native-deps` (native pack): an installed package the Expo SDK manages (one its
  * `bundledNativeModules.json` names) at a version outside the range the installed `expo` expects.
- * It is the comparison `npx expo install --check` makes, done offline from what is installed: the
- * installed expo's own `bundledNativeModules.json` against each package's installed version.
+ * It is the comparison `npx expo install --check` makes (@expo/cli's
+ * validateDependenciesVersions), done offline from what is installed: the installed expo's own
+ * `bundledNativeModules.json` against each package's installed version, prereleases included, a
+ * React Native TV install (`react-native-tvos`) by major.minor only.
  *
  * A drift compiles and bundles, then can fail at launch, before any JavaScript runs: an app on
  * react-native 0.88.0 under an expo whose expo-modules-core was built for 0.88.1 crashed in dyld
@@ -11,15 +13,16 @@
  * only where it is used, or not at all).
  *
  * Checked: the app's declared dependencies and devDependencies the SDK names, plus
- * expo-modules-core, which comes with expo (looked up from expo's own folder). Skipped: an app
- * without expo, one not installed yet, and names in package.json `expo.install.exclude` (Expo's own
- * opt-out, which `expo install --check` honours too).
+ * expo-modules-core, which comes with expo (resolved from expo's real folder, as Node does, so
+ * pnpm's isolated store is followed). Skipped: an app without expo, one not installed yet, and
+ * package.json `expo.install.exclude` entries with Expo's meaning: a name always, `name@version`
+ * while the SDK suggests exactly that version, `name@range` while the SDK's range is inside it.
  */
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import * as path from "node:path";
 import { parse as parseYaml } from "yaml";
 import { findPackageDir } from "./genesis.js";
-import { satisfies } from "./semver.js";
+import { parseVersion, rangeSubset, satisfies } from "./semver.js";
 import type { DoctorContext } from "./types.js";
 
 export const EXPO_NATIVE_DEPS_RULE = "expo-native-deps";
@@ -27,7 +30,11 @@ export const EXPO_NATIVE_DEPS_RULE = "expo-native-deps";
 /** A drift in one of these crashes the app at launch, before JS: an error. */
 export const EXPO_LAUNCH_CRITICAL = new Set(["react-native", "expo-modules-core"]);
 
+/** The folders that hold an install of their own (the ones discover.ts stops at). */
+const INSTALL_ROOT_MARKERS = [".git", "pnpm-lock.yaml", "pnpm-workspace.yaml", "bun.lock", "bun.lockb", "yarn.lock", "package-lock.json"];
+
 interface Manifest {
+  name?: string;
   version?: string;
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
@@ -45,51 +52,109 @@ function readJson<T>(file: string): T | null {
   }
 }
 
-/** The package an override or resolution key names (`react-native`, `a>react-native`, `react-native@<1`, `**\/react-native`). */
-export function overrideTarget(key: string): string {
+const real = (p: string) => {
+  try {
+    return realpathSync(p);
+  } catch {
+    return p;
+  }
+};
+
+/** A package name and the version or range after it (`@s/x@^1` → `@s/x`, `^1`). */
+export function splitSpec(entry: string): { name: string; spec: string | null } {
+  const at = entry.indexOf("@", entry.startsWith("@") ? 1 : 0);
+  return at > 0 ? { name: entry.slice(0, at), spec: entry.slice(at + 1) } : { name: entry, spec: null };
+}
+
+/** The package an override or resolution key names, and the range it applies to (`a>react-native@<1`, `**\/@s/x`). */
+export function overrideTarget(key: string): { name: string; spec: string | null } {
   // pnpm's `parent>child`: the child. Yarn's paths (`**/x`, `a/x`, `a/@s/x`): the last package.
   const segments = key.split(">").pop()!.trim().split("/");
-  const name = segments.length >= 2 && segments[segments.length - 2]!.startsWith("@") ? segments.slice(-2).join("/") : segments[segments.length - 1]!;
-  const at = name.indexOf("@", name.startsWith("@") ? 1 : 0);
-  return at > 0 ? name.slice(0, at) : name;
+  const last = segments.length >= 2 && segments[segments.length - 2]!.startsWith("@") ? segments.slice(-2).join("/") : segments[segments.length - 1]!;
+  return splitSpec(last);
+}
+
+/** The app's install root: the nearest folder from the app up with a lockfile, a workspace file or .git; the app when none has. */
+export function installRoot(root: string): string {
+  let dir = path.resolve(root);
+  for (;;) {
+    if (INSTALL_ROOT_MARKERS.some((m) => existsSync(path.join(dir, m)))) return dir;
+    const parent = path.dirname(dir);
+    if (parent === dir) return path.resolve(root);
+    dir = parent;
+  }
 }
 
 /**
- * Where the app pins a package past its own package.json range: pnpm-workspace.yaml `overrides`,
- * package.json `pnpm.overrides`, `overrides` (npm, bun) and `resolutions` (yarn). An override wins
- * over what `expo install --fix` writes, so the finding names it.
+ * Where an override or resolution pins a package at its installed version: pnpm-workspace.yaml
+ * `overrides`, package.json `pnpm.overrides`, `overrides` (npm and bun, nested objects walked) and
+ * `resolutions` (yarn), in the app and at its install root (where pnpm and npm apply them). A
+ * range-keyed entry (`foo@<1.2.3`, a security floor) counts only when the installed version is in
+ * its range. An override wins over what `expo install --fix` writes, so the finding names it.
  */
-export function overridesPinning(root: string, manifest: Manifest | null): Map<string, string> {
-  const pins = new Map<string, string>();
-  const add = (where: string, table: unknown) => {
-    if (!table || typeof table !== "object") return;
-    for (const key of Object.keys(table)) {
-      const name = overrideTarget(key);
-      if (!pins.has(name)) pins.set(name, where);
+export function overridePin(root: string, name: string, installed: string): string | null {
+  const roots = [...new Set([path.resolve(root), installRoot(root)])];
+  for (const dir of roots) {
+    const shown = (file: string) => path.relative(root, path.join(dir, file)).split(path.sep).join("/") || file;
+    const tables: Array<[string, unknown]> = [];
+    const workspace = path.join(dir, "pnpm-workspace.yaml");
+    if (existsSync(workspace)) {
+      try {
+        tables.push([`${shown("pnpm-workspace.yaml")} overrides`, (parseYaml(readFileSync(workspace, "utf8")) as { overrides?: unknown } | null)?.overrides]);
+      } catch {
+        // Not YAML pnpm would read either.
+      }
     }
-  };
-  const workspace = path.join(root, "pnpm-workspace.yaml");
-  if (existsSync(workspace)) {
-    try {
-      add("pnpm-workspace.yaml overrides", (parseYaml(readFileSync(workspace, "utf8")) as { overrides?: unknown } | null)?.overrides);
-    } catch {
-      // Not YAML pnpm would read either.
-    }
+    const manifest = readJson<Manifest>(path.join(dir, "package.json"));
+    tables.push([`${shown("package.json")} pnpm.overrides`, manifest?.pnpm?.overrides], [`${shown("package.json")} overrides`, manifest?.overrides], [`${shown("package.json")} resolutions`, manifest?.resolutions]);
+    for (const [where, table] of tables) if (pins(table, name, installed)) return where;
   }
-  add("package.json pnpm.overrides", manifest?.pnpm?.overrides);
-  add("package.json overrides", manifest?.overrides);
-  add("package.json resolutions", manifest?.resolutions);
-  return pins;
+  return null;
+}
+
+function pins(table: unknown, name: string, installed: string): boolean {
+  if (!table || typeof table !== "object") return false;
+  for (const [key, value] of Object.entries(table)) {
+    if (key === ".") continue;
+    const target = overrideTarget(key);
+    if (target.name === name && (!target.spec || satisfies(installed, target.spec, { includePrerelease: true }) !== false)) return true;
+    // npm's nested form: `"overrides": { "foo": { "react-native": "…" } }`.
+    if (value && typeof value === "object" && pins(value, name, installed)) return true;
+  }
+  return false;
+}
+
+/** Whether an `expo.install.exclude` entry keeps `name` off the check while the SDK suggests `range`, as Expo reads it. */
+export function excluded(entries: readonly string[], name: string, range: string): boolean {
+  return entries.some((entry) => {
+    const { name: n, spec } = splitSpec(entry.trim());
+    if (n !== name) return false;
+    if (!spec || spec === "*") return true;
+    if (parseVersion(spec)) return range === spec;
+    return spec === range || rangeSubset(range, spec) === true;
+  });
 }
 
 /** What the installed expo expects: its version and `bundledNativeModules.json`, or null when expo isn't installed. */
 export function bundledNativeModules(root: string): { expoDir: string; expoVersion: string; modules: Record<string, string> } | null {
-  const expoDir = findPackageDir(root, "expo");
-  if (!expoDir) return null;
+  const found = findPackageDir(root, "expo");
+  if (!found) return null;
+  const expoDir = real(found);
   const expoVersion = readJson<Manifest>(path.join(expoDir, "package.json"))?.version;
   const modules = readJson<Record<string, unknown>>(path.join(expoDir, "bundledNativeModules.json"));
   if (!expoVersion || !modules) return null;
   return { expoDir, expoVersion, modules: Object.fromEntries(Object.entries(modules).filter((e): e is [string, string] => typeof e[1] === "string")) };
+}
+
+/** Whether `installed` (of the package at `dir`) is in what the SDK expects, as @expo/cli compares. */
+function inRange(name: string, manifest: Manifest, installed: string, range: string): boolean {
+  if (name === "react-native" && manifest.name === "react-native-tvos") {
+    // A TV install follows React Native's major.minor with its own patches.
+    const v = parseVersion(installed);
+    const want = /(\d+)\.(\d+)/.exec(range);
+    return !v || !want || (v.major === +want[1]! && v.minor === +want[2]!);
+  }
+  return satisfies(installed, range, { includePrerelease: true }) !== false;
 }
 
 export function checkExpoNativeDeps(ctx: DoctorContext): void {
@@ -99,10 +164,9 @@ export function checkExpoNativeDeps(ctx: DoctorContext): void {
   if (!("expo" in declared)) return;
   const sdk = bundledNativeModules(ctx.root);
   if (!sdk) return; // Not installed yet: nothing to compare, and no network to ask.
-  const exclude = new Set(Array.isArray(manifest.expo?.install?.exclude) ? manifest.expo.install.exclude.filter((e): e is string => typeof e === "string") : []);
-  const pins = overridesPinning(ctx.root, manifest);
+  const exclude = Array.isArray(manifest.expo?.install?.exclude) ? manifest.expo.install.exclude.filter((e): e is string => typeof e === "string") : [];
 
-  // expo-modules-core comes with expo: the copy expo loads is the one beside it, not the app's.
+  // expo-modules-core comes with expo: the copy expo loads is the one Node finds from expo's real folder.
   const checks: Array<{ name: string; from: string; declared: boolean }> = Object.keys(declared)
     .filter((name) => name !== "expo" && name in sdk.modules)
     .sort()
@@ -110,13 +174,14 @@ export function checkExpoNativeDeps(ctx: DoctorContext): void {
   if (!("expo-modules-core" in declared) && "expo-modules-core" in sdk.modules) checks.push({ name: "expo-modules-core", from: sdk.expoDir, declared: false });
 
   for (const { name, from, declared: own } of checks) {
-    if (exclude.has(name)) continue;
     const range = sdk.modules[name]!;
+    if (excluded(exclude, name, range)) continue;
     const dir = findPackageDir(from, name);
-    const installed = dir && readJson<Manifest>(path.join(dir, "package.json"))?.version;
-    if (!installed) continue; // A missing install is the install's own error.
-    if (satisfies(installed, range) !== false) continue;
-    const pin = pins.get(name);
+    const pkg = dir ? readJson<Manifest>(path.join(dir, "package.json")) : null;
+    const installed = pkg?.version;
+    if (!pkg || !installed) continue; // A missing install is the install's own error.
+    if (inRange(name, pkg, installed, range)) continue;
+    const pin = overridePin(ctx.root, name, installed);
     const critical = EXPO_LAUNCH_CRITICAL.has(name);
     const fix = own
       ? `Run \`npx expo install --fix\`${pin ? ` and change the ${pin} entry that pins it` : ""}, then reinstall`
