@@ -20,7 +20,31 @@ import { isChannelName } from "./channels";
 /** The app path a preview link opens. */
 export const PREVIEW_PATH = "/preview";
 
-const URL_PATTERN = /^([a-z][a-z0-9+.-]*):\/\/([^/?#]*)([^?#]*)(\?[^#]*)?(?:#.*)?$/i;
+const SCHEME = /^[a-z][a-z0-9+.-]*$/i;
+
+/** `scheme://host/path?query` split by index (no backtracking on a link from outside), or null. */
+function splitUrl(url: string): { scheme: string; host: string; path: string; query: string } | null {
+  const sep = url.indexOf("://");
+  if (sep < 1 || !SCHEME.test(url.slice(0, sep))) return null;
+  const hash = url.indexOf("#", sep + 3);
+  const body = hash < 0 ? url.slice(sep + 3) : url.slice(sep + 3, hash);
+  const q = body.indexOf("?");
+  const beforeQuery = q < 0 ? body : body.slice(0, q);
+  const slash = beforeQuery.indexOf("/");
+  return {
+    scheme: url.slice(0, sep),
+    host: slash < 0 ? beforeQuery : beforeQuery.slice(0, slash),
+    path: slash < 0 ? "" : beforeQuery.slice(slash),
+    query: q < 0 ? "" : body.slice(q),
+  };
+}
+
+/** `s` without its trailing slashes. */
+function trimSlashes(s: string): string {
+  let end = s.length;
+  while (end > 0 && s.charCodeAt(end - 1) === 47) end--;
+  return s.slice(0, end);
+}
 
 function queryParam(query: string, name: string): string | null {
   for (const part of query.replace(/^\?/, "").split("&")) {
@@ -57,16 +81,17 @@ export interface PreviewLinkOptions {
  */
 export function previewLinkChannel(url: string, options: PreviewLinkOptions = {}): { channel: string | null } | null {
   const { schemes = [], hosts = [], path: previewPath = PREVIEW_PATH } = options;
-  const base = previewPath.replace(/\/+$/, "") || PREVIEW_PATH;
+  const base = trimSlashes(previewPath) || PREVIEW_PATH;
   const trimmed = url.trim();
   let path: string;
   let query: string;
-  const match = URL_PATTERN.exec(trimmed);
+  const match = splitUrl(trimmed);
   if (match) {
-    const [, scheme = "", host = "", rest = "", q = ""] = match;
+    const { scheme, host, path: rest, query: q } = match;
     const s = scheme.toLowerCase();
     if (s === "http" || s === "https") {
-      const bare = host.toLowerCase().replace(/:\d+$/, "");
+      const colon = host.lastIndexOf(":");
+      const bare = (colon >= 0 && /^\d+$/.test(host.slice(colon + 1)) ? host.slice(0, colon) : host).toLowerCase();
       if (!hosts.some((h) => h.toLowerCase() === bare)) return null;
       path = rest;
     } else if (schemes.some((x) => x.toLowerCase() === s)) {
@@ -74,13 +99,15 @@ export function previewLinkChannel(url: string, options: PreviewLinkOptions = {}
     } else return null;
     query = q;
   } else {
-    if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) return null;
+    const colonAt = trimmed.indexOf(":");
+    if (colonAt > 0 && SCHEME.test(trimmed.slice(0, colonAt))) return null;
     const noHash = trimmed.split("#")[0] ?? "";
     const at = noHash.indexOf("?");
     path = at < 0 ? noHash : noHash.slice(0, at);
     query = at < 0 ? "" : noHash.slice(at);
   }
-  path = `/${path}`.replace(/\/{2,}/g, "/").replace(/(.)\/$/, "$1");
+  path = `/${path}`.split("/").filter(Boolean).join("/");
+  path = `/${path}`;
 
   // Expo's development-client QR names the update URL, whose query names the channel.
   if (path === "/expo-development-client") {
@@ -113,7 +140,7 @@ export function previewPath(channel: string, path: string = PREVIEW_PATH): strin
  */
 export function previewLink(channel: string, at: { origin?: string; scheme?: string }, path: string = PREVIEW_PATH): string {
   if (!isChannelName(channel)) throw new Error(`Not a channel name: "${channel}"`);
-  if (at.origin) return `${at.origin.replace(/\/+$/, "")}${previewPath(channel, path)}`;
+  if (at.origin) return `${trimSlashes(at.origin)}${previewPath(channel, path)}`;
   if (at.scheme) return `${at.scheme}://${previewPath(channel, path)}`;
   throw new Error("previewLink needs an origin or a scheme");
 }

@@ -34,6 +34,15 @@ describe("preview links", () => {
     expect(() => previewLink("bad name", { scheme: "acme" })).toThrow(/Not a channel name/);
   });
 
+  it("reads a hostile link in linear time", () => {
+    const started = Date.now();
+    expect(previewLinkChannel(`acme://${"/".repeat(100_000)}x`, at)).toBeNull();
+    expect(previewLinkChannel(`a://${'"'.repeat(100_000)}`, at)).toBeNull();
+    expect(previewLinkChannel(`/preview${"/".repeat(100_000)}`, { ...at, path: `/preview${"/".repeat(100_000)}` })).toEqual({ channel: null });
+    expect(previewLink("pr-1", { origin: `https://acme.app${"/".repeat(100_000)}` })).toBe("https://acme.app/preview?channel=pr-1");
+    expect(Date.now() - started).toBeLessThan(1000);
+  });
+
   it("builds the path and the link to share", () => {
     expect(previewPath("pr-42")).toBe("/preview?channel=pr-42");
     expect(previewLink("pr-42", { origin: "https://acme.app/" })).toBe("https://acme.app/preview?channel=pr-42");
