@@ -90,6 +90,25 @@ export function remoteWorkflows(deps: GitHubDeps): RemoteWorkflowReader {
   };
 }
 
+/**
+ * The repository's workflow files at `ref` (its default branch), read through the contents API:
+ * what GitHub runs, not what a local checkout holds. Throws when they can't be read.
+ */
+export async function workflowsAt(deps: GitHubDeps, slug: string, ref: string): Promise<Array<{ path: string; text: string }>> {
+  const q = `?ref=${encodeURIComponent(ref)}`;
+  let list: Array<{ type?: string; name?: string; path?: string }>;
+  try {
+    list = await ghJson(deps, [`repos/${slug}/contents/.github/workflows${q}`]);
+  } catch (err) {
+    // No .github/workflows on the branch is an answer: no workflows.
+    if (/\b404\b|Not Found/.test((err as Error).message)) return [];
+    throw err;
+  }
+  if (!Array.isArray(list)) throw new GitHubError(`repos/${slug}/contents/.github/workflows isn't a folder`);
+  const files = list.filter((f) => f.type === "file" && typeof f.name === "string" && /^[A-Za-z0-9._-]+\.ya?ml$/.test(f.name)).sort((a, b) => a.name!.localeCompare(b.name!));
+  return Promise.all(files.map(async (f) => ({ path: `.github/workflows/${f.name}`, text: await gh(deps, ["-H", "Accept: application/vnd.github.raw+json", `repos/${slug}/contents/.github/workflows/${f.name}${q}`]) })));
+}
+
 /** Make one write: the body goes on stdin. */
 export async function applyWrite(deps: GitHubDeps, write: Write): Promise<void> {
   await gh(deps, ["-X", write.method, write.path, "--input", "-"], JSON.stringify(write.body));

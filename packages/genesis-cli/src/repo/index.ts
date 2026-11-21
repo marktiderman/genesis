@@ -10,7 +10,7 @@ import * as path from "node:path";
 import { readGenesisConfig, type GenesisRepo } from "../doctor/config.js";
 import { runTool, type ToolRunner } from "../exec/run.js";
 import { checksFromWorkflows, type WorkflowFile } from "./checks.js";
-import { aheadBy, applyWrite, deleteBranch, GitHubError, isSlug, openPulls, readLive, remoteWorkflows, resolveRepo, stagingBranches, type GitHubDeps } from "./github.js";
+import { aheadBy, applyWrite, deleteBranch, GitHubError, isSlug, openPulls, readLive, remoteWorkflows, resolveRepo, stagingBranches, workflowsAt, type GitHubDeps } from "./github.js";
 import { formatPlan, matchRuleset, planProtection, protectionSpec, STAGING_REF, STAGING_RULESET, type ConditionalCheck, type LiveRepo, type ProtectionPlan } from "./spec.js";
 
 export * from "./spec.js";
@@ -48,6 +48,21 @@ export function workflowFiles(top: string): WorkflowFile[] {
     .map((f) => ({ path: `.github/workflows/${f}`, text: readFileSync(path.join(dir, f), "utf8") }));
 }
 
+/**
+ * The workflows the checks are read from: the default branch's, through GitHub (what runs on a pull
+ * request into it), never a checkout that may be stale or on another branch. Only when GitHub
+ * can't be read are the local files used, and `local` says so, naming the ref they came from.
+ */
+export async function workflowsFor(deps: GitHubDeps, slug: string, branch: string, top: string): Promise<{ files: WorkflowFile[]; local: string | null }> {
+  try {
+    return { files: await workflowsAt(deps, slug, branch), local: null };
+  } catch (err) {
+    const head = await deps.run("git", ["rev-parse", "--abbrev-ref", "HEAD"], { cwd: top, timeoutMs: 10_000 }).catch(() => null);
+    const ref = head && head.code === 0 ? head.stdout.trim() : "an unknown ref";
+    return { files: workflowFiles(top), local: `the workflows on ${branch} couldn't be read from GitHub (${(err as Error).message}), so the checks come from the local checkout at ${ref}, which may differ from ${branch}` };
+  }
+}
+
 export interface RepoPlan {
   plan: ProtectionPlan;
   live: LiveRepo;
@@ -78,7 +93,7 @@ export async function planRepo(options: RepoOptions): Promise<RepoPlan> {
   const { top, slug, deps } = await locate(options);
   const config = repoConfig(options.root);
   const live = await readLive(deps, slug);
-  const files = workflowFiles(top);
+  const { files, local } = await workflowsFor(deps, slug, live.defaultBranch, top);
   const remote = remoteWorkflows(deps);
   const onDefault = await checksFromWorkflows(files, live.defaultBranch, remote);
   const stagingSpec = { name: STAGING_RULESET, target: "branch", enforcement: "active", conditions: { ref_name: { include: [STAGING_REF], exclude: [] } }, rules: [], bypass_actors: [] };
@@ -95,7 +110,8 @@ export async function planRepo(options: RepoOptions): Promise<RepoPlan> {
   const spec = protectionSpec({ defaultChecks, stagingChecks });
   const plan = planProtection(spec, live, { conditional, exact });
   const notes = [...new Set([...onDefault.notes, ...(onStaging?.notes ?? []), ...overridden])];
-  if (!files.length) notes.push(`no workflows in ${path.join(top, ".github/workflows")}: no required checks were read (name them in repo.requiredChecks)`);
+  if (local) notes.push(local);
+  if (!files.length) notes.push(`no workflows on ${live.defaultBranch}${local ? ` (nor in ${path.join(top, ".github/workflows")})` : ""}: no required checks were read (name them in repo.requiredChecks)`);
   if (!defaultChecks.includes("Adversarial review")) notes.push(`no "Adversarial review" check on ${live.defaultBranch}: the review gate (review-gate.yml) isn't in this repository`);
   plan.notes.push(...notes);
   return { plan, live, staging, defaultChecks, stagingChecks };

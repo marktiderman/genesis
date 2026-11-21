@@ -2014,7 +2014,8 @@ genesis repo prune-staging       # delete merged staging batches, with the rules
   branch gets no bypass from Genesis; one it already has is kept as it is.
 - **The settings**: head branches deleted on merge, auto-merge on, rebase merging off.
 
-The required checks are read from the app's own workflows: every job of a workflow that runs on a
+The required checks are read from the app's own workflows, on the default branch through GitHub
+(the local checkout only when GitHub can't be read, with a note naming its ref): every job of a workflow that runs on a
 pull request into that branch, named as GitHub names its check (`app / App checks` for a job
 `app` that calls `app-ci.yml`; the called workflow is read at the commit `uses:` pins). A called
 job the caller switches off (`doctor: false`) is left out, and so is Genesis's advisory Claude

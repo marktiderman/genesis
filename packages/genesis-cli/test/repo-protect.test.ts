@@ -333,12 +333,12 @@ interface Fake {
   calls: Array<{ args: string[]; stdin?: string }>;
 }
 
-function fakeGitHub(top: string, state: { rulesets: Ruleset[]; settings?: Record<string, unknown>; branches?: string[]; pulls?: unknown[]; ahead?: Record<string, number>; failWrites?: string[] }): Fake {
+function fakeGitHub(top: string, state: { rulesets: Ruleset[]; settings?: Record<string, unknown>; branches?: string[]; pulls?: unknown[]; ahead?: Record<string, number>; failWrites?: string[]; remote?: Record<string, string> }): Fake {
   const calls: Fake["calls"] = [];
   const ok = (stdout: unknown): RunToolResult => ({ code: 0, stdout: typeof stdout === "string" ? stdout : JSON.stringify(stdout), stderr: "" });
   const run: ToolRunner = async (tool, args, options) => {
     calls.push({ args: [tool, ...args], ...(options.stdin !== undefined ? { stdin: options.stdin } : {}) });
-    if (tool === "git") return args[0] === "rev-parse" ? ok(`${top}\n`) : ok("git@github.com:acme/sample-app.git\n");
+    if (tool === "git") return args.includes("--abbrev-ref") ? ok("feature-x\n") : args[0] === "rev-parse" ? ok(`${top}\n`) : ok("git@github.com:acme/sample-app.git\n");
     const target = args.filter((a) => a.startsWith("repos/")).at(-1) ?? "";
     if (args.includes("-X") && !(state.failWrites ?? []).includes(target)) return ok("{}");
     if (args.includes("-X")) return { code: 1, stdout: "", stderr: "gh: Resource not accessible (HTTP 403)" };
@@ -347,6 +347,13 @@ function fakeGitHub(top: string, state: { rulesets: Ruleset[]; settings?: Record
     const rs = /rulesets\/(\d+)$/.exec(target);
     if (rs) return ok(state.rulesets.find((r) => String(r.id) === rs[1]));
     if (target.includes("/git/matching-refs/heads/staging/")) return ok((state.branches ?? []).map((b) => ({ ref: `refs/heads/${b}` })));
+    // The app's own workflows on its default branch: unreadable unless the test gives them.
+    if (target.startsWith("repos/acme/sample-app/contents/.github/workflows")) {
+      if (!state.remote) return { code: 1, stdout: "", stderr: "gh: connection refused" };
+      const file = /workflows\/([^?]+)\?/.exec(target)?.[1];
+      if (!file) return ok(Object.keys(state.remote).map((name) => ({ type: "file", name, path: `.github/workflows/${name}` })));
+      return ok(state.remote[file] ?? "");
+    }
     if (target.includes("/contents/")) return ok(genesisWorkflow(path.basename(target.split("?")[0]!)));
     if (target.includes("/pulls?")) return ok(((state.pulls ?? []) as Array<{ base?: { ref?: string }; head?: { ref?: string; repo?: { full_name?: string } } }>).map((p) => JSON.stringify({ base: p.base?.ref, head: p.head?.ref, repo: p.head?.repo?.full_name })).join("\n"));
     const cmp = /compare\/main\.\.\.(.+)$/.exec(target);
@@ -389,6 +396,36 @@ describe("genesis repo protect", () => {
     const said = result.plan.changes.map((c) => `${c.kind} ${c.what}`);
     expect(said).toContain('remove required check "Adversarial review"');
     expect(said.some((s) => s.startsWith("add new ruleset on refs/heads/staging/**/*"))).toBe(true);
+  });
+});
+
+describe("where the workflows are read", () => {
+  const remoteFiles = (files: Record<string, string>) => Object.fromEntries(Object.entries(files).map(([k, v]) => [path.basename(k), v]));
+
+  it("reads them on the default branch through GitHub, not from a checkout that differs", async () => {
+    // The checkout still has the path filter; the default branch dropped it.
+    const top = repoDir(CI_FILES);
+    const onMain = { ...CI_FILES, ".github/workflows/database.yml": CI_FILES[".github/workflows/database.yml"].replace("    paths: ['supabase/**']\n", "") };
+    const fake = fakeGitHub(top, { rulesets: [handMade()], remote: remoteFiles(onMain) });
+    const result = await planRepo({ root: top, run: fake.run });
+    expect(result.defaultChecks).toEqual(["app / App checks", "database / Database and pgTAP", "Adversarial review"]);
+    expect(result.plan.changes.filter((c) => c.scope !== "settings")).toEqual([]);
+    expect(result.plan.notes.join("\n")).not.toContain("local checkout");
+    expect(fake.calls.some((c) => c.args.at(-1) === "repos/acme/sample-app/contents/.github/workflows/database.yml?ref=main")).toBe(true);
+  });
+
+  it("falls back to the local files only when GitHub can't be read, and says it did, at which ref", async () => {
+    const top = repoDir(CI_FILES);
+    const result = await planRepo({ root: top, run: fakeGitHub(top, { rulesets: [handMade()] }).run });
+    expect(result.plan.notes.join("\n")).toMatch(/couldn't be read from GitHub[\s\S]*local checkout at feature-x, which may differ from main/);
+    expect(result.plan.changes.some((c) => c.what === 'required check "database / Database and pgTAP"')).toBe(true);
+  });
+
+  it("says why a rebase-only ruleset moves to merge and squash", () => {
+    const r = handMade();
+    (r.rules[2]!.parameters as Record<string, unknown>).allowed_merge_methods = ["rebase"];
+    const plan = planProtection(protectionSpec({ defaultChecks: ["app / App checks", "database / Database and pgTAP", "Adversarial review"], stagingChecks: null }), live([r]));
+    expect(plan.changes).toEqual([{ scope: 'ruleset "default"', kind: "change", what: "pull_request.allowed_merge_methods: [rebase] → [merge, squash]", why: "rebase merging is off by the Genesis standard (merge, never rebase), so merge and squash are what's left" }]);
   });
 });
 

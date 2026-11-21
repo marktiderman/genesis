@@ -330,7 +330,9 @@ function convergeRuleset(want: Ruleset, live: Ruleset, options: PlanOptions, cha
     for (const [key, floor] of Object.entries(rule.parameters)) {
       const value = stricter(key, params[key], floor);
       if (equalValue(params[key], value)) continue;
-      changes.push({ scope, kind: "change", what: `${rule.type}.${key}: ${params[key] === undefined ? "unset" : show(params[key])} → ${show(value)}` });
+      // Only methods the standard turns off (rebase): narrowing leaves nothing, so it takes the standard's.
+      const why = key === "allowed_merge_methods" && Array.isArray(params[key]) && !(params[key] as unknown[]).some((m) => (floor as unknown[]).includes(m)) ? "rebase merging is off by the Genesis standard (merge, never rebase), so merge and squash are what's left" : undefined;
+      changes.push({ scope, kind: "change", what: `${rule.type}.${key}: ${params[key] === undefined ? "unset" : show(params[key])} → ${show(value)}`, ...(why ? { why } : {}) });
       params[key] = value;
     }
     next.rules[i] = { ...next.rules[i]!, parameters: params };
