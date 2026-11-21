@@ -25,6 +25,7 @@ import { defineBlock } from "@marktiderman/genesis-config/blocks";
 import type { NativeBlock } from "../blocks";
 import { createUpdateChecker, createReloadGuard, type ReloadGuard, type UpdateChecker, type UpdateCheckState } from "./checker";
 import { createChannelSwitcher, type ChannelSwitcher } from "./channels";
+import { PreviewNotice, usePreviewNotice, type PreviewNoticeProps } from "./preview";
 import { delay } from "./store";
 import {
   WEEK_MS,
@@ -61,6 +62,8 @@ export type UpdatesSlots = {
   updateBanner: UpdateBannerProps;
   /** Once per version. Default `WhatsNewSheet`. */
   whatsNew: WhatsNewProps;
+  /** Over every screen while a preview channel is open, with Leave. Default `PreviewNotice`; `null` hides it. */
+  previewNotice: PreviewNoticeProps;
 };
 
 export interface UpdatesOptions {
@@ -86,7 +89,11 @@ export interface UpdatesOptions {
   notes?: readonly ReleaseNote[];
   /** `false` turns what's new off. */
   whatsNew?: boolean;
-  /** Channel switching, for development and preview builds only: `{ enabled: __DEV__ || isPreview }`. */
+  /**
+   * Channel switching and previews (`PreviewScreen`, `PreviewNotice`): `{ enabled: true }` in every
+   * build that should open preview links, store builds included (channel surfing changes no native
+   * code and keeps the fallback to the embedded update). Off when left out.
+   */
   channels?: { enabled: boolean };
   /** The longest the first policy load holds the splash. Default 3000 ms. */
   policyTimeoutMs?: number;
@@ -162,7 +169,22 @@ export function createUpdates(options: UpdatesOptions): UpdatesBlock {
     now,
     onError,
   });
-  const checker = createUpdateChecker({ updates, guard, reloadScreenOptions, now, onError });
+  // A check that hits "There is no channel named pr-42" (its pull request closed) drops the
+  // override, so the next launch is back on the build's channel: switcher.recover, bound below.
+  let healChannel: (error: Error) => void = () => {};
+  let switcherReady: () => Promise<boolean> = async () => true;
+  const checker = createUpdateChecker({
+    updates,
+    guard,
+    reloadScreenOptions,
+    now,
+    onError: (error, source) => {
+      onError?.(error, source);
+      healChannel(error);
+    },
+    // The banner's restart passes the same gate as leaving a preview.
+    beforeReload: () => switcherReady(),
+  });
   const whatsNew = createWhatsNewStore({
     storage: options.whatsNew === false ? undefined : storage,
     version: options.whatsNew === false ? null : (application?.nativeApplicationVersion ?? null),
@@ -177,6 +199,36 @@ export function createUpdates(options: UpdatesOptions): UpdatesBlock {
     storageKey: `${storageKeyPrefix}:channel`,
     reloadScreenOptions,
     onError,
+  });
+  healChannel = (error) => void switcher.recover(error).catch(() => undefined);
+  switcherReady = () => switcher.readyToReload();
+  // An update the checker downloads while a preview is open is that preview's: record it, so a
+  // restart after leaving that launches it still shows the notice. Only a download that finished
+  // (downloading → ready), with the preview picked when it started (the header named it): a
+  // release update already waiting, or a later banner change, is never recorded.
+  let lastStatus = checker.getState().status;
+  let pickedAtStart: Promise<string | null> | null = null;
+  // Settles once the running download has ended and, if it was a preview's, been recorded; a
+  // reload (leaving) waits for it.
+  let downloadDone: ((saved: boolean) => void) | null = null;
+  checker.subscribe(() => {
+    const state = checker.getState();
+    const previous = lastStatus;
+    lastStatus = state.status;
+    if (state.status === "downloading" && previous !== "downloading") {
+      pickedAtStart = switcher.requested();
+      switcher.holdReload(new Promise<boolean>((resolve) => (downloadDone = resolve)));
+    }
+    if (previous === "downloading" && state.status !== "downloading") {
+      const done = downloadDone;
+      downloadDone = null;
+      const started = pickedAtStart;
+      pickedAtStart = null;
+      const id = state.status === "ready" ? state.updateId : null;
+      void (started && id ? started.then((channel) => (channel ? switcher.noteDownloaded(id, channel) : true)) : Promise.resolve(true))
+        .catch(() => false)
+        .then((saved) => done?.(saved));
+    }
   });
   const signature = versionSignature({ application, updates, platform, buildMetadata: options.buildMetadata ?? null });
 
@@ -413,6 +465,7 @@ function UpdatesParts({ slots, slotProps, children }: Omit<UpdatesRootProps, "bl
   const maintenance = useMaintenance();
   const banner = useUpdateBanner();
   const whatsNew = useWhatsNew();
+  const preview = usePreviewNotice();
   // An ejected blocking slot (`null`) falls through to the screens: a block that is turned off never blocks.
   const blocking =
     forceUpgrade && slots?.forceUpgrade !== null
@@ -439,6 +492,8 @@ function UpdatesParts({ slots, slotProps, children }: Omit<UpdatesRootProps, "bl
           {blocking}
         </View>
       ) : null}
+      {/* Above a blocking screen too: a preview that forces an upgrade or shows maintenance can still be left. */}
+      {preview && slots?.previewNotice !== null ? renderSlot(PreviewNotice, slots?.previewNotice, preview, slotProps?.previewNotice) : null}
     </View>
   );
 }

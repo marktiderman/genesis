@@ -242,6 +242,11 @@
               "tracking": false
             }
           ]
+        },
+        "detect": {
+          "imports": [
+            "createPush"
+          ]
         }
       },
       "app-updates": {
@@ -274,7 +279,18 @@
         "steps": [
           "npx expo install expo-updates expo-application.",
           "Create the block with createUpdates (@marktiderman/genesis-native/updates) and pass it to <GenesisNativeApp updates> (genesis-native README, Updates)."
-        ]
+        ],
+        "detect": {
+          "imports": [
+            "createUpdates"
+          ],
+          "off": [
+            {
+              "pattern": "channels\\s*:\\s*\\{\\s*enabled\\s*:\\s*__DEV__\\s*,?\\s*\\}",
+              "message": "channel switching is on only in development, where expo-updates can't switch channels, so no build can open a preview. Turn it on for release builds (genesis-native README, \"Previews\")."
+            }
+          ]
+        }
       },
       "observability": {
         "feature": {
@@ -332,6 +348,11 @@
               "tracking": false
             }
           ]
+        },
+        "detect": {
+          "imports": [
+            "createObservability"
+          ]
         }
       },
       "devtools-overlay": {
@@ -352,7 +373,12 @@
         ],
         "steps": [
           "Create the block with createDevtools (@marktiderman/genesis-native/devtools), enabled only outside production builds, and pass it to <GenesisNativeApp blocks> (genesis-native README)."
-        ]
+        ],
+        "detect": {
+          "imports": [
+            "createDevtools"
+          ]
+        }
       }
     },
     "doctor": {

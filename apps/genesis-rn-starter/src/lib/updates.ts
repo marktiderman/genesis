@@ -21,9 +21,6 @@ import buildMetadata from "../../build-metadata.json";
 import { observability } from "./observability";
 import { supabase } from "./supabase";
 
-/** The variants (withGenesis bundle id suffixes) that may switch to another channel's updates. */
-const TEST_BUILD = /\.(dev|preview)$/;
-
 export function createStarterUpdates() {
   return createUpdates({
     platform: Platform.OS,
@@ -35,7 +32,9 @@ export function createStarterUpdates() {
     storage: AsyncStorage,
     appState: AppState,
     openURL: Linking.openURL,
-    channels: { enabled: __DEV__ || TEST_BUILD.test(Application.applicationId ?? "") },
+    // Every build opens preview links (app/preview.tsx), store builds included: a preview is a
+    // channel with an update for this runtime, and leaving it always works (the Preview banner).
+    channels: { enabled: true },
     // Settings > About shows the version itself (`useAppVersion`), with the block on or off.
     versionRow: false,
     onError: (error, source) => {

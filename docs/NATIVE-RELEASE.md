@@ -12,7 +12,8 @@ them in its own `genesis.config.json`, not by editing them.
 | `.eas/workflows/deploy-production.yml` | `templates/release/deploy-production.yml` | Only when started (by `native-release.yml`): per platform, a store build submitted in the same run, or an update on a build that is still being made. |
 | `.eas/scripts/native-release.mjs` | `templates/eas/scripts/native-release.mjs` | The lane's decisions (plan, masks, the build profile's env, the runtime checks), kept out of the YAML so they are tested. |
 | `fingerprint.config.js`, `.fingerprintignore` | `templates/expo/` | What the runtime version hashes ([Fingerprints](#fingerprints)). |
-| `.eas/workflows/pr-preview.yml` | `templates/release/pr-preview.yml` | A pull request into `main` that changes the app, or one labeled `Preview` ([Build cost](#build-cost)): repack a preview build with the same fingerprint (or build one), publish to the channel `pr-<number>`, comment the install link. iOS only once `PREVIEW_IOS=true`. |
+| `.eas/workflows/pr-preview.yml` | `templates/release/pr-preview.yml` | A pull request into `main` that changes the app, or one labeled `Preview` ([Build cost](#build-cost)): publish its JavaScript to the channel `pr-<number>` for the release builds people already have, and comment a preview link and QR code ([Previews](#previews)); when it changed native code, repack or build a preview build instead (iOS only once `PREVIEW_IOS=true`). |
+| `.github/workflows/pr-preview-teardown.yml` | `templates/ci/pr-preview-teardown.yml` | A pull request closing: delete its channel and branch `pr-<number>` ([Previews](#previews)). |
 | `.eas/workflows/rollout.yml`, `.eas/scripts/rollout-health.mjs` | `templates/eas/` | By hand: promote an update you staged by hand (after a failed-launch check), or roll it back. |
 | `.eas/workflows/e2e.yml`, `.maestro/` | `templates/eas/`, `templates/maestro/` | By hand (Maestro needs a paid EAS plan): the Maestro flows on an iOS simulator build. |
 | `eas.json` | `templates/eas/eas.json` | Build profiles `development`, `preview`, `e2e` and `production`, each with its `APP_VARIANT`, EAS environment and channel; store submission with placeholder ids. |
@@ -23,9 +24,10 @@ them current ([Upgrading and customising](#upgrading-and-customising)).
 
 ## The release path
 
-1. **Pull request.** `pr-preview.yml` comments a build to install. A preview build already on a
-   phone can take the pull request's update instead: `useUpdates().channels.switchTo("pr-42")`
-   (the starter turns channel switching on only in the development and preview variants). Run
+1. **Pull request.** `pr-preview.yml` publishes the pull request to the channel `pr-<number>` and
+   comments a preview link: opened on a phone with the TestFlight or store build, the app asks,
+   restarts into the preview and shows a Preview banner until you leave it ([Previews](#previews)).
+   Run
    `e2e.yml` by hand for the Maestro flows (`eas workflow:run e2e.yml --ref <branch>`).
 2. **Merge into `main`.** That merge is the release: `main` takes pull requests only, from the
    people allowed to merge into it. A merge that changes native code is a new store version once
@@ -375,10 +377,13 @@ The next upgrade, by this CLI, names them at their new paths in the lock and goe
   submit failed still matches its runtime version, so the next JavaScript-only merge sends an update
   to a binary nobody installed: submit that build by hand
   (`eas submit --platform ios --id <build id> --profile production`).
-- **Nothing reaches production from a pull request.** `pr-preview.yml` and `e2e.yml` use the
-  preview and development profiles, environments and channels, and have no submit, rollout or
-  custom job; the starter's test fails if one names production. EAS doesn't run `pull_request`
-  workflows for pull requests from forks.
+- **Nothing reaches production from a pull request.** No pull request workflow submits, builds
+  with the production profile, or publishes to the release channel: `pr-preview.yml` publishes
+  only to `pr-<number>`, and its builds use the preview profile; `e2e.yml` uses the development
+  one. genesis-cli's tests and the starter's fail if one does. The preview update is built with
+  the release's EAS environment (it has to match the build it loads on), so keep anything a pull
+  request mustn't read out of that environment. EAS doesn't run `pull_request` workflows for pull
+  requests from forks.
 - **No secrets in the files.** Tokens live in the GitHub environment and the EAS environments; the
   workflows pass inputs to shell steps only through `env`; the job masks the values `eas env:exec`
   hands over. On EAS the update jobs check `SENTRY_AUTH_TOKEN` (with Sentry on) before they
@@ -390,6 +395,48 @@ The next upgrade, by this CLI, names them at their new paths in the lock and goe
   someone else) is never run with the release's secrets. With Sentry on, the run first checks
   `@sentry/react-native` is installed and says so if not. eas-cli on EAS runs pinned
   (`npx --yes eas-cli@26.0.0`). genesis-cli's tests fail on any other npx form in the templates.
+
+## Previews
+
+Each pull request is an update on its own channel, `pr-<number>`, opened by a link in the app
+people already have. No device registration, no new build, and anyone with the link can open it.
+
+1. **The lane.** `pr-preview.yml` fingerprints the pull request as the release builds it. When a
+   release build (TestFlight or store) has that fingerprint, the pull request changed no native
+   code: it publishes the JavaScript to the branch `pr-<number>`, points the channel of the same
+   name at it, and comments the link and a QR code. Per platform: one with no matching release
+   build (its native code changed) gets a preview build instead, repacked from a preview build
+   with the preview variant's fingerprint or built, and the comment says so. The update is
+   exported as the release lane publishes: the release profile's eas.json `env` over the job's EAS
+   environment, without `--environment`, and only for a platform whose fingerprint, computed with
+   that profile, matches the release build's. The QR
+   code's scheme is `release.previews.scheme`, else the app's resolved Expo config.
+   `pr-preview-teardown.yml` deletes the channel and branch when the pull request closes, waits
+   until EAS has no preview run queued or running (up to 45 minutes), and deletes again.
+2. **The link.** `https://<origin>/preview?channel=pr-42` (a universal link, with
+   `release.previews.origin`) or `<scheme>:///preview?channel=pr-42` (the QR code, with
+   `release.previews.scheme`, which defaults to `app.json`'s `expo.scheme`). genesis-native's
+   `normalizeLink` turns either, and Expo's development-client QR, into `/preview?channel=pr-42`
+   when the app's own link map has no pattern for that path; `links.previews: false` turns that off. The app's
+   `app/preview.tsx` renders `PreviewScreen`, and `+native-intent.ts` doesn't hold `/preview`
+   for sign-in.
+3. **The switch.** `createUpdates({ channels: { enabled: true } })` turns channel switching on in
+   release builds (it can't work in a development client). `PreviewScreen` confirms, downloads with
+   `channels.prepare`, then restarts with `channels.restart`. While a preview is open the updates
+   block draws `PreviewNotice` (slot `previewNotice`) over every screen; Leave calls
+   `channels.reset`. A preview whose channel was deleted heals by itself: EAS answers "no channel
+   named …", and `channels.recover` drops the override.
+
+| Config | Default | What it does |
+| --- | --- | --- |
+| `release.previews.origin` | none | The web origin the comment links to (`https://acme.app`). Serve `/preview` there with an associated-domains (AASA and assetlinks) entry, and a page for a browser without the app. Unset, the comment links the scheme. |
+| `release.previews.scheme` | `app.json` `expo.scheme` when there's no `app.config.*`; otherwise resolved from the effective Expo config when the preview publishes | The scheme the QR code opens. |
+
+The teardown needs the repository secret `EXPO_TOKEN` and the repository variable
+`EAS_PROJECT_ID`; without them it warns and leaves the channel. An app that keeps its own release
+workflow takes only the previews with `genesis add template previews` (pr-preview, the teardown and
+the fingerprint files). `genesis doctor` reports an app with no preview lane, or with channel
+switching on only in development (rule `missed-value`).
 
 ## Cost
 
@@ -406,7 +453,7 @@ run on each push. The templates start narrow; widen them in the app's copy when 
 
 | Workflow | Runs by default | Why | To widen it |
 | --- | --- | --- | --- |
-| `pr-preview.yml` | Pull requests into `main` whose changes touch the app's code folder, `app.json`, `app.config.*`, `eas.json`, `package.json`, a lockfile or `release.paths`; and any pull request labeled `Preview`. Android only until iOS is on. One run per branch at a time. | A docs-only pull request has nothing to install. An iOS preview is an ad hoc build, which installs only on devices registered before it was built: with none, every iOS job fails. | Add branches or paths under `on.pull_request`. Turn iOS on with `PREVIEW_IOS=true` in the `preview` EAS environment after `eas device:create`. |
+| `pr-preview.yml` | Pull requests into `main` whose changes touch the app's code folder, `app.json`, `app.config.*`, `eas.json`, `package.json`, a lockfile or `release.paths`; and any pull request labeled `Preview`. One run per branch at a time. A JavaScript-only change is a fingerprint and an update (no build minutes); only a native change repacks or builds, Android only until iOS is on. | A docs-only pull request has nothing to install. An iOS preview build is an ad hoc build, which installs only on devices registered before it was built: with none, every iOS build job fails. | Add branches or paths under `on.pull_request`. Turn iOS preview builds on with `PREVIEW_IOS=true` in the `preview` EAS environment after `eas device:create`. |
 | `e2e.yml` | Only by hand. | Maestro jobs need a paid EAS plan, and each run is a simulator build or repack. | Add the `pull_request` trigger in the file's header comment. |
 | `native-release.yml` | Every push to `main` that changes the app. | GitHub minutes only; EAS only when it must. | Not needed. |
 | `deploy-production.yml` | Only when `native-release.yml` starts it. | A store build only when native code changed. | Not needed. |

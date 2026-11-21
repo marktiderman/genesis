@@ -7,10 +7,13 @@
     "MaintenanceScreen",
     "UpdateBanner"
   ],
-  "notYet": [],
+  "notYet": [
+    "PreviewNotice"
+  ],
   "composed": [
     "NotificationSettings",
     "ScreenErrorScreen",
-    "PlainFatalScreen"
+    "PlainFatalScreen",
+    "PreviewScreen"
   ]
 }
