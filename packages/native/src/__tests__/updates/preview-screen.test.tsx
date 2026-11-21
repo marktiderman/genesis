@@ -196,6 +196,34 @@ describe("the checker's downloads and the preview record", () => {
     await checking;
     await expect(leaving).resolves.toMatchObject({ kind: "error" });
     expect(fake.reloadAsync).not.toHaveBeenCalled();
+    // Trying again while the disk is still full: still refused.
+    await expect(updates.channels.reset()).resolves.toMatchObject({ kind: "error" });
+    expect(fake.reloadAsync).not.toHaveBeenCalled();
+    // Once it can be saved, the next try saves it first, then restarts.
+    setItem.mockImplementation(async (key, value) => void storage.data.set(key, value));
+    await expect(updates.channels.reset()).resolves.toEqual({ kind: "reloading" });
+    expect(JSON.parse(storage.data.get("genesis:updates:channel:preview-update")!).ids).toContain("pr-6-d");
+  });
+
+  it("a record that failed before leaving still holds the first Leave until it's saved", async () => {
+    const storage = memoryStorage({ "genesis:updates:channel": "pr-6" });
+    const setItem = storage.setItem as unknown as { mockImplementation: (f: (k: string, v: string) => Promise<void>) => void };
+    let full = true;
+    setItem.mockImplementation(async (key, value) => {
+      if (full && key.endsWith(":preview-update")) throw new Error("disk full");
+      storage.data.set(key, value);
+    });
+    const fake = fakeUpdates({ next: { id: "pr-6-f" }, channel: "pr-6" });
+    const updates = createUpdates({ platform: "ios", application, policyTimeoutMs: 50, updates: fake, storage, channels: { enabled: true } });
+    await updates.channels.state();
+    // The checker's download finishes (and fails to save) well before the person leaves.
+    await updates.checker.check();
+    await act(settle);
+    await expect(updates.channels.reset()).resolves.toMatchObject({ kind: "error" });
+    expect(fake.reloadAsync).not.toHaveBeenCalled();
+    full = false;
+    await expect(updates.channels.reset()).resolves.toEqual({ kind: "reloading" });
+    expect(JSON.parse(storage.data.get("genesis:updates:channel:preview-update")!).ids).toContain("pr-6-f");
   });
 
   it("doesn't restart when a download is still running after 10 s", async () => {

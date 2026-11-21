@@ -92,8 +92,9 @@ export interface ChannelSwitcher {
   /**
    * Hold the next reload until `work` settles (at most 10 s): a checker download and its record, so
    * leaving can't restart into a preview update before it's recorded as the preview's. If it
-   * doesn't settle in time, or resolves `false` (the record wasn't saved), the reload doesn't
-   * happen: it answers an error, and trying again (Leave) waits again.
+   * doesn't settle in time, or a preview update's record couldn't be saved, the reload doesn't
+   * happen: it answers an error. A record that failed is kept and saved again before every later
+   * reload, which stays refused until it is.
    */
   holdReload(work: Promise<unknown>): void;
   /** Reload into what was downloaded (respects the reload guard). */
@@ -310,7 +311,7 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
       if (!guard.canReload()) return { kind: "blocked" };
       // A checker download still running (or its record) first: what the restart launches is then
       // known. Not settled in time, or not saved: no restart that could hide a running preview.
-      if (!(await settled())) {
+      if (!(await settled()) || !(await saveUnsaved())) {
         const error = new Error("The app is still saving a download. Try again in a moment.");
         report(error);
         return { kind: "error", error };
@@ -326,12 +327,22 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
     }
   };
   /** Add `id` to `channel`'s record (default: the open preview's; none open: nothing). */
+  /** Preview updates whose record couldn't be saved yet (id → channel): retried before every restart. */
+  const unsaved = new Map<string, string>();
   const recordPreviewUpdate = async (id: string, channel?: string): Promise<boolean> => {
     const picked = channel ?? (await load()).requested;
     if (!picked) return true;
     const record = parsePreviewRecord(await read(previewKey));
     const ids = record?.channel === picked ? record.ids : [];
-    return write(previewKey, JSON.stringify({ channel: picked, ids: [...ids.filter((x) => x !== id), id].slice(-20) }));
+    const saved = await write(previewKey, JSON.stringify({ channel: picked, ids: [...ids.filter((x) => x !== id), id].slice(-20) }));
+    if (saved) unsaved.delete(id);
+    else unsaved.set(id, picked);
+    return saved;
+  };
+  /** Save what couldn't be saved before; true when nothing is left unsaved. */
+  const saveUnsaved = async (): Promise<boolean> => {
+    for (const [id, channel] of [...unsaved]) await recordPreviewUpdate(id, channel);
+    return unsaved.size === 0;
   };
   /** Check and fetch what the current header names. */
   const fetch = async (): Promise<ChannelCheck> => {
