@@ -296,8 +296,7 @@ describe("sentrySink from Genesis settings", () => {
     const { sentry } = withClose();
     const sink = sentrySink(sentry, { dsn: OTHER });
     sink.applySettings({ values: { "observability.enabled": false, "observability.sentryDsn": null } });
-    // Bounded, as the flush before an update reload is.
-    expect(sentry.close).toHaveBeenCalledWith(2000);
+    expect(sentry.close).toHaveBeenCalledTimes(1);
     expect(sink.status()).toMatchObject({ running: false, restartPending: false });
     sink.captureError?.(new Error("x"), { fatal: false, source: "query" });
     expect(sentry.captureException).not.toHaveBeenCalled();
@@ -306,6 +305,24 @@ describe("sentrySink from Genesis settings", () => {
     expect(sentry.init).toHaveBeenCalledTimes(1);
     expect(sink.status()).toMatchObject({ running: false, restartPending: true });
     expect(sink.healthCheck().run()).toEqual({ status: "warn", message: "Sentry: the new settings apply at the next launch" });
+  });
+
+  it("drops what the SDK itself captures from the moment it's turned off, while close is still pending", () => {
+    const fake = fakeSentry();
+    // React Native's close waits for the queue and keeps the client enabled meanwhile.
+    const close = vi.fn(() => new Promise<void>(() => {}));
+    const sentry = { ...fake.sentry, close };
+    const sink = sentrySink(sentry, { dsn: OTHER, init: { beforeSend: vi.fn((e: unknown) => e) } });
+    const o = fake.options();
+    expect(o.beforeSend!({ message: "before" }, {})).toEqual({ message: "before" });
+    sink.applySettings({ values: { "observability.enabled": false, "observability.sentryDsn": null } });
+    expect(close).toHaveBeenCalledTimes(1);
+    // An event from Sentry's own global handler, after the switch and before close resolves.
+    expect(o.beforeSend!({ message: "after" }, {})).toBeNull();
+    expect(o.beforeSendTransaction!({ transaction: "/x" }, {})).toBeNull();
+    expect(o.beforeBreadcrumb!({ category: "touch", message: "x" }, {})).toBeNull();
+    expect(o.beforeSendLog!({ message: "x" }, {})).toBeNull();
+    expect(o.beforeSendSpan!({ description: "GET /x", data: { a: 1 } })).toEqual({ description: undefined, data: {} });
   });
 
   it("keeps the running DSN when the settings change it, until the next launch", () => {
@@ -407,7 +424,7 @@ describe("sentrySink from Genesis settings", () => {
     expect(sink.status().running).toBe(true);
     await Promise.resolve();
     await Promise.resolve();
-    expect(sentry.close).toHaveBeenCalledWith(2000);
+    expect(sentry.close).toHaveBeenCalledTimes(1);
     expect(sink.status().running).toBe(false);
   });
 

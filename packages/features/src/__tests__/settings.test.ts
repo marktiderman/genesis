@@ -646,6 +646,10 @@ describe("patterns", () => {
     expect(() => defineSettings("acme", { s: { type: "string", default: null, pattern: "^(?<=a)b$" } })).toThrow(/named group or lookbehind/);
     expect(() => defineSettings("acme", { s: { type: "string", default: null, pattern: "^(?<w>a)\\k<w>$" } })).toThrow(/database can't compile/);
     expect(() => defineSettings("acme", { s: { type: "string", default: null, pattern: "^\\u{1F600}$" } })).toThrow(/code-point escape/);
+    // Inside a character class these are literal characters, not syntax.
+    expect(() => defineSettings("acme", { s: { type: "string", default: null, pattern: "^[{999}]+$" } })).not.toThrow();
+    expect(() => defineSettings("acme", { s: { type: "string", default: null, pattern: "^[(?<]+$" } })).not.toThrow();
+    expect(() => defineSettings("acme", { s: { type: "string", default: null, pattern: "^[\\]{]{1,300}$" } })).toThrow(/more than 255/);
     // An escaped brace is a literal, not a bound.
     expect(() => defineSettings("acme", { s: { type: "string", default: null, pattern: "^x\\{999\\}$" } })).not.toThrow();
   });

@@ -83,10 +83,11 @@ export interface SentryLike {
     count(name: string, value?: number, options?: Options): void;
   };
   /**
-   * Stops the client (`Sentry.close(timeout)`): how `observability.enabled` false stops reporting
-   * at once. The timeout bounds the flush of what is already queued.
+   * Stops the client (`Sentry.close`) when `observability.enabled` turns off. React Native's
+   * waits for what is queued and keeps the client enabled meanwhile, so the sink's own hooks stop
+   * everything at once (below); this only releases the client.
    */
-  close?(timeout?: number): PromiseLike<unknown> | void;
+  close?(): PromiseLike<unknown> | void;
 }
 
 /**
@@ -228,9 +229,6 @@ export interface SentrySink extends ObservabilitySink {
   healthCheck(): SentryHealthCheck;
 }
 
-/** How long closing may flush what is queued: the observability block's `flushBeforeReloadMs` default. */
-const CLOSE_TIMEOUT_MS = 2000;
-
 const ENABLED = "observability.enabled";
 const DSN = "observability.sentryDsn";
 
@@ -281,6 +279,11 @@ export function sentrySink(sentry: SentryLike, options: SentrySinkOptions): Sent
   let user: string | null = null;
   let lastEventId: string | undefined;
   const running = () => started !== null && !closed;
+  // A hook chain (ours, then the app's) that drops everything once closed.
+  const open = <T>(ours: (value: T) => T | null, theirs: unknown): Hook<T> => {
+    const run = chain(ours, theirs);
+    return (value, hint) => (closed ? null : run(value, hint));
+  };
 
   const quietly = (run: () => unknown) => {
     try {
@@ -325,12 +328,16 @@ export function sentrySink(sentry: SentryLike, options: SentrySinkOptions): Sent
       environment,
       ...sentryRelease(signature, applicationId),
       integrations,
-      beforeSend: chain(scrub ? scrubEvent : keep, extra.beforeSend),
-      beforeSendTransaction: chain(scrub ? scrubEvent : keep, extra.beforeSendTransaction),
-      beforeBreadcrumb: chain<Options>((crumb) => (scrub ? scrubRecord(withoutTouchLabels(crumb)) : crumb), extra.beforeBreadcrumb),
-      beforeSendLog: chain(scrub ? scrubRecord : keep, extra.beforeSendLog),
-      beforeSendMetric: chain(scrub ? scrubRecord : keep, extra.beforeSendMetric),
+      // Turned off (closed): every hook drops what reaches it, the SDK's own captures included
+      // (its global handlers, the router integration), from that moment, not when close finishes.
+      beforeSend: open(scrub ? scrubEvent : keep, extra.beforeSend),
+      beforeSendTransaction: open(scrub ? scrubEvent : keep, extra.beforeSendTransaction),
+      beforeBreadcrumb: open<Options>((crumb) => (scrub ? scrubRecord(withoutTouchLabels(crumb)) : crumb), extra.beforeBreadcrumb),
+      beforeSendLog: open(scrub ? scrubRecord : keep, extra.beforeSendLog),
+      beforeSendMetric: open(scrub ? scrubRecord : keep, extra.beforeSendMetric),
       beforeSendSpan: (value: Options) => {
+        // A span can't be dropped: once closed, it goes without its description and data.
+        if (closed) return { ...value, description: undefined, data: {} };
         const scrubbed = scrub ? span(value) : value;
         return typeof extra.beforeSendSpan === "function" ? (extra.beforeSendSpan as (s: Options) => Options)(scrubbed) : scrubbed;
       },
@@ -351,8 +358,8 @@ export function sentrySink(sentry: SentryLike, options: SentrySinkOptions): Sent
       // Off, or no DSN any more: stopping is always live.
       if (running()) {
         closed = true;
-        // Bounded as the flush before an update reloads is (the observability block's 2000 ms default).
-        if (sentry.close) quietly(() => sentry.close!(CLOSE_TIMEOUT_MS));
+        // The hooks drop everything from now on, whatever close is still waiting for.
+        if (sentry.close) quietly(() => sentry.close!());
       }
       restartPending = false;
       // Only from settings read in this launch: the device's cached copy may be out of date.

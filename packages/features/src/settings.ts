@@ -272,6 +272,34 @@ function patternTest(source: string): (value: string) => boolean {
 /** Postgres's regular expressions refuse a repetition bound over this (`{1,256}`). */
 const MAX_REPEAT_BOUND = 255;
 
+/**
+ * The pattern with each character class's contents taken out (`[a-z{9}]` becomes `[]`), escapes
+ * kept, so what is left is the syntax outside them. A `]` first in a class is a literal, as in
+ * both engines.
+ */
+function withoutCharacterClasses(pattern: string): string {
+  let out = "";
+  for (let i = 0; i < pattern.length; i++) {
+    const c = pattern[i]!;
+    if (c === "\\") {
+      out += pattern.slice(i, i + 2);
+      i++;
+      continue;
+    }
+    if (c !== "[") {
+      out += c;
+      continue;
+    }
+    let j = i + 1;
+    if (pattern[j] === "^") j++;
+    if (pattern[j] === "]") j++;
+    while (j < pattern.length && pattern[j] !== "]") j += pattern[j] === "\\" ? 2 : 1;
+    out += "[]";
+    i = j;
+  }
+  return out;
+}
+
 /** Why a pattern can't be used, or null: a string, anchored at both ends, that both JavaScript and Postgres compile. */
 function settingPatternProblem(pattern: unknown): string | null {
   if (typeof pattern !== "string" || pattern.length < 2) return "pattern must be a regular expression's source";
@@ -281,13 +309,15 @@ function settingPatternProblem(pattern: unknown): string | null {
   } catch (err) {
     return `pattern doesn't compile: ${(err as Error).message}`;
   }
+  // Outside character classes only: `[{999}]` and `[(?<]` are literal characters there.
+  const outside = withoutCharacterClasses(pattern);
   // JavaScript-only syntax Postgres can't compile, which would make the database refuse every value:
   // named groups and lookbehind (`(?<`), named backreferences (`\\k<`) and code-point escapes (`\\u{`).
-  for (const [syntax, what] of [[/\(\?</, "a named group or lookbehind ((?<…)"], [/\\k</, "a named backreference (\\k<…>)"], [/\\u\{/, "a code-point escape (\\u{…})"]] as const) {
-    if (syntax.test(pattern)) return `pattern uses ${what}, which the database can't compile`;
+  for (const [syntax, what] of [[/(?<!\\)\(\?</, "a named group or lookbehind ((?<…)"], [/\\k</, "a named backreference (\\k<…>)"], [/\\u\{/, "a code-point escape (\\u{…})"]] as const) {
+    if (syntax.test(outside)) return `pattern uses ${what}, which the database can't compile`;
   }
   // An unescaped `{n}` or `{n,m}`: Postgres can't compile a bound over 255, and would refuse every value.
-  for (const m of pattern.matchAll(/(\\*)\{(\d+)(?:,(\d*))?\}/g)) {
+  for (const m of outside.matchAll(/(\\*)\{(\d+)(?:,(\d*))?\}/g)) {
     if (m[1]!.length % 2 === 1) continue;
     if (Number(m[2]) > MAX_REPEAT_BOUND || (m[3] !== undefined && m[3] !== "" && Number(m[3]) > MAX_REPEAT_BOUND)) {
       return `pattern repeats more than ${MAX_REPEAT_BOUND} times in one bound (${m[0].slice(m[1]!.length)}), which the database can't compile`;
