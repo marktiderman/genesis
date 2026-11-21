@@ -1,0 +1,35 @@
+scripts/__tests__/verify-npm-publish.test.mjs
+  s_7081dae02ae2cb::t_3581b3d2875935 1-224
+  s_7081dae02ae2cb::t_5718e4bd1ca0e0 225-230
+.github/workflows/npm-drift.yml
+  s_7081dae02ae2cb::t_a961a13ff3c9f4 1-46
+docs/RELEASING.md
+  s_7081dae02ae2cb::t_ced45f085e9396 209-240
+scripts/verify-npm-publish.mjs
+  s_7081dae02ae2cb::t_3216418eafc6ed 1-340
+  s_7081dae02ae2cb::t_ff86179dec645a 341
+features.ts
+  s_7081dae02ae2cb::t_d28b99965763be 1605-1621
+.github/workflows/release.yml
+  s_7081dae02ae2cb::t_fd696336e682d2 31-35,295,308,332-369
+AGENTS.md
+  s_7081dae02ae2cb::t_d03a8eaa9e6da0 155
+features.json
+  s_7081dae02ae2cb::t_c13009373084b1 3620-3658
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d60f1cf818b7e33ca65fb4da7de06023b30a525f",
+  "prompts": {},
+  "sessions": {
+    "s_7081dae02ae2cb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7a2b62bd-584c-47e8-8b1a-72015db941a7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
