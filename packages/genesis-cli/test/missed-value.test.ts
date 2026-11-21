@@ -71,6 +71,18 @@ describe("missed-value", () => {
     expect(found.some((f) => f.subject === "app-updates")).toBe(reported);
   });
 
+  it("follows an import alias, and ignores a call written inside a string or a comment", async () => {
+    const run = async (code: string) => {
+      const { ctx, found } = app({ "src/lib/updates.ts": code }, { eas: true });
+      await missedValueCheck({ blocks: async () => [{ manifest: block({ id: "app-updates", detect: nativeDetect }), from: "installed" }], catalog: () => [] })(ctx);
+      return found.some((f) => f.subject === "app-updates");
+    };
+    const imp = 'import { createUpdates as makeUpdates } from "@marktiderman/genesis-native/updates";\n';
+    expect(await run(`${imp}export const u = makeUpdates({ channels: { enabled: __DEV__ } });\n`)).toBe(true);
+    const plain = 'import { createUpdates } from "@marktiderman/genesis-native/updates";\n';
+    expect(await run(`${plain}export const u = createUpdates({ channels: { enabled: true } });\nconst doc = "createUpdates({ channels: { enabled: __DEV__ } })";\n// createUpdates({ channels: { enabled: __DEV__ } })\n`)).toBe(false);
+  });
+
   it("counts a detector only when it's imported from the block's package, and reads switched-off only there", async () => {
     const off = { manifest: block({ id: "app-updates", detect: nativeDetect }), from: "installed" };
     const push = { manifest: block({ id: "push", detect: { imports: ["createPush"] } }), from: "installed" };
@@ -95,7 +107,8 @@ describe("missed-value", () => {
   it("stays quiet about a declined feature, and says when a declined id is stale", async () => {
     const { ctx, found } = app({}, { declined: { push: "the web sends our pushes", "pr-previews": "previews run elsewhere", gone: "old" } });
     await missedValueCheck({ blocks: async () => blocks.slice(1, 2), catalog: () => [] })(ctx);
-    expect(found.map((f) => f.subject)).toEqual(["gone"]);
+    // Its own subject, which the summary's count leaves out.
+    expect(found.map((f) => f.subject)).toEqual(["doctor.declined.gone"]);
     expect(found[0]!.message).toMatch(/no Genesis package offers/);
   });
 });

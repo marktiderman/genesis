@@ -25,6 +25,8 @@ import type { BlockManifest } from "../blocks/manifest.js";
 import type { DoctorContext } from "./types.js";
 
 export const MISSED_VALUE_RULE = "missed-value";
+/** The subject prefix of a stale doctor.declined entry's finding (not counted as missed value). */
+export const STALE_DECLINED = "doctor.declined.";
 
 export type MissedReason = "missed" | "off";
 
@@ -57,10 +59,50 @@ export function appPlatforms(root: string): Set<AppPlatform> {
 /** `import { a, b as c } from "pkg"` and `export { a } from "pkg"`: each named import with the module it comes from. */
 const NAMED_IMPORT = /\b(?:import|export)\s+(?:type\s+)?\{([^}]*)\}\s*from\s*["']([^"']+)["']/g;
 
-/** The names `code` imports from `packages` (or their subpaths). */
+/** The names `code` imports from `packages` (or their subpaths), each with the local names it's bound to (`a as b`). */
+export function namesImportedFrom(code: string, packages: readonly string[]): Map<string, Set<string>> {
+  const out = new Map<string, Set<string>>();
+  for (const m of code.matchAll(NAMED_IMPORT)) {
+    const from = m[2]!;
+    if (!packages.some((p) => from === p || from.startsWith(`${p}/`))) continue;
+    for (const part of m[1]!.split(",")) {
+      const [imported, local] = part.trim().replace(/^type\s+/, "").split(/\s+as\s+/).map((x) => x.trim());
+      if (!imported) continue;
+      const set = out.get(imported) ?? new Set<string>();
+      set.add(local || imported);
+      out.set(imported, set);
+    }
+  }
+  return out;
+}
+
+/** Whether `index` in `code` falls inside a string, a template literal or a comment. */
+function inStringOrComment(code: string, index: number): boolean {
+  let quote: string | null = null;
+  for (let i = 0; i < index; i++) {
+    const c = code[i]!;
+    if (quote) {
+      if (c === "\\") i++;
+      else if (c === quote) quote = null;
+      continue;
+    }
+    if (c === '"' || c === "'" || c === "`") quote = c;
+    else if (c === "/" && code[i + 1] === "/") {
+      const nl = code.indexOf("\n", i);
+      if (nl < 0 || nl >= index) return true;
+      i = nl;
+    } else if (c === "/" && code[i + 1] === "*") {
+      const close = code.indexOf("*/", i + 2);
+      if (close < 0 || close + 1 >= index) return true;
+      i = close + 1;
+    }
+  }
+  return quote !== null;
+}
+
 /**
  * The argument text of every call to `name` in `code` (`createUpdates({ … })`), with where it
- * starts: balanced parentheses, skipping strings and comments.
+ * starts: balanced parentheses; a mention inside a string or a comment isn't a call.
  */
 export function callArguments(code: string, name: string): { start: number; text: string }[] {
   const out: { start: number; text: string }[] = [];
@@ -70,7 +112,7 @@ export function callArguments(code: string, name: string): { start: number; text
     if (at < 0) return out;
     from = at + name.length;
     const before = at > 0 ? code[at - 1]! : "";
-    if (/[A-Za-z0-9_$.]/.test(before)) continue;
+    if (/[A-Za-z0-9_$.]/.test(before) || inStringOrComment(code, at)) continue;
     let i = from;
     while (i < code.length && /\s/.test(code[i]!)) i++;
     if (code[i] !== "(") continue;
@@ -85,7 +127,7 @@ export function callArguments(code: string, name: string): { start: number; text
         continue;
       }
       if (c === '"' || c === "'" || c === "`") quote = c;
-      else if (c === "/" && code[i + 1] === "/") i = Math.max(i, code.indexOf("\n", i) < 0 ? code.length : code.indexOf("\n", i));
+      else if (c === "/" && code[i + 1] === "/") i = code.indexOf("\n", i) < 0 ? code.length : code.indexOf("\n", i);
       else if (c === "/" && code[i + 1] === "*") i = code.indexOf("*/", i + 2) < 0 ? code.length : code.indexOf("*/", i + 2) + 1;
       else if (c === "(") depth++;
       else if (c === ")" && --depth === 0) break;
@@ -95,18 +137,6 @@ export function callArguments(code: string, name: string): { start: number; text
   }
 }
 
-export function namesImportedFrom(code: string, packages: readonly string[]): Set<string> {
-  const out = new Set<string>();
-  for (const m of code.matchAll(NAMED_IMPORT)) {
-    const from = m[2]!;
-    if (!packages.some((p) => from === p || from.startsWith(`${p}/`))) continue;
-    for (const part of m[1]!.split(",")) {
-      const name = part.trim().replace(/^type\s+/, "").split(/\s+as\s+/)[0]!.trim();
-      if (name) out.add(name);
-    }
-  }
-  return out;
-}
 
 /** Whether the app uses `block`, and where it switched it off. */
 export function classify(
@@ -119,6 +149,11 @@ export function classify(
   const names = block.detect?.imports ?? [];
   // A detector name counts only when it is imported from one of the block's own packages.
   const adopting = names.length ? ctx.files.filter((f) => { const got = namesImportedFrom(f.code, block.packages); return names.some((n) => got.has(n)); }) : [];
+  /** The local names a file calls the block's detectors by (`createUpdates as makeUpdates` included). */
+  const locals = (code: string) => {
+    const got = namesImportedFrom(code, block.packages);
+    return names.flatMap((n) => [...(got.get(n) ?? [])]);
+  };
   const used = locked.has(block.id) || adopting.length > 0;
   if (used) {
     for (const o of block.detect?.off ?? []) {
@@ -126,8 +161,7 @@ export function classify(
       // Only inside the block's own setup call (`createUpdates({ … })`): another config's
       // `enabled: __DEV__`, in the same file or not, isn't this block's.
       for (const f of adopting) {
-        const got = namesImportedFrom(f.code, block.packages);
-        const calls = names.filter((n) => got.has(n)).flatMap((n) => callArguments(f.code, n));
+        const calls = locals(f.code).flatMap((n) => callArguments(f.code, n));
         for (const call of calls) {
           const m = re.exec(call.text);
           if (!m) continue;
@@ -192,7 +226,8 @@ export function missedValueCheck(deps: { blocks?: (root: string) => Promise<{ ma
     }
     for (const id of Object.keys(declined)) {
       if (id !== "pr-previews" && !seen.has(id)) {
-        ctx.report({ rule: MISSED_VALUE_RULE, level: "info", file: "genesis.config.json", subject: id, message: `doctor.declined names ${id}, which no Genesis package offers any more; remove it` });
+        // Its own subject, so the "Missed value" count leaves it out: it's housekeeping, not a feature to adopt.
+        ctx.report({ rule: MISSED_VALUE_RULE, level: "info", file: "genesis.config.json", subject: `${STALE_DECLINED}${id}`, message: `doctor.declined names ${id}, which no Genesis package offers any more; remove it` });
       }
     }
   };

@@ -181,8 +181,11 @@ jobs:
             [ -n "$qr" ] && [ "$2" = "link" ] && body="$body<br><img alt=\"Scan to open the preview\" width=\"180\" src=\"$qr\">"
             set-output message "$body<br><sub>The channel and its updates are deleted when this pull request closes.</sub>"
           }
+          # Only the platforms this run makes a preview build for: iOS's needs PREVIEW_IOS=true in the
+          # preview EAS environment (registered devices), which this job can't read.
           native_note=""
-          [ -n "$native" ] && native_note=" Native code changed for $native: install that preview build from this run on expo.dev."
+          case ",$native," in *,android,*) native_note=" Android's native code changed: install the Android preview build from this run on expo.dev." ;; esac
+          case ",$native," in *,ios,*) native_note="$native_note iOS's native code changed: an iOS preview build is made here only with PREVIEW_IOS=true in the preview EAS environment; otherwise wait for the next TestFlight build." ;; esac
           if [ -z "$platforms" ]; then
             # Native code changed everywhere: no build out there can load this; the preview builds below cover it.
             set-output status "native"

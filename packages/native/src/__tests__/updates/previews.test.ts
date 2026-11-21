@@ -167,6 +167,26 @@ describe("channel switching, hardened", () => {
     await expect(switcher.requested()).resolves.toBeNull();
   });
 
+  it("leaving reloads after the build's channel answers, even with nothing newer (its filters now exclude the preview)", async () => {
+    const updates = fakeUpdates();
+    const switcher = createChannelSwitcher({ updates, enabled: true, guard: createReloadGuard(), storage: memoryStorage({ "genesis:updates:channel": "pr-1" }) });
+    await expect(switcher.reset()).resolves.toEqual({ kind: "reloading" });
+    expect(updates.checkForUpdateAsync).toHaveBeenCalledTimes(1);
+    expect(updates.reloadAsync).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaving while a form blocks the reload says blocked, with the override already cleared for the next launch", async () => {
+    const updates = fakeUpdates();
+    const guard = createReloadGuard();
+    const release = guard.block();
+    const switcher = createChannelSwitcher({ updates, enabled: true, guard, storage: memoryStorage({ "genesis:updates:channel": "pr-1" }) });
+    await expect(switcher.reset()).resolves.toEqual({ kind: "blocked" });
+    expect(updates.setUpdateRequestHeadersOverride).toHaveBeenLastCalledWith(null);
+    expect(updates.reloadAsync).not.toHaveBeenCalled();
+    release();
+    await expect(switcher.restart()).resolves.toEqual({ kind: "reloading" });
+  });
+
   it("runs one write at a time, in order", async () => {
     const updates = fakeUpdates({ next: { id: "x" } });
     const order: string[] = [];

@@ -311,7 +311,7 @@ const adoptMissed: Fix = {
   rules: ["missed-value"],
   title: "adopt what Genesis offers that the app doesn't use (each finding says how), or decline it in doctor.declined with the reason",
   async plan(ctx) {
-    const missed = ctx.findings.filter((f) => f.rule === "missed-value");
+    const missed = ctx.findings.filter((f) => f.rule === "missed-value" && !(f.subject ?? "").startsWith("doctor.declined."));
     if (!missed.length) return { summary: "nothing Genesis offers is missed" };
     const ids = [...new Set(missed.map((f) => f.subject ?? f.file))];
     const lane = ids.includes("pr-previews");

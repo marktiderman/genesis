@@ -82,6 +82,9 @@ export function PreviewScreen({ channel, onDone, testID = "genesis-preview" }: P
   const attempt = attempts.current.for(valid);
   const [run, setRun] = useState<{ attempt: number; phase: Phase }>({ attempt, phase: { kind: "confirm" } });
   const phase: Phase = run.attempt === attempt ? run.phase : { kind: "confirm" };
+  // Whether the phone followed this channel before this attempt: declining a failed attempt then
+  // keeps it, and otherwise backs out of what prepare already set.
+  const followedBefore = useRef(false);
   const setPhase = (next: Phase, forAttempt: number = attempt) => {
     if (attempts.current!.isCurrent(forAttempt)) setRun({ attempt: forAttempt, phase: next });
   };
@@ -95,6 +98,7 @@ export function PreviewScreen({ channel, onDone, testID = "genesis-preview" }: P
 
   const load = async () => {
     const target = attempt;
+    followedBefore.current = state.requested === valid;
     setPhase({ kind: "working" }, target);
     try {
       setPhase(await channels.prepare(valid), target);
@@ -168,7 +172,11 @@ export function PreviewScreen({ channel, onDone, testID = "genesis-preview" }: P
         </NativeButton>
       ) : null}
       {phase.kind === "confirm" || phase.kind === "error" ? (
-        <NativeButton testID={`${testID}-cancel`} variant="ghost" onPress={onDone}>
+        <NativeButton
+          testID={`${testID}-cancel`}
+          variant="ghost"
+          onPress={phase.kind === "error" && !followedBefore.current && state.requested === valid ? () => void channels.reset().then(onDone, onDone) : onDone}
+        >
           Not now
         </NativeButton>
       ) : null}

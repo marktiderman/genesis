@@ -108,6 +108,11 @@ jobs:
             echo "Waiting for $left preview run(s) on EAS to finish…"
             sleep 60
           done
-          [ "$left" = "0" ] || echo "::warning::Preview runs were still open after 45 minutes ($left); deleting anyway."
           sweep
+          if [ "$left" != "0" ]; then
+            # A run still open (or EAS couldn't say) may publish after this: fail so the run shows,
+            # and re-running this job once EAS is quiet finishes the cleanup.
+            echo "::error::EAS still had $left preview run(s) open after 45 minutes; re-run this job once they finish to delete $CHANNEL for good."
+            failed=1
+          fi
           exit "$failed"

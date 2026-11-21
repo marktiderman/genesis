@@ -169,7 +169,19 @@ export function createUpdates(options: UpdatesOptions): UpdatesBlock {
     now,
     onError,
   });
-  const checker = createUpdateChecker({ updates, guard, reloadScreenOptions, now, onError });
+  // A check that hits "There is no channel named pr-42" (its pull request closed) drops the
+  // override, so the next launch is back on the build's channel: switcher.recover, bound below.
+  let healChannel: (error: Error) => void = () => {};
+  const checker = createUpdateChecker({
+    updates,
+    guard,
+    reloadScreenOptions,
+    now,
+    onError: (error, source) => {
+      onError?.(error, source);
+      healChannel(error);
+    },
+  });
   const whatsNew = createWhatsNewStore({
     storage: options.whatsNew === false ? undefined : storage,
     version: options.whatsNew === false ? null : (application?.nativeApplicationVersion ?? null),
@@ -185,6 +197,7 @@ export function createUpdates(options: UpdatesOptions): UpdatesBlock {
     reloadScreenOptions,
     onError,
   });
+  healChannel = (error) => void switcher.recover(error).catch(() => undefined);
   const signature = versionSignature({ application, updates, platform, buildMetadata: options.buildMetadata ?? null });
 
   const allNotes = (): ReleaseNote[] => [...(options.notes ?? []), ...(policy.getState().policy?.notes ?? [])];
