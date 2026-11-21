@@ -57,6 +57,8 @@ describe("preview links", () => {
     expect(normalizeLink("https://acme.app/clients/1", links)).toBe("/clients/1");
     expect(normalizeLink("https://acme.app/preview?channel=pr-42", { ...links, previews: false })).toBe("/");
     expect(normalizeLink("https://acme.app/preview?channel=pr-42", { ...links, ignore: ["/preview"] })).toBeNull();
+    // The app's own map comes first: its /preview/:id route keeps its links.
+    expect(normalizeLink("https://acme.app/preview/123", { ...at, map: { "/preview/:id": "/media/:id" } })).toBe("/media/123");
   });
 });
 

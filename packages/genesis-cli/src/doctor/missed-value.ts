@@ -63,6 +63,8 @@ const NAMED_IMPORT = /\b(?:import|export)\s+(?:type\s+)?\{([^}]*)\}\s*from\s*["'
 export function namesImportedFrom(code: string, packages: readonly string[]): Map<string, Set<string>> {
   const out = new Map<string, Set<string>>();
   for (const m of code.matchAll(NAMED_IMPORT)) {
+    // An import written inside a string or a comment (an example in docs) isn't one.
+    if (inStringOrComment(code, m.index ?? 0)) continue;
     const from = m[2]!;
     if (!packages.some((p) => from === p || from.startsWith(`${p}/`))) continue;
     for (const part of m[1]!.split(",")) {

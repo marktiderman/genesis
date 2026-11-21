@@ -245,6 +245,10 @@ export function usePreviewNotice(): PreviewNoticeProps | null {
   // `blocked`: the build's update is downloaded, only the restart is left. Anything else: leave again
   // from the top (it fetches the build's channel again, so the restart can't land on the preview).
   const [stuck, setStuck] = useState<{ channel: string; problem: string; blocked: boolean } | null>(null);
+  // Picking a channel again (a new preview link) ends a stuck leave: its problem and restart are the old one's.
+  useEffect(() => {
+    if (requested) setStuck(null);
+  }, [requested]);
   const channel = requested ?? stuck?.channel ?? lingering ?? null;
   if (!channel) return null;
   const finish = async () => {

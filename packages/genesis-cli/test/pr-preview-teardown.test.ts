@@ -13,7 +13,7 @@ const script = (parse(readFileSync(TEMPLATE, "utf8")) as { jobs: { teardown: { s
  * `eas <command>` answers by the scenario: runs = what `workflow:runs` prints (one value, or a list
  * a call at a time), deleteFails / present = the kinds whose delete fails / whose list names pr-7.
  */
-function run(scenario: { runs: string[]; deleteFails?: string[]; present?: string[]; badList?: boolean; swapped?: boolean }) {
+function run(scenario: { runs: string[]; deleteFails?: string[]; present?: string[]; badList?: boolean; swapped?: boolean; prState?: string }) {
   const bin = mkdtempSync(path.join(tmpdir(), "teardown-bin-"));
   const state = path.join(bin, "calls");
   writeFileSync(state, "0");
@@ -45,11 +45,14 @@ esac
 `,
   );
   writeFileSync(path.join(bin, "sleep"), "#!/bin/sh\nexit 0\n");
+  writeFileSync(path.join(bin, "gh"), `#!/bin/sh\necho "${scenario.prState ?? "CLOSED"}"\n`);
+  chmodSync(path.join(bin, "gh"), 0o755);
   chmodSync(path.join(bin, "npx"), 0o755);
   chmodSync(path.join(bin, "sleep"), 0o755);
-  const result = spawnSync("bash", ["-c", script], {
+  // As GitHub runs a step: bash -e.
+  const result = spawnSync("bash", ["-e", "-c", script], {
     encoding: "utf8",
-    env: { PATH: `${bin}:${process.env.PATH}`, EXPO_TOKEN: "t", EAS_PROJECT_ID: "p", CHANNEL: "pr-7", HOME: process.env.HOME ?? "" },
+    env: { PATH: `${bin}:${process.env.PATH}`, EXPO_TOKEN: "t", EAS_PROJECT_ID: "p", CHANNEL: "pr-7", PR_NUMBER: "7", HOME: process.env.HOME ?? "" },
   });
   return { code: result.status, out: `${result.stdout}${result.stderr}` };
 }
@@ -79,6 +82,13 @@ describe("pr-preview-teardown", () => {
     const r = run({ runs: ["[]"], deleteFails: ["branch"], present: ["branch"] });
     expect(r.code).toBe(1);
     expect(r.out).toMatch(/Couldn't delete the branch pr-7/);
+  });
+
+  it("keeps the preview when the pull request was reopened", () => {
+    const r = run({ runs: ["[]"], prState: "OPEN" });
+    expect(r.code).toBe(0);
+    expect(r.out).toMatch(/open again: keeping pr-7/);
+    expect(r.out).not.toMatch(/Deleted/);
   });
 
   it("fails when a list answers the other command's shape (an empty array for channels, a page for branches)", () => {

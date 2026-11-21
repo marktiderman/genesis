@@ -128,8 +128,13 @@ export function easProfileEnvironment(root: string, profile: string, platform: "
   return (field("distribution") ?? "store") === "store" ? "production" : field("developmentClient") === true ? "development" : "preview";
 }
 
-/** The app's URL scheme from app.json (`expo.scheme`), or null (app.config.ts is code: set release.previews.scheme). */
+/**
+ * The app's URL scheme from app.json (`expo.scheme`) when that is the whole config, or null. With
+ * an app.config.* (code that can change the scheme), nothing is frozen into the workflow: its
+ * publish step resolves the effective config instead. release.previews.scheme always wins.
+ */
 export function appScheme(root: string): string | null {
+  if (["app.config.ts", "app.config.js", "app.config.mjs", "app.config.cjs"].some((f) => existsSync(path.join(root, f)))) return null;
   try {
     const json = JSON.parse(readFileSync(path.join(root, "app.json"), "utf8")) as { expo?: { scheme?: unknown } };
     const scheme = Array.isArray(json.expo?.scheme) ? json.expo?.scheme[0] : json.expo?.scheme;

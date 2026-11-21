@@ -417,7 +417,7 @@ people already have. No device registration, no new build, and anyone with the l
    `release.previews.origin`) or `<scheme>:///preview?channel=pr-42` (the QR code, with
    `release.previews.scheme`, which defaults to `app.json`'s `expo.scheme`). genesis-native's
    `normalizeLink` turns either, and Expo's development-client QR, into `/preview?channel=pr-42`
-   before the app's own link map; `links.previews: false` turns that off. The app's
+   when the app's own link map has no pattern for that path; `links.previews: false` turns that off. The app's
    `app/preview.tsx` renders `PreviewScreen`, and `+native-intent.ts` doesn't hold `/preview`
    for sign-in.
 3. **The switch.** `createUpdates({ channels: { enabled: true } })` turns channel switching on in
@@ -430,7 +430,7 @@ people already have. No device registration, no new build, and anyone with the l
 | Config | Default | What it does |
 | --- | --- | --- |
 | `release.previews.origin` | none | The web origin the comment links to (`https://acme.app`). Serve `/preview` there with an associated-domains (AASA and assetlinks) entry, and a page for a browser without the app. Unset, the comment links the scheme. |
-| `release.previews.scheme` | `app.json` `expo.scheme` | The scheme the QR code opens. |
+| `release.previews.scheme` | `app.json` `expo.scheme` when there's no `app.config.*`; otherwise resolved from the effective Expo config when the preview publishes | The scheme the QR code opens. |
 
 The teardown needs the repository secret `EXPO_TOKEN` and the repository variable
 `EAS_PROJECT_ID`; without them it warns and leaves the channel. An app that keeps its own release

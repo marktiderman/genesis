@@ -94,7 +94,9 @@ export function normalizeLink(url: string, options: LinkOptions): string | null 
   }
   // An ignored path stays ignored, a preview's included.
   if (parsed && ignore.some((pattern) => matchPattern(pattern, clean(parsed.path)))) return null;
-  if (previews !== false) {
+  // The app's own map comes first: a preview applies only where no app pattern matches the path.
+  const mapped = parsed ? Object.keys(map).some((pattern) => matchPattern(pattern, clean(parsed.path))) : false;
+  if (previews !== false && !mapped) {
     const path = previews.path ?? PREVIEW_PATH;
     let preview: { channel: string | null } | null = null;
     try {

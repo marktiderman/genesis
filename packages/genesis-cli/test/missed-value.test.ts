@@ -81,6 +81,11 @@ describe("missed-value", () => {
     expect(await run(`${imp}export const u = makeUpdates({ channels: { enabled: __DEV__ } });\n`)).toBe(true);
     const plain = 'import { createUpdates } from "@marktiderman/genesis-native/updates";\n';
     expect(await run(`${plain}export const u = createUpdates({ channels: { enabled: true } });\nconst doc = "createUpdates({ channels: { enabled: __DEV__ } })";\n// createUpdates({ channels: { enabled: __DEV__ } })\n`)).toBe(false);
+    // An import written inside a string (an example) isn't an import.
+    const pushBlock = { manifest: block({ id: "push", detect: { imports: ["createPush"] } }), from: "installed" };
+    const quoted = app({ "src/docs.ts": `const example = 'import { createPush } from "@marktiderman/genesis-native/push"';\n` }, { eas: true });
+    await missedValueCheck({ blocks: async () => [pushBlock], catalog: () => [] })(quoted.ctx);
+    expect(quoted.found.map((f) => f.subject)).toEqual(["push"]);
     // A string inside the call quoting the old config isn't the config.
     expect(await run(`${plain}export const u = createUpdates({\n  platform: "ios",\n  channels: { enabled: true },\n  onError: () => console.warn("channels: { enabled: __DEV__ }"),\n});\n`)).toBe(false);
   });

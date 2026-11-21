@@ -84,3 +84,23 @@ describe("a deleted preview channel", () => {
     await expect(updates.channels.requested()).resolves.toBeNull();
   });
 });
+
+describe("the preview notice", () => {
+  it("drops a stuck leave's problem once a new preview is picked", async () => {
+    let allow = false;
+    const fake = fakeUpdates({ next: { id: "x" } });
+    const updates = createUpdates({ platform: "ios", application, policyTimeoutMs: 50, updates: fake, storage: memoryStorage({ "genesis:updates:channel": "pr-1" }), channels: { enabled: true }, canReload: () => allow });
+    mount(updates, <span>screens</span>);
+    await act(settle);
+    fireEvent.click(screen.getByTestId("genesis-preview-notice"));
+    await act(settle);
+    expect(screen.getByTestId("genesis-preview-notice-problem").textContent).toMatch(/Save or discard/);
+    await act(async () => {
+      await updates.channels.prepare("pr-2");
+      await settle();
+    });
+    expect(screen.queryByTestId("genesis-preview-notice-problem")).toBeNull();
+    expect(screen.getByLabelText("Preview pr-2. Leave the preview")).toBeTruthy();
+    allow = true;
+  });
+});

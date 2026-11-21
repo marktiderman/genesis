@@ -15,7 +15,7 @@ import { readLock, substitute, writeLock } from "../src/blocks/lock.js";
 import { ownedKeyProblem, refreshOwned } from "../src/blocks/owned.js";
 import { DEFAULT_RELEASE_CONTEXT, renderRelease, resolveRelease, type ReleaseContext } from "../src/blocks/release-render.js";
 import { addTemplates } from "../src/blocks/add-template.js";
-import { adoptTemplates, bumpCallerPins, competingReleaseWorkflows, easProfileEnvironment, RELEASE_COMMAND, releaseContext, currentSource, MOVED_TEMPLATES, hasPushTrigger, missingTemplateSets, renderPin, renderTemplate, resolveTemplateNames } from "../src/blocks/release.js";
+import { adoptTemplates, appScheme, bumpCallerPins, competingReleaseWorkflows, easProfileEnvironment, RELEASE_COMMAND, releaseContext, currentSource, MOVED_TEMPLATES, hasPushTrigger, missingTemplateSets, renderPin, renderTemplate, resolveTemplateNames } from "../src/blocks/release.js";
 import { templateTarget } from "../src/blocks/templates.js";
 import { GenesisConfigError, validateRelease } from "../src/doctor/config.js";
 import { runUpgrade, type ReleaseLookup } from "../src/upgrade/index.js";
@@ -984,6 +984,13 @@ esac
     });
     const out = execFileSync("node", [path.join(TEMPLATES, "eas/scripts/native-release.mjs"), "plan", dir, "ios,android", "production"], { encoding: "utf8" });
     expect(outputs(out.trim().split("\n"))).toMatchObject({ ios_action: "publish", android_action: "publish", android_runtime_version: "android-1" });
+  });
+});
+
+describe("appScheme", () => {
+  it("reads a static app.json, and leaves the scheme to the workflow when app.config.* can change it", () => {
+    expect(appScheme(makeApp({ "app.json": JSON.stringify({ expo: { scheme: "acme" } }) }))).toBe("acme");
+    expect(appScheme(makeApp({ "app.json": JSON.stringify({ expo: { scheme: "acme" } }), "app.config.ts": "export default ({ config }) => ({ ...config, scheme: 'acme-release' });\n" }))).toBeNull();
   });
 });
 
