@@ -1,0 +1,21 @@
+packages/genesis-cli/src/doctor/expo-deps.ts
+  s_7081dae02ae2cb::t_74fc90e5969733 155
+packages/genesis-cli/test/doctor-packs.test.ts
+  s_7081dae02ae2cb::t_7e75ce9ee87592 949-952
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6cea16d103a1a305919c5871372b31a55d3b6ec8",
+  "prompts": {},
+  "sessions": {
+    "s_7081dae02ae2cb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7a2b62bd-584c-47e8-8b1a-72015db941a7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
