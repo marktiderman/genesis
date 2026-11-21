@@ -1,6 +1,7 @@
 // @feat:init-native-template
 import { existsSync, mkdirSync, symlinkSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
+import { parse } from "yaml";
 import { describe, expect, it } from "vitest";
 import { appPnpmSettings, runInitNative } from "../src/blocks/init-native.js";
 import { readLock, type GenesisLock } from "../src/blocks/lock.js";
@@ -82,7 +83,8 @@ describe("genesis init --template native", () => {
     expect(lock.substitutions?.["com.example.genesisstarter"]).toBe("com.acmeco.trailnotes");
     // pr-preview's paths name the app's code folder: nothing is left to replace.
     expect(lock.substitutions?.REPLACE_WITH_APP_FOLDER).toBe("src");
-    expect(files[".eas/workflows/pr-preview.yml"]).toContain('- "src/**"');
+    // Previews are label-only by default: the path list (with the code folder) is written only with release.previews.everyPullRequest.
+    expect(parse(files[".eas/workflows/pr-preview.yml"]!).on).toEqual({ pull_request_labeled: { labels: ["Preview"] } });
     expect(Object.entries(files).filter(([f, t]) => f.startsWith(".eas/") && t.includes("REPLACE_WITH_")).map(([f]) => f)).toEqual([]);
     // Migrations stay the package's bytes, so the starter's own drift tests pass in the app.
     expect(Object.keys(files).filter((f) => f.startsWith("supabase/migrations/")).every((f) => !files[f]!.startsWith("-- genesis-migration"))).toBe(true);
@@ -92,13 +94,15 @@ describe("genesis init --template native", () => {
     const pin = { sha: "c".repeat(40), version: "2.40.0" };
     const { target, files } = await init({ pin });
     expect(files[".github/workflows/ci.yml"]).toContain(`app-ci.yml@${pin.sha} # @marktiderman/genesis@2.40.0`);
-    expect(files[".github/workflows/native-release.yml"]).toContain("name: Native release");
-    expect(files[".github/workflows/native-release.yml"]).not.toMatch(/^\s*#@|GENESIS_RELEASE_/m);
+    // EAS Workflows starts each release (release.trigger "eas", the default): no GitHub release workflow.
+    expect(files[".github/workflows/native-release.yml"]).toBeUndefined();
+    expect(files[".eas/workflows/deploy-production.yml"]).toMatch(/^on:\n  push:\n    branches: \[main\]/m);
+    expect(files[".eas/workflows/deploy-production.yml"]).not.toMatch(/^\s*#@|GENESIS_RELEASE_/m);
     expect(files["fingerprint.config.js"]).toContain('configPluginSourceType: "files"');
     expect(Object.keys(files).filter((f) => f === "vercel.json" || f.startsWith("scripts/vercel") || f.startsWith("vercel/"))).toEqual([]);
     const lock = readLock(target);
     expect(lock.pin).toEqual(pin);
-    for (const f of [".github/workflows/native-release.yml", ".eas/scripts/native-release.mjs", "fingerprint.config.js", ".fingerprintignore"]) expect(lock.files[f]?.source, f).toMatch(/^@marktiderman\/genesis-cli:templates\//);
+    for (const f of [".eas/workflows/deploy-production.yml", ".eas/scripts/native-release.mjs", "fingerprint.config.js", ".fingerprintignore"]) expect(lock.files[f]?.source, f).toMatch(/^@marktiderman\/genesis-cli:templates\//);
   });
 
   it("--without leaves a switched-off block out whole: the lock lists only blocks that are on, and every file it names is there", async () => {
