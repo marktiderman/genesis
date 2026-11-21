@@ -124,10 +124,22 @@ export function isChannelNotFoundError(error: unknown): boolean {
   return /there is no channel named/i.test(message);
 }
 
+function parsePreviewRecord(raw: string | null): { channel: string; ids: string[] } | null {
+  if (!raw) return null;
+  try {
+    const value = JSON.parse(raw) as { channel?: unknown; ids?: unknown; id?: unknown };
+    if (typeof value.channel !== "string") return null;
+    const ids = Array.isArray(value.ids) ? value.ids.filter((x): x is string => typeof x === "string") : typeof value.id === "string" ? [value.id] : [];
+    return { channel: value.channel, ids };
+  } catch {
+    return null;
+  }
+}
+
 export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelSwitcher {
   const { updates, enabled, guard, storage, storageKey = "genesis:updates:channel", reloadScreenOptions, onError } = options;
   const buildKey = `${storageKey}:build`;
-  /** `{ id, channel }` of the last preview update downloaded, to tell when its code still runs. */
+  /** `{ ids, channel }`: the preview updates this device downloaded or ran (newest last), to tell when one still runs. */
   const previewKey = `${storageKey}:preview-update`;
   const listeners = new Set<(state: ChannelState) => void>();
   let cache: ChannelState | null = null;
@@ -178,15 +190,16 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
     const requested = await read(storageKey);
     let build = await read(buildKey);
     let lingering: string | null = null;
-    const last = await read(previewKey);
-    if (last) {
-      try {
-        const { id, channel } = JSON.parse(last) as { id?: string; channel?: string };
-        if (id && updates?.updateId === id) lingering = requested ? null : (channel ?? null);
-        else if (!requested) await write(previewKey, null);
-      } catch {
-        await write(previewKey, null);
-      }
+    const running = updates?.updateId ?? null;
+    const record = parsePreviewRecord(await read(previewKey));
+    if (requested && running) {
+      // Launched on a preview: whatever runs is that preview's (the switcher's download, or a newer
+      // one the update checker fetched), so it is recorded too.
+      const ids = record?.channel === requested ? record.ids : [];
+      if (!ids.includes(running)) await write(previewKey, JSON.stringify({ channel: requested, ids: [...ids, running].slice(-20) }));
+    } else if (!requested && record) {
+      if (running && record.ids.includes(running)) lingering = record.channel;
+      else await write(previewKey, null);
     }
     // A launch with no override runs on the build's own channel: remember it, since under an
     // override `Updates.channel` reports the override instead.
@@ -270,7 +283,11 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
         // Remember which update a preview downloaded, so its code can be told apart after leaving.
         const id = (got?.manifest as { id?: unknown } | undefined)?.id;
         const picked = (await load()).requested;
-        if (picked && typeof id === "string") await write(previewKey, JSON.stringify({ id, channel: picked }));
+        if (picked && typeof id === "string") {
+          const record = parsePreviewRecord(await read(previewKey));
+          const ids = record?.channel === picked ? record.ids : [];
+          await write(previewKey, JSON.stringify({ channel: picked, ids: [...ids.filter((x) => x !== id), id].slice(-20) }));
+        }
         return { kind: "downloaded" };
       }
       const reason = (check as { reason?: string }).reason;

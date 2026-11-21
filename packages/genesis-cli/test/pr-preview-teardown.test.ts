@@ -13,7 +13,7 @@ const script = (parse(readFileSync(TEMPLATE, "utf8")) as { jobs: { teardown: { s
  * `eas <command>` answers by the scenario: runs = what `workflow:runs` prints (one value, or a list
  * a call at a time), deleteFails / present = the kinds whose delete fails / whose list names pr-7.
  */
-function run(scenario: { runs: string[]; deleteFails?: string[]; present?: string[]; badList?: boolean }) {
+function run(scenario: { runs: string[]; deleteFails?: string[]; present?: string[]; badList?: boolean; swapped?: boolean }) {
   const bin = mkdtempSync(path.join(tmpdir(), "teardown-bin-"));
   const state = path.join(bin, "calls");
   writeFileSync(state, "0");
@@ -33,10 +33,12 @@ case "$cmd" in
     ;;
   channel:list)
     ${scenario.badList ? "echo '{}'; exit 0" : ""}
+    ${scenario.swapped ? "echo '[]'; exit 0" : ""}
     case " ${(scenario.present ?? []).join(" ")} " in *" channel "*) echo '{"currentPage":[{"name":"pr-7"}]}' ;; *) echo '{"currentPage":[]}' ;; esac
     ;;
   branch:list)
     ${scenario.badList ? "echo '{}'; exit 0" : ""}
+    ${scenario.swapped ? "echo '{\"currentPage\":[]}'; exit 0" : ""}
     case " ${(scenario.present ?? []).join(" ")} " in *" branch "*) echo '[{"name":"pr-7"}]' ;; *) echo '[]' ;; esac
     ;;
 esac
@@ -77,6 +79,11 @@ describe("pr-preview-teardown", () => {
     const r = run({ runs: ["[]"], deleteFails: ["branch"], present: ["branch"] });
     expect(r.code).toBe(1);
     expect(r.out).toMatch(/Couldn't delete the branch pr-7/);
+  });
+
+  it("fails when a list answers the other command's shape (an empty array for channels, a page for branches)", () => {
+    expect(run({ runs: ["[]"], deleteFails: ["channel"], swapped: true }).code).toBe(1);
+    expect(run({ runs: ["[]"], deleteFails: ["branch"], swapped: true }).code).toBe(1);
   });
 
   it("fails when a delete failed and the list answers something that isn't a list", () => {

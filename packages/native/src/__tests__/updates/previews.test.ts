@@ -192,8 +192,14 @@ describe("channel switching, hardened", () => {
     const storage = memoryStorage();
     const first = fakeUpdates({ next: { id: "pr-update-1" } });
     await createChannelSwitcher({ updates: first, enabled: true, guard: createReloadGuard(), storage }).prepare("pr-9");
-    expect(JSON.parse(storage.data.get("genesis:updates:channel:preview-update")!)).toEqual({ id: "pr-update-1", channel: "pr-9" });
-    // …the person leaves (no channel picked), and the relaunch still runs that update.
+    expect(JSON.parse(storage.data.get("genesis:updates:channel:preview-update")!)).toEqual({ channel: "pr-9", ids: ["pr-update-1"] });
+    // The update checker then fetches a newer pr-9 update, and the phone launches on it (pr-9 still picked).
+    storage.data.set("genesis:updates:channel", "pr-9");
+    await createChannelSwitcher({ updates: fakeUpdates({ updateId: "pr-update-2", channel: "pr-9" }), enabled: true, guard: createReloadGuard(), storage }).state();
+    expect(JSON.parse(storage.data.get("genesis:updates:channel:preview-update")!).ids).toEqual(["pr-update-1", "pr-update-2"]);
+    // …the person leaves (no channel picked), and the relaunch still runs a pr-9 update: either one counts.
+    storage.data.delete("genesis:updates:channel");
+    await expect(createChannelSwitcher({ updates: fakeUpdates({ updateId: "pr-update-2" }), enabled: true, guard: createReloadGuard(), storage }).state()).resolves.toMatchObject({ requested: null, lingering: "pr-9" });
     storage.data.delete("genesis:updates:channel");
     const stillPreview = fakeUpdates({ updateId: "pr-update-1" });
     await expect(createChannelSwitcher({ updates: stillPreview, enabled: true, guard: createReloadGuard(), storage }).state()).resolves.toMatchObject({ requested: null, lingering: "pr-9" });

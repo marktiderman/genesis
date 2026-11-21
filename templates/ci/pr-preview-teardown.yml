@@ -63,7 +63,7 @@ jobs:
             local kind="$1" offset=0 page
             while :; do
               page="$(eas "$kind:list" --json --non-interactive --limit 25 --offset "$offset" 2>/dev/null)" || return 2
-              case "$(printf '%s' "$page" | node -e 'let s="";process.stdin.on("data",(d)=>s+=d).on("end",()=>{const want=process.argv[1];let j;try{j=JSON.parse(s)}catch{process.stdout.write("bad");return}const list=Array.isArray(j)?j:j&&Array.isArray(j.currentPage)?j.currentPage:null;if(!list){process.stdout.write("bad");return}process.stdout.write(list.some((x)=>x&&x.name===want)?"yes":list.length<25?"no":"more")})' "$CHANNEL")" in
+              case "$(printf '%s' "$page" | node -e 'let s="";process.stdin.on("data",(d)=>s+=d).on("end",()=>{const want=process.argv[1];let j;try{j=JSON.parse(s)}catch{process.stdout.write("bad");return}const list=process.argv[2]==="branch"?(Array.isArray(j)?j:null):(j&&!Array.isArray(j)&&Array.isArray(j.currentPage)?j.currentPage:null);if(!list){process.stdout.write("bad");return}process.stdout.write(list.some((x)=>x&&x.name===want)?"yes":list.length<25?"no":"more")})' "$CHANNEL" "$kind")" in
                 yes) return 0 ;;
                 no) return 1 ;;
                 more) offset=$((offset + 25)) ;;
