@@ -1,5 +1,16 @@
 # @marktiderman/genesis-support
 
+## 0.13.0
+
+### Minor Changes
+
+- 67d5859: Diagnostics: the staff dump viewer links a dump to its Sentry event from Genesis settings. Without `links.sentry`, `SupportTicketDiagnostics` (new `settings` prop) and the agent inbox (through its `settings`) build the link from `observability.sentryOrg` and `observability.sentryDsn`: `https://<org>.sentry.io/issues/?project=<id>&query=<event id>` on sentry.io, or the DSN's own host for a self-hosted Sentry. `sentryEventLink(settings)` is the builder on its own. The app's own `links.sentry` still wins.
+
+### Patch Changes
+
+- Updated dependencies [c9541ac]
+  - @marktiderman/genesis-config@0.13.0
+
 ## 0.12.0
 
 ### Minor Changes
