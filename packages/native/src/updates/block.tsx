@@ -172,6 +172,7 @@ export function createUpdates(options: UpdatesOptions): UpdatesBlock {
   // A check that hits "There is no channel named pr-42" (its pull request closed) drops the
   // override, so the next launch is back on the build's channel: switcher.recover, bound below.
   let healChannel: (error: Error) => void = () => {};
+  let switcherReady: () => Promise<boolean> = async () => true;
   const checker = createUpdateChecker({
     updates,
     guard,
@@ -181,6 +182,8 @@ export function createUpdates(options: UpdatesOptions): UpdatesBlock {
       onError?.(error, source);
       healChannel(error);
     },
+    // The banner's restart passes the same gate as leaving a preview.
+    beforeReload: () => switcherReady(),
   });
   const whatsNew = createWhatsNewStore({
     storage: options.whatsNew === false ? undefined : storage,
@@ -198,6 +201,7 @@ export function createUpdates(options: UpdatesOptions): UpdatesBlock {
     onError,
   });
   healChannel = (error) => void switcher.recover(error).catch(() => undefined);
+  switcherReady = () => switcher.readyToReload();
   // An update the checker downloads while a preview is open is that preview's: record it, so a
   // restart after leaving that launches it still shows the notice. Only a download that finished
   // (downloading → ready), with the preview picked when it started (the header named it): a

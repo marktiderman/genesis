@@ -90,6 +90,10 @@ describe("missed-value", () => {
     expect(await run(`const quote = /"/;\nconst ratio = a / b;\n${plain}export const u = createUpdates({ channels: { enabled: __DEV__ } });\n`)).toBe(true);
     // A template literal's \${…} hole is code; its text isn't.
     expect(await run(`${plain}const label = \`v\${1}\`;\nexport const u = createUpdates({ channels: { enabled: __DEV__ } });\n`)).toBe(true);
+    // A postfix ++ then a division isn't a regex.
+    expect(await run(`${plain}let attempts = 0, total = 1;\nexport const u = createUpdates({ onError: () => attempts++ / total, channels: { enabled: __DEV__ } });\n`)).toBe(true);
+    // Two holes side by side: the second still reads a regex as a regex.
+    expect(await run(`${plain}const value = "}";\nexport const label = \`\${1}\${/[}]/.test(value) ? createUpdates({ channels: { enabled: __DEV__ } }) : ""}\`;\n`)).toBe(true);
     // A string inside the call quoting the old config isn't the config.
     expect(await run(`${plain}export const u = createUpdates({\n  platform: "ios",\n  channels: { enabled: true },\n  onError: () => console.warn("channels: { enabled: __DEV__ }"),\n});\n`)).toBe(false);
   });

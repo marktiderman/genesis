@@ -125,7 +125,7 @@ describe("the checker's downloads and the preview record", () => {
     await act(settle);
     updates.checker.dismiss();
     await act(settle);
-    expect(JSON.parse(storage.data.get("genesis:updates:channel:preview-update")!).ids).toEqual(["pr-6-a"]);
+    expect(JSON.parse(storage.data.get("genesis:updates:channel:preview-update")!).channels["pr-6"]).toEqual(["pr-6-a"]);
   });
 
   it("records a preview's download that finishes after the person left it", async () => {
@@ -142,7 +142,7 @@ describe("the checker's downloads and the preview record", () => {
     finish();
     await checking;
     await act(settle);
-    expect(JSON.parse(storage.data.get("genesis:updates:channel:preview-update")!).ids).toContain("pr-6-b");
+    expect(JSON.parse(storage.data.get("genesis:updates:channel:preview-update")!).channels["pr-6"]).toContain("pr-6-b");
   });
 
   it("records a download the checker finishes with a preview open", async () => {
@@ -152,7 +152,7 @@ describe("the checker's downloads and the preview record", () => {
     await updates.channels.state();
     await updates.checker.check();
     await act(settle);
-    expect(JSON.parse(storage.data.get("genesis:updates:channel:preview-update")!).ids).toContain("pr-6-b");
+    expect(JSON.parse(storage.data.get("genesis:updates:channel:preview-update")!).channels["pr-6"]).toContain("pr-6-b");
   });
 
   it("leaving waits for a preview download still running, so the restart can't beat its record", async () => {
@@ -174,7 +174,7 @@ describe("the checker's downloads and the preview record", () => {
       await leaving;
     });
     expect(fake.reloadAsync).toHaveBeenCalledTimes(1);
-    expect(JSON.parse(storage.data.get("genesis:updates:channel:preview-update")!).ids).toContain("pr-6-c");
+    expect(JSON.parse(storage.data.get("genesis:updates:channel:preview-update")!).channels["pr-6"]).toContain("pr-6-c");
   });
 
   it("doesn't restart when the download's record couldn't be saved: Leave answers an error to retry", async () => {
@@ -202,7 +202,7 @@ describe("the checker's downloads and the preview record", () => {
     // Once it can be saved, the next try saves it first, then restarts.
     setItem.mockImplementation(async (key, value) => void storage.data.set(key, value));
     await expect(updates.channels.reset()).resolves.toEqual({ kind: "reloading" });
-    expect(JSON.parse(storage.data.get("genesis:updates:channel:preview-update")!).ids).toContain("pr-6-d");
+    expect(JSON.parse(storage.data.get("genesis:updates:channel:preview-update")!).channels["pr-6"]).toContain("pr-6-d");
   });
 
   it("a record that failed before leaving still holds the first Leave until it's saved", async () => {
@@ -223,7 +223,7 @@ describe("the checker's downloads and the preview record", () => {
     expect(fake.reloadAsync).not.toHaveBeenCalled();
     full = false;
     await expect(updates.channels.reset()).resolves.toEqual({ kind: "reloading" });
-    expect(JSON.parse(storage.data.get("genesis:updates:channel:preview-update")!).ids).toContain("pr-6-f");
+    expect(JSON.parse(storage.data.get("genesis:updates:channel:preview-update")!).channels["pr-6"]).toContain("pr-6-f");
   });
 
   it("doesn't restart when a download is still running after 10 s", async () => {
@@ -243,5 +243,22 @@ describe("the checker's downloads and the preview record", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("the update banner's restart waits on the same gate: an unsaved preview record stops it", async () => {
+    const storage = memoryStorage({ "genesis:updates:channel": "pr-6" });
+    const setItem = storage.setItem as unknown as { mockImplementation: (f: (k: string, v: string) => Promise<void>) => void };
+    setItem.mockImplementation(async (key, value) => {
+      if (key.endsWith(":preview-update")) throw new Error("disk full");
+      storage.data.set(key, value);
+    });
+    const fake = fakeUpdates({ next: { id: "pr-6-g" }, channel: "pr-6" });
+    const updates = createUpdates({ platform: "ios", application, policyTimeoutMs: 50, updates: fake, storage, channels: { enabled: true } });
+    await updates.channels.state();
+    await updates.checker.check();
+    await act(settle);
+    expect(updates.checker.getState().status).toBe("ready");
+    await expect(updates.checker.reload()).resolves.toBe(false);
+    expect(fake.reloadAsync).not.toHaveBeenCalled();
   });
 });

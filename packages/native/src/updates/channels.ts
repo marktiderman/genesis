@@ -97,6 +97,11 @@ export interface ChannelSwitcher {
    * reload, which stays refused until it is.
    */
   holdReload(work: Promise<unknown>): void;
+  /**
+   * What every other restart (the update banner's) asks first: `true` once held downloads and
+   * their records are settled and saved, else `false` (and the restart must not happen).
+   */
+  readyToReload(): Promise<boolean>;
   /** Reload into what was downloaded (respects the reload guard). */
   restart(): Promise<ChannelSwitchResult>;
   /** Back to the build's own channel. Always allowed. */
@@ -150,22 +155,44 @@ function parseIds(raw: string | null): string[] {
   }
 }
 
-function parsePreviewRecord(raw: string | null): { channel: string; ids: string[] } | null {
-  if (!raw) return null;
+/** Preview updates by channel (each newest last). Reads the older one-channel form too. */
+type PreviewRecord = Record<string, string[]>;
+
+function parsePreviewRecord(raw: string | null): PreviewRecord {
+  if (!raw) return {};
   try {
-    const value = JSON.parse(raw) as { channel?: unknown; ids?: unknown; id?: unknown };
-    if (typeof value.channel !== "string") return null;
-    const ids = Array.isArray(value.ids) ? value.ids.filter((x): x is string => typeof x === "string") : typeof value.id === "string" ? [value.id] : [];
-    return { channel: value.channel, ids };
+    const value = JSON.parse(raw) as { channels?: unknown; channel?: unknown; ids?: unknown; id?: unknown };
+    const strings = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
+    if (value.channels && typeof value.channels === "object") {
+      const out: PreviewRecord = {};
+      for (const [ch, ids] of Object.entries(value.channels as Record<string, unknown>)) if (strings(ids).length) out[ch] = strings(ids);
+      return out;
+    }
+    if (typeof value.channel === "string") return { [value.channel]: typeof value.id === "string" ? [value.id] : strings(value.ids) };
+    return {};
   } catch {
-    return null;
+    return {};
   }
+}
+
+/** The channel whose preview updates include `id`, else null. */
+function channelOf(record: PreviewRecord, id: string): string | null {
+  for (const [channel, ids] of Object.entries(record)) if (ids.includes(id)) return channel;
+  return null;
+}
+
+/** `record` with `id` added to `channel` (at most 20 per channel, 10 channels, newest kept). */
+function withPreviewUpdate(record: PreviewRecord, channel: string, id: string): PreviewRecord {
+  const next: PreviewRecord = { ...record, [channel]: [...(record[channel] ?? []).filter((x) => x !== id), id].slice(-20) };
+  const channels = Object.keys(next);
+  for (const ch of channels.slice(0, Math.max(0, channels.length - 10))) if (ch !== channel) delete next[ch];
+  return next;
 }
 
 export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelSwitcher {
   const { updates, enabled, guard, storage, storageKey = "genesis:updates:channel", reloadScreenOptions, onError } = options;
   const buildKey = `${storageKey}:build`;
-  /** `{ ids, channel }`: the preview updates this device downloaded or ran (newest last), to tell when one still runs. */
+  /** `{ channels: { [channel]: ids } }`: the preview updates this device downloaded or ran, to tell when one still runs. */
   const previewKey = `${storageKey}:preview-update`;
   /** The updates seen running with no preview picked (the build's own), newest last: never a preview's. */
   const releaseKey = `${storageKey}:release-updates`;
@@ -229,14 +256,13 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
       // newer one the update checker fetched) unless it is the embedded update or one already seen
       // running without a preview: expo-updates rolled back from a crashed preview, or the download
       // never finished. Only the preview's are recorded.
-      const ids = record?.channel === requested ? record.ids : [];
-      if (!updates?.isEmbeddedLaunch && !release.includes(running) && !ids.includes(running)) {
-        await write(previewKey, JSON.stringify({ channel: requested, ids: [...ids, running].slice(-20) }));
+      if (!updates?.isEmbeddedLaunch && !release.includes(running) && !(record[requested] ?? []).includes(running)) {
+        await write(previewKey, JSON.stringify({ channels: withPreviewUpdate(record, requested, running) }));
       }
-    } else if (!requested && record && running && record.ids.includes(running)) {
-      lingering = record.channel;
+    } else if (!requested && running && channelOf(record, running)) {
+      lingering = channelOf(record, running);
     } else if (!requested) {
-      if (record) await write(previewKey, null);
+      if (Object.keys(record).length) await write(previewKey, null);
       // The build's own code: remember it, so a later launch with a preview picked can tell it apart.
       if (running && !release.includes(running)) await write(releaseKey, JSON.stringify([...release, running].slice(-20)));
     }
@@ -305,17 +331,23 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
       clearTimeout(timer);
     }
   };
+  /** Null when a restart may go ahead; else the error to answer (a download or its record still pending). */
+  const readyToReload = async (): Promise<{ kind: "error"; error: Error } | null> => {
+    if ((await settled()) && (await saveUnsaved())) return null;
+    const error = new Error("The app is still saving a download. Try again in a moment.");
+    report(error);
+    return { kind: "error", error };
+  };
   const reload = async (): Promise<ChannelSwitchResult> => {
     const u = updates as UpdatesModuleLike;
     try {
       if (!guard.canReload()) return { kind: "blocked" };
       // A checker download still running (or its record) first: what the restart launches is then
       // known. Not settled in time, or not saved: no restart that could hide a running preview.
-      if (!(await settled()) || !(await saveUnsaved())) {
-        const error = new Error("The app is still saving a download. Try again in a moment.");
-        report(error);
-        return { kind: "error", error };
-      }
+      const ready = await readyToReload();
+      if (ready) return ready;
+      // The waits above can take seconds: a form may have started blocking meanwhile.
+      if (!guard.canReload()) return { kind: "blocked" };
       // Queued crash reports and events would be lost with the runtime: flush them first.
       await runBeforeReload();
       await u.reloadAsync(reloadScreenOptions ? { reloadScreenOptions } : undefined);
@@ -329,15 +361,22 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
   /** Add `id` to `channel`'s record (default: the open preview's; none open: nothing). */
   /** Preview updates whose record couldn't be saved yet (id → channel): retried before every restart. */
   const unsaved = new Map<string, string>();
-  const recordPreviewUpdate = async (id: string, channel?: string): Promise<boolean> => {
-    const picked = channel ?? (await load()).requested;
-    if (!picked) return true;
-    const record = parsePreviewRecord(await read(previewKey));
-    const ids = record?.channel === picked ? record.ids : [];
-    const saved = await write(previewKey, JSON.stringify({ channel: picked, ids: [...ids.filter((x) => x !== id), id].slice(-20) }));
-    if (saved) unsaved.delete(id);
-    else unsaved.set(id, picked);
-    return saved;
+  // Read-modify-write of the record, one at a time: its own queue, not the switcher's (a reload in
+  // that queue can be waiting on a record), and merged per channel, so no write drops another's ids.
+  let recordQueue: Promise<unknown> = Promise.resolve();
+  const recordPreviewUpdate = (id: string, channel?: string): Promise<boolean> => {
+    const task = async (): Promise<boolean> => {
+      const picked = channel ?? (await load()).requested;
+      if (!picked) return true;
+      const record = parsePreviewRecord(await read(previewKey));
+      const saved = await write(previewKey, JSON.stringify({ channels: withPreviewUpdate(record, picked, id) }));
+      if (saved) unsaved.delete(id);
+      else unsaved.set(id, picked);
+      return saved;
+    };
+    const next = recordQueue.then(task, task);
+    recordQueue = next.catch(() => undefined);
+    return next;
   };
   /** Save what couldn't be saved before; true when nothing is left unsaved. */
   const saveUnsaved = async (): Promise<boolean> => {
@@ -409,6 +448,9 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
         await pick(name);
         return fetch();
       });
+    },
+    async readyToReload() {
+      return (await readyToReload()) === null;
     },
     holdReload(work) {
       const held: Promise<boolean> = work.then((value) => value !== false, () => false).finally(() => holds.delete(held));

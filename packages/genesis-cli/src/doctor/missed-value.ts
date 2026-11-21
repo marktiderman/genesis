@@ -105,8 +105,8 @@ export function codeMask(code: string): Uint8Array {
     if (i < code.length) mask[i] = 0;
     i++;
   };
-  const skipTemplateText = () => {
-    // From just after a backtick (or a closing `}` of a hole) to the next backtick or `${`.
+  /** From just after a backtick (or a hole's closing `}`) to the next backtick (true) or `${` (false). */
+  const skipTemplateText = (): boolean => {
     while (i < code.length) {
       const c = code[i]!;
       if (c === "\\") {
@@ -118,7 +118,7 @@ export function codeMask(code: string): Uint8Array {
       if (c === "`") {
         mask[i] = 0;
         i++;
-        return;
+        return true;
       }
       if (c === "$" && code[i + 1] === "{") {
         mask[i] = 0;
@@ -128,11 +128,12 @@ export function codeMask(code: string): Uint8Array {
         depth++;
         lastSignificant = "{";
         lastWord = "";
-        return;
+        return false;
       }
       mask[i] = 0;
       i++;
     }
+    return true;
   };
   while (i < code.length) {
     const c = code[i]!;
@@ -145,8 +146,8 @@ export function codeMask(code: string): Uint8Array {
     if (c === "`") {
       mask[i] = 0;
       i++;
-      skipTemplateText();
-      if (templates.length === 0 || code[i - 1] === "`") {
+      // Closed: the template is a value. Opened a hole: skipTemplateText left "an expression starts".
+      if (skipTemplateText()) {
         lastSignificant = "a";
         lastWord = "";
       }
@@ -192,9 +193,10 @@ export function codeMask(code: string): Uint8Array {
         templates.pop();
         mask[i] = 0;
         i++;
-        skipTemplateText();
-        lastSignificant = "a";
-        lastWord = "";
+        if (skipTemplateText()) {
+          lastSignificant = "a";
+          lastWord = "";
+        }
         continue;
       }
     }
@@ -208,6 +210,15 @@ export function codeMask(code: string): Uint8Array {
       lastWord = code.slice(i, j);
       lastSignificant = "a";
       i = j;
+      continue;
+    }
+    // `++` / `--`: one token. After a value (postfix) the expression goes on as a value, so a `/`
+    // next divides; before one (prefix) it's an operator.
+    if ((c === "+" || c === "-") && code[i + 1] === c) {
+      const postfix = lastSignificant === "a" || lastSignificant === ")" || lastSignificant === "]";
+      lastSignificant = postfix ? "a" : c;
+      lastWord = "";
+      i += 2;
       continue;
     }
     lastSignificant = c;

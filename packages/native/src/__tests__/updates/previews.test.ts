@@ -194,11 +194,11 @@ describe("channel switching, hardened", () => {
     const storage = memoryStorage();
     const first = fakeUpdates({ next: { id: "pr-update-1" } });
     await createChannelSwitcher({ updates: first, enabled: true, guard: createReloadGuard(), storage }).prepare("pr-9");
-    expect(JSON.parse(storage.data.get("genesis:updates:channel:preview-update")!)).toEqual({ channel: "pr-9", ids: ["pr-update-1"] });
+    expect(JSON.parse(storage.data.get("genesis:updates:channel:preview-update")!)).toEqual({ channels: { "pr-9": ["pr-update-1"] } });
     // The update checker then fetches a newer pr-9 update, and the phone launches on it (pr-9 still picked).
     storage.data.set("genesis:updates:channel", "pr-9");
     await createChannelSwitcher({ updates: fakeUpdates({ updateId: "pr-update-2", channel: "pr-9" }), enabled: true, guard: createReloadGuard(), storage }).state();
-    expect(JSON.parse(storage.data.get("genesis:updates:channel:preview-update")!).ids).toEqual(["pr-update-1", "pr-update-2"]);
+    expect(JSON.parse(storage.data.get("genesis:updates:channel:preview-update")!).channels["pr-9"]).toEqual(["pr-update-1", "pr-update-2"]);
     // …the person leaves (no channel picked), and the relaunch still runs a pr-9 update: either one counts.
     storage.data.delete("genesis:updates:channel");
     await expect(createChannelSwitcher({ updates: fakeUpdates({ updateId: "pr-update-2" }), enabled: true, guard: createReloadGuard(), storage }).state()).resolves.toMatchObject({ requested: null, lingering: "pr-9" });
@@ -243,6 +243,32 @@ describe("channel switching, hardened", () => {
     // After leaving, the release runs and nothing lingers.
     storage.data.delete("genesis:updates:channel");
     await expect(make({ updateId: "release-1" }).state()).resolves.toMatchObject({ requested: null, lingering: null });
+  });
+
+  it("keeps every preview's updates: concurrent records, and a retry of an older one, drop none", async () => {
+    const storage = memoryStorage({ "genesis:updates:channel": "pr-6" });
+    const switcher = createChannelSwitcher({ updates: fakeUpdates({ updateId: "x", channel: "pr-6" }), enabled: true, guard: createReloadGuard(), storage });
+    await switcher.state();
+    await Promise.all([switcher.noteDownloaded("pr-6-a", "pr-6"), switcher.noteDownloaded("pr-6-b", "pr-6")]);
+    await switcher.prepare("pr-7");
+    await switcher.noteDownloaded("pr-7-a", "pr-7");
+    const record = JSON.parse(storage.data.get("genesis:updates:channel:preview-update")!).channels;
+    expect(record["pr-6"]).toEqual(expect.arrayContaining(["pr-6-a", "pr-6-b"]));
+    expect(record["pr-7"]).toContain("pr-7-a");
+  });
+
+  it("checks the reload guard again after waiting on a download, so an edit started meanwhile isn't lost", async () => {
+    const updates = fakeUpdates();
+    const guard = createReloadGuard();
+    const switcher = createChannelSwitcher({ updates, enabled: true, guard, storage: memoryStorage({ "genesis:updates:channel": "pr-1" }) });
+    let finish!: () => void;
+    switcher.holdReload(new Promise<boolean>((resolve) => (finish = () => resolve(true))));
+    const leaving = switcher.reset();
+    await new Promise((r) => setTimeout(r, 0));
+    guard.block();
+    finish();
+    await expect(leaving).resolves.toEqual({ kind: "blocked" });
+    expect(updates.reloadAsync).not.toHaveBeenCalled();
   });
 
   it("runs one write at a time, in order", async () => {
