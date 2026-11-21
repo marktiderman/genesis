@@ -266,6 +266,11 @@ describe("Stepper", () => {
     const bar = screen.getByRole("progressbar", { name: "Phase 1 done" });
     expect(bar.getAttribute("aria-valuenow")).toBe("100");
   });
+  it("names an unlabelled Progress by its value, and treats NaN as 0", () => {
+    render(<Progress value={Number.NaN} />);
+    const bar = screen.getByRole("progressbar", { name: "0% complete" });
+    expect(bar.getAttribute("aria-valuenow")).toBe("0");
+  });
 });
 
 describe("TimePicker", () => {

@@ -4,7 +4,7 @@ import { stepState } from "@marktiderman/genesis-core/headless";
 import { cn } from "../../utils";
 
 export interface StepperStep {
-  /** The step's name. Rendered in a block, so it may hold block content (a Progress, a list). */
+  /** The step's name. Rendered in a block, so it may hold block content (a Progress, a list). Web only: NativeStepper takes strings. */
   label: React.ReactNode;
   /** A second line under the label, also a block (a Progress under a phase, say). */
   description?: React.ReactNode;
