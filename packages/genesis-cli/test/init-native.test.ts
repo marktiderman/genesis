@@ -92,13 +92,15 @@ describe("genesis init --template native", () => {
     const pin = { sha: "c".repeat(40), version: "2.40.0" };
     const { target, files } = await init({ pin });
     expect(files[".github/workflows/ci.yml"]).toContain(`app-ci.yml@${pin.sha} # @marktiderman/genesis@2.40.0`);
-    expect(files[".github/workflows/native-release.yml"]).toContain("name: Native release");
-    expect(files[".github/workflows/native-release.yml"]).not.toMatch(/^\s*#@|GENESIS_RELEASE_/m);
+    // EAS Workflows starts each release (release.trigger "eas", the default): no GitHub release workflow.
+    expect(files[".github/workflows/native-release.yml"]).toBeUndefined();
+    expect(files[".eas/workflows/deploy-production.yml"]).toMatch(/^on:\n  push:\n    branches: \[main\]/m);
+    expect(files[".eas/workflows/deploy-production.yml"]).not.toMatch(/^\s*#@|GENESIS_RELEASE_/m);
     expect(files["fingerprint.config.js"]).toContain('configPluginSourceType: "files"');
     expect(Object.keys(files).filter((f) => f === "vercel.json" || f.startsWith("scripts/vercel") || f.startsWith("vercel/"))).toEqual([]);
     const lock = readLock(target);
     expect(lock.pin).toEqual(pin);
-    for (const f of [".github/workflows/native-release.yml", ".eas/scripts/native-release.mjs", "fingerprint.config.js", ".fingerprintignore"]) expect(lock.files[f]?.source, f).toMatch(/^@marktiderman\/genesis-cli:templates\//);
+    for (const f of [".eas/workflows/deploy-production.yml", ".eas/scripts/native-release.mjs", "fingerprint.config.js", ".fingerprintignore"]) expect(lock.files[f]?.source, f).toMatch(/^@marktiderman\/genesis-cli:templates\//);
   });
 
   it("--without leaves a switched-off block out whole: the lock lists only blocks that are on, and every file it names is there", async () => {

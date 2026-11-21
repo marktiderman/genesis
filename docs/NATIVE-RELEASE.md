@@ -1,15 +1,17 @@
 # Native release
 
 How a Genesis native app goes from a pull request to phones: previews on EAS for pull requests, a
-release lane on every merge to `main` (an over-the-air update from GitHub Actions in minutes, or a
-store build on EAS when native code changed), Maestro smoke flows, and a manual rollout. Every
-Genesis app gets the files from Genesis, versioned with `@marktiderman/genesis-cli`, and changes
-them in its own `genesis.config.json`, not by editing them.
+release lane on every merge to `main` (Expo's "deploy to production" workflow, run by EAS Workflows
+itself: an over-the-air update when a store build has the commit's runtime version, a store build
+and submission when native code changed), Maestro smoke flows, and a manual rollout. Every Genesis
+app gets the files from Genesis, versioned with `@marktiderman/genesis-cli`, and changes them in
+its own `genesis.config.json`, not by editing them. Why the release starts on EAS and not on
+GitHub Actions: [ADR 0026](adr/0026-eas-owns-the-release-trigger.md).
 
 | File (in the app) | Template | What it does |
 | --- | --- | --- |
-| `.github/workflows/native-release.yml` | `templates/ci/native-release.yml` | Every push to `main` that changes the app: per platform, an over-the-air update published here, or the commit handed to EAS ([The release path](#the-release-path)). |
-| `.eas/workflows/deploy-production.yml` | `templates/release/deploy-production.yml` | Only when started (by `native-release.yml`): per platform, a store build submitted in the same run, or an update on a build that is still being made. |
+| `.eas/workflows/deploy-production.yml` | `templates/release/deploy-production.yml` | Every push to `main` that changes the app (EAS Workflows' own trigger): per platform, an over-the-air update on a store build with the commit's runtime version, or a store build submitted in the same run ([The release path](#the-release-path)). |
+| `.github/workflows/native-release.yml` | `templates/ci/native-release.yml` | Only with `release.trigger: "github"`: GitHub Actions starts each release instead, publishing JavaScript-only updates itself and handing the rest to a dispatch-only `deploy-production.yml` ([GitHub's trigger](#githubs-trigger)). |
 | `.eas/scripts/native-release.mjs` | `templates/eas/scripts/native-release.mjs` | The lane's decisions (plan, masks, the build profile's env, the runtime checks), kept out of the YAML so they are tested. |
 | `fingerprint.config.js`, `.fingerprintignore` | `templates/expo/` | What the runtime version hashes ([Fingerprints](#fingerprints)). |
 | `.eas/workflows/pr-preview.yml` | `templates/release/pr-preview.yml` | A pull request into `main` that changes the app, or one labeled `Preview` ([Build cost](#build-cost)): publish its JavaScript to the channel `pr-<number>` for the release builds people already have, and comment a preview link and QR code ([Previews](#previews)); when it changed native code, repack or build a preview build instead (iOS only once `PREVIEW_IOS=true`). |
@@ -23,6 +25,47 @@ them in its own `genesis.config.json`, not by editing them.
 them current ([Upgrading and customising](#upgrading-and-customising)).
 
 ## The release path
+
+One workflow owns a merge: `deploy-production.yml`, started by EAS Workflows on the push (the EAS
+project is linked to the GitHub repository), as Expo documents it
+([Deploy to production](https://docs.expo.dev/eas/workflows/examples/deploy-to-production/)).
+Nothing on GitHub Actions takes part, so a GitHub billing or runner problem never stops a release.
+
+1. **Pull request.** `pr-preview.yml` publishes it to the channel `pr-<number>` ([Previews](#previews)).
+2. **Merge into `main`.** That merge is the release. Bump `version` in `app.config.ts` in the same
+   change when it changes native code and you mean to release it; the build number goes up by itself
+   (`appVersionSource: "remote"`, `autoIncrement`).
+3. **`deploy-production.yml`** runs on the push when it changes the app (`on.push.paths`: everything
+   but docs, Markdown and CI files; under `appFolder`, the app's folder, `release.paths` and the
+   root's install files). `[eas skip]` in the commit message skips it (EAS reads it).
+   - `source` fails, and so stops every job, unless `main` contains the commit; checks eas.json's
+     profile still builds on `release.channel` with the EAS environment the file was rendered with;
+     and finds each platform's runtime version as a production build records it
+     (`eas fingerprint:generate --build-profile <profile>`, the profile's env over the EAS
+     environment's, or your `release.runtimeVersion` command). A platform it can't find stops the
+     run: nothing is built or published on a guess.
+   - per platform, `get-build` finds a production build on the release channel with that runtime
+     version, finished or still being made (`wait_for_in_progress`): this commit goes out as an
+     update on it (the lane's script: the profile's env, the runtime checked before and after, the
+     channel's latest update read first, then Sentry and your hook);
+   - none (native code changed): build, then submit to TestFlight and Google Play's internal track
+     as a draft. Releasing to the stores stays your step in App Store Connect and Play Console.
+4. **Order.** One run at a time (`concurrency`, never cancelling the one in progress). As Expo
+   recommends for deploys, a newer push waits and EAS replaces the runs waiting in between with it:
+   each run releases both platforms of its commit, and the newest commit on `main` carries every
+   older one. The update jobs still read the channel's latest update just before publishing and
+   skip, out loud, when it already carries this commit or a later one.
+5. **By hand:** `eas workflow:run deploy-production.yml --ref main` releases `main` as it is.
+   **To take an update back**, republish the update group before it (`eas update:republish --group
+   <id>`); step 5 of [GitHub's trigger](#githubs-trigger) has the rest, the same for both triggers.
+
+### GitHub's trigger
+
+With `"release": { "trigger": "github" }`, GitHub Actions starts each release instead: a runner
+starts in seconds where an EAS job can queue, so a JavaScript-only merge reaches phones sooner, at
+the cost of depending on GitHub Actions (its minutes, its billing) for every release. Only one of
+the two triggers is ever written: `native-release.yml` is, and `deploy-production.yml` becomes
+dispatch-only. The rest of this section is that lane.
 
 1. **Pull request.** `pr-preview.yml` publishes the pull request to the channel `pr-<number>` and
    comments a preview link: opened on a phone with the TestFlight or store build, the app asks,
@@ -134,6 +177,28 @@ silently. Left over:
 - A build EAS has queued but not started has no record yet, so a merge in that window builds again
   (a wasted build, nothing missed).
 
+## Moving to EAS's trigger
+
+`release.trigger` defaults to `"eas"`. An app on GitHub's trigger that doesn't set it moves on its
+next `genesis upgrade` (or `genesis add template release`), in one change: `deploy-production.yml`
+takes the push trigger and the unedited `native-release.yml` is removed (the upgrade's pull request
+stages the deletion). Never one without the other, so a merge always has exactly one owner:
+
+- `native-release.yml` with your edits (or one not in `genesis.lock.json`) holds both, and the
+  summary says so: remove it (or run `genesis add template release --replace`), or set
+  `"trigger": "github"` to stay.
+- Another workflow that releases on push (a GitHub workflow running `eas update`) holds
+  `deploy-production.yml`; remove it, or run with `--replace-rival` in the change that does.
+- A `deploy-production.yml` whose change waits in a `.genesis-next` keeps `native-release.yml`
+  until it is merged; then run `genesis add template release`.
+
+Before merging that change: connect the GitHub repository to the EAS project if it isn't
+([One-time setup](#one-time-setup), step 2), and put `EXPO_TOKEN` (and `SENTRY_AUTH_TOKEN`, and
+your hook's secrets) in the EAS environment the release reads, since GitHub's environment no
+longer takes part. `genesis doctor` checks the lane can run (`release-lane-live`: an error when
+`deploy-production.yml` is dispatch-only with nothing to start it, a warning when the files are on
+the other trigger than `release.trigger`) and that only one lane releases (`release-lane-twice`).
+
 ## The release block
 
 `genesis.config.json` `release` says how the lane is rendered into the files. Every key is
@@ -160,8 +225,9 @@ typo can't silently do nothing.
 
 | Key | Default | What it changes |
 | --- | --- | --- |
+| `trigger` | `"eas"` | What starts a release on a merge to `main`: `"eas"`, `deploy-production.yml`'s own push trigger on EAS Workflows; `"github"`, `native-release.yml` on GitHub Actions ([GitHub's trigger](#githubs-trigger)). Only that one is written. |
 | `platforms` | `["ios", "android"]` | The platforms released, in `native-release.yml`, `deploy-production.yml` and `pr-preview.yml`: the other platform's jobs and steps aren't written. |
-| `environment` | `production` | The GitHub environment that holds the release secrets (`EXPO_TOKEN`; `SENTRY_AUTH_TOKEN`; the hook's). Limit it to `main`. |
+| `environment` | `production` | With `trigger: "github"`: the GitHub environment that holds the release secrets (`EXPO_TOKEN`; `SENTRY_AUTH_TOKEN`; the hook's). Limit it to `main`. |
 | `paths` | none | Folders outside the app its bundle reads (every folder its Metro config watches), from the repository root. One list for every workflow: `native-release.yml` runs on them and `pr-preview.yml` previews them. |
 | `sentry` | on when `observability.sentry` names a project, else `false` | Uploads each update's source maps to Sentry with the app's own `sentry-expo-upload-sourcemaps`, in both lanes (GitHub and EAS) and in `pr-preview.yml` (each platform's preview update), and stops before publishing when `SENTRY_AUTH_TOKEN` or the uploader is missing. On GitHub the release hook (when there is one) runs first, then the upload; on EAS the upload runs in the update job, then the hook job runs (also after a failed upload). A failed upload fails the run either way. Set it `false` to keep update uploads off while builds upload. |
 | `pushHook` | none | A script in the app (`node <script>`) run once a release is out, per platform: after an update (GitHub or EAS) and after a submitted build (EAS). A string, or `{ "script", "secrets" }`: `secrets` are GitHub secret names passed to it on GitHub. |
@@ -232,10 +298,11 @@ Nothing in the templates names a real account. Before the first run:
 
 1. **EAS project.** `eas init`, then put the project id in `starter.config.ts` (`app.easProjectId`).
 2. **GitHub on EAS.** Connect the repository to the EAS project (expo.dev, project settings,
-   GitHub), so `eas workflow:run --ref` and the previews can build a commit. In a monorepo, set the
+   GitHub; it installs Expo's GitHub app). EAS Workflows' push and pull request triggers need it:
+   without it a merge starts no release and a pull request no preview. In a monorepo, set the
    base directory to the app's folder, where `.eas/` and `eas.json` are.
-3. **The GitHub environment** named in `release.environment` (default `production`), limited to
-   `main` (Settings → Environments → Deployment branches):
+3. **Only with `trigger: "github"`, the GitHub environment** named in `release.environment`
+   (default `production`), limited to `main` (Settings → Environments → Deployment branches):
 
    | Secret | When | Value |
    | --- | --- | --- |
@@ -251,7 +318,7 @@ Nothing in the templates names a real account. Before the first run:
    | Environment | Variables |
    | --- | --- |
    | `development`, `preview`, `production` | `APP_VARIANT` (the environment's name), `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` |
-   | `production` | `EXPO_TOKEN` (secret), for the EAS lane's update jobs and `rollout.yml`'s EAS CLI steps; `SENTRY_AUTH_TOKEN` with `release.sentry`; whatever your release hook reads on EAS |
+   | `production` | `EXPO_TOKEN` (secret), for the release's `source` and update jobs and `rollout.yml`'s EAS CLI steps; `SENTRY_AUTH_TOKEN` with `release.sentry`; whatever your release hook reads on EAS |
    | `preview`, `production` | `SENTRY_AUTH_TOKEN` (secret) with `observability.sentry`: the Sentry Expo plugin uploads each build's source maps with it, and a build without it fails ([Sentry source maps](#sentry-source-maps)) |
    | `development` | `MAESTRO_TEST_EMAIL`, `MAESTRO_TEST_PASSWORD` (secret), for the `account` flows |
 
@@ -387,8 +454,9 @@ The next upgrade, by this CLI, names them at their new paths in the lock and goe
 
 ## Safety
 
-- **Production ships only from `main`.** `native-release.yml` runs on pushes to `main` (and by
-  hand, only on `main`), in a GitHub environment whose branch policy limits it to `main`.
+- **Production ships only from `main`.** With EAS's trigger, `deploy-production.yml` runs on
+  pushes to `main` and by hand. With GitHub's, `native-release.yml` runs on pushes to `main` (and
+  by hand, only on `main`), in a GitHub environment whose branch policy limits it to `main`, and
   `deploy-production.yml` has no trigger but a dispatch, takes the commit as a required input,
   and the job that starts it always passes `--ref`. Its first job, `source`, which every other job
   waits on, fails unless the checkout is that commit (started with `--ref`, not an uploaded
@@ -468,7 +536,9 @@ switching on only in development (rule `missed-value`).
 
 ## Cost
 
-The lane moved the common case off EAS: a JavaScript-only merge runs one GitHub job (a few minutes
+With EAS's trigger every merge is an EAS workflow run: the `source` job (an install and a
+fingerprint) and an update job for a JavaScript-only merge, a build per platform for a native one.
+With GitHub's trigger the lane moves the common case off EAS: a JavaScript-only merge runs one GitHub job (a few minutes
 of runner time, no EAS build minutes, no queue), and EAS runs only for a native change, a merge
 while a build is being made, or a merge while an EAS release run is open. A native change costs one
 store build per platform, as before; a merge while EAS has a build queued but not started finds no
@@ -483,8 +553,8 @@ run on each push. The templates start narrow; widen them in the app's copy when 
 | --- | --- | --- | --- |
 | `pr-preview.yml` | Pull requests into `main` whose changes touch the app's code folder, `app.json`, `app.config.*`, `eas.json`, `package.json`, a lockfile or `release.paths`; and any pull request labeled `Preview`. One run per branch at a time. A JavaScript-only change is a fingerprint and an update (no build minutes); only a native change repacks or builds, Android only until iOS is on. | A docs-only pull request has nothing to install. An iOS preview build is an ad hoc build, which installs only on devices registered before it was built: with none, every iOS build job fails. | Add branches or paths under `on.pull_request`. Turn iOS preview builds on with `PREVIEW_IOS=true` in the `preview` EAS environment after `eas device:create`. |
 | `e2e.yml` | Only by hand. | Maestro jobs need a paid EAS plan, and each run is a simulator build or repack. | Add the `pull_request` trigger in the file's header comment. |
-| `native-release.yml` | Every push to `main` that changes the app. | GitHub minutes only; EAS only when it must. | Not needed. |
-| `deploy-production.yml` | Only when `native-release.yml` starts it. | A store build only when native code changed. | Not needed. |
+| `deploy-production.yml` | Every push to `main` that changes the app (with `trigger: "github"`, only when `native-release.yml` starts it). | A store build only when native code changed; otherwise a fingerprint and an update. | Not needed. |
+| `native-release.yml` | Only with `trigger: "github"`: every push to `main` that changes the app. | GitHub minutes; EAS only when it must. | Not needed. |
 | `rollout.yml` | Only by hand. | No build. | Not needed. |
 
 `pull_request_labeled` takes no `paths` in EAS's syntax, so adding the `Preview` label starts one
@@ -499,6 +569,9 @@ pull request that already matches the paths can start a second run; `pr-preview.
   (`https://api.expo.dev/v2/workflows/schema`), and a `native-release.yml` that `actionlint` passes
   (it doesn't know `environment.deployment` yet). genesis-cli's tests render them, run the plan
   script's decisions, and check that every job a job waits on is written.
+- EAS's trigger (the default since ADR 0026) renders and validates offline, and its `source` job's
+  checks run in the tests on a real repository; it hasn't run on a live EAS project yet: watch the
+  first merge after moving (the push should start `deploy-production.yml` on expo.dev).
 - The lane as a whole runs in production in a consumer app (iOS only, `appFolder`, a push hook,
   Sentry), from which it was promoted. These templates, with Android, both runtime strategies and
   the `ios`/`android` inputs, haven't run on a live EAS project yet: watch the first native change

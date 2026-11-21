@@ -228,7 +228,7 @@ const RULES_WITHOUT_A_FIX = [
   "undefined-token", "shadowed-export", "duplicate-genesis-package", "peer-range-mismatch", "hand-rolled-sub-nav", "local-genesis-copy",
   "resource-workspace", "page-layout", "iso-date-slice", "resource-view-tree", "studio-server-auth-import", "scope-practice-id", "beta-import",
   "native-raw-primitive", "native-literal-color", "native-custom-header", "native-screen-layout", "store-readiness", "eas-placeholder",
-  "fingerprint-plugin-files", "release-lane-twice", "migration-grants", "migration-rls", "migration-definer-search-path", "migration-edited",
+  "fingerprint-plugin-files", "release-lane-twice", "release-lane-live", "migration-grants", "migration-rls", "migration-definer-search-path", "migration-edited",
   "migration-testing-kit", "migration-view-rls", "exposed-schema-created-later", "package-app-import", "package-undeclared-dependency",
   "package-migration-test", "package-migration-number", "package-migration-edited", "package-unregistered", "package-unversioned-change",
   "package-export-missing", "package-block-invalid", "package-untagged-tests", "package-doctor-declaration", "overlay-unmarked", "overlay-invalid",
