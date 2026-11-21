@@ -110,7 +110,7 @@ dispatch-only. The rest of this section is that lane.
      made, or an EAS release run is open): nothing is published here for that platform. The job
      starts `deploy-production.yml` on EAS for that commit and those platforms
      (`eas workflow:run --ref <commit> -F commit_sha=<commit> -F ios=true -F ios_runtime_version=<…> -F android=false …`).
-     `ios` and `android` are choices compared as text (`inputs.ios == 'true'`): `-F` sends every
+     `ios` and `android` are choices compared as text (`"$RELEASE_IOS" = true`): `-F` sends every
      value as a string, so a boolean `false` would read as true. The runtime versions are the ones
      computed here, with the build profile's env, so EAS matches builds on the same value.
 

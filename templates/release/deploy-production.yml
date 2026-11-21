@@ -101,10 +101,10 @@ jobs:
       HANDOFF: ${{ inputs.handoff }}
       MANUAL: ${{ inputs.manual }}
 #@if ios
-      RELEASE_IOS: ${{ inputs.ios == 'true' }}
+      RELEASE_IOS: ${{ inputs.ios }}
 #@end
 #@if android
-      RELEASE_ANDROID: ${{ inputs.android == 'true' }}
+      RELEASE_ANDROID: ${{ inputs.android }}
 #@end
 #@end
     outputs:
