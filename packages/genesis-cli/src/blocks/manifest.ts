@@ -105,6 +105,12 @@ export interface BlockManifest {
   /** What the person still has to do: secrets, plugin config. */
   steps: string[];
   privacy?: BlockPrivacy;
+  /**
+   * How `genesis doctor` tells the app uses it (rule missed-value): `imports`, names a file imports
+   * from one of `packages`; `off`, patterns that mean it's adopted but switched off, each with what
+   * that costs. Without it, only a block whose package isn't installed counts as missed.
+   */
+  detect?: BlockDetect;
 }
 
 export class ManifestError extends Error {
@@ -309,6 +315,7 @@ export function parseManifest(home: string, id: string, raw: unknown, version?: 
     return typeof s === "string";
   });
   const privacy = isObject(raw["privacy"]) ? (raw["privacy"] as BlockPrivacy) : undefined;
+  const detect = parseDetect(raw["detect"], at, problems);
 
   // The registry's own block checks (id, requires, platforms, duplicate routes), so a manifest
   // can't say what a defineBlock declaration couldn't.
@@ -337,7 +344,44 @@ export function parseManifest(home: string, id: string, raw: unknown, version?: 
     ...(feature ? { feature } : {}),
     steps,
     ...(privacy ? { privacy } : {}),
+    ...(detect ? { detect } : {}),
   };
+}
+
+export interface BlockDetect {
+  imports?: string[];
+  off?: { pattern: string; message: string }[];
+}
+
+function parseDetect(value: unknown, at: string, problems: string[]): BlockDetect | undefined {
+  if (value === undefined) return undefined;
+  if (!isObject(value)) {
+    problems.push(`${at}.detect: an object with imports and off`);
+    return undefined;
+  }
+  const out: BlockDetect = {};
+  const imports = value["imports"];
+  if (imports !== undefined) {
+    if (!Array.isArray(imports) || !imports.every((i) => typeof i === "string" && /^[A-Za-z_$][\w$]*$/.test(i))) problems.push(`${at}.detect.imports: export names`);
+    else out.imports = imports as string[];
+  }
+  const off = value["off"];
+  if (off !== undefined) {
+    const ok =
+      Array.isArray(off) &&
+      off.every((o) => {
+        if (!isObject(o) || typeof o["pattern"] !== "string" || typeof o["message"] !== "string") return false;
+        try {
+          new RegExp(o["pattern"]);
+          return true;
+        } catch {
+          return false;
+        }
+      });
+    if (!ok) problems.push(`${at}.detect.off: a list of { pattern (a regular expression), message }`);
+    else out.off = (off as { pattern: string; message: string }[]).map((o) => ({ pattern: o.pattern, message: o.message }));
+  }
+  return out;
 }
 
 /** The raw `genesis.blocks` object of a package.json, or `{}`. */
