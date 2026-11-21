@@ -3,7 +3,7 @@
   "version": "1.31.0",
   "private": false,
   "type": "module",
-  "description": "Genesis CLI — `genesis init` scaffolds a Genesis app (`--template native`: a new Expo app from the RN starter); `genesis add <block>` adds a block from what its package declares; `genesis migrate` copies new package migrations in and never rewrites an applied one; `genesis upgrade` moves every Genesis package to one release and refreshes the files Genesis owns; `genesis doctor` checks an app against the installed Genesis; `genesis studio init` turns the Data Studio on; `genesis introspect` writes a checked-in contract; `genesis features build|check` keeps generated feature docs in step with features.ts; `withGenesis()` (`app.plugin.js`, `/expo`) is the Expo config plugin; `/eslint` is Genesis's lint rules for an app's eslint.config.",
+  "description": "Genesis CLI — `genesis init` scaffolds a Genesis app (`--template native`: a new Expo app from the RN starter); `genesis add <block>` adds a block from what its package declares; `genesis migrate` copies new package migrations in and never rewrites an applied one; `genesis upgrade` moves every Genesis package to one release and refreshes the files Genesis owns; `genesis doctor` checks an app against the installed Genesis; `genesis data init` turns Genesis Data on; `genesis introspect` writes a checked-in contract; `genesis features build|check` keeps generated feature docs in step with features.ts; `withGenesis()` (`app.plugin.js`, `/expo`) is the Expo config plugin; `/eslint` is Genesis's lint rules for an app's eslint.config.",
   "keywords": [
     "genesis",
     "genesis-framework",
@@ -88,7 +88,7 @@
   },
   "dependencies": {
     "@marktiderman/genesis-config": "workspace:^",
-    "@marktiderman/genesis-studio-server": "workspace:^",
+    "@marktiderman/genesis-data-server": "workspace:^",
     "@modelcontextprotocol/sdk": "1.32.2",
     "commander": "^15.0.0",
     "jiti": "^2.4.0",
@@ -153,8 +153,9 @@
     "group": "core",
     "owner": "@marktiderman",
     "doctor": {
-      "enforce": false,
-      "reason": "The doctor itself: its rules are the built-ins."
+      "$comment": "The doctor's own rules are built in. This declares the ones every app with genesis-cli runs as package rules: readable Sentry stack traces (cli/sentry-source-maps), web and native, with its fix.",
+      "plugin": "./dist/doctor-sentry.js",
+      "fixes": "./dist/fix-sentry.js"
     }
   }
 }

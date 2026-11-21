@@ -38,6 +38,9 @@ export default defineConfig([
       verify: "src/verify/index.ts",
       vite: "src/vite.ts",
       expo: "src/expo.ts",
+      // genesis.doctor's plugin and fixes (package.json): loaded by path, like any package's.
+      "doctor-sentry": "src/doctor/sentry.ts",
+      "fix-sentry": "src/fix/sentry.ts",
     },
     format: ["esm"],
     dts: true,

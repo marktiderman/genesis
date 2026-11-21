@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// The stock-Supabase adoption test (DATA-STUDIO.md "Adoption tests"):
+// The stock-Supabase adoption test (DATA.md "Adoption tests"):
 // real Supabase Auth tokens, real RLS, the studio handler in-process.
 // Signs in as a coach, fixes a real row, and reads the audit entry back.
 //
@@ -9,7 +9,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import assert from "node:assert/strict";
 import postgres from "postgres";
-import { byResource, createStudioHandler, supabaseAuth } from "@marktiderman/genesis-studio-server";
+import { byResource, createStudioHandler, supabaseAuth } from "@marktiderman/genesis-data-server";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const env = Object.fromEntries(

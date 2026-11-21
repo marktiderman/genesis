@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// Why a write did not save (DATA-STUDIO.md "Write safety")
+// Why a write did not save (DATA.md "Write safety")
 //
 // A write that changes nothing is never reported as "permission denied" by
 // assumption. The provider re-reads the row and says what actually happened.

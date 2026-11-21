@@ -1,0 +1,122 @@
+{
+  "name": "@marktiderman/genesis-data",
+  "version": "0.4.3",
+  "private": false,
+  "type": "module",
+  "sideEffects": [
+    "*.css"
+  ],
+  "description": "Genesis Data — an Airtable-style data editor for a Postgres or Supabase app's own data: a table sidebar and a sheet grid with version-checked, audited single-cell edits, as the signed-in user. Built on genesis-ui's ResourcePage; routing and sign-in come from the host app. Part of the Genesis framework.",
+  "keywords": [
+    "genesis",
+    "genesis-framework",
+    "admin",
+    "database",
+    "postgres",
+    "supabase",
+    "data-grid"
+  ],
+  "homepage": "https://github.com/marktiderman/genesis/tree/main/packages/data#readme",
+  "bugs": {
+    "url": "https://github.com/marktiderman/genesis/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marktiderman/genesis.git",
+    "directory": "packages/data"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "provenance": false
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./styles.css": "./dist/styles.css",
+    "./standalone.css": "./dist/standalone.css"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup && cp src/styles.css dist/styles.css && tailwindcss -i src/standalone.css -o dist/standalone.css --minify && node ../../scripts/check-exports-resolve.mjs",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "@hookform/resolvers": "^5.1.0 || ^6.0.0 || ^7.0.0",
+    "@marktiderman/genesis-core": "workspace:>=2.11.0 <3.0.0",
+    "@marktiderman/genesis-ui": "workspace:>=2.36.0 <4.0.0",
+    "@tanstack/react-query": "^5.0.0",
+    "@tanstack/react-virtual": "^3.14.0",
+    "lucide-react": "^1.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-hook-form": "^7.0.0",
+    "zod": "^3.25.0 || ^4.0.0"
+  },
+  "devDependencies": {
+    "@hookform/resolvers": "^7.0.1",
+    "@marktiderman/genesis-core": "workspace:^",
+    "@marktiderman/genesis-design-system": "workspace:^",
+    "@marktiderman/genesis-ui": "workspace:^",
+    "@tailwindcss/cli": "4.3.5",
+    "@tanstack/react-query": "^5.105.0",
+    "@tanstack/react-virtual": "3.14.26",
+    "@testing-library/react": "^16.3.2",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "happy-dom": "^21.0.4",
+    "lucide-react": "^1.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-hook-form": "^7.72.1",
+    "tailwindcss": "4.3.3",
+    "tsup": "^8.3.0",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.5",
+    "zod": "^4.6.6"
+  },
+  "genesis": {
+    "layer": "primitive",
+    "group": "data",
+    "owner": "@marktiderman",
+    "doctor": {
+      "prefer": [
+        {
+          "id": "raw-tables-use-studio",
+          "need": "editing a table's rows like a spreadsheet",
+          "level": "warn",
+          "files": [
+            "**/*.tsx",
+            "**/*.jsx"
+          ],
+          "forbid": {
+            "imports": [
+              "@marktiderman/genesis-ui/sheet-grid"
+            ]
+          },
+          "unless": {
+            "renders": [
+              "ResourceView",
+              "DataStudio"
+            ]
+          },
+          "use": "a view's sheet mode (<ResourceView>) for a list, or <DataStudio> for a table's own rows",
+          "import": "@marktiderman/genesis-data",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/DATA.md",
+          "why": "Spreadsheet edits need version checks and an audit entry, as the signed-in user; a bare SheetGrid has neither."
+        }
+      ]
+    }
+  }
+}

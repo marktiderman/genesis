@@ -24,7 +24,7 @@ jobs:
     if: github.head_ref != 'changeset-release/main' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    # A throwaway Postgres for genesis-studio-server's integration tests,
+    # A throwaway Postgres for genesis-data-server's integration tests,
     # which run as the signed-in user against real RLS. Without the env var
     # below those tests skip, so every other package's tests are unaffected.
     services:

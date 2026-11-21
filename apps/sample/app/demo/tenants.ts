@@ -37,7 +37,7 @@ export const ORGS: Org[] = [
 ];
 
 export const ROLES: Array<{ id: DemoRole; label: string; description: string }> = [
-  { id: "owner", label: "Owner", description: "Everything, including settings and the Data Studio." },
+  { id: "owner", label: "Owner", description: "Everything, including settings and Genesis Data." },
   { id: "staff", label: "Staff", description: "Clients, bookings, chat and the assistant; no settings." },
   { id: "client", label: "Client", description: "Only their own record, bookings and chat." },
 ];

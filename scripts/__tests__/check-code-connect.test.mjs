@@ -257,11 +257,10 @@ describe("two-package layout", () => {
       "native",
       "notifications-native",
       "notifications-web",
-      "product",
       "forms-native",
       "forms-web",
       "sites",
-      "studio",
+      "data",
     ]);
     expect(web.figmaDir).toBe("packages/ui/figma");
     const root = make({ notYet: ALL, sources: [] });
@@ -327,7 +326,7 @@ describe("chat entry points", () => {
   });
 });
 
-describe("genesis-native, genesis-notifications and genesis-product", () => {
+describe("genesis-native and genesis-notifications", () => {
   it("native: PascalCase exports minus roots, boundaries, gates, errors, the app and its boot slot", () => {
     const source = `
 export { GenesisNativeApp, BootScreen, useBoot, type BootScreenProps } from "./app";
@@ -353,14 +352,14 @@ export function relative(at: string) { return at; }
     expect(declaredComponentsFromIndex(source)).toEqual(["NotificationRowView", "NotificationBell"]);
   });
 
-  it("product: PascalCase exports minus hooks, constants and helpers; export * is ignored", () => {
+  it("pascal: PascalCase exports minus hooks, constants and helpers; export * is ignored", () => {
     const source = `
 export { haptic, type HapticsLike } from "./haptics";
-export { PRODUCT_COPY, type ProductCopy } from "./copy";
-export { useIdeaBoard, IdeaBoardScreen, VoteButton, type IdeaBoard } from "./idea-board";
+export { SAMPLE_COPY, type SampleCopy } from "./copy";
+export { useSampleList, SampleListScreen, SampleButton, type SampleList } from "./sample-list";
 export * from "../index";
 `;
-    expect(pascalComponentsFromIndex(source)).toEqual(["IdeaBoardScreen", "VoteButton"]);
+    expect(pascalComponentsFromIndex(source)).toEqual(["SampleListScreen", "SampleButton"]);
   });
 
   it("gives each new package its own Figma folder", () => {
@@ -368,11 +367,10 @@ export * from "../index";
     expect(dirs.native).toBe("packages/native/figma");
     expect(dirs["notifications-native"]).toBe("packages/notifications/figma/native");
     expect(dirs["notifications-web"]).toBe("packages/notifications/figma/web");
-    expect(dirs.product).toBe("packages/product/figma");
   });
 });
 
-describe("genesis-forms-native, -forms-web, -sites and -studio", () => {
+describe("genesis-forms-native, -forms-web, -sites and -data", () => {
   it("forms: PascalCase exports minus hooks, providers, constants, contexts and ChoiceRow's parts", () => {
     const source = `
 export { Form, DefaultEnding, PROGRESS_DELAY_MS, type FormProps } from "./Form";
@@ -426,6 +424,6 @@ export { SiteFormHeader, siteFormSlots } from "./form-header";
     expect(dirs["forms-native"]).toBe("packages/forms-native/figma");
     expect(dirs["forms-web"]).toBe("packages/forms-web/figma");
     expect(dirs.sites).toBe("packages/sites/figma");
-    expect(dirs.studio).toBe("packages/studio/figma");
+    expect(dirs.data).toBe("packages/data/figma");
   });
 });

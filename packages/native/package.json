@@ -242,6 +242,11 @@
               "tracking": false
             }
           ]
+        },
+        "detect": {
+          "imports": [
+            "createPush"
+          ]
         }
       },
       "app-updates": {
@@ -274,7 +279,18 @@
         "steps": [
           "npx expo install expo-updates expo-application.",
           "Create the block with createUpdates (@marktiderman/genesis-native/updates) and pass it to <GenesisNativeApp updates> (genesis-native README, Updates)."
-        ]
+        ],
+        "detect": {
+          "imports": [
+            "createUpdates"
+          ],
+          "off": [
+            {
+              "pattern": "channels\\s*:\\s*\\{\\s*enabled\\s*:\\s*__DEV__\\b[^,}]*,?\\s*\\}",
+              "message": "channel switching is on only in development (or development and a test flag), where expo-updates can't switch channels, so no build can open a preview. Turn it on for release builds (genesis-native README, \"Previews\")."
+            }
+          ]
+        }
       },
       "observability": {
         "feature": {
@@ -332,6 +348,11 @@
               "tracking": false
             }
           ]
+        },
+        "detect": {
+          "imports": [
+            "createObservability"
+          ]
         }
       },
       "devtools-overlay": {
@@ -352,7 +373,12 @@
         ],
         "steps": [
           "Create the block with createDevtools (@marktiderman/genesis-native/devtools), enabled only outside production builds, and pass it to <GenesisNativeApp blocks> (genesis-native README)."
-        ]
+        ],
+        "detect": {
+          "imports": [
+            "createDevtools"
+          ]
+        }
       }
     },
     "doctor": {
@@ -381,47 +407,73 @@
         }
       ]
     },
-    "settings": {
-      "namespace": "devtools",
-      "keys": {
-        "overlay": {
-          "type": "boolean",
-          "default": true,
-          "summary": "The Development overlay in development and preview builds. Off hides it; no setting turns it on in a production build."
-        },
-        "shakeToOpen": {
-          "type": "boolean",
-          "default": true,
-          "requires": [
-            "devtools.overlay"
-          ],
-          "summary": "Shake to open the overlay (development and preview builds)."
-        },
-        "hold": {
-          "type": "boolean",
-          "default": true,
-          "requires": [
-            "devtools.overlay"
-          ],
-          "summary": "A three-finger hold opens the overlay."
-        },
-        "flags": {
-          "type": "boolean",
-          "default": true,
-          "requires": [
-            "devtools.overlay"
-          ],
-          "summary": "Show the app's switches and flags in the overlay."
-        },
-        "signOut": {
-          "type": "boolean",
-          "default": true,
-          "requires": [
-            "devtools.overlay"
-          ],
-          "summary": "Offer Sign out in the overlay."
+    "settings": [
+      {
+        "namespace": "devtools",
+        "keys": {
+          "overlay": {
+            "type": "boolean",
+            "default": true,
+            "summary": "The Development overlay in development and preview builds. Off hides it; no setting turns it on in a production build."
+          },
+          "shakeToOpen": {
+            "type": "boolean",
+            "default": true,
+            "requires": [
+              "devtools.overlay"
+            ],
+            "summary": "Shake to open the overlay (development and preview builds)."
+          },
+          "hold": {
+            "type": "boolean",
+            "default": true,
+            "requires": [
+              "devtools.overlay"
+            ],
+            "summary": "A three-finger hold opens the overlay."
+          },
+          "flags": {
+            "type": "boolean",
+            "default": true,
+            "requires": [
+              "devtools.overlay"
+            ],
+            "summary": "Show the app's switches and flags in the overlay."
+          },
+          "signOut": {
+            "type": "boolean",
+            "default": true,
+            "requires": [
+              "devtools.overlay"
+            ],
+            "summary": "Offer Sign out in the overlay."
+          }
+        }
+      },
+      {
+        "namespace": "observability",
+        "keys": {
+          "enabled": {
+            "type": "boolean",
+            "default": true,
+            "summary": "Report errors to Sentry when a DSN is set. Off stops it, whether the DSN comes from the build (EXPO_PUBLIC_SENTRY_DSN) or the setting below."
+          },
+          "sentryDsn": {
+            "type": "string",
+            "default": null,
+            "pattern": "^https?://[0-9a-f]{16,64}@[A-Za-z0-9.-]+(:[0-9]{1,5})?(/[A-Za-z0-9._~-]+)*/[0-9]+$",
+            "setup": "sentry",
+            "summary": "The Sentry project's DSN (Project Settings → Client Keys): errors are reported there, with no build. A public client key, not a secret. EXPO_PUBLIC_SENTRY_DSN in the build wins over it."
+          },
+          "sentryOrg": {
+            "type": "string",
+            "default": null,
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,99}$",
+            "setup": "sentry",
+            "summary": "The Sentry organization's slug (acme in https://acme.sentry.io): a support dump's \"Open in Sentry\" link goes to its event there."
+          }
         }
       }
-    }
+    ]
   }
 }

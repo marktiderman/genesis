@@ -39,9 +39,6 @@ importers:
       '@marktiderman/genesis-config':
         specifier: workspace:*
         version: link:packages/features
-      '@marktiderman/genesis-product':
-        specifier: workspace:*
-        version: link:packages/product
       vitest:
         specifier: ^5.0.5
         version: 5.1.0(@types/node@22.20.5)(@vitest/browser-playwright@5.1.0)(@vitest/coverage-v8@5.1.0)(@vitest/ui@5.1.0)(happy-dom@21.0.4)(jsdom@26.1.0(supports-color@8.1.1))(vite@8.3.8(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.1)(tsx@4.23.15)(yaml@2.9.1))
@@ -63,6 +60,9 @@ importers:
       '@marktiderman/genesis-chat':
         specifier: workspace:^
         version: link:../../packages/chat
+      '@marktiderman/genesis-config':
+        specifier: workspace:^
+        version: link:../../packages/features
       '@marktiderman/genesis-core':
         specifier: workspace:^
         version: link:../../packages/core
@@ -84,9 +84,6 @@ importers:
       '@marktiderman/genesis-notifications':
         specifier: workspace:^
         version: link:../../packages/notifications
-      '@marktiderman/genesis-product':
-        specifier: workspace:^
-        version: link:../../packages/product
       '@marktiderman/genesis-supabase':
         specifier: workspace:^
         version: link:../../packages/supabase
@@ -325,6 +322,12 @@ importers:
       '@marktiderman/genesis-core':
         specifier: workspace:^
         version: link:../../packages/core
+      '@marktiderman/genesis-data':
+        specifier: workspace:^
+        version: link:../../packages/data
+      '@marktiderman/genesis-data-server':
+        specifier: workspace:^
+        version: link:../../packages/data-server
       '@marktiderman/genesis-design-system':
         specifier: workspace:^
         version: link:../../packages/design-system
@@ -349,12 +352,6 @@ importers:
       '@marktiderman/genesis-sites':
         specifier: workspace:^
         version: link:../../packages/sites
-      '@marktiderman/genesis-studio':
-        specifier: workspace:^
-        version: link:../../packages/studio
-      '@marktiderman/genesis-studio-server':
-        specifier: workspace:^
-        version: link:../../packages/studio-server
       '@marktiderman/genesis-support':
         specifier: workspace:^
         version: link:../../packages/support
@@ -807,6 +804,97 @@ importers:
       zod:
         specifier: ^4.6.7
         version: 4.6.7
+
+  packages/data:
+    devDependencies:
+      '@hookform/resolvers':
+        specifier: ^7.0.1
+        version: 7.0.6(@standard-schema/spec@1.1.0)(ajv-formats@3.0.1(ajv@8.20.0))(ajv@8.20.0)(react-hook-form@7.92.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7)
+      '@marktiderman/genesis-core':
+        specifier: workspace:^
+        version: link:../core
+      '@marktiderman/genesis-design-system':
+        specifier: workspace:^
+        version: link:../design-system
+      '@marktiderman/genesis-ui':
+        specifier: workspace:^
+        version: link:../ui
+      '@tailwindcss/cli':
+        specifier: 4.3.5
+        version: 4.3.5
+      '@tanstack/react-query':
+        specifier: ^5.105.0
+        version: 5.107.1(@types/react@19.3.0)(react@19.3.0)
+      '@tanstack/react-virtual':
+        specifier: 3.14.26
+        version: 3.14.26(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@testing-library/react':
+        specifier: ^16.3.2
+        version: 16.3.3(@testing-library/dom@10.4.1)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@types/react':
+        specifier: 19.3.0
+        version: 19.3.0
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.3.0(@types/react@19.3.0)
+      happy-dom:
+        specifier: ^21.0.4
+        version: 21.0.4
+      lucide-react:
+        specifier: ^1.0.0
+        version: 1.72.0(@types/react@19.3.0)(react@19.3.0)
+      react:
+        specifier: 19.3.0
+        version: 19.3.0
+      react-dom:
+        specifier: 19.3.0
+        version: 19.3.0(react@19.3.0)
+      react-hook-form:
+        specifier: ^7.72.1
+        version: 7.92.0(@types/react@19.3.0)(react@19.3.0)
+      tailwindcss:
+        specifier: 4.3.3
+        version: 4.3.3
+      tsup:
+        specifier: ^8.3.0
+        version: 8.5.1(patch_hash=ce9dbc714c187cea78868f1e68c1a0e5097ddbceb7e976a564d94f2291b5bcb9)(jiti@2.7.0)(postcss@8.5.32)(supports-color@8.1.1)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.1)
+      typescript:
+        specifier: ~6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^5.0.5
+        version: 5.1.0(@types/node@22.20.5)(@vitest/browser-playwright@5.1.0)(@vitest/coverage-v8@5.1.0)(@vitest/ui@5.1.0)(happy-dom@21.0.4)(jsdom@26.1.0(supports-color@8.1.1))(vite@8.3.8(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.1)(tsx@4.23.15)(yaml@2.9.1))
+      zod:
+        specifier: ^4.6.6
+        version: 4.6.7
+
+  packages/data-server:
+    dependencies:
+      jose:
+        specifier: ^6.2.12
+        version: 6.2.17
+      postgres:
+        specifier: ^4.1.0
+        version: 4.1.1
+    devDependencies:
+      '@marktiderman/genesis-core':
+        specifier: workspace:^
+        version: link:../core
+      '@types/node':
+        specifier: ^22
+        version: 22.20.5
+      drizzle-orm:
+        specifier: ^0.45.4
+        version: 0.45.4(expo-sqlite@58.0.15(expo@58.0.19)(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0))(postgres@4.1.1)
+      tsup:
+        specifier: ^8.3.0
+        version: 8.5.1(patch_hash=ce9dbc714c187cea78868f1e68c1a0e5097ddbceb7e976a564d94f2291b5bcb9)(jiti@2.7.0)(postcss@8.5.32)(supports-color@8.1.1)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.1)
+      typescript:
+        specifier: ~6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^5.0.5
+        version: 5.1.0(@types/node@22.20.5)(@vitest/browser-playwright@5.1.0)(@vitest/coverage-v8@5.1.0)(@vitest/ui@5.1.0)(happy-dom@21.0.4)(jsdom@26.1.0(supports-color@8.1.1))(vite@8.3.8(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.1)(tsx@4.23.15)(yaml@2.9.1))
 
   packages/design-system:
     devDependencies:
@@ -1311,9 +1399,9 @@ importers:
       '@marktiderman/genesis-config':
         specifier: workspace:^
         version: link:../features
-      '@marktiderman/genesis-studio-server':
+      '@marktiderman/genesis-data-server':
         specifier: workspace:^
-        version: link:../studio-server
+        version: link:../data-server
       '@modelcontextprotocol/sdk':
         specifier: 1.32.2
         version: 1.32.2(supports-color@8.1.1)(zod@4.6.7)
@@ -1559,55 +1647,6 @@ importers:
         specifier: ^5.0.5
         version: 5.1.0(@types/node@22.20.5)(@vitest/browser-playwright@5.1.0)(@vitest/coverage-v8@5.1.0)(@vitest/ui@5.1.0)(happy-dom@21.0.4)(jsdom@26.1.0(supports-color@8.1.1))(vite@8.3.8(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.1)(tsx@4.23.15)(yaml@2.9.1))
 
-  packages/product:
-    dependencies:
-      '@marktiderman/genesis-config':
-        specifier: workspace:^
-        version: link:../features
-      react-native:
-        specifier: 0.88.0
-        version: 0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1)
-      react-native-safe-area-context:
-        specifier: '>=4.0.0'
-        version: 5.10.1(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0)
-    devDependencies:
-      '@marktiderman/genesis-notifications':
-        specifier: workspace:^
-        version: link:../notifications
-      '@marktiderman/genesis-ui-native':
-        specifier: workspace:^
-        version: link:../ui-native
-      '@testing-library/react':
-        specifier: ^16.3.2
-        version: 16.3.3(@testing-library/dom@10.4.1)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      '@types/node':
-        specifier: ^22.9.0
-        version: 22.20.5
-      '@types/react':
-        specifier: 19.3.0
-        version: 19.3.0
-      '@types/react-dom':
-        specifier: ^19.2.3
-        version: 19.3.0(@types/react@19.3.0)
-      happy-dom:
-        specifier: ^21.0.4
-        version: 21.0.4
-      react:
-        specifier: 19.3.0
-        version: 19.3.0
-      react-dom:
-        specifier: 19.3.0
-        version: 19.3.0(react@19.3.0)
-      tsup:
-        specifier: ^8.3.0
-        version: 8.5.1(patch_hash=ce9dbc714c187cea78868f1e68c1a0e5097ddbceb7e976a564d94f2291b5bcb9)(jiti@2.7.0)(postcss@8.5.32)(supports-color@8.1.1)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.1)
-      typescript:
-        specifier: ~6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^5.0.5
-        version: 5.1.0(@types/node@22.20.5)(@vitest/browser-playwright@5.1.0)(@vitest/coverage-v8@5.1.0)(@vitest/ui@5.1.0)(happy-dom@21.0.4)(jsdom@26.1.0(supports-color@8.1.1))(vite@8.3.8(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.1)(tsx@4.23.15)(yaml@2.9.1))
-
   packages/sites:
     dependencies:
       '@marktiderman/genesis-config':
@@ -1733,40 +1772,25 @@ importers:
         version: 4.6.7
 
   packages/studio:
-    devDependencies:
+    dependencies:
       '@hookform/resolvers':
-        specifier: ^7.0.1
+        specifier: ^5.1.0 || ^6.0.0 || ^7.0.0
         version: 7.0.6(@standard-schema/spec@1.1.0)(ajv-formats@3.0.1(ajv@8.20.0))(ajv@8.20.0)(react-hook-form@7.92.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7)
       '@marktiderman/genesis-core':
-        specifier: workspace:^
+        specifier: workspace:>=2.11.0 <3.0.0
         version: link:../core
-      '@marktiderman/genesis-design-system':
+      '@marktiderman/genesis-data':
         specifier: workspace:^
-        version: link:../design-system
+        version: link:../data
       '@marktiderman/genesis-ui':
-        specifier: workspace:^
+        specifier: workspace:>=2.36.0 <4.0.0
         version: link:../ui
-      '@tailwindcss/cli':
-        specifier: 4.3.5
-        version: 4.3.5
       '@tanstack/react-query':
-        specifier: ^5.105.0
+        specifier: ^5.0.0
         version: 5.107.1(@types/react@19.3.0)(react@19.3.0)
       '@tanstack/react-virtual':
-        specifier: 3.14.26
+        specifier: ^3.14.0
         version: 3.14.26(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      '@testing-library/react':
-        specifier: ^16.3.2
-        version: 16.3.3(@testing-library/dom@10.4.1)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      '@types/react':
-        specifier: 19.3.0
-        version: 19.3.0
-      '@types/react-dom':
-        specifier: ^19.2.3
-        version: 19.3.0(@types/react@19.3.0)
-      happy-dom:
-        specifier: ^21.0.4
-        version: 21.0.4
       lucide-react:
         specifier: ^1.0.0
         version: 1.72.0(@types/react@19.3.0)(react@19.3.0)
@@ -1777,45 +1801,34 @@ importers:
         specifier: 19.3.0
         version: 19.3.0(react@19.3.0)
       react-hook-form:
-        specifier: ^7.72.1
+        specifier: ^7.0.0
         version: 7.92.0(@types/react@19.3.0)(react@19.3.0)
-      tailwindcss:
-        specifier: 4.3.3
-        version: 4.3.3
-      tsup:
-        specifier: ^8.3.0
-        version: 8.5.1(patch_hash=ce9dbc714c187cea78868f1e68c1a0e5097ddbceb7e976a564d94f2291b5bcb9)(jiti@2.7.0)(postcss@8.5.32)(supports-color@8.1.1)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.1)
+      zod:
+        specifier: ^3.25.0 || ^4.0.0
+        version: 4.6.7
+    devDependencies:
+      '@types/node':
+        specifier: ^22.9.0
+        version: 22.20.5
       typescript:
         specifier: ~6.0.3
         version: 6.0.3
       vitest:
         specifier: ^5.0.5
         version: 5.1.0(@types/node@22.20.5)(@vitest/browser-playwright@5.1.0)(@vitest/coverage-v8@5.1.0)(@vitest/ui@5.1.0)(happy-dom@21.0.4)(jsdom@26.1.0(supports-color@8.1.1))(vite@8.3.8(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.1)(tsx@4.23.15)(yaml@2.9.1))
-      zod:
-        specifier: ^4.6.6
-        version: 4.6.7
 
   packages/studio-server:
     dependencies:
-      jose:
-        specifier: ^6.2.12
-        version: 6.2.17
-      postgres:
-        specifier: ^4.1.0
-        version: 4.1.1
-    devDependencies:
       '@marktiderman/genesis-core':
+        specifier: ^1.11.0 || ^2.0.0
+        version: 2.18.0(@hookform/resolvers@7.0.6(@standard-schema/spec@1.1.0)(ajv-formats@3.0.1(ajv@8.20.0))(ajv@8.20.0)(react-hook-form@7.92.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7))(@tanstack/react-query@5.107.1(@types/react@19.3.0)(react@19.3.0))(react-hook-form@7.92.0(@types/react@19.3.0)(react@19.3.0))(react@19.3.0)(zod@4.6.7)
+      '@marktiderman/genesis-data-server':
         specifier: workspace:^
-        version: link:../core
+        version: link:../data-server
+    devDependencies:
       '@types/node':
-        specifier: ^22
+        specifier: ^22.9.0
         version: 22.20.5
-      drizzle-orm:
-        specifier: ^0.45.4
-        version: 0.45.4(expo-sqlite@58.0.15(expo@58.0.19)(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0))(postgres@4.1.1)
-      tsup:
-        specifier: ^8.3.0
-        version: 8.5.1(patch_hash=ce9dbc714c187cea78868f1e68c1a0e5097ddbceb7e976a564d94f2291b5bcb9)(jiti@2.7.0)(postcss@8.5.32)(supports-color@8.1.1)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.1)
       typescript:
         specifier: ~6.0.3
         version: 6.0.3
@@ -3846,6 +3859,15 @@ packages:
   '@manypkg/tools@2.1.2':
     resolution: {integrity: sha512-6QEf6yqFbETdwGITKq57aYoPfX/3K8XFNwsAlx0C1M7o8cb79sv1M3w+tWuWvIcSbNqrLF7OD7YpZMVVz335hQ==}
     engines: {node: '>=20.0.0'}
+
+  '@marktiderman/genesis-core@2.18.0':
+    resolution: {integrity: sha512-E/XtoPqCv+4ZasQC57ibjEUoofbPNDsuHkBk9QeKKUJfBXSzW+r7SUZrorjNr+1hb7p90Hp0KLQe7G8BiRJLAA==}
+    peerDependencies:
+      '@hookform/resolvers': ^3.0.0 || ^4.0.0 || ^5.0.0 || ^6.0.0 || ^7.0.0
+      '@tanstack/react-query': ^5.0.0
+      react: 19.3.0
+      react-hook-form: ^7.0.0
+      zod: ^3.0.0 || ^4.0.0
 
   '@mdx-js/react@3.1.1':
     resolution: {integrity: sha512-f++rKLQgUVYDAtECQ6fn/is15GkEH9+nZPM3MS0RcxVqoTfawHvDlSCH7JbMhAM6uJ32v3eXLvLmLvjGu7PTQw==}
@@ -13887,6 +13909,14 @@ snapshots:
       jju: 1.4.0
       tinyglobby: 0.2.17
       yaml: 2.9.1
+
+  '@marktiderman/genesis-core@2.18.0(@hookform/resolvers@7.0.6(@standard-schema/spec@1.1.0)(ajv-formats@3.0.1(ajv@8.20.0))(ajv@8.20.0)(react-hook-form@7.92.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7))(@tanstack/react-query@5.107.1(@types/react@19.3.0)(react@19.3.0))(react-hook-form@7.92.0(@types/react@19.3.0)(react@19.3.0))(react@19.3.0)(zod@4.6.7)':
+    dependencies:
+      '@hookform/resolvers': 7.0.6(@standard-schema/spec@1.1.0)(ajv-formats@3.0.1(ajv@8.20.0))(ajv@8.20.0)(react-hook-form@7.92.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7)
+      '@tanstack/react-query': 5.107.1(@types/react@19.3.0)(react@19.3.0)
+      react: 19.3.0
+      react-hook-form: 7.92.0(@types/react@19.3.0)(react@19.3.0)
+      zod: 4.6.7
 
   '@mdx-js/react@3.1.1(@types/react@19.3.0)(react@19.3.0)':
     dependencies:

@@ -8,8 +8,9 @@ import { createDevtools, DEVTOOLS_SETTING_SPECS, devtoolsSettings, devtoolsSetti
 describe("the devtools overlay's settings", () => {
   it("package.json declares exactly what the code declares", () => {
     const pkg = JSON.parse(readFileSync(join(__dirname, "..", "..", "..", "package.json"), "utf8")) as { genesis: { settings: unknown } };
-    expect(pkg.genesis.settings).toEqual({ namespace: "devtools", keys: JSON.parse(JSON.stringify(DEVTOOLS_SETTING_SPECS)) });
-    expect(Object.keys(settingsFromManifest(pkg.genesis.settings).keys)).toEqual(Object.keys(devtoolsSettings.keys));
+    const [devtools] = pkg.genesis.settings as unknown[];
+    expect(devtools).toEqual({ namespace: "devtools", keys: JSON.parse(JSON.stringify(DEVTOOLS_SETTING_SPECS)) });
+    expect(Object.keys(settingsFromManifest(devtools).keys)).toEqual(Object.keys(devtoolsSettings.keys));
   });
 
   it("is all on with no settings, and resolves without problems", () => {

@@ -1520,7 +1520,7 @@
     {
       "id": "resource-view-sheet",
       "name": "Sheet mode for lists",
-      "summary": "ResourceView's `type=\"sheet\"` (or `sheet` among a view's types): a view's rows as a spreadsheet on SheetGrid, the grid the Data Studio's sheet uses. Only the view's writable fields are editable; each row goes through the view's guards and the screen's can, and a refused cell is read-only with the reason on it. Every change goes through the resource's own update, row by row, so the provider's rules and a versioned resource's check apply; a cell that failed is marked with its reason. Arrows, Tab, Enter and Escape move and edit, a paste fills a block and skips read-only cells, and the last change can be undone. Big pastes, imports and exports as jobs are still to come.",
+      "summary": "ResourceView's `type=\"sheet\"` (or `sheet` among a view's types): a view's rows as a spreadsheet on SheetGrid, the grid Genesis Data's sheet uses. Only the view's writable fields are editable; each row goes through the view's guards and the screen's can, and a refused cell is read-only with the reason on it. Every change goes through the resource's own update, row by row, so the provider's rules and a versioned resource's check apply; a cell that failed is marked with its reason. Arrows, Tab, Enter and Escape move and edit, a paste fills a block and skips read-only cells, and the last change can be undone. Big pastes, imports and exports as jobs are still to come.",
       "category": "Data",
       "status": "building",
       "claimedBy": "claude/lists-vnext",
@@ -1993,7 +1993,7 @@
     },
     {
       "id": "data-studio",
-      "name": "Data Studio",
+      "name": "Genesis Data",
       "summary": "An Airtable-style data editor over an app's own Postgres or Supabase data, edited as the signed-in user with version checks and an audit trail.",
       "tagline": "A spreadsheet over your own database, as the signed-in user.",
       "category": "Data",
@@ -2004,7 +2004,8 @@
         "database",
         "spreadsheet",
         "audit log",
-        "back office"
+        "back office",
+        "data studio"
       ],
       "owner": "mark",
       "apps": [
@@ -2024,11 +2025,13 @@
       "reviewedAt": "2026-10-22",
       "links": {
         "code": [
+          "packages/data",
+          "packages/data-server",
           "packages/studio",
           "packages/studio-server"
         ],
         "docs": [
-          "docs/DATA-STUDIO.md"
+          "docs/DATA.md"
         ]
       },
       "access": "all",
@@ -3574,20 +3577,11 @@
     {
       "id": "product-roadmap",
       "name": "Product board",
-      "summary": "A Now / Next / Later board from features.ts (horizon and claimedBy), the top ideas ranked by demand, and the triage inbox, as markdown or the repo's \"Product board\" issue.",
+      "summary": "Retired 2026-11-10: removed from Genesis, and nothing in Genesis replaces it.",
       "category": "Product",
-      "status": "building",
-      "horizon": "now",
-      "claimedBy": "mark",
+      "status": "retired",
       "kind": "tool",
-      "keywords": [
-        "roadmap",
-        "now next later",
-        "product board",
-        "prioritise",
-        "backlog",
-        "productboard"
-      ],
+      "keywords": [],
       "requires": [
         "feature-registry"
       ],
@@ -3599,40 +3593,18 @@
         "developer"
       ],
       "visibility": "internal",
-      "acceptance": [
-        "A planned or building feature appears under its horizon, a building one with no horizon under now, and ideas are ranked by demand.",
-        "An open idea or feedback issue with no feature id appears in the triage inbox."
-      ],
-      "reviewedAt": "2026-10-25",
-      "links": {
-        "code": [
-          "packages/product/src/board.ts",
-          "packages/product/src/cli.ts",
-          "packages/product/src/app.ts",
-          "packages/product/src/native"
-        ]
-      },
+      "reviewedAt": "2026-11-10",
       "access": "all",
       "flags": []
     },
     {
       "id": "product-insights",
       "name": "Ideas and feedback as evidence",
-      "summary": "Ideas, feedback and bugs as signals linked to a FeatureId, with an importance from 1 to 3 and votes, behind a SignalSource contract; GitHub issues (issue forms, feature:<id> labels, 👍 as votes) are the first source.",
+      "summary": "Retired 2026-11-10: removed from Genesis, and nothing in Genesis replaces it.",
       "category": "Product",
-      "status": "building",
-      "horizon": "now",
-      "claimedBy": "mark",
+      "status": "retired",
       "kind": "service",
-      "keywords": [
-        "insights",
-        "feedback",
-        "ideas",
-        "votes",
-        "demand",
-        "triage",
-        "issue forms"
-      ],
+      "keywords": [],
       "owner": "mark",
       "apps": [
         "cli"
@@ -3641,38 +3613,18 @@
         "developer"
       ],
       "visibility": "internal",
-      "acceptance": [
-        "An issue made from the idea or feedback form becomes a signal; only a triager's feature:<id> label links it to a feature (the form's Feature field is a suggestion), and its votes are the people who gave it a 👍, not counting its author or bots.",
-        "Demand is each open signal's importance (1 when unset) plus its votes; closed signals don't count."
-      ],
-      "reviewedAt": "2026-10-25",
-      "links": {
-        "code": [
-          "packages/product/src/index.ts",
-          "packages/product/src/model.ts",
-          "packages/product/src/node.ts",
-          ".github/ISSUE_TEMPLATE"
-        ]
-      },
+      "reviewedAt": "2026-11-10",
       "access": "all",
       "flags": []
     },
     {
       "id": "product-releases",
       "name": "Release notes that close the loop",
-      "summary": "Drafts release notes from the features that reached beta or live between two refs of features.json, thanks the idea issues they answer, and with --notify --yes closes those issues with a comment.",
+      "summary": "Retired 2026-11-10: removed from Genesis, and nothing in Genesis replaces it.",
       "category": "Product",
-      "status": "building",
-      "horizon": "now",
-      "claimedBy": "mark",
+      "status": "retired",
       "kind": "tool",
-      "keywords": [
-        "release notes",
-        "changelog",
-        "what's new",
-        "close the loop",
-        "shipped"
-      ],
+      "keywords": [],
       "requires": [
         "product-insights"
       ],
@@ -3684,15 +3636,7 @@
         "developer"
       ],
       "visibility": "internal",
-      "acceptance": [
-        "Features that reached live or beta since the given ref are listed with their tagline, internal ones left out, each with the open asks it answers."
-      ],
-      "reviewedAt": "2026-10-25",
-      "links": {
-        "code": [
-          "packages/product/src/release.ts"
-        ]
-      },
+      "reviewedAt": "2026-11-10",
       "access": "all",
       "flags": []
     },
@@ -3730,8 +3674,8 @@
     },
     {
       "id": "studio-init",
-      "name": "genesis studio init",
-      "summary": "Turns the Data Studio on in an existing app: a server route or Edge Function, a page and one migration to review.",
+      "name": "genesis data init",
+      "summary": "Turns Genesis Data on in an existing app: a server route or Edge Function, a page and one migration to review.",
       "status": "live",
       "kind": "tool",
       "owner": "mark",
@@ -5107,7 +5051,7 @@
     {
       "id": "native-starter",
       "name": "Native starter",
-      "summary": "apps/genesis-rn-starter: an Expo SDK 58 app (New Architecture, React Compiler, typed routes, native tabs) whose root layout is GenesisNativeApp, with every universal feature the packages ship on and each turned off in one line of starter.config.ts: email and Apple sign-in, settings with account deletion, notifications, query persistence and lifecycle, keyboard scrolling, deep links, the reinstall wipe and foreground refresh, the updates block (force upgrade, maintenance, update banner, what's new, the version signature in Settings) on the release-policy migration, and the push block (building: Settings → Notifications, the soft prompt on the Notifications tab, the sender function) on the push migration, a check-in example on genesis-forms-native (FormFocus with a draft per user and the offline outbox, behind features.checkIn), observability (Sentry when EXPO_PUBLIC_SENTRY_DSN is set), the devtools overlay in development and preview builds, and the support block (building: Send feedback and Help in Settings, shake to report with a marked-up screenshot, your reports with staff replies, the idea board) on the support migration. EAS Workflows and Maestro smoke flows ship with it. Onboarding joins as its block ships.",
+      "summary": "apps/genesis-rn-starter: an Expo SDK 58 app (New Architecture, React Compiler, typed routes, native tabs) whose root layout is GenesisNativeApp, with every universal feature the packages ship on and each turned off in one line of starter.config.ts: email and Apple sign-in, settings with account deletion, notifications, query persistence and lifecycle, keyboard scrolling, deep links, the reinstall wipe and foreground refresh, the updates block (force upgrade, maintenance, update banner, what's new, the version signature in Settings) on the release-policy migration, and the push block (building: Settings → Notifications, the soft prompt on the Notifications tab, the sender function) on the push migration, a check-in example on genesis-forms-native (FormFocus with a draft per user and the offline outbox, behind features.checkIn), observability (Sentry from the observability.sentryDsn setting or EXPO_PUBLIC_SENTRY_DSN), the devtools overlay in development and preview builds, and the support block (building: Send feedback and Help in Settings, shake to report with a marked-up screenshot, your reports with staff replies, the idea board) on the support migration. EAS Workflows and Maestro smoke flows ship with it. Onboarding joins as its block ships.",
       "category": "Starters",
       "status": "beta",
       "kind": "tool",
@@ -5203,7 +5147,7 @@
       ],
       "visibility": "internal",
       "acceptance": [
-        "No pull request workflow can submit, publish to the production channel or use a production profile or environment.",
+        "No pull request workflow can submit, build with the production profile or publish to the production channel; a preview update reads the release's EAS environment (to match the release builds' runtime) and goes only to its own pr-<number> channel.",
         "The production deploy runs only on a push to main, with no require-approval job; its updates go to 100% (EAS allows one rollout at a time), and each store build is submitted in the run that built it.",
         "The starter's eas.json, workflows and rollout check are byte-identical to templates/eas."
       ],
@@ -5213,6 +5157,60 @@
           "templates/eas",
           "apps/genesis-rn-starter/.eas",
           "apps/genesis-rn-starter/eas.json"
+        ],
+        "docs": [
+          "docs/NATIVE-RELEASE.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "native-previews",
+      "name": "Native previews",
+      "summary": "Each pull request that changes a native app on its own update channel (pr-<number>), opened in the app people already have: a preview link (https universal link, the app's scheme, or Expo's QR) opens the preview screen, which asks, downloads and restarts into it; a banner shows while a preview is open, with Leave; a closed pull request's channel heals on the phone and is deleted on EAS; and genesis doctor's missed-value check names an app without it.",
+      "category": "Tooling",
+      "status": "building",
+      "claimedBy": "messages-builder",
+      "kind": "tool",
+      "keywords": [
+        "preview",
+        "pr preview",
+        "channel surfing",
+        "update channel",
+        "deep link",
+        "universal link",
+        "qr code",
+        "testflight",
+        "ota"
+      ],
+      "platforms": {
+        "native": "building"
+      },
+      "entry": {
+        "native": "@marktiderman/genesis-native/updates"
+      },
+      "requires": [
+        "app-updates",
+        "eas-workflows"
+      ],
+      "owner": "mark",
+      "apps": [
+        "native"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "links": {
+        "code": [
+          "packages/native/src/updates/channels.ts",
+          "packages/native/src/updates/preview-links.ts",
+          "packages/native/src/updates/preview.tsx",
+          "templates/release/pr-preview.yml",
+          "templates/ci/pr-preview-teardown.yml",
+          "packages/genesis-cli/src/doctor/missed-value.ts",
+          "apps/genesis-rn-starter/src/app/preview.tsx"
         ],
         "docs": [
           "docs/NATIVE-RELEASE.md"
@@ -6570,7 +6568,7 @@
     {
       "id": "observability",
       "name": "Errors and events",
-      "summary": "Crash and error reporting, breadcrumbs, the user id, a typed analytics event API and timings behind vendor-neutral sinks (Sentry, EAS Observe, console), with PII scrubbed on the device and release and update tags on every event. Native first (genesis-native/observability, wired into GenesisNativeApp's error paths); the web and server sides are not built yet.",
+      "summary": "Crash and error reporting, breadcrumbs, the user id, a typed analytics event API and timings behind vendor-neutral sinks (Sentry, EAS Observe, console), with PII scrubbed on the device and release and update tags on every event. Sentry is configured from Genesis settings (observability.enabled, .sentryDsn, .sentryOrg) with no build, the build's EXPO_PUBLIC_SENTRY_DSN still winning, and the last settings kept on the device for the next launch; the support dump viewer links to the event from the same settings. Native first (genesis-native/observability, wired into GenesisNativeApp's error paths); the web and server sides are not built yet.",
       "category": "Observability",
       "status": "building",
       "claimedBy": "mark",
@@ -6612,9 +6610,12 @@
         "Every error GenesisNativeApp catches (render, global, boot, rejection) reaches every sink once, before the app's own onError, and a sink that throws never stops the others or the fatal screen.",
         "Emails, JWTs, Supabase keys, bearer tokens, Authorization and cookie headers and URL query strings are removed before any sink sees an event, breadcrumb, span or log; the user is sent as an id only; a scrubber failure drops the event.",
         "track() accepts only events and props in the app's schema (closed string lists, numbers, booleans) and drops and reports anything else.",
-        "Sentry's release and dist follow its own format from the version signature, with the update id, channel and runtime version as tags."
+        "Sentry's release and dist follow its own format from the version signature, with the update id, channel and runtime version as tags.",
+        "With no build DSN, setting observability.sentryDsn starts Sentry live once the settings are read, and every later launch starts it at once from the device's cached settings; EXPO_PUBLIC_SENTRY_DSN wins over the setting.",
+        "observability.enabled off closes Sentry live; a new DSN, or turning it back on, waits for the next launch and the Sentry health check warns until then; a DSN of the wrong shape is refused by every layer (genesis-config, the database, the doctor) and the health check fails.",
+        "Without links.sentry, the staff dump viewer links a dump to its Sentry event from observability.sentryOrg and observability.sentryDsn, on sentry.io or a self-hosted Sentry."
       ],
-      "reviewedAt": "2026-10-24",
+      "reviewedAt": "2026-11-21",
       "links": {
         "code": [
           "packages/native/src/observability",
@@ -7602,7 +7603,7 @@
       "visibility": "internal",
       "acceptance": [
         "A foundation package that imports a primitive, a primitive that imports a module, or a module that imports a module it doesn't list in requiresModules fails CI.",
-        "A runtime package that imports tooling, or a tooling entry point such as genesis-product/node, fails CI.",
+        "A runtime package that imports tooling, or a package's tooling entry point (genesis.toolingEntries), fails CI.",
         "Every module names its blocks, docs and skill, and its install line resolves with genesis add --dry-run."
       ],
       "reviewedAt": "2026-10-29",
@@ -7804,7 +7805,7 @@
     {
       "id": "audit-log",
       "name": "Audit log",
-      "summary": "A general, retention-aware audit log of who changed what, generalised from the Data Studio's audit trail.",
+      "summary": "A general, retention-aware audit log of who changed what, generalised from Genesis Data's audit trail.",
       "category": "Admin",
       "status": "planned",
       "horizon": "next",

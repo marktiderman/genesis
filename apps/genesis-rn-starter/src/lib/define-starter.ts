@@ -67,8 +67,9 @@ export interface StarterFeatures {
   /**
    * The observability block (`createObservability`, `src/lib/observability.ts`): every error the
    * shell catches, route breadcrumbs and timings, the user's id and typed analytics events, to
-   * Sentry when `EXPO_PUBLIC_SENTRY_DSN` is set (and the console in development), scrubbed of
-   * emails, tokens and query strings on the phone. JavaScript only.
+   * Sentry (and the console in development), scrubbed of emails, tokens and query strings on the
+   * phone. Sentry's DSN is `EXPO_PUBLIC_SENTRY_DSN` in the build or, with no build, the
+   * `observability.sentryDsn` setting (Settings, as a platform admin). JavaScript only.
    */
   observability: boolean;
   /**
@@ -101,13 +102,6 @@ export interface StarterFeatures {
    * and expo-clipboard stay in the build either way.
    */
   chat: boolean;
-  /**
-   * A demo of `@marktiderman/genesis-product/native`, off by default: Settings > Product demo opens
-   * the idea board (votes with haptics, queued while offline) and the Now / Next / Later roadmap, over
-   * sample data in memory (`memoryProductSource`, `src/lib/product-demo.ts`). Nothing leaves the
-   * phone. JavaScript only.
-   */
-  productDemo: boolean;
 }
 
 export interface StarterConfig {
@@ -152,6 +146,25 @@ export function defineStarter<const C extends StarterConfig>(config: C): C {
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** genesis.config.json `observability.sentry`: the Sentry project the app's errors go to. */
+export interface StarterSentry {
+  organization: string;
+  project: string;
+  url?: string;
+}
+
+/**
+ * The Sentry project when genesis.config.json `observability.sentry` names one (organization and
+ * project both set), else null. One switch: app.config.ts adds the `@sentry/react-native/expo`
+ * plugin with it (builds upload their source maps), metro.config.js reads the same block for Debug
+ * IDs, and the release lane's `release.sentry` defaults to it (updates upload theirs).
+ */
+export function sentryProject(observability: { sentry?: Partial<StarterSentry> } | undefined): StarterSentry | null {
+  const s = observability?.sentry;
+  if (!s?.organization || !s.project) return null;
+  return { organization: s.organization, project: s.project, url: s.url || "https://sentry.io/" };
+}
 
 /**
  * The EAS part of the Expo config: the update URL and the project id. Before `eas init` there is

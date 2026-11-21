@@ -45,6 +45,17 @@ Call the workflows at the commit of a Genesis release, never at `@main`.
   gh api 'repos/marktiderman/genesis/commits/@marktiderman%2Fgenesis@X.Y.Z' --jq .sha
   ```
 
+- Not every release bumps the umbrella. A release whose changesets name only other packages
+  tags those packages (`@marktiderman/genesis-cli@1.24.0`, say) at its "version packages" commit,
+  and the umbrella's newest tag is then an older commit that may not have the template or
+  workflow you're copying. Pin to the commit of the first release that has it, and name the tag
+  that is actually at that commit:
+
+  ```bash
+  git tag --points-at <sha> --list '@marktiderman/*'   # the release tags at a commit
+  git tag --contains <sha of the change> --list '@marktiderman/*' --sort=creatordate | head -1
+  ```
+
 - Why not `@main`: main changes under you, so a passing build can fail tomorrow with no change of
   yours, and whatever lands on main runs in your CI the moment it lands.
 - Why a SHA rather than the tag: a tag can be moved and a commit can't, and the tag's name
@@ -55,7 +66,7 @@ Call the workflows at the commit of a Genesis release, never at `@main`.
   workflow can't commit that part with the default `GITHUB_TOKEN`, which may not edit workflow
   files: run `genesis upgrade` locally, or give the workflow a token that may.
 
-The workflows are in a release from the first umbrella release cut after they reach `main`.
+The workflows and templates are in a release from the first release cut after they reach `main`, whichever packages it bumps.
 
 ## app-ci
 
@@ -299,9 +310,11 @@ run with `--base` fails as `allow-grew`). The rule is a warning, so an app that 
 ### Native: EAS
 
 [`templates/release/pr-preview.yml`](../templates/release/pr-preview.yml) is the native
-equivalent: an installable build and an update channel per pull request, started by the `Preview`
-label or by a pull request into `main` that changes the app's code or build config
-([NATIVE-RELEASE.md](./NATIVE-RELEASE.md)). GitHub keeps one label per name whatever its case, so
+equivalent: an update channel per pull request, opened by a link in the TestFlight or store build
+people already have (or a preview build when the pull request changed native code), started by the
+`Preview` label or by a pull request into `main` that changes the app's code or build config.
+[`templates/ci/pr-preview-teardown.yml`](../templates/ci/pr-preview-teardown.yml) deletes it when
+the pull request closes ([NATIVE-RELEASE.md, Previews](./NATIVE-RELEASE.md#previews)). GitHub keeps one label per name whatever its case, so
 one `preview` label serves both; name it in `pull_request_labeled.labels` as GitHub shows it.
 
 ## Security

@@ -153,8 +153,8 @@ The templates folder is not shipped: `packages/ui-native/package.json` `files` l
 ### The ratchet: `pnpm check:code-connect`
 
 `scripts/check-code-connect.mjs` covers genesis-ui-native, genesis-ui, genesis-chat, and the
-genesis-native, genesis-notifications, genesis-product, genesis-forms-native, genesis-forms-web,
-genesis-sites and genesis-studio packages below. The first three: genesis-ui-native (the `Native*`
+genesis-native, genesis-notifications, genesis-forms-native, genesis-forms-web,
+genesis-sites and genesis-data packages below. The first three: genesis-ui-native (the `Native*`
 components and the page layouts), genesis-ui for the web (its PascalCase exports, minus
 sub-parts, typography, auto-layout primitives and cell formatters), and genesis-chat (the
 PascalCase exports of `/native` and `/web`, minus hooks, providers and the non-visual
@@ -170,7 +170,7 @@ nest the Messages page's primitives (`Msg/Bubble`, `Msg/Tapback`, `Msg/TapbackBa
 redrawing them. Chat's screens, sheets of library parts and dispatchers (`ChatInboxScreen`,
 `ChatPanel`, `ChatDock`, `MessageAttachments` on the web) are `composed`.
 
-Three more packages follow the same pattern, each with its own allowlist:
+Two more packages follow the same pattern, each with its own allowlist:
 
 - **genesis-native** (`native`, `packages/native/figma/`), page **Native · App**: the PascalCase
   exports of `.`, `/push` and `/updates`, minus the app plumbing (roots, boundaries, gates, error
@@ -184,11 +184,8 @@ Three more packages follow the same pattern, each with its own allowlist:
   `export function Name(` there. `NotificationRowView` and `NotificationBell` are library
   components; the feeds, preference tables and admin tables are `composed`. The React Email parts
   (`./email`) are not app UI and are not read.
-- **genesis-product** (`product`, `packages/product/figma/`), page **Product**: `VoteButton`,
-  `ProductWhatsNewSheet` (separate from genesis-native's `WhatsNewSheet`: product notes, with a
-  Learn more per note) and `RoadmapDetailSheet`; the screens and the store wrapper are `composed`.
 
-Four more cover the forms, sites and the data studio:
+Four more cover the forms, sites and Genesis Data:
 
 - **genesis-forms-native** (`forms-native`, `packages/forms-native/figma/`), page **Forms · Native**:
   its PascalCase exports minus contexts and ChoiceRow's parts (`Indicator`, `OptionImage`). The
@@ -212,7 +209,7 @@ Four more cover the forms, sites and the data studio:
   `ItemTitle`, `ButtonLink`, `TextLink`, `SiteImage`, `SiteFormHeader`) have JSX templates; the
   zod schemas exported under PascalCase names (`Anchor`, `IconName`) and the screen-reader-only
   `HiddenTitle` are excluded.
-- **genesis-studio** (`studio`, `packages/studio/figma/`), page **Studio**: the toolbar parts,
+- **genesis-data** (`data`, `packages/data/figma/`), page **Studio** (the Figma page keeps its name): the toolbar parts,
   panels, views, record panel, dialogs, `FieldIcon` and `Pill` (`Studio/…` in Figma) have
   templates; `DataStudio` is `composed`.
 

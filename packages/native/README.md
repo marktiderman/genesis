@@ -233,7 +233,7 @@ export const updates = createUpdates({
   storage: AsyncStorage,
   appState: AppState,
   openURL: Linking.openURL,
-  channels: { enabled: __DEV__ || process.env.EXPO_PUBLIC_PREVIEW === "1" },
+  channels: { enabled: true },
 });
 
 // app/_layout.tsx
@@ -266,10 +266,10 @@ export const updates = createUpdates({
   (`1.4.0 (37) · preview · 3f2a9c1b`) for a Settings "About" row and `text` (version,
   build, platform, channel, runtime, update id, emergency launch) for a support
   report. A value the modules can't give prints as `unknown`.
-- **Channel switching** (test builds only): `useUpdates().channels.switchTo("pr-42")`
-  overrides the `expo-channel-name` header, fetches and reloads (or reports
-  `blocked` mid-edit). It throws unless `channels: { enabled: true }`; never
-  enable it in a store build. `channels.reset()` goes back and always works.
+- **Channel switching and previews** (see [Previews](#previews)):
+  `useUpdates().channels.switchTo("pr-42")` overrides the `expo-channel-name`
+  header, fetches and reloads (or reports `blocked` mid-edit). It throws unless
+  `channels: { enabled: true }`. `channels.reset()` goes back and always works.
 
 **Policy sources.** `UpdatePolicySource` is `{ load(): Promise<UpdatePolicy | null> }`.
 `staticPolicySource(policy)` is a policy written in the app;
@@ -307,6 +307,57 @@ under `UpdatesProvider` (or the shell): `useForceUpgrade`, `useMaintenance`,
 imported: without `updates` there is no banner and no channel switching;
 without `application` nothing is forced and no notes show. The banner uses
 `react-native-safe-area-context`, a peer (genesis-ui-native needs it too).
+
+## Previews
+
+A pull request's preview is an update channel, `pr-<number>`, that the app people already have
+opens from a link (EAS [channel surfing](https://docs.expo.dev/eas-update/channel-surfing/)). The
+release lane's `pr-preview.yml` publishes it and comments the link; `pr-preview-teardown.yml`
+deletes it when the pull request closes (`genesis add template previews`, docs/NATIVE-RELEASE.md).
+
+1. **Turn channels on** in every build that should open previews, store builds included:
+   `createUpdates({ …, channels: { enabled: true } })`. The header override only picks which
+   compatible update (same runtime version) the build loads; expo-updates keeps its fallback to
+   the embedded update. Never pair it with `disableAntiBrickingMeasures`.
+2. **Route the links.** `normalizeLink` (in `app/+native-intent.ts`) turns every form of a preview
+   link into `/preview?channel=pr-42`: `https://<host>/preview?channel=pr-42` (a universal link:
+   list `/preview` in the web's AASA and assetlinks, and serve a landing page there for phones
+   without the app), `<scheme>:///preview?channel=pr-42`, `/preview/pr-42`, and Expo's
+   development-client QR. A channel name is checked first, so a link can't put anything else in
+   the header. Don't hold a preview link for sign-in: it changes the code, not the data.
+3. **Add the screen**, `app/preview.tsx`:
+
+   ```tsx
+   import { router, useLocalSearchParams } from "expo-router";
+   import { PreviewScreen } from "@marktiderman/genesis-native/updates";
+   import { ScreenContainer } from "@marktiderman/genesis-ui-native/layouts";
+
+   export default function Preview() {
+     const { channel } = useLocalSearchParams<{ channel?: string }>();
+     // A link can open this screen with no history behind it: go home then.
+     const done = () => (router.canGoBack() ? router.back() : router.replace("/"));
+     return (
+       <ScreenContainer>
+         <PreviewScreen channel={channel} onDone={done} />
+       </ScreenContainer>
+     );
+   }
+   ```
+
+   It asks, downloads (`channels.prepare`) and restarts into the preview (`channels.restart`), and
+   says why when there's nothing to load: nothing published for this build's runtime (the pull
+   request changed native code), an update that crashed on this phone before, or a channel that
+   was deleted.
+4. **The banner.** While a preview is open the updates root draws `PreviewNotice` over every
+   screen ("Preview: pr-42 · Leave"); Leave is `channels.reset()`. Slot `previewNotice` (`null`
+   hides it). `useChannelState()` reads the picked channel and the build's own.
+
+The switcher queues its writes (a link, Leave and recovery never race), remembers the build's own
+channel on a plain launch (under an override `Updates.channel` names the override), and heals a
+closed pull request's channel: call `channels.recover(error)` with a launch check's error, and when
+EAS says "There is no channel named …" the override is dropped. `genesis doctor`'s `missed-value`
+check flags an app with channels on only in `__DEV__` (where expo-updates can't switch) or with no
+preview lane.
 
 ## Observability: errors, breadcrumbs, events, timings
 
@@ -432,7 +483,47 @@ export default observability.wrap(RootLayout); // Sentry.wrap: touch and profile
   `update.id`, `update.channel`, `update.runtime` and `update.launch`, so an over-the-air update is
   told apart from the binary it runs on. Without an application id or version, it leaves the
   release to Sentry rather than guess.
-- **Without a DSN** `sentrySink` starts nothing (a warning outside development).
+- **Without a DSN anywhere** `sentrySink` starts nothing and its methods do nothing. Once the
+  settings are read and give none either, it says so once, in development only (`onMissingDsn`
+  replaces the notice, in any build).
+
+**Sentry from Genesis settings.** Error reporting declares three settings
+(`observabilitySettings`, also in this package's `genesis.settings`, so the doctor and the synced
+catalogue know them): `observability.enabled` (default on), `observability.sentryDsn` (the
+project's DSN; a public client key, not a secret) and `observability.sentryOrg` (the
+organization's slug, for the support dump viewer's link). A platform admin sets them on the
+in-app Settings screen, with no code and no build; `genesis setup --step sentry` writes both to
+genesis.config.json instead, which installed apps read from their next build or update. Every layer refuses a DSN of the wrong shape (`SENTRY_DSN_PATTERN`, in
+genesis-config, the database and the doctor).
+
+```ts
+export const sentry = sentrySink(Sentry, { dsn: process.env.EXPO_PUBLIC_SENTRY_DSN, cache: AsyncStorage, signature });
+// Whenever the app's settings change (genesis-supabase's watchAppSettings):
+sentry.applySettings(resolvedSettings);
+healthChecks.register(sentry.healthCheck()); // genesis-support
+```
+
+- **Where the DSN comes from**, highest first: the build (`EXPO_PUBLIC_SENTRY_DSN`, `dsn`), then
+  `observability.sentryDsn` through the settings layers (the database, then genesis.config.json,
+  then the default, none). `observability.enabled` off stops reporting whichever gave it.
+  `resolveSentryDsn({ build, settings })` is the same rule on its own.
+- **The first launch and every later one.** Settings are read for a signed-in person, so on a
+  device's first launch Sentry starts once someone signs in. `cache` (AsyncStorage, or
+  localStorage; sync or async) keeps the settings' values, never the DSN in use, so every later
+  launch starts Sentry at once from them, and a new build's own DSN still wins. Settings read
+  since a launch win over the cached copy.
+- **What applies live, and what waits for the next launch.** Starting Sentry the first time, and
+  turning it off (`Sentry.close`), happen at once. A new DSN, or turning it back on after it was
+  closed, applies at the next launch: Genesis never starts Sentry twice in one process.
+  `status()` says whether it is running, where its DSN came from, whether a change is waiting
+  (`restartPending`) and what is wrong (`problem`).
+- **The health check.** `healthCheck()` is `observability.sentry` for genesis-support's
+  `healthChecks`: ok when reporting, off or not configured; warn while a change waits for the next
+  launch; fail for a DSN that isn't one.
+- **Wrapping.** `wrap` and `wrapRouteErrorBoundary` are given when Sentry can be running by the
+  time the root layout is wrapped: with a build DSN, or with a `cache`.
+- **A catalogue without the keys** (an app that doesn't install them) never stops Sentry:
+  `applySettings` changes nothing for settings without `observability.*`.
 
 **Screen errors.** The shell's boundary is fatal: it replaces the whole app. For one screen that
 throws, export a screen boundary from a route or layout file as Expo Router's `ErrorBoundary`:
@@ -456,11 +547,13 @@ Router, wrap a subtree in `<ScreenErrorBoundary>`.
 - `useRecentActivity()` gives the last breadcrumbs and errors, scrubbed (the devtools overlay
   shows them).
 
-**Source maps (Sentry).** Optional: add the `@sentry/react-native/expo` config plugin with your
-organization and project, put `SENTRY_AUTH_TOKEN` in EAS secrets, use `getSentryExpoConfig` from
-`@sentry/react-native/metro` in `metro.config.js` (Debug IDs), and for `eas update` run
-`npx @sentry/expo-upload-sourcemaps dist` after the update. In this monorepo also set
-`"@sentry/cli": true` under `allowBuilds` in `pnpm-workspace.yaml`, so the upload binary installs.
+**Source maps (Sentry).** One switch: genesis.config.json `observability.sentry` with your
+organization and project slugs. The starter then adds the `@sentry/react-native/expo` config plugin
+(builds upload their source maps), builds Metro on `getSentryExpoConfig` from
+`@sentry/react-native/metro` (Debug IDs), and the release lane uploads each update's source maps
+(`release.sentry`, docs/NATIVE-RELEASE.md "Sentry source maps"). Add `SENTRY_AUTH_TOKEN` to the EAS
+environments and the GitHub release environment. `genesis doctor` (`cli/sentry-source-maps`) flags
+a piece that's missing, and `genesis fix cli/sentry-source-maps` writes what it can.
 
 **EAS Observe.** EAS Observe (`expo-observe`) measures cold and warm launch, bundle load, time to
 first render and EAS Update download time on its own once the root is wrapped

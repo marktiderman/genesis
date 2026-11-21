@@ -143,6 +143,8 @@ export interface GenesisConfigFile {
   client?: GenesisClient;
   /** The native release lane's settings (templates/ci/native-release.yml and the EAS build lane): see {@link validateRelease}. */
   release?: GenesisRelease;
+  /** Where the app's errors go and how their stack traces are read: see {@link validateObservability}. */
+  observability?: GenesisObservability;
   /** The settings preset (`max`, the default, `standard` or `min`), resolved as its own layer: see {@link validatePreset}. */
   preset?: SettingsPreset;
   /**
@@ -237,9 +239,15 @@ export interface GenesisRelease {
    * per-platform `runtimeVersion`).
    */
   runtimeVersion?: "fingerprint" | { command: string };
+  /**
+   * Pull request previews (pr-preview.yml): the links its comment shares. `origin`: the web app's
+   * origin, whose `/preview?channel=…` is a universal link into the app (and the landing page
+   * without it); `scheme`: the app's scheme, for the QR code. Default: the scheme only, from app config.
+   */
+  previews?: { origin?: string; scheme?: string };
 }
 
-const RELEASE_KEYS = ["platforms", "environment", "paths", "sentry", "pushHook", "profile", "channel", "easEnvironment", "packageManager", "runtimeVersion"];
+const RELEASE_KEYS = ["platforms", "environment", "paths", "sentry", "pushHook", "profile", "channel", "easEnvironment", "packageManager", "runtimeVersion", "previews"];
 const RELEASE_NAME = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,59}$/;
 const RELEASE_HOOK = /^[A-Za-z0-9_][A-Za-z0-9_./-]{0,119}\.(?:mjs|cjs|js)$/;
 const RELEASE_SECRET = /^[A-Z][A-Z0-9_]{0,63}$/;
@@ -298,7 +306,70 @@ export function validateRelease(raw: unknown, source = "config"): GenesisRelease
     }
     out.runtimeVersion = { command: (command as string).trim() };
   } else if (raw.runtimeVersion === "fingerprint") out.runtimeVersion = "fingerprint";
+  if (raw.previews !== undefined) {
+    const p = raw.previews;
+    if (!isObject(p)) fail(`previews must be { "origin": "https://…", "scheme": "myapp" }`);
+    else {
+      for (const key of Object.keys(p)) if (key !== "origin" && key !== "scheme" && key !== "$comment") fail(`previews.${key} isn't a setting (known: origin, scheme)`);
+      const previews: { origin?: string; scheme?: string } = {};
+      if (p.origin !== undefined) {
+        if (typeof p.origin !== "string" || !/^https:\/\/[a-z0-9.-]+(?::\d+)?$/i.test(p.origin)) fail(`previews.origin must be an https origin with no path, such as "https://example.com" (got ${JSON.stringify(p.origin)})`);
+        else previews.origin = p.origin;
+      }
+      if (p.scheme !== undefined) {
+        if (typeof p.scheme !== "string" || !/^[a-z][a-z0-9+.-]{0,39}$/.test(p.scheme)) fail(`previews.scheme must be the app's URL scheme, such as "myapp" (got ${JSON.stringify(p.scheme)})`);
+        else previews.scheme = p.scheme;
+      }
+      out.previews = previews;
+    }
+  }
   return out;
+}
+
+/**
+ * The `observability` block. `sentry`: the Sentry organization and project the app's errors go
+ * to. With both set, readable stack traces are on: the starter wires the `@sentry/react-native/expo`
+ * plugin and Metro's Debug IDs (`getSentryExpoConfig`), and the release lane uploads each update's
+ * source maps (`release.sentry` defaults to true). Empty strings, or no block, leave it off.
+ */
+export interface GenesisObservability {
+  sentry?: GenesisSentry;
+}
+
+/** A Sentry project: its organization and project slugs, and Sentry's URL (default `https://sentry.io/`). */
+export interface GenesisSentry {
+  organization: string;
+  project: string;
+  url?: string;
+}
+
+const SENTRY_SLUG = /^(?:[a-z0-9][a-z0-9_-]{0,99})?$/;
+
+/** Check the top-level `observability` block: unknown keys and values fail, so a typo can't silently leave source maps off. */
+export function validateObservability(raw: unknown, source = "config"): GenesisObservability {
+  const fail = (msg: string): never => {
+    throw new GenesisConfigError(`${source}: observability.${msg}`);
+  };
+  if (!isObject(raw)) throw new GenesisConfigError(`${source}: "observability" must be an object, such as { "sentry": { "organization": "acme", "project": "sample-app" } }`);
+  for (const key of Object.keys(raw)) if (key !== "sentry" && key !== "$comment") fail(`${key} isn't a setting (known: sentry)`);
+  const out: GenesisObservability = {};
+  if (raw.sentry !== undefined) {
+    const s = raw.sentry;
+    if (!isObject(s)) return fail(`sentry must be { "organization": "<slug>", "project": "<slug>", "url"?: "https://sentry.io/" }`);
+    for (const key of Object.keys(s)) if (!["organization", "project", "url", "$comment"].includes(key)) fail(`sentry.${key} isn't a setting (known: organization, project, url)`);
+    for (const key of ["organization", "project"] as const) {
+      if (typeof s[key] !== "string" || !SENTRY_SLUG.test(s[key])) fail(`sentry.${key} must be a Sentry slug (lower-case letters, digits, _ and -), or "" for none (got ${JSON.stringify(s[key])})`);
+    }
+    if (s.url !== undefined && (typeof s.url !== "string" || !/^https:\/\/[a-z0-9.-]+(?::\d+)?\/?$/i.test(s.url))) fail(`sentry.url must be Sentry's https origin, such as "https://sentry.io/" (got ${JSON.stringify(s.url)})`);
+    out.sentry = { organization: s.organization as string, project: s.project as string, ...(typeof s.url === "string" ? { url: s.url } : {}) };
+  }
+  return out;
+}
+
+/** The Sentry project when the app has one configured (organization and project both set), else null. */
+export function sentryProject(config: Pick<GenesisConfigFile, "observability"> | null | undefined): GenesisSentry | null {
+  const s = config?.observability?.sentry;
+  return s && s.organization && s.project ? s : null;
 }
 
 /** The `client` block: where the app's client layer lives (ADR 0020). */
@@ -350,6 +421,7 @@ export interface LoadedConfig {
 const STRING_LISTS = ["src", "extensions", "ignore", "tokenFiles", "ignoreTokenPrefixes", "localPrimitiveDirs", "build", "componentPackages"] as const;
 const STRINGS = ["uiPackage", "rulesDoc"] as const;
 const KNOWN = new Set<string>([
+  "declined",
   ...STRING_LISTS,
   ...STRINGS,
   "themeCss",
@@ -478,6 +550,7 @@ export function readGenesisConfig(root: string): GenesisConfigFile | null {
   if (raw.environments !== undefined) out.environments = validateEnvironments(raw.environments, file);
   if (raw.client !== undefined) out.client = validateClient(raw.client, file);
   if (raw.release !== undefined) out.release = validateRelease(raw.release, file);
+  if (raw.observability !== undefined) out.observability = validateObservability(raw.observability, file);
   const legacy = legacySettingsKeys(raw);
   if (legacy.length) out.legacySettingsKeys = legacy;
   if (raw.preset !== undefined && !legacy.some((l) => l.key === "preset")) out.preset = validatePreset(raw.preset, file);
@@ -618,6 +691,12 @@ export function validateConfig(raw: unknown, source = "config"): DoctorConfig {
   if (!isObject(raw)) fail("the doctor settings must be an object");
   const c = raw as Record<string, unknown>;
   for (const key of Object.keys(c)) if (!KNOWN.has(key)) fail(`unknown setting "${key}"`);
+  if (c.declined !== undefined) {
+    const d = c.declined;
+    if (typeof d !== "object" || d === null || Array.isArray(d) || !Object.values(d).every((v) => typeof v === "string" && v.trim().length > 0)) {
+      fail(`"declined" maps a feature id to why it isn't wanted, e.g. { "pr-previews": "previews run in another repository" }`);
+    }
+  }
   // themeCss takes one stylesheet or several; normalize to a list.
   if (typeof c.themeCss === "string") c.themeCss = [c.themeCss];
   if (c.themeCss !== undefined && !isStringList(c.themeCss)) fail(`"themeCss" must be a path or a list of paths`);

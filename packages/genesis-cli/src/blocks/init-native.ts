@@ -110,10 +110,22 @@ export function starterIdentity(config: string): { name: string; slug: string; s
 
 const METRO = `// Metro: Expo's defaults with NativeWind. (The starter's monorepo config also watched the
 // workspace packages; an app installs them from npm instead.)
+// Readable Sentry stack traces: with genesis.config.json \`observability.sentry\` set (organization
+// and project), Sentry's config writes a Debug ID into every bundle and its source map. NativeWind
+// wraps it last.
 const { getDefaultConfig } = require("expo/metro-config");
 const { withNativeWind } = require("nativewind/metro");
 
-module.exports = withNativeWind(getDefaultConfig(__dirname), { input: "./global.css" });
+let sentry;
+try {
+  sentry = require("./genesis.config.json").observability?.sentry;
+} catch {
+  // No genesis.config.json: no Sentry project.
+}
+const withSentry = Boolean(sentry?.organization && sentry?.project);
+const config = withSentry ? require("@sentry/react-native/metro").getSentryExpoConfig(__dirname) : getDefaultConfig(__dirname);
+
+module.exports = withNativeWind(config, { input: "./global.css" });
 `;
 
 /**

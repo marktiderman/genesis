@@ -38,12 +38,13 @@ npx @marktiderman/genesis-cli doctor [--strict] [--json] [--build] [--config <pa
 Checks an app against the Genesis it has installed. See [genesis doctor](#genesis-doctor).
 
 ```bash
-npx @marktiderman/genesis-cli studio init
+npx @marktiderman/genesis-cli data init
 ```
 
-Turns the Data Studio on in an existing Supabase app. It writes three things:
+Turns Genesis Data on in an existing Supabase app (it was `genesis studio init`, which still works
+and says it's been renamed). It writes three things:
 
-- **One migration to review:** the studio's `NOINHERIT` login and the audit trail. It holds no
+- **One migration to review:** Genesis Data's `NOINHERIT` login and the audit trail. It holds no
   password.
 - **The server:** a Next.js route when the app has an `app/` router; otherwise a Supabase Edge
   Function, `supabase/functions/genesis-studio`, with `verify_jwt = false` added to
@@ -64,7 +65,7 @@ schemas: without `contracts.schemas`, the ones the existing contract's `// Sourc
 `-o`, `-s` and `--database-env` override them; paths are relative to the app's root, where you run
 the command. With `--openapi`, only a single configured schema carries over (else `public`).
 
-Writes `resources.genesis.ts` (or `contracts.out`), a checked-in contract for the Data Studio: every table in the
+Writes `resources.genesis.ts` (or `contracts.out`), a checked-in contract for Genesis Data: every table in the
 schemas, with its key, fields (type, database type, nullability, defaults, enum values, links)
 and a row type per table. Enum values come from enum types and from single-column `CHECK`s that
 list values (`status in ('open', 'done')`). A view Postgres can update on its own takes its
@@ -210,9 +211,15 @@ A manifest entry:
   "routes": [{ "path": "/settings/notifications", "signedIn": true }],
   "skills": ["skills/push/SKILL.md"],
   "agents": "agents/push.md",
-  "steps": ["npx expo install expo-notifications, and add it to the plugins in app.config."]
+  "steps": ["npx expo install expo-notifications, and add it to the plugins in app.config."],
+  "detect": { "imports": ["createPush"], "off": [{ "pattern": "push\\s*:\\s*false", "message": "push is off" }] }
 }
 ```
+
+`detect` says how the doctor tells whether an app uses the block (rule `missed-value`): `imports`
+are names a file imports from the block's `packages` (a block in `genesis.lock.json` counts as
+used too), and each `off` pattern, matched in the app's code, means it is adopted but switched off
+there, with what that costs.
 
 Every path is package-relative and checked before anything reads it: no absolute paths, no `..`,
 no backslashes, and a file that resolves (through a symlink) outside its package is refused.
@@ -388,7 +395,7 @@ mapping so a migration an overlay's app already applied is never copied a second
 
 It never overwrites a file the app has: one with other text is reported and left alone. A second
 run creates and changes nothing. `--dry-run` prints the plan and writes nothing. `genesis add
---list` lists the blocks the app can add. `genesis studio init` is unchanged.
+--list` lists the blocks the app can add. `genesis data init` works as before.
 
 In an app whose database files live elsewhere ([A phone app beside a web app](#a-phone-app-beside-a-web-app)),
 `add` copies none of the block's migrations, pgTAP tests, Edge Functions or `config.toml`
@@ -446,14 +453,16 @@ installed packages with the app's copies, and every copy that carries a header:
 | `new` | the package ships a migration the app hasn't copied | copied as a new file, after every existing one |
 | `edited` | the copy no longer matches the text it was copied with | reported; never rewritten |
 | `changed-upstream` | the package now ships different text than the copy was made from | reported; never rewritten |
-| `differs` | a file with the migration's name, other text and no header | treated as the app's own; never rewritten |
+| `differs` | a file with the migration's name, other text and no header; or several files hold the migration and not exactly one carries its header | treated as the app's own; never rewritten |
 | `deleted` | the app deleted a copy `genesis.lock.json` records (its `migrations` map: where each package migration was copied) | reported; never copied again |
 | `provided` | not in the app, but a migration that is (or comes in the same run) provides its objects | never copied |
 
 Every file already in `supabase/migrations` counts as applied: none is ever written again, and a
 new file is created only if its name is free (otherwise it fails). A package migration is copied
 only when nothing in the folder holds it yet, by header, by name or by text, so one a package
-renumbered or moved is never copied twice. Line endings (CRLF or LF) don't count as a change. A
+renumbered or moved is never copied twice. When several files hold it and exactly one carries its
+header (the app wrote a draft before the package shipped, then copied the published one), that one
+is the copy and is checked as usual; the others are the app's own, named in the row's detail. Line endings (CRLF or LF) don't count as a change. A
 symlink in the folder stops the command. A pgTAP test is copied only with its migration, so one you
 deleted stays deleted. `--forward` writes one forward migration stub
 (`<timestamp>_<name>_forward.sql`, with a `genesis-forward` header) for each edited or changed
@@ -950,9 +959,10 @@ Exit codes: `0` pass, `1` findings, `2` the doctor couldn't run (bad config, Gen
 | `resource-workspace` | info | In a routes folder where a detail page (`courses.$courseId.tsx`, `[id]/page.tsx`) renders `AppShellPageHeader`, directly or through one local import, the other detail pages there that don't: one workspace header and tab row for every resource. Reported, never failing (`--strict` included); `rules` can raise it to `warn`. |
 | `page-layout` | warn | A route inside the AppShell (under the layout route that renders it) that renders no Genesis page layout (the `…Page` / `…PageShell` components `uiPackage` and `componentPackages` export, not `BreadcrumbPage`) itself, through one local import, or from a layout route around it (`my/route.tsx` supplying `DetailPage` covers `my/index.tsx`). A `…Page`, `…Screen` or `…Workspace` imported from any Genesis package counts. Routes outside the shell (sign-in, landing, public forms) aren't checked until Genesis ships layouts for them. Layout-only (`route.tsx`, `__root`, `<Outlet>`) and redirect-only routes are skipped; off with the `native` pack (see `native-screen-layout`). |
 | `core/views-stay-platform-neutral` | warn | Declared by genesis-core (see [Package rules](#package-rules)). A `*.view.ts` file (a view description web and native share) that imports a platform module: a router (`react-router*`, `@tanstack/react-router`, `@tanstack/react-start`, `next`, `expo-router`), `react-dom`, `react-native` or `react-native-*`, `expo*`, icon sets (`lucide-react`, `lucide-react-native`), or Genesis UI (`genesis-ui`, `genesis-ui-native`, `genesis-native`). Direct imports only: keep what the view imports platform-neutral too. |
+| `cli/sentry-source-maps` | warn | Declared by genesis-cli itself (`genesis.doctor.plugin`, see [Package rules](#package-rules)), so every app with the CLI runs it, web and native. In an app with an `@sentry/*` package, each piece readable stack traces need (its `subject`): `metro`, a Metro config that doesn't build on `getSentryExpoConfig` (`@sentry/react-native/metro`), so bundles carry no Debug IDs; `expo-plugin`, no `@sentry/react-native/expo` plugin in the Expo config, so builds upload no source maps; `update-uploads`, a workflow (the app's or its repository's `.github/workflows`, `.eas/workflows`) that publishes updates (`eas update`, an EAS `update` job) without uploading their source maps (`sentry-expo-upload-sourcemaps`, `upload_sentry_sourcemaps: true`); `vite`, a web app's Vite config without `@sentry/vite-plugin` or a framework wrapper (`sentryTanstackStart`, `sentrySvelteKit`…). The first three only with `@sentry/react-native`. Comments don't count. An app whose genesis.config.json `observability.sentry` has an empty organization or project gets one `info` instead. Fix: `cli/sentry-source-maps`. |
 | `iso-date-slice` | warn | A day cut from an ISO timestamp: `.toISOString().slice(0, 10)`, `.substring(0, 10)`, `.substr(0, 10)`, `.split("T")[0]` or `.split("T").at(0)`. That's the day in UTC, which for an evening in the Americas is already tomorrow. Use `personDay(person)` or `dayIn(zone)` from `@marktiderman/genesis-core/dates`. Test files are skipped; where UTC is what you mean (a log name, a UTC report), allow it with a reason. |
 | `resource-view-tree` | error | A `<ResourceView>` or `<ResourcePage>` with `tree` and `pagination="server"` or `"cursor"` (bare or in braces). A tree is built from every row on the client, so the screen throws when it renders. Leave `pagination` unset. Only the tag's own attributes count, not a `tree` inside an expression. ([Tree mode](../../docs/RESOURCE-VIEW.md#tree-mode)) |
-| `studio-server-auth-import` | warn | An import of a studio-server file the package doesn't export (`@marktiderman/genesis-studio-server/dist/…`, `/src/…`, `/lib/…`), or a CommonJS `require("@marktiderman/genesis-studio-server")` of the ESM-only root. Besides the doctor's scan it reads the app's `.cjs` and `.mjs` files (tests skipped), where a `require` usually is. Both fail at run time with `ERR_PACKAGE_PATH_NOT_EXPORTED`. Use `@marktiderman/genesis-studio-server/auth`: the token checks and `switchToUser`, for `import` and `require`. An ESM import of the root is fine. |
+| `studio-server-auth-import` | warn | An import of a studio-server file the package doesn't export (`@marktiderman/genesis-data-server/dist/…`, `/src/…`, `/lib/…`), or a CommonJS `require("@marktiderman/genesis-data-server")` of the ESM-only root. Besides the doctor's scan it reads the app's `.cjs` and `.mjs` files (tests skipped), where a `require` usually is. Both fail at run time with `ERR_PACKAGE_PATH_NOT_EXPORTED`. Use `@marktiderman/genesis-data-server/auth`: the token checks and `switchToUser`, for `import` and `require`. An ESM import of the root is fine. |
 | `removed-scope-name` | error | A "practice" name genesis-core 2 removed, in a file that imports a Genesis package: a view field's `timeZone: "practice"` (a string value in a view definition), NativeResourceView's `practiceTimeZone`, `resolveZone("practice", …)`, or DisplayTimeZones' `practice`. `defineView` refuses the first when the view loads and the rest are type errors; this lists them in CI. `genesis codemod genesis-core-2-scope-names` rewrites every one. It reads only Genesis API usage, the same shapes the codemod rewrites (see its row above); comments and an app's own `practice` settings, props and `resolveZone` are skipped. |
 | `app-part-name` | warn | An app element's own `data-slot` that doesn't start `app-`. An app style reaches an app's own part by name, so it is `app-<name>` and never matches a Genesis part; a name the installed design system's `THEME_PARTS` already uses is called out, since every app style's rules for that part would hit the app's element. Files inside an overlay of the component package are skipped (ADR 0018). |
 | `app-part-colors` | warn | In a custom view (a file that renders `<CustomView>` or calls `useCustomView`) or a file with an app part (`data-slot="app-…"`): a colour property (`color`, `backgroundColor`, `borderColor`, `fill`, …) or a Tailwind colour utility with an arbitrary value (`bg-[var(--x)]`) that reads a custom property the theme stylesheets don't declare as a colour role. Take colours from roles (`hsl(var(--primary))`, `bg-primary`), so the app brand and dark mode reach the view. Literal colours stay `raw-color`'s (ADR 0019). |
@@ -981,7 +991,7 @@ Exit codes: `0` pass, `1` findings, `2` the doctor couldn't run (bad config, Gen
 | `platform-admin-missing` | warn / info | The app has genesis-supabase's default platform-admin list (migration 0022's copy), no `private.genesis_platform_admin` hook of its own, and the list is empty, so nobody can change a setting or answer support tickets. Read with the database layer (`--database`, or a linked project when the network is on). **info**: the list couldn't be read. |
 | `genesis-eslint-config` | warn | A native app (with `expo` or `react-native`, or the `native` pack) whose ESLint flat config doesn't load [`@marktiderman/genesis-cli/eslint`](#lint-rules), so `genesis upgrade` can't bring Genesis's lint rules; or loads it without `eslint-plugin-testing-library` in package.json, so the config can't load. The message gives the fix: `genesis codemod genesis-cli-eslint-config`, or the two lines to add. Web apps (Genesis has no web lint rules yet) and apps without a flat config aren't checked. Ratcheted by default: under `--base`, an unchanged config reports it as `info`. |
 | `migration-pending` | warn | A package migration of one of the app's blocks (`genesis.lock.json`) that isn't in the app yet, as `genesis migrate --dry-run` reports it: the database the app deploys lacks what the installed package needs. Fix: `migrate.copy` (`genesis migrate`). An app whose lock lists no blocks, or whose database files live in another app, isn't checked. |
-| `migration-drift` | warn | A copy of a package migration the app edited, one whose package text changed since it was copied, or a same-named file with other text, with no forward migration carrying it. An applied migration is never rewritten. Fix: `migrate.forward` (guided: `genesis migrate --forward` writes the stub, you fill it in). |
+| `migration-drift` | warn | A copy of a package migration the app edited, one whose package text changed since it was copied, or a same-named file with other text (unless another file carries the migration's header: that one is the copy, and a same-named draft beside it is the app's own), with no forward migration carrying it. An applied migration is never rewritten. Fix: `migrate.forward` (guided: `genesis migrate --forward` writes the stub, you fill it in); when several files hold the migration and their headers can't tell which is the copy, giving exactly one of them the migration's `genesis-migration` header clears it instead. |
 | `genesis-behind` | info / warn / error | The installed `@marktiderman/genesis` release against npm's latest, and the advisories published for the installed Genesis packages. See [genesis-behind](#genesis-behind). |
 | `lock-files` | warn / info | `genesis.lock.json` against the files on disk. **warn**: a file the lock owns is missing; `genesis upgrade` never brings a deleted owned file back, so a lock naming files that aren't there passes every upgrade silently. A file you deleted on purpose gets `"deleted": true` in its lock entry: the warning stops and upgrade still leaves it deleted. **info**: a locked file whose checksum differs from the lock's (an app edit, which upgrade three-way merges the next version into, or one waiting on its `.genesis-next`); a file marked deleted that is back; a locked block whose `starter.config.ts` switch is off (upgrade and migrate leave it out, and its files aren't checked); files under `supabase/` the lock still lists in an app whose database lives elsewhere (upgrade leaves them alone, so delete the entries). Also `bun.lock` (at or above the app, with or without `genesis.lock.json`), **warn**: a nested copy of a Genesis package at another version than the root's, when the root's version satisfies the range of the package it's nested under. Bun keeps it across installs, so the app runs two copies; the finding names the entry to delete, then reinstall (`genesis upgrade` does both). |
 | `ratchet-skipped` | warn / error | `--base` was given, but git couldn't compare (not a repository, or the ref isn't fetched). A warning when only the ratchet was skipped (every rule ran at its full level); an error when the config file holds `allow`, `rules` or `packageRules`, which then went uncompared. In CI, check out with `fetch-depth: 0`. |
@@ -1100,6 +1110,7 @@ doctor couldn't run.
 | `settings.setup` | guided | `setup-incomplete` | Prints the dormant checklist: `genesis setup --step <id>` for each feature, or the setting and secret to set yourself. Runs nothing. |
 | `secrets.set` | guided | `secret-missing` | Sets each missing secret by name through your signed-in CLIs: `supabase secrets set --env-file /dev/stdin` (edge, one single-quoted dotenv line; a value with a quote or a line break is left to the dashboard) and `gh secret set NAME` (CI). The rest the plan tells you to do: `eas env:create` has no stdin path, so it prints the command; a Vault secret is added in the dashboard (Database → Vault), because SQL carrying the value would be kept in `pg_stat_statements` (Query Performance) and in the logs on an error; a server's environment is yours. |
 | `settings.first-admin` | guided | `platform-admin-missing` | Gives the SQL that adds the first platform admin by a confirmed email (`email_confirmed_at is not null`), refusing when no confirmed person, or more than one, has it; for the SQL editor or `supabase db query --linked`. Only you know who it is. Or give the app its own `private.genesis_platform_admin` hook. |
+| `cli/sentry-source-maps` | guided | `cli/sentry-source-maps` | Declared by genesis-cli (`genesis.doctor.fixes`). Writes what it can: genesis.config.json `observability.sentry` from the app's own `@sentry/react-native/expo` options (when the config names no project), `getSentryExpoConfig` in place of `getDefaultConfig` in the Metro config (the rest kept, NativeWind outermost; not a call with Expo's options), the Expo plugin in app.json or the one `plugins: [` list of app.config.*, and `"@sentry/cli": true` under allowBuilds in the app's pnpm-workspace.yaml. Lists the rest: `SENTRY_AUTH_TOKEN` for each EAS environment (`eas env:create`, which takes no stdin), the GitHub release environment and the web host; `genesis add template release` for the release workflows; the upload step for an app's own workflows; the Vite plugin. |
 
 **Secrets.** A plan names secrets, never values. At a terminal, `genesis fix` asks for each value it
 needs without echoing it; elsewhere it refuses (a value is never taken from a flag, an environment
@@ -1197,6 +1208,7 @@ keep `raw-color`).
 | `eas-placeholder` | warn | A `REPLACE_WITH_…` placeholder from the EAS templates still in `eas.json` or `.eas/workflows/*.yml` (YAML comment lines aren't read), each with what replaces it: the store ids in `eas.json` `submit.production` (the App Store Connect Apple ID, the Apple Team ID, the Google Play service account key's path), or `REPLACE_WITH_APP_FOLDER` in `pr-preview.yml`'s `paths`, which otherwise matches nothing, so code changes never start a preview. `genesis init --template native` fills the app folder in (`src`). |
 | `fingerprint-plugin-files` | warn | The app's Expo config uses the fingerprint runtime version (the Genesis plugin sets it) and loads `@marktiderman/genesis-native/rich-push-plugin`, but no `fingerprint.config.js` sets `configPluginSourceType: "files"`. Hashed by `package.json`, each new Genesis version would make a store build instead of an update. `genesis add template expo` writes the config (docs/NATIVE-RELEASE.md, "Fingerprints"). |
 | `release-lane-twice` | error | The app has `.github/workflows/native-release.yml` (at the repository's root under `appFolder`) and another workflow that also releases: a GitHub workflow running `eas update`, `eas build` or `eas workflow:run`, or an EAS workflow with a `push` trigger that can fire on `main` (no branch filter, a matching `branches` glob, not in `branches_ignore`) and an update or build job (the old push-triggered `deploy-production.yml`). Each release would go out twice, so it fails the run. `genesis add release` holds `native-release.yml` back while one is there, unless run with `--replace-rival`, which doesn't apply to the app's own push-triggered `deploy-production.yml` (merge its `.genesis-next`: `native-release.yml` dispatches to it). |
+| `missed-value` | info | What Genesis offers the app that it isn't getting: a block of an installed package (or one in the CLI's catalog, for packages the app doesn't have) for the app's platforms that nothing uses, or one adopted but switched off (a `detect.off` pattern, reported at its line), and a native app's missing PR preview lane (`.eas/workflows/pr-preview.yml`). Each says what it does and how to adopt it, and the report always ends with the count ("Missed value: N …"), so it's never only in `--verbose`. An app that doesn't want one says why: `"doctor": { "declined": { "push": "the web sends our pushes" } }` (`pr-previews` for the lane); a declined id nothing offers is reported so the list stays true. `genesis fix` walks through adopting each. |
 
 **`supabase`**, for `supabase/migrations/*.sql` (`supabase.migrations`). The SQL is read
 statement by statement with comments removed and string (`'…'`, `E'…'`) and dollar-quoted

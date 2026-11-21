@@ -34,6 +34,7 @@ import {
   type SettingSpec,
   type SettingValueOf,
 } from "@marktiderman/genesis-config/settings";
+import { own, valuesOf } from "./settings-values";
 
 const onOffOff = { max: true, standard: false, min: false } as const;
 const onOnOff = { max: true, standard: true, min: false } as const;
@@ -132,18 +133,6 @@ export interface SupportSettingValues {
   support: SpecValues<typeof SUPPORT_SETTING_SPECS>;
   diagnostics: SpecValues<typeof DIAGNOSTICS_SETTING_SPECS>;
   shake: SpecValues<typeof SHAKE_SETTING_SPECS>;
-}
-
-function valuesOf(input: SupportSettingsInput | null | undefined): { readonly [key: string]: unknown } {
-  if (!input) return {};
-  // A ResolvedSettings (or `{ values }`): no full key is ever called `values` (keys are `namespace.key`).
-  const maybe = own(input as { readonly [key: string]: unknown }, "values");
-  if (typeof maybe === "object" && maybe !== null && !Array.isArray(maybe)) return maybe as { readonly [key: string]: unknown };
-  return input as { readonly [key: string]: unknown };
-}
-
-function own(values: { readonly [key: string]: unknown }, key: string): unknown {
-  return Object.prototype.hasOwnProperty.call(values, key) ? values[key] : undefined;
 }
 
 /**

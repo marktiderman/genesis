@@ -238,11 +238,11 @@ describe("duplicate-genesis-package", () => {
 
   it("reports a nested copy with the ranges that caused it", async () => {
     const root = makeApp(null, {
-      "package.json": pkg("app", "1.0.0", { "@marktiderman/genesis-core": "^1.7.0", "@marktiderman/genesis-studio-server": "0.2.1" }),
-      "node_modules/@marktiderman/genesis-studio-server/package.json": pkg("@marktiderman/genesis-studio-server", "0.2.1", {
+      "package.json": pkg("app", "1.0.0", { "@marktiderman/genesis-core": "^1.7.0", "@marktiderman/genesis-data-server": "0.2.1" }),
+      "node_modules/@marktiderman/genesis-data-server/package.json": pkg("@marktiderman/genesis-data-server", "0.2.1", {
         "@marktiderman/genesis-core": "^1.3.0",
       }),
-      "node_modules/@marktiderman/genesis-studio-server/node_modules/@marktiderman/genesis-core/package.json": pkg(
+      "node_modules/@marktiderman/genesis-data-server/node_modules/@marktiderman/genesis-core/package.json": pkg(
         "@marktiderman/genesis-core",
         "1.6.0",
       ),
@@ -250,8 +250,8 @@ describe("duplicate-genesis-package", () => {
     const f = (await run(root)).filter((x) => x.rule === "duplicate-genesis-package");
     expect(f.map((x) => x.subject)).toEqual(["@marktiderman/genesis-core"]);
     expect(f[0]!.level).toBe("warn");
-    expect(f[0]!.message).toContain("node_modules/@marktiderman/genesis-studio-server/node_modules/@marktiderman/genesis-core");
-    expect(f[0]!.message).toContain("@marktiderman/genesis-studio-server@0.2.1 wants ^1.3.0");
+    expect(f[0]!.message).toContain("node_modules/@marktiderman/genesis-data-server/node_modules/@marktiderman/genesis-core");
+    expect(f[0]!.message).toContain("@marktiderman/genesis-data-server@0.2.1 wants ^1.3.0");
     expect(f[0]!.message).toContain("the app wants ^1.7.0");
   });
 
@@ -308,20 +308,20 @@ describe("duplicate-genesis-package", () => {
     const store = path.join(workspace, "node_modules", ".pnpm");
     const core = storeEntry(store, "@marktiderman+genesis-core@1.7.0", "@marktiderman/genesis-core", "1.7.0");
     const oldCore = storeEntry(store, "@marktiderman+genesis-core@1.6.0", "@marktiderman/genesis-core", "1.6.0");
-    const server = storeEntry(store, "@marktiderman+genesis-studio-server@0.2.1", "@marktiderman/genesis-studio-server", "0.2.1", { "@marktiderman/genesis-core": "1.6.0" }, {
+    const server = storeEntry(store, "@marktiderman+genesis-data-server@0.2.1", "@marktiderman/genesis-data-server", "0.2.1", { "@marktiderman/genesis-core": "1.6.0" }, {
       "@marktiderman/genesis-core": oldCore,
     });
     const app = path.join(workspace, "apps", "web");
     mkdirSync(app, { recursive: true });
-    writeFileSync(path.join(app, "package.json"), pkg("web", "1.0.0", { "@marktiderman/genesis-core": "^1.7.0", "@marktiderman/genesis-studio-server": "0.2.1" }));
+    writeFileSync(path.join(app, "package.json"), pkg("web", "1.0.0", { "@marktiderman/genesis-core": "^1.7.0", "@marktiderman/genesis-data-server": "0.2.1" }));
     link(core, path.join(app, "node_modules", "@marktiderman", "genesis-core"));
-    link(server, path.join(app, "node_modules", "@marktiderman", "genesis-studio-server"));
+    link(server, path.join(app, "node_modules", "@marktiderman", "genesis-data-server"));
     const copies = genesisInstalls(app).get("@marktiderman/genesis-core")!;
     expect(copies.map((c) => `${c.version} ${c.dir}`)).toEqual([
       "1.6.0 ../../node_modules/.pnpm/@marktiderman+genesis-core@1.6.0/node_modules/@marktiderman/genesis-core",
       "1.7.0 ../../node_modules/.pnpm/@marktiderman+genesis-core@1.7.0/node_modules/@marktiderman/genesis-core",
     ]);
-    expect(copies[0]!.requiredBy).toEqual([{ by: "@marktiderman/genesis-studio-server@0.2.1", range: "1.6.0" }]);
+    expect(copies[0]!.requiredBy).toEqual([{ by: "@marktiderman/genesis-data-server@0.2.1", range: "1.6.0" }]);
     expect(copies[1]!.requiredBy).toEqual([{ by: "the app", range: "^1.7.0" }]);
   });
 });
@@ -431,11 +431,11 @@ describe("peer-range-mismatch", () => {
 
   it("resolves the peer from the package's folder: a nested copy wins over the top-level one", async () => {
     const f = await peers({
-      "node_modules/@marktiderman/genesis-studio/package.json": manifest("@marktiderman/genesis-studio", "0.2.0", {
+      "node_modules/@marktiderman/genesis-data/package.json": manifest("@marktiderman/genesis-data", "0.2.0", {
         "@marktiderman/genesis-ui": "^9.0.0",
         "@marktiderman/genesis-core": ">=2.0.0 <3",
       }),
-      "node_modules/@marktiderman/genesis-studio/node_modules/@marktiderman/genesis-core/package.json": manifest(
+      "node_modules/@marktiderman/genesis-data/node_modules/@marktiderman/genesis-core/package.json": manifest(
         "@marktiderman/genesis-core",
         "2.1.0",
       ),
@@ -623,12 +623,12 @@ describe("follow-ups from the #303 review", () => {
         "package.json": JSON.stringify({
           name: "app",
           version: "1.0.0",
-          dependencies: { "@marktiderman/genesis-cli": "1.3.0", "@marktiderman/genesis-core": "^1.7.0", "@marktiderman/genesis-studio-server": "0.2.1" },
+          dependencies: { "@marktiderman/genesis-cli": "1.3.0", "@marktiderman/genesis-core": "^1.7.0", "@marktiderman/genesis-data-server": "0.2.1" },
         }),
         "node_modules/@marktiderman/genesis-cli/package.json": pkg("@marktiderman/genesis-cli", "1.3.0", { "@marktiderman/genesis-core": "^1.0.0" }),
         "node_modules/@marktiderman/genesis-cli/node_modules/@marktiderman/genesis-core/package.json": pkg("@marktiderman/genesis-core", "1.0.0"),
-        "node_modules/@marktiderman/genesis-studio-server/package.json": pkg("@marktiderman/genesis-studio-server", "0.2.1", { "@marktiderman/genesis-core": "1.6.0" }),
-        "node_modules/@marktiderman/genesis-studio-server/node_modules/@marktiderman/genesis-core/package.json": pkg("@marktiderman/genesis-core", "1.6.0"),
+        "node_modules/@marktiderman/genesis-data-server/package.json": pkg("@marktiderman/genesis-data-server", "0.2.1", { "@marktiderman/genesis-core": "1.6.0" }),
+        "node_modules/@marktiderman/genesis-data-server/node_modules/@marktiderman/genesis-core/package.json": pkg("@marktiderman/genesis-core", "1.6.0"),
       });
       const core = genesisInstalls(root).get("@marktiderman/genesis-core")!;
       expect(core.map((c) => [c.version, c.devOnly])).toEqual([

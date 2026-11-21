@@ -311,11 +311,18 @@ export function planMigrations(
     const sameText = (m: AppMigration) => sourceSha !== null && textSha(m.tracked ? m.tracked.body : m.content) === sourceSha;
     // Everything in the folder that already holds this migration, by header, name or text.
     const copies = app.filter((m) => !m.forward && ((m.tracked && m.tracked.package === src.package && m.tracked.file === src.file) || sameName(m) || sameText(m)));
-    if (copies.length > 1) {
+    // Several files can hold it when the app wrote its own draft before the package shipped and then
+    // copied the published one. The copy whose header names this migration is the copy; the others
+    // are the app's own. Without exactly one such header, which is the copy can't be told.
+    const tracked = copies.filter((m) => m.tracked && m.tracked.package === src.package && m.tracked.file === src.file);
+    if (copies.length > 1 && tracked.length !== 1) {
       rows.push({ ...base, state: "differs", copy: copies[0]!.path, detail: `${copies.length} files hold it (${copies.map((m) => m.name).join(", ")}); left alone` });
       continue;
     }
-    const copy = copies[0];
+    const copy = copies.length > 1 ? tracked[0] : copies[0];
+    // The other files that hold it, by name or by text: the app's own, left alone.
+    const others = copies.length > 1 ? copies.filter((m) => m !== copy) : [];
+    const draftNote = others.length ? `${others.map((m) => m.name).join(", ")} also ${others.length > 1 ? "hold" : "holds"} it (${[...new Set(others.map((m) => (sameName(m) ? "its name" : "its text")))].join(" or ")}): the app's own, left alone` : "";
     if (src.source === null || sourceSha === null) {
       rows.push({ ...base, state: "unavailable", ...(copy ? { copy: copy.path } : {}), detail: `${src.package} isn't installed, or doesn't ship ${src.file}` });
       continue;
@@ -362,7 +369,8 @@ export function planMigrations(
       state = "differs";
       detail = "has the package migration's name but other text and no header; treated as the app's own";
     }
-    const row: MigrationRow = { ...base, state, copy: copy.path, ...(detail ? { detail: `${detail}${state === "current" ? "" : renamed}` } : {}) };
+    const full = [detail ? `${detail}${state === "current" ? "" : renamed}` : "", draftNote].filter(Boolean).join("; ");
+    const row: MigrationRow = { ...base, state, copy: copy.path, ...(full ? { detail: full } : {}) };
     if (state !== "current") {
       // A forward migration already written for this exact pair of texts carries it.
       const done = app.find((m) => m.forward && m.forward.package === src.package && m.forward.file === src.file && m.forward.sha256 === sourceSha && m.forward.copySha256 === copySha);

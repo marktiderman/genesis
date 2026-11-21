@@ -78,6 +78,8 @@ export interface UpdateCheckerOptions {
   reloadScreenOptions?: object;
   now?: () => number;
   onError?: UpdatesOnError;
+  /** Asked before a reload, after the guard: `false` stops it (the channel switcher's pending preview records). */
+  beforeReload?: () => Promise<boolean>;
 }
 
 export interface UpdateChecker extends Pick<Store<UpdateCheckState>, "getState" | "subscribe"> {
@@ -93,7 +95,7 @@ export interface UpdateChecker extends Pick<Store<UpdateCheckState>, "getState" 
 }
 
 export function createUpdateChecker(options: UpdateCheckerOptions): UpdateChecker {
-  const { updates, guard, reloadScreenOptions, now = Date.now, onError } = options;
+  const { updates, guard, reloadScreenOptions, now = Date.now, onError, beforeReload } = options;
   const enabled = Boolean(updates?.isEnabled);
   const store = createStore<UpdateCheckState>({
     status: enabled ? "idle" : "disabled",
@@ -174,8 +176,22 @@ export function createUpdateChecker(options: UpdateCheckerOptions): UpdateChecke
       }
       store.setState({ status: "reloading", blocked: false });
       try {
+        if (beforeReload && !(await beforeReload())) {
+          store.setState({ status: "ready", error: new Error("The app is still saving a download. Try again in a moment.") });
+          return false;
+        }
+        // The wait above can take seconds: a form may have started blocking meanwhile.
+        if (!guard.canReload()) {
+          store.setState({ status: "ready", blocked: true });
+          return false;
+        }
         // Queued crash reports and events would be lost with the runtime: flush them first.
         await runBeforeReload();
+        // The flush can take seconds too: the guard has the last word.
+        if (!guard.canReload()) {
+          store.setState({ status: "ready", blocked: true });
+          return false;
+        }
         await updates.reloadAsync(reloadScreenOptions ? { reloadScreenOptions } : undefined);
         return true;
       } catch (raw) {

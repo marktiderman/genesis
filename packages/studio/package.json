@@ -6,15 +6,12 @@
   "sideEffects": [
     "*.css"
   ],
-  "description": "Genesis Data Studio — an Airtable-style data editor for a Postgres or Supabase app's own data: a table sidebar and a sheet grid with version-checked, audited single-cell edits, as the signed-in user. Built on genesis-ui's ResourcePage; routing and sign-in come from the host app. Part of the Genesis framework.",
+  "deprecated": "Renamed to @marktiderman/genesis-data (Genesis Data Studio is now Genesis Data): change the imports and the dependency to the new name; the exports are the same. This alias re-exports genesis-data for two minor versions, then goes.",
+  "description": "Deprecated: renamed to @marktiderman/genesis-data. A thin re-export of genesis-data with the same entries and stylesheets, kept for two minor versions. Part of the Genesis framework.",
   "keywords": [
     "genesis",
     "genesis-framework",
-    "admin",
-    "database",
-    "postgres",
-    "supabase",
-    "data-grid"
+    "deprecated"
   ],
   "homepage": "https://github.com/marktiderman/genesis/tree/main/packages/studio#readme",
   "bugs": {
@@ -47,10 +44,13 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsup && cp src/styles.css dist/styles.css && tailwindcss -i src/standalone.css -o dist/standalone.css --minify && node ../../scripts/check-exports-resolve.mjs",
+    "build": "node scripts/build.mjs && node ../../scripts/check-exports-resolve.mjs",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
+  },
+  "dependencies": {
+    "@marktiderman/genesis-data": "workspace:^"
   },
   "peerDependencies": {
     "@hookform/resolvers": "^5.1.0 || ^6.0.0 || ^7.0.0",
@@ -65,26 +65,9 @@
     "zod": "^3.25.0 || ^4.0.0"
   },
   "devDependencies": {
-    "@hookform/resolvers": "^7.0.1",
-    "@marktiderman/genesis-core": "workspace:^",
-    "@marktiderman/genesis-design-system": "workspace:^",
-    "@marktiderman/genesis-ui": "workspace:^",
-    "@tailwindcss/cli": "4.3.5",
-    "@tanstack/react-query": "^5.105.0",
-    "@tanstack/react-virtual": "3.14.26",
-    "@testing-library/react": "^16.3.2",
-    "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3",
-    "happy-dom": "^21.0.4",
-    "lucide-react": "^1.0.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "react-hook-form": "^7.72.1",
-    "tailwindcss": "4.3.3",
-    "tsup": "^8.3.0",
+    "@types/node": "^22.9.0",
     "typescript": "~6.0.3",
-    "vitest": "^5.0.5",
-    "zod": "^4.6.6"
+    "vitest": "^5.0.5"
   },
   "genesis": {
     "layer": "primitive",
@@ -112,8 +95,8 @@
             ]
           },
           "use": "a view's sheet mode (<ResourceView>) for a list, or <DataStudio> for a table's own rows",
-          "import": "@marktiderman/genesis-studio",
-          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/DATA-STUDIO.md",
+          "import": "@marktiderman/genesis-data",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/DATA.md",
           "why": "Spreadsheet edits need version checks and an audit entry, as the signed-in user; a bare SheetGrid has neither."
         }
       ]

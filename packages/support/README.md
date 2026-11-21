@@ -608,6 +608,14 @@ dump to its Sentry event (`sentry({ eventId, replayId })`, shown when the dump c
 and its GitHub issue (`githubIssue(dump)`). Only `https:` links show; a dump's own text never becomes
 a link. Its reads are keyed by `supportDiagnosticsKeys`, per client and login.
 
+**The Sentry link from settings.** Without `links.sentry`, `SupportTicketDiagnostics` (and the
+inbox, through its `settings`) builds the link from the Genesis settings genesis-native declares:
+`observability.sentryOrg` and `observability.sentryDsn` (`genesis setup --step sentry` saves both).
+`sentryEventLink(settings)` is the same builder, on its own: on sentry.io it goes to
+`https://<org>.sentry.io/issues/?project=<id>&query=<event id>`, and for a self-hosted Sentry to
+`https://<dsn host>/organizations/<org>/issues/?project=<id>&query=<event id>`. Either key unset, or
+of the wrong shape, and there is no link. The app's own `links.sentry` always wins.
+
 ### Health checks
 
 `healthChecks` is a registry packages and the app register named checks into; each answers `ok`,
@@ -1213,7 +1221,7 @@ it, handlers can't reply (their status changes still work, without the prompt) u
 
 ## Fixes to tickets (migration 0016) and to help answers (migration 0017)
 
-- 0016 (with the support block, after 0004): the Data Studio's audit log and outbox move from the
+- 0016 (with the support block, after 0004): Genesis Data's audit log and outbox move from the
   old table names to `public.tickets` and `public.ticket_attachments`, wherever those tables exist,
   so a ticket's history reads on past the rename. `support_agent_unread_count(tenant)` is an
   agent's count of active tickets (not pending, not closed) with a requester's message no agent has read (`client.agentUnreadCount`),

@@ -10,7 +10,7 @@
  * screen assembled from library components, no template by design) in
  * packages/<package>/figma/code-connect.json (one allowlist per package: ui-native and ui; chat has
  * one per entry point, packages/chat/figma/{native,web}/code-connect.json, and so has
- * notifications; native and product have one each).
+ * notifications; native has one).
  * Promote a component by moving it to `required` once its Figma node exists and its template is
  * published (docs/DESIGN-LIBRARY.md).
  *
@@ -45,11 +45,10 @@
  *   - genesis-notifications: src/web/index.tsx and src/native/index.tsx declare their components
  *     in the index itself (`export function Name(`), so those declarations are read, each entry
  *     point on its own. The React Email parts (./email) are not app UI and are not read.
- *   - genesis-product: src/native/index.ts, PascalCase value exports minus hooks and constants.
  *   - genesis-forms-native and genesis-forms-web: src/index.ts, PascalCase value exports minus
  *     hooks, providers, constants, React contexts (`*Context`) and the ChoiceRow parts (Indicator,
  *     OptionImage). forms-web exports its slots and field renderers, each with a template.
- *   - genesis-studio: src/index.ts, the same rule (DataStudio and the toolbar, panels and views it is built from).
+ *   - genesis-data: src/index.ts, the same rule (DataStudio and the toolbar, panels and views it is built from).
  *   - genesis-sites: src/sections/index.ts. A section is a `defineSection` constant, not a
  *     component export, so the section's `type` string (read from the file each `*Section` is
  *     imported from) is the name: hero, rich-text… (template `hero.figma.ts`). Beside them, the
@@ -143,11 +142,6 @@ export const PACKAGES = [
     figmaDir: "packages/notifications/figma/web",
   },
   {
-    name: "product",
-    indexes: [{ file: "packages/product/src/native/index.ts", rule: "pascal" }],
-    figmaDir: "packages/product/figma",
-  },
-  {
     name: "forms-native",
     indexes: [{ file: "packages/forms-native/src/index.ts", rule: "forms" }],
     figmaDir: "packages/forms-native/figma",
@@ -163,9 +157,9 @@ export const PACKAGES = [
     figmaDir: "packages/sites/figma",
   },
   {
-    name: "studio",
-    indexes: [{ file: "packages/studio/src/index.ts", rule: "forms" }],
-    figmaDir: "packages/studio/figma",
+    name: "data",
+    indexes: [{ file: "packages/data/src/index.ts", rule: "forms" }],
+    figmaDir: "packages/data/figma",
   },
 ];
 const allowlistOf = (pkg) => `${pkg.figmaDir}/code-connect.json`;
@@ -303,7 +297,7 @@ export function appComponentsFromIndex(source) {
   return pascalComponentsFromIndex(source, isAppPlumbing);
 }
 
-/** genesis-forms-native, -forms-web and -studio: PascalCase value exports minus contexts and ChoiceRow's parts. */
+/** genesis-forms-native, -forms-web and -data: PascalCase value exports minus contexts and ChoiceRow's parts. */
 export function formsComponentsFromIndex(source) {
   return pascalComponentsFromIndex(source, (name) => /Context$/.test(name) || FORMS_SUBPARTS.has(name));
 }

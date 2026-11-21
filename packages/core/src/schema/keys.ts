@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// Record identity for single and composite keys (DATA-STUDIO.md decision 13)
+// Record identity for single and composite keys (DATA.md decision 13)
 //
 // `DataProvider` methods take one `Identifier`. A composite key travels
 // through that same slot as a canonical string, so every existing provider

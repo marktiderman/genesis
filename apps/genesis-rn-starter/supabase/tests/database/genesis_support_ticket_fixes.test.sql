@@ -1,5 +1,5 @@
 -- @feat:support-feedback
--- pgTAP test for 0016_genesis_support_ticket_fixes.sql: the Data Studio's keys follow the rename,
+-- pgTAP test for 0016_genesis_support_ticket_fixes.sql: Genesis Data's keys follow the rename,
 -- and an agent's unread count. Copy into your app's `supabase/tests/database/` and run
 -- `supabase test db`. Rolls everything back; the app's hooks are replaced inside this transaction.
 --
@@ -53,7 +53,7 @@ insert into public.tenant_features (tenant_id, feature_id, enabled, reason) valu
   (pg_temp.tenant('tb'), 'support-helpdesk', true, 'test')
 on conflict (tenant_id, feature_id) do update set enabled = true;
 
--- 1. The Data Studio's keys ---------------------------------------------------------------------
+-- 1. Genesis Data's keys ---------------------------------------------------------------------
 
 select ok(not has_function_privilege('authenticated', 'private.genesis_support_rename_studio_keys()', 'execute'), 'nobody signed in rewrites the studio''s keys');
 

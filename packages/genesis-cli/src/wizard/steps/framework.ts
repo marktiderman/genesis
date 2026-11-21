@@ -22,7 +22,7 @@ import { SettingsError } from "@marktiderman/genesis-config/settings";
 import { runTool, isAllowedTool, TOOL_AUTH_ENV, type ToolRunner } from "../../exec/run.js";
 import { SecretVault } from "../../exec/secret-vault.js";
 import { setterFor, stdinFor, storeOptions, supabaseLinked, targetsOf } from "../../exec/secret-stores.js";
-import { loadCatalogue, settingsProposalFix } from "../../mcp/settings.js";
+import { loadCatalogue, settingsProposalsFix } from "../../mcp/settings.js";
 import type { ApplyContext, ApplyOutcome, Fix, FixPlan, FixPlanDraft, PlannedCommand, VerifyResult } from "../../fix/types.js";
 
 /** The part of `fetch` a runner uses. */
@@ -107,19 +107,18 @@ function settingKey(root: string, step: SetupStepDef, setting: string): { key: s
   return def ? { key: def.key, type: def.type } : null;
 }
 
-/** The genesis.config.json write for the step's one setting field, when an installed package declares its key. */
+/** The genesis.config.json write for the step's setting fields, for the keys an installed package declares. */
 async function settingsDraft(ctx: StepContext, step: SetupStepDef): Promise<FixPlanDraft | null> {
   const found = step.fields.flatMap((f) => {
     const value = ctx.fields[f.name];
-    if (!f.setting || value === undefined) return [];
+    if (!f.setting || value === undefined || value === "") return [];
     const key = settingKey(ctx.root, step, f.setting);
-    return key ? [{ ...key, value }] : [];
+    if (!key) return [];
+    const typed = key.type === "number" ? Number(value) : key.type === "boolean" ? value === "true" : value;
+    return [{ key: key.key, value: typed }];
   });
   if (!found.length) return null;
-  if (found.length > 1) throw new StepError(`${step.id}: a step saves one setting (found ${found.map((f) => f.key).join(", ")})`);
-  const { key, type, value } = found[0]!;
-  const typed = type === "number" ? Number(value) : type === "boolean" ? value === "true" : value;
-  return settingsProposalFix(key, typed).plan({ root: ctx.root, findings: [] });
+  return settingsProposalsFix(found).plan({ root: ctx.root, findings: [] });
 }
 
 /** Run the plan's commands as the engine does: argv only, each secret on stdin, output redacted. */

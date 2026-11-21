@@ -5,6 +5,10 @@
     "supabase": { "migrations": "supabase/migrations", "base": "origin/main", "exposedSchemas": ["public", "genesis_chat"] },
     "src": ["src", "starter.config.ts", "app.config.ts"]
   },
+  "observability": {
+    "$comment": "Readable Sentry stack traces: set your Sentry organization and project slugs and app.config.ts adds the Sentry Expo plugin (source maps from builds), metro.config.js adds Debug IDs (getSentryExpoConfig) and the release lane uploads each update's source maps (release.sentry). Then add SENTRY_AUTH_TOKEN to the EAS environments and the GitHub release environment. Empty, all of it stays off. README, Observability.",
+    "sentry": { "organization": "", "project": "", "url": "https://sentry.io/" }
+  },
   "links": {
     "hosts": ["example.com"],
     "paths": ["/notifications", "/messages", "/settings"]

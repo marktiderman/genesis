@@ -64,7 +64,7 @@ In this monorepo the root `pnpm-workspace.yaml` pins `react`, `react-dom`, `@typ
 ## Turning features off
 
 Each line of `features` in `starter.config.ts` is one feature, `true` by default except
-`googleSignIn` and `productDemo`:
+`googleSignIn`:
 
 | Line | What it is | Off means |
 | --- | --- | --- |
@@ -82,9 +82,8 @@ Each line of `features` in `starter.config.ts` is one feature, `true` by default
 | `push` | The push block (`createPush`, `src/lib/push.ts`): this phone's push token on sign-in once permission is granted, off on sign-out; Settings > Notifications (`NotificationSettings`: categories, quiet hours, previews); the soft prompt, offered when the Notifications tab opens, never at launch; taps open their screen through the link map. Needs an EAS project id for a token. | No token, no prompt, no Notifications row in Settings; expo-notifications stays in the build. |
 | `support` | The support block (`createSupport`, `src/lib/support.ts`): Settings > Support > Send feedback and Help; shake the phone to capture the screen you're on and open the feedback screen with it (mark it up, hide private parts, or drop it); Help lists your reports with staff replies; the idea board with one vote each and "you asked, we shipped". Screens: `src/app/(app)/settings/support/`. | No Support rows, no shake; react-native-view-shot and expo-sensors stay in the build. |
 | `updates` | The updates block (`createUpdates`, `src/lib/updates.ts`): force upgrade and maintenance from the `app_release_policy` row, the update banner (never reloads mid sign-in or mid deletion: `useBlockReload`), what's new, and the version signature in Settings > About. | No blocking screens, banner or notes; About shows the version and build from `expo-application`. |
-| `observability` | The observability block (`src/lib/observability.ts`): every error the shell catches, route breadcrumbs and timings, the user's id and the typed events in `events`, to Sentry when `EXPO_PUBLIC_SENTRY_DSN` is set and to the console in development, scrubbed of emails, tokens and query strings on the phone. | Errors only reach `console` (LogBox in development). |
+| `observability` | The observability block (`src/lib/observability.ts`): every error the shell catches, route breadcrumbs and timings, the user's id and the typed events in `events`, to Sentry when a DSN is set (the `observability.sentryDsn` setting, or `EXPO_PUBLIC_SENTRY_DSN` in the build) and to the console in development, scrubbed of emails, tokens and query strings on the phone. | Errors only reach `console` (LogBox in development). |
 | `devtools` | The devtools overlay (`src/lib/devtools.ts`) in development and preview builds: a three-finger hold, "Open devtools" in the dev menu or Settings > About > Developer tools open a sheet with the version signature, channel switch, user id, blocks, flags and recent errors. Never in a production bundle. | No overlay and no Settings row. |
-| `productDemo` | **Off by default.** A demo of `@marktiderman/genesis-product/native` (`src/lib/product-demo.ts`): Settings > Product demo opens the idea board (a vote shows at once, with a haptic, and is queued while offline) and the Now / Next / Later roadmap, over sample data in memory. Nothing is sent anywhere. Screen: `src/app/(app)/settings/product.tsx`. | No Settings row; the route sends you back to Settings. |
 
 A config with every sign-in method off, or Google without Apple, fails at start-up. Apple's button
 only shows on iOS, so with `emailSignIn` and `googleSignIn` off `app.config.ts` builds for iOS only.
@@ -313,11 +312,18 @@ it (App Store Review Guideline 4.8): `defineStarter` refuses Google without Appl
 
 ## Observability and devtools
 
-- **Sentry.** Set `EXPO_PUBLIC_SENTRY_DSN` in `.env` (and in each EAS environment). Without it,
-  nothing is sent. `src/lib/observability.ts` starts Sentry at module scope; `src/lib/app.ts`
-  imports it first, and the root layout is exported wrapped (`wrapRoot`). Release and dist come
-  from the version signature, with the update id and channel as tags. Source map upload is
-  optional: the commented plugin line in `app.config.ts` says what to turn on.
+- **Sentry.** Sign in as a platform admin and set `observability.sentryDsn` in Settings (the
+  project's DSN, from Sentry's Project Settings → Client Keys): no build, no env var. `genesis
+  setup --step sentry` saves it to genesis.config.json instead, which reaches installed apps with
+  the next build or update. Sentry starts as soon as the settings are read, and this device
+  keeps them, so every later launch starts it at once, before anyone signs in. Turning
+  `observability.enabled` off stops it at once; a new DSN, or turning it back on, applies at the
+  next launch (the devtools overlay's Sentry check says so). `EXPO_PUBLIC_SENTRY_DSN` in `.env`
+  (and each EAS environment) still works, and wins over the setting. With neither, nothing is
+  sent. `src/lib/observability.ts` builds the sink at module scope; `src/lib/app.ts` imports it
+  first, and the root layout is exported wrapped (`wrapRoot`). Release and dist come from the
+  version signature, with the update id and channel as tags. Readable stack traces are one
+  switch away (Sentry source maps, below).
 - **Errors per tab.** Each tab's `_layout.tsx` exports `ScreenErrorBoundary` (from
   `src/lib/observability.ts`) as its Expo Router `ErrorBoundary`: a screen that throws shows "This
   screen hit a problem" with Try again, the tab bar keeps working, and the error is reported
@@ -325,12 +331,36 @@ it (App Store Review Guideline 4.8): `defineStarter` refuses Google without Appl
   unexpectedly are reported too; offline, signed-out and refused requests are not.
 - **Trace headers.** `tracePropagationTargets` lists the hosts that get Sentry's trace headers:
   this app's Supabase project only. Add your own API's origin there; every other host gets none.
-- **Source maps.** Builds upload theirs to EAS for EAS Observe (`uploadSourceMaps: true` in the
-  preview and production profiles of `eas.json`), so its stack traces are symbolicated. The
-  workflows' update jobs set `upload_sentry_sourcemaps: false`: left unset, EAS tries a Sentry
-  upload whenever `@sentry/react-native` is installed and only prints the error when it fails. When
-  you turn the Sentry plugin on (`app.config.ts`) and add `SENTRY_AUTH_TOKEN`, set it to `true` in
-  `.eas/workflows/pr-preview.yml` and `deploy-production.yml`, so a failed upload fails the job.
+- **Source maps (EAS Observe).** Builds upload theirs to EAS for EAS Observe (`uploadSourceMaps:
+  true` in the preview and production profiles of `eas.json`), so its stack traces are symbolicated.
+- **Sentry source maps: one switch.** Set your Sentry organization and project slugs in
+  `genesis.config.json`:
+
+  ```json
+  { "observability": { "sentry": { "organization": "acme", "project": "sample-app", "url": "https://sentry.io/" } } }
+  ```
+
+  With both set:
+  - `app.config.ts` adds the `@sentry/react-native/expo` plugin, so every EAS build uploads its
+    source maps (and native debug files) to Sentry;
+  - `metro.config.js` builds on `getSentryExpoConfig` (`@sentry/react-native/metro`), which writes a
+    Debug ID into each bundle and its map so Sentry matches them, with the monorepo's
+    `watchFolders` and `resolveRequest` on it and NativeWind wrapping it last;
+  - the release lane's `release.sentry` defaults to on: each update (`native-release.yml`,
+    `deploy-production.yml`) and each pull request preview (`pr-preview.yml`) uploads its source maps
+    with `sentry-expo-upload-sourcemaps`. Run `genesis add template release` to write the workflows
+    again after you set it.
+
+  Then add `SENTRY_AUTH_TOKEN` (a Sentry organization token, scope `org:ci`) to each EAS environment
+  that builds or publishes (`eas env:create --name SENTRY_AUTH_TOKEN --visibility secret
+  --environment production --environment preview`) and to the GitHub release environment
+  (`genesis setup --step sentry` sets that one). A missing token fails the build or the release
+  before it ships unreadable stack traces. Development builds set `SENTRY_DISABLE_AUTO_UPLOAD`
+  (`eas.json`), so they need no token; on a laptop, `SENTRY_DISABLE_AUTO_UPLOAD=true pnpm ios`
+  does the same for a release build. `genesis doctor` checks every piece
+  (`cli/sentry-source-maps`), and `genesis fix cli/sentry-source-maps` writes what it can. Sentry's
+  "InternalBytecode.js has no debug ID" note is Hermes's built-in code, which has no source map:
+  ignore it.
 - **Privacy manifest.** The Genesis plugin declares, in the iOS privacy manifest, what the blocks
   that are on send off the phone (`privacyBlocks` in `src/lib/define-starter.ts`): `account` (email
   address, user id, name), `observability` (crash, performance and other diagnostic data, user id, and the typed
