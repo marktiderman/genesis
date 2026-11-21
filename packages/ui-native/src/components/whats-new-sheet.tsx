@@ -1,8 +1,8 @@
 /**
  * WhatsNewSheet — release notes in a sheet, shown once and closed with "Got it".
  *
- * The one sheet behind genesis-native's updates block (`WhatsNewSheet`) and genesis-product's
- * `ProductWhatsNew`: each maps its own notes onto `NativeWhatsNewNote` and renders this.
+ * The sheet behind genesis-native's updates block (`WhatsNewSheet`), which maps its own notes onto
+ * `NativeWhatsNewNote` and renders this.
  *
  * @stability Beta
  */
