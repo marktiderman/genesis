@@ -151,7 +151,7 @@ function featureOutputFiles(root: string): string[] {
  * build and check write them (its registry, its flags, its order); `genesis features build`
  * otherwise. Returns the files it changed.
  */
-export async function buildAppFeatures(root: string, pm: "pnpm" | "bun" | "yarn" | "npm"): Promise<string[]> {
+export async function writeAppFeatures(root: string, pm: "pnpm" | "bun" | "yarn" | "npm"): Promise<string[]> {
   if (!ownFeaturesBuildScript(root)) return runFeaturesBuild({ dir: root });
   const files = featureOutputFiles(root);
   const text = (file: string) => {
