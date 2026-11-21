@@ -1,0 +1,58 @@
+packages/genesis-cli/src/blocks/release.ts
+  s_22dadcff902f4f::t_dbc7011a0d3020 230-231
+templates/ci/pr-preview-teardown.yml
+  s_22dadcff902f4f::t_ecb7148ef654ea 11-14,37,51-53,55-78
+packages/genesis-cli/test/release.test.ts
+  s_22dadcff902f4f::t_93071647853b96 993-1001
+apps/genesis-rn-starter/.eas/workflows/pr-preview.yml
+  s_22dadcff902f4f::t_69beb50f1c955d 83-90,125-126,135-138,155-156,158,160,168-169,175,177,182-183,189,207-208,217-218,220,224,242-243
+  s_22dadcff902f4f::t_ecb7148ef654ea 139-142,174,176,178
+packages/native/src/updates/preview-links.ts
+  s_22dadcff902f4f::t_bd250e65f33bd4 19,60-63
+packages/genesis-cli/src/fix/builtin.ts
+  s_22dadcff902f4f::t_dbc7011a0d3020 318,321
+packages/native/src/updates/preview.tsx
+  s_22dadcff902f4f::t_b604afb0b0b6cc 11,58-65,75-81,84-93,114,163-164,168,176,196,208-225,227
+packages/native/package.json
+  s_22dadcff902f4f::t_dbc7011a0d3020 289
+packages/genesis-cli/src/doctor/missed-value.ts
+  s_22dadcff902f4f::t_dbc7011a0d3020 57-72,83-85,89-90
+packages/genesis-cli/test/missed-value.test.ts
+  s_22dadcff902f4f::t_93071647853b96 61-74
+apps/genesis-rn-starter/__tests__/release.test.ts
+  s_22dadcff902f4f::t_d86c359f5163cd 244-255
+packages/native/src/updates/block.tsx
+  s_22dadcff902f4f::t_5dbfca652bb5c9 450-451
+packages/native/src/link-parse.ts
+  s_22dadcff902f4f::t_bd250e65f33bd4 1-58
+packages/native/src/__tests__/updates/previews.test.ts
+  s_22dadcff902f4f::t_3726af9f6aaeb3 58,112-153
+  s_22dadcff902f4f::t_3fd65558e19e95 154
+templates/release/pr-preview.yml
+  s_22dadcff902f4f::t_ecb7148ef654ea 160-163,195,197,199
+  s_22dadcff902f4f::t_69beb50f1c955d 84-91,142-143,152-159,176-177,179,181,189-190,196,198,204-205,211,229-230,241-242,244,248,266-267
+docs/NATIVE-RELEASE.md
+  s_22dadcff902f4f::t_6b4c8e1e9556a8 407-411
+packages/native/src/updates/channels.ts
+  s_22dadcff902f4f::t_5103df02e07b20 48,126-127,169,178-179,182,206-210,213-223,244-250,255-256,276-277,291-292
+packages/native/src/links.ts
+  s_22dadcff902f4f::t_bd250e65f33bd4 16,44,89-96
+packages/native/README.md
+  s_22dadcff902f4f::t_86edc4830d7b2d 333,337-343
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "14d4c14338cee24052f29dab7fc277c54a1dab1e",
+  "prompts": {},
+  "sessions": {
+    "s_22dadcff902f4f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e30c0aa7-4664-443f-9187-dce5753baa7d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
