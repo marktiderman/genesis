@@ -6,7 +6,6 @@
       "packages/chat/figma/**/*.figma.ts",
       "packages/native/figma/**/*.figma.ts",
       "packages/notifications/figma/**/*.figma.ts",
-      "packages/product/figma/**/*.figma.ts",
       "packages/forms-native/figma/**/*.figma.ts",
       "packages/forms-web/figma/**/*.figma.ts",
       "packages/sites/figma/**/*.figma.ts",
