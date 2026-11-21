@@ -169,7 +169,7 @@ jobs:
 #@end
           # The scheme from release.previews.scheme, else the app's resolved Expo config (app.config.ts included).
           if [ -z "${PREVIEW_SCHEME:-}" ]; then
-            PREVIEW_SCHEME="$(npx --no expo config --type public --json 2>/dev/null | node -e 'let s="";process.stdin.on("data",(d)=>s+=d).on("end",()=>{try{const c=JSON.parse(s);const v=Array.isArray(c.scheme)?c.scheme[0]:c.scheme;process.stdout.write(typeof v==="string"&&/^[a-z][a-z0-9+.-]{0,39}$/.test(v)?v:"")}catch{}})' || true)"
+            PREVIEW_SCHEME="$(npx --no expo config --type public --json 2>/dev/null | node -e 'let s="";process.stdin.on("data",(d)=>s+=d).on("end",()=>{try{const c=JSON.parse(s);const v=Array.isArray(c.scheme)?c.scheme[0]:c.scheme;process.stdout.write(typeof v==="string"&&/^[a-z][a-z0-9+.-]*$/.test(v)?v:"")}catch{}})' || true)"
           fi
           scheme_link="${PREVIEW_SCHEME:+$PREVIEW_SCHEME:///preview?channel=$PREVIEW_CHANNEL}"
           link="${PREVIEW_ORIGIN:+$PREVIEW_ORIGIN/preview?channel=$PREVIEW_CHANNEL}"

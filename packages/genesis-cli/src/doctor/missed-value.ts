@@ -68,13 +68,16 @@ const NAMESPACE_IMPORT = /\bimport\s+\*\s+as\s+([A-Za-z_$][\w$]*)\s+from\s*["'](
  */
 export function namesImportedFrom(code: string, packages: readonly string[], names: readonly string[] = []): Map<string, Set<string>> {
   const out = new Map<string, Set<string>>();
+  // A use written in a comment or a string (`// U.createUpdates({})`) isn't one: only code is searched.
+  let codeOnly: string | null = null;
   for (const m of code.matchAll(NAMESPACE_IMPORT)) {
     if (inStringOrComment(code, m.index ?? 0)) continue;
     const from = m[2]!;
     if (!packages.some((p) => from === p || from.startsWith(`${p}/`))) continue;
     for (const name of names) {
       const local = `${m[1]!}.${name}`;
-      if (!new RegExp(`(?<![\\w$.])${local.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&")}(?![\\w$])`).test(code)) continue;
+      codeOnly ??= blankStrings(code);
+      if (!new RegExp(`(?<![\\w$.])${local.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&")}(?![\\w$])`).test(codeOnly)) continue;
       const set = out.get(name) ?? new Set<string>();
       set.add(local);
       out.set(name, set);

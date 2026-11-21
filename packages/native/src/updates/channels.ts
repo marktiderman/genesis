@@ -92,7 +92,8 @@ export interface ChannelSwitcher {
   /**
    * Record an update something else downloaded with no preview picked (the update checker's release
    * update) as the build's own, so a later launch with a preview picked never takes it for the
-   * preview's code. Resolves `false` when it couldn't be saved.
+   * preview's code. Resolves `false` when it couldn't be read or saved; the id is then kept and
+   * saved again before every later reload, which stays refused until it is (like a preview's).
    */
   noteRelease(updateId: string): Promise<boolean>;
   /**
@@ -228,16 +229,18 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
     }
     return null;
   };
-  const read = async (key: string): Promise<string | null> => {
+  /** The stored value (`null`: none), or `undefined` when the read failed. */
+  const readOrFail = async (key: string): Promise<string | null | undefined> => {
     if (!storage) return null;
     try {
       const value = await storage.getItem(key);
       return value ? value : null;
     } catch (error) {
       report(toError(error));
-      return null;
+      return undefined;
     }
   };
+  const read = async (key: string): Promise<string | null> => (await readOrFail(key)) ?? null;
   /** Whether it was saved (no storage: nothing to save, so yes). */
   const write = async (key: string, value: string | null): Promise<boolean> => {
     if (!storage) return true;
@@ -252,19 +255,23 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
   };
   /** Preview updates whose record couldn't be saved yet (id → channel): retried before every restart. */
   const unsaved = new Map<string, string>();
+  /** Release updates whose record couldn't be saved yet: retried before every restart, like `unsaved`. */
+  const unsavedRelease = new Set<string>();
   const init = async (): Promise<ChannelState> => {
     const requested = await read(storageKey);
     let build = await read(buildKey);
     let lingering: string | null = null;
     const running = updates?.updateId ?? null;
     const record = parsePreviewRecord(await read(previewKey));
-    const release = parseIds(await read(releaseKey));
+    // A failed read isn't an empty history: nothing is written over it.
+    const releaseRaw = await readOrFail(releaseKey);
+    const release = parseIds(releaseRaw ?? null);
     if (requested && running) {
       // Launched with a preview picked. What runs is the preview's (the switcher's download, or a
       // newer one the update checker fetched) unless it is the embedded update or one already seen
       // running without a preview: expo-updates rolled back from a crashed preview, or the download
       // never finished. Only the preview's are recorded.
-      if (!updates?.isEmbeddedLaunch && !release.includes(running) && !(record[requested] ?? []).includes(running)) {
+      if (!updates?.isEmbeddedLaunch && !release.includes(running) && !unsavedRelease.has(running) && !(record[requested] ?? []).includes(running)) {
         // Not saved: kept with the others and retried before any restart.
         if (!(await write(previewKey, JSON.stringify({ channels: withPreviewUpdate(record, requested, running) })))) unsaved.set(running, requested);
       }
@@ -273,7 +280,7 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
     } else if (!requested) {
       if (Object.keys(record).length) await write(previewKey, null);
       // The build's own code: remember it, so a later launch with a preview picked can tell it apart.
-      if (running && !release.includes(running)) await write(releaseKey, JSON.stringify([...release, running].slice(-20)));
+      if (running && releaseRaw !== undefined && !release.includes(running)) await write(releaseKey, JSON.stringify([...release, running].slice(-20)));
     }
     // A launch with no override runs on the build's own channel: remember it, since under an
     // override `Updates.channel` reports the override instead.
@@ -387,10 +394,29 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
     recordQueue = next.catch(() => undefined);
     return next;
   };
+  /** Add `id` to the release record; a failed read or write keeps it in `unsavedRelease` (never a history replaced after a failed read). */
+  const recordRelease = (updateId: string): Promise<boolean> => {
+    const task = async (): Promise<boolean> => {
+      const raw = await readOrFail(releaseKey);
+      if (raw === undefined) {
+        unsavedRelease.add(updateId);
+        return false;
+      }
+      const release = parseIds(raw);
+      const saved = release.includes(updateId) || (await write(releaseKey, JSON.stringify([...release, updateId].slice(-20))));
+      if (saved) unsavedRelease.delete(updateId);
+      else unsavedRelease.add(updateId);
+      return saved;
+    };
+    const next = recordQueue.then(task, task);
+    recordQueue = next.then(() => undefined, () => undefined);
+    return next;
+  };
   /** Save what couldn't be saved before; true when nothing is left unsaved. */
   const saveUnsaved = async (): Promise<boolean> => {
     for (const [id, channel] of [...unsaved]) await recordPreviewUpdate(id, channel);
-    return unsaved.size === 0;
+    for (const id of [...unsavedRelease]) await recordRelease(id);
+    return unsaved.size === 0 && unsavedRelease.size === 0;
   };
   /** Check and fetch what the current header names. */
   const fetch = async (): Promise<ChannelCheck> => {
@@ -475,14 +501,7 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
       })();
     },
     noteRelease(updateId) {
-      const task = async (): Promise<boolean> => {
-        const release = parseIds(await read(releaseKey));
-        if (release.includes(updateId)) return true;
-        return write(releaseKey, JSON.stringify([...release, updateId].slice(-20)));
-      };
-      const next = recordQueue.then(task, task);
-      recordQueue = next.then(() => undefined, () => undefined);
-      return next;
+      return recordRelease(updateId);
     },
     restart() {
       return serial(async () => unavailable() ?? reload());
@@ -510,12 +529,13 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
       return serial(async () => {
         const was = (await load()).requested;
         await dropOverride();
-        // The deleted preview's code still runs until the next restart: keep the notice up for it.
-        // Only when it is that preview's code (its record, or a record still unsaved): a preview
-        // whose download never landed leaves the release running, with nothing to show.
+        // A preview's code still runs until the next restart: keep the notice up for the one that
+        // runs, which isn't always the deleted one (pr-A running, pr-B prepared and then deleted).
+        // Found by the running id in every preview's record and the unsaved ones; a release
+        // running (a preview whose download never landed) has nothing to show.
         const running = updates?.updateId ?? null;
-        const ran = !!running && ((parsePreviewRecord(await read(previewKey))[was ?? ""] ?? []).includes(running) || unsaved.get(running) === was);
-        if (was && ran) publish({ ...(await load()), lingering: was });
+        const runs = running ? (channelOf(parsePreviewRecord(await read(previewKey)), running) ?? unsaved.get(running) ?? null) : null;
+        if (was && runs) publish({ ...(await load()), lingering: runs });
         return true;
       });
     },
