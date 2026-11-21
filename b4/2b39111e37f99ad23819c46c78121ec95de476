@@ -1,0 +1,48 @@
+packages/genesis-cli/src/repo/spec.ts
+  s_7081dae02ae2cb::t_eb519315fe61de 13-15,18-22,140,205-208,210-246,282-285,297-298,330-331,340-344,346-348,350-352
+  s_7081dae02ae2cb::t_a8e24dc971cf3a 58-59
+  s_7081dae02ae2cb::t_e6ca130b1bf679 338-339,345,374
+packages/genesis-cli/src/repo/index.ts
+  s_7081dae02ae2cb::t_10eed8d439df27 7,20-28,89-93,97,104-112,117-121,127-147,178-179,190,219,221-223,226,228-232,234-236,238-239,241
+packages/genesis-cli/src/wizard/steps/github-protect.ts
+  s_7081dae02ae2cb::t_f6d40a571de16f 11,64,66-70
+.changeset/repo-protect-standard.md
+  s_7081dae02ae2cb::t_cfcc45cf77f263 5
+packages/genesis-cli/src/repo/github.ts
+  s_7081dae02ae2cb::t_4aa67665a7a354 38-39,103,105-112
+packages/genesis-cli/src/wizard/steps/framework.ts
+  s_7081dae02ae2cb::t_f6d40a571de16f 54-55,172
+packages/genesis-cli/README.md
+  s_7081dae02ae2cb::t_cfcc45cf77f263 1998-2000,2013-2018,2032-2033
+  s_7081dae02ae2cb::t_b165fbf0d7350f 2011,2019-2020
+  s_7081dae02ae2cb::t_d2b637b858ca20 2041
+  s_7081dae02ae2cb::t_cd3b022894101c 2012
+packages/genesis-cli/src/fix/builtin.ts
+  s_7081dae02ae2cb::t_10eed8d439df27 490-491,493-498,503
+docs/APP-CI.md
+  s_7081dae02ae2cb::t_6b33dae40246a3 333-337,347-351,355-359,363-365
+packages/genesis-cli/src/cli.ts
+  s_7081dae02ae2cb::t_d2b637b858ca20 686
+packages/genesis-cli/src/repo/checks.ts
+  s_7081dae02ae2cb::t_b7e0f6b7d4a206 15-16,203-205
+packages/genesis-cli/test/repo-protect.test.ts
+  s_7081dae02ae2cb::t_6573578beddc13 16-18,395-412,415-422,424-427,455-457
+  s_7081dae02ae2cb::t_6e2760db55d3a4 85-86,95,105,135,144-145,147-180,268-278,336,344,351
+  s_7081dae02ae2cb::t_1c6af2a3bfc9d0 343,413-414
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b42b39111e37f99ad23819c46c78121ec95de476",
+  "prompts": {},
+  "sessions": {
+    "s_7081dae02ae2cb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7a2b62bd-584c-47e8-8b1a-72015db941a7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
