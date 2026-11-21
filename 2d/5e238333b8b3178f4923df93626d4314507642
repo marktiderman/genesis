@@ -1,0 +1,45 @@
+packages/native/src/updates/preview.tsx
+  s_22dadcff902f4f::t_7dae9b91d6939c 85-87,101,175-179
+packages/genesis-cli/src/fix/builtin.ts
+  s_22dadcff902f4f::t_3d7507b211f234 314
+templates/ci/pr-preview-teardown.yml
+  s_22dadcff902f4f::t_3d7507b211f234 112-117
+packages/genesis-cli/src/doctor/index.ts
+  s_22dadcff902f4f::t_3d7507b211f234 53,437-438,441
+apps/genesis-rn-starter/.eas/workflows/pr-preview.yml
+  s_22dadcff902f4f::t_3d7507b211f234 163-164,166-167
+templates/release/pr-preview.yml
+  s_22dadcff902f4f::t_3d7507b211f234 184-185,187-188
+packages/native/src/__tests__/updates/preview-screen.test.tsx
+  s_22dadcff902f4f::t_b6d5884d7cb429 45-47,53
+  s_22dadcff902f4f::t_d13fe3c6278115 36-38
+  s_22dadcff902f4f::t_6681645307d3cc 1-35,39-44,48-52,54-86
+packages/genesis-cli/test/missed-value.test.ts
+  s_22dadcff902f4f::t_68cf2b14cc4cca 74-85,110-111
+packages/genesis-cli/src/doctor/missed-value.ts
+  s_22dadcff902f4f::t_38570a4ac011b7 28-29,79-102,105,115,130,152-156,164,229-230
+  s_22dadcff902f4f::t_39e78b2ac1a8b5 62-76
+  s_22dadcff902f4f::t_50fd3201e5291f 77-78
+apps/genesis-rn-starter/src/app/preview.tsx
+  s_22dadcff902f4f::t_c4e54c685b216c 1,4,13-14
+packages/native/src/__tests__/updates/previews.test.ts
+  s_22dadcff902f4f::t_6681645307d3cc 170-189
+packages/native/src/updates/block.tsx
+  s_22dadcff902f4f::t_7dae9b91d6939c 172-184,200
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2d5e238333b8b3178f4923df93626d4314507642",
+  "prompts": {},
+  "sessions": {
+    "s_22dadcff902f4f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e30c0aa7-4664-443f-9187-dce5753baa7d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
