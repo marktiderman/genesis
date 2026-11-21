@@ -56,12 +56,14 @@ jobs:
           cd "$dir"
           failed=0
           eas() { npx --yes eas-cli@26.0.0 "$@"; }
-          # Whether a channel or branch named $CHANNEL exists, from EAS's own list (25 a page): 0 yes, 1 no, 2 couldn't tell.
+          # Whether a channel or branch named $CHANNEL exists, from EAS's own list (25 a page): 0 yes, 1 no,
+          # 2 couldn't tell (an error, or not the list eas-cli 26 prints: an array for branches,
+          # { currentPage: [...] } for channels).
           exists() {
             local kind="$1" offset=0 page
             while :; do
               page="$(eas "$kind:list" --json --non-interactive --limit 25 --offset "$offset" 2>/dev/null)" || return 2
-              case "$(printf '%s' "$page" | node -e 'let s="";process.stdin.on("data",(d)=>s+=d).on("end",()=>{const want=process.argv[1];let j;try{j=JSON.parse(s)}catch{process.stdout.write("bad");return}const list=Array.isArray(j)?j:Object.values(j).find(Array.isArray)||[];process.stdout.write(list.some((x)=>x&&x.name===want)?"yes":list.length<25?"no":"more")})' "$CHANNEL")" in
+              case "$(printf '%s' "$page" | node -e 'let s="";process.stdin.on("data",(d)=>s+=d).on("end",()=>{const want=process.argv[1];let j;try{j=JSON.parse(s)}catch{process.stdout.write("bad");return}const list=Array.isArray(j)?j:j&&Array.isArray(j.currentPage)?j.currentPage:null;if(!list){process.stdout.write("bad");return}process.stdout.write(list.some((x)=>x&&x.name===want)?"yes":list.length<25?"no":"more")})' "$CHANNEL")" in
                 yes) return 0 ;;
                 no) return 1 ;;
                 more) offset=$((offset + 25)) ;;
