@@ -68,7 +68,8 @@ begin
     end if;
     if kind = 'string' then
       begin
-        if not ((setting_value #>> '{}') ~ (def ->> 'pattern')) then
+        -- The whole value, as genesis-config checks it: `^foo|bar$` takes foo or bar, never foo-extra.
+        if not ((setting_value #>> '{}') ~ ('^(?:' || (def ->> 'pattern') || ')$')) then
           return format('%s must match %s', setting_key, def ->> 'pattern');
         end if;
       exception when invalid_regular_expression then

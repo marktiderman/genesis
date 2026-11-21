@@ -121,7 +121,13 @@ export function sentryDsnProblem(dsn: string | null | undefined): string | null 
 export function parseSentryDsn(dsn: string | null | undefined): SentryDsnParts | null {
   const text = dsn?.trim();
   if (!text || sentryDsnProblem(text) !== null) return null;
-  const url = new URL(text);
+  let url: URL;
+  try {
+    url = new URL(text);
+  } catch {
+    // The shape fits but a URL can't hold it (a port over 65535): not a DSN.
+    return null;
+  }
   const segments = url.pathname.split("/").filter(Boolean);
   return { publicKey: url.username, host: url.host, projectId: segments[segments.length - 1]! };
 }
@@ -136,7 +142,10 @@ export interface ResolvedSentryDsn {
   source: SentryDsnSource | null;
   /** False when `observability.enabled` is off. */
   enabled: boolean;
-  /** A DSN that was given but can't be used (it isn't a DSN, or the settings refused it), or null. */
+  /**
+   * A DSN that was given but can't be used (it isn't a DSN, or a settings layer refused it), or
+   * null. A refused layer is reported even when `dsn` is set from another layer.
+   */
   problem: string | null;
 }
 
@@ -164,7 +173,8 @@ export function resolveSentryDsn(input: { build?: string | null; settings?: Obse
     return { dsn: enabled ? build : null, source: enabled ? "build" : null, enabled, problem: bad ? `EXPO_PUBLIC_SENTRY_DSN ${bad}` : null };
   }
   if (!enabled) return { dsn: null, source: null, enabled, problem: settingsProblem };
-  if (fromSettings && !settingsProblem) return { dsn: fromSettings, source: input.source ?? "settings", enabled, problem: null };
+  // The value in effect is used when it is a DSN, even while a lower layer's refused value is reported.
+  if (fromSettings && sentryDsnProblem(fromSettings) === null) return { dsn: fromSettings, source: input.source ?? "settings", enabled, problem: settingsProblem };
   return { dsn: null, source: null, enabled, problem: settingsProblem };
 }
 

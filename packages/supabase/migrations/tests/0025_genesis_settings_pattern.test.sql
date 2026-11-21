@@ -4,7 +4,7 @@
 -- every value. Rolls back.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(9);
+select plan(11);
 
 delete from public.genesis_app_manifest;
 insert into public.genesis_app_manifest (app_id, catalogue) values ('sample-app', '{
@@ -12,7 +12,8 @@ insert into public.genesis_app_manifest (app_id, catalogue) values ('sample-app'
   "acme.code": {"type": "string", "applies": "runtime", "scope": "tenant", "pattern": "^[A-Z]{3}$", "defaults": {"max": "ABC", "standard": "ABC", "min": "ABC"}},
   "acme.free": {"type": "string", "applies": "runtime", "scope": "app"},
   "acme.notString": {"type": "string", "applies": "runtime", "scope": "app", "pattern": 3},
-  "acme.broken": {"type": "string", "applies": "runtime", "scope": "app", "pattern": "^([a-z]$"}
+  "acme.broken": {"type": "string", "applies": "runtime", "scope": "app", "pattern": "^([a-z]$"},
+  "acme.either": {"type": "string", "applies": "runtime", "scope": "app", "pattern": "^foo|bar$"}
 }');
 
 select is(private.genesis_setting_problem('observability.sentryDsn', '"https://0123456789abcdef0123456789abcdef@o1.ingest.us.sentry.io/42"'), null, 'a DSN of the right shape is fine');
@@ -26,6 +27,9 @@ select is(private.genesis_scoped_setting_problem('tenant', 'acme.code', '"ABC"')
 select is(private.genesis_setting_problem('acme.free', '"anything at all"'), null, 'a string without a pattern takes anything');
 select ok(private.genesis_setting_problem('acme.notString', '"x"') like '%malformed%', 'a pattern that is not a string refuses every value');
 select ok(private.genesis_setting_problem('acme.broken', '"x"') like '%malformed%', 'a pattern Postgres cannot compile refuses every value');
+
+select is(private.genesis_setting_problem('acme.either', '"foo-extra"'), 'acme.either must match ^foo|bar$', 'the whole value must match, every alternative included');
+select is(private.genesis_setting_problem('acme.either', '"bar"'), null, '... and each alternative alone is fine');
 
 select * from finish();
 rollback;

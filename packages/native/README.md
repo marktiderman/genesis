@@ -441,8 +441,8 @@ export default observability.wrap(RootLayout); // Sentry.wrap: touch and profile
 catalogue know them): `observability.enabled` (default on), `observability.sentryDsn` (the
 project's DSN; a public client key, not a secret) and `observability.sentryOrg` (the
 organization's slug, for the support dump viewer's link). A platform admin sets them on the
-in-app Settings screen, or `genesis setup --step sentry` writes both to genesis.config.json: no
-code, no build. Every layer refuses a DSN of the wrong shape (`SENTRY_DSN_PATTERN`, in
+in-app Settings screen, with no code and no build; `genesis setup --step sentry` writes both to
+genesis.config.json instead, which installed apps read from their next build or update. Every layer refuses a DSN of the wrong shape (`SENTRY_DSN_PATTERN`, in
 genesis-config, the database and the doctor).
 
 ```ts

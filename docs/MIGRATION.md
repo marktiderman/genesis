@@ -18,10 +18,12 @@ This file is appended to (never rewritten) at every release. Newest version on t
 `pattern`, as genesis-config does: `observability.sentryDsn` takes a Sentry DSN only. Until 0025 is
 applied, a value of the wrong shape is still stored, and every client skips it.
 
-🟢 **Sentry needs no build any more.** Set `observability.sentryDsn` (and `observability.sentryOrg`,
-for the support dump viewer's link) on the in-app Settings screen as a platform admin, or run
-`genesis setup --step sentry`, which now saves both to genesis.config.json (it said before that it
-didn't save the DSN, since no package read it; genesis-native reads it now). To have the app follow
+🟢 **Sentry needs no build when it is set on the in-app Settings screen.** Set
+`observability.sentryDsn` (and `observability.sentryOrg`, for the support dump viewer's link) there
+as a platform admin: the database layer applies at run time. `genesis setup --step sentry` now saves
+both to genesis.config.json instead (it said before that it didn't save the DSN, since no package
+read it; genesis-native reads it now): that file layer reaches installed apps only with a new build
+or an update that carries it. To have the app follow
 them, pass `cache: AsyncStorage` to `sentrySink` and hand it each change of the settings
 (`sentry.applySettings(settings)`), as the starter's `src/lib/settings.ts` does; register
 `sentry.healthCheck()` with genesis-support's `healthChecks`. `EXPO_PUBLIC_SENTRY_DSN` keeps working

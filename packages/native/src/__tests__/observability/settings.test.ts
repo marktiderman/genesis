@@ -44,6 +44,8 @@ describe("error reporting's settings", () => {
     expect(parseSentryDsn(DSN)).toEqual({ publicKey: "0123456789abcdef0123456789abcdef", host: "o1.ingest.us.sentry.io", projectId: "42" });
     expect(parseSentryDsn("https://0123456789abcdef@sentry.example.test:9000/sub/7")).toEqual({ publicKey: "0123456789abcdef", host: "sentry.example.test:9000", projectId: "7" });
     expect(parseSentryDsn("nope")).toBeNull();
+    // The shape fits, but no URL has that port.
+    expect(parseSentryDsn("https://0123456789abcdef@sentry.example.test:99999/42")).toBeNull();
     expect(sentryDsnProblem("")).toBeNull();
     expect(sentryDsnProblem("nope")).toMatch(/isn't a Sentry DSN/);
   });
@@ -54,5 +56,16 @@ describe("error reporting's settings", () => {
     expect(resolveSentryDsn({ settings: { "observability.sentryDsn": DSN }, source: "cache" }).source).toBe("cache");
     expect(resolveSentryDsn({ build: DSN, settings: { "observability.enabled": false } })).toEqual({ dsn: null, source: null, enabled: false, problem: null });
     expect(resolveSentryDsn({})).toEqual({ dsn: null, source: null, enabled: true, problem: null });
+  });
+
+  it("uses the DSN in effect while still reporting a lower layer's refused one", () => {
+    const resolved = resolveSettings(settingsCatalogue([observabilitySettings]), {
+      file: { "observability.sentryDsn": { value: "https://sentry.example.test/42" } },
+      database: { "observability.sentryDsn": { value: DSN } },
+    });
+    const r = resolveSentryDsn({ settings: resolved });
+    expect(r.dsn).toBe(DSN);
+    expect(r.source).toBe("settings");
+    expect(r.problem).toMatch(/must match/);
   });
 });

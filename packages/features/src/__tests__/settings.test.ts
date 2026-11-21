@@ -625,4 +625,24 @@ describe("patterns", () => {
     expect(() => defineSettings("acme", { s: { type: "string", default: null, pattern: "^([a-z]$" } })).toThrow(/doesn't compile/);
     expect(() => defineSettings("acme", { s: { type: "string", default: "BAD", pattern: "^[a-z]+$" } })).toThrow(/default must match/);
   });
+
+  it("matches the whole value, every alternative included", async () => {
+    const { settingValueProblem } = await import("../settings");
+    const def = { type: "string" as const, pattern: "^foo|bar$" };
+    expect(settingValueProblem(def, "foo")).toBeNull();
+    expect(settingValueProblem(def, "bar")).toBeNull();
+    expect(settingValueProblem(def, "foo-extra")).toMatch(/must match/);
+    expect(settingValueProblem(def, "extra-bar")).toMatch(/must match/);
+    expect(settingValueProblem({ type: "string", pattern: "^(foo|bar)$" }, "foo")).toBeNull();
+  });
+
+  it("refuses a repetition bound the database can't compile (over 255)", async () => {
+    const { defineSettings } = await import("../settings");
+    expect(() => defineSettings("acme", { s: { type: "string", default: null, pattern: "^[a-z]{1,256}$" } })).toThrow(/more than 255/);
+    expect(() => defineSettings("acme", { s: { type: "string", default: null, pattern: "^[a-z]{300}$" } })).toThrow(/more than 255/);
+    expect(() => defineSettings("acme", { s: { type: "string", default: null, pattern: "^[a-z]{1,255}$" } })).not.toThrow();
+    expect(() => defineSettings("acme", { s: { type: "string", default: null, pattern: "^[a-z]{1,}$" } })).not.toThrow();
+    // An escaped brace is a literal, not a bound.
+    expect(() => defineSettings("acme", { s: { type: "string", default: null, pattern: "^x\\{999\\}$" } })).not.toThrow();
+  });
 });

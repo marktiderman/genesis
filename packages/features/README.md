@@ -159,7 +159,9 @@ or `ci`): never its value. `feature` and `flag` link the key to the gate. A numb
 `pattern` is the shape its value must have, a regular expression's source anchored with `^` and
 `$` (`"^[a-z0-9][a-z0-9_-]*$"`): checked in every layer, on the Settings screen and in the
 database, which reads it with Postgres's regular expressions, so write one both read the same way
-(no flags, lookbehind, named groups or backreferences).
+(no flags, lookbehind, named groups or backreferences, and no repetition bound over 255, such as
+`{1,256}`, which `defineSettings` refuses). The whole value must match: every layer checks it as
+`^(?:pattern)$`, so `^foo|bar$` takes `foo` or `bar` only.
 
 **The layers**, low to high. A later layer wins unless an earlier one locked the value
 (`{ value, locked: true }`):

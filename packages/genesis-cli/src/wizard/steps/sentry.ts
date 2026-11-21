@@ -2,8 +2,9 @@
  * `sentry`: the project and its DSN, and the auth token CI uploads source maps with
  * (SENTRY_AUTH_TOKEN: GitHub Actions through `gh secret set` on stdin; EAS by hand, since
  * `eas env:create` has no stdin path). The organization and the DSN are saved as the settings
- * `observability.sentryOrg` and `observability.sentryDsn` (genesis-native declares them), so the
- * app reports to Sentry with no build. Verified by reading the project with the token, and by
+ * `observability.sentryOrg` and `observability.sentryDsn` (genesis-native declares them) in
+ * genesis.config.json, which installed apps read from their next build or update (a platform
+ * admin's change on the Settings screen applies with none). Verified by reading the project with the token, and by
  * sending one test event to the DSN when it is given.
  */
 import { randomUUID } from "node:crypto";
@@ -22,7 +23,7 @@ export const sentryStep = defineSetupStep({
   fields: [
     { name: "org", label: "Organization slug", pattern: SLUG, placeholder: "your-org", setting: "sentryOrg" },
     { name: "project", label: "Project slug", pattern: SLUG, placeholder: "your-app" },
-    { name: "dsn", label: "DSN", pattern: DSN.source.slice(1, -1), placeholder: "https://<key>@o0.ingest.sentry.io/0", optional: true, setting: "sentryDsn", help: "Project Settings → Client Keys (DSN). Public: it ships in the app. Saved as the observability.sentryDsn setting, so the app reports to Sentry with no build, and used to send the test event." },
+    { name: "dsn", label: "DSN", pattern: DSN.source.slice(1, -1), placeholder: "https://<key>@o0.ingest.sentry.io/0", optional: true, setting: "sentryDsn", help: "Project Settings → Client Keys (DSN). Public: it ships in the app. Saved as the observability.sentryDsn setting in genesis.config.json (installed apps pick it up from their next build or update; set it on the Settings screen to apply it with none), and used to send the test event." },
   ],
   links: [
     { label: "Sentry: new project", url: "https://sentry.io/projects/new/" },

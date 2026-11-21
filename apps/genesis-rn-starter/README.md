@@ -314,8 +314,9 @@ it (App Store Review Guideline 4.8): `defineStarter` refuses Google without Appl
 ## Observability and devtools
 
 - **Sentry.** Sign in as a platform admin and set `observability.sentryDsn` in Settings (the
-  project's DSN, from Sentry's Project Settings → Client Keys), or run `genesis setup --step
-  sentry`: no build, no env var. Sentry starts as soon as the settings are read, and this device
+  project's DSN, from Sentry's Project Settings → Client Keys): no build, no env var. `genesis
+  setup --step sentry` saves it to genesis.config.json instead, which reaches installed apps with
+  the next build or update. Sentry starts as soon as the settings are read, and this device
   keeps them, so every later launch starts it at once, before anyone signs in. Turning
   `observability.enabled` off stops it at once; a new DSN, or turning it back on, applies at the
   next launch (the devtools overlay's Sentry check says so). `EXPO_PUBLIC_SENTRY_DSN` in `.env`

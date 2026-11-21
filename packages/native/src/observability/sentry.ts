@@ -82,8 +82,11 @@ export interface SentryLike {
     distribution(name: string, value: number, options?: Options): void;
     count(name: string, value?: number, options?: Options): void;
   };
-  /** Stops the client (`Sentry.close`): how `observability.enabled` false stops reporting at once. */
-  close?(): PromiseLike<unknown> | void;
+  /**
+   * Stops the client (`Sentry.close(timeout)`): how `observability.enabled` false stops reporting
+   * at once. The timeout bounds the flush of what is already queued.
+   */
+  close?(timeout?: number): PromiseLike<unknown> | void;
 }
 
 /**
@@ -225,6 +228,9 @@ export interface SentrySink extends ObservabilitySink {
   healthCheck(): SentryHealthCheck;
 }
 
+/** How long closing may flush what is queued: the observability block's `flushBeforeReloadMs` default. */
+const CLOSE_TIMEOUT_MS = 2000;
+
 const ENABLED = "observability.enabled";
 const DSN = "observability.sentryDsn";
 
@@ -286,9 +292,11 @@ export function sentrySink(sentry: SentryLike, options: SentrySinkOptions): Sent
   };
 
   const start = (dsn: string, source: SentryDsnSource) => {
-    started = { dsn, source };
     // Fast Refresh runs this module again: a second init would stack integrations on the live client.
-    if (sentry.getClient()) return;
+    if (sentry.getClient()) {
+      started = { dsn, source };
+      return;
+    }
     const extra = options.init ?? {};
     const router = options.expoRouter ?? true;
     const integrations = [
@@ -327,6 +335,8 @@ export function sentrySink(sentry: SentryLike, options: SentrySinkOptions): Sent
         return typeof extra.beforeSendSpan === "function" ? (extra.beforeSendSpan as (s: Options) => Options)(scrubbed) : scrubbed;
       },
     });
+    // Only once init returned: a client that failed to start is never reported as running.
+    started = { dsn, source };
     for (const [key, value] of Object.entries(signatureTags(signature))) sentry.setTag(key, value);
     // Signed in before the settings started Sentry: it still knows who.
     if (user) sentry.setUser({ id: user });
@@ -341,7 +351,8 @@ export function sentrySink(sentry: SentryLike, options: SentrySinkOptions): Sent
       // Off, or no DSN any more: stopping is always live.
       if (running()) {
         closed = true;
-        if (sentry.close) quietly(() => sentry.close!());
+        // Bounded as the flush before an update reloads is (the observability block's 2000 ms default).
+        if (sentry.close) quietly(() => sentry.close!(CLOSE_TIMEOUT_MS));
       }
       restartPending = false;
       if (resolved.enabled && !problem && !started && !noticed) {
@@ -353,7 +364,12 @@ export function sentrySink(sentry: SentryLike, options: SentrySinkOptions): Sent
       return;
     }
     if (!started) {
-      start(want, resolved.source ?? source);
+      try {
+        start(want, resolved.source ?? source);
+      } catch (error) {
+        // Sentry is optional: the app goes on without it, and the health check says why.
+        problem = `Sentry didn't start: ${error instanceof Error ? error.message : String(error)}`;
+      }
       restartPending = false;
       return;
     }

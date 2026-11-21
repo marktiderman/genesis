@@ -250,12 +250,16 @@ export function settingValueProblem(def: Pick<SettingDef, "type" | "min" | "max"
 
 const patterns = new Map<string, (value: string) => boolean>();
 
-/** A pattern's test, compiled once. One that doesn't compile matches nothing (defineSettings refuses it first). */
+/**
+ * A pattern's test, compiled once. It matches the whole value: the source is wrapped in
+ * `^(?:…)$`, as the database wraps it, so `^foo|bar$` can't match `foo-extra`. One that doesn't
+ * compile matches nothing (defineSettings refuses it first).
+ */
 function patternTest(source: string): (value: string) => boolean {
   let test = patterns.get(source);
   if (!test) {
     try {
-      const re = new RegExp(source);
+      const re = new RegExp(`^(?:${source})$`);
       test = (value) => re.test(value);
     } catch {
       test = () => false;
@@ -265,7 +269,10 @@ function patternTest(source: string): (value: string) => boolean {
   return test;
 }
 
-/** Why a pattern can't be used, or null: a string, anchored at both ends, that compiles. */
+/** Postgres's regular expressions refuse a repetition bound over this (`{1,256}`). */
+const MAX_REPEAT_BOUND = 255;
+
+/** Why a pattern can't be used, or null: a string, anchored at both ends, that both JavaScript and Postgres compile. */
 function settingPatternProblem(pattern: unknown): string | null {
   if (typeof pattern !== "string" || pattern.length < 2) return "pattern must be a regular expression's source";
   if (!pattern.startsWith("^") || !pattern.endsWith("$") || pattern.endsWith("\\$")) return "pattern must be anchored: start it with ^ and end it with $";
@@ -273,6 +280,13 @@ function settingPatternProblem(pattern: unknown): string | null {
     new RegExp(pattern);
   } catch (err) {
     return `pattern doesn't compile: ${(err as Error).message}`;
+  }
+  // An unescaped `{n}` or `{n,m}`: Postgres can't compile a bound over 255, and would refuse every value.
+  for (const m of pattern.matchAll(/(\\*)\{(\d+)(?:,(\d*))?\}/g)) {
+    if (m[1]!.length % 2 === 1) continue;
+    if (Number(m[2]) > MAX_REPEAT_BOUND || (m[3] !== undefined && m[3] !== "" && Number(m[3]) > MAX_REPEAT_BOUND)) {
+      return `pattern repeats more than ${MAX_REPEAT_BOUND} times in one bound (${m[0].slice(m[1]!.length)}), which the database can't compile`;
+    }
   }
   return null;
 }

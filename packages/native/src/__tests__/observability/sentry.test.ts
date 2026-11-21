@@ -296,7 +296,8 @@ describe("sentrySink from Genesis settings", () => {
     const { sentry } = withClose();
     const sink = sentrySink(sentry, { dsn: OTHER });
     sink.applySettings({ values: { "observability.enabled": false, "observability.sentryDsn": null } });
-    expect(sentry.close).toHaveBeenCalledTimes(1);
+    // Bounded, as the flush before an update reload is.
+    expect(sentry.close).toHaveBeenCalledWith(2000);
     expect(sink.status()).toMatchObject({ running: false, restartPending: false });
     sink.captureError?.(new Error("x"), { fatal: false, source: "query" });
     expect(sentry.captureException).not.toHaveBeenCalled();
@@ -381,6 +382,21 @@ describe("sentrySink from Genesis settings", () => {
     const sink = sentrySink(sentry, { dsn: OTHER, cache });
     expect(sentry.init).not.toHaveBeenCalled();
     expect(sink.status().running).toBe(false);
+  });
+
+  it("isn't running when init throws, says why, and a later settings change can still start it", () => {
+    const { sentry, options } = fakeSentry();
+    sentry.init.mockImplementationOnce(() => {
+      throw new Error("bad transport");
+    });
+    const sink = sentrySink(sentry, { dsn: null });
+    sink.applySettings({ values: { "observability.enabled": true, "observability.sentryDsn": DSN } });
+    expect(sink.status()).toMatchObject({ running: false, problem: "Sentry didn't start: bad transport" });
+    expect(sink.healthCheck().run().status).toBe("fail");
+    sink.applySettings({ values: { "observability.enabled": true, "observability.sentryDsn": DSN } });
+    expect(options()).toBeDefined();
+    expect(sentry.init).toHaveBeenCalledTimes(2);
+    expect(sink.status()).toMatchObject({ running: true, source: "settings" });
   });
 
   it("ignores a cache that throws or holds something else", () => {
