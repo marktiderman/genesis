@@ -1,0 +1,53 @@
+.changeset/eas-owns-release-trigger.md
+  s_7081dae02ae2cb::t_c0f72d125ce604 23-27
+apps/genesis-rn-starter/.eas/scripts/native-release.mjs
+  s_7081dae02ae2cb::t_f0540a912454e3 522-671,676,782-788,793,818
+apps/genesis-rn-starter/.eas/workflows/deploy-production.yml
+  s_7081dae02ae2cb::t_bf16aa4ddeb3e9 2-7,22,25,28,30,34,54,58,66-67,69,78,86-87,90-110,113,120,134,143,153-155,165-188,192,199,213,222,232-234,244-246,248-249,254,259
+apps/genesis-rn-starter/__tests__/release.test.ts
+  s_7081dae02ae2cb::t_ac779997ea9052 162-166,169-170,340-346
+docs/MIGRATION.md
+  s_7081dae02ae2cb::t_b8eec1b6ef63d9 48-51,53-57,61-70,72-73
+docs/NATIVE-RELEASE.md
+  s_7081dae02ae2cb::t_878671a6caec95 45-53
+docs/adr/0026-eas-owns-the-release-trigger.md
+  s_7081dae02ae2cb::t_880b661a74168a 143-151
+packages/genesis-cli/src/blocks/add-template.ts
+  s_7081dae02ae2cb::t_1dc165ee6d4b21 9,13,27-28,98-99,102-103
+packages/genesis-cli/src/blocks/eas-link.ts
+  s_7081dae02ae2cb::t_ce4086aade6b4d 96-124
+packages/genesis-cli/src/blocks/release.ts
+  s_7081dae02ae2cb::t_7719b4c83df1a5 28,164-182,401-402,455-457,476-483,534-543,565-569
+packages/genesis-cli/src/doctor/native.ts
+  s_7081dae02ae2cb::t_a259d39adfb1aa 11,24,60,258-262,321,332,353-367
+packages/genesis-cli/src/doctor/rules.ts
+  s_7081dae02ae2cb::t_7dd02f0baca9cb 59
+packages/genesis-cli/src/upgrade/index.ts
+  s_7081dae02ae2cb::t_e615fb4cd5c2a6 52-53,65,85-86,668-670,686-689,784-785,787-789,791,930
+packages/genesis-cli/test/doctor-packs.test.ts
+  s_7081dae02ae2cb::t_575e23135ef55f 80,297,340,372-382
+packages/genesis-cli/test/fix-engine.test.ts
+  s_7081dae02ae2cb::t_2e457e4155ac2c 231
+packages/genesis-cli/test/release.test.ts
+  s_7081dae02ae2cb::t_0afc7a2d0edf94 7,18,20,37-86,151,153,155,172,243,249-253,343,346-355,371,380-387,392,394,396-409,449,584,1556-1567,1598,1607-1618,1667-1670,1808,1813-1817,1831-1896,2057-2088,2185-2197,2199,2258-2263,2265,2279-2284,2286,2291,2293-2297,2303,2310,2312-2314,2316-2319,2323,2326-2330
+templates/eas/scripts/native-release.mjs
+  s_7081dae02ae2cb::t_fa8d6d1687b915 522-671,676,782-788,793,818
+templates/release/deploy-production.yml
+  s_7081dae02ae2cb::t_dd02a887d7abfb 2-3,5-6,9,11-12,32,37,45,50,60,71,75,79,82-84,87,89,92,94,127,139,143,152-153,155,165,180-189,191-194,196-197,201-202,204-209,211-215,217-218,222,230,233,248,257,267-275,288-290,318,345-379,382,390,393,408,417,427-435,448-450,478,504-505,511,522,544,547,553
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6ef2e75e9dff5c4ae607464902931d2a0cf2e2b0",
+  "prompts": {},
+  "sessions": {
+    "s_7081dae02ae2cb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7a2b62bd-584c-47e8-8b1a-72015db941a7",
+        "model": "unknown"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
