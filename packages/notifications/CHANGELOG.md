@@ -1,5 +1,12 @@
 # @marktiderman/genesis-notifications
 
+## 0.4.7
+
+### Patch Changes
+
+- Updated dependencies [c9541ac]
+  - @marktiderman/genesis-config@0.13.0
+
 ## 0.4.6
 
 ### Patch Changes
