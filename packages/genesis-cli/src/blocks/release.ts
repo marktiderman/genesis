@@ -18,7 +18,7 @@ import { existsSync, readdirSync, readFileSync, realpathSync, rmSync } from "nod
 import * as path from "node:path";
 import { parse as parseYaml } from "yaml";
 import { compareVersions } from "../upgrade/bump-core.mjs";
-import { readGenesisConfig, sentryProject } from "../doctor/config.js";
+import { parseGenesisConfig, readGenesisConfig, sentryProject } from "../doctor/config.js";
 import { appFolderOf, folderSubstitutions, renderOwned } from "./app-folder.js";
 import { CLI_PACKAGE } from "./discover.js";
 import { readApp, replaceApp, sha256 } from "./files.js";
@@ -172,8 +172,9 @@ export function githubLaneInPlace(root: string, appFolder: string | null): boole
 }
 
 /** The release context for an app: its `release` block with the defaults, and its folder. */
-export function releaseContext(root: string): ReleaseContext {
-  const config = readGenesisConfig(root);
+export function releaseContext(root: string, planned?: Record<string, unknown>): ReleaseContext {
+  // `planned`: the genesis.config.json a command is about to write (a dry run plans with it).
+  const config = planned ? parseGenesisConfig(planned, "genesis.config.json (planned)") : readGenesisConfig(root);
   const set = config?.release ?? {};
   const detected = detectPackageManager(root);
   // Unset, the EAS environment is the one the profile's builds read (eas.json), not its name.
@@ -198,7 +199,7 @@ export function releaseContext(root: string): ReleaseContext {
         ...(set.easEnvironment ? { easEnvironment: set.easEnvironment } : {}),
         ...(set.packageManager ? { packageManager: set.packageManager } : {}),
         ...(set.runtimeVersion && set.runtimeVersion !== "fingerprint" ? { runtimeCommand: set.runtimeVersion.command } : {}),
-        ...(set.previews || appScheme(root) ? { previews: { origin: set.previews?.origin ?? "", scheme: set.previews?.scheme ?? appScheme(root) ?? "", branches: set.previews?.branches ?? [] } } : {}),
+        ...(set.previews || appScheme(root) ? { previews: { origin: set.previews?.origin ?? "", scheme: set.previews?.scheme ?? appScheme(root) ?? "", branches: set.previews?.branches ?? [], everyPullRequest: set.previews?.everyPullRequest ?? false, easEnvironment: set.previews?.easEnvironment ?? "preview-release" } } : {}),
       },
       detected as ReleasePackageManager,
     ),
@@ -314,8 +315,8 @@ export type GithubLaneState = { state: "absent" } | { state: "removable"; text: 
  * says to write over the app's files (the old text is in git). Anything else is the app's, and
  * kept: the release then stays on GitHub until the app removes it or sets release.trigger "github".
  */
-export function githubLaneState(root: string, options: { replace?: boolean; dir?: string; substitutions?: Record<string, string>; pin?: ReleasePin | null } = {}): GithubLaneState {
-  const ctx = releaseContext(root);
+export function githubLaneState(root: string, options: { replace?: boolean; dir?: string; substitutions?: Record<string, string>; pin?: ReleasePin | null; config?: Record<string, unknown> } = {}): GithubLaneState {
+  const ctx = releaseContext(root, options.config);
   const where = ownedDir(root, NATIVE_RELEASE_PATH, ctx.appFolder);
   const mine = readApp(where, NATIVE_RELEASE_PATH);
   if (mine === null) return { state: "absent" };
@@ -376,6 +377,8 @@ export interface AdoptOptions {
   /** The CLI version recorded in the lock. */
   version?: string;
   dir?: string;
+  /** The genesis.config.json the command is about to write (its appFolder, release.trigger), to plan with in a dry run. */
+  config?: Record<string, unknown>;
   /** The EAS project's GitHub link, checked online (eas-link.ts) before an app's GitHub lane is retired; unset holds the move. */
   githubLink?: GithubLink;
 }
@@ -400,8 +403,10 @@ export interface AdoptOptions {
 export function adoptTemplates(root: string, templates: readonly string[], options: AdoptOptions = {}): AdoptResult[] {
   const dir = options.dir ?? templatesDir();
   const lock = readLock(root);
-  const ctx = releaseContext(root);
+  const ctx = releaseContext(root, options.config);
   const appFolder = ctx.appFolder;
+  // Whether the app already builds: read before this run writes an eas.json of its own.
+  const alreadyBuilds = existsSync(path.join(root, "eas.json"));
   const results: AdoptResult[] = [];
   // release.trigger "eas" (the default): deploy-production.yml takes the push trigger, and the
   // GitHub lane's native-release.yml goes, both in this run or neither. Held while anything else
@@ -412,7 +417,7 @@ export function adoptTemplates(root: string, templates: readonly string[], optio
   let easHold: string | null = null;
   let dispatcher: GithubLaneState = { state: "absent" };
   if (easLane && templates.includes(DEPLOY_PRODUCTION)) {
-    dispatcher = githubLaneState(root, { ...(options.replace ? { replace: true } : {}), dir, ...(lock.substitutions ? { substitutions: lock.substitutions } : {}), pin: options.pin ?? null });
+    dispatcher = githubLaneState(root, { ...(options.replace ? { replace: true } : {}), ...(options.config ? { config: options.config } : {}), dir, ...(lock.substitutions ? { substitutions: lock.substitutions } : {}), pin: options.pin ?? null });
     const others = [...githubReleaseWorkflows(root, appFolder), ...pushTriggeredEasWorkflows(root).filter((rel) => rel !== LANE_DISPATCH_TARGET)];
     const live = dispatcher.state !== "absent" && hasPushTrigger(readApp(ownedDir(root, NATIVE_RELEASE_PATH, appFolder), NATIVE_RELEASE_PATH) ?? "");
     // Kept with the app's edits while it still starts releases, or Genesis's but not retired by this run (the eas set alone).
@@ -501,8 +506,7 @@ export function adoptTemplates(root: string, templates: readonly string[], optio
     if (FINGERPRINT_TEMPLATES.has(template) && !lock.files[target] && !options.replace && readApp(root, target) === null) {
       // The app's own: not one Genesis wrote (this run's fingerprint.config.js beside its .fingerprintignore).
       const others = FINGERPRINT_CONFIGS.filter((f) => f !== target && !lock.files[f] && existsSync(path.join(root, f)));
-      const builds = existsSync(path.join(root, "eas.json"));
-      if (others.length || builds) {
+      if (others.length || alreadyBuilds) {
         results.push({ template, path: target, location: target, outcome: "held", detail: `not written: ${others.length ? `the app has ${others.join(", ")}, and` : "the app already builds (eas.json), and"} ${target} would change its runtime version, so installed builds stop taking updates until the next store build. Write it with --replace when a store build is due${others.length ? ` (and merge ${others.join(", ")} into it)` : ""}` });
         continue;
       }

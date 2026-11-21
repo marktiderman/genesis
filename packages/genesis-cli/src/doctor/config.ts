@@ -254,7 +254,7 @@ export interface GenesisRelease {
    * origin, whose `/preview?channel=…` is a universal link into the app (and the landing page
    * without it); `scheme`: the app's scheme, for the QR code. Default: the scheme only, from app config.
    */
-  previews?: { origin?: string; scheme?: string; branches?: string[] };
+  previews?: { origin?: string; scheme?: string; branches?: string[]; everyPullRequest?: boolean; easEnvironment?: string };
 }
 
 const RELEASE_KEYS = ["trigger", "failureEmails", "platforms", "environment", "paths", "sentry", "pushHook", "profile", "channel", "easEnvironment", "packageManager", "runtimeVersion", "previews"];
@@ -330,8 +330,16 @@ export function validateRelease(raw: unknown, source = "config"): GenesisRelease
     const p = raw.previews;
     if (!isObject(p)) fail(`previews must be { "origin": "https://…", "scheme": "myapp" }`);
     else {
-      for (const key of Object.keys(p)) if (!["origin", "scheme", "branches", "$comment"].includes(key)) fail(`previews.${key} isn't a setting (known: origin, scheme, branches)`);
-      const previews: { origin?: string; scheme?: string; branches?: string[] } = {};
+      for (const key of Object.keys(p)) if (!["origin", "scheme", "branches", "everyPullRequest", "easEnvironment", "$comment"].includes(key)) fail(`previews.${key} isn't a setting (known: origin, scheme, branches, everyPullRequest, easEnvironment)`);
+      const previews: { origin?: string; scheme?: string; branches?: string[]; everyPullRequest?: boolean; easEnvironment?: string } = {};
+      if (p.everyPullRequest !== undefined) {
+        if (typeof p.everyPullRequest !== "boolean") fail(`previews.everyPullRequest must be true or false`);
+        else previews.everyPullRequest = p.everyPullRequest;
+      }
+      if (p.easEnvironment !== undefined) {
+        if (typeof p.easEnvironment !== "string" || !RELEASE_NAME.test(p.easEnvironment)) fail(`previews.easEnvironment must be a plain EAS environment name (got ${JSON.stringify(p.easEnvironment)})`);
+        else previews.easEnvironment = p.easEnvironment;
+      }
       if (p.branches !== undefined) {
         // Base branches besides main whose pull requests get previews (globs, as EAS reads them).
         if (!Array.isArray(p.branches) || p.branches.some((b) => typeof b !== "string" || !/^[A-Za-z0-9._/*-]{1,100}$/.test(b) || b === "main")) fail(`previews.branches must list base branches besides main, such as ["staging/**"] (got ${JSON.stringify(p.branches)})`);
@@ -562,7 +570,11 @@ function readJson(file: string) {
 export function readGenesisConfig(root: string): GenesisConfigFile | null {
   const file = path.join(root, "genesis.config.json");
   if (!existsSync(file)) return null;
-  const raw: unknown = readJson(file);
+  return parseGenesisConfig(readJson(file), file);
+}
+
+/** A genesis.config.json's parsed object, validated as {@link readGenesisConfig} reads the file (a planned edit, say). */
+export function parseGenesisConfig(raw: unknown, file = "genesis.config.json"): GenesisConfigFile {
   if (!isObject(raw)) throw new GenesisConfigError(`${file}: the config must be a JSON object`);
   const out: GenesisConfigFile = { raw };
   if (raw.links !== undefined) out.links = validateLinks(raw.links, file);

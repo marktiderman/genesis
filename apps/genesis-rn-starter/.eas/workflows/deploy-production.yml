@@ -114,8 +114,10 @@ jobs:
             echo "$COMMIT_SHA isn't on main: production releases only from main. Nothing was built or published."
             exit 1
           fi
-          # By hand, only main's tip: an older commit would land below what main already shipped.
-          if [ "$EVENT" != push ] && [ "$COMMIT_SHA" != "$(git rev-parse FETCH_HEAD)" ]; then
+          # By hand, only main's tip: an older commit would land below what main already shipped. A
+          # GitHub push always names its repository; `eas workflow:run --git-branch main
+          # --git-commit-hash <sha>` reads as a push with none, so it counts as by hand too.
+          if { [ "$EVENT" != push ] || [ -z "$REPOSITORY" ]; } && [ "$COMMIT_SHA" != "$(git rev-parse FETCH_HEAD)" ]; then
             echo "$COMMIT_SHA isn't main's latest commit: a release started by hand ships main as it is (eas workflow:run deploy-production.yml --ref main). Nothing was built or published."
             exit 1
           fi
@@ -385,8 +387,9 @@ jobs:
           echo "$out"
           set-output update_group "$(echo "$out" | sed -n 's/^android_update_group=//p')"
 
-  # A failed release is a failed run on expo.dev (Workflows); EAS posts no status on the commit. So
-  # it is also said where people look: a Slack-compatible incoming webhook in the EAS environment
+  # A failed release is a failed run on expo.dev (Workflows) and a failed commit status on GitHub
+  # (EAS sets one for runs GitHub started), but nobody is emailed by default. So it is also said
+  # where people look: a Slack-compatible incoming webhook in the EAS environment
   # (RELEASE_FAILURE_WEBHOOK, a secret) when the app sets one, and an email to
   # genesis.config.json release.failureEmails when it lists any.
   release_failed:

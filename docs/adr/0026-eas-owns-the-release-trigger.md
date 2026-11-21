@@ -73,7 +73,8 @@ optional, for starting a workflow with `eas workflow:run` from an event EAS does
    warning when the files are on the other trigger than `release.trigger`. `release-lane-twice`
    now also guards EAS's lane: a GitHub workflow releasing on push beside a push-triggered
    `deploy-production.yml` is an error.
-5. **A failed release says so.** Expo Workflows posts no status on the GitHub commit, so the
+5. **A failed release says so.** Expo Workflows sets a commit status for runs GitHub started, but
+   emails nobody by default, so the
    workflow adds:
    - a `release_failed` job (`after` every job, `if: failure()`) that posts to a Slack-compatible
      webhook (`RELEASE_FAILURE_WEBHOOK`, an EAS secret) when one is set;
@@ -126,6 +127,16 @@ optional, for starting a workflow with `eas workflow:run` from an event EAS does
   - L3: `RELEASE_REPOSITORY` falls back to the checkout's `origin` on a manual run.
   - L4: `[eas skip]` is EAS's own push-skip marker (Expo's syntax and troubleshooting docs), so the
     workflow doesn't check it again.
+- Previews run a pull request's own code on EAS before review, and the EAS trigger puts release
+  secrets in the release's EAS environment. So previews:
+  - run on the `Preview` label only (every pull request is the `release.previews.everyPullRequest`
+    opt-in);
+  - read an environment of their own (`release.previews.easEnvironment`, default
+    `preview-release`) that holds the release's plain values and a preview `EXPO_TOKEN`;
+  - get a doctor warning (`preview-environment`) when they read the release's.
+
+  What's left: anyone who can push a branch can write a workflow there that names the release's
+  environment, and EAS runs it, so write access stays with trusted people.
 - `pr-preview-teardown.yml` still runs on GitHub Actions. With Actions blocked, a closed pull
   request's channel stays until it's deleted by hand; the phone heals by itself. Moving it to EAS
   is left for later.

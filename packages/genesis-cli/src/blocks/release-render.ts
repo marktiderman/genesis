@@ -8,6 +8,7 @@
  * - `#@if <cond> [<cond>…]` … `#@end`: the lines between are kept only when every condition holds
  *   (nesting allowed). A condition is `ios`, `android`, `sentry`, `pushHook`, `appFolder`,
  *   `githubTrigger` (`release.trigger` is `"github"`), `failureEmails` (`release.failureEmails` lists someone),
+ *   `previewsEveryPr` (`release.previews.everyPullRequest`),
  *   `fingerprint` (the runtime version is Expo's fingerprint), a package manager (`pnpm`, `bun`,
  *   `npm`, `yarn`), or one of these with `!` in front; `a|b` holds when either does.
  * - `#@paths`: replaced by the release's source folders (the app's folder and `paths`) as YAML list
@@ -48,7 +49,7 @@ export interface ResolvedRelease {
   /** Who EAS emails when a release run fails (an `email` job); empty for none. */
   failureEmails: string[];
   /** What a preview's links open: the web origin (universal link) and the app's scheme (QR). */
-  previews: { origin: string; scheme: string; branches: string[] };
+  previews: { origin: string; scheme: string; branches: string[]; everyPullRequest: boolean; easEnvironment: string };
 }
 
 /** What a template is rendered with: the resolved block and where the app sits in its repository. */
@@ -63,7 +64,8 @@ export const RELEASE_DEFAULTS: Readonly<Omit<ResolvedRelease, "easEnvironment" |
   trigger: "eas",
   failureEmails: [],
   runtimeCommand: null,
-  previews: { origin: "", scheme: "", branches: [] },
+  // Label-only, in an EAS environment of their own: a pull request's code runs in them before review.
+  previews: { origin: "", scheme: "", branches: [], everyPullRequest: false, easEnvironment: "preview-release" },
   platforms: ["ios", "android"],
   environment: "production",
   paths: [],
@@ -75,7 +77,7 @@ export const RELEASE_DEFAULTS: Readonly<Omit<ResolvedRelease, "easEnvironment" |
 
 /** The defaults over what the app set. The package manager is the app's (its lockfile) unless set. */
 export function resolveRelease(
-  set: Partial<Omit<ResolvedRelease, "pushHook">> & { pushHook?: { script: string; secrets: string[] } | null } = {},
+  set: Partial<Omit<ResolvedRelease, "pushHook" | "previews">> & { pushHook?: { script: string; secrets: string[] } | null; previews?: Partial<ResolvedRelease["previews"]> } = {},
   detected: ReleasePackageManager = "pnpm",
 ): ResolvedRelease {
   const profile = set.profile ?? RELEASE_DEFAULTS.profile;
@@ -92,7 +94,13 @@ export function resolveRelease(
     easEnvironment: set.easEnvironment ?? profile,
     packageManager: set.packageManager ?? detected,
     runtimeCommand: set.runtimeCommand ?? null,
-    previews: { origin: set.previews?.origin ?? "", scheme: set.previews?.scheme ?? "", branches: [...(set.previews?.branches ?? [])] },
+    previews: {
+      origin: set.previews?.origin ?? "",
+      scheme: set.previews?.scheme ?? "",
+      branches: [...(set.previews?.branches ?? [])],
+      everyPullRequest: set.previews?.everyPullRequest ?? RELEASE_DEFAULTS.previews.everyPullRequest,
+      easEnvironment: set.previews?.easEnvironment ?? RELEASE_DEFAULTS.previews.easEnvironment,
+    },
   };
 }
 
@@ -133,6 +141,7 @@ export function releaseTokens(ctx: ReleaseContext): Record<string, string> {
     GENESIS_RELEASE_RUNTIME_COMMAND: r.runtimeCommand ?? "",
     GENESIS_RELEASE_PREVIEW_ORIGIN: r.previews.origin,
     GENESIS_RELEASE_PREVIEW_SCHEME: r.previews.scheme,
+    GENESIS_RELEASE_PREVIEW_EAS_ENVIRONMENT: r.previews.easEnvironment,
     // A YAML flow list, quoted.
     GENESIS_RELEASE_FAILURE_EMAILS: JSON.stringify(r.failureEmails),
   };
@@ -156,6 +165,9 @@ function holds(cond: string, ctx: ReleaseContext): boolean {
       break;
     case "appFolder":
       value = ctx.appFolder !== null;
+      break;
+    case "previewsEveryPr":
+      value = r.previews.everyPullRequest;
       break;
     case "failureEmails":
       value = r.failureEmails.length > 0;

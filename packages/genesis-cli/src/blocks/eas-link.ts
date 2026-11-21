@@ -4,11 +4,23 @@
  * in the repository shows it. So moving an app from GitHub's release trigger to EAS's (ADR 0026)
  * checks it first, and holds the move when it can't confirm it.
  */
+import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import * as path from "node:path";
 
-export type GithubLink = { state: "linked"; repository: string } | { state: "not-linked" | "unknown"; why: string };
+export type GithubLink = { state: "linked"; repository: string } | { state: "not-linked" | "unknown" | "mismatch"; why: string };
+
+/** The `owner/name` git remote `origin` points at on GitHub, or null. */
+export function originRepository(root: string): string | null {
+  try {
+    const url = execFileSync("git", ["remote", "get-url", "origin"], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+    const m = /github\.com[:/]([^/\s]+\/[^/\s]+?)(?:\.git)?\/?$/.exec(url);
+    return m ? m[1]! : null;
+  } catch {
+    return null;
+  }
+}
 
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
@@ -46,7 +58,7 @@ function authHeaders(env: NodeJS.ProcessEnv, home: string): Record<string, strin
 const QUERY = "query GenesisGithubLink($appId: String!) { app { byId(appId: $appId) { githubRepository { metadata { githubRepoOwnerName githubRepoName } } } } }";
 
 /** Asks Expo's GraphQL API whether the app's EAS project has a GitHub repository linked. Never throws. */
-export async function checkGithubLink(root: string, options: { env?: NodeJS.ProcessEnv; home?: string; fetch?: typeof fetch } = {}): Promise<GithubLink> {
+export async function checkGithubLink(root: string, options: { env?: NodeJS.ProcessEnv; home?: string; fetch?: typeof fetch; origin?: string | null } = {}): Promise<GithubLink> {
   const projectId = easProjectId(root);
   if (!projectId) return { state: "unknown", why: "the app names no EAS project id (run eas init, then set it in starter.config.ts app.easProjectId)" };
   const headers = authHeaders(options.env ?? process.env, options.home ?? homedir());
@@ -65,7 +77,13 @@ export async function checkGithubLink(root: string, options: { env?: NodeJS.Proc
     if (!app) return { state: "unknown", why: `Expo's API returned no project ${projectId}` };
     const meta = app.githubRepository?.metadata;
     if (!app.githubRepository) return { state: "not-linked", why: `the EAS project ${projectId} has no GitHub repository linked` };
-    return { state: "linked", repository: meta?.githubRepoOwnerName && meta.githubRepoName ? `${meta.githubRepoOwnerName}/${meta.githubRepoName}` : "a GitHub repository" };
+    const linked = meta?.githubRepoOwnerName && meta.githubRepoName ? `${meta.githubRepoOwnerName}/${meta.githubRepoName}` : null;
+    // The link must be to this repository: an EAS project linked to an old fork or a template would
+    // run its push trigger there, not here.
+    const origin = options.origin !== undefined ? options.origin : originRepository(root);
+    if (!origin) return { state: "unknown", why: `the EAS project is linked to ${linked ?? "a repository"}, but this checkout's git remote origin isn't a GitHub repository to compare it with` };
+    if (!linked || linked.toLowerCase() !== origin.toLowerCase()) return { state: "mismatch", why: `the EAS project is linked to ${linked ?? "a repository it doesn't name"}, not to ${origin} (this checkout's origin): link ${origin} instead` };
+    return { state: "linked", repository: linked };
   } catch (error) {
     return { state: "unknown", why: `couldn't reach Expo's API (${error instanceof Error ? error.message : String(error)})` };
   }

@@ -29,7 +29,8 @@ stop its releases silently, and names the move.
    token for the repository with Pull requests: read. Store it as the EAS secret
    `RELEASE_GITHUB_TOKEN`, and add `"RELEASE_GITHUB_TOKEN"` to `release.pushHook.secrets`.
 4. Optional: say where a failed release goes. Set `release.failureEmails`, or put
-   `RELEASE_FAILURE_WEBHOOK` in the EAS environment. EAS posts no status on the commit.
+   `RELEASE_FAILURE_WEBHOOK` in the EAS environment. EAS sets a commit status on GitHub, but emails
+   nobody by default.
 5. Run `genesis add template release --trigger eas`, with `EXPO_TOKEN` set or after `eas login`.
 
 The command checks the link on Expo's API first. In one change it then gives `deploy-production.yml`
@@ -43,6 +44,19 @@ still needs, when:
 
 JavaScript-only updates then wait for an EAS worker instead of a GitHub runner. That is minutes on
 a paid plan's priority queue, and longer on the free plan.
+
+🔴 **PR previews run on the `Preview` label only, in their own EAS environment.** `pr-preview.yml`
+runs the pull request's own code before review, so it no longer runs on every pull request and no
+longer reads the release's EAS environment. Before the next upgrade merges:
+
+1. Create the EAS environment `preview-release` (or name one in `release.previews.easEnvironment`).
+2. Copy the release environment's plain values into it (`APP_VARIANT`, the `EXPO_PUBLIC_*` ones).
+3. Add a robot `EXPO_TOKEN` and, with Sentry, `SENTRY_AUTH_TOKEN`. Nothing else.
+4. Create the `Preview` label in GitHub.
+
+To keep previewing every pull request, set `release.previews.everyPullRequest`, only where everyone
+who can push is trusted. `genesis doctor` warns (`preview-environment`) when previews still read
+the release's environment.
 
 🟢 **New apps** (`genesis init --template native`) start on EAS's trigger and get no
 `native-release.yml`. Link the repository to the EAS project before the first merge.

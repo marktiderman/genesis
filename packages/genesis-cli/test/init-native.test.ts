@@ -1,6 +1,7 @@
 // @feat:init-native-template
 import { existsSync, mkdirSync, symlinkSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
+import { parse } from "yaml";
 import { describe, expect, it } from "vitest";
 import { appPnpmSettings, runInitNative } from "../src/blocks/init-native.js";
 import { readLock, type GenesisLock } from "../src/blocks/lock.js";
@@ -82,7 +83,8 @@ describe("genesis init --template native", () => {
     expect(lock.substitutions?.["com.example.genesisstarter"]).toBe("com.acmeco.trailnotes");
     // pr-preview's paths name the app's code folder: nothing is left to replace.
     expect(lock.substitutions?.REPLACE_WITH_APP_FOLDER).toBe("src");
-    expect(files[".eas/workflows/pr-preview.yml"]).toContain('- "src/**"');
+    // Previews are label-only by default: the path list (with the code folder) is written only with release.previews.everyPullRequest.
+    expect(parse(files[".eas/workflows/pr-preview.yml"]!).on).toEqual({ pull_request_labeled: { labels: ["Preview"] } });
     expect(Object.entries(files).filter(([f, t]) => f.startsWith(".eas/") && t.includes("REPLACE_WITH_")).map(([f]) => f)).toEqual([]);
     // Migrations stay the package's bytes, so the starter's own drift tests pass in the app.
     expect(Object.keys(files).filter((f) => f.startsWith("supabase/migrations/")).every((f) => !files[f]!.startsWith("-- genesis-migration"))).toBe(true);

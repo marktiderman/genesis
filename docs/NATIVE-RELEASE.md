@@ -224,7 +224,9 @@ on the other trigger than `release.trigger`. It also checks that only one lane r
 ## When a release fails
 
 A failed release is a failed run of `deploy-production.yml` on expo.dev, under the project's
-Workflows. Expo Workflows posts no status on the GitHub commit, so nobody sees it there. With GitHub's
+Workflows, and a failed commit status on GitHub: Expo Workflows sets one for runs GitHub started
+([syntax](https://docs.expo.dev/eas/workflows/syntax/), "Waiting and canceled runs"). But nobody is
+emailed by default. A run started with `eas workflow:run` sets no commit status. With GitHub's
 trigger it is also a failed Actions run on the commit, which GitHub emails to whoever pushed it.
 To be told:
 
@@ -366,6 +368,7 @@ Nothing in the templates names a real account. Before the first run:
    | Environment | Variables |
    | --- | --- |
    | `development`, `preview`, `production` | `APP_VARIANT` (the environment's name), `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` |
+   | `preview-release` (`release.previews.easEnvironment`) | The `production` environment's plain values (`APP_VARIANT=production` and the `EXPO_PUBLIC_*` ones), `EXPO_TOKEN` (secret, a robot token), `SENTRY_AUTH_TOKEN` with Sentry. No other secrets: a pull request's code reads it ([Previews](#previews)) |
    | `production` | `EXPO_TOKEN` (secret), for the release's `source` and update jobs and `rollout.yml`'s EAS CLI steps; `SENTRY_AUTH_TOKEN` with `release.sentry`; whatever your release hook reads on EAS |
    | `preview`, `production` | `SENTRY_AUTH_TOKEN` (secret) with `observability.sentry`: the Sentry Expo plugin uploads each build's source maps with it, and a build without it fails ([Sentry source maps](#sentry-source-maps)) |
    | `development` | `MAESTRO_TEST_EMAIL`, `MAESTRO_TEST_PASSWORD` (secret), for the `account` flows |
@@ -555,6 +558,26 @@ The next upgrade, by this CLI, names them at their new paths in the lock and goe
 Each pull request is an update on its own channel, `pr-<number>`, opened by a link in the app
 people already have. No device registration, no new build, and anyone with the link can open it.
 
+**Who decides it runs, and what it can read.** EAS runs a preview from the pull request's own head
+commit, before anyone has merged it: the pull request's `app.config.ts`, its install scripts and
+its copy of the scripts all run in the preview's jobs. So:
+
+- **Previews run when someone adds the `Preview` label.** A reviewer adds it once they've read the
+  change; add it again after new pushes. With `release.previews.everyPullRequest`, every pull
+  request into `main` (and `release.previews.branches`) that changes the app runs too. Turn that
+  on only where everyone who can push is trusted.
+- **They read an EAS environment of their own**, `release.previews.easEnvironment` (default
+  `preview-release`), never the release's. Copy the release environment's plain values there (the
+  `EXPO_PUBLIC_*` ones, `APP_VARIANT`), so the fingerprint and the bundle match the release builds.
+  Add `EXPO_TOKEN` (a robot token for this project, to publish `pr-<number>`) and, with Sentry,
+  `SENTRY_AUTH_TOKEN`. Never add the release hook's secrets, `RELEASE_GITHUB_TOKEN` or
+  `RELEASE_FAILURE_WEBHOOK`. `genesis doctor` warns (`preview-environment`) when `pr-preview.yml`
+  reads the release's environment.
+- **What's left:** anyone who can push a branch can write a workflow in it that names any EAS
+  environment, the release's included, and EAS runs it from that branch. Keep write access to
+  people you trust, use an Expo robot token scoped to this project, and keep server keys out of
+  every EAS environment.
+
 1. **The lane.** `pr-preview.yml` fingerprints the pull request as the release builds it. When a
    release build (TestFlight or store) has that fingerprint, the pull request changed no native
    code: it publishes the JavaScript to the branch `pr-<number>`, points the channel of the same
@@ -584,6 +607,8 @@ people already have. No device registration, no new build, and anyone with the l
 | Config | Default | What it does |
 | --- | --- | --- |
 | `release.previews.origin` | none | The web origin the comment links to (`https://acme.app`). Serve `/preview` there with an associated-domains (AASA and assetlinks) entry, and a page for a browser without the app. Unset, the comment links the scheme. |
+| `release.previews.everyPullRequest` | `false` | Previews every pull request that changes the app, not only labeled ones. The pull request's code runs before review: only where everyone who can push is trusted. |
+| `release.previews.easEnvironment` | `preview-release` | The EAS environment preview jobs read: the release's plain values and a preview `EXPO_TOKEN`, no release secrets. |
 | `release.previews.branches` | none | Base branches besides `main` whose pull requests get previews (globs, such as `staging/**` for staging batches). |
 | `release.previews.scheme` | `app.json` `expo.scheme` when there's no `app.config.*`; otherwise resolved from the effective Expo config when the preview publishes | The scheme the QR code opens. |
 
@@ -610,7 +635,7 @@ run on each push. The templates start narrow; widen them in the app's copy when 
 
 | Workflow | Runs by default | Why | To widen it |
 | --- | --- | --- | --- |
-| `pr-preview.yml` | Pull requests into `main` whose changes touch the app's code folder, `app.json`, `app.config.*`, `eas.json`, `package.json`, a lockfile or `release.paths`; and any pull request labeled `Preview`. One run per branch at a time. A JavaScript-only change is a fingerprint and an update (no build minutes); only a native change repacks or builds, Android only until iOS is on. | A docs-only pull request has nothing to install. An iOS preview build is an ad hoc build, which installs only on devices registered before it was built: with none, every iOS build job fails. | Add branches or paths under `on.pull_request`. Turn iOS preview builds on with `PREVIEW_IOS=true` in the `preview` EAS environment after `eas device:create`. |
+| `pr-preview.yml` | A pull request labeled `Preview`. With `release.previews.everyPullRequest`, also pull requests into `main` (and `release.previews.branches`) whose changes touch the app's code folder, `app.json`, `app.config.*`, `eas.json`, `package.json`, a lockfile or `release.paths`. One run per branch at a time. A JavaScript-only change is a fingerprint and an update (no build minutes); only a native change repacks or builds, Android only until iOS is on. | A docs-only pull request has nothing to install. An iOS preview build is an ad hoc build, which installs only on devices registered before it was built: with none, every iOS build job fails. | Add branches or paths under `on.pull_request`. Turn iOS preview builds on with `PREVIEW_IOS=true` in the `preview` EAS environment after `eas device:create`. |
 | `e2e.yml` | Only by hand. | Maestro jobs need a paid EAS plan, and each run is a simulator build or repack. | Add the `pull_request` trigger in the file's header comment. |
 | `deploy-production.yml` | Every push to `main` that changes the app (with `trigger: "github"`, only when `native-release.yml` starts it). | A store build only when native code changed; otherwise a fingerprint and an update. | Not needed. |
 | `native-release.yml` | Only with `trigger: "github"`: every push to `main` that changes the app. | GitHub minutes; EAS only when it must. | Not needed. |

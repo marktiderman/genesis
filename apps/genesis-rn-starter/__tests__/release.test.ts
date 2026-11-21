@@ -199,24 +199,10 @@ describe("EAS workflows", () => {
     }
   });
 
-  it("pr-preview runs only for app changes into main, or a Preview label", () => {
+  it("pr-preview runs only when someone labels a pull request Preview (every pull request is an opt-in)", () => {
     const { on } = workflow("pr-preview.yml");
-    expect(Object.keys(on).sort()).toEqual(["pull_request", "pull_request_labeled"]);
-    const pr = on.pull_request as { branches?: string[]; paths?: string[] };
-    expect(pr.branches).toEqual(["main"]);
-    // The app's code folder (genesis init fills it in), then the config a build reads.
-    expect(pr.paths).toEqual([
-      "REPLACE_WITH_APP_FOLDER/**",
-      "app.json",
-      "app.config.*",
-      "eas.json",
-      "package.json",
-      "pnpm-lock.yaml",
-      "yarn.lock",
-      "package-lock.json",
-      "bun.lock",
-      "bun.lockb",
-    ]);
+    // A preview runs the pull request's own code: a reviewer decides when (release.previews.everyPullRequest widens it).
+    expect(Object.keys(on)).toEqual(["pull_request_labeled"]);
     expect(on.pull_request_labeled).toEqual({ labels: ["Preview"] });
   });
 
@@ -260,8 +246,10 @@ describe("EAS workflows", () => {
   it("pr-preview publishes to the pull request's own channel", () => {
     const job = workflow("pr-preview.yml").jobs.publish_update!;
     expect(job.env?.PREVIEW_CHANNEL).toBe("pr-${{ github.event.pull_request.number }}");
-    // The release's environment, so the update matches the TestFlight or store build it loads on.
-    expect(job.environment).toBe("production");
+    // An environment of its own, never the release's: the pull request's code runs in it. It holds
+    // the release's plain values, so the update still matches the build it loads on.
+    expect(job.environment).toBe("preview-release");
+    for (const [id, j] of Object.entries(workflow("pr-preview.yml").jobs)) expect(j.environment ?? "", id).not.toBe("production");
   });
 
   it("rollout promotes only after the health check, whose limits no input can change", () => {

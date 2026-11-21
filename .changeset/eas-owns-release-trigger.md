@@ -16,6 +16,11 @@ until they choose to move (docs/MIGRATION.md).
   takes the push and an unedited `native-release.yml` is removed. It first checks the EAS
   project's GitHub link on Expo's API, and, with a release hook, that `RELEASE_GITHUB_TOKEN` (an
   EAS secret) is in `pushHook.secrets`. Until both hold, nothing moves and it says what's left.
+- PR previews run when someone adds the `Preview` label (every pull request is the new
+  `release.previews.everyPullRequest` opt-in), in an EAS environment of their own
+  (`release.previews.easEnvironment`, default `preview-release`) rather than the release's: a
+  preview runs the pull request's code before review. New doctor rule `preview-environment`.
+  Create that environment (the release's plain values, a robot EXPO_TOKEN) before upgrading.
 - A failed release says so: a `release_failed` job posts to `RELEASE_FAILURE_WEBHOOK` (an EAS
   secret) when set, and new `release.failureEmails` adds an Expo email job.
 - A run started by hand releases only committed code at main's tip. Updates carry the commit

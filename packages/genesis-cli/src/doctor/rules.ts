@@ -55,6 +55,7 @@ export const BUILTIN_RULES = [
   "release-lane-twice",
   "release-lane-live",
   "release-trigger-github",
+  "preview-environment",
   // supabase pack
   "migration-grants",
   "migration-rls",

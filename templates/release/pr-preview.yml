@@ -20,18 +20,20 @@
 #    release.previews.origin when set), a QR code for the app's scheme, and what was
 #    published. pr-preview-teardown.yml deletes the channel and branch when the pull request closes.
 #
-# When it runs (each run is up to two EAS builds or repacks, so the default is narrow):
-# - A pull request into main that changes the app: its code folder or the config a build reads. A
-#   docs-only pull request, or one into another branch, starts nothing.
-#   The first path is the app's code folder. `genesis init --template native` fills in `src` (the
-#   starter keeps its code there); in a copy made by hand, replace the placeholder: `src`, or
-#   `apps/<name>` in a monorepo. An app with code in other top-level folders (`app/`,
-#   `components/`) lists each. Until it's replaced only the config files start a run, and
-#   `genesis doctor` warns about it (rule eas-placeholder).
-# - Any pull request labeled `Preview` (create the label in GitHub), whatever it changes. A pull
-#   request that also matches the paths can start two runs (one per trigger); `concurrency` keeps
-#   one per branch, cancelling the older, and does the same when a new push supersedes a run.
-# To widen it, add branches or paths; to run on every pull request, delete `branches` and `paths`.
+# When it runs: when someone adds the label `Preview` to a pull request (create the label in
+# GitHub). EAS runs the pull request's own code, from its head commit, before anyone has merged
+# it, so a person decides when: a reviewer adds the label once they've read the change. Add it
+# again after new pushes to preview them. With genesis.config.json
+# release.previews.everyPullRequest, every pull request into main (and release.previews.branches)
+# that changes the app runs too; only for a repository where everyone who can push is trusted.
+#
+# Its jobs read the EAS environment GENESIS_RELEASE_PREVIEW_EAS_ENVIRONMENT
+# (release.previews.easEnvironment), never the release's. Put there the release environment's
+# plain values, so the fingerprint and the bundle match the release builds, plus EXPO_TOKEN (to
+# publish pr-<number>; a robot token for this project only) and, with Sentry, SENTRY_AUTH_TOKEN.
+# Never the release hook's secrets, RELEASE_GITHUB_TOKEN or RELEASE_FAILURE_WEBHOOK.
+# What's left: anyone who can push a branch can write a workflow in it that names any EAS
+# environment, and EAS runs it from that branch. Keep write access to people you trust.
 #
 # The preview build fallback (step 3) is Android from the start; iOS is off until you turn it on.
 # An iOS preview build is an internal (ad hoc) build, which installs only on devices registered
@@ -39,12 +41,9 @@
 # PREVIEW_IOS=true to the preview EAS environment. The update in step 2 needs neither: it loads on
 # the TestFlight or store build people already have.
 #
-# Nothing here can reach production: no submit or rollout job, and the update goes only to the
-# branch and channel pr-<number>, never the release channel. The update is the pull request's
-# JavaScript built with the release's EAS environment (it must match the build it loads on), so
-# that environment's variables are read by a pull request's code: keep anything a pull request
-# mustn't read (server keys, signing secrets) out of it, on the server where the app can't see it
-# anyway. EAS doesn't run pull_request workflows for pull requests from forks.
+# Nothing here publishes to production: no submit or rollout job, and the update goes only to the
+# branch and channel pr-<number>, never the release channel. EAS doesn't run pull_request
+# workflows for pull requests from forks.
 #
 # Genesis template (templates/release/pr-preview.yml), rendered with genesis.config.json
 # `release` (its platforms, and `paths` after the app's own); see docs/NATIVE-RELEASE.md in the
@@ -52,6 +51,7 @@
 name: PR preview
 
 on:
+#@if previewsEveryPr
   pull_request:
     types: [opened, reopened, synchronize]
     branches:
@@ -71,6 +71,7 @@ on:
       - "bun.lockb"
       # genesis.config.json release.paths: folders outside the app its bundle reads.
       #@extra-paths
+#@end
   pull_request_labeled:
     labels: [Preview]
 
@@ -84,7 +85,7 @@ jobs:
   fingerprint:
     name: Fingerprint (as the release builds it)
     type: fingerprint
-    environment: "GENESIS_RELEASE_EAS_ENVIRONMENT"
+    environment: "GENESIS_RELEASE_PREVIEW_EAS_ENVIRONMENT"
 
   fingerprint_preview:
     name: Fingerprint (as the preview builds it)
@@ -99,7 +100,7 @@ jobs:
     name: Find a release iOS build with this fingerprint
     needs: [fingerprint]
     type: get-build
-    environment: "GENESIS_RELEASE_EAS_ENVIRONMENT"
+    environment: "GENESIS_RELEASE_PREVIEW_EAS_ENVIRONMENT"
     params:
       platform: ios
       profile: GENESIS_RELEASE_PROFILE
@@ -111,7 +112,7 @@ jobs:
     name: Find a release Android build with this fingerprint
     needs: [fingerprint]
     type: get-build
-    environment: "GENESIS_RELEASE_EAS_ENVIRONMENT"
+    environment: "GENESIS_RELEASE_PREVIEW_EAS_ENVIRONMENT"
     params:
       platform: android
       profile: GENESIS_RELEASE_PROFILE
@@ -129,7 +130,7 @@ jobs:
 #@if android !ios
     needs: [fingerprint, get_release_android_build]
 #@end
-    environment: "GENESIS_RELEASE_EAS_ENVIRONMENT"
+    environment: "GENESIS_RELEASE_PREVIEW_EAS_ENVIRONMENT"
     env:
       PREVIEW_CHANNEL: pr-${{ github.event.pull_request.number }}
       PREVIEW_ORIGIN: "GENESIS_RELEASE_PREVIEW_ORIGIN"

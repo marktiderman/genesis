@@ -20,6 +20,7 @@ import { localImports, readSource } from "./source.js";
 import { insideOverlayOf, markedOverlays } from "./overlays.js";
 import type { DoctorContext } from "./types.js";
 import { appFolderOf } from "../blocks/app-folder.js";
+import { parse as parseYaml } from "yaml";
 import { competingReleaseWorkflows, hasPushTrigger, hasReleaseJob, LANE_DISPATCH_TARGET, NATIVE_RELEASE_PATH, releaseContext, repositoryRoot, RELEASE_COMMAND, stepRuns } from "../blocks/release.js";
 
 const SCRIPT_EXTS = new Set([".ts", ".tsx", ".js", ".jsx", ".mts", ".cts", ".mjs", ".cjs"]);
@@ -55,6 +56,7 @@ export function checkNativePack(ctx: DoctorContext): void {
   checkFingerprintConfig(ctx);
   checkReleaseLaneTwice(ctx);
   checkReleaseLaneLive(ctx);
+  checkPreviewEnvironment(ctx);
 }
 
 const APP_CONFIGS = ["app.json", "app.config.json", "app.config.ts", "app.config.js", "app.config.mjs", "app.config.cjs"];
@@ -341,6 +343,40 @@ export function checkReleaseLaneLive(ctx: DoctorContext): void {
       message: `genesis.config.json release.trigger is "github", but ${LANE_DISPATCH_TARGET} starts each release on EAS itself. Run genesis add template release to write the GitHub lane, or set release.trigger to "eas" (or remove it)`,
     });
   }
+}
+
+/**
+ * `preview-environment` (a warning): a job in `.eas/workflows/pr-preview.yml` reads the release's
+ * EAS environment. A preview runs the pull request's own code before review, so whatever that
+ * environment holds (EXPO_TOKEN with the release's rights, Sentry's token, the release hook's
+ * secrets) is the pull request's to read. Previews read an environment of their own
+ * (release.previews.easEnvironment, default preview-release).
+ */
+export function checkPreviewEnvironment(ctx: DoctorContext): void {
+  const file = ".eas/workflows/pr-preview.yml";
+  const at = path.join(ctx.root, file);
+  if (!existsSync(at)) return;
+  let release;
+  try {
+    release = releaseContext(ctx.root).release;
+  } catch {
+    return; // An invalid genesis.config.json is the config's own error.
+  }
+  let jobs: Record<string, { environment?: unknown }> = {};
+  try {
+    jobs = ((parseYaml(readFileSync(at, "utf8")) as { jobs?: typeof jobs } | null)?.jobs ?? {}) as typeof jobs;
+  } catch {
+    return; // Not YAML EAS would run either.
+  }
+  const reading = Object.entries(jobs).filter(([, job]) => job && typeof job === "object" && job.environment === release.easEnvironment).map(([id]) => id);
+  if (!reading.length) return;
+  ctx.report({
+    rule: "preview-environment",
+    level: "warn",
+    file,
+    subject: release.easEnvironment,
+    message: `${reading.join(", ")} read${reading.length === 1 ? "s" : ""} the release's EAS environment "${release.easEnvironment}". A preview runs the pull request's own code before review, so it could read the release's secrets (EXPO_TOKEN, SENTRY_AUTH_TOKEN, the release hook's). Run genesis add template previews (or release) to move them to "${release.previews.easEnvironment}", an environment with only the release's plain values and a preview EXPO_TOKEN (docs/NATIVE-RELEASE.md, "Previews")`,
+  });
 }
 
 /**

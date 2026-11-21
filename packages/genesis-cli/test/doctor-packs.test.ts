@@ -77,7 +77,7 @@ describe("packs config", () => {
   });
 
   it("pack rule ids are built-in, so rules and allow work and patterns can't take them", async () => {
-    for (const id of ["native-raw-primitive", "native-literal-color", "native-custom-header", "native-screen-layout", "store-readiness", "eas-placeholder", "fingerprint-plugin-files", "release-lane-twice", "release-lane-live", "release-trigger-github"]) {
+    for (const id of ["native-raw-primitive", "native-literal-color", "native-custom-header", "native-screen-layout", "store-readiness", "eas-placeholder", "fingerprint-plugin-files", "release-lane-twice", "release-lane-live", "release-trigger-github", "preview-environment"]) {
       expect(BUILTIN_RULES).toContain(id);
     }
     for (const id of ["migration-grants", "migration-rls", "migration-definer-search-path", "migration-edited", "migration-testing-kit", "migration-view-rls"]) expect(BUILTIN_RULES).toContain(id);
@@ -355,6 +355,17 @@ describe("native pack", () => {
     expect(levels(back.findings, "release-lane-live")).toEqual(["warn"]);
     // No release workflow at all: nothing to say.
     expect(brief((await nativeApp({})).findings, "release-lane-live")).toEqual([]);
+  });
+
+  it("preview-environment: pr-preview.yml reading the release's EAS environment (warn)", async () => {
+    const preview = (env: string) => ({ ".eas/workflows/pr-preview.yml": `on:\n  pull_request_labeled:\n    labels: [Preview]\njobs:\n  publish_update:\n    environment: ${env}\n    steps:\n      - run: echo\n` });
+    const bad = await nativeApp(preview("production"));
+    expect(brief(bad.findings, "preview-environment")).toEqual(["preview-environment .eas/workflows/pr-preview.yml:0 production"]);
+    expect(levels(bad.findings, "preview-environment")).toEqual(["warn"]);
+    expect(bad.findings.find((f) => f.rule === "preview-environment")!.message).toContain('"preview-release"');
+    expect(brief((await nativeApp(preview("preview-release"))).findings, "preview-environment")).toEqual([]);
+    // The release's environment is the one release.easEnvironment names.
+    expect(brief((await nativeApp({ ...preview("store"), "genesis.config.json": JSON.stringify({ release: { easEnvironment: "store" } }) })).findings, "preview-environment")).toHaveLength(1);
   });
 
   it("store-readiness: a ready app.json passes", async () => {
