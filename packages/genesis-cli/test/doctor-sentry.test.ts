@@ -13,7 +13,7 @@ import { releaseContext } from "../src/blocks/release.js";
 import { GenesisConfigError, readGenesisConfig, validateObservability } from "../src/doctor/config.js";
 import plugin, { sentryState, SENTRY_RULE } from "../src/doctor/sentry.js";
 import type { DoctorContext, FindingInput } from "../src/doctor/types.js";
-import { sentryCliAllowed, sentrySourceMapsFix, withSentryMetro, withSentryPlugin } from "../src/fix/sentry.js";
+import { projectFromAppConfig, sentryCliAllowed, sentrySourceMapsFix, withSentryMetro, withSentryPlugin } from "../src/fix/sentry.js";
 import { makeApp, read } from "./blocks-helpers.js";
 
 const REPO = path.resolve(__dirname, "..", "..", "..");
@@ -104,8 +104,26 @@ describe("cli/sentry-source-maps", () => {
     expect(check(root).map((f) => [f.subject, f.file])).toEqual([["vite", "vite.config.ts"]]);
     writeFileSync(path.join(root, "vite.config.ts"), `import { wrapVinxiConfigWithSentry } from "@sentry/tanstackstart-react";\n${vite.replace("tanstackStart()]", "tanstackStart(), sentryTanstackStart({ org: 'acme', project: 'sample-app', sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN } })]")}`);
     expect(check(root)).toEqual([]);
-    writeFileSync(path.join(root, "vite.config.ts"), `import { sentryVitePlugin } from "@sentry/vite-plugin";\n${vite}`);
+    writeFileSync(path.join(root, "vite.config.ts"), `import { sentryVitePlugin } from "@sentry/vite-plugin";\n${vite.replace("tanstackStart()]", "tanstackStart(), sentryVitePlugin({ org: 'acme', project: 'sample-app', sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN } })]")}`);
     expect(check(root)).toEqual([]);
+    // Imported and never called: nothing uploads.
+    writeFileSync(path.join(root, "vite.config.ts"), `import { sentryVitePlugin } from "@sentry/vite-plugin";\n${vite}`);
+    expect(check(root).map((f) => [f.subject, f.file])).toEqual([["vite", "vite.config.ts"]]);
+  });
+
+  it("checks each publishing job for its own upload: one job's upload doesn't cover another's", () => {
+    const root = nativeApp({
+      "metro.config.js": DEFAULT_METRO.replace('const { getDefaultConfig } = require("expo/metro-config");', 'const { getSentryExpoConfig } = require("@sentry/react-native/metro");').replace("getDefaultConfig(", "getSentryExpoConfig("),
+      "app.config.ts": APP_CONFIG.replace('    // ["@sentry', '    ["@sentry'),
+      ".github/workflows/ota.yml": OTA.replace("      # npx --no", "      - run: npx --no"),
+      ".eas/workflows/deploy.yml": "jobs:\n  ios:\n    type: update\n    params:\n      platform: ios\n      upload_sentry_sourcemaps: true\n  android:\n    type: update\n    params:\n      platform: android\n      upload_sentry_sourcemaps: false\n",
+    });
+    expect(check(root).map((f) => [f.subject, f.file])).toEqual([["update-uploads", ".eas/workflows/deploy.yml"]]);
+    writeFileSync(path.join(root, ".eas/workflows/deploy.yml"), "jobs:\n  ios:\n    type: update\n    params:\n      upload_sentry_sourcemaps: true\n  android:\n    type: update\n    params:\n      upload_sentry_sourcemaps: true\n");
+    expect(check(root)).toEqual([]);
+    // A GitHub job that publishes, beside one that only uploads: the publishing job lacks it.
+    writeFileSync(path.join(root, ".github/workflows/ota.yml"), "jobs:\n  publish:\n    steps:\n      - run: npx eas-cli@26.0.0 update --channel production\n  maps:\n    steps:\n      - run: npx --no sentry-expo-upload-sourcemaps dist\n");
+    expect(check(root).map((f) => f.file)).toEqual([".github/workflows/ota.yml"]);
   });
 });
 
@@ -120,6 +138,19 @@ describe("genesis fix sentry-source-maps", () => {
     expect(withSentryMetro('const { getDefaultConfig, mergeConfig } = require("expo/metro-config");\nmodule.exports = getDefaultConfig(__dirname);\n')).toContain('mergeConfig } = require("expo/metro-config");\nconst { getSentryExpoConfig } = require("@sentry/react-native/metro");');
     expect(withSentryMetro('const { getDefaultConfig } = require("expo/metro-config");\nmodule.exports = getDefaultConfig(__dirname, { isCSSEnabled: true });\n')).toBeNull();
     expect(withSentryMetro(STARTER_METRO)).toBeNull();
+  });
+
+  it("puts Sentry's binding before the first call in a one-line config, or leaves it to you", () => {
+    const oneLine = 'const { getDefaultConfig, mergeConfig } = require("expo/metro-config"); module.exports = getDefaultConfig(__dirname);\n';
+    const next = withSentryMetro(oneLine)!;
+    expect(next.indexOf('const { getSentryExpoConfig } = require("@sentry/react-native/metro");')).toBeLessThan(next.indexOf("getSentryExpoConfig(__dirname)"));
+    // It loads: the binding is initialized before the call.
+    const exported: { module: { exports?: unknown } } = { module: {} };
+    const fakeRequire = (id: string) => (id === "expo/metro-config" ? { getDefaultConfig: () => "expo", mergeConfig: () => null } : { getSentryExpoConfig: (root: string) => `sentry:${root}` });
+    new Function("require", "module", "__dirname", next)(fakeRequire, exported.module, "/app");
+    expect(exported.module.exports).toBe("sentry:/app");
+    // No `;` ending the import before the call: nowhere safe to put it.
+    expect(withSentryMetro('const { getDefaultConfig, mergeConfig } = require("expo/metro-config"), config = getDefaultConfig(__dirname);\nmodule.exports = config;\n')).toBeNull();
   });
 
   it("adds the Expo plugin to app.config's one plugins list, or to app.json", () => {
@@ -185,6 +216,14 @@ describe("genesis fix sentry-source-maps", () => {
     writeFileSync(path.join(root, "genesis.config.json"), config.content);
     // release.sentry follows it: the release lane uploads update source maps.
     expect(releaseContext(root).release.sentry).toBe(true);
+  });
+
+  it("adopts only the Sentry plugin's own options, never a neighbouring plugin's", () => {
+    const other = (sentry: string) => `export default { plugins: [\n  ${sentry},\n  ["other-plugin", { organization: "other-org", project: "other-project" }],\n] };\n`;
+    expect(projectFromAppConfig(makeApp({ "app.config.ts": other('"@sentry/react-native/expo"') }))).toBeNull();
+    expect(projectFromAppConfig(makeApp({ "app.config.ts": other('["@sentry/react-native/expo", sentryOptions]') }))).toBeNull();
+    expect(projectFromAppConfig(makeApp({ "app.config.ts": other('["@sentry/react-native/expo", { url: "https://sentry.io/" }]') }))).toBeNull();
+    expect(projectFromAppConfig(makeApp({ "app.config.ts": other('["@sentry/react-native/expo", { organization: "acme", project: "sample-app", note: "a } in a string" }]') }))).toEqual(PROJECT);
   });
 });
 

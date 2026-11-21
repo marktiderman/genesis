@@ -992,6 +992,23 @@ describe("appScheme", () => {
     expect(appScheme(makeApp({ "app.json": JSON.stringify({ expo: { scheme: "acme" } }) }))).toBe("acme");
     expect(appScheme(makeApp({ "app.json": JSON.stringify({ expo: { scheme: "acme" } }), "app.config.ts": "export default ({ config }) => ({ ...config, scheme: 'acme-release' });\n" }))).toBeNull();
   });
+
+  it("takes a scheme of any length Expo allows, and only Expo's characters, here, in previews.scheme and in pr-preview's parser", () => {
+    const long = "com.example.mobile.application.preview.client";
+    expect(long.length).toBeGreaterThan(40);
+    expect(appScheme(makeApp({ "app.json": JSON.stringify({ expo: { scheme: long } }) }))).toBe(long);
+    expect(appScheme(makeApp({ "app.json": JSON.stringify({ expo: { scheme: "acme;rm -rf" } }) }))).toBeNull();
+    expect(validateRelease({ previews: { scheme: long } }).previews).toEqual({ scheme: long });
+    expect(() => validateRelease({ previews: { scheme: "Acme" } })).toThrow(GenesisConfigError);
+    // The workflow's own parser of `expo config` (template and starter alike).
+    for (const file of [path.join(TEMPLATES, "release", "pr-preview.yml"), path.join(REPO, "apps", "genesis-rn-starter", ".eas", "workflows", "pr-preview.yml")]) {
+      const script = /node -e '([^']+)'/.exec(readFileSync(file, "utf8").split("\n").find((l) => l.includes("PREVIEW_SCHEME=\"$("))!)![1]!;
+      const parse = (scheme: unknown) => execFileSync("node", ["-e", script], { input: JSON.stringify({ scheme }), encoding: "utf8" });
+      expect(parse(long), file).toBe(long);
+      expect(parse([long, "other"]), file).toBe(long);
+      expect(parse("acme\"; touch x"), file).toBe("");
+    }
+  });
 });
 
 describe("genesis add template", () => {
