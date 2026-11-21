@@ -225,7 +225,11 @@ export function createUpdates(options: UpdatesOptions): UpdatesBlock {
       const started = pickedAtStart;
       pickedAtStart = null;
       const id = state.status === "ready" ? state.updateId : null;
-      void (started && id ? started.then((channel) => (channel ? switcher.noteDownloaded(id, channel) : true)) : Promise.resolve(true))
+      // Started with no preview picked: the build's own release update, recorded as one, so a later
+      // launch with a preview picked never counts it as the preview's.
+      void (started && id
+        ? started.then((channel) => (channel ? switcher.noteDownloaded(id, channel) : switcher.noteRelease(id)))
+        : Promise.resolve(true))
         .catch(() => false)
         .then((saved) => done?.(saved));
     }

@@ -10,6 +10,7 @@
  */
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Pressable, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { NativeButton, NativeEmptyState, NativeText } from "@marktiderman/genesis-ui-native/components";
 import { useUpdates } from "./block";
 import { isChannelName, type ChannelCheck, type ChannelState, type ChannelSwitcher } from "./channels";
@@ -197,7 +198,8 @@ export interface PreviewNoticeProps {
 /** A small bar over every screen while a preview is open: which one, and Leave. */
 export function PreviewNotice({ channel, leave, leaving, problem }: PreviewNoticeProps) {
   return (
-    <View pointerEvents="box-none" style={{ position: "absolute", top: 0, left: 0, right: 0, alignItems: "center", paddingTop: 54 }}>
+    // Below the status bar and notch on every phone (the safe area's top), not a fixed offset.
+    <SafeAreaView edges={["top"]} pointerEvents="box-none" style={{ position: "absolute", top: 0, left: 0, right: 0, alignItems: "center", paddingTop: 8 }}>
       <Pressable
         testID="genesis-preview-notice"
         onPress={leave}
@@ -231,7 +233,7 @@ export function PreviewNotice({ channel, leave, leaving, problem }: PreviewNotic
           {problem}
         </NativeText>
       ) : null}
-    </View>
+    </SafeAreaView>
   );
 }
 

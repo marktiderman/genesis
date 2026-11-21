@@ -2884,9 +2884,10 @@ export const features = defineFeatures({
       "With no build DSN, setting observability.sentryDsn starts Sentry live once the settings are read, and every later launch starts it at once from the device's cached settings; EXPO_PUBLIC_SENTRY_DSN wins over the setting.",
       "observability.enabled off closes Sentry live; a new DSN, or turning it back on, waits for the next launch and the Sentry health check warns until then; a DSN of the wrong shape is refused by every layer (genesis-config, the database, the doctor) and the health check fails.",
       "Without links.sentry, the staff dump viewer links a dump to its Sentry event from observability.sentryOrg and observability.sentryDsn, on sentry.io or a self-hosted Sentry.",
+      "With genesis.config.json observability.sentry set, stack traces are readable from builds (the Sentry Expo plugin), Metro's Debug IDs (getSentryExpoConfig) and every published update (release.sentry), and genesis doctor flags each missing piece in any app on Sentry, web or native (cli/sentry-source-maps).",
     ],
     reviewedAt: "2026-11-21",
-    links: { code: ["packages/native/src/observability", "apps/genesis-rn-starter/src/lib/observability.ts"], docs: ["packages/native/README.md"] },
+    links: { code: ["packages/native/src/observability", "apps/genesis-rn-starter/src/lib/observability.ts", "packages/genesis-cli/src/doctor/sentry.ts"], docs: ["packages/native/README.md", "docs/NATIVE-RELEASE.md"] },
   },
   "devtools-overlay": {
     name: "Devtools overlay",

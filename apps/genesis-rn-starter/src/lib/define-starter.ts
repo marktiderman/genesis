@@ -147,6 +147,25 @@ export function defineStarter<const C extends StarterConfig>(config: C): C {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/** genesis.config.json `observability.sentry`: the Sentry project the app's errors go to. */
+export interface StarterSentry {
+  organization: string;
+  project: string;
+  url?: string;
+}
+
+/**
+ * The Sentry project when genesis.config.json `observability.sentry` names one (organization and
+ * project both set), else null. One switch: app.config.ts adds the `@sentry/react-native/expo`
+ * plugin with it (builds upload their source maps), metro.config.js reads the same block for Debug
+ * IDs, and the release lane's `release.sentry` defaults to it (updates upload theirs).
+ */
+export function sentryProject(observability: { sentry?: Partial<StarterSentry> } | undefined): StarterSentry | null {
+  const s = observability?.sentry;
+  if (!s?.organization || !s.project) return null;
+  return { organization: s.organization, project: s.project, url: s.url || "https://sentry.io/" };
+}
+
 /**
  * The EAS part of the Expo config: the update URL and the project id. Before `eas init` there is
  * no project, so expo-updates is turned off in the build rather than left without a URL. Kept here

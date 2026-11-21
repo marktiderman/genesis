@@ -23,10 +23,10 @@ allowBuilds:
   # never uses; prebuilt binaries cover the platforms we run on.
   "@parcel/watcher": false
   # From @sentry/react-native (the starter). Its install script downloads the
-  # sentry-cli binary, which only uploads source maps. Source map upload is
-  # optional and off in the starter; an app that turns the Sentry Expo plugin
-  # on sets this to true so EAS builds can upload.
-  "@sentry/cli": false
+  # sentry-cli binary, which uploads source maps: EAS builds, Metro's Debug IDs
+  # and the release lane's update uploads all run it once genesis.config.json
+  # `observability.sentry` names a project, so it is installed from the start.
+  "@sentry/cli": true
   esbuild: true
   style-dictionary: true
   unrs-resolver: true

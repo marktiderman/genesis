@@ -1,5 +1,6 @@
 // Metro in the Genesis monorepo. An app made from the starter outside the
-// monorepo can replace this file with `withNativeWind(getDefaultConfig(__dirname), { input: "./global.css" })`.
+// monorepo can replace this file with `withNativeWind(getSentryExpoConfig(__dirname), { input: "./global.css" })`
+// (or getDefaultConfig from expo/metro-config, without Sentry).
 const { getDefaultConfig } = require("expo/metro-config");
 const { withNativeWind } = require("nativewind/metro");
 const path = require("path");
@@ -7,8 +8,15 @@ const path = require("path");
 const projectRoot = __dirname;
 const monorepoRoot = path.resolve(projectRoot, "../..");
 
+// Readable Sentry stack traces: with genesis.config.json `observability.sentry` set (organization
+// and project), Sentry's config writes a Debug ID into every bundle and its source map, so Sentry
+// matches an error to its map. It wraps Expo's default config, so everything below (the monorepo's
+// watchFolders and resolveRequest) builds on it, and NativeWind wraps it last.
+const sentry = require("./genesis.config.json").observability?.sentry;
+const withSentry = Boolean(sentry?.organization && sentry?.project);
+
 /** @type {import('expo/metro-config').MetroConfig} */
-const config = getDefaultConfig(projectRoot);
+const config = withSentry ? require("@sentry/react-native/metro").getSentryExpoConfig(projectRoot) : getDefaultConfig(projectRoot);
 
 // The workspace packages the app imports, so edits to them reload the app.
 config.watchFolders = [

@@ -4,7 +4,7 @@ import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import starter from "../starter.config";
-import { defineStarter, easConfig, nativePlatforms, privacyBlocks, type StarterConfig } from "../src/lib/define-starter";
+import { defineStarter, easConfig, nativePlatforms, privacyBlocks, sentryProject, type StarterConfig } from "../src/lib/define-starter";
 import { copy, format } from "../src/copy";
 import { linkHosts } from "../src/lib/link-hosts";
 import { findInlineCopy } from "./inline-copy";
@@ -133,7 +133,8 @@ describe("fingerprint", () => {
     const ignored = read(".fingerprintignore").split("\n").filter((l) => l && !l.startsWith("#"));
     expect(ignored).toEqual(["starter.config.ts", "src/lib/define-starter.ts"]);
     const imports = [...read("app.config.ts").matchAll(/^import .*from "(.+)";$/gm)].map((m) => m[1]);
-    expect(imports).toEqual(["expo/config", "./starter.config", "./src/lib/define-starter"]);
+    // node:fs reads genesis.config.json (observability.sentry) rather than importing it.
+    expect(imports).toEqual(["expo/config", "./starter.config", "./src/lib/define-starter", "node:fs"]);
   });
 
   // Hashed by package.json, a config plugin's package changes the runtime version on every
@@ -524,6 +525,26 @@ describe("chat", () => {
     expect(read("app.config.ts")).not.toContain("features.chat");
     const pkg = JSON.parse(read("package.json")) as { dependencies: Record<string, string> };
     expect(Object.keys(pkg.dependencies)).toEqual(expect.arrayContaining(["expo-audio", "expo-image-picker", "expo-clipboard", "@marktiderman/genesis-chat"]));
+  });
+});
+
+describe("Sentry source maps: one switch, genesis.config.json observability.sentry", () => {
+  it("is on only with an organization and a project", () => {
+    expect(sentryProject(undefined)).toBeNull();
+    expect(sentryProject({ sentry: { organization: "", project: "" } })).toBeNull();
+    expect(sentryProject({ sentry: { organization: "acme", project: "" } })).toBeNull();
+    expect(sentryProject({ sentry: { organization: "acme", project: "sample-app" } })).toEqual({ organization: "acme", project: "sample-app", url: "https://sentry.io/" });
+  });
+
+  it("ships off, and app.config.ts and metro.config.js both read it", () => {
+    const config = JSON.parse(read("genesis.config.json")) as { observability?: { sentry?: { organization: string; project: string } } };
+    expect(sentryProject(config.observability)).toBeNull();
+    expect(read("app.config.ts")).toMatch(/\.\.\.\(sentry \? \[\["@sentry\/react-native\/expo", sentry\]/);
+    expect(read("metro.config.js")).toMatch(/require\("\.\/genesis\.config\.json"\)\.observability\?\.sentry/);
+    // Development builds (and the e2e profile on them) skip the upload, so a laptop needs no token.
+    const eas = JSON.parse(read("eas.json")) as { build: Record<string, { env?: Record<string, string> }> };
+    expect(eas.build.development!.env?.SENTRY_DISABLE_AUTO_UPLOAD).toBe("true");
+    expect(eas.build.production!.env?.SENTRY_DISABLE_AUTO_UPLOAD).toBeUndefined();
   });
 });
 

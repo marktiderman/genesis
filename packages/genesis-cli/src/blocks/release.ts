@@ -18,7 +18,7 @@ import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import * as path from "node:path";
 import { parse as parseYaml } from "yaml";
 import { compareVersions } from "../upgrade/bump-core.mjs";
-import { readGenesisConfig } from "../doctor/config.js";
+import { readGenesisConfig, sentryProject } from "../doctor/config.js";
 import { appFolderOf, folderSubstitutions, renderOwned } from "./app-folder.js";
 import { CLI_PACKAGE } from "./discover.js";
 import { readApp, replaceApp, sha256 } from "./files.js";
@@ -138,7 +138,8 @@ export function appScheme(root: string): string | null {
   try {
     const json = JSON.parse(readFileSync(path.join(root, "app.json"), "utf8")) as { expo?: { scheme?: unknown } };
     const scheme = Array.isArray(json.expo?.scheme) ? json.expo?.scheme[0] : json.expo?.scheme;
-    return typeof scheme === "string" ? scheme : null;
+    // The same rule as release.previews.scheme: it's rendered into the workflow, so nothing else gets through.
+    return typeof scheme === "string" && /^[a-z][a-z0-9+.-]{0,39}$/.test(scheme) ? scheme : null;
   } catch {
     return null;
   }
@@ -159,7 +160,8 @@ export function releaseContext(root: string): ReleaseContext {
         ...(set.platforms ? { platforms: set.platforms } : {}),
         ...(set.environment ? { environment: set.environment } : {}),
         ...(set.paths ? { paths: set.paths } : {}),
-        ...(set.sentry !== undefined ? { sentry: set.sentry } : {}),
+        // Unset, Sentry follows the observability block: a configured Sentry project uploads source maps.
+        ...(set.sentry !== undefined ? { sentry: set.sentry } : sentryProject(config) ? { sentry: true } : {}),
         ...(set.pushHook ? { pushHook: set.pushHook } : {}),
         ...(set.profile ? { profile: set.profile } : {}),
         ...(set.channel ? { channel: set.channel } : {}),

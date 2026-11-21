@@ -59,9 +59,27 @@ export function appPlatforms(root: string): Set<AppPlatform> {
 /** `import { a, b as c } from "pkg"` and `export { a } from "pkg"`: each named import with the module it comes from. */
 const NAMED_IMPORT = /\b(?:import|export)\s+(?:type\s+)?\{([^}]*)\}\s*from\s*["']([^"']+)["']/g;
 
-/** The names `code` imports from `packages` (or their subpaths), each with the local names it's bound to (`a as b`). */
-export function namesImportedFrom(code: string, packages: readonly string[]): Map<string, Set<string>> {
+/** `import * as ns from "pkg"`: a namespace, each of whose names is called as `ns.name`. */
+const NAMESPACE_IMPORT = /\bimport\s+\*\s+as\s+([A-Za-z_$][\w$]*)\s+from\s*["']([^"']+)["']/g;
+
+/**
+ * The names `code` imports from `packages` (or their subpaths), each with the local names it's bound
+ * to (`a as b`). Of `names`, one a namespace import reaches is bound to `ns.name` when the code uses it.
+ */
+export function namesImportedFrom(code: string, packages: readonly string[], names: readonly string[] = []): Map<string, Set<string>> {
   const out = new Map<string, Set<string>>();
+  for (const m of code.matchAll(NAMESPACE_IMPORT)) {
+    if (inStringOrComment(code, m.index ?? 0)) continue;
+    const from = m[2]!;
+    if (!packages.some((p) => from === p || from.startsWith(`${p}/`))) continue;
+    for (const name of names) {
+      const local = `${m[1]!}.${name}`;
+      if (!new RegExp(`(?<![\\w$.])${local.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&")}(?![\\w$])`).test(code)) continue;
+      const set = out.get(name) ?? new Set<string>();
+      set.add(local);
+      out.set(name, set);
+    }
+  }
   for (const m of code.matchAll(NAMED_IMPORT)) {
     // An import written inside a string or a comment (an example in docs) isn't one.
     if (inStringOrComment(code, m.index ?? 0)) continue;
@@ -292,10 +310,10 @@ export function classify(
   const off: { file: string; line: number; message: string }[] = [];
   const names = block.detect?.imports ?? [];
   // A detector name counts only when it is imported from one of the block's own packages.
-  const adopting = names.length ? ctx.files.filter((f) => { const got = namesImportedFrom(f.code, block.packages); return names.some((n) => got.has(n)); }) : [];
+  const adopting = names.length ? ctx.files.filter((f) => { const got = namesImportedFrom(f.code, block.packages, names); return names.some((n) => got.has(n)); }) : [];
   /** The local names a file calls the block's detectors by (`createUpdates as makeUpdates` included). */
   const locals = (code: string) => {
-    const got = namesImportedFrom(code, block.packages);
+    const got = namesImportedFrom(code, block.packages, names);
     return names.flatMap((n) => [...(got.get(n) ?? [])]);
   };
   const used = locked.has(block.id) || adopting.length > 0;
