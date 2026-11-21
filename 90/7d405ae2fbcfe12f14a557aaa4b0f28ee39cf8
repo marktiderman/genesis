@@ -1,0 +1,94 @@
+packages/genesis-cli/src/doctor/settings.ts
+  s_22dadcff902f4f::t_85ff86a667362f 72
+packages/genesis-cli/package.json
+  s_22dadcff902f4f::t_d0edde178f32d6 156-158
+packages/genesis-cli/README.md
+  s_22dadcff902f4f::t_2e90511e37328c 959
+  s_22dadcff902f4f::t_842e2548616810 1110
+apps/genesis-rn-starter/src/lib/define-starter.ts
+  s_22dadcff902f4f::t_663a8372990d82 156-174
+apps/genesis-rn-starter/app.config.ts
+  s_22dadcff902f4f::t_df6c996c2cca41 8,10-11
+  s_22dadcff902f4f::t_9c62e521e2c7ca 9,12-14
+  s_22dadcff902f4f::t_55dba0d7302634 61-65
+apps/genesis-rn-starter/metro.config.js
+  s_22dadcff902f4f::t_2b007d0e8f2919 2-3,11-17,19
+templates/release/pr-preview.yml
+  s_22dadcff902f4f::t_6be5bd488249bf 197-202
+  s_22dadcff902f4f::t_e74976e1ca6093 212-219
+  s_22dadcff902f4f::t_9855f8d6aa4417 12-14
+packages/genesis-cli/src/blocks/release.ts
+  s_22dadcff902f4f::t_419c055f0b22aa 162-163
+  s_22dadcff902f4f::t_6d06b378fde37c 21
+apps/genesis-rn-starter/README.md
+  s_22dadcff902f4f::t_a432ccab18f9ef 328-354,356-357
+  s_22dadcff902f4f::t_39e9826d0cebc9 355
+  s_22dadcff902f4f::t_dbdf7da511f53e 319-320
+packages/native/README.md
+  s_22dadcff902f4f::t_8b02a01895445e 510-516
+packages/genesis-cli/tsup.config.ts
+  s_22dadcff902f4f::t_d421149713ab2c 41-43
+packages/genesis-cli/src/doctor/sentry.ts
+  s_22dadcff902f4f::t_5318a4327db63d 1-182
+.changeset/sentry-source-maps.md
+  s_22dadcff902f4f::t_ec9c164cbd5705 1-10
+packages/genesis-cli/src/blocks/init-native.ts
+  s_22dadcff902f4f::t_fd39ad93dedfae 113-115,125-128
+  s_22dadcff902f4f::t_7d82901e5a01b3 119-124
+apps/genesis-rn-starter/.eas/workflows/pr-preview.yml
+  s_22dadcff902f4f::t_bfe2f7743c8b2c 12-14
+templates/eas/eas.json
+  s_22dadcff902f4f::t_b95a11acb1c073 11
+features.ts
+  s_22dadcff902f4f::t_63956a40351b01 2908
+  s_22dadcff902f4f::t_1a843661bd8a28 2905
+packages/genesis-cli/src/doctor/config.ts
+  s_22dadcff902f4f::t_50b29efbbe604d 329-374
+  s_22dadcff902f4f::t_0977fd82a34a39 553
+  s_22dadcff902f4f::t_b74397d84e6a40 146-147
+docs/NATIVE-RELEASE.md
+  s_22dadcff902f4f::t_4f20c8cc8adc96 202-227
+  s_22dadcff902f4f::t_ac09f7c5317c57 166
+  s_22dadcff902f4f::t_f63e4f7c396a05 255
+  s_7081dae02ae2cb::t_69335a2acadbcf 228
+apps/genesis-rn-starter/eas.json
+  s_22dadcff902f4f::t_b95a11acb1c073 11
+apps/genesis-rn-starter/genesis.config.json
+  s_22dadcff902f4f::t_239f4cf17685b5 8-11
+pnpm-workspace.yaml
+  s_22dadcff902f4f::t_82ae2194d87954 26-29
+packages/genesis-cli/src/fix/sentry.ts
+  s_22dadcff902f4f::t_b4f562b85feca7 1-156,158-231
+  s_22dadcff902f4f::t_39e9826d0cebc9 157
+packages/genesis-cli/test/doctor-sentry.test.ts
+  s_22dadcff902f4f::t_834d4ffcc88afe 2-189
+  s_22dadcff902f4f::t_8408073b425e31 1
+apps/genesis-rn-starter/__tests__/starter.test.ts
+  s_22dadcff902f4f::t_188120acf0ab0b 542-561
+  s_22dadcff902f4f::t_339f3097f63f17 7
+  s_22dadcff902f4f::t_7310f11d3fc5e3 136-137
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "907d405ae2fbcfe12f14a557aaa4b0f28ee39cf8",
+  "prompts": {},
+  "sessions": {
+    "s_22dadcff902f4f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e30c0aa7-4664-443f-9187-dce5753baa7d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_7081dae02ae2cb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7a2b62bd-584c-47e8-8b1a-72015db941a7",
+        "model": "unknown"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
