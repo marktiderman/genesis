@@ -1,0 +1,25 @@
+packages/native/src/__tests__/updates/previews.test.ts
+  s_22dadcff902f4f::t_2cff2f6cac6af6 4,299-318
+  s_22dadcff902f4f::t_e451fac6c686a4 8,261-298,319-337
+  s_22dadcff902f4f::t_9e4a43815d3c69 338
+packages/native/src/updates/channels.ts
+  s_22dadcff902f4f::t_643c530ade5727 247-248,262-263,356-357
+packages/native/src/updates/checker.ts
+  s_22dadcff902f4f::t_643c530ade5727 190-194
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "80517369716b5256644d41543442807bf38f9957",
+  "prompts": {},
+  "sessions": {
+    "s_22dadcff902f4f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e30c0aa7-4664-443f-9187-dce5753baa7d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
