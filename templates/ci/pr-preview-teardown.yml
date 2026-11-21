@@ -95,15 +95,22 @@ jobs:
                 ;;
             esac
           }
-          # A pull request reopened while this ran gets a new preview from pr-preview.yml: stop and keep it.
-          reopened() {
-            [ "$(gh pr view "$PR_NUMBER" --json state --jq .state 2>/dev/null || true)" = "OPEN" ]
-          }
+          # A pull request reopened while this ran gets a new preview from pr-preview.yml: stop and keep
+          # it. A state GitHub can't give deletes nothing: the run fails, and a re-run finishes it.
           sweep() {
-            if reopened; then
-              echo "Pull request $PR_NUMBER is open again: keeping $CHANNEL."
-              exit 0
-            fi
+            local state
+            state="$(gh pr view "$PR_NUMBER" --json state --jq .state 2>/dev/null)" || state=""
+            case "$state" in
+              OPEN)
+                echo "Pull request $PR_NUMBER is open again: keeping $CHANNEL."
+                exit 0
+                ;;
+              CLOSED|MERGED) ;;
+              *)
+                echo "::error::Couldn't read pull request $PR_NUMBER's state, so $CHANNEL is left; re-run this job."
+                exit 1
+                ;;
+            esac
             # The channel first: EAS won't delete a branch a channel still points at.
             remove channel
             remove branch

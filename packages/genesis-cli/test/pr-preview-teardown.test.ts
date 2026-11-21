@@ -45,7 +45,7 @@ esac
 `,
   );
   writeFileSync(path.join(bin, "sleep"), "#!/bin/sh\nexit 0\n");
-  writeFileSync(path.join(bin, "gh"), `#!/bin/sh\necho "${scenario.prState ?? "CLOSED"}"\n`);
+  writeFileSync(path.join(bin, "gh"), scenario.prState === "ERROR" ? "#!/bin/sh\necho 'HTTP 502' >&2\nexit 1\n" : `#!/bin/sh\necho "${scenario.prState ?? "CLOSED"}"\n`);
   chmodSync(path.join(bin, "gh"), 0o755);
   chmodSync(path.join(bin, "npx"), 0o755);
   chmodSync(path.join(bin, "sleep"), 0o755);
@@ -88,6 +88,13 @@ describe("pr-preview-teardown", () => {
     const r = run({ runs: ["[]"], prState: "OPEN" });
     expect(r.code).toBe(0);
     expect(r.out).toMatch(/open again: keeping pr-7/);
+    expect(r.out).not.toMatch(/Deleted/);
+  });
+
+  it("deletes nothing and fails when GitHub can't say whether the pull request is open", () => {
+    const r = run({ runs: ["[]"], prState: "ERROR" });
+    expect(r.code).toBe(1);
+    expect(r.out).toMatch(/Couldn't read pull request 7's state/);
     expect(r.out).not.toMatch(/Deleted/);
   });
 
