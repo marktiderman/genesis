@@ -4,8 +4,9 @@ import { stepState } from "@marktiderman/genesis-core/headless";
 import { cn } from "../../utils";
 
 export interface StepperStep {
+  /** The step's name. Rendered in a block, so it may hold block content (a Progress, a list). */
   label: React.ReactNode;
-  /** A second line under the label. */
+  /** A second line under the label, also a block (a Progress under a phase, say). */
   description?: React.ReactNode;
 }
 
@@ -55,8 +56,8 @@ export function Stepper({ steps, current, className, testID = "stepper", ...aria
               {i < steps.length - 1 ? <span aria-hidden className={cn("mx-2 h-0.5 flex-1", state === "complete" ? "bg-primary" : "bg-border")} /> : null}
             </div>
             <div className="pr-2">
-              <p className={cn("text-xs font-medium", state === "upcoming" ? "text-muted-foreground" : "text-foreground")}>{step.label}</p>
-              {step.description ? <p className="text-xs text-muted-foreground">{step.description}</p> : null}
+              <div data-slot="stepper-label" className={cn("text-xs font-medium", state === "upcoming" ? "text-muted-foreground" : "text-foreground")}>{step.label}</div>
+              {step.description ? <div data-slot="stepper-description" className="text-xs text-muted-foreground">{step.description}</div> : null}
             </div>
           </li>
         );

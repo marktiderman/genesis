@@ -17,6 +17,7 @@ import { Combobox } from "../combobox";
 import { NumberInput } from "../number-input";
 import { RangeSlider } from "../range-slider";
 import { Stepper } from "../stepper";
+import { Progress } from "../progress";
 import { TimePicker } from "../time-picker";
 import { WhatsNewSheet } from "../../patterns/whats-new-sheet";
 import { NotificationsPage } from "../../layout/notifications-page";
@@ -255,6 +256,15 @@ describe("Stepper", () => {
     expect(screen.getByTestId("stepper-step-0").getAttribute("data-state")).toBe("complete");
     expect(screen.getByTestId("stepper-step-1").getAttribute("aria-current")).toBe("step");
     expect(screen.getByTestId("stepper-step-2").getAttribute("data-state")).toBe("upcoming");
+  });
+  it("holds block content (a Progress) in a step's label and description, with no <div> inside a <p>", () => {
+    const html = renderToString(
+      <Stepper steps={[{ label: <div>Phase 1</div>, description: <Progress value={40} aria-label="Phase 1: 40%" /> }]} current={0} />,
+    );
+    expect(html).not.toMatch(/<p[^>]*>(?:(?!<\/p>).)*<div/s);
+    render(<Stepper steps={[{ label: "Phase 1", description: <Progress value={140} aria-label="Phase 1 done" /> }]} current={0} />);
+    const bar = screen.getByRole("progressbar", { name: "Phase 1 done" });
+    expect(bar.getAttribute("aria-valuenow")).toBe("100");
   });
 });
 
