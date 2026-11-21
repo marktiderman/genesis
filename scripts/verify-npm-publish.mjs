@@ -116,7 +116,8 @@ export function dedupe(list) {
 
 // ── the registry ───────────────────────────────────────────────────────────────
 
-const escapeName = (name) => name.replace("/", "%2f");
+// A scoped name has one "/"; encode the whole name the way the registry expects (@scope%2fname).
+const escapeName = (name) => encodeURIComponent(name).replace(/^%40/, "@");
 
 async function getJson(fetchImpl, url, accept) {
   const res = await fetchImpl(url, {
@@ -201,7 +202,8 @@ export async function verify(packages, { mode, timeoutMs, fetchImpl = fetch, sle
 
 // ── reporting ──────────────────────────────────────────────────────────────────
 
-const cell = (s) => String(s ?? "").replace(/\|/g, "\\|");
+// Escape backslashes first, then pipes, so a cell can't break out of the Markdown table.
+const cell = (s) => String(s ?? "").replace(/\\/g, "\\\\").replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
 
 /** A Markdown table of every package checked, problems first. */
 export function summaryTable(results) {
