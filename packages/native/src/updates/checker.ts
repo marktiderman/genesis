@@ -187,6 +187,11 @@ export function createUpdateChecker(options: UpdateCheckerOptions): UpdateChecke
         }
         // Queued crash reports and events would be lost with the runtime: flush them first.
         await runBeforeReload();
+        // The flush can take seconds too: the guard has the last word.
+        if (!guard.canReload()) {
+          store.setState({ status: "ready", blocked: true });
+          return false;
+        }
         await updates.reloadAsync(reloadScreenOptions ? { reloadScreenOptions } : undefined);
         return true;
       } catch (raw) {

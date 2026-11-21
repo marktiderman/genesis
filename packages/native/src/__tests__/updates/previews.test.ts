@@ -1,10 +1,11 @@
 // @feat:native-previews
 import { describe, expect, it, vi } from "vitest";
 import { createChannelSwitcher, isChannelNotFoundError } from "../../updates/channels";
-import { createReloadGuard } from "../../updates/checker";
+import { createReloadGuard, createUpdateChecker } from "../../updates/checker";
 import { previewLink, previewLinkChannel, previewPath } from "../../updates/preview-links";
 import { createAttempts } from "../../updates/preview";
 import { normalizeLink } from "../../links";
+import { onBeforeReload } from "../../reload";
 import { fakeUpdates, memoryStorage } from "./fakes";
 
 const at = { schemes: ["acme"], hosts: ["acme.app"] };
@@ -255,6 +256,84 @@ describe("channel switching, hardened", () => {
     const record = JSON.parse(storage.data.get("genesis:updates:channel:preview-update")!).channels;
     expect(record["pr-6"]).toEqual(expect.arrayContaining(["pr-6-a", "pr-6-b"]));
     expect(record["pr-7"]).toContain("pr-7-a");
+  });
+
+  it("retrying pr-6's failed save keeps pr-7's newer ids", async () => {
+    const storage = memoryStorage({ "genesis:updates:channel": "pr-6" });
+    const setItem = storage.setItem as unknown as { mockImplementation: (f: (k: string, v: string) => Promise<void>) => void };
+    let failPr6 = true;
+    setItem.mockImplementation(async (key, value) => {
+      if (failPr6 && key.endsWith(":preview-update") && value.includes("pr-6-a")) throw new Error("disk full");
+      storage.data.set(key, value);
+    });
+    const updates = fakeUpdates({ updateId: "x", channel: "pr-6" });
+    const switcher = createChannelSwitcher({ updates, enabled: true, guard: createReloadGuard(), storage });
+    await switcher.state();
+    await expect(switcher.noteDownloaded("pr-6-a", "pr-6")).resolves.toBe(false);
+    await switcher.prepare("pr-7");
+    await switcher.noteDownloaded("pr-7-a", "pr-7");
+    failPr6 = false;
+    // Leaving retries pr-6's record before the restart, and pr-7's stays.
+    await expect(switcher.reset()).resolves.toEqual({ kind: "reloading" });
+    const record = JSON.parse(storage.data.get("genesis:updates:channel:preview-update")!).channels;
+    expect(record["pr-6"]).toContain("pr-6-a");
+    expect(record["pr-7"]).toContain("pr-7-a");
+  });
+
+  it("a launch record that failed to save holds Leave until it's saved", async () => {
+    const storage = memoryStorage({ "genesis:updates:channel": "pr-8" });
+    const setItem = storage.setItem as unknown as { mockImplementation: (f: (k: string, v: string) => Promise<void>) => void };
+    let full = true;
+    setItem.mockImplementation(async (key, value) => {
+      if (full && key.endsWith(":preview-update")) throw new Error("disk full");
+      storage.data.set(key, value);
+    });
+    const updates = fakeUpdates({ updateId: "pr-8-a", channel: "pr-8" });
+    const switcher = createChannelSwitcher({ updates, enabled: true, guard: createReloadGuard(), storage });
+    await switcher.state();
+    await expect(switcher.reset()).resolves.toMatchObject({ kind: "error" });
+    expect(updates.reloadAsync).not.toHaveBeenCalled();
+    full = false;
+    await expect(switcher.reset()).resolves.toEqual({ kind: "reloading" });
+    expect(JSON.parse(storage.data.get("genesis:updates:channel:preview-update")!).channels["pr-8"]).toContain("pr-8-a");
+  });
+
+  it("the update banner's restart checks the guard after the before-reload hooks too", async () => {
+    const updates = fakeUpdates({ next: { id: "u2" } });
+    const guard = createReloadGuard();
+    const checker = createUpdateChecker({ updates, guard });
+    await checker.check();
+    let release!: () => void;
+    const off = onBeforeReload(() => new Promise<void>((resolve) => (release = resolve)));
+    try {
+      const restarting = checker.reload();
+      await new Promise((r) => setTimeout(r, 0));
+      guard.block();
+      release();
+      await expect(restarting).resolves.toBe(false);
+      expect(updates.reloadAsync).not.toHaveBeenCalled();
+      expect(checker.getState()).toMatchObject({ status: "ready", blocked: true });
+    } finally {
+      off();
+    }
+  });
+
+  it("checks the guard after the before-reload hooks too", async () => {
+    const updates = fakeUpdates();
+    const guard = createReloadGuard();
+    let release!: () => void;
+    const off = onBeforeReload(() => new Promise<void>((resolve) => (release = resolve)));
+    try {
+      const switcher = createChannelSwitcher({ updates, enabled: true, guard, storage: memoryStorage({ "genesis:updates:channel": "pr-1" }) });
+      const leaving = switcher.reset();
+      await new Promise((r) => setTimeout(r, 0));
+      guard.block();
+      release();
+      await expect(leaving).resolves.toEqual({ kind: "blocked" });
+      expect(updates.reloadAsync).not.toHaveBeenCalled();
+    } finally {
+      off();
+    }
   });
 
   it("checks the reload guard again after waiting on a download, so an edit started meanwhile isn't lost", async () => {

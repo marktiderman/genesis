@@ -244,6 +244,8 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
       return false;
     }
   };
+  /** Preview updates whose record couldn't be saved yet (id → channel): retried before every restart. */
+  const unsaved = new Map<string, string>();
   const init = async (): Promise<ChannelState> => {
     const requested = await read(storageKey);
     let build = await read(buildKey);
@@ -257,7 +259,8 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
       // running without a preview: expo-updates rolled back from a crashed preview, or the download
       // never finished. Only the preview's are recorded.
       if (!updates?.isEmbeddedLaunch && !release.includes(running) && !(record[requested] ?? []).includes(running)) {
-        await write(previewKey, JSON.stringify({ channels: withPreviewUpdate(record, requested, running) }));
+        // Not saved: kept with the others and retried before any restart.
+        if (!(await write(previewKey, JSON.stringify({ channels: withPreviewUpdate(record, requested, running) })))) unsaved.set(running, requested);
       }
     } else if (!requested && running && channelOf(record, running)) {
       lingering = channelOf(record, running);
@@ -350,6 +353,8 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
       if (!guard.canReload()) return { kind: "blocked" };
       // Queued crash reports and events would be lost with the runtime: flush them first.
       await runBeforeReload();
+      // So can the flush (up to 2 s): ask once more, last thing before the restart.
+      if (!guard.canReload()) return { kind: "blocked" };
       await u.reloadAsync(reloadScreenOptions ? { reloadScreenOptions } : undefined);
       return { kind: "reloading" };
     } catch (raw) {
@@ -359,8 +364,6 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
     }
   };
   /** Add `id` to `channel`'s record (default: the open preview's; none open: nothing). */
-  /** Preview updates whose record couldn't be saved yet (id → channel): retried before every restart. */
-  const unsaved = new Map<string, string>();
   // Read-modify-write of the record, one at a time: its own queue, not the switcher's (a reload in
   // that queue can be waiting on a record), and merged per channel, so no write drops another's ids.
   let recordQueue: Promise<unknown> = Promise.resolve();
