@@ -74,7 +74,7 @@ export function namesImportedFrom(code: string, packages: readonly string[], nam
     if (!packages.some((p) => from === p || from.startsWith(`${p}/`))) continue;
     for (const name of names) {
       const local = `${m[1]!}.${name}`;
-      if (!new RegExp(`(?<![\\w$.])${local.replace(/[$.]/g, "\\$&")}(?![\\w$])`).test(code)) continue;
+      if (!new RegExp(`(?<![\\w$.])${local.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&")}(?![\\w$])`).test(code)) continue;
       const set = out.get(name) ?? new Set<string>();
       set.add(local);
       out.set(name, set);
