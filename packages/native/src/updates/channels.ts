@@ -81,6 +81,11 @@ export interface ChannelSwitcher {
    * "Restart"). Throws when switching is off or the name isn't a channel's.
    */
   prepare(channel: string): Promise<ChannelCheck>;
+  /**
+   * Record an update something else downloaded (the update checker) as the open preview's, so its
+   * code is still recognized if a restart after leaving launches it. Does nothing with no preview open.
+   */
+  noteDownloaded(updateId: string): Promise<void>;
   /** Reload into what was downloaded (respects the reload guard). */
   restart(): Promise<ChannelSwitchResult>;
   /** Back to the build's own channel. Always allowed. */
@@ -287,6 +292,14 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
       return { kind: "error", error };
     }
   };
+  /** Add `id` to the open preview's record (no preview open: nothing). */
+  const recordPreviewUpdate = async (id: string) => {
+    const picked = (await load()).requested;
+    if (!picked) return;
+    const record = parsePreviewRecord(await read(previewKey));
+    const ids = record?.channel === picked ? record.ids : [];
+    await write(previewKey, JSON.stringify({ channel: picked, ids: [...ids.filter((x) => x !== id), id].slice(-20) }));
+  };
   /** Check and fetch what the current header names. */
   const fetch = async (): Promise<ChannelCheck> => {
     const u = updates as UpdatesModuleLike;
@@ -302,12 +315,7 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
         }
         // Remember which update a preview downloaded, so its code can be told apart after leaving.
         const id = (got?.manifest as { id?: unknown } | undefined)?.id;
-        const picked = (await load()).requested;
-        if (picked && typeof id === "string") {
-          const record = parsePreviewRecord(await read(previewKey));
-          const ids = record?.channel === picked ? record.ids : [];
-          await write(previewKey, JSON.stringify({ channel: picked, ids: [...ids.filter((x) => x !== id), id].slice(-20) }));
-        }
+        if (typeof id === "string") await recordPreviewUpdate(id);
         return { kind: "downloaded" };
       }
       const reason = (check as { reason?: string }).reason;
@@ -353,6 +361,9 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
         await pick(name);
         return fetch();
       });
+    },
+    noteDownloaded(updateId) {
+      return serial(() => recordPreviewUpdate(updateId));
     },
     restart() {
       return serial(async () => unavailable() ?? reload());

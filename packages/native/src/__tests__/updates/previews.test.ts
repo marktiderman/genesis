@@ -211,6 +211,21 @@ describe("channel switching, hardened", () => {
     expect(storage.data.has("genesis:updates:channel:preview-update")).toBe(false);
   });
 
+  it("recognizes a newer preview update the checker downloaded but never launched, after leaving", async () => {
+    const storage = memoryStorage({ "genesis:updates:channel": "pr-6" });
+    const on = createChannelSwitcher({ updates: fakeUpdates({ updateId: "pr-6-a", channel: "pr-6" }), enabled: true, guard: createReloadGuard(), storage });
+    await on.state();
+    // The checker fetched pr-6-b in the background; nothing launched it yet.
+    await on.noteDownloaded("pr-6-b");
+    // The person leaves, the check on the build's channel finds nothing, and Android launches pr-6-b.
+    storage.data.delete("genesis:updates:channel");
+    const after = createChannelSwitcher({ updates: fakeUpdates({ updateId: "pr-6-b" }), enabled: true, guard: createReloadGuard(), storage });
+    await expect(after.state()).resolves.toMatchObject({ requested: null, lingering: "pr-6" });
+    // With no preview open, a download isn't recorded.
+    await after.noteDownloaded("release-9");
+    expect(JSON.parse(storage.data.get("genesis:updates:channel:preview-update")!).ids).not.toContain("release-9");
+  });
+
   it("never records the build's own update as a preview's: a rollback from a crashed preview, an unfinished download, the embedded update", async () => {
     const storage = memoryStorage();
     const make = (o: Parameters<typeof fakeUpdates>[0]) => createChannelSwitcher({ updates: fakeUpdates(o), enabled: true, guard: createReloadGuard(), storage });

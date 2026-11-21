@@ -198,6 +198,12 @@ export function createUpdates(options: UpdatesOptions): UpdatesBlock {
     onError,
   });
   healChannel = (error) => void switcher.recover(error).catch(() => undefined);
+  // An update the checker downloads while a preview is open is that preview's: record it, so a
+  // restart after leaving that launches it still shows the notice.
+  checker.subscribe(() => {
+    const state = checker.getState();
+    if (state.status === "ready" && state.updateId) void switcher.noteDownloaded(state.updateId).catch(() => undefined);
+  });
   const signature = versionSignature({ application, updates, platform, buildMetadata: options.buildMetadata ?? null });
 
   const allNotes = (): ReleaseNote[] => [...(options.notes ?? []), ...(policy.getState().policy?.notes ?? [])];
