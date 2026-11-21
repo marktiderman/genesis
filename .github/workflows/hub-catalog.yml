@@ -1,0 +1,41 @@
+# Hub catalog: on every push to main that changes the feature registry (and on demand), pushes
+# features.json to the Product hub, so the hub's Genesis product lists Genesis's features as the
+# registry has them (scripts/hub-catalog-sync.mjs). Needs the repository secrets HUB_SUPABASE_URL
+# and HUB_SUPABASE_SECRET_KEY; without them the run says so and passes.
+
+name: Hub catalog
+
+on:
+  push:
+    branches: [main]
+    paths: [features.json]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hub-catalog
+  # The latest registry wins; a run behind it has nothing to add.
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    # Forks that turn on Actions have no hub to sync.
+    if: github.repository == 'marktiderman/genesis'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+
+      - name: Sync the registry to the hub
+        env:
+          HUB_SUPABASE_URL: ${{ secrets.HUB_SUPABASE_URL }}
+          HUB_SUPABASE_SECRET_KEY: ${{ secrets.HUB_SUPABASE_SECRET_KEY }}
+        run: node scripts/hub-catalog-sync.mjs

@@ -1,6 +1,6 @@
 // @feat:observability
 import { describe, expect, it, vi } from "vitest";
-import { sentryEnvironment, sentryRelease, sentrySink, signatureTags, withoutTouchLabels, type SentryLike } from "../../observability/sentry";
+import { SENTRY_SETTINGS_CACHE_KEY, sentryEnvironment, sentryRelease, sentrySink, signatureTags, withoutTouchLabels, type SentryLike } from "../../observability/sentry";
 import { versionSignature } from "../../updates/signature";
 
 function fakeSentry(client: unknown = undefined) {
@@ -38,11 +38,23 @@ const signature = versionSignature({
 });
 
 describe("sentrySink", () => {
-  it("starts nothing without a DSN", () => {
+  it("starts nothing without a DSN, and its methods do nothing", () => {
     const { sentry } = fakeSentry();
-    const sink = sentrySink(sentry, { dsn: "", onMissingDsn: () => {} });
+    const onMissingDsn = vi.fn();
+    const sink = sentrySink(sentry, { dsn: "", onMissingDsn });
     expect(sentry.init).not.toHaveBeenCalled();
-    expect(sink.captureError).toBeUndefined();
+    sink.captureError?.(new Error("x"), { fatal: false, source: "query" });
+    sink.breadcrumb?.({ category: "ui" });
+    sink.event?.("a", {});
+    sink.setUser?.("u1");
+    expect(sentry.captureException).not.toHaveBeenCalled();
+    expect(sentry.addBreadcrumb).not.toHaveBeenCalled();
+    expect(sentry.setUser).not.toHaveBeenCalled();
+    // Nothing can start it before the root layout wraps: no wrapping.
+    expect(sink.wrap).toBeUndefined();
+    expect(sink.status()).toEqual({ running: false, source: null, restartPending: false, problem: null });
+    // The settings haven't been read: no notice yet.
+    expect(onMissingDsn).not.toHaveBeenCalled();
   });
 
   it("inits once with no default PII, the Expo Router integration, release, dist and update tags", () => {
@@ -215,5 +227,224 @@ describe("release and tags", () => {
   it("print unknown values as unknown", () => {
     const off = versionSignature({ platform: "ios" });
     expect(signatureTags(off)).toEqual({ "update.launch": "off", "update.id": "off", "update.channel": "none", "update.runtime": "unknown" });
+  });
+});
+
+const DSN = "https://0123456789abcdef0123456789abcdef@o1.ingest.us.sentry.io/42";
+const OTHER = "https://fedcba9876543210fedcba9876543210@o1.ingest.us.sentry.io/43";
+
+function withClose() {
+  const fake = fakeSentry();
+  const close = vi.fn(async () => true);
+  return { ...fake, sentry: { ...fake.sentry, close } as typeof fake.sentry & { close: typeof close } };
+}
+
+function memoryCache(initial?: Record<string, string>) {
+  const store = new Map(Object.entries(initial ?? {}));
+  return {
+    store,
+    getItem: vi.fn((key: string) => store.get(key) ?? null),
+    setItem: vi.fn((key: string, value: string) => void store.set(key, value)),
+    removeItem: vi.fn((key: string) => void store.delete(key)),
+  };
+}
+
+describe("sentrySink from Genesis settings", () => {
+  it("says once, when the settings have no DSN either, that Sentry isn't configured", () => {
+    const { sentry } = fakeSentry();
+    const onMissingDsn = vi.fn();
+    const sink = sentrySink(sentry, { dsn: undefined, onMissingDsn });
+    sink.applySettings({ values: { "observability.enabled": true, "observability.sentryDsn": null } });
+    sink.applySettings({ "observability.enabled": true, "observability.sentryDsn": null });
+    expect(onMissingDsn).toHaveBeenCalledTimes(1);
+    expect(sentry.init).not.toHaveBeenCalled();
+    expect(sink.healthCheck().run()).toEqual({ status: "ok", message: "Sentry: not configured" });
+    expect(sink.healthCheck().name).toBe("observability.sentry");
+  });
+
+  it("changes nothing for no settings, or settings without the observability keys", () => {
+    const { sentry } = fakeSentry();
+    const sink = sentrySink(sentry, { dsn: DSN });
+    sink.applySettings(undefined);
+    sink.applySettings({ values: { "support.enabled": true } });
+    expect(sink.status()).toMatchObject({ running: true, source: "build" });
+  });
+
+  it("starts live from the settings' DSN, and passes on the user set before", () => {
+    const { sentry, options } = fakeSentry();
+    const sink = sentrySink(sentry, { dsn: null });
+    sink.setUser?.("u1");
+    sink.applySettings({ values: { "observability.enabled": true, "observability.sentryDsn": DSN } });
+    expect(options().dsn).toBe(DSN);
+    expect(sentry.setUser).toHaveBeenCalledWith({ id: "u1" });
+    expect(sink.status()).toEqual({ running: true, source: "settings", restartPending: false, problem: null });
+    sink.captureError?.(new Error("x"), { fatal: false, source: "query" });
+    expect(sentry.captureException).toHaveBeenCalledTimes(1);
+    expect(sink.healthCheck().run()).toEqual({ status: "ok", message: "Sentry: reporting (DSN from the settings)" });
+  });
+
+  it("lets the build's DSN win over the settings'", () => {
+    const { sentry, options } = fakeSentry();
+    const sink = sentrySink(sentry, { dsn: OTHER });
+    sink.applySettings({ values: { "observability.enabled": true, "observability.sentryDsn": DSN } });
+    expect(sentry.init).toHaveBeenCalledTimes(1);
+    expect(options().dsn).toBe(OTHER);
+    expect(sink.status()).toEqual({ running: true, source: "build", restartPending: false, problem: null });
+  });
+
+  it("closes live when turned off, and waits for the next launch to turn on again", () => {
+    const { sentry } = withClose();
+    const sink = sentrySink(sentry, { dsn: OTHER });
+    sink.applySettings({ values: { "observability.enabled": false, "observability.sentryDsn": null } });
+    expect(sentry.close).toHaveBeenCalledTimes(1);
+    expect(sink.status()).toMatchObject({ running: false, restartPending: false });
+    sink.captureError?.(new Error("x"), { fatal: false, source: "query" });
+    expect(sentry.captureException).not.toHaveBeenCalled();
+    expect(sink.healthCheck().run()).toEqual({ status: "ok", message: "Sentry: off (observability.enabled)" });
+    sink.applySettings({ values: { "observability.enabled": true, "observability.sentryDsn": null } });
+    expect(sentry.init).toHaveBeenCalledTimes(1);
+    expect(sink.status()).toMatchObject({ running: false, restartPending: true });
+    expect(sink.healthCheck().run()).toEqual({ status: "warn", message: "Sentry: the new settings apply at the next launch" });
+  });
+
+  it("drops what the SDK itself captures from the moment it's turned off, while close is still pending", () => {
+    const fake = fakeSentry();
+    // React Native's close waits for the queue and keeps the client enabled meanwhile.
+    const close = vi.fn(() => new Promise<void>(() => {}));
+    const sentry = { ...fake.sentry, close };
+    const sink = sentrySink(sentry, { dsn: OTHER, init: { beforeSend: vi.fn((e: unknown) => e) } });
+    const o = fake.options();
+    expect(o.beforeSend!({ message: "before" }, {})).toEqual({ message: "before" });
+    sink.applySettings({ values: { "observability.enabled": false, "observability.sentryDsn": null } });
+    expect(close).toHaveBeenCalledTimes(1);
+    // An event from Sentry's own global handler, after the switch and before close resolves.
+    expect(o.beforeSend!({ message: "after" }, {})).toBeNull();
+    expect(o.beforeSendTransaction!({ transaction: "/x" }, {})).toBeNull();
+    expect(o.beforeBreadcrumb!({ category: "touch", message: "x" }, {})).toBeNull();
+    expect(o.beforeSendLog!({ message: "x" }, {})).toBeNull();
+    expect(o.beforeSendSpan!({ description: "GET /x", data: { a: 1 } })).toEqual({ description: undefined, data: {} });
+  });
+
+  it("keeps the running DSN when the settings change it, until the next launch", () => {
+    const { sentry, options } = fakeSentry();
+    const sink = sentrySink(sentry, { dsn: null });
+    sink.applySettings({ values: { "observability.enabled": true, "observability.sentryDsn": DSN } });
+    sink.applySettings({ values: { "observability.enabled": true, "observability.sentryDsn": OTHER } });
+    expect(sentry.init).toHaveBeenCalledTimes(1);
+    expect(options().dsn).toBe(DSN);
+    expect(sink.status()).toEqual({ running: true, source: "settings", restartPending: true, problem: null });
+    // Back to the running one: nothing waits.
+    sink.applySettings({ values: { "observability.enabled": true, "observability.sentryDsn": DSN } });
+    expect(sink.status().restartPending).toBe(false);
+  });
+
+  it("reports a DSN of the wrong shape, from the settings or the build", () => {
+    const { sentry } = fakeSentry();
+    const sink = sentrySink(sentry, { dsn: null });
+    sink.applySettings({ values: { "observability.enabled": true, "observability.sentryDsn": "https://sentry.example.test/42" } });
+    expect(sentry.init).not.toHaveBeenCalled();
+    expect(sink.status().problem).toMatch(/^observability\.sentryDsn isn't a Sentry DSN/);
+    expect(sink.healthCheck().run().status).toBe("fail");
+    // resolveSettings skips a value its pattern refuses and says why: that is reported too.
+    sink.applySettings({
+      values: { "observability.enabled": true, "observability.sentryDsn": null },
+      problems: [{ key: "observability.sentryDsn", kind: "type", layer: "database", message: "observability.sentryDsn must match …" }],
+    } as never);
+    expect(sink.status().problem).toBe("observability.sentryDsn must match …");
+    const built = fakeSentry();
+    const fromBuild = sentrySink(built.sentry, { dsn: "not a dsn" });
+    expect(built.sentry.init).toHaveBeenCalledTimes(1);
+    expect(fromBuild.status().problem).toMatch(/^EXPO_PUBLIC_SENTRY_DSN isn't a Sentry DSN/);
+  });
+
+  it("keeps the settings' values (not the DSN in use) for the next launch, and starts from them at once", () => {
+    const cache = memoryCache();
+    const first = fakeSentry();
+    sentrySink(first.sentry, { dsn: null, cache }).applySettings({ values: { "observability.enabled": true, "observability.sentryDsn": DSN, "support.enabled": true } });
+    expect(JSON.parse(cache.store.get(SENTRY_SETTINGS_CACHE_KEY)!)).toEqual({ "observability.enabled": true, "observability.sentryDsn": DSN });
+    const next = fakeSentry();
+    const sink = sentrySink(next.sentry, { dsn: null, cache });
+    expect(next.options().dsn).toBe(DSN);
+    expect(sink.status()).toMatchObject({ running: true, source: "cache" });
+    expect(sink.wrap).toBeDefined();
+    // A new build's own DSN still wins over the cached settings.
+    const rebuilt = fakeSentry();
+    expect(sentrySink(rebuilt.sentry, { dsn: OTHER, cache }).status().source).toBe("build");
+    expect(rebuilt.options().dsn).toBe(OTHER);
+  });
+
+  it("starts from an async cache when it answers, unless the settings came first", async () => {
+    const values = JSON.stringify({ "observability.enabled": true, "observability.sentryDsn": DSN });
+    const later = { getItem: vi.fn(async () => values), setItem: vi.fn(async () => {}), removeItem: vi.fn(async () => {}) };
+    const a = fakeSentry();
+    const sink = sentrySink(a.sentry, { dsn: null, cache: later });
+    expect(a.sentry.init).not.toHaveBeenCalled();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(a.options().dsn).toBe(DSN);
+    expect(sink.status().source).toBe("cache");
+
+    const b = fakeSentry();
+    const fresh = sentrySink(b.sentry, { dsn: null, cache: { ...later, getItem: vi.fn(async () => values) } });
+    fresh.applySettings({ values: { "observability.enabled": true, "observability.sentryDsn": OTHER } });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(b.sentry.init).toHaveBeenCalledTimes(1);
+    expect(b.options().dsn).toBe(OTHER);
+  });
+
+  it("doesn't start a build DSN the cached settings turned off", () => {
+    const cache = memoryCache({ [SENTRY_SETTINGS_CACHE_KEY]: JSON.stringify({ "observability.enabled": false, "observability.sentryDsn": null }) });
+    const { sentry } = fakeSentry();
+    const sink = sentrySink(sentry, { dsn: OTHER, cache });
+    expect(sentry.init).not.toHaveBeenCalled();
+    expect(sink.status().running).toBe(false);
+  });
+
+  it("isn't running when init throws, says why, and a later settings change can still start it", () => {
+    const { sentry, options } = fakeSentry();
+    sentry.init.mockImplementationOnce(() => {
+      throw new Error("bad transport");
+    });
+    const sink = sentrySink(sentry, { dsn: null });
+    sink.applySettings({ values: { "observability.enabled": true, "observability.sentryDsn": DSN } });
+    expect(sink.status()).toMatchObject({ running: false, problem: "Sentry didn't start: bad transport" });
+    expect(sink.healthCheck().run().status).toBe("fail");
+    sink.applySettings({ values: { "observability.enabled": true, "observability.sentryDsn": DSN } });
+    expect(options()).toBeDefined();
+    expect(sentry.init).toHaveBeenCalledTimes(2);
+    expect(sink.status()).toMatchObject({ running: true, source: "settings" });
+  });
+
+  it("starts a build DSN at once with an async cache, and closes it live when the cached settings say off", async () => {
+    const { sentry } = withClose();
+    const off = JSON.stringify({ "observability.enabled": false, "observability.sentryDsn": null });
+    const sink = sentrySink(sentry, { dsn: OTHER, cache: { getItem: vi.fn(async () => off), setItem: vi.fn(async () => {}), removeItem: vi.fn(async () => {}) } });
+    expect(sentry.init).toHaveBeenCalledTimes(1);
+    expect(sink.status().running).toBe(true);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(sentry.close).toHaveBeenCalledTimes(1);
+    expect(sink.status().running).toBe(false);
+  });
+
+  it("gives the missing-DSN notice from read settings only, never from the cached copy", () => {
+    const onMissingDsn = vi.fn();
+    const cache = memoryCache({ [SENTRY_SETTINGS_CACHE_KEY]: JSON.stringify({ "observability.enabled": true, "observability.sentryDsn": null }) });
+    const sink = sentrySink(fakeSentry().sentry, { dsn: null, cache, onMissingDsn });
+    expect(onMissingDsn).not.toHaveBeenCalled();
+    sink.applySettings({ values: { "observability.enabled": true, "observability.sentryDsn": null } });
+    expect(onMissingDsn).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores a cache that throws or holds something else", () => {
+    const { sentry } = fakeSentry();
+    const broken = { getItem: () => { throw new Error("no storage"); }, setItem: () => { throw new Error("full"); }, removeItem: () => {} };
+    const sink = sentrySink(sentry, { dsn: null, cache: broken });
+    expect(() => sink.applySettings({ values: { "observability.enabled": true, "observability.sentryDsn": DSN } })).not.toThrow();
+    expect(sink.status().running).toBe(true);
+    const odd = fakeSentry();
+    sentrySink(odd.sentry, { dsn: null, cache: memoryCache({ [SENTRY_SETTINGS_CACHE_KEY]: "{not json" }) });
+    expect(odd.sentry.init).not.toHaveBeenCalled();
   });
 });

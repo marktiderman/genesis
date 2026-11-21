@@ -93,7 +93,7 @@ export interface SupportAgentInboxProps {
   deskControls?: boolean | { allowMove?: boolean };
   /** A ticket was moved to another desk (it closes here, and the queues refresh). */
   onTicketMoved?: (ticketId: string) => void;
-  /** Links from a context dump to its Sentry event and GitHub issue, in the details panel. */
+  /** Links from a context dump to its Sentry event and GitHub issue, in the details panel. Without `sentry`, `settings` gives it (`observability.sentryOrg`, `.sentryDsn`). */
   diagnosticsLinks?: SupportDiagnosticsLinks;
   /**
    * Genesis settings: `support.agentDesk` off shows that the agent desk is off instead of the inbox,
@@ -606,8 +606,10 @@ function TicketDetails({
   deskControls,
   onMoved,
   diagnosticsLinks,
+  settings,
 }: Pick<PaneProps, "client" | "ticket" | "resolveUser" | "copy" | "onError"> & {
   diagnosticsLinks: SupportDiagnosticsLinks | undefined;
+  settings: SupportSettingsInput | null | undefined;
   context?: ((ticket: AgentTicket) => ReactNode) | undefined;
   copyOverrides: SupportCopyOverrides | undefined;
   onOpen: (id: string) => void;
@@ -656,7 +658,7 @@ function TicketDetails({
             ))}
         </section>
       ) : null}
-      <SupportTicketDiagnostics client={client} ticketId={ticket.id} {...(diagnosticsLinks ? { links: diagnosticsLinks } : {})} {...(copyOverrides ? { copy: copyOverrides } : {})} {...(onError ? { onError } : {})} />
+      <SupportTicketDiagnostics client={client} ticketId={ticket.id} {...(diagnosticsLinks ? { links: diagnosticsLinks } : {})} {...(settings ? { settings } : {})} {...(copyOverrides ? { copy: copyOverrides } : {})} {...(onError ? { onError } : {})} />
       {deskControls ? (
         <SupportDeskControls
           client={client}
@@ -919,6 +921,7 @@ function AgentInbox({
               requesterPanel={requesterPanel}
               deskControls={deskControls}
               diagnosticsLinks={diagnosticsLinks}
+              settings={settings}
               onMoved={(id) => {
                 void queryClient.invalidateQueries({ queryKey: supportInboxKeys.all });
                 onTicketMoved?.(id);

@@ -60,6 +60,9 @@ importers:
       '@marktiderman/genesis-chat':
         specifier: workspace:^
         version: link:../../packages/chat
+      '@marktiderman/genesis-config':
+        specifier: workspace:^
+        version: link:../../packages/features
       '@marktiderman/genesis-core':
         specifier: workspace:^
         version: link:../../packages/core

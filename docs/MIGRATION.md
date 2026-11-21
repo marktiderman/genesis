@@ -11,6 +11,34 @@ This file is appended to (never rewritten) at every release. Newest version on t
 
 ---
 
+## Sentry from Genesis settings — `@marktiderman/genesis-native` (observability settings), `@marktiderman/genesis-supabase` (migration `0025_genesis_settings_pattern.sql`), `@marktiderman/genesis-support`, `@marktiderman/genesis-cli` (**minor**)
+
+🟡 **Apply migration 0025** (`genesis migrate` copies it) and write the manifest again
+(`genesis settings sync`). The database then refuses a string setting that doesn't match its key's
+`pattern`, as genesis-config does: `observability.sentryDsn` takes a Sentry DSN only. Until 0025 is
+applied, a value of the wrong shape is still stored, and every client skips it.
+
+🟢 **Sentry needs no build when it is set on the in-app Settings screen.** Set
+`observability.sentryDsn` (and `observability.sentryOrg`, for the support dump viewer's link) there
+as a platform admin: the database layer applies at run time. `genesis setup --step sentry` now saves
+both to genesis.config.json instead (it said before that it didn't save the DSN, since no package
+read it; genesis-native reads it now): that file layer reaches installed apps only with a new build
+or an update that carries it. To have the app follow
+them, pass `cache: AsyncStorage` to `sentrySink` and hand it each change of the settings
+(`sentry.applySettings(settings)`), as the starter's `src/lib/settings.ts` does; register
+`sentry.healthCheck()` with genesis-support's `healthChecks`. `EXPO_PUBLIC_SENTRY_DSN` keeps working
+and wins over the setting. Turning `observability.enabled` off stops Sentry at once; a new DSN applies
+at the next launch.
+
+🟡 **`sentrySink` with no DSN** now returns a sink with every method (each does nothing until Sentry
+runs), where it returned one with none; code that tested `sink.captureError === undefined` to tell
+whether Sentry was on reads `sink.status().running` instead. The missing-DSN warning is now a
+development-only notice, once the settings are read and give no DSN either; `onMissingDsn` still
+replaces it.
+
+🟢 **genesis-native's package.json `genesis.settings` is a list** (devtools, observability). The CLI
+already reads one declaration or a list.
+
 ## Support settings: one resolver, renumbered migrations, deprecated hooks — `@marktiderman/genesis-support` (migrations 0029 to 0034), `@marktiderman/genesis-supabase` (`0023_genesis_settings_tenant_person.sql`), `@marktiderman/genesis-config` (**minor**)
 
 🟡 **Support's unreleased migrations are renumbered after 0028**, so an app that already applied 0026

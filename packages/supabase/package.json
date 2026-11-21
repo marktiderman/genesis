@@ -379,6 +379,10 @@
           {
             "file": "migrations/0023_genesis_settings_tenant_person.sql",
             "test": "migrations/tests/0023_genesis_settings_tenant_person.test.sql"
+          },
+          {
+            "file": "migrations/0025_genesis_settings_pattern.sql",
+            "test": "migrations/tests/0025_genesis_settings_pattern.test.sql"
           }
         ],
         "install": [

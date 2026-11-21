@@ -218,11 +218,19 @@ export function checkProposal(catalogue: SettingsCatalogue, key: string, value: 
   const def = catalogue.keys[key]!;
   if (value === undefined) throw new ProposalError(`${key} needs a value`);
   if (canonicalJson(value).length > MAX_VALUE_JSON) throw new ProposalError(`the value for ${key} is over ${MAX_VALUE_JSON} characters as JSON`);
-  const problem = settingValueProblem({ type: def.type, ...(def.min !== undefined ? { min: def.min } : {}), ...(def.max !== undefined ? { max: def.max } : {}), ...(def.options ? { options: def.options } : {}), nullable: def.nullable }, value);
+  // The whole declaration: its bounds, options, pattern and whole-number rule, as every layer checks them.
+  const problem = settingValueProblem(def, value);
   if (problem) throw new ProposalError(`${key} ${problem}`);
   // The file reads exactly { value, locked } as a lock, so an object of that shape can't be a value.
   if (isLockedEntry(value)) throw new ProposalError(`${key}: an object of exactly { value, locked } reads as a lock in ${CONFIG_FILE}; propose the value itself`);
   return def;
+}
+
+/** One setting a proposal sets: `locked` left out keeps the key's lock as it is. */
+export interface SettingProposal {
+  key: string;
+  value: unknown;
+  locked?: boolean;
 }
 
 /**
@@ -231,14 +239,25 @@ export function checkProposal(catalogue: SettingsCatalogue, key: string, value: 
  * fix_apply, after the person approves it.
  */
 export function settingsProposalFix(key: string, value: unknown, locked?: boolean): Fix {
+  return settingsProposalsFix([{ key, value, ...(locked !== undefined ? { locked } : {}) }]);
+}
+
+/**
+ * Several settings in one write of genesis.config.json (a setup step's fields): each checked as
+ * {@link settingsProposalFix} checks one, and nothing written when any is refused.
+ */
+export function settingsProposalsFix(proposals: readonly SettingProposal[]): Fix {
+  if (!proposals.length) throw new ProposalError("a proposal sets at least one setting");
+  const keys = proposals.map((p) => p.key);
+  if (new Set(keys).size !== keys.length) throw new ProposalError(`a proposal sets each setting once (got ${keys.join(", ")})`);
   return {
     id: SETTINGS_PROPOSE_ID,
     kind: "auto",
     rules: ["invalid-setting"],
-    title: `set settings.${key} in ${CONFIG_FILE}`,
+    title: `set ${keys.map((k) => `settings.${k}`).join(", ")} in ${CONFIG_FILE}`,
     plan(ctx): FixPlanDraft {
       const { catalogue } = loadCatalogue(ctx.root);
-      checkProposal(catalogue, key, value);
+      for (const { key, value } of proposals) checkProposal(catalogue, key, value);
       const abs = path.join(ctx.root, CONFIG_FILE);
       const raw = existsSync(abs) ? readFileSync(abs, "utf8") : null;
       let json: Record<string, unknown> = {};
@@ -254,43 +273,52 @@ export function settingsProposalFix(key: string, value: unknown, locked?: boolea
       }
       const settings = json.settings ?? {};
       if (!settings || typeof settings !== "object" || Array.isArray(settings)) throw new ProposalError(`${CONFIG_FILE} "settings" isn't an object`);
-      const current = (settings as Record<string, unknown>)[key];
-      // `locked` left out keeps the key's lock as it is; true or false sets it.
-      const wasLocked = isLockedEntry(current) && current.locked === true;
-      const lock = locked ?? wasLocked;
-      // Left out, an entry written as { value, locked } keeps that shape (an explicit `locked: false` included).
-      const entry = locked === undefined && isLockedEntry(current) ? { value, locked: current.locked } : lock ? { value, locked: true } : value;
-      const before = isLockedEntry(current) ? current.value : current;
-      if (current !== undefined && canonicalJson(before) === canonicalJson(value) && lock === wasLocked) {
-        return { summary: `settings.${key} is already ${clipJson(value)}${lock ? " (locked)" : ""} in ${CONFIG_FILE}` };
-      }
       // In place when the key is there, so the file's order stays.
       const next: Record<string, unknown> = { ...(settings as Record<string, unknown>) };
-      next[key] = entry;
+      const changes: string[] = [];
+      const unchanged: string[] = [];
+      for (const { key, value, locked } of proposals) {
+        const current = (settings as Record<string, unknown>)[key];
+        // `locked` left out keeps the key's lock as it is; true or false sets it.
+        const wasLocked = isLockedEntry(current) && current.locked === true;
+        const lock = locked ?? wasLocked;
+        // Left out, an entry written as { value, locked } keeps that shape (an explicit `locked: false` included).
+        const entry = locked === undefined && isLockedEntry(current) ? { value, locked: current.locked } : lock ? { value, locked: true } : value;
+        const before = isLockedEntry(current) ? current.value : current;
+        if (current !== undefined && canonicalJson(before) === canonicalJson(value) && lock === wasLocked) {
+          unchanged.push(`settings.${key} is already ${clipJson(value)}${lock ? " (locked)" : ""} in ${CONFIG_FILE}`);
+          continue;
+        }
+        next[key] = entry;
+        changes.push(`settings.${key} ${current === undefined ? "set to" : `from ${clipJson(before)} to`} ${clipJson(value)}${lock && wasLocked ? " (stays locked)" : lock ? ", locked" : wasLocked ? ", unlocked" : ""}`);
+      }
+      if (!changes.length) return { summary: unchanged.join("; ") };
       json = { ...json, settings: next };
       const indent = raw === null ? "  " : (/^[ \t]+(?=")/m.exec(raw)?.[0] ?? "  ");
       const content = `${JSON.stringify(json, null, indent)}${raw === null || raw.endsWith("\n") ? "\n" : ""}`;
       // What the change leaves to do: a key it needs that is off.
       const after = resolveSettings(catalogue, { ...(typeof json.preset === "string" ? { preset: json.preset as never } : {}), file: settingsLayerFromFile(next) });
-      const needs = after.problems.filter((p) => p.key === key).map((p) => p.message);
+      const needs = after.problems.filter((p) => keys.includes(p.key)).map((p) => p.message);
       return {
-        summary: `${raw === null ? "creates" : "writes"} ${CONFIG_FILE}: settings.${key} ${current === undefined ? "set to" : `from ${clipJson(before)} to`} ${clipJson(value)}${lock && wasLocked ? " (stays locked)" : lock ? ", locked" : wasLocked ? ", unlocked" : ""}`,
-        files: [plannedFile(ctx.root, CONFIG_FILE, content, `the proposed value of ${key}`)],
+        summary: `${raw === null ? "creates" : "writes"} ${CONFIG_FILE}: ${changes.join("; ")}`,
+        files: [plannedFile(ctx.root, CONFIG_FILE, content, `the proposed value${keys.length > 1 ? "s" : ""} of ${keys.join(", ")}`)],
         ...(needs.length ? { manual: needs.join("\n") } : {}),
       };
     },
     verify(ctx) {
       const { catalogue } = loadCatalogue(ctx.root);
       const resolved = resolveSettings(catalogue, fileLayers(ctx.root));
-      const problem = resolved.problems.find((p) => p.key === key && p.kind !== "requires");
-      if (problem) return { ok: false, message: problem.message };
-      const lockedHere = (() => {
-        const entry = (readGenesisConfig(ctx.root)?.settings ?? {})[key];
-        return isLockedEntry(entry) && entry.locked === true;
-      })();
-      if (locked !== undefined && lockedHere !== locked) return { ok: false, message: `settings.${key} is ${lockedHere ? "locked" : "not locked"} in ${CONFIG_FILE}` };
-      const ok = canonicalJson(resolved.values[key]) === canonicalJson(value) || resolved.sources[key]?.lockedBy !== undefined;
-      return ok ? { ok: true } : { ok: false, message: `settings.${key} resolves to ${clipJson(resolved.values[key])}` };
+      const file = readGenesisConfig(ctx.root)?.settings ?? {};
+      for (const { key, value, locked } of proposals) {
+        const problem = resolved.problems.find((p) => p.key === key && p.kind !== "requires");
+        if (problem) return { ok: false, message: problem.message };
+        const entry = file[key];
+        const lockedHere = isLockedEntry(entry) && entry.locked === true;
+        if (locked !== undefined && lockedHere !== locked) return { ok: false, message: `settings.${key} is ${lockedHere ? "locked" : "not locked"} in ${CONFIG_FILE}` };
+        const ok = canonicalJson(resolved.values[key]) === canonicalJson(value) || resolved.sources[key]?.lockedBy !== undefined;
+        if (!ok) return { ok: false, message: `settings.${key} resolves to ${clipJson(resolved.values[key])}` };
+      }
+      return { ok: true };
     },
   };
 }
