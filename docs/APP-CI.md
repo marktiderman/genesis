@@ -317,6 +317,43 @@ people already have (or a preview build when the pull request changed native cod
 the pull request closes ([NATIVE-RELEASE.md, Previews](./NATIVE-RELEASE.md#previews)). GitHub keeps one label per name whatever its case, so
 one `preview` label serves both; name it in `pull_request_labeled.labels` as GitHub shows it.
 
+## Branch protection
+
+The checks above only gate a merge when a ruleset requires them. Every Genesis app's repository
+carries the same rulesets and merge settings, made by the CLI, never by hand:
+`genesis repo protect --dry-run` shows the diff, `genesis repo protect` makes it (as the
+repository's admin), the doctor's `repo-protection` rule reports drift, and the setup wizard offers
+it as the `github.branch-protection` step. The genesis-cli README ("genesis repo") has the flags.
+
+| Ruleset | On | Rules | Why |
+|---|---|---|---|
+| `default` | the default branch | no deletion, no force push; a pull request with every review thread resolved, merge or squash only; the required checks | Every change arrives as a reviewed pull request, and its history stays as merged (Genesis merges, never rebases). No approval count: the approval is the adversarial review gate's `Adversarial review` check, which a person's review turns green. |
+| `staging-branches` | `staging/**`, when the app releases through staging batches | no deletion, no force push; the checks that run on pull requests into a batch, not enforced when a batch is cut | A batch collects reviewed pull requests for one release into the default branch; it is cut from that branch, so its first push carries no checks yet. |
+
+Both let the repository's admin role bypass them, and the settings delete head branches on merge,
+turn auto-merge on and rebase merging off.
+
+**Required checks come from the app's CI.** The CLI reads `.github/workflows`: every job of a
+workflow that runs on pull requests into the branch, by the name GitHub gives its check
+(`app / App checks` for a job `app` that calls app-ci; `database / Database and pgTAP` for one that
+calls supabase-ci). A called job the caller turns off (`doctor: false`) isn't required, nor is
+claude-review, which advises. Each check is pinned to GitHub Actions, so no other app can post a
+status of that name and satisfy it. A workflow with `paths` on its pull request trigger, like a
+database workflow on `supabase/**`, is never required: GitHub doesn't run it on a pull request
+outside those paths, and a required check that never reports holds that pull request forever. Run
+pgTAP on every pull request (no `paths`) to require it. Where the workflows can't say (a matrix, a
+name built at run time), list the checks in `genesis.config.json`:
+`"repo": { "requiredChecks": [...], "stagingChecks": [...] }`.
+
+**Converging adopts what's there.** A ruleset of the same name, or on the same branches, is updated
+in place; a rule, parameter, bypass actor or required check Genesis doesn't name is kept and noted,
+except a check that can never report. Nothing is turned off to make a change.
+
+**Deleting a merged staging batch** is `genesis repo prune-staging`, not a rule switched off and on
+again. It deletes a `staging/…` branch only when all of it is on the default branch, no open pull
+request comes from or goes into it, it is a dated batch (`staging/YYYY-MM-DD/<letter>`) and it isn't the newest one, through the admin role's bypass.
+`--dry-run` lists what it would delete.
+
 ## Security
 
 - No input is written into a script: every input and `github.*` value reaches a shell through

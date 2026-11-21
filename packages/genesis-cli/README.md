@@ -993,6 +993,7 @@ Exit codes: `0` pass, `1` findings, `2` the doctor couldn't run (bad config, Gen
 | `migration-pending` | warn | A package migration of one of the app's blocks (`genesis.lock.json`) that isn't in the app yet, as `genesis migrate --dry-run` reports it: the database the app deploys lacks what the installed package needs. Fix: `migrate.copy` (`genesis migrate`). An app whose lock lists no blocks, or whose database files live in another app, isn't checked. |
 | `migration-drift` | warn | A copy of a package migration the app edited, one whose package text changed since it was copied, or a same-named file with other text (unless another file carries the migration's header: that one is the copy, and a same-named draft beside it is the app's own), with no forward migration carrying it. An applied migration is never rewritten. Fix: `migrate.forward` (guided: `genesis migrate --forward` writes the stub, you fill it in); when several files hold the migration and their headers can't tell which is the copy, giving exactly one of them the migration's `genesis-migration` header clears it instead. |
 | `genesis-behind` | info / warn / error | The installed `@marktiderman/genesis` release against npm's latest, and the advisories published for the installed Genesis packages. See [genesis-behind](#genesis-behind). |
+| `repo-protection` | info / warn | The app's GitHub repository against the [branch-protection standard](#genesis-repo): a missing ruleset, rule or required check, a required check whose workflow is path-filtered (it would hold other pull requests forever), rebase merging on. It reads GitHub through `gh`, so only with the network on; when gh can't read the rulesets it says so in one info finding (nothing in CI). `"rules": { "repo-protection": "off" }` makes no call. |
 | `lock-files` | warn / info | `genesis.lock.json` against the files on disk. **warn**: a file the lock owns is missing; `genesis upgrade` never brings a deleted owned file back, so a lock naming files that aren't there passes every upgrade silently. A file you deleted on purpose gets `"deleted": true` in its lock entry: the warning stops and upgrade still leaves it deleted. **info**: a locked file whose checksum differs from the lock's (an app edit, which upgrade three-way merges the next version into, or one waiting on its `.genesis-next`); a file marked deleted that is back; a locked block whose `starter.config.ts` switch is off (upgrade and migrate leave it out, and its files aren't checked); files under `supabase/` the lock still lists in an app whose database lives elsewhere (upgrade leaves them alone, so delete the entries). Also `bun.lock` (at or above the app, with or without `genesis.lock.json`), **warn**: a nested copy of a Genesis package at another version than the root's, when the root's version satisfies the range of the package it's nested under. Bun keeps it across installs, so the app runs two copies; the finding names the entry to delete, then reinstall (`genesis upgrade` does both). |
 | `ratchet-skipped` | warn / error | `--base` was given, but git couldn't compare (not a repository, or the ref isn't fetched). A warning when only the ratchet was skipped (every rule ran at its full level); an error when the config file holds `allow`, `rules` or `packageRules`, which then went uncompared. In CI, check out with `fetch-depth: 0`. |
 | `allow-grew` | error | Under `--base`: an `allow` entry (its rule, file and match) that the doctor settings at the merge base didn't have. The list only shrinks. Rewording a `reason` is fine. The base's settings are found as the doctor finds them (genesis.config.json's `doctor`, else package.json's `genesis.doctor`), so moving them between the two compares as usual; when the base had none (adopting the doctor), nothing is compared. |
@@ -1109,6 +1110,7 @@ doctor couldn't run.
 | `settings.requires` | guided | `setting-requires` (in `genesis.config.json`) | Turns on the boolean keys the setting requires; a locked or non-boolean one, or turning the setting off instead, is yours. |
 | `settings.setup` | guided | `setup-incomplete` | Prints the dormant checklist: `genesis setup --step <id>` for each feature, or the setting and secret to set yourself. Runs nothing. |
 | `secrets.set` | guided | `secret-missing` | Sets each missing secret by name through your signed-in CLIs: `supabase secrets set --env-file /dev/stdin` (edge, one single-quoted dotenv line; a value with a quote or a line break is left to the dashboard) and `gh secret set NAME` (CI). The rest the plan tells you to do: `eas env:create` has no stdin path, so it prints the command; a Vault secret is added in the dashboard (Database → Vault), because SQL carrying the value would be kept in `pg_stat_statements` (Query Performance) and in the logs on an error; a server's environment is yours. |
+| `repo.protect` | guided | `repo-protection` | `genesis repo protect`: plans with its dry run (it reads GitHub, so not `--offline`) and applies its writes through gh, as the repository's admin. |
 | `settings.first-admin` | guided | `platform-admin-missing` | Gives the SQL that adds the first platform admin by a confirmed email (`email_confirmed_at is not null`), refusing when no confirmed person, or more than one, has it; for the SQL editor or `supabase db query --linked`. Only you know who it is. Or give the app its own `private.genesis_platform_admin` hook. |
 | `cli/sentry-source-maps` | guided | `cli/sentry-source-maps` | Declared by genesis-cli (`genesis.doctor.fixes`). Writes what it can: genesis.config.json `observability.sentry` from the app's own `@sentry/react-native/expo` options (when the config names no project), `getSentryExpoConfig` in place of `getDefaultConfig` in the Metro config (the rest kept, NativeWind outermost; not a call with Expo's options), the Expo plugin in app.json or the one `plugins: [` list of app.config.*, and `"@sentry/cli": true` under allowBuilds in the app's pnpm-workspace.yaml. Lists the rest: `SENTRY_AUTH_TOKEN` for each EAS environment (`eas env:create`, which takes no stdin), the GitHub release environment and the web host; `genesis add template release` for the release workflows; the upload step for an app's own workflows; the Vite plugin. |
 
@@ -1797,6 +1799,7 @@ what to do in the service, the values it asks for, the secrets it needs by name,
 |---|---|---|
 | `supabase.link` | `supabase link --project-ref`, `db push`, `functions deploy` for each function in `supabase/functions`; the plan names each migration with its content hash, so an edited one makes it stale (a first link has no dry run, and says so) | linked to the project ref typed in, no migration pending, every function deployed |
 | `github.issues` | `GITHUB_TOKEN` to the Edge Function secrets | the token reads the repository and its issues, with issues on (write access isn't checked: that would open an issue) |
+| `github.branch-protection` | the [`genesis repo protect`](#genesis-repo) writes through gh (offered when the repository has workflows) | the repository matches the standard |
 | `resend.domain` | `RESEND_API_KEY` to the Edge Function secrets; the domain added to Resend (or found) and its DNS records shown | Resend says the domain is `verified` |
 | `sentry` | `SENTRY_AUTH_TOKEN` through `gh secret set`; the `eas env:create` line for you to run | the token reads the project; a test event reaches the DSN (a `*.sentry.io` host only), when given |
 | `ai.key-budget` | `ANTHROPIC_API_KEY` to the Edge Function secrets; the budget as a setting | `GET /v1/models` (spends no tokens) |
@@ -1974,6 +1977,58 @@ Files that exist are kept unless `--force`. `--folder` takes a plain folder insi
 `.`, `..`, spaces or backslashes) and is written normalized; moving a folder genesis.config.json
 already names takes `--force`. The doctor's `client/layer` and `client/one-view-per-resource`
 rules keep screens on it.
+
+## genesis repo
+
+Every Genesis app's repository carries the same GitHub rulesets and merge settings, made and kept by
+the CLI rather than by hand (docs/APP-CI.md, "Branch protection", has the why of each):
+
+```bash
+genesis repo protect --dry-run   # the diff against the standard; writes nothing
+genesis repo protect             # create or converge the rulesets and settings (the repository's admin)
+genesis repo prune-staging --dry-run
+genesis repo prune-staging       # delete merged staging batches, with the rules left on
+```
+
+- **`default`** on the default branch: no deletion, no force push, a pull request with every
+  review thread resolved, merge or squash only, and the app's required checks.
+- **`staging-branches`** on `staging/**`, when the app releases through staging batches (the
+  repository has a staging branch or ruleset, or `repo.staging: true`): no deletion, no force
+  push, the checks that run on pull requests into a batch, not enforced when a batch is cut.
+- **The admin role bypasses both**, and **the settings**: head branches deleted on merge,
+  auto-merge on, rebase merging off.
+
+The required checks are read from the app's own workflows: every job of a workflow that runs on a
+pull request into that branch, named as GitHub names its check (`app / App checks` for a job
+`app` that calls `app-ci.yml`; the called workflow is read at the commit `uses:` pins). A called
+job the caller switches off (`doctor: false`) is left out, and so is Genesis's advisory Claude
+review. A workflow with `paths` on its pull request trigger is never required: it doesn't report on
+a pull request outside those paths, which would then wait for it forever.
+
+Converging adopts what is there: a ruleset of the same name (or on the same branches) is updated
+in place, and a rule, parameter, bypass actor or required check Genesis doesn't name is kept (and
+noted). Name the checks yourself when the workflows don't say, in `genesis.config.json`:
+
+```json
+{
+  "repo": {
+    "requiredChecks": ["app / App checks", "Adversarial review"],
+    "stagingChecks": ["Adversarial review"],
+    "staging": true
+  }
+}
+```
+
+Each list is then exact: a check it doesn't name is removed. `--repo owner/name` picks the
+repository (default: the `origin` remote), `--json` prints the plan as data. The doctor's
+[`repo-protection`](#rules) reports the drift, and the wizard offers it as the
+`github.branch-protection` step.
+
+`prune-staging` deletes a dated batch (`staging/YYYY-MM-DD/<letter>`) only when everything in it
+is on the default branch, no open pull request comes from or goes into it, and it isn't the
+newest batch; a staging branch of another name is kept. It deletes through
+the rulesets' admin bypass, so no rule is ever turned off; an account that can't bypass is told so
+and nothing is deleted.
 
 ## genesis upstream
 
