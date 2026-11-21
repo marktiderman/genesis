@@ -115,6 +115,62 @@ export async function runFeaturesBuild(options: FeaturesCommandOptions): Promise
   return buildFeatureOutputs(await loadRegistry(options));
 }
 
+/** `genesis features build` however it is run (`npx`, `pnpm exec`, `bunx`, a pinned version). */
+const GENESIS_FEATURES_BUILD = /(?:^|[\s/])genesis(?:-cli)?(?:@\S+)?\s+features\s+build\b/;
+
+/**
+ * The app's own `features:build` script, when it builds the feature outputs its own way (a
+ * script that calls `buildFeatureOutputs` with its own registry and flags), or null when it has
+ * none or the script is `genesis features build`.
+ */
+export function ownFeaturesBuildScript(root: string): string | null {
+  try {
+    const script = (JSON.parse(readFileSync(path.join(root, "package.json"), "utf-8")) as { scripts?: Record<string, unknown> }).scripts?.["features:build"];
+    return typeof script === "string" && script.trim() && !GENESIS_FEATURES_BUILD.test(script) ? script : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Every file a features build can write here, from the app's settings (the defaults otherwise). */
+function featureOutputFiles(root: string): string[] {
+  const s = settings(root, { dir: root });
+  const pick = (value: string | false | undefined, fallback: string) => (value === false ? [] : [value ?? fallback]);
+  return [
+    ...pick(s.agents, "AGENTS.md"),
+    ...pick(s.json, "features.json"),
+    ...pick(s.openfeature, "flags.json"),
+    ...pick(s.skill, ".claude/skills/features/SKILL.md"),
+    ...(s.marketing ? [s.marketing] : []),
+  ];
+}
+
+/**
+ * The features build `genesis upgrade` and `genesis add` run for an app: the app's own
+ * `features:build` script when it has one of its own, so the outputs come out exactly as the app's
+ * build and check write them (its registry, its flags, its order); `genesis features build`
+ * otherwise. Returns the files it changed.
+ */
+export async function writeAppFeatures(root: string, pm: "pnpm" | "bun" | "yarn" | "npm"): Promise<string[]> {
+  if (!ownFeaturesBuildScript(root)) return runFeaturesBuild({ dir: root });
+  const files = featureOutputFiles(root);
+  const text = (file: string) => {
+    try {
+      return readFileSync(path.join(root, file), "utf-8");
+    } catch {
+      return null;
+    }
+  };
+  const before = new Map(files.map((f) => [f, text(f)]));
+  try {
+    execFileSync(pm, ["run", "features:build"], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  } catch (err) {
+    const stderr = (err as { stderr?: string }).stderr?.trim().split("\n").find(Boolean);
+    throw new Error(`\`${pm} run features:build\` failed${stderr ? `: ${stderr}` : ""}`);
+  }
+  return files.filter((f) => text(f) !== before.get(f));
+}
+
 const runGh: GhRunner = (args, cwd) =>
   execFileSync("gh", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 15_000 });
 

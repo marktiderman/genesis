@@ -4,6 +4,7 @@ import * as path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { runAdd } from "../src/blocks/add.js";
 import { runMigrate } from "../src/blocks/migrate.js";
+import { sqlSignature } from "../src/blocks/migrations.js";
 import { BUILTIN_RULES, runDoctor } from "../src/doctor/index.js";
 import { runFixCommand } from "../src/fix/command.js";
 import { expoApp, fixturePackage, linkWorkspacePackage, NOW, read } from "./blocks-helpers.js";
@@ -89,6 +90,25 @@ describe("migration-pending and migration-drift", () => {
     expect(two[0]!.message).toMatch(/2 files hold it/);
   });
 
+  it("migration-drift: a difference only in comments and whitespace isn't drift, the app's or the package's; a real SQL change still is", async () => {
+    const root = await appWithBlock();
+    const copy = "supabase/migrations/20261101120000_fixture_notes.sql";
+    const published = read(root, copy);
+    // The app's comment and blank lines in its copy.
+    writeFileSync(path.join(root, copy), published.replace("primary key", "primary key /* the app's note */").replace(/\n/g, "\n\n") + "-- reviewed\n");
+    expect(await of(root, "migration-drift")).toEqual([]);
+    const row = (await runMigrate({ root, dryRun: true, now: NOW })).plan.rows.find((r) => r.file === "migrations/0001_fixture_notes.sql");
+    expect([row?.state, row?.detail]).toEqual(["current", "differs from the package only in comments and whitespace"]);
+    // The package's comment changed since the copy.
+    writeFileSync(path.join(root, copy), published);
+    const source = path.join(root, "node_modules/@marktiderman/genesis-fixture/migrations/0001_fixture_notes.sql");
+    writeFileSync(source, `-- reworded by the package\n${read(root, "node_modules/@marktiderman/genesis-fixture/migrations/0001_fixture_notes.sql")}`);
+    expect(await of(root, "migration-drift")).toEqual([]);
+    // A change to the SQL itself still drifts.
+    writeFileSync(path.join(root, copy), published.replace("primary key", "primary key, extra int"));
+    expect((await of(root, "migration-drift")).map((f) => f.file)).toEqual([copy]);
+  });
+
   it("migration-drift: an edited copy, with the guided forward-migration fix", async () => {
     const root = await appWithBlock();
     const copy = "supabase/migrations/20261101120000_fixture_notes.sql";
@@ -99,5 +119,33 @@ describe("migration-pending and migration-drift", () => {
     expect(await runFixCommand({ root, target: "migration-drift", yes: true, network: false }, { out: (l) => out.push(l), err: () => {} })).toBe(0);
     expect(out.join("\n")).toMatch(/Fill in each forward migration/);
     expect(await of(root, "migration-drift")).toEqual([]);
+  });
+});
+
+describe("sqlSignature: what a migration does, without its comments and spacing", () => {
+  const same = (a: string, b: string) => expect(sqlSignature(a)).toBe(sqlSignature(b));
+  const differ = (a: string, b: string) => expect(sqlSignature(a)).not.toBe(sqlSignature(b));
+
+  it("drops line and block comments (nested too) and collapses whitespace", () => {
+    same("-- notes\ncreate table t (id int);\n", "create table t (id int);");
+    same("create /* a /* nested */ note */ table t\n\n  (id int);", "create table t (id int);");
+    same("select 1;\r\n-- end", "select 1;");
+    same("create table t ( id int /* note */ )", "create table t(id int)");
+    differ("select a - -1", "select a--1");
+    differ("create table t (id int);", "create table t (id bigint);");
+  });
+
+  it("keeps strings, quoted identifiers and dollar-quoted bodies exactly", () => {
+    differ("select '-- not a comment';", "select '';");
+    differ("select 'a  b';", "select 'a b';");
+    differ('select 1 as "a /* b */";', 'select 1 as "a";');
+    differ("select E'it\\'s -- here';", "select E'it\\'s';");
+    same("select 'it''s'; -- note", "select 'it''s';");
+    const fn = (body: string) => `create function f() returns int language sql as $fn$ ${body} $fn$;`;
+    differ(fn("select 1 -- inside the body"), fn("select 1"));
+    differ("do $$ begin /* kept */ end $$;", "do $$ begin end $$;");
+    same(`-- header\n${fn("select 1")}`, fn("select 1"));
+    // A positional parameter is not a dollar quote.
+    same("select $1 -- the id", "select $1");
   });
 });

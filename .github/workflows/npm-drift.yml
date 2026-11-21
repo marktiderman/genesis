@@ -1,0 +1,46 @@
+# npm drift: once a day (and on demand), compares every public package's version on main with
+# npm: the version must exist and `latest` must be it. On drift it writes the job summary, fails,
+# and opens or updates the same `release` issue the Release workflow's verify-publish job uses
+# (scripts/verify-npm-publish.mjs; docs/RELEASING.md says what to do). A clean run closes it.
+# It catches what slipped past a release: a publish that never landed, a dist-tag moved by hand,
+# a release run that was cancelled.
+
+name: npm drift
+
+on:
+  schedule:
+    - cron: "41 7 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: npm-drift
+  cancel-in-progress: true
+
+jobs:
+  drift:
+    name: main vs npm
+    # Forks that turn on Actions publish nothing.
+    if: github.repository == 'marktiderman/genesis'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22.22.1
+
+      # Polls for up to 10 minutes before calling it drift, so a release publishing at the same
+      # moment isn't reported.
+      - name: Compare main with npm
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/verify-npm-publish.mjs drift --timeout 10 --issue
