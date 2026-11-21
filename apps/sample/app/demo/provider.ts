@@ -1,6 +1,6 @@
 /**
  * The demo's data provider: Genesis's in-memory mock provider over the seed
- * rows, plus the two schema calls the Data Studio reads (`listResources`,
+ * rows, plus the two schema calls Genesis Data reads (`listResources`,
  * `describe`), answered from the same resource definitions the views use.
  * Nothing leaves the browser; Reset makes a fresh one.
  */
@@ -20,7 +20,7 @@ export function createDemoProvider(): DataProvider {
   return createMockProvider({ clients: seedClients(), bookings: seedBookings() }, { delay: 120 });
 }
 
-/** The same store, as the Data Studio sees it: with the tables it lists, and what this role may do. */
+/** The same store, as Genesis Data sees it: with the tables it lists, and what this role may do. */
 export function studioProvider(base: DataProvider, canEdit: boolean, orgIds: readonly string[]): DataProvider {
   const access = canEdit
     ? { read: true, update: true, create: true, delete: true }

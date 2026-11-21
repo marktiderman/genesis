@@ -261,7 +261,7 @@ describe("two-package layout", () => {
       "forms-native",
       "forms-web",
       "sites",
-      "studio",
+      "data",
     ]);
     expect(web.figmaDir).toBe("packages/ui/figma");
     const root = make({ notYet: ALL, sources: [] });
@@ -372,7 +372,7 @@ export * from "../index";
   });
 });
 
-describe("genesis-forms-native, -forms-web, -sites and -studio", () => {
+describe("genesis-forms-native, -forms-web, -sites and -data", () => {
   it("forms: PascalCase exports minus hooks, providers, constants, contexts and ChoiceRow's parts", () => {
     const source = `
 export { Form, DefaultEnding, PROGRESS_DELAY_MS, type FormProps } from "./Form";
@@ -426,6 +426,6 @@ export { SiteFormHeader, siteFormSlots } from "./form-header";
     expect(dirs["forms-native"]).toBe("packages/forms-native/figma");
     expect(dirs["forms-web"]).toBe("packages/forms-web/figma");
     expect(dirs.sites).toBe("packages/sites/figma");
-    expect(dirs.studio).toBe("packages/studio/figma");
+    expect(dirs.data).toBe("packages/data/figma");
   });
 });

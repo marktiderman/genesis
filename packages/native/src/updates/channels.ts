@@ -90,6 +90,12 @@ export interface ChannelSwitcher {
   /** Resolves `false` when the record couldn't be saved. */
   noteDownloaded(updateId: string, channel: string): Promise<boolean>;
   /**
+   * Record an update something else downloaded with no preview picked (the update checker's release
+   * update) as the build's own, so a later launch with a preview picked never takes it for the
+   * preview's code. Resolves `false` when it couldn't be saved.
+   */
+  noteRelease(updateId: string): Promise<boolean>;
+  /**
    * Hold the next reload until `work` settles (at most 10 s): a checker download and its record, so
    * leaving can't restart into a preview update before it's recorded as the preview's. If it
    * doesn't settle in time, or a preview update's record couldn't be saved, the reload doesn't
@@ -468,6 +474,16 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
         return now === channel || now === null ? recordPreviewUpdate(updateId, channel) : true;
       })();
     },
+    noteRelease(updateId) {
+      const task = async (): Promise<boolean> => {
+        const release = parseIds(await read(releaseKey));
+        if (release.includes(updateId)) return true;
+        return write(releaseKey, JSON.stringify([...release, updateId].slice(-20)));
+      };
+      const next = recordQueue.then(task, task);
+      recordQueue = next.then(() => undefined, () => undefined);
+      return next;
+    },
     restart() {
       return serial(async () => unavailable() ?? reload());
     },
@@ -492,7 +508,10 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
     recover(error) {
       if (!isChannelNotFoundError(error)) return Promise.resolve(false);
       return serial(async () => {
+        const was = (await load()).requested;
         await dropOverride();
+        // The deleted preview's code still runs until the next restart: keep the notice up for it.
+        if (was) publish({ ...(await load()), lingering: was });
         return true;
       });
     },

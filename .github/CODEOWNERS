@@ -8,6 +8,8 @@
 /packages/collab/ @marktiderman
 /packages/connect/ @marktiderman
 /packages/core/ @marktiderman
+/packages/data/ @marktiderman
+/packages/data-server/ @marktiderman
 /packages/design-system/ @marktiderman
 /packages/extension/ @marktiderman
 /packages/features/ @marktiderman

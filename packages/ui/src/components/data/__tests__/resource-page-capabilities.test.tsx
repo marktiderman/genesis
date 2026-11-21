@@ -1,6 +1,6 @@
 /**
  * ResourcePage `capabilities` — a control the data source can't serve is
- * hidden rather than left to error (DATA-STUDIO.md decision 9).
+ * hidden rather than left to error (DATA.md decision 9).
  */
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";

@@ -1213,7 +1213,7 @@ it, handlers can't reply (their status changes still work, without the prompt) u
 
 ## Fixes to tickets (migration 0016) and to help answers (migration 0017)
 
-- 0016 (with the support block, after 0004): the Data Studio's audit log and outbox move from the
+- 0016 (with the support block, after 0004): Genesis Data's audit log and outbox move from the
   old table names to `public.tickets` and `public.ticket_attachments`, wherever those tables exist,
   so a ticket's history reads on past the rename. `support_agent_unread_count(tenant)` is an
   agent's count of active tickets (not pending, not closed) with a requester's message no agent has read (`client.agentUnreadCount`),

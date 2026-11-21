@@ -286,8 +286,8 @@
           ],
           "off": [
             {
-              "pattern": "channels\\s*:\\s*\\{\\s*enabled\\s*:\\s*__DEV__\\s*,?\\s*\\}",
-              "message": "channel switching is on only in development, where expo-updates can't switch channels, so no build can open a preview. Turn it on for release builds (genesis-native README, \"Previews\")."
+              "pattern": "channels\\s*:\\s*\\{\\s*enabled\\s*:\\s*__DEV__\\b[^,}]*,?\\s*\\}",
+              "message": "channel switching is on only in development (or development and a test flag), where expo-updates can't switch channels, so no build can open a preview. Turn it on for release builds (genesis-native README, \"Previews\")."
             }
           ]
         }

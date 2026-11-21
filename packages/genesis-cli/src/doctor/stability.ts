@@ -107,6 +107,13 @@ export function genesisNamedImports(source: string): Array<{ pkg: string; specif
  */
 export const RENAMED_PACKAGES: Readonly<Record<string, string>> = {
   "@marktiderman/genesis-features": "@marktiderman/genesis-config",
+  "@marktiderman/genesis-studio": "@marktiderman/genesis-data",
+  "@marktiderman/genesis-studio-server": "@marktiderman/genesis-data-server",
+};
+
+/** The codemod that moves an app off a renamed package, where there is one. */
+const RENAME_CODEMODS: Readonly<Record<string, string>> = {
+  "@marktiderman/genesis-features": "genesis-features-renamed-genesis-config",
 };
 
 /**
@@ -136,7 +143,11 @@ function packageDeprecation(root: string, pkg: string): string | undefined {
     }
   }
   if (notice) return notice;
-  return renamed ? `renamed to ${renamed}: run \`genesis codemod genesis-features-renamed-genesis-config\` to move the imports and the dependency` : undefined;
+  if (!renamed) return undefined;
+  const codemod = RENAME_CODEMODS[pkg];
+  return codemod
+    ? `renamed to ${renamed}: run \`genesis codemod ${codemod}\` to move the imports and the dependency`
+    : `renamed to ${renamed}: change the imports and the dependency to the new name (same exports)`;
 }
 
 function declarationFiles(dir: string, out: string[] = []): string[] {

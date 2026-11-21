@@ -44,6 +44,8 @@ export default [
     route("settings", "routes/settings.tsx"),
     // The old record-page sample moved to the demo app's client pages.
     route("projects/*", "routes/projects.tsx"),
+    route("data", "routes/data.tsx"),
+    // Genesis Data's old address (ADR 0025).
     route("studio", "routes/studio.tsx"),
     // Genesis settings: <GenesisSettings> over createSettingsHandler (settings/vite-plugin.ts, dev only).
     route("platform-settings", "routes/platform-settings.tsx"),

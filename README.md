@@ -59,7 +59,7 @@ row-level security is the boundary.
 
 - **Design tokens and brands** — Bring your brand once; every component follows it.
 - **ResourcePage** — A working list, detail and edit page from a few lines of config.
-- **Data Studio** — A spreadsheet over your own database, as the signed-in user.
+- **Genesis Data** — A spreadsheet over your own database, as the signed-in user.
 - **Forms engine** — Forms as data: logic, validation and a server check that can't be tampered with.
 
 ### Design system
@@ -157,7 +157,7 @@ primitives; level 2 is the modules built from them. Each package's `genesis.laye
 | --- | --- | --- |
 | Foundation | Core | [`genesis-core`](./packages/core) (data contract, providers, hooks, views, workspaces) · [`genesis-ui`](./packages/ui) (web components, layouts, `ResourceView`, `RecordView`, `AppShell`) · [`genesis-ui-native`](./packages/ui-native) (React Native components, `NativeResourceView`) · [`genesis-design-system`](./packages/design-system) (tokens, brand schema, themes) · [`genesis-config`](./packages/features) (feature registry, flags, the gate, blocks; formerly `genesis-features`). All five are essential: every app starts with them. |
 | Primitives | Core | [`genesis`](./packages/genesis), the umbrella: one version coordinate for the foundation, the native shell, switchboard and forms. It holds no code of its own, and bundles primitives, never modules. |
-| | Data | [`genesis-supabase`](./packages/supabase) · [`genesis-switchboard`](./packages/switchboard) · [`genesis-studio`](./packages/studio) and [`studio-server`](./packages/studio-server) (Data Studio) · [`genesis-connect`](./packages/connect) · [`genesis-calendar`](./packages/calendar) (Google Calendar and iCal feeds, merged) |
+| | Data | [`genesis-supabase`](./packages/supabase) · [`genesis-switchboard`](./packages/switchboard) · [`genesis-data`](./packages/data) and [`data-server`](./packages/data-server) (Genesis Data) · [`genesis-connect`](./packages/connect) · [`genesis-calendar`](./packages/calendar) (Google Calendar and iCal feeds, merged) |
 | | AI | [`genesis-ai`](./packages/ai) |
 | | Forms | [`genesis-forms`](./packages/forms) with [`forms-react`](./packages/forms-react), [`forms-web`](./packages/forms-web), [`forms-native`](./packages/forms-native), [`forms-builder`](./packages/forms-builder), [`forms-studio`](./packages/forms-studio), [`forms-devtools`](./packages/forms-devtools) |
 | | Collaboration | [`genesis-chat`](./packages/chat) · [`genesis-notifications`](./packages/notifications) · [`genesis-collab`](./packages/collab) |

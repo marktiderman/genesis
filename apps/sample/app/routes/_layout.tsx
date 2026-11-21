@@ -31,7 +31,7 @@ const globalItems: NavItem[] = [
     children: [
       { to: "/forms", icon: ClipboardList, label: "Forms playground" },
       { to: "/forms-builder", icon: PencilRuler, label: "Form builder" },
-      { to: "/studio", icon: Database, label: "Data Studio" },
+      { to: "/data", icon: Database, label: "Genesis Data" },
       { to: "/platform-settings", icon: Settings2, label: "Genesis settings" },
       { to: "/chat", icon: MessagesSquare, label: "Chat" },
       { to: "/sites", icon: Globe, label: "Sites" },

@@ -10,7 +10,7 @@
       "packages/forms-native/figma/**/*.figma.ts",
       "packages/forms-web/figma/**/*.figma.ts",
       "packages/sites/figma/**/*.figma.ts",
-      "packages/studio/figma/**/*.figma.ts"
+      "packages/data/figma/**/*.figma.ts"
     ]
   }
 }

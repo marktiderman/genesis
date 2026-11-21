@@ -4,14 +4,12 @@
   "private": false,
   "type": "module",
   "sideEffects": false,
-  "description": "Genesis Data Studio server handler — a web-standard Request → Response handler that reads and edits a Postgres or Supabase database AS the signed-in user: schema discovery with per-user column rights, version-checked edits, and an audit entry in the same transaction. The only Genesis package that touches database credentials. Part of the Genesis framework.",
+  "deprecated": "Renamed to @marktiderman/genesis-data-server (Genesis Data Studio is now Genesis Data): change the imports and the dependency to the new name; the exports and the `genesis-studio-server` command are the same. This alias re-exports genesis-data-server for two minor versions, then goes.",
+  "description": "Deprecated: renamed to @marktiderman/genesis-data-server. A thin re-export of genesis-data-server with the same entries and command, kept for two minor versions. Part of the Genesis framework.",
   "keywords": [
     "genesis",
     "genesis-framework",
-    "admin",
-    "postgres",
-    "supabase",
-    "server"
+    "deprecated"
   ],
   "homepage": "https://github.com/marktiderman/genesis/tree/main/packages/studio-server#readme",
   "bugs": {
@@ -38,7 +36,7 @@
     }
   },
   "bin": {
-    "genesis-studio-server": "./dist/cli.js"
+    "genesis-studio-server": "./dist/cli.mjs"
   },
   "exports": {
     "./package.json": "./package.json",
@@ -69,24 +67,16 @@
     "node": "^20.19.0 || >=22.12.0"
   },
   "scripts": {
-    "build": "rm -rf dist && tsup && node ../../scripts/check-exports-resolve.mjs",
+    "build": "node scripts/build.mjs && node ../../scripts/check-exports-resolve.mjs",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "test:db": "bash scripts/with-test-db.sh vitest run"
+    "test": "vitest run"
   },
   "dependencies": {
-    "jose": "^6.2.12",
-    "postgres": "^4.1.0"
-  },
-  "peerDependencies": {
-    "@marktiderman/genesis-core": "^1.11.0 || ^2.0.0"
+    "@marktiderman/genesis-data-server": "workspace:^"
   },
   "devDependencies": {
-    "@marktiderman/genesis-core": "workspace:^",
-    "@types/node": "^22",
-    "drizzle-orm": "^0.45.4",
-    "tsup": "^8.3.0",
+    "@types/node": "^22.9.0",
     "typescript": "~6.0.3",
     "vitest": "^5.0.5"
   },
@@ -98,7 +88,7 @@
       "prefer": [
         {
           "id": "handler-on-server",
-          "need": "the Data Studio's server side",
+          "need": "Genesis Data's server side",
           "level": "warn",
           "files": [
             "**/*.tsx",
@@ -111,6 +101,8 @@
           ],
           "forbid": {
             "imports": [
+              "@marktiderman/genesis-data-server",
+              "@marktiderman/genesis-data-server/auth",
               "@marktiderman/genesis-studio-server",
               "@marktiderman/genesis-studio-server/auth"
             ]
@@ -119,11 +111,14 @@
             "pattern": "\\bcreateServerFn\\s*\\(|\\bexport\\s+(?:let|const|async\\s+function|function)\\s+(?:loader|action)\\b|\\bexport\\s*\\{[^}]*\\b(?:loader|action)\\b|^\\s*[\"']use server[\"']"
           },
           "use": "the browser client in screens, the handler in a server route",
-          "import": "@marktiderman/genesis-studio-server/client",
-          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/DATA-STUDIO.md",
+          "import": "@marktiderman/genesis-data-server/client",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/DATA.md",
           "why": "The handler talks to Postgres as the signed-in user and must never ship to a browser."
         }
       ]
     }
+  },
+  "peerDependencies": {
+    "@marktiderman/genesis-core": "^1.11.0 || ^2.0.0"
   }
 }

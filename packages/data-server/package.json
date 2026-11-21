@@ -1,0 +1,131 @@
+{
+  "name": "@marktiderman/genesis-data-server",
+  "version": "0.6.0",
+  "private": false,
+  "type": "module",
+  "sideEffects": false,
+  "description": "Genesis Data server handler — a web-standard Request → Response handler that reads and edits a Postgres or Supabase database AS the signed-in user: schema discovery with per-user column rights, version-checked edits, and an audit entry in the same transaction. The only Genesis package that touches database credentials. Part of the Genesis framework.",
+  "keywords": [
+    "genesis",
+    "genesis-framework",
+    "admin",
+    "postgres",
+    "supabase",
+    "server"
+  ],
+  "homepage": "https://github.com/marktiderman/genesis/tree/main/packages/data-server#readme",
+  "bugs": {
+    "url": "https://github.com/marktiderman/genesis/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marktiderman/genesis.git",
+    "directory": "packages/data-server"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "provenance": false
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "auth": [
+        "./dist/auth.d.cts"
+      ]
+    }
+  },
+  "bin": {
+    "genesis-data-server": "./dist/cli.js"
+  },
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "import": "./dist/client.js"
+    },
+    "./auth": {
+      "import": {
+        "types": "./dist/auth.d.ts",
+        "default": "./dist/auth.js"
+      },
+      "require": {
+        "types": "./dist/auth.d.cts",
+        "default": "./dist/auth.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
+  "scripts": {
+    "build": "rm -rf dist && tsup && node ../../scripts/check-exports-resolve.mjs",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:db": "bash scripts/with-test-db.sh vitest run"
+  },
+  "dependencies": {
+    "jose": "^6.2.12",
+    "postgres": "^4.1.0"
+  },
+  "peerDependencies": {
+    "@marktiderman/genesis-core": "^1.11.0 || ^2.0.0"
+  },
+  "devDependencies": {
+    "@marktiderman/genesis-core": "workspace:^",
+    "@types/node": "^22",
+    "drizzle-orm": "^0.45.4",
+    "tsup": "^8.3.0",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.5"
+  },
+  "genesis": {
+    "layer": "primitive",
+    "group": "data",
+    "owner": "@marktiderman",
+    "doctor": {
+      "prefer": [
+        {
+          "id": "handler-on-server",
+          "need": "Genesis Data's server side",
+          "level": "warn",
+          "files": [
+            "**/*.tsx",
+            "**/*.jsx"
+          ],
+          "exclude": [
+            "**/*.server.*",
+            "**/server/**",
+            "**/api/**"
+          ],
+          "forbid": {
+            "imports": [
+              "@marktiderman/genesis-data-server",
+              "@marktiderman/genesis-data-server/auth",
+              "@marktiderman/genesis-studio-server",
+              "@marktiderman/genesis-studio-server/auth"
+            ]
+          },
+          "unless": {
+            "pattern": "\\bcreateServerFn\\s*\\(|\\bexport\\s+(?:let|const|async\\s+function|function)\\s+(?:loader|action)\\b|\\bexport\\s*\\{[^}]*\\b(?:loader|action)\\b|^\\s*[\"']use server[\"']"
+          },
+          "use": "the browser client in screens, the handler in a server route",
+          "import": "@marktiderman/genesis-data-server/client",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/DATA.md",
+          "why": "The handler talks to Postgres as the signed-in user and must never ship to a browser."
+        }
+      ]
+    }
+  }
+}

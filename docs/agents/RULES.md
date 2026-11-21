@@ -17,7 +17,7 @@ only product-specific part.
 | Release path | the batch's release pull request into `main`, then the version packages pull request |
 | Lease length | 24 hours without a push |
 | Owner's stops | npm publishes (first versions by hand), the version packages merge, store and TestFlight submissions, destructive actions |
-| Shared packages | `packages/support`, `packages/supabase` (its migrations), `packages/ui`, `packages/design-system`, `packages/core`, `packages/features`, `packages/genesis-cli`, `packages/studio`, `packages/studio-server` |
+| Shared packages | `packages/support`, `packages/supabase` (its migrations), `packages/ui`, `packages/design-system`, `packages/core`, `packages/features`, `packages/genesis-cli`, `packages/data`, `packages/data-server` |
 
 **Status: draft.** Each rule is marked:
 
