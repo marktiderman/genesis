@@ -14,7 +14,7 @@ import { NativeButton, NativeEmptyState, NativeText } from "@marktiderman/genesi
 import { useUpdates } from "./block";
 import { isChannelName, type ChannelCheck, type ChannelState, type ChannelSwitcher } from "./channels";
 
-const EMPTY: ChannelState = { requested: null, build: null };
+const EMPTY: ChannelState = { requested: null, build: null, lingering: null };
 
 /**
  * Numbers each channel a preview screen is given, so an answer can be matched to the attempt that
@@ -238,14 +238,14 @@ export function PreviewNotice({ channel, leave, leaving, problem }: PreviewNotic
 /** The notice's props while a preview is open, else `null`. */
 export function usePreviewNotice(): PreviewNoticeProps | null {
   const { channels } = useUpdates();
-  const { requested } = useChannelStateOf(channels);
+  const { requested, lingering } = useChannelStateOf(channels);
   const [leaving, setLeaving] = useState(false);
   // Leaving clears the override at once, but the preview's code runs until the app restarts: keep
   // the notice (and a way to finish) until it does.
   // `blocked`: the build's update is downloaded, only the restart is left. Anything else: leave again
   // from the top (it fetches the build's channel again, so the restart can't land on the preview).
   const [stuck, setStuck] = useState<{ channel: string; problem: string; blocked: boolean } | null>(null);
-  const channel = requested ?? stuck?.channel ?? null;
+  const channel = requested ?? stuck?.channel ?? lingering ?? null;
   if (!channel) return null;
   const finish = async () => {
     setLeaving(true);
@@ -261,5 +261,6 @@ export function usePreviewNotice(): PreviewNoticeProps | null {
       setLeaving(false);
     }
   };
-  return { channel, leaving, problem: stuck?.problem ?? null, leave: () => void finish() };
+  const problem = stuck?.problem ?? (lingering && !requested ? "Still on the preview's code. Try again to load the regular version." : null);
+  return { channel, leaving, problem, leave: () => void finish() };
 }

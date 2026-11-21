@@ -63,6 +63,12 @@ export interface ChannelState {
   requested: string | null;
   /** The build's own channel, as remembered from a launch without an override; `null` until known. */
   build: string | null;
+  /**
+   * The preview whose code is still running although none is picked: leaving cleared the override,
+   * but the restart launched the preview's update again (on Android a check that finds nothing
+   * keeps the previous manifest filters). `null` otherwise. Leaving again (`reset`) is the way out.
+   */
+  lingering?: string | null;
 }
 
 export interface ChannelSwitcher {
@@ -121,6 +127,8 @@ export function isChannelNotFoundError(error: unknown): boolean {
 export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelSwitcher {
   const { updates, enabled, guard, storage, storageKey = "genesis:updates:channel", reloadScreenOptions, onError } = options;
   const buildKey = `${storageKey}:build`;
+  /** `{ id, channel }` of the last preview update downloaded, to tell when its code still runs. */
+  const previewKey = `${storageKey}:preview-update`;
   const listeners = new Set<(state: ChannelState) => void>();
   let cache: ChannelState | null = null;
   /** The first read of storage, shared: a later publish always wins over it. */
@@ -169,6 +177,17 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
   const init = async (): Promise<ChannelState> => {
     const requested = await read(storageKey);
     let build = await read(buildKey);
+    let lingering: string | null = null;
+    const last = await read(previewKey);
+    if (last) {
+      try {
+        const { id, channel } = JSON.parse(last) as { id?: string; channel?: string };
+        if (id && updates?.updateId === id) lingering = requested ? null : (channel ?? null);
+        else if (!requested) await write(previewKey, null);
+      } catch {
+        await write(previewKey, null);
+      }
+    }
     // A launch with no override runs on the build's own channel: remember it, since under an
     // override `Updates.channel` reports the override instead.
     if (!requested && updates?.channel) {
@@ -176,7 +195,7 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
       await write(buildKey, build);
     }
     // A pick published while storage was being read is newer: keep it.
-    if (!cache) cache = { requested, build };
+    if (!cache) cache = { requested, build, lingering };
     return cache;
   };
   const load = (): Promise<ChannelState> => (cache ? Promise.resolve(cache) : (loading ??= init()));
@@ -194,7 +213,7 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
     const state = await load();
     const requested = channel && channel !== state.build ? channel : null;
     await write(storageKey, requested);
-    publish({ ...state, requested });
+    publish({ ...state, requested, lingering: requested ? null : (state.lingering ?? null) });
   };
   const validName = (channel: string): string => {
     if (enabled !== true) throw new Error("Channel switching is off. Pass `channels: { enabled: true }` to turn it on.");
@@ -241,13 +260,17 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
     try {
       const check = await u.checkForUpdateAsync();
       if (check.isAvailable || check.isRollBackToEmbedded) {
-        const got = (await u.fetchUpdateAsync()) as { isNew?: boolean; isRollBackToEmbedded?: boolean } | undefined;
+        const got = (await u.fetchUpdateAsync()) as { isNew?: boolean; isRollBackToEmbedded?: boolean; manifest?: unknown } | undefined;
         // `{ isNew: false, isRollBackToEmbedded: false }` is a fetch that got nothing (the channel changed in between).
         if (got && got.isNew === false && !got.isRollBackToEmbedded) {
           const error = new Error("The preview didn't download. Try again.");
           report(error);
           return { kind: "error", error };
         }
+        // Remember which update a preview downloaded, so its code can be told apart after leaving.
+        const id = (got?.manifest as { id?: unknown } | undefined)?.id;
+        const picked = (await load()).requested;
+        if (picked && typeof id === "string") await write(previewKey, JSON.stringify({ id, channel: picked }));
         return { kind: "downloaded" };
       }
       const reason = (check as { reason?: string }).reason;

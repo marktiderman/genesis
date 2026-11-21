@@ -76,6 +76,40 @@ export function namesImportedFrom(code: string, packages: readonly string[]): Ma
   return out;
 }
 
+/** `code` with the contents of every string, template literal and comment replaced by spaces (same length). */
+export function blankStrings(code: string): string {
+  let out = "";
+  let quote: string | null = null;
+  for (let i = 0; i < code.length; i++) {
+    const c = code[i]!;
+    if (quote) {
+      if (c === "\\") {
+        out += "  ";
+        i++;
+      } else if (c === quote) {
+        quote = null;
+        out += c;
+      } else out += c === "\n" ? "\n" : " ";
+      continue;
+    }
+    if (c === '"' || c === "'" || c === "`") {
+      quote = c;
+      out += c;
+    } else if (c === "/" && code[i + 1] === "/") {
+      const nl = code.indexOf("\n", i);
+      const end = nl < 0 ? code.length : nl;
+      out += " ".repeat(end - i);
+      i = end - 1;
+    } else if (c === "/" && code[i + 1] === "*") {
+      const close = code.indexOf("*/", i + 2);
+      const end = close < 0 ? code.length : close + 2;
+      out += code.slice(i, end).replace(/[^\n]/g, " ");
+      i = end - 1;
+    } else out += c;
+  }
+  return out;
+}
+
 /** Whether `index` in `code` falls inside a string, a template literal or a comment. */
 function inStringOrComment(code: string, index: number): boolean {
   let quote: string | null = null;
@@ -163,7 +197,8 @@ export function classify(
       for (const f of adopting) {
         const calls = locals(f.code).flatMap((n) => callArguments(f.code, n));
         for (const call of calls) {
-          const m = re.exec(call.text);
+          // Strings in the call (a log message quoting a config) aren't configuration: blank them, keeping positions.
+          const m = re.exec(blankStrings(call.text));
           if (!m) continue;
           off.push({ file: f.path, line: f.code.slice(0, call.start + m.index).split("\n").length, message: o.message });
           break;

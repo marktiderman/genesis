@@ -81,6 +81,8 @@ describe("missed-value", () => {
     expect(await run(`${imp}export const u = makeUpdates({ channels: { enabled: __DEV__ } });\n`)).toBe(true);
     const plain = 'import { createUpdates } from "@marktiderman/genesis-native/updates";\n';
     expect(await run(`${plain}export const u = createUpdates({ channels: { enabled: true } });\nconst doc = "createUpdates({ channels: { enabled: __DEV__ } })";\n// createUpdates({ channels: { enabled: __DEV__ } })\n`)).toBe(false);
+    // A string inside the call quoting the old config isn't the config.
+    expect(await run(`${plain}export const u = createUpdates({\n  platform: "ios",\n  channels: { enabled: true },\n  onError: () => console.warn("channels: { enabled: __DEV__ }"),\n});\n`)).toBe(false);
   });
 
   it("counts a detector only when it's imported from the block's package, and reads switched-off only there", async () => {

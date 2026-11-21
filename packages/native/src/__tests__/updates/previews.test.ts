@@ -82,7 +82,7 @@ describe("channel switching, hardened", () => {
     await expect(switcher.prepare("pr-42")).resolves.toEqual({ kind: "downloaded" });
     expect(updates.setUpdateRequestHeadersOverride).toHaveBeenCalledWith({ "expo-channel-name": "pr-42" });
     expect(updates.reloadAsync).not.toHaveBeenCalled();
-    await expect(switcher.state()).resolves.toEqual({ requested: "pr-42", build: "production" });
+    await expect(switcher.state()).resolves.toMatchObject({ requested: "pr-42", build: "production" });
     await expect(switcher.restart()).resolves.toEqual({ kind: "reloading" });
     expect(updates.reloadAsync).toHaveBeenCalledTimes(1);
   });
@@ -118,9 +118,9 @@ describe("channel switching, hardened", () => {
     const switcher = createChannelSwitcher({ updates, enabled: true, guard: createReloadGuard(), storage });
     const seen = vi.fn();
     switcher.subscribe(seen);
-    await expect(switcher.state()).resolves.toEqual({ requested: "pr-1", build: "production" });
+    await expect(switcher.state()).resolves.toMatchObject({ requested: "pr-1", build: "production" });
     await switcher.reset();
-    expect(seen).toHaveBeenLastCalledWith({ requested: null, build: "production" });
+    expect(seen).toHaveBeenLastCalledWith(expect.objectContaining({ requested: null, build: "production" }));
     expect(storage.data.get("genesis:updates:channel:build")).toBe("production");
   });
 
@@ -185,6 +185,22 @@ describe("channel switching, hardened", () => {
     expect(updates.reloadAsync).not.toHaveBeenCalled();
     release();
     await expect(switcher.restart()).resolves.toEqual({ kind: "reloading" });
+  });
+
+  it("tells when a left preview's update still runs (Android keeps the old filters), and forgets it once it doesn't", async () => {
+    // Prepare records the update a preview downloaded…
+    const storage = memoryStorage();
+    const first = fakeUpdates({ next: { id: "pr-update-1" } });
+    await createChannelSwitcher({ updates: first, enabled: true, guard: createReloadGuard(), storage }).prepare("pr-9");
+    expect(JSON.parse(storage.data.get("genesis:updates:channel:preview-update")!)).toEqual({ id: "pr-update-1", channel: "pr-9" });
+    // …the person leaves (no channel picked), and the relaunch still runs that update.
+    storage.data.delete("genesis:updates:channel");
+    const stillPreview = fakeUpdates({ updateId: "pr-update-1" });
+    await expect(createChannelSwitcher({ updates: stillPreview, enabled: true, guard: createReloadGuard(), storage }).state()).resolves.toMatchObject({ requested: null, lingering: "pr-9" });
+    // Once the regular update runs, it's forgotten.
+    const regular = fakeUpdates({ updateId: "prod-update" });
+    await expect(createChannelSwitcher({ updates: regular, enabled: true, guard: createReloadGuard(), storage }).state()).resolves.toMatchObject({ lingering: null });
+    expect(storage.data.has("genesis:updates:channel:preview-update")).toBe(false);
   });
 
   it("runs one write at a time, in order", async () => {
