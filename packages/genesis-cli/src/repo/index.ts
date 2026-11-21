@@ -270,8 +270,10 @@ export async function applyApprovedPlan(options: RepoOptions & { useLocal?: bool
 }
 
 /** The one-line summary a fix or a wizard step shows, ending with the plan's digest. */
-export function planSummary(plan: ProtectionPlan): string {
-  const said = plan.changes.length ? `${plan.slug}: ${plan.changes.map((c) => `${c.scope} ${c.kind} ${c.what}`).join("; ")}` : `${plan.slug} already matches the Genesis standard`;
+export function planSummary(plan: ProtectionPlan, unknown: readonly string[] = []): string {
+  // What is unknown comes first, and a plan with unknowns never says it already matches.
+  const parts = [...unknown, ...plan.changes.map((c) => `${c.scope} ${c.kind} ${c.what}`)];
+  const said = parts.length ? `${plan.slug}: ${parts.join("; ")}` : `${plan.slug} already matches the Genesis standard`;
   return `${said} (plan ${planDigest(plan)})`;
 }
 
@@ -295,11 +297,14 @@ export async function runRepoProtect(options: ProtectCommandOptions): Promise<nu
   // Something unknown fails the run, dry or not, writes or none: "matches" is never said over it.
   const refused = [...new Set([...result.unknown, ...(options.dryRun ? [] : refusalsOf(result, options))])];
   if (refused.length) {
-    if (options.json) out(JSON.stringify({ repo: result.plan.slug, dryRun: options.dryRun === true, refused, unknown: result.unknown, written: [], changes: result.plan.changes, notes: result.plan.notes }, null, 2));
+    // A dry run still says everything else a real run would refuse, beyond what is unknown.
+    const wouldRefuse = options.dryRun ? refusalsOf(result, options).filter((r) => !result.unknown.includes(r)) : [];
+    if (options.json) out(JSON.stringify({ repo: result.plan.slug, dryRun: options.dryRun === true, refused, unknown: result.unknown, ...(options.dryRun ? { wouldRefuse } : {}), written: [], changes: result.plan.changes, notes: result.plan.notes }, null, 2));
     else {
       out(result.unknown.length && !result.plan.changes.length ? `${result.plan.slug}: not known to match the Genesis standard` : formatPlan(result.plan, { dryRun: true }));
       if (result.unknown.length && !result.plan.changes.length) for (const note of result.plan.notes) out(`  note: ${note}`);
       for (const r of refused) out(`✗ ${r}.`);
+      for (const r of wouldRefuse) out(`  a real run would refuse: ${r}`);
       out("Nothing was written.");
     }
     return 1;

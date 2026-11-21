@@ -488,7 +488,8 @@ function repoProtectFix(deps: BuiltinDeps): Fix {
     async plan(ctx) {
       if (!ctx.network) return { summary: "reads the repository's rulesets from GitHub: run it online", manual: "genesis repo protect --dry-run shows the change; genesis repo protect makes it" };
       const { planRepo, planSummary } = await import("../repo/index.js");
-      return { summary: planSummary((await planRepo(options(ctx.root))).plan) };
+      const { plan, unknown } = await planRepo(options(ctx.root));
+      return { summary: planSummary(plan, unknown) };
     },
     // The approved plan's digest: a repository that changed since is refused, never applied unseen.
     async apply(plan, ctx) {

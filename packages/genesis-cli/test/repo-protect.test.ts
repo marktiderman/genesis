@@ -484,6 +484,43 @@ describe("CodeRabbit round 3", () => {
     expect(d.findings.some((f) => f.rule === "repo-protection" && f.level === "warn" && f.message.includes("staging protection unknown"))).toBe(true);
   });
 
+  it("a dry run with staging unknown still says the other refusals a real run would make", async () => {
+    const top = repoDir(CI_FILES);
+    const queued = handMade();
+    queued.rules.push({ type: "merge_queue", parameters: {} });
+    (queued.rules[3]!.parameters!.required_status_checks as unknown[]).splice(0, 1);
+    const state = { rulesets: [queued], remote: REMOTE3(), failBranches: true };
+    const lines: string[] = [];
+    expect(await runRepoProtect({ root: top, run: fakeGitHub(top, state).run, dryRun: true, out: (l) => lines.push(l) })).toBe(1);
+    expect(lines.join("\n")).toContain("staging protection unknown");
+    expect(lines.join("\n")).toMatch(/a real run would refuse: main has a merge queue, and "app \/ App checks" has no merge_group trigger/);
+    const json: string[] = [];
+    expect(await runRepoProtect({ root: top, run: fakeGitHub(top, state).run, dryRun: true, json: true, out: (l) => json.push(l) })).toBe(1);
+    const parsed = JSON.parse(json.join("\n")) as { wouldRefuse: string[]; unknown: string[] };
+    expect(parsed.wouldRefuse.some((r) => r.includes("merge queue"))).toBe(true);
+    expect(parsed.wouldRefuse.some((r) => r.includes("staging protection unknown"))).toBe(false);
+  });
+
+  it("the wizard step doesn't verify while staging protection is unknown, and says why", async () => {
+    const { githubProtect } = await import("../src/wizard/steps/github-protect.js");
+    const top = repoDir(CI_FILES);
+    const remote = { ...REMOTE3(), "database.yml": REMOTE3()["database.yml"]!.replace("    paths: ['supabase/**']\n", "") };
+    const ctx = (failBranches: boolean) => ({ root: top, fields: {}, run: fakeGitHub(top, { rulesets: [handMade()], remote, settings: { allow_rebase_merge: false }, failBranches }).run, fetch: (async () => { throw new Error("no fetch"); }) as never, network: true });
+    expect(await githubProtect.verify(ctx(false))).toMatchObject({ ok: true });
+    const unknown = await githubProtect.verify(ctx(true));
+    expect(unknown.ok).toBe(false);
+    expect(unknown.message).toContain("Not verified: staging protection unknown");
+    // No change to make, but unknown: the wizard's and repo.protect's plan never say "already matches".
+    const summary = (await githubProtect.plan(ctx(true))).summary;
+    expect(summary).toContain("staging protection unknown");
+    expect(summary).not.toContain("already matches");
+    const { builtinFixes } = await import("../src/fix/builtin.js");
+    const fix = builtinFixes({ run: ctx(true).run }).find((f) => f.id === "repo.protect")!;
+    const drafted = await fix.plan({ root: top, findings: [], network: true });
+    expect(drafted.summary).toContain("staging protection unknown");
+    expect(drafted.summary).not.toContain("already matches");
+  });
+
   it("refuses a PUT for a ruleset without updated_at: it can't be re-read before overwriting", () => {
     const r = handMade();
     delete r.updated_at;

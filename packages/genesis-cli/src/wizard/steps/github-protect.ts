@@ -61,7 +61,8 @@ export const githubProtect: StepRunner = {
   },
   async plan(ctx) {
     if (!ctx.network) throw new StepError("Branch protection reads the repository from GitHub: run it online.");
-    return { summary: planSummary((await planRepo(options(ctx))).plan) };
+    const { plan, unknown } = await planRepo(options(ctx));
+    return { summary: planSummary(plan, unknown) };
   },
   // Applies the approved plan only: a repository that changed since it was shown is refused.
   async apply(ctx, _secrets, approved) {
@@ -73,7 +74,9 @@ export const githubProtect: StepRunner = {
   async verify(ctx) {
     if (!ctx.network) return OFFLINE;
     try {
-      const { plan } = await planRepo(options(ctx));
+      const { plan, unknown } = await planRepo(options(ctx));
+      // Unknown is never "matches": the step stays open and says why.
+      if (unknown.length) return { ok: false, message: `Not verified: ${unknown.join("; ")}.` };
       return plan.changes.length ? { ok: false, message: `${plan.changes.length} change(s) left: ${plan.changes.map((c) => c.what).join("; ")}` } : { ok: true, message: `${plan.slug} matches the Genesis branch-protection standard.` };
     } catch (err) {
       return { ok: false, message: `Not checked: ${(err as Error).message}` };
