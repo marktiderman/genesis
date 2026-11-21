@@ -78,6 +78,11 @@
       "react-native": "./src/observability/index.ts",
       "import": "./dist/observability.js"
     },
+    "./observability-settings": {
+      "types": "./dist/observability-settings.d.ts",
+      "import": "./dist/observability-settings.js",
+      "default": "./dist/observability-settings.js"
+    },
     "./devtools": {
       "types": "./dist/devtools.d.ts",
       "react-native": "./src/devtools/index.ts",

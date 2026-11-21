@@ -442,4 +442,6 @@ export interface DeclaringPackage {
   ignored?: string[];
   /** A local package's valid `genesis.overlay` marker: it is the app's copy of the Genesis package of that name. */
   overlay?: OverlayMarker;
+  /** Its package.json `deprecated` message (a renamed package's alias), when it has one. */
+  deprecated?: string;
 }

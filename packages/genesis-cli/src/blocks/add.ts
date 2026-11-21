@@ -402,8 +402,8 @@ export async function runAdd(options: AddOptions): Promise<AddReport> {
 
   if (!databaseOnly && registry && options.featuresBuild !== false) {
     try {
-      const { runFeaturesBuild } = await import("../features.js");
-      const changed = await runFeaturesBuild({ dir: root });
+      const { writeAppFeatures } = await import("../features.js");
+      const changed = await writeAppFeatures(root, pm);
       edited.push(...changed);
     } catch (err) {
       warnings.push(`features build failed: ${err instanceof Error ? err.message : String(err)}`);

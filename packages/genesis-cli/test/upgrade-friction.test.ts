@@ -13,6 +13,8 @@ import { folderSubstitutions, renderOwned } from "../src/blocks/app-folder.js";
 import { sha256 } from "../src/blocks/files.js";
 import { readLock, writeLock } from "../src/blocks/lock.js";
 import { GenesisConfigError, readGenesisConfig } from "../src/doctor/config.js";
+import { clearPackageRulesCache, discoverPackages } from "../src/doctor/package-rules.js";
+import { ownFeaturesBuildScript } from "../src/features.js";
 import { formatReport, runDoctor } from "../src/doctor/index.js";
 import { SKILL_PATH } from "../src/doctor/primitives.js";
 import { breakingEntries, breakLines } from "../src/upgrade/changelog.js";
@@ -345,6 +347,44 @@ describe("what's generated from the packages", () => {
     expect(committed).not.toContain("features.json");
   });
 
+  it("runs the app's own features:build script, so features.json comes out in the order the app's build and check write it", async () => {
+    // The app's own build writes the records in its order; Genesis's builder would write the registry's.
+    const own = '{\n  "features": [\n    { "id": "b" },\n    { "id": "a" }\n  ]\n}\n';
+    const root = expoApp({
+      "package.json": JSON.stringify({ name: "a", scripts: { "features:build": "node scripts/features.mjs build" }, dependencies: { [UI]: "^1.0.0" } }),
+      "features.ts": "export const features = { a: {}, b: {} };\n",
+      "features.json": '{\n  "features": [\n    { "id": "a" },\n    { "id": "b" }\n  ]\n}\n',
+      "scripts/features.mjs": `import { writeFileSync } from "node:fs";\nif (process.argv[2] === "build") writeFileSync("features.json", ${JSON.stringify(own)});\n`,
+    });
+    uiPackage(root, "1.0.0", ["Button"]);
+    const report = await runUpgrade({ root, lookup: release({ [UI]: "1.2.0" }), install: false, doctor: false, agents: false });
+    expect(read(root, "features.json")).toBe(own);
+    expect(report.files).toContain("features.json");
+    expect(report.summary).not.toContain("features build failed");
+  });
+
+  it("takes a features:build that is genesis features build, however it's run, as Genesis's own", () => {
+    for (const script of ["genesis features build", "npx genesis features build", "pnpm exec genesis features build --registry src/features.ts", "npx @marktiderman/genesis-cli@1.32.0 features build"]) {
+      const root = makeApp({ "package.json": JSON.stringify({ name: "a", scripts: { "features:build": script } }) });
+      expect(ownFeaturesBuildScript(root)).toBeNull();
+    }
+    expect(ownFeaturesBuildScript(makeApp({ "package.json": JSON.stringify({ name: "a", scripts: { "features:build": "bun scripts/features.ts build" } }) }))).toBe("bun scripts/features.ts build");
+    expect(ownFeaturesBuildScript(makeApp())).toBeNull();
+  });
+
+  it("leaves a renamed package's old folder out of the agent guide once the app's package.json no longer lists it", () => {
+    const declaring = (name: string, extra: Record<string, unknown> = {}) =>
+      fakePackage(root, name, { ...extra, genesis: { doctor: { catalog: [{ need: `${name} need`, use: "Thing", import: name, docs: "https://example.com" }] } } });
+    const root = makeApp({ "package.json": JSON.stringify({ name: "a", dependencies: { "@marktiderman/genesis-data": "^1.0.0" } }) });
+    declaring("@marktiderman/genesis-data");
+    declaring("@marktiderman/genesis-studio", { deprecated: "Renamed to @marktiderman/genesis-data." });
+    clearPackageRulesCache();
+    expect(discoverPackages(root).map((p) => p.name)).toEqual(["@marktiderman/genesis-data"]);
+    // Still listed (an app that hasn't moved yet): its rows stay.
+    writeTree(root, { "package.json": JSON.stringify({ name: "a", dependencies: { "@marktiderman/genesis-data": "^1.0.0", "@marktiderman/genesis-studio": "^1.0.0" } }) });
+    expect(discoverPackages(root).map((p) => p.name)).toEqual(["@marktiderman/genesis-data", "@marktiderman/genesis-studio"]);
+  });
+
   it("carries on when a generator fails, with a warning", async () => {
     const root = expoApp({ "package.json": JSON.stringify({ name: "a", dependencies: { [UI]: "^1.0.0" } }), "features.ts": "throw new Error('broken registry');\n" });
     uiPackage(root, "1.0.0", ["Button"]);
@@ -385,6 +425,16 @@ describe("dependencies not installed", () => {
     fakePackage(root, "@marktiderman/genesis-fixture", {});
     const report = await runUpgrade({ root, lookup: release({}), install: false });
     expect(report.summary).toContain("`genesis doctor` couldn't run after the upgrade");
+  });
+});
+
+describe("npx in an app with an npm override", () => {
+  it("genesis-cli pins no zod of its own (EOVERRIDE is the app's override against its direct dependency), and the README says what to run", () => {
+    const pkg = JSON.parse(read(path.join(__dirname, ".."), "package.json")) as Record<string, Record<string, string> | undefined>;
+    for (const field of ["dependencies", "peerDependencies", "optionalDependencies"]) expect(pkg[field]?.zod).toBeUndefined();
+    const readme = read(path.join(__dirname, ".."), "README.md");
+    expect(readme).toContain("**`npx` stops with `EOVERRIDE`.**");
+    expect(readme).toContain('"overrides": { "zod": "$zod" }');
   });
 });
 

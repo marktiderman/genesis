@@ -97,7 +97,7 @@ describe("genesis migrate", () => {
 
   it("refuses to rewrite a copy whose package migration changed upstream", async () => {
     const root = await appWithBlock();
-    fixturePackage(root, {}, { "migrations/0001_fixture_notes.sql": `${SQL_A}-- changed upstream\n` });
+    fixturePackage(root, {}, { "migrations/0001_fixture_notes.sql": `${SQL_A}alter table public.fixture_notes add column upstream int;\n` });
     const copy = "supabase/migrations/20261101120000_fixture_notes.sql";
     const before = read(root, copy);
     const report = await runMigrate({ root });
