@@ -5,7 +5,7 @@
  * the change and `genesis repo protect` makes it.
  *
  * It reads GitHub through `gh`, so it runs only with the network on (not `--offline`, never in the
- * Vite plugin) and only in a repository with workflows. When GitHub can't be read (gh not signed
+ * Vite plugin) and only in a git repository. When GitHub can't be read (gh not signed
  * in, no admin read of the rulesets) it says so in one info finding, and nothing in CI.
  */
 import { existsSync } from "node:fs";
@@ -37,8 +37,9 @@ function gitTop(root: string): string | null {
 export function repoProtectionCheck(deps: RepoProtectionDeps = {}): (ctx: DoctorContext) => Promise<void> {
   return async (ctx) => {
     if (!deps.network) return;
-    const top = gitTop(ctx.root);
-    if (!top || !existsSync(path.join(top, ".github", "workflows"))) return;
+    // Only in a git repository; whether it has workflows is the default branch's to say (the
+    // planner reads them there), never the checkout's, which may be on another branch.
+    if (!gitTop(ctx.root)) return;
     let result;
     try {
       result = await planRepo({ root: ctx.root, ...(deps.run ? { run: deps.run } : {}) });

@@ -1814,7 +1814,7 @@ what to do in the service, the values it asks for, the secrets it needs by name,
 |---|---|---|
 | `supabase.link` | `supabase link --project-ref`, `db push`, `functions deploy` for each function in `supabase/functions`; the plan names each migration with its content hash, so an edited one makes it stale (a first link has no dry run, and says so) | linked to the project ref typed in, no migration pending, every function deployed |
 | `github.issues` | `GITHUB_TOKEN` to the Edge Function secrets | the token reads the repository and its issues, with issues on (write access isn't checked: that would open an issue) |
-| `github.branch-protection` | the [`genesis repo protect`](#genesis-repo) writes through gh (offered when the repository has workflows) | the repository matches the standard |
+| `github.branch-protection` | the [`genesis repo protect`](#genesis-repo) writes through gh (offered in a git repository) | the repository matches the standard |
 | `resend.domain` | `RESEND_API_KEY` to the Edge Function secrets; the domain added to Resend (or found) and its DNS records shown | Resend says the domain is `verified` |
 | `sentry` | `SENTRY_AUTH_TOKEN` through `gh secret set`; the `eas env:create` line for you to run | the token reads the project; a test event reaches the DSN (a `*.sentry.io` host only), when given |
 | `ai.key-budget` | `ANTHROPIC_API_KEY` to the Edge Function secrets; the budget as a setting | `GET /v1/models` (spends no tokens) |
@@ -2055,7 +2055,8 @@ repository (default: the `origin` remote), `--json` prints the plan as data. The
 `prune-staging` deletes a dated batch (`staging/YYYY-MM-DD/<letter>`) only when everything in it
 is on the default branch, no open pull request comes from or goes into it, and it isn't the
 newest batch; a staging branch of another name is kept. It deletes through
-the staging ruleset's admin bypass, so no rule is ever turned off; an account that can't bypass is told so
+the staging ruleset's admin bypass, so no rule is ever turned off, and only at the commit it
+checked (GraphQL `updateRefs` with `beforeOid`), so a batch that moved since is left alone; an account that can't bypass is told so
 and nothing is deleted.
 
 ## genesis upstream

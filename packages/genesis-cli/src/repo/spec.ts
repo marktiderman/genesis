@@ -14,6 +14,10 @@
  *   is deleted with the rules left on, `genesis repo prune-staging`. The default branch gets no
  *   bypass from Genesis, so nothing reaches it past the review gate; one the app has is kept as is.
  * - **Merge settings**: delete head branches on merge, auto-merge on, rebase merging off.
+ * - **Pruning** deletes a batch only at the commit it checked was on the default branch: the delete
+ *   is GraphQL `updateRefs` with that commit as `beforeOid`, atomic on GitHub's side, so a commit
+ *   pushed to the batch after the check makes the delete fail rather than lose it (the REST
+ *   delete takes no expected commit, and re-checking before it would still leave a window).
  *
  * Converging never fights what a repository already has, and never loosens it: a rule, a parameter,
  * a bypass actor or a required check Genesis doesn't name is kept; a stricter value (more approvals,
@@ -21,6 +25,8 @@
  * mode is never changed. The one removal is a required check that can never report on some pull
  * requests (its workflow is path-filtered), which would hold them forever.
  */
+
+import { refPattern } from "./checks.js";
 
 /** GitHub Actions' app id: required checks are pinned to it, so another app can't satisfy one. */
 export const GITHUB_ACTIONS_APP_ID = 15368;
@@ -83,6 +89,8 @@ export interface LiveRepo {
   settings: Partial<MergeSettings>;
   /** The repository's own rulesets (not an organization's). */
   rulesets: Ruleset[];
+  /** Its GraphQL node id (for a conditional ref delete). */
+  nodeId?: string;
 }
 
 /** A check that can't report on every pull request, so requiring it would hold some forever. */
@@ -108,8 +116,8 @@ const ADMIN_BYPASS: BypassActor = { actor_id: REPOSITORY_ADMIN_ROLE_ID, actor_ty
 
 const pinned = (contexts: readonly string[]): RequiredCheck[] => [...new Set(contexts)].map((context) => ({ context, integration_id: GITHUB_ACTIONS_APP_ID }));
 
+/** Always present, an empty list included, so an existing rule's checks are still reconciled. */
 function statusChecksRule(contexts: readonly string[], skipOnCreate: boolean): RulesetRule[] {
-  if (!contexts.length) return [];
   return [{ type: "required_status_checks", parameters: { strict_required_status_checks_policy: false, do_not_enforce_on_create: skipOnCreate, required_status_checks: pinned(contexts) } }];
 }
 
@@ -179,8 +187,13 @@ export interface ProtectionPlan {
 }
 
 export interface PlanOptions {
-  /** Checks to drop wherever a ruleset requires them. */
-  conditional?: readonly ConditionalCheck[];
+  /**
+   * Checks to drop because they can't report: by the spec ruleset they were found for (`default`,
+   * `staging-branches`), so one branch's discovery never changes another's. A plain list applies to all.
+   */
+  conditional?: readonly ConditionalCheck[] | Readonly<Record<string, readonly ConditionalCheck[]>>;
+  /** The staging refs coverage is checked against (`refs/heads/staging/…`); default one sample batch. */
+  stagingRefs?: readonly string[];
   /** Rulesets whose check list is exact (`repo.requiredChecks`): drop the checks it doesn't name. Default: keep them. */
   exact?: readonly string[];
 }
@@ -194,12 +207,37 @@ function equalValue(a: unknown, b: unknown): boolean {
 
 const show = (v: unknown) => (Array.isArray(v) ? `[${v.join(", ")}]` : JSON.stringify(v));
 
-/** The live ruleset a spec ruleset converges: the one of that name, else one aimed at the same refs. */
-export function matchRuleset(spec: Ruleset, live: readonly Ruleset[]): Ruleset | undefined {
-  return (
-    live.find((r) => r.name === spec.name && r.target === spec.target) ??
-    live.find((r) => r.target === spec.target && spec.conditions.ref_name.include.every((i) => r.conditions?.ref_name?.include?.includes(i)))
-  );
+const SAMPLE_STAGING_REF = "refs/heads/staging/2000-01-01/a";
+
+/** Whether one ruleset ref pattern (`~DEFAULT_BRANCH`, `~ALL`, `refs/heads/staging/**\/*`) matches `ref`. */
+export function refMatches(pattern: string, ref: string, defaultBranch: string): boolean {
+  if (pattern === "~ALL") return true;
+  if (pattern === DEFAULT_BRANCH_REF) return ref === `refs/heads/${defaultBranch}`;
+  return refPattern(pattern).test(ref);
+}
+
+/** Whether a ruleset protects `ref`: an include matches it and no exclusion does (GitHub excludes on any match). */
+export function covers(r: Ruleset, ref: string, defaultBranch: string): boolean {
+  const inc = r.conditions?.ref_name?.include ?? [];
+  const exc = r.conditions?.ref_name?.exclude ?? [];
+  return inc.some((p) => refMatches(p, ref, defaultBranch)) && !exc.some((p) => refMatches(p, ref, defaultBranch));
+}
+
+/** The refs a spec ruleset must protect. */
+function targetRefs(spec: Ruleset, defaultBranch: string, options: PlanOptions): string[] {
+  return spec.conditions.ref_name.include.includes(DEFAULT_BRANCH_REF) ? [`refs/heads/${defaultBranch}`] : [...(options.stagingRefs?.length ? options.stagingRefs : [SAMPLE_STAGING_REF])];
+}
+
+/**
+ * The live ruleset a spec ruleset converges: the one of that name, else one aimed at the same
+ * refs, never one another spec ruleset already took (one write per live ruleset). A ruleset that
+ * gets the staging bypass must be staging-only: one that also covers the default branch isn't
+ * taken for staging, and a separate staging ruleset is created, so the bypass never reaches main.
+ */
+export function matchRuleset(spec: Ruleset, live: readonly Ruleset[], options: { defaultBranch?: string; taken?: ReadonlySet<number | undefined> } = {}): Ruleset | undefined {
+  const main = `refs/heads/${options.defaultBranch ?? "main"}`;
+  const free = live.filter((r) => r.target === spec.target && !(r.id !== undefined && options.taken?.has(r.id)) && (!spec.bypass_actors?.length || !covers(r, main, options.defaultBranch ?? "main")));
+  return free.find((r) => r.name === spec.name) ?? free.find((r) => spec.conditions.ref_name.include.every((i) => r.conditions?.ref_name?.include?.includes(i)));
 }
 
 /**
@@ -246,11 +284,17 @@ export function stricter(key: string, live: unknown, want: unknown): unknown {
   }
 }
 
+function conditionalFor(options: PlanOptions, ruleset: string): readonly ConditionalCheck[] {
+  const c = options.conditional;
+  if (!c) return [];
+  return Array.isArray(c) ? c : ((c as Readonly<Record<string, readonly ConditionalCheck[]>>)[ruleset] ?? []);
+}
+
 function convergeChecks(scope: string, ruleset: string, live: RulesetRule, want: RulesetRule, options: PlanOptions, changes: Change[], notes: string[]): RulesetRule {
   const params = { ...(live.parameters ?? {}) };
   const have = ((params.required_status_checks as RequiredCheck[] | undefined) ?? []).map((c) => ({ ...c }));
   const wanted = (want.parameters!.required_status_checks as RequiredCheck[]).map((c) => ({ ...c }));
-  const conditional = new Map((options.conditional ?? []).map((c) => [c.context, c.why]));
+  const conditional = new Map(conditionalFor(options, ruleset).map((c) => [c.context, c.why]));
   const out: RequiredCheck[] = [];
   for (const c of have) {
     const why = conditional.get(c.context);
@@ -298,7 +342,7 @@ function copyRuleset(r: Ruleset): Ruleset {
   } as Ruleset;
 }
 
-function convergeRuleset(want: Ruleset, live: Ruleset, options: PlanOptions, changes: Change[], notes: string[]): Ruleset {
+function convergeRuleset(want: Ruleset, live: Ruleset, defaultBranch: string, options: PlanOptions, changes: Change[], notes: string[]): Ruleset {
   const scope = `ruleset "${live.name}"`;
   const next = copyRuleset(live);
   if (live.enforcement !== want.enforcement) {
@@ -310,12 +354,29 @@ function convergeRuleset(want: Ruleset, live: Ruleset, options: PlanOptions, cha
     changes.push({ scope, kind: "add", what: `target ${inc}` });
     next.conditions.ref_name.include.push(inc);
   }
+  // An exclusion that matches a branch the standard protects leaves it unprotected: it goes.
+  const refs = targetRefs(want, defaultBranch, options);
+  next.conditions.ref_name.exclude = next.conditions.ref_name.exclude.filter((p) => {
+    const hit = refs.find((ref) => refMatches(p, ref, defaultBranch));
+    if (hit) changes.push({ scope, kind: "remove", what: `exclusion ${p}`, why: `it leaves ${hit.replace(/^refs\/heads\//, "")} unprotected` });
+    return !hit;
+  });
   for (const rule of want.rules) {
     const i = next.rules.findIndex((r) => r.type === rule.type);
     if (rule.type === "required_status_checks") {
+      const empty = !(rule.parameters!.required_status_checks as RequiredCheck[]).length;
+      if (i < 0 && empty) continue;
       if (i < 0) changes.push({ scope, kind: "add", what: "rule required_status_checks" });
       const base = i < 0 ? { type: rule.type, parameters: { required_status_checks: [] } } : next.rules[i]!;
       const merged = convergeChecks(scope, want.name, base, rule, options, changes, notes);
+      if (!(merged.parameters!.required_status_checks as RequiredCheck[]).length) {
+        // Nothing left to require: GitHub refuses an empty list, and the rule would gate nothing.
+        if (i >= 0) {
+          changes.push({ scope, kind: "remove", what: "rule required_status_checks", why: "no required check is left" });
+          next.rules.splice(i, 1);
+        }
+        continue;
+      }
       if (i < 0) next.rules.push(merged);
       else next.rules[i] = merged;
       continue;
@@ -362,10 +423,16 @@ export function planProtection(spec: ProtectionSpec, live: LiveRepo, options: Pl
   const changes: Change[] = [];
   const writes: Write[] = [];
   const notes: string[] = [];
-  const conditional = new Set((options.conditional ?? []).map((c) => c.context));
-  for (const want of spec.rulesets) {
-    const found = matchRuleset(want, live.rulesets);
+  const taken = new Set<number | undefined>();
+  for (const spec1 of spec.rulesets) {
+    let want = spec1;
+    const conditional = new Set(conditionalFor(options, want.name).map((c) => c.context));
+    const found = matchRuleset(want, live.rulesets, { defaultBranch: live.defaultBranch, taken });
+    if (found?.id !== undefined) taken.add(found.id);
     if (!found) {
+      const clash = live.rulesets.some((r) => r.name === want.name);
+      if (clash) notes.push(`ruleset "${want.name}" also covers ${live.defaultBranch} (or another standard ruleset took it), so ${want.bypass_actors?.length ? "the staging bypass can't go on it: " : ""}a separate ruleset, "${want.name}-only", is created`);
+      want = clash ? { ...want, name: `${want.name}-only` } : want;
       const rules = want.rules
         .map((r) => (r.type === "required_status_checks" ? { ...r, parameters: { ...r.parameters, required_status_checks: (r.parameters!.required_status_checks as RequiredCheck[]).filter((c) => !conditional.has(c.context)) } } : r))
         .filter((r) => r.type !== "required_status_checks" || (r.parameters!.required_status_checks as RequiredCheck[]).length > 0);
@@ -379,7 +446,7 @@ export function planProtection(spec: ProtectionSpec, live: LiveRepo, options: Pl
       continue;
     }
     const before = changes.length;
-    const next = convergeRuleset(want, found, options, changes, notes);
+    const next = convergeRuleset(want, found, live.defaultBranch, options, changes, notes);
     if (changes.length > before && found.id !== undefined) writes.push({ method: "PUT", path: `repos/${live.slug}/rulesets/${found.id}`, body: rulesetBody(next) });
   }
   const patch: Record<string, unknown> = {};

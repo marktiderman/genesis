@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
@@ -18,7 +19,9 @@ import {
   planDigest,
   runPruneStaging,
   runRepoProtect,
+  refPattern,
   slugFromRemote,
+  stagingChecksFor,
   STAGING_REF,
   type LiveRepo,
   type Ruleset,
@@ -87,7 +90,8 @@ describe("protectionSpec", () => {
     expect(one.settings).toEqual({ delete_branch_on_merge: true, allow_auto_merge: true, allow_rebase_merge: false, allow_merge_commit: true });
 
     const two = protectionSpec({ defaultChecks: [], stagingChecks: ["Adversarial review"] });
-    expect(two.rulesets[0]!.rules.some((r) => r.type === "required_status_checks")).toBe(false);
+    // Present with an empty list, so an existing rule is still reconciled; a new ruleset leaves it out.
+    expect(two.rulesets[0]!.rules.find((r) => r.type === "required_status_checks")!.parameters!.required_status_checks).toEqual([]);
     const staging = two.rulesets[1]!;
     expect(staging.conditions.ref_name.include).toEqual([STAGING_REF]);
     expect(staging.rules.map((r) => r.type)).toEqual(["deletion", "non_fast_forward", "required_status_checks"]);
@@ -215,7 +219,7 @@ jobs:
   const gate = `name: Adversarial review
 on:
   pull_request_target:
-    types: [opened, synchronize, labeled]
+    types: [opened, synchronize, reopened, labeled]
     branches: ['main', 'staging/**']
 jobs:
   review:
@@ -293,6 +297,92 @@ jobs:
   });
 });
 
+describe("CodeRabbit round: discovery", () => {
+  const job = "    runs-on: ubuntu-latest\n";
+  it("reads GitHub's whole branch-filter grammar, and the rulesets' fnmatch", () => {
+    expect(branchMatches({ branches: ["ma[ij]n"] }, "main")).toBe(true);
+    expect(branchMatches({ branches: ["releases/v?1"] }, "releases/1")).toBe(true);
+    expect(branchMatches({ branches: ["releases/v+1"] }, "releases/vv1")).toBe(true);
+    expect(branchMatches({ branches: ["feat\\*"] }, "feat*")).toBe(true);
+    expect(branchMatches({ branches: ["feat\\*"] }, "feature")).toBe(false);
+    expect(branchMatches({ branches: ["[0-9]*", "!9*"] }, "9x")).toBe(false);
+    expect(refPattern("refs/heads/stag?ng/**/*").test("refs/heads/staging/2026-11-20/a")).toBe(true);
+    expect(refPattern("refs/heads/[!m]ain").test("refs/heads/main")).toBe(false);
+  });
+
+  it("requires a workflow only when its types cover opened, synchronize and reopened", async () => {
+    const opened = await checksFromWorkflows([{ path: ".github/workflows/o.yml", text: `on:\n  pull_request:\n    types: [opened]\njobs:\n  lint:\n${job}` }], "main");
+    expect(opened.required).toEqual([]);
+    expect(opened.notes.join("\n")).toContain("pull_request runs on opened, not synchronize, reopened");
+    const full = await checksFromWorkflows([{ path: ".github/workflows/f.yml", text: `on:\n  pull_request:\n    types: [opened, synchronize, reopened, labeled]\njobs:\n  lint:\n${job}` }], "main");
+    expect(full.required).toEqual(["lint"]);
+  });
+
+  it("treats triggers as alternatives: an unfiltered one keeps the workflow required", async () => {
+    const text = `on:\n  pull_request:\n  pull_request_target:\n    paths: ["docs/**"]\njobs:\n  lint:\n${job}`;
+    const out = await checksFromWorkflows([{ path: ".github/workflows/t.yml", text }], "main");
+    expect(out.required).toEqual(["lint"]);
+    expect(out.conditional).toEqual([]);
+  });
+
+  it("leaves out a matrix job that calls a reusable workflow", async () => {
+    const text = "on: pull_request\njobs:\n  app:\n    strategy: { matrix: { node: [20, 22] } }\n    uses: ./.github/workflows/r.yml\n";
+    const out = await checksFromWorkflows([{ path: ".github/workflows/m.yml", text }, { path: ".github/workflows/r.yml", text: `on: workflow_call\njobs:\n  test:\n${job}` }], "main");
+    expect(out.required).toEqual([]);
+    expect(out.notes.join("\n")).toContain("job app is a matrix");
+  });
+
+  it("reads staging checks for the real staging branches: required where every batch reports, conditional where some do", async () => {
+    const files = [
+      { path: ".github/workflows/gate.yml", text: `on:\n  pull_request:\n    branches: ["staging/2026-*/*"]\njobs:\n  gate:\n    name: Adversarial review\n${job}` },
+      { path: ".github/workflows/new.yml", text: `on:\n  pull_request:\n    branches: ["staging/2026-11-2*/*"]\njobs:\n  e2e:\n${job}` },
+    ];
+    const out = await stagingChecksFor(files, ["staging/2026-11-10/a", "staging/2026-11-20/a"]);
+    expect(out.required).toEqual(["Adversarial review"]);
+    expect(out.conditional).toEqual([{ context: "e2e", why: "it reports on pull requests into only 1 of 2 staging branches (staging/2026-11-20/a)" }]);
+    const none = await stagingChecksFor(files, []);
+    expect(none.notes.join("\n")).toContain("no staging branch yet");
+  });
+});
+
+describe("CodeRabbit round: planning", () => {
+  const spec2 = () => protectionSpec({ defaultChecks: ["app / App checks", "database / Database and pgTAP", "Adversarial review"], stagingChecks: ["Test"] });
+  const stagingLive = (checks: string[], extra: Partial<Ruleset> = {}): Ruleset => ({ id: 7, name: "staging-branches", target: "branch", enforcement: "active", conditions: { ref_name: { include: [STAGING_REF], exclude: [] } }, rules: [{ type: "deletion" }, { type: "non_fast_forward" }, { type: "required_status_checks", parameters: { strict_required_status_checks_policy: false, do_not_enforce_on_create: true, required_status_checks: checks.map((context) => ({ context, integration_id: GITHUB_ACTIONS_APP_ID })) } }], bypass_actors: [{ actor_id: 5, actor_type: "RepositoryRole", bypass_mode: "always" }], ...extra });
+
+  it("keeps conditional checks per ruleset: main's path filter doesn't touch staging", () => {
+    const main = handMade();
+    (main.rules[3]!.parameters!.required_status_checks as Array<{ context: string }>).push({ context: "Test" });
+    const plan = planProtection(spec2(), live([main, stagingLive(["Test"])]), { conditional: { default: [{ context: "Test", why: "path-filtered on main" }] } });
+    expect(plan.changes).toEqual([{ scope: 'ruleset "default"', kind: "remove", what: 'required check "Test"', why: "path-filtered on main" }]);
+  });
+
+  it("reconciles an existing status-check rule when nothing is wanted, and drops the rule when no check is left", () => {
+    const r = handMade();
+    const plan = planProtection(protectionSpec({ defaultChecks: [], stagingChecks: null }), live([r]), { exact: ["default"] });
+    expect(plan.changes.map((c) => `${c.kind} ${c.what}`)).toEqual(['remove required check "app / App checks"', 'remove required check "database / Database and pgTAP"', 'remove required check "Adversarial review"', "remove rule required_status_checks"]);
+    expect((plan.writes[0]!.body.rules as Ruleset["rules"]).some((x) => x.type === "required_status_checks")).toBe(false);
+  });
+
+  it("removes an exclusion that leaves the protected branch out", () => {
+    const r = handMade();
+    r.conditions.ref_name.exclude = ["refs/heads/main", "refs/heads/archive/*"];
+    const plan = planProtection(protectionSpec({ defaultChecks: ["app / App checks", "database / Database and pgTAP", "Adversarial review"], stagingChecks: null }), live([r]));
+    expect(plan.changes).toEqual([{ scope: 'ruleset "default"', kind: "remove", what: "exclusion refs/heads/main", why: "it leaves main unprotected" }]);
+    expect((plan.writes[0]!.body.conditions as Ruleset["conditions"]).ref_name.exclude).toEqual(["refs/heads/archive/*"]);
+  });
+
+  it("never puts the staging bypass on a ruleset that also covers main, and writes each live ruleset once", () => {
+    // Evaluate-only, so both standard rulesets would want to change it: it is still written once.
+    const combined: Ruleset = { ...handMade(), id: 55, name: "everything", enforcement: "evaluate", conditions: { ref_name: { include: ["~DEFAULT_BRANCH", STAGING_REF], exclude: [] } }, bypass_actors: [] };
+    const plan = planProtection(spec2(), live([combined]));
+    const puts = plan.writes.filter((w) => w.method === "PUT");
+    expect(puts.map((w) => w.path)).toEqual(["repos/acme/sample-app/rulesets/55"]);
+    expect((puts[0]!.body.bypass_actors as unknown[]).length).toBe(0);
+    const post = plan.writes.find((w) => w.method === "POST")!;
+    expect(post.body).toMatchObject({ name: "staging-branches", conditions: { ref_name: { include: [STAGING_REF] } }, bypass_actors: [{ actor_id: 5, bypass_mode: "always" }] });
+  });
+});
+
 describe("the repo block and remotes", () => {
   it("validates genesis.config.json's repo block", () => {
     expect(validateRepo({ requiredChecks: ["app / App checks", "app / App checks"], staging: true })).toEqual({ requiredChecks: ["app / App checks"], staging: true });
@@ -305,6 +395,11 @@ describe("the repo block and remotes", () => {
     expect(slugFromRemote("https://github.com/acme/sample-app.git")).toBe("acme/sample-app");
     expect(slugFromRemote("git@github.com:acme/sample-app.git\n")).toBe("acme/sample-app");
     expect(slugFromRemote("https://gitlab.com/acme/sample-app")).toBe(null);
+    expect(slugFromRemote("ssh://git@github.com/acme/sample-app.git")).toBe("acme/sample-app");
+    expect(slugFromRemote("ssh://git@github.com:22/acme/sample-app.git")).toBe("acme/sample-app");
+    expect(slugFromRemote("https://notgithub.com/acme/sample-app.git")).toBe(null);
+    expect(slugFromRemote("https://github.com.evil.example/acme/sample-app")).toBe(null);
+    expect(slugFromRemote("git@notgithub.com:acme/sample-app.git")).toBe(null);
   });
 });
 
@@ -333,7 +428,10 @@ interface Fake {
   calls: Array<{ args: string[]; stdin?: string }>;
 }
 
-function fakeGitHub(top: string, state: { rulesets: Ruleset[]; settings?: Record<string, unknown>; branches?: string[]; pulls?: unknown[]; ahead?: Record<string, number>; failWrites?: string[]; remote?: Record<string, string> }): Fake {
+/** A stable fake commit id per branch. */
+const tipOf = (branch: string) => createHash("sha1").update(branch).digest("hex");
+
+function fakeGitHub(top: string, state: { rulesets: Ruleset[]; settings?: Record<string, unknown>; branches?: string[]; pulls?: unknown[]; ahead?: Record<string, number>; failWrites?: string[]; remote?: Record<string, string>; failDelete?: boolean }): Fake {
   const calls: Fake["calls"] = [];
   const ok = (stdout: unknown): RunToolResult => ({ code: 0, stdout: typeof stdout === "string" ? stdout : JSON.stringify(stdout), stderr: "" });
   const run: ToolRunner = async (tool, args, options) => {
@@ -342,7 +440,10 @@ function fakeGitHub(top: string, state: { rulesets: Ruleset[]; settings?: Record
     const target = args.filter((a) => a.startsWith("repos/")).at(-1) ?? "";
     if (args.includes("-X") && !(state.failWrites ?? []).includes(target)) return ok("{}");
     if (args.includes("-X")) return { code: 1, stdout: "", stderr: "gh: Resource not accessible (HTTP 403)" };
-    if (target === "repos/acme/sample-app") return ok({ default_branch: "main", delete_branch_on_merge: true, allow_auto_merge: true, allow_rebase_merge: true, allow_merge_commit: true, ...state.settings });
+    if (args[1] === "graphql") return state.failDelete ? ok({ errors: [{ message: "Reference has moved" }] }) : ok({ data: { updateRefs: { clientMutationId: null } } });
+    const refTip = /git\/ref\/heads\/(.+)$/.exec(target);
+    if (refTip) return ok({ object: { sha: tipOf(refTip[1]!) } });
+    if (target === "repos/acme/sample-app") return ok({ node_id: "R_sample", default_branch: "main", delete_branch_on_merge: true, allow_auto_merge: true, allow_rebase_merge: true, allow_merge_commit: true, ...state.settings });
     if (target.startsWith("repos/acme/sample-app/rulesets?")) return ok(state.rulesets.map((r) => ({ id: r.id, name: r.name, target: r.target, source_type: "Repository" })));
     const rs = /rulesets\/(\d+)$/.exec(target);
     if (rs) return ok(state.rulesets.find((r) => String(r.id) === rs[1]));
@@ -357,7 +458,7 @@ function fakeGitHub(top: string, state: { rulesets: Ruleset[]; settings?: Record
     if (target.includes("/contents/")) return ok(genesisWorkflow(path.basename(target.split("?")[0]!)));
     if (target.includes("/pulls?")) return ok(((state.pulls ?? []) as Array<{ base?: { ref?: string }; head?: { ref?: string; repo?: { full_name?: string } } }>).map((p) => JSON.stringify({ base: p.base?.ref, head: p.head?.ref, repo: p.head?.repo?.full_name })).join("\n"));
     const cmp = /compare\/main\.\.\.(.+)$/.exec(target);
-    if (cmp) return ok({ ahead_by: state.ahead?.[cmp[1]!] ?? 0 });
+    if (cmp) return ok({ ahead_by: Object.entries(state.ahead ?? {}).find(([b]) => tipOf(b) === cmp[1] || b === cmp[1])?.[1] ?? 0 });
     return { code: 1, stdout: "", stderr: `unexpected ${target}` };
   };
   return { run, calls };
@@ -457,7 +558,7 @@ describe("applying", () => {
     const top = repoDir(CI_FILES, { repo: { requiredChecks: ["app / App checks", "database / Database and pgTAP", "Adversarial review"] } });
     const result = await planRepo({ root: top, run: fakeGitHub(top, { rulesets: [handMade()] }).run });
     expect(result.plan.changes.filter((c) => c.scope !== "settings")).toEqual([]);
-    expect(result.plan.notes.join("\n")).toContain('"database / Database and pgTAP" is required because genesis.config.json repo names it');
+    expect(result.plan.notes.join("\n")).toContain('"database / Database and pgTAP" is required on main because genesis.config.json repo names it');
   });
 
   it("says which writes landed when one fails, and that it needs the admin role", async () => {
@@ -489,8 +590,12 @@ describe("genesis repo prune-staging", () => {
     const top = repoDir(CI_FILES);
     const state = {
       rulesets: [{ ...handMade(), id: 202, name: "staging-branches", conditions: { ref_name: { include: [STAGING_REF], exclude: [] } }, current_user_can_bypass: "always" }],
-      branches: ["staging/2026-11-01/a", "staging/2026-11-10/a", "staging/2026-11-15/a", "staging/2026-11-21/b", "staging/launch-hold"],
-      pulls: [{ base: { ref: "staging/2026-11-15/a" }, head: { ref: "feat/x", repo: { full_name: "acme/sample-app" } } }],
+      branches: ["staging/2026-11-01/a", "staging/2026-11-05/a", "staging/2026-11-10/a", "staging/2026-11-15/a", "staging/2026-11-21/b", "staging/launch-hold"],
+      pulls: [
+        { base: { ref: "staging/2026-11-15/a" }, head: { ref: "feat/x", repo: { full_name: "acme/sample-app" } } },
+        // Same repository, other case: still ours, so its head batch is kept.
+        { base: { ref: "main" }, head: { ref: "staging/2026-11-05/a", repo: { full_name: "ACME/Sample-App" } } },
+      ],
       ahead: { "staging/2026-11-10/a": 2 },
     };
     const dry = fakeGitHub(top, state);
@@ -498,12 +603,22 @@ describe("genesis repo prune-staging", () => {
     await runPruneStaging({ root: top, run: dry.run, dryRun: true, out: (l) => lines.push(l) });
     expect(lines.join("\n")).toMatch(/would delete staging\/2026-11-01\/a[\s\S]*1 to delete/);
     expect(lines.join("\n")).toContain("keep staging/2026-11-21/b: the newest batch");
+    expect(lines.join("\n")).toContain("keep staging/2026-11-05/a: an open pull request comes from it");
     expect(lines.join("\n")).toContain("keep staging/launch-hold: not a dated batch");
-    expect(dry.calls.some((c) => c.args.includes("DELETE"))).toBe(false);
+    expect(dry.calls.some((c) => c.args[2] === "graphql")).toBe(false);
 
     const real = fakeGitHub(top, state);
     await runPruneStaging({ root: top, run: real.run, out: () => {} });
-    expect(real.calls.filter((c) => c.args.includes("DELETE")).map((c) => c.args.at(-1))).toEqual(["repos/acme/sample-app/git/refs/heads/staging/2026-11-01/a"]);
+    // Deleted only at the commit that was checked (updateRefs with beforeOid), never by name alone.
+    const deletes = real.calls.filter((c) => c.args[2] === "graphql");
+    expect(deletes.map((c) => c.args.filter((a) => /^(repo|name|before)=/.test(a)))).toEqual([["repo=R_sample", "name=refs/heads/staging/2026-11-01/a", `before=${tipOf("staging/2026-11-01/a")}`]]);
+    expect(real.calls.some((c) => c.args.includes("DELETE"))).toBe(false);
+
+    // A branch that moved after the check: the delete fails, and says nothing else went with it.
+    const moved = fakeGitHub(top, { ...state, failDelete: true });
+    const said: string[] = [];
+    expect(await runPruneStaging({ root: top, run: moved.run, out: (l) => said.push(l) })).toBe(1);
+    expect(said.join("\n")).toMatch(/Reference has moved[\s\S]*may have moved since it was checked[\s\S]*Nothing was deleted/);
   });
 
   it("refuses when the account can't bypass the staging ruleset's deletion rule", async () => {
@@ -527,6 +642,13 @@ describe("doctor: repo-protection", () => {
     const found = on.findings.filter((f) => f.rule === "repo-protection");
     expect(found.map((f) => f.level)).toEqual(["warn", "warn"]);
     expect(found.map((f) => f.message).join("\n")).toMatch(/requires required check "database \/ Database and pgTAP"[\s\S]*allow_rebase_merge/);
+
+    // A checkout without .github/workflows still gets checked: the default branch's workflows decide.
+    const bare = makeApp(null, {});
+    mkdirSync(path.join(bare, ".git"));
+    const remoteOnly = fakeGitHub(bare, { rulesets: [handMade()], remote: Object.fromEntries(Object.entries(CI_FILES).map(([k, v]) => [path.basename(k), v])) });
+    const fromMain = await runDoctor({ root: bare, network: true, repo: { run: remoteOnly.run, ci: false }, config: { rules: { "genesis-behind": "off" } } });
+    expect(fromMain.findings.filter((f) => f.rule === "repo-protection").length).toBe(2);
 
     const quiet = fakeGitHub(top, { rulesets: [handMade()] });
     const off = await runDoctor({ root: top, network: false, repo: { run: quiet.run } });

@@ -34,11 +34,11 @@ export const githubProtectStep = defineSetupStep({
   ],
 });
 
-/** The repository's top folder holds workflows: walk up to `.git`. */
+/** In a git repository: walk up to `.git`. Its workflows are the default branch's to say, not the checkout's. */
 function hasWorkflows(root: string): boolean {
   let dir = path.resolve(root);
   for (;;) {
-    if (existsSync(path.join(dir, ".git"))) return existsSync(path.join(dir, ".github", "workflows"));
+    if (existsSync(path.join(dir, ".git"))) return true;
     const up = path.dirname(dir);
     if (up === dir) return false;
     dir = up;

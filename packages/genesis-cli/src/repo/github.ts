@@ -17,9 +17,32 @@ export function isSlug(value: string): boolean {
   return SLUG.test(value) && !/\/\.\.?$/.test(value);
 }
 
-/** `owner/name` from a GitHub remote URL (https or ssh), or null. */
-export function slugFromRemote(url: string): string | null {
-  const m = /github\.com[:/]+([A-Za-z0-9-]+)\/([A-Za-z0-9._-]+?)(?:\.git)?\/?$/.exec(url.trim());
+/**
+ * `owner/name` from a GitHub remote, or null: `https://github.com/o/n(.git)`, `ssh://git@github.com/o/n`
+ * and scp-style `git@github.com:o/n`. The host must be exactly github.com (`notgithub.com`,
+ * `github.com.evil.example` are refused), so a checkout of another host never targets a GitHub repository.
+ */
+export function slugFromRemote(remote: string): string | null {
+  const text = remote.trim();
+  let host: string;
+  let pathname: string;
+  const scp = /^(?:[A-Za-z0-9._-]+@)?([A-Za-z0-9.-]+):(?!\/\/)(.+)$/.exec(text);
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(text)) {
+    let url: URL;
+    try {
+      url = new URL(text);
+    } catch {
+      return null;
+    }
+    if (!["https:", "ssh:", "git+ssh:", "ssh+git:"].includes(url.protocol)) return null;
+    host = url.hostname;
+    pathname = url.pathname.replace(/^\/+/, "");
+  } else if (scp) {
+    host = scp[1]!;
+    pathname = scp[2]!;
+  } else return null;
+  if (host.toLowerCase() !== "github.com") return null;
+  const m = /^([A-Za-z0-9-]+)\/([A-Za-z0-9._-]+?)(?:\.git)?\/?$/.exec(pathname);
   if (!m) return null;
   const slug = `${m[1]}/${m[2]}`;
   return isSlug(slug) ? slug : null;
@@ -60,6 +83,7 @@ export async function resolveRepo(run: ToolRunner, root: string): Promise<{ top:
 
 interface RepoAnswer extends Partial<MergeSettings> {
   default_branch?: string;
+  node_id?: string;
 }
 
 /** The repository's settings and its own rulesets, in full. */
@@ -70,7 +94,7 @@ export async function readLive(deps: GitHubDeps, slug: string): Promise<LiveRepo
   const rulesets = await Promise.all(own.map((r) => ghJson<Ruleset>(deps, [`repos/${slug}/rulesets/${r.id}`])));
   const settings: Partial<MergeSettings> = {};
   for (const key of ["delete_branch_on_merge", "allow_auto_merge", "allow_rebase_merge", "allow_merge_commit"] as const) if (typeof repo[key] === "boolean") settings[key] = repo[key];
-  return { slug, defaultBranch: repo.default_branch ?? "main", settings, rulesets };
+  return { slug, defaultBranch: repo.default_branch ?? "main", settings, rulesets, ...(repo.node_id ? { nodeId: repo.node_id } : {}) };
 }
 
 /** The repository's `staging/…` branch names. */
@@ -127,17 +151,46 @@ export async function openPulls(deps: GitHubDeps, slug: string): Promise<OpenPul
     .filter((l) => l.trim())
     .map((l) => {
       const p = JSON.parse(l) as { base?: string | null; head?: string | null; repo?: string | null };
-      return { base: p.base ?? "", head: p.repo === slug ? (p.head ?? "") : "" };
+      // owner/name are case-insensitive on GitHub: `ACME/sample-app` is `acme/sample-app`.
+      return { base: p.base ?? "", head: (p.repo ?? "").toLowerCase() === slug.toLowerCase() ? (p.head ?? "") : "" };
     });
 }
 
-/** How many commits `branch` has that `base` doesn't. */
-export async function aheadBy(deps: GitHubDeps, slug: string, base: string, branch: string): Promise<number> {
-  const cmp = await ghJson<{ ahead_by?: number }>(deps, [`repos/${slug}/compare/${base}...${branch}`]);
-  if (typeof cmp.ahead_by !== "number") throw new GitHubError(`couldn't compare ${branch} with ${base}`);
+const OID = /^[0-9a-f]{40}$/;
+
+/** The commit a branch points at now. */
+export async function branchTip(deps: GitHubDeps, slug: string, branch: string): Promise<string> {
+  const ref = await ghJson<{ object?: { sha?: string } }>(deps, [`repos/${slug}/git/ref/heads/${branch}`]);
+  const sha = ref.object?.sha ?? "";
+  if (!OID.test(sha)) throw new GitHubError(`couldn't read where ${branch} points`);
+  return sha;
+}
+
+/** How many commits `head` (a branch or a commit) has that `base` doesn't. */
+export async function aheadBy(deps: GitHubDeps, slug: string, base: string, head: string): Promise<number> {
+  const cmp = await ghJson<{ ahead_by?: number }>(deps, [`repos/${slug}/compare/${base}...${head}`]);
+  if (typeof cmp.ahead_by !== "number") throw new GitHubError(`couldn't compare ${head} with ${base}`);
   return cmp.ahead_by;
 }
 
-export async function deleteBranch(deps: GitHubDeps, slug: string, branch: string): Promise<void> {
-  await gh(deps, ["-X", "DELETE", `repos/${slug}/git/refs/heads/${branch}`]);
+const DELETE_IF_AT = "mutation($repo: ID!, $name: String!, $before: GitObjectID!) { updateRefs(input: { repositoryId: $repo, refUpdates: [{ name: $name, beforeOid: $before, afterOid: \"0000000000000000000000000000000000000000\", force: true }] }) { clientMutationId } }";
+
+/**
+ * Delete `branch` only if it still points at `tip`: GraphQL `updateRefs` checks `beforeOid` and
+ * deletes in one atomic step, so a commit pushed after the merge check makes the delete fail
+ * instead of losing that commit. (The REST delete takes no expected commit.)
+ */
+export async function deleteBranchAt(deps: GitHubDeps, repositoryId: string, branch: string, tip: string): Promise<void> {
+  if (!OID.test(tip)) throw new GitHubError(`${branch}: not a commit id: ${tip.slice(0, 40)}`);
+  const res = await deps.run("gh", ["api", "graphql", "-f", `query=${DELETE_IF_AT}`, "-f", `repo=${repositoryId}`, "-f", `name=refs/heads/${branch}`, "-f", `before=${tip}`], { cwd: deps.cwd, timeoutMs: 30_000, passEnv: TOOL_AUTH_ENV["gh"] ?? [] });
+  let errors: unknown = null;
+  try {
+    errors = (JSON.parse(res.stdout || "{}") as { errors?: unknown }).errors ?? null;
+  } catch {
+    /* not JSON */
+  }
+  if (res.code !== 0 || errors) {
+    const said = Array.isArray(errors) ? errors.map((e) => (e as { message?: string }).message).join("; ") : (res.stderr.trim().split("\n")[0] ?? `exit ${res.code}`);
+    throw new GitHubError(`deleting ${branch} at ${tip.slice(0, 12)} failed: ${said} (it may have moved since it was checked; nothing else was deleted with it)`);
+  }
 }

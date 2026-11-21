@@ -48,17 +48,79 @@ type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === "object" && v !== null && !Array.isArray(v);
 const asList = (v: unknown): string[] => (typeof v === "string" ? [v] : Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
 
-/** A GitHub branch filter pattern as a regular expression (`*` stays within a segment, `**` doesn't). */
+const escapeRe = (ch: string) => ch.replace(/[.*+?^${}()|[\]\\/-]/g, "\\$&");
+
+/** A `[…]` class from `pattern[i]` (`[` itself) as regex source, and where it ends; null when unclosed. */
+function charClass(pattern: string, i: number, negate: string[]): { source: string; end: number } | null {
+  let j = i + 1;
+  let body = "";
+  if (negate.includes(pattern[j] ?? "")) {
+    body += "^";
+    j++;
+  }
+  const start = j;
+  for (; j < pattern.length; j++) {
+    const ch = pattern[j]!;
+    if (ch === "]" && j > start) return { source: `[${body}]`, end: j };
+    if (ch === "\\" && j + 1 < pattern.length) {
+      body += escapeRe(pattern[++j]!);
+      continue;
+    }
+    body += ch === "-" && j > start && pattern[j + 1] !== "]" ? "-" : escapeRe(ch);
+  }
+  return null;
+}
+
+/**
+ * A GitHub Actions branch filter pattern as a regular expression, in the workflow syntax's grammar:
+ * `*` within a segment, `**` across them, `?` zero or one and `+` one or more of the character
+ * before, `[…]` a class (with ranges), `\\` escapes the next character. (`!` is
+ * {@link branchMatches}'s, in order.)
+ */
 export function branchPattern(pattern: string): RegExp {
   let out = "";
   for (let i = 0; i < pattern.length; i++) {
     const ch = pattern[i]!;
-    if (ch === "*") {
+    if (ch === "\\" && i + 1 < pattern.length) out += escapeRe(pattern[++i]!);
+    else if (ch === "*") {
       if (pattern[i + 1] === "*") {
         out += ".*";
         i++;
       } else out += "[^/]*";
-    } else out += ch.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
+    } else if ((ch === "?" || ch === "+") && out) out += ch;
+    else if (ch === "[") {
+      const cls = charClass(pattern, i, []);
+      if (cls) {
+        out += cls.source;
+        i = cls.end;
+      } else out += "\\[";
+    } else out += escapeRe(ch);
+  }
+  return new RegExp(`^${out}$`);
+}
+
+/**
+ * A ruleset ref pattern (fnmatch, as the rulesets API reads `include` / `exclude`) as a regular
+ * expression: `*` within a segment, `**` across them, `?` one character, `[…]` / `[!…]` a class.
+ */
+export function refPattern(pattern: string): RegExp {
+  let out = "";
+  for (let i = 0; i < pattern.length; i++) {
+    const ch = pattern[i]!;
+    if (ch === "\\" && i + 1 < pattern.length) out += escapeRe(pattern[++i]!);
+    else if (ch === "*") {
+      if (pattern[i + 1] === "*") {
+        out += ".*";
+        i++;
+      } else out += "[^/]*";
+    } else if (ch === "?") out += "[^/]";
+    else if (ch === "[") {
+      const cls = charClass(pattern, i, ["!", "^"]);
+      if (cls) {
+        out += cls.source;
+        i = cls.end;
+      } else out += "\\[";
+    } else out += escapeRe(ch);
   }
   return new RegExp(`^${out}$`);
 }
@@ -80,25 +142,42 @@ export function branchMatches(filter: { branches?: unknown; "branches-ignore"?: 
   return !ignore.some((p) => branchPattern(p).test(branch));
 }
 
-/** The pull request activity a required check runs on. */
-const GATING_TYPES = new Set(["opened", "synchronize", "reopened"]);
+/**
+ * The pull request activity a required check must run on: a pull request's first commit
+ * (`opened`, `reopened`) and every later one (`synchronize`). GitHub's default `types` are these.
+ */
+const GATING_TYPES = ["opened", "synchronize", "reopened"] as const;
 
-/** The pull request triggers of a workflow that fire for `branch`, and whether they are path-filtered. */
-function prTrigger(on: unknown, branch: string): { fires: boolean; paths: string[] } {
+/**
+ * The pull request triggers of a workflow that fire for `branch`. Triggers are alternatives: one
+ * without a path filter makes the workflow report on every pull request (`paths` empty), whatever
+ * another trigger's filter says; only when every firing trigger is filtered is it conditional.
+ * A trigger whose `types` leave out one of {@link GATING_TYPES} can't gate (a later commit, or the
+ * first, gets no run): `partial` says which.
+ */
+function prTrigger(on: unknown, branch: string): { fires: boolean; paths: string[]; partial: string[] } {
   const events = typeof on === "string" ? { [on]: null } : Array.isArray(on) ? Object.fromEntries(asList(on).map((e) => [e, null])) : isObj(on) ? on : {};
   let fires = false;
+  let unconditional = false;
   const paths: string[] = [];
+  const partial: string[] = [];
   for (const event of ["pull_request", "pull_request_target"]) {
     if (!(event in events)) continue;
     const filter = isObj(events[event]) ? (events[event] as Obj) : {};
     if (!branchMatches(filter, branch)) continue;
-    // Only on other activity (`types: [closed]`, `[labeled]`): it doesn't run as a pull request's commits change.
     const types = asList(filter.types);
-    if (types.length && !types.some((t) => GATING_TYPES.has(t))) continue;
+    const missing = types.length ? GATING_TYPES.filter((t) => !types.includes(t)) : [];
+    if (missing.length) {
+      // `types: [closed]` (no gating activity at all) is simply not a pull request check.
+      if (missing.length < GATING_TYPES.length) partial.push(`${event} runs on ${types.join(", ")}, not ${missing.join(", ")}`);
+      continue;
+    }
     fires = true;
-    paths.push(...asList(filter.paths), ...asList(filter["paths-ignore"]).map((p) => `!${p}`));
+    const own = [...asList(filter.paths), ...asList(filter["paths-ignore"]).map((p) => `!${p}`)];
+    if (!own.length) unconditional = true;
+    else paths.push(...own);
   }
-  return { fires, paths };
+  return { fires, paths: unconditional ? [] : [...new Set(paths)], partial };
 }
 
 const DYNAMIC = /\$\{\{/;
@@ -173,13 +252,22 @@ export async function checksFromWorkflows(files: readonly WorkflowFile[], branch
       continue;
     }
     const trigger = prTrigger(doc.on, branch);
-    if (!trigger.fires) continue;
+    if (!trigger.fires) {
+      if (trigger.partial.length) notes.push(`${file.path} isn't required: ${trigger.partial.join("; ")}, so a pull request can be left without its result`);
+      continue;
+    }
     const found: string[] = [];
     for (const [key, raw] of Object.entries(isObj(doc.jobs) ? doc.jobs : {})) {
       if (!isObj(raw)) continue;
       const caller = jobName(key, raw);
       if (!caller) {
         notes.push(`${file.path}: job ${key}'s name is built at run time (list its checks in repo.requiredChecks)`);
+        continue;
+      }
+      // GitHub reports one check per matrix leg (`Test (18)`, `Test (20)`), never the bare name:
+      // a caller of a reusable workflow too, so this comes first.
+      if (isObj(raw.strategy) && raw.strategy.matrix !== undefined) {
+        notes.push(`${file.path}: job ${key} is a matrix, which reports one check per leg, so it isn't required (list its checks in repo.requiredChecks)`);
         continue;
       }
       if (typeof raw.uses === "string") {
@@ -198,11 +286,6 @@ export async function checksFromWorkflows(files: readonly WorkflowFile[], branch
           continue;
         }
         found.push(...calledChecks(caller, called, inputs, `${file.path} → ${uses.split("@")[0]}`, notes));
-        continue;
-      }
-      // GitHub reports one check per matrix leg (`Test (18)`, `Test (20)`), never the bare name.
-      if (isObj(raw.strategy) && raw.strategy.matrix !== undefined) {
-        notes.push(`${file.path}: job ${key} is a matrix, which reports one check per leg, so it isn't required (list its checks in repo.requiredChecks)`);
         continue;
       }
       found.push(caller);

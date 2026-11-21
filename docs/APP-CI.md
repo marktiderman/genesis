@@ -347,7 +347,11 @@ claude-review, which advises. Each check is pinned to GitHub Actions, so no othe
 status of that name and satisfy it. A workflow with `paths` on its pull request trigger, like a
 database workflow on `supabase/**`, is never required: GitHub doesn't run it on a pull request
 outside those paths, and a required check that never reports holds that pull request forever. Run
-pgTAP on every pull request (no `paths`) to require it. A matrix job is never required either:
+pgTAP on every pull request (no `paths`) to require it. A workflow whose pull request `types` leave out `opened`, `synchronize` or `reopened` isn't
+required (a later commit, or the first, gets no run); triggers are alternatives, so one unfiltered
+trigger keeps a workflow required whatever another's `paths` say. The staging checks are read for
+each staging branch the repository has: a check only some batches report is treated as
+conditional. A matrix job is never required either:
 GitHub reports one check per leg (`Test (18)`, `Test (20)`), never the job's own name. Where the
 workflows can't say (a matrix, a name built at run time), list the checks in `genesis.config.json`:
 `"repo": { "requiredChecks": [...], "stagingChecks": [...] }`. A check listed there is required
@@ -364,7 +368,9 @@ showed; when a write fails, it says which already landed.
 **Deleting a merged staging batch** is `genesis repo prune-staging`, not a rule switched off and on
 again. It deletes a `staging/…` branch only when all of it is on the default branch, no open pull
 request comes from or goes into it, it is a dated batch (`staging/YYYY-MM-DD/<letter>`) and it
-isn't the newest one (by date, then letter), through the staging ruleset's admin bypass.
+isn't the newest one (by date, then letter), through the staging ruleset's admin bypass. The delete
+is conditional on the exact commit that was checked (GraphQL `updateRefs` with `beforeOid`, atomic
+on GitHub's side): a commit pushed to the batch after the check makes the delete fail, never lose it.
 `--dry-run` lists what it would delete, and says so when this account can't bypass.
 
 ## Security

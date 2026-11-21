@@ -9,12 +9,12 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import * as path from "node:path";
 import { readGenesisConfig, type GenesisRepo } from "../doctor/config.js";
 import { runTool, type ToolRunner } from "../exec/run.js";
-import { checksFromWorkflows, type WorkflowFile } from "./checks.js";
-import { aheadBy, applyWrite, deleteBranch, GitHubError, isSlug, openPulls, readLive, remoteWorkflows, resolveRepo, stagingBranches, workflowsAt, type GitHubDeps } from "./github.js";
-import { formatPlan, matchRuleset, planProtection, protectionSpec, STAGING_REF, STAGING_RULESET, type ConditionalCheck, type LiveRepo, type ProtectionPlan } from "./spec.js";
+import { checksFromWorkflows, type DerivedChecks, type WorkflowFile } from "./checks.js";
+import { aheadBy, applyWrite, branchTip, deleteBranchAt, GitHubError, isSlug, openPulls, readLive, remoteWorkflows, resolveRepo, stagingBranches, workflowsAt, type GitHubDeps } from "./github.js";
+import { DEFAULT_RULESET, formatPlan, matchRuleset, planProtection, protectionSpec, STAGING_REF, STAGING_RULESET, type ConditionalCheck, type LiveRepo, type ProtectionPlan } from "./spec.js";
 
 export * from "./spec.js";
-export { checksFromWorkflows, branchMatches, branchPattern, type DerivedChecks, type WorkflowFile } from "./checks.js";
+export { checksFromWorkflows, branchMatches, branchPattern, refPattern, type DerivedChecks, type WorkflowFile } from "./checks.js";
 export { GitHubError, slugFromRemote } from "./github.js";
 
 /** A staging batch: `staging/<YYYY-MM-DD>/<letter>` (AGENTS.md, "One staging batch at a time"). */
@@ -90,27 +90,63 @@ export async function locate(options: RepoOptions): Promise<{ top: string; slug:
   return { top, slug, deps: { run, cwd: options.root } };
 }
 
+/**
+ * The staging batches' checks, read for each staging branch the repository has (a workflow's
+ * branch filter can take some batches and not others): required are the checks every batch
+ * reports; one that only some batches report is conditional, since a required check that never
+ * reports holds that batch's pull requests forever. With no staging branch yet, a sample batch
+ * name is read, and the notes say so.
+ */
+export async function stagingChecksFor(files: readonly WorkflowFile[], batches: readonly string[], remote?: Parameters<typeof checksFromWorkflows>[2]): Promise<DerivedChecks & { refs: string[] }> {
+  const refs = batches.length ? [...batches] : [SAMPLE_BATCH];
+  const each = await Promise.all(refs.map((b) => checksFromWorkflows(files, b, remote)));
+  const all = [...new Set(each.flatMap((e) => e.required))];
+  const required = all.filter((c) => each.every((e) => e.required.includes(c)));
+  const partial: ConditionalCheck[] = all
+    .filter((c) => !required.includes(c))
+    .map((c) => {
+      const where = refs.filter((_, i) => each[i]!.required.includes(c));
+      return { context: c, why: `it reports on pull requests into only ${where.length} of ${refs.length} staging branches (${where.join(", ")})` };
+    });
+  const conditional = [...partial, ...each.flatMap((e) => e.conditional)].filter((c, i, list) => list.findIndex((x) => x.context === c.context) === i && !required.includes(c.context));
+  const notes = [...new Set(each.flatMap((e) => e.notes))];
+  if (!batches.length) notes.push(`no staging branch yet: the staging checks were read for a sample batch name, ${SAMPLE_BATCH}`);
+  return { required, conditional, notes, refs };
+}
+
 /** Read the repository and plan what brings it to the standard. Reads only. */
 export async function planRepo(options: RepoOptions): Promise<RepoPlan> {
   const { top, slug, deps } = await locate(options);
   const config = repoConfig(options.root);
   const live = await readLive(deps, slug);
   const { files, local, localRef } = await workflowsFor(deps, slug, live.defaultBranch, top);
-  const remote = remoteWorkflows(deps);
+  const read = remoteWorkflows(deps);
+  const cache = new Map<string, Promise<string | null>>();
+  const remote: typeof read = (ref) => {
+    const key = `${ref.owner}/${ref.repo}/${ref.path}@${ref.ref}`;
+    if (!cache.has(key)) cache.set(key, read(ref));
+    return cache.get(key)!;
+  };
   const onDefault = await checksFromWorkflows(files, live.defaultBranch, remote);
   const stagingSpec = { name: STAGING_RULESET, target: "branch", enforcement: "active", conditions: { ref_name: { include: [STAGING_REF], exclude: [] } }, rules: [], bypass_actors: [] };
-  const staging = config.staging ?? (matchRuleset(stagingSpec, live.rulesets) !== undefined || (await stagingBranches(deps, slug).catch(() => [])).length > 0);
-  const onStaging = staging ? await checksFromWorkflows(files, SAMPLE_BATCH, remote) : null;
+  const batches = await stagingBranches(deps, slug).catch(() => [] as string[]);
+  const staging = config.staging ?? (matchRuleset(stagingSpec, live.rulesets, { defaultBranch: live.defaultBranch }) !== undefined || batches.length > 0);
+  const onStaging = staging ? await stagingChecksFor(files, batches, remote) : null;
   const defaultChecks = config.requiredChecks ?? onDefault.required;
   const stagingChecks = staging ? (config.stagingChecks ?? onStaging!.required) : null;
-  // A check repo.requiredChecks or stagingChecks names is required as named: the config wins, with a note.
-  const named = new Set([...(config.requiredChecks ?? []), ...(config.stagingChecks ?? [])]);
-  const found: ConditionalCheck[] = [...onDefault.conditional, ...(onStaging?.conditional ?? [])].filter((c, i, all) => all.findIndex((x) => x.context === c.context) === i);
-  const conditional = found.filter((c) => !named.has(c.context));
-  const overridden = found.filter((c) => named.has(c.context)).map((c) => `"${c.context}" is required because genesis.config.json repo names it, though ${c.why}`);
-  const exact = [...(config.requiredChecks ? ["default"] : []), ...(config.stagingChecks ? [STAGING_RULESET] : [])];
+  // Per ruleset: a branch's discovery and its own config list decide its cleanup, never the other's.
+  // A check the ruleset's config list names is required as named, with a note.
+  const scoped = (found: ConditionalCheck[], named: readonly string[] | undefined, branch: string) => ({
+    conditional: found.filter((c) => !named?.includes(c.context)),
+    overridden: found.filter((c) => named?.includes(c.context)).map((c) => `"${c.context}" is required on ${branch} because genesis.config.json repo names it, though ${c.why}`),
+  });
+  const onMain = scoped(onDefault.conditional, config.requiredChecks, live.defaultBranch);
+  const onBatches = scoped(onStaging?.conditional ?? [], config.stagingChecks, "staging batches");
+  const conditional = { [DEFAULT_RULESET]: onMain.conditional, [STAGING_RULESET]: onBatches.conditional };
+  const overridden = [...onMain.overridden, ...onBatches.overridden];
+  const exact = [...(config.requiredChecks ? [DEFAULT_RULESET] : []), ...(config.stagingChecks ? [STAGING_RULESET] : [])];
   const spec = protectionSpec({ defaultChecks, stagingChecks });
-  const plan = planProtection(spec, live, { conditional, exact });
+  const plan = planProtection(spec, live, { conditional, exact, stagingRefs: (onStaging?.refs ?? []).map((b) => `refs/heads/${b}`) });
   const notes = [...new Set([...onDefault.notes, ...(onStaging?.notes ?? []), ...overridden])];
   if (local) notes.push(local);
   if (!files.length) notes.push(`no workflows on ${live.defaultBranch}${local ? ` (nor in ${path.join(top, ".github/workflows")})` : ""}: no required checks were read (name them in repo.requiredChecks)`);
@@ -230,7 +266,8 @@ export async function runPruneStaging(options: PruneOptions): Promise<number> {
   const dated = branches.filter((b) => BATCH.test(b)).sort(compareBatches);
   const newest = dated.at(-1);
   const pulls = await openPulls(deps, slug);
-  const done: string[] = [];
+  // Each candidate with the exact commit that was checked: the delete happens only if it's still there.
+  const done: Array<{ branch: string; tip: string }> = [];
   for (const b of branches) {
     if (!BATCH.test(b)) {
       out(`  keep ${b}: not a dated batch (staging/YYYY-MM-DD/<letter>), so it is kept for a reason of its own`);
@@ -245,12 +282,13 @@ export async function runPruneStaging(options: PruneOptions): Promise<number> {
       out(`  keep ${b}: an open pull request ${pr.base === b ? "goes into" : "comes from"} it`);
       continue;
     }
-    const ahead = await aheadBy(deps, slug, live.defaultBranch, b);
+    const tip = await branchTip(deps, slug, b);
+    const ahead = await aheadBy(deps, slug, live.defaultBranch, tip);
     if (ahead > 0) {
       out(`  keep ${b}: ${ahead} commit${ahead === 1 ? "" : "s"} not on ${live.defaultBranch}`);
       continue;
     }
-    done.push(b);
+    done.push({ branch: b, tip });
   }
   if (!done.length) {
     out(`${slug}: nothing to delete.`);
@@ -259,18 +297,22 @@ export async function runPruneStaging(options: PruneOptions): Promise<number> {
   // Checked in a dry run too, so it never lists deletions the real run would refuse.
   const guard = live.rulesets.find((r) => r.conditions?.ref_name?.include?.some((i) => i.includes("staging")) && r.rules?.some((x) => x.type === "deletion"));
   if (guard && guard.current_user_can_bypass === "never") {
-    for (const b of done) out(`  ${options.dryRun ? "would fail" : "can't delete"} ${b}: no bypass`);
+    for (const { branch: b } of done) out(`  ${options.dryRun ? "would fail" : "can't delete"} ${b}: no bypass`);
     out(`✗ Ruleset "${guard.name}" blocks deleting staging branches and this account can't bypass it. genesis repo protect gives the repository's admin role the bypass on staging batches; run this as an admin.`);
     return 1;
   }
+  if (!options.dryRun && !live.nodeId) {
+    out(`✗ ${slug}'s id couldn't be read, so a delete can't be made conditional on the checked commit: nothing was deleted.`);
+    return 1;
+  }
   const deleted: string[] = [];
-  for (const b of done) {
+  for (const { branch: b, tip } of done) {
     if (options.dryRun) {
-      out(`  would delete ${b}: merged into ${live.defaultBranch}`);
+      out(`  would delete ${b} at ${tip.slice(0, 12)}: merged into ${live.defaultBranch}`);
       continue;
     }
     try {
-      await deleteBranch(deps, slug, b);
+      await deleteBranchAt(deps, live.nodeId!, b, tip);
     } catch (err) {
       out(`✗ ${(err as Error).message}. ${deleted.length ? `Already deleted: ${deleted.join(", ")}` : "Nothing was deleted"}.`);
       return 1;
