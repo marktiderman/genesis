@@ -15,7 +15,8 @@ export type GithubLink = { state: "linked"; repository: string } | { state: "not
 export function originRepository(root: string): string | null {
   try {
     const url = execFileSync("git", ["remote", "get-url", "origin"], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
-    const m = /github\.com[:/]([^/\s]+\/[^/\s]+?)(?:\.git)?\/?$/.exec(url);
+    // github.com itself: https://[user@]github.com/owner/name, ssh://git@github.com/owner/name, or git@github.com:owner/name.
+    const m = /^(?:https:\/\/(?:[^@/\s]+@)?github\.com\/|ssh:\/\/git@github\.com\/|git@github\.com:)([^/\s]+\/[^/\s]+?)(?:\.git)?\/?$/i.exec(url);
     return m ? m[1]! : null;
   } catch {
     return null;

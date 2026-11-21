@@ -278,7 +278,7 @@ export function checkReleaseLaneTwice(ctx: DoctorContext): void {
       // deploy-production.yml is the file native-release.yml dispatches to: merged, never removed.
       message:
         github && rival === LANE_DISPATCH_TARGET
-          ? `${rival} releases on every push beside .github/workflows/native-release.yml, so each release would go out twice. With release.trigger "eas" (the default) EAS starts each release and native-release.yml goes: run genesis add template release, which retires it. To keep releasing from GitHub, set release.trigger to "github" and merge deploy-production.yml's .genesis-next (its dispatch-only version) (docs/NATIVE-RELEASE.md, "Moving to EAS's trigger")`
+          ? `${rival} releases on every push beside .github/workflows/native-release.yml, so each release would go out twice. With release.trigger "eas" (the default) EAS starts each release and native-release.yml goes: run genesis add template release --trigger eas, which retires it. To keep releasing from GitHub, set release.trigger to "github" and merge deploy-production.yml's .genesis-next (its dispatch-only version) (docs/NATIVE-RELEASE.md, "Moving to EAS's trigger")`
           : `${rival} also releases (EAS updates or builds) beside ${lane}, so each release would go out twice. Remove it (docs/NATIVE-RELEASE.md, "Adopting the lane"). If it only ships a staging update or a preview build, not production, keep it and set "release-lane-twice": "warn" under doctor.rules in genesis.config.json`,
     });
   }

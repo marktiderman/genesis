@@ -308,7 +308,7 @@ describe("native pack", () => {
     // The lane dispatches to deploy-production.yml: its finding says to merge it, never to remove it; another rival's says to remove it.
     const message = (subject: string) => twice.findings.find((f) => f.rule === "release-lane-twice" && f.subject === subject)!.message;
     // Beside native-release.yml, deploy-production.yml's push trigger is EAS's lane: retire GitHub's, or merge the dispatch-only text.
-    expect(message(".eas/workflows/deploy-production.yml")).toContain("genesis add template release, which retires it");
+    expect(message(".eas/workflows/deploy-production.yml")).toContain("genesis add template release --trigger eas, which retires it");
     expect(message(".eas/workflows/deploy-production.yml")).toMatch(/release\.trigger to "github" and merge deploy-production\.yml's \.genesis-next/);
     expect(message(".eas/workflows/deploy-production.yml")).not.toMatch(/remove/i);
     expect(message(".github/workflows/ota.yml")).toContain("Remove it");

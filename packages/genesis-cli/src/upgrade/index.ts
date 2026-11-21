@@ -782,7 +782,12 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
     const shown = at === root ? file : path.relative(root, path.join(at, file)).split(path.sep).join("/");
     const deploy = refreshed.find((r) => r.path === OLD_LANE_FILE);
     // Written, merged, resolved by hand or already so, and (on disk) with the push trigger.
-    const taken = deploy && ["updated", "merged", "unchanged", "resolved"].includes(deploy.outcome) && (options.dryRun ? deploy.outcome !== "resolved" || hasPushTrigger(readApp(root, OLD_LANE_FILE) ?? "") : hasPushTrigger(readApp(root, OLD_LANE_FILE) ?? ""));
+    // The push trigger in the text the file has after this run: on disk, except in a dry run that
+    // would write it (updated, merged), where it is the new text's. Dry run and real run agree.
+    const deployEntry = lock.files[OLD_LANE_FILE];
+    const wouldWrite = Boolean(options.dryRun && deploy && ["updated", "merged"].includes(deploy.outcome));
+    const after = wouldWrite && deployEntry ? (ownedText(OLD_LANE_FILE, deployEntry.source, newPin ?? oldPin) ?? "") : (readApp(root, OLD_LANE_FILE) ?? "");
+    const taken = deploy && ["updated", "merged", "unchanged", "resolved"].includes(deploy.outcome) && hasPushTrigger(after);
     if (retireGithub && taken) {
       // Only a file that's there is a deletion to stage; an absent one only leaves the lock.
       const there = existsSync(path.join(at, file));

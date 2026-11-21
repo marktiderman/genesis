@@ -1699,8 +1699,15 @@ describe("the EAS trigger (release.trigger eas, the default; ADR 0026)", () => {
     expect(await checkGithubLink(root, { env: { EXPO_TOKEN: "t" }, home, origin: "acme/old-fork", fetch: sample })).toMatchObject({ state: "mismatch", why: expect.stringContaining("not to acme/old-fork") });
     expect((await checkGithubLink(root, { env: { EXPO_TOKEN: "t" }, home, origin: null, fetch: sample })).state).toBe("unknown");
     expect((await checkGithubLink(root, { env: { EXPO_TOKEN: "t" }, home, origin: "ACME/Sample-App", fetch: sample })).state).toBe("linked");
+    // Only github.com itself: a look-alike host is no GitHub origin.
+    for (const url of ["https://notgithub.com/acme/sample-app.git", "https://github.com.evil.example/acme/sample-app", "git@notgithub.com:acme/sample-app.git", "https://gitlab.com/acme/sample-app"]) {
+      const repo = tempDir("genesis-origin-bad-");
+      execFileSync("git", ["init", "-q"], { cwd: repo });
+      execFileSync("git", ["remote", "add", "origin", url], { cwd: repo });
+      expect(originRepository(repo), url).toBeNull();
+    }
     // origin is read from git, https or ssh.
-    for (const url of ["https://github.com/acme/sample-app.git", "git@github.com:acme/sample-app.git"]) {
+    for (const url of ["https://github.com/acme/sample-app.git", "git@github.com:acme/sample-app.git", "ssh://git@github.com/acme/sample-app.git", "https://x-access-token@github.com/acme/sample-app"]) {
       const repo = tempDir("genesis-origin-");
       execFileSync("git", ["init", "-q"], { cwd: repo });
       execFileSync("git", ["remote", "add", "origin", url], { cwd: repo });
@@ -2054,21 +2061,52 @@ describe("the EAS trigger (release.trigger eas, the default; ADR 0026)", () => {
     expect(report.removed).toBeUndefined();
   });
 
-  it("genesis upgrade takes a deploy-production.yml resolved by hand once it has the push trigger, and stages only deletions it made", async () => {
+  /** An app on EAS's trigger whose deploy-production.yml's .genesis-next was merged by hand (`text`), the dispatcher still there or not. */
+  const resolvedByHand = (text: (eas: string) => string, keepDispatcher: boolean) => {
     const root = onGithubLane({ release: { trigger: "eas" } });
-    // The app merged an earlier .genesis-next by hand (the EAS text, with a line of its own) and committed native-release.yml's removal.
     const easText = renderTemplate(".eas/workflows/deploy-production.yml", template("release/deploy-production.yml"), { release: releaseContext(root) });
-    writeTree(root, { ".eas/workflows/deploy-production.yml": easText + "# ours\n" });
+    writeTree(root, { ".eas/workflows/deploy-production.yml": text(easText) });
     const lock = readLock(root);
     lock.files[".eas/workflows/deploy-production.yml"] = { ...lock.files[".eas/workflows/deploy-production.yml"]!, pending: sha256(easText), pendingMine: sha256("before") };
     writeLock(root, lock);
-    rmSync(path.join(root, ".github/workflows/native-release.yml"));
-    const report = await runUpgrade({ root, lookup: release({ [CLI]: "1.2.0" }), install: (r) => void ship(r, "1.2.0"), doctor: false, checkGithubLink: linked });
-    expect(["resolved", "unchanged", "updated", "merged"]).toContain(report.refreshed.find((r) => r.path === ".eas/workflows/deploy-production.yml")?.outcome);
+    if (!keepDispatcher) rmSync(path.join(root, ".github/workflows/native-release.yml"));
+    return root;
+  };
+  const upgrade = (root: string, dryRun = false) => runUpgrade({ root, lookup: release({ [CLI]: "1.2.0" }), install: (r) => void ship(r, "1.2.0"), doctor: false, checkGithubLink: linked, ...(dryRun ? { dryRun: true } : {}) });
+
+  it("genesis upgrade takes a deploy-production.yml resolved by hand once it has the push trigger, and stages only deletions it made", async () => {
+    // The dispatcher already gone (its removal committed): dropped from the lock, not a deletion for --pr to stage.
+    const gone = resolvedByHand((eas) => `${eas}# ours\n`, false);
+    const report = await upgrade(gone);
+    expect(report.refreshed.find((r) => r.path === ".eas/workflows/deploy-production.yml")?.outcome).toBe("resolved");
     expect(report.refreshed.find((r) => r.path === ".github/workflows/native-release.yml")).toMatchObject({ outcome: "removed" });
-    expect(readLock(root).files[".github/workflows/native-release.yml"]).toBeUndefined();
-    // Already gone: not a deletion for --pr to stage (git add -A would refuse the path).
+    expect(readLock(gone).files[".github/workflows/native-release.yml"]).toBeUndefined();
     expect(report.removed).toBeUndefined();
+    // The dispatcher still there: removed, and staged as a deletion.
+    const there = resolvedByHand((eas) => `${eas}# ours\n`, true);
+    const moved = await upgrade(there);
+    expect(moved.refreshed.find((r) => r.path === ".eas/workflows/deploy-production.yml")?.outcome).toBe("resolved");
+    expect(moved.removed).toEqual([".github/workflows/native-release.yml"]);
+    expect(existsSync(path.join(there, ".github/workflows/native-release.yml"))).toBe(false);
+  });
+
+  it("genesis upgrade keeps the dispatcher when the resolved deploy-production.yml has no push trigger, in a dry run as in a real one", async () => {
+    // Merged by hand, keeping the dispatch-only trigger: nothing would start a release without native-release.yml.
+    const dispatchOnly = (eas: string) => eas.replace(/^on:\n[\s\S]*?\n(?=\n)/m, "on:\n  workflow_dispatch: {}\n");
+    for (const dryRun of [true, false]) {
+      const root = resolvedByHand(dispatchOnly, true);
+      expect(hasPushTrigger(read(root, ".eas/workflows/deploy-production.yml"))).toBe(false);
+      const report = await upgrade(root, dryRun);
+      expect(report.refreshed.find((r) => r.path === ".github/workflows/native-release.yml"), String(dryRun)).toMatchObject({ outcome: "held" });
+      expect(existsSync(path.join(root, ".github/workflows/native-release.yml"))).toBe(true);
+      expect(report.removed).toBeUndefined();
+    }
+    // A dry run of a move that goes through plans the same removal the real run makes, writing nothing.
+    const plain = onGithubLane({ release: { trigger: "eas" } });
+    const planned = await upgrade(plain, true);
+    expect(planned.refreshed.find((r) => r.path === ".eas/workflows/deploy-production.yml")?.outcome).toBe("updated");
+    expect(planned.refreshed.find((r) => r.path === ".github/workflows/native-release.yml")).toMatchObject({ outcome: "removed" });
+    expect(existsSync(path.join(plain, ".github/workflows/native-release.yml"))).toBe(true);
   });
 
   it("genesis upgrade keeps old previews until their own EAS environment exists", async () => {
