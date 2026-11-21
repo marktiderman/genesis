@@ -154,4 +154,26 @@ describe("the checker's downloads and the preview record", () => {
     await act(settle);
     expect(JSON.parse(storage.data.get("genesis:updates:channel:preview-update")!).ids).toContain("pr-6-b");
   });
+
+  it("leaving waits for a preview download still running, so the restart can't beat its record", async () => {
+    const storage = memoryStorage({ "genesis:updates:channel": "pr-6" });
+    const fake = fakeUpdates({ next: { id: "pr-6-c" }, channel: "pr-6" });
+    let finish!: () => void;
+    fake.fetchUpdateAsync.mockImplementationOnce(() => new Promise((resolve) => (finish = () => resolve({ isNew: true, isRollBackToEmbedded: false, manifest: { id: "pr-6-c" } } as never))));
+    const updates = createUpdates({ platform: "ios", application, policyTimeoutMs: 50, updates: fake, storage, channels: { enabled: true } });
+    await updates.channels.state();
+    const checking = updates.checker.check();
+    await act(settle);
+    // Leave while the download runs; nothing blocks the reload.
+    const leaving = updates.channels.reset();
+    await act(settle);
+    expect(fake.reloadAsync).not.toHaveBeenCalled();
+    finish();
+    await checking;
+    await act(async () => {
+      await leaving;
+    });
+    expect(fake.reloadAsync).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(storage.data.get("genesis:updates:channel:preview-update")!).ids).toContain("pr-6-c");
+  });
 });

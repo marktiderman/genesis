@@ -88,6 +88,11 @@ export interface ChannelSwitcher {
    * once another preview is picked.
    */
   noteDownloaded(updateId: string, channel: string): Promise<void>;
+  /**
+   * Hold the next reload until `work` settles (at most 10 s): a checker download and its record, so
+   * leaving can't restart into a preview update before it's recorded as the preview's.
+   */
+  holdReload(work: Promise<unknown>): void;
   /** Reload into what was downloaded (respects the reload guard). */
   restart(): Promise<ChannelSwitchResult>;
   /** Back to the build's own channel. Always allowed. */
@@ -280,10 +285,17 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
       return { kind: "error", error };
     }
   };
+  const holds = new Set<Promise<unknown>>();
+  const settled = async () => {
+    if (!holds.size) return;
+    await Promise.race([Promise.allSettled([...holds]), new Promise((resolve) => setTimeout(resolve, 10_000))]);
+  };
   const reload = async (): Promise<ChannelSwitchResult> => {
     const u = updates as UpdatesModuleLike;
     try {
       if (!guard.canReload()) return { kind: "blocked" };
+      // A checker download still running (or its record) first: what the restart launches is then known.
+      await settled();
       // Queued crash reports and events would be lost with the runtime: flush them first.
       await runBeforeReload();
       await u.reloadAsync(reloadScreenOptions ? { reloadScreenOptions } : undefined);
@@ -364,13 +376,18 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
         return fetch();
       });
     },
+    holdReload(work) {
+      const held = work.catch(() => undefined).finally(() => holds.delete(held));
+      holds.add(held);
+    },
     noteDownloaded(updateId, channel) {
-      return serial(async () => {
+      // Not behind the write queue: a reset in that queue waits for this (holdReload), not the reverse.
+      return (async () => {
         // Still on that preview, or left it while the download ran (the download asked for the
         // preview's header, so it is the preview's): record. Moved to another preview: not this one's.
         const now = (await load()).requested;
         if (now === channel || now === null) await recordPreviewUpdate(updateId, channel);
-      });
+      })();
     },
     restart() {
       return serial(async () => unavailable() ?? reload());

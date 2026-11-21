@@ -204,16 +204,26 @@ export function createUpdates(options: UpdatesOptions): UpdatesBlock {
   // release update already waiting, or a later banner change, is never recorded.
   let lastStatus = checker.getState().status;
   let pickedAtStart: Promise<string | null> | null = null;
+  // Settles once the running download has ended and, if it was a preview's, been recorded; a
+  // reload (leaving) waits for it.
+  let downloadDone: (() => void) | null = null;
   checker.subscribe(() => {
     const state = checker.getState();
     const previous = lastStatus;
     lastStatus = state.status;
-    if (state.status === "downloading" && previous !== "downloading") pickedAtStart = switcher.requested();
-    if (state.status === "ready" && previous === "downloading" && state.updateId && pickedAtStart) {
-      const id = state.updateId;
+    if (state.status === "downloading" && previous !== "downloading") {
+      pickedAtStart = switcher.requested();
+      switcher.holdReload(new Promise<void>((resolve) => (downloadDone = resolve)));
+    }
+    if (previous === "downloading" && state.status !== "downloading") {
+      const done = downloadDone;
+      downloadDone = null;
       const started = pickedAtStart;
       pickedAtStart = null;
-      void started.then((channel) => (channel ? switcher.noteDownloaded(id, channel) : undefined)).catch(() => undefined);
+      const id = state.status === "ready" ? state.updateId : null;
+      void (started && id ? started.then((channel) => (channel ? switcher.noteDownloaded(id, channel) : undefined)) : Promise.resolve())
+        .catch(() => undefined)
+        .finally(() => done?.());
     }
   });
   const signature = versionSignature({ application, updates, platform, buildMetadata: options.buildMetadata ?? null });
