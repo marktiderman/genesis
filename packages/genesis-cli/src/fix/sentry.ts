@@ -132,6 +132,53 @@ export function tokenSteps(native: boolean, web: boolean): string {
   return lines.join("\n");
 }
 
+/** A YAML line without its comment (a `#` at the start or after a space, outside quotes). */
+function withoutComment(line: string): string {
+  let quote = "";
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i]!;
+    if (quote) {
+      if (c === quote) quote = "";
+    } else if (c === '"' || c === "'") quote = c;
+    else if (c === "#" && (i === 0 || /\s/.test(line[i - 1]!))) return line.slice(0, i);
+  }
+  return line;
+}
+
+const SENTRY_CLI = /^["']?@sentry\/cli["']?$/;
+
+/**
+ * Whether pnpm-workspace.yaml lets @sentry/cli run its install script: `"@sentry/cli": true` under
+ * `allowBuilds` (pnpm 11), or an entry of `onlyBuiltDependencies` (pnpm 10, a block or flow list).
+ * Comments don't count, and neither does any other key's list (`ignoredBuiltDependencies` blocks it).
+ */
+export function sentryCliAllowed(workspace: string): boolean {
+  let section = "";
+  for (const raw of workspace.split("\n")) {
+    const line = withoutComment(raw).trimEnd();
+    if (!line.trim()) continue;
+    const top = /^([A-Za-z][\w-]*)\s*:\s*(.*)$/.exec(line);
+    if (top) {
+      section = top[1]!;
+      const flow = top[2]!.trim();
+      if (section === "onlyBuiltDependencies" && flow.startsWith("[")) {
+        if (flow.replace(/^\[|\]$/g, "").split(",").some((x) => SENTRY_CLI.test(x.trim()))) return true;
+      }
+      if (section === "allowBuilds" && flow.startsWith("{")) {
+        if (flow.replace(/^\{|\}$/g, "").split(",").some((x) => { const [k, v] = x.split(":").map((y) => y?.trim() ?? ""); return SENTRY_CLI.test(k!) && v === "true"; })) return true;
+      }
+      continue;
+    }
+    const item = line.trim();
+    if (section === "onlyBuiltDependencies" && item.startsWith("-") && SENTRY_CLI.test(item.slice(1).trim())) return true;
+    if (section === "allowBuilds") {
+      const m = /^(.+?)\s*:\s*(\S+)$/.exec(item);
+      if (m && SENTRY_CLI.test(m[1]!) && m[2] === "true") return true;
+    }
+  }
+  return false;
+}
+
 export const sentrySourceMapsFix: Fix = {
   id: "sentry-source-maps",
   kind: "guided",
@@ -178,7 +225,7 @@ export const sentrySourceMapsFix: Fix = {
       const blocked = /^(\s*)(["']?)@sentry\/cli\2\s*:\s*false\s*$/m;
       if (workspace && blocked.test(workspace)) {
         files.push(plannedFile(root, "pnpm-workspace.yaml", workspace.replace(blocked, (_m, ind: string, q: string) => `${ind}${q}@sentry/cli${q}: true`), "pnpm runs @sentry/cli's install script, which downloads the uploader builds and releases run"));
-      } else if (workspace && !/["']?@sentry\/cli["']?\s*:\s*true\b|^\s*-\s*["']?@sentry\/cli["']?\s*$/m.test(workspace)) {
+      } else if (workspace && !sentryCliAllowed(workspace)) {
         manual.push(`Allow @sentry/cli's install script (it downloads the uploader) in pnpm-workspace.yaml: "@sentry/cli": true under allowBuilds (pnpm 11), or "- '@sentry/cli'" under onlyBuiltDependencies (pnpm 10).`);
       } else if (!workspace && existsSync(path.join(root, "pnpm-lock.yaml"))) {
         manual.push(`With pnpm 11, allow @sentry/cli's install script (it downloads the uploader): "@sentry/cli": true under allowBuilds in pnpm-workspace.yaml.`);

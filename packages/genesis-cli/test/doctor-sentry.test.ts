@@ -13,7 +13,7 @@ import { releaseContext } from "../src/blocks/release.js";
 import { GenesisConfigError, readGenesisConfig, validateObservability } from "../src/doctor/config.js";
 import plugin, { sentryState, SENTRY_RULE } from "../src/doctor/sentry.js";
 import type { DoctorContext, FindingInput } from "../src/doctor/types.js";
-import { sentrySourceMapsFix, withSentryMetro, withSentryPlugin } from "../src/fix/sentry.js";
+import { sentryCliAllowed, sentrySourceMapsFix, withSentryMetro, withSentryPlugin } from "../src/fix/sentry.js";
 import { makeApp, read } from "./blocks-helpers.js";
 
 const REPO = path.resolve(__dirname, "..", "..", "..");
@@ -155,6 +155,25 @@ describe("genesis fix sentry-source-maps", () => {
     const root = nativeApp({ "pnpm-workspace.yaml": "packages:\n  - apps/*\n", "pnpm-lock.yaml": "" });
     const plan = await sentrySourceMapsFix.plan({ root, findings: [] });
     expect(plan.manual).toContain("onlyBuiltDependencies (pnpm 10)");
+  });
+
+  it("reads whether pnpm lets @sentry/cli build: only allowBuilds and onlyBuiltDependencies, never comments or other lists", () => {
+    const yes = [
+      'allowBuilds:\n  "@sentry/cli": true\n',
+      "allowBuilds:\n  '@sentry/cli': true # uploader\n",
+      'allowBuilds: { "@sentry/cli": true, esbuild: true }\n',
+      "onlyBuiltDependencies:\n  - '@sentry/cli' # uploader\n  - esbuild\n",
+      "onlyBuiltDependencies: ['@sentry/cli', esbuild]\n",
+    ];
+    const no = [
+      "packages:\n  - apps/*\n",
+      "ignoredBuiltDependencies:\n  - '@sentry/cli'\n",
+      'allowBuilds:\n  # "@sentry/cli": true\n  esbuild: true\n',
+      'allowBuilds:\n  "@sentry/cli": false\n',
+      "packages:\n  - '@sentry/cli'\n",
+    ];
+    for (const y of yes) expect(sentryCliAllowed(y), y).toBe(true);
+    for (const n of no) expect(sentryCliAllowed(n), n).toBe(false);
   });
 
   it("adopts the project from the app's own plugin options into genesis.config.json", async () => {
