@@ -68,11 +68,13 @@ export interface ObservabilitySettingValues {
 /** What the settings functions here take: `resolveSettings`' result, or the values alone by full key. @stability Beta */
 export type ObservabilitySettingsInput = Pick<ResolvedSettings, "values"> | { readonly [key: string]: unknown };
 
-function own(values: { readonly [key: string]: unknown }, key: string): unknown {
+/** @internal */
+export function own(values: { readonly [key: string]: unknown }, key: string): unknown {
   return Object.prototype.hasOwnProperty.call(values, key) ? values[key] : undefined;
 }
 
-function valuesOf(input: ObservabilitySettingsInput | null | undefined): { readonly [key: string]: unknown } {
+/** The values by full key, from `resolveSettings`' result or the values alone. @internal */
+export function settingsValuesOf(input: ObservabilitySettingsInput | null | undefined): { readonly [key: string]: unknown } {
   if (!input) return {};
   // A ResolvedSettings (or `{ values }`): no full key is ever called `values` (keys are `namespace.key`).
   const nested = own(input as { readonly [key: string]: unknown }, "values");
@@ -87,7 +89,7 @@ function valuesOf(input: ObservabilitySettingsInput | null | undefined): { reado
  * @stability Beta
  */
 export function observabilitySettingValues(input?: ObservabilitySettingsInput | null): ObservabilitySettingValues {
-  const values = valuesOf(input);
+  const values = settingsValuesOf(input);
   const out: Record<string, unknown> = {};
   for (const def of Object.values(observabilitySettings.keys)) {
     const v = own(values, def.key);
@@ -151,7 +153,7 @@ export interface ResolvedSentryDsn {
  * @stability Beta
  */
 export function resolveSentryDsn(input: { build?: string | null; settings?: ObservabilitySettingsInput | null; source?: "settings" | "cache" }): ResolvedSentryDsn {
-  const values = valuesOf(input.settings);
+  const values = settingsValuesOf(input.settings);
   const { enabled } = observabilitySettingValues(values);
   const raw = own(values, "observability.sentryDsn");
   const fromSettings = typeof raw === "string" && raw.trim() ? raw.trim() : null;

@@ -11,8 +11,8 @@ SplashScreen.preventAutoHideAsync();
 
 // The whole root: GenesisNativeApp owns theme, data, boot, errors and the session. Keep it short (a test holds it to 30 lines).
 function RootLayout() {
-  // Genesis settings for whoever is signed in, live, while the app runs (support reads them).
-  useWatchStarterSettings(starter.features.support);
+  // Genesis settings for whoever is signed in, live, while the app runs (support and Sentry read them).
+  useWatchStarterSettings(starter.features.support || starter.features.observability);
   return (
     <GenesisNativeApp {...shell} splash={SplashScreen}>
       <Stack screenOptions={{ headerShown: false }} />

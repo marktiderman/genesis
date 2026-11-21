@@ -1,16 +1,29 @@
 /**
  * Genesis settings for whoever is signed in: Supabase's `genesis_settings` and the tenant and
- * person layers, kept current over Realtime (`watchAppSettings`). Support and its context dump
- * read them each time they need one (`appSettings: starterSettings.current`), and a screen that
- * shows something a setting switches re-renders with `useStarterSettings`. With none read yet,
- * the `max` preset: everything on.
+ * person layers, kept current over Realtime (`watchAppSettings`), for support's keys and error
+ * reporting's (`observability.*`). Support and its context dump read them each time they need one
+ * (`appSettings: starterSettings.current`), Sentry gets each change (`sentry.applySettings`), and
+ * a screen that shows something a setting switches re-renders with `useStarterSettings`. With
+ * none read yet, the `max` preset: everything on.
+ *
+ * The settings need a signed-in person, so the first launch starts Sentry from them after sign-in;
+ * every later launch starts it at once from what this device kept (`src/lib/observability.ts`).
  *
  * The root layout starts the watch (`useWatchStarterSettings`) for as long as the app is mounted.
  */
 import { useEffect, useSyncExternalStore } from "react";
+import { settingsCatalogue, type SettingsCatalogue } from "@marktiderman/genesis-config/settings";
+import { observabilitySettings } from "@marktiderman/genesis-native/observability";
 import { watchAppSettings, type AppSettings, type RealtimeSettingsClient } from "@marktiderman/genesis-supabase";
-import { supportSettingsCatalogue } from "@marktiderman/genesis-support";
+import { SUPPORT_SETTINGS_DECLARATIONS } from "@marktiderman/genesis-support";
+import { sentry } from "./observability";
 import { supabase } from "./supabase";
+
+let catalogue: SettingsCatalogue | undefined;
+/** Support's keys and error reporting's. */
+export function starterSettingsCatalogue(): SettingsCatalogue {
+  return (catalogue ??= settingsCatalogue([...SUPPORT_SETTINGS_DECLARATIONS, observabilitySettings]));
+}
 
 /** What the watch needs of the Supabase client: settings, Realtime and the signed-in person. */
 export interface SettingsAuthClient extends RealtimeSettingsClient {
@@ -41,7 +54,7 @@ export function createStarterSettings(client: SettingsAuthClient, onError: (erro
       return () => listeners.delete(listener);
     },
     start() {
-      const catalogue = supportSettingsCatalogue();
+      const catalogue = starterSettingsCatalogue();
       let person: string | null | undefined;
       let stop: (() => void) | undefined;
       const { data } = client.auth.onAuthStateChange((_event, session) => {
@@ -65,7 +78,11 @@ export function createStarterSettings(client: SettingsAuthClient, onError: (erro
 }
 
 /** The app's settings. */
-export const starterSettings = createStarterSettings(supabase, (error) => console.warn(`[support] settings: ${error instanceof Error ? error.message : String(error)}`));
+export const starterSettings = createStarterSettings(supabase, (error) => console.warn(`[settings] ${error instanceof Error ? error.message : String(error)}`));
+
+// Sentry follows the settings: started, stopped or waiting for the next launch (signed out: no change).
+const reporting = sentry;
+if (reporting) starterSettings.subscribe(() => reporting.applySettings(starterSettings.current()));
 
 /** The settings now, re-rendering when they change. */
 export function useStarterSettings(): AppSettings | undefined {

@@ -589,3 +589,34 @@ describe("the real runner and the stubs", () => {
     }
   });
 });
+
+describe("the settings check: error reporting's keys", () => {
+  const NATIVE = "@marktiderman/genesis-native";
+  const native = JSON.parse(readFileSync(path.join(__dirname, "..", "..", "native", "package.json"), "utf8")) as { genesis: { settings: unknown } };
+  const nativeApp = (config: Record<string, unknown> = {}) =>
+    makeApp(null, {
+      "package.json": JSON.stringify({ name: "app", dependencies: { [NATIVE]: "^9.0.0" } }),
+      [`node_modules/${NATIVE}/package.json`]: JSON.stringify({ name: NATIVE, version: "9.0.0", genesis: { settings: native.genesis.settings } }),
+      "genesis.config.json": JSON.stringify({ doctor: { rules: { "genesis-behind": "off" } }, ...config }),
+    });
+  const sentryFindings = async (root: string) => list((await runDoctor({ root })).findings).filter((l) => l.includes("observability."));
+
+  it("names the sentry step, as information, while the DSN and organization are unset", async () => {
+    const lines = await sentryFindings(nativeApp());
+    expect(lines.map((l) => l.split(" [")[0])).toEqual([
+      "setup-incomplete info genesis.config.json observability.sentryDsn",
+      "setup-incomplete info genesis.config.json observability.sentryOrg",
+    ]);
+    expect(lines.every((l) => l.endsWith("genesis setup --step sentry"))).toBe(true);
+  });
+
+  it("refuses a DSN that isn't one, as an error", async () => {
+    const lines = await sentryFindings(nativeApp({ settings: { "observability.sentryDsn": "https://sentry.example.test/42", "observability.sentryOrg": "acme" } }));
+    expect(lines.map((l) => l.split(" [")[0])).toEqual([
+      "invalid-setting error genesis.config.json observability.sentryDsn",
+      // The refused value doesn't count: the key is still unset.
+      "setup-incomplete info genesis.config.json observability.sentryDsn",
+    ]);
+    expect(lines[0]).toContain("must match ^https?://");
+  });
+});

@@ -67,8 +67,9 @@ export interface StarterFeatures {
   /**
    * The observability block (`createObservability`, `src/lib/observability.ts`): every error the
    * shell catches, route breadcrumbs and timings, the user's id and typed analytics events, to
-   * Sentry when `EXPO_PUBLIC_SENTRY_DSN` is set (and the console in development), scrubbed of
-   * emails, tokens and query strings on the phone. JavaScript only.
+   * Sentry (and the console in development), scrubbed of emails, tokens and query strings on the
+   * phone. Sentry's DSN is `EXPO_PUBLIC_SENTRY_DSN` in the build or, with no build, the
+   * `observability.sentryDsn` setting (Settings, as a platform admin). JavaScript only.
    */
   observability: boolean;
   /**
