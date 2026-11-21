@@ -58,6 +58,43 @@ export function appPlatforms(root: string): Set<AppPlatform> {
 const NAMED_IMPORT = /\b(?:import|export)\s+(?:type\s+)?\{([^}]*)\}\s*from\s*["']([^"']+)["']/g;
 
 /** The names `code` imports from `packages` (or their subpaths). */
+/**
+ * The argument text of every call to `name` in `code` (`createUpdates({ … })`), with where it
+ * starts: balanced parentheses, skipping strings and comments.
+ */
+export function callArguments(code: string, name: string): { start: number; text: string }[] {
+  const out: { start: number; text: string }[] = [];
+  let from = 0;
+  for (;;) {
+    const at = code.indexOf(name, from);
+    if (at < 0) return out;
+    from = at + name.length;
+    const before = at > 0 ? code[at - 1]! : "";
+    if (/[A-Za-z0-9_$.]/.test(before)) continue;
+    let i = from;
+    while (i < code.length && /\s/.test(code[i]!)) i++;
+    if (code[i] !== "(") continue;
+    const open = i;
+    let depth = 0;
+    let quote: string | null = null;
+    for (; i < code.length; i++) {
+      const c = code[i]!;
+      if (quote) {
+        if (c === "\\") i++;
+        else if (c === quote) quote = null;
+        continue;
+      }
+      if (c === '"' || c === "'" || c === "`") quote = c;
+      else if (c === "/" && code[i + 1] === "/") i = Math.max(i, code.indexOf("\n", i) < 0 ? code.length : code.indexOf("\n", i));
+      else if (c === "/" && code[i + 1] === "*") i = code.indexOf("*/", i + 2) < 0 ? code.length : code.indexOf("*/", i + 2) + 1;
+      else if (c === "(") depth++;
+      else if (c === ")" && --depth === 0) break;
+    }
+    out.push({ start: open + 1, text: code.slice(open + 1, i) });
+    from = i;
+  }
+}
+
 export function namesImportedFrom(code: string, packages: readonly string[]): Set<string> {
   const out = new Set<string>();
   for (const m of code.matchAll(NAMED_IMPORT)) {
@@ -86,10 +123,17 @@ export function classify(
   if (used) {
     for (const o of block.detect?.off ?? []) {
       const re = new RegExp(o.pattern, "m");
-      // Only where the block is set up: another config's `enabled: __DEV__` isn't this block's.
+      // Only inside the block's own setup call (`createUpdates({ … })`): another config's
+      // `enabled: __DEV__`, in the same file or not, isn't this block's.
       for (const f of adopting) {
-        const m = re.exec(f.code);
-        if (m) off.push({ file: f.path, line: f.code.slice(0, m.index).split("\n").length, message: o.message });
+        const got = namesImportedFrom(f.code, block.packages);
+        const calls = names.filter((n) => got.has(n)).flatMap((n) => callArguments(f.code, n));
+        for (const call of calls) {
+          const m = re.exec(call.text);
+          if (!m) continue;
+          off.push({ file: f.path, line: f.code.slice(0, call.start + m.index).split("\n").length, message: o.message });
+          break;
+        }
       }
     }
     return { state: "used", off };

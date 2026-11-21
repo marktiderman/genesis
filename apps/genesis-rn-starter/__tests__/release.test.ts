@@ -251,6 +251,13 @@ describe("EAS workflows", () => {
     expect(jobs.get_android_build?.if).toContain("android_native == 'true'");
     expect(jobs.get_ios_build?.if).toContain("ios_native == 'true'");
     expect(jobs.get_android_build?.params?.fingerprint_hash).toContain("needs.fingerprint_preview.");
+    // The update as the release lane publishes it: the release profile's env over the job's EAS
+    // environment, and no --environment (it would put EAS's value back over the profile's).
+    const run = jobs.publish_update!.steps!.map((s) => s.run ?? "").join("\n");
+    const update = run.split("\n").find((l) => /eas-cli@[\d.]+ update\b/.test(l))!;
+    expect(update).toMatch(/native-release\.mjs with-profile eas\.json "production" "\$p" -- /);
+    expect(run.slice(run.indexOf(update), run.indexOf("done", run.indexOf(update)))).not.toContain("--environment");
+    expect(run).toContain('fingerprint:generate --platform "$1" --build-profile "production"');
   });
 
   it("pr-preview publishes to the pull request's own channel", () => {

@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -58,8 +58,21 @@ describe("missed-value", () => {
     expect(by["notifications"]!.file).toBe("package.json");
   });
 
+  // genesis-native's own declaration, so a change to its pattern is tested here.
+  const nativeDetect = (JSON.parse(readFileSync(path.join(__dirname, "../../native/package.json"), "utf8")) as { genesis: { blocks: Record<string, { detect: BlockManifest["detect"] }> } }).genesis.blocks["app-updates"]!.detect!;
+
+  it.each([
+    ["no trailing comma", "createUpdates({ channels: { enabled: __DEV__ } })", true],
+    ["a trailing comma", "createUpdates({ channels: { enabled: __DEV__, } })", true],
+    ["switching on", "createUpdates({ channels: { enabled: true } })", false],
+  ])("genesis-native's switched-off pattern, with %s", async (_label, call, reported) => {
+    const { ctx, found } = app({ "src/lib/updates.ts": `import { createUpdates } from "@marktiderman/genesis-native/updates";\nexport const u = ${call};\nconst diagnostics = { channels: { enabled: __DEV__ } };\n` }, { eas: true });
+    await missedValueCheck({ blocks: async () => [{ manifest: block({ id: "app-updates", detect: nativeDetect }), from: "installed" }], catalog: () => [] })(ctx);
+    expect(found.some((f) => f.subject === "app-updates")).toBe(reported);
+  });
+
   it("counts a detector only when it's imported from the block's package, and reads switched-off only there", async () => {
-    const off = { manifest: block({ id: "app-updates", detect: { imports: ["createUpdates"], off: [{ pattern: "channels\\s*:\\s*\\{\\s*enabled\\s*:\\s*__DEV__\\s*,?\\s*\\}", message: "dev only" }] } }), from: "installed" };
+    const off = { manifest: block({ id: "app-updates", detect: nativeDetect }), from: "installed" };
     const push = { manifest: block({ id: "push", detect: { imports: ["createPush"] } }), from: "installed" };
     const { ctx, found } = app(
       {

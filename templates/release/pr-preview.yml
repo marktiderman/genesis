@@ -116,13 +116,13 @@ jobs:
   publish_update:
     name: Publish to channel pr-<number>
 #@if ios android
-    needs: [get_release_ios_build, get_release_android_build]
+    needs: [fingerprint, get_release_ios_build, get_release_android_build]
 #@end
 #@if ios !android
-    needs: [get_release_ios_build]
+    needs: [fingerprint, get_release_ios_build]
 #@end
 #@if android !ios
-    needs: [get_release_android_build]
+    needs: [fingerprint, get_release_android_build]
 #@end
     environment: "GENESIS_RELEASE_EAS_ENVIRONMENT"
     env:
@@ -132,9 +132,11 @@ jobs:
       PR_TITLE: ${{ github.event.pull_request.title }}
 #@if ios
       IOS_BUILD: ${{ needs.get_release_ios_build.outputs.build_id }}
+      IOS_FINGERPRINT: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
 #@end
 #@if android
       ANDROID_BUILD: ${{ needs.get_release_android_build.outputs.build_id }}
+      ANDROID_FINGERPRINT: ${{ needs.fingerprint.outputs.android_fingerprint_hash }}
 #@end
     outputs:
       status: ${{ steps.publish.outputs.status }}
@@ -150,12 +152,18 @@ jobs:
           set -eo pipefail
           platforms=""
           native=""
+          # The fingerprint as the release profile builds it (its eas.json env included), which is
+          # what a release build records: a lookup's match is kept only when this agrees.
+          release_fingerprint() {
+            EXPO_NO_DOTENV=1 npx --yes eas-cli@26.0.0 fingerprint:generate --platform "$1" --build-profile "GENESIS_RELEASE_PROFILE" --json --non-interactive 2>/dev/null \
+              | node -e 'let s="";process.stdin.on("data",(d)=>s+=d).on("end",()=>{try{process.stdout.write(String(JSON.parse(s).hash||""))}catch{}})' || true
+          }
           # Per platform: a release build with this fingerprint takes the update; one without needs a preview build.
 #@if ios
-          if [ -n "${IOS_BUILD:-}" ]; then platforms="ios"; set-output ios_native "false"; else native="ios"; set-output ios_native "true"; fi
+          if [ -n "${IOS_BUILD:-}" ] && [ "$(release_fingerprint ios)" = "$IOS_FINGERPRINT" ]; then platforms="ios"; set-output ios_native "false"; else native="ios"; set-output ios_native "true"; fi
 #@end
 #@if android
-          if [ -n "${ANDROID_BUILD:-}" ]; then platforms="${platforms:+$platforms,}android"; set-output android_native "false"; else native="${native:+$native,}android"; set-output android_native "true"; fi
+          if [ -n "${ANDROID_BUILD:-}" ] && [ "$(release_fingerprint android)" = "$ANDROID_FINGERPRINT" ]; then platforms="${platforms:+$platforms,}android"; set-output android_native "false"; else native="${native:+$native,}android"; set-output android_native "true"; fi
 #@end
           # The scheme from release.previews.scheme, else the app's resolved Expo config (app.config.ts included).
           if [ -z "${PREVIEW_SCHEME:-}" ]; then
@@ -186,9 +194,10 @@ jobs:
           # The channel names the branch; both are created once, and kept in step on every push.
           npx --yes eas-cli@26.0.0 channel:create "$PREVIEW_CHANNEL" --non-interactive >/dev/null 2>&1 || true
           for p in ${platforms//,/ }; do
-            # With the release profile's eas.json env, as the release lane publishes, so the update matches its build.
+            # As the release lane publishes: the job's EAS environment, with the release profile's eas.json
+            # env over it, and no --environment (it would put the EAS values back over the profile's).
             node .eas/scripts/native-release.mjs with-profile eas.json "GENESIS_RELEASE_PROFILE" "$p" -- env CI=1 EXPO_NO_DOTENV=1 npx --yes eas-cli@26.0.0 update --branch "$PREVIEW_CHANNEL" --platform "$p" \
-              --environment "GENESIS_RELEASE_EAS_ENVIRONMENT" --message "PR ${PREVIEW_CHANNEL#pr-}: ${PR_TITLE}" --non-interactive
+              --message "PR ${PREVIEW_CHANNEL#pr-}: ${PR_TITLE}" --non-interactive
           done
           npx --yes eas-cli@26.0.0 channel:edit "$PREVIEW_CHANNEL" --branch "$PREVIEW_CHANNEL" --non-interactive
           set-output status "published:$platforms"

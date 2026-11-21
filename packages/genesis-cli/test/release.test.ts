@@ -615,7 +615,7 @@ describe("rendering the templates", () => {
     expect(doc.on.pull_request.paths).not.toContain("mobile/app/src/**");
     expect(Object.keys(doc.jobs).filter((j) => j.includes("android"))).toEqual([]);
     expect(doc.jobs.comment.needs).toEqual(["publish_update"]);
-    expect(doc.jobs.publish_update.needs).toEqual(["get_release_ios_build"]);
+    expect(doc.jobs.publish_update.needs).toEqual(["fingerprint", "get_release_ios_build"]);
     // renderOwned alone never prefixes a release.paths line.
     expect(renderOwned(".eas/workflows/x.yml", 'on:\n  push:\n    paths:\n      - "a/**" # release.paths\n', "mobile")).toContain('- "a/**" # release.paths');
   });

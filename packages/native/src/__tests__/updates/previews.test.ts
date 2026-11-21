@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createChannelSwitcher, isChannelNotFoundError } from "../../updates/channels";
 import { createReloadGuard } from "../../updates/checker";
 import { previewLink, previewLinkChannel, previewPath } from "../../updates/preview-links";
+import { createAttempts } from "../../updates/preview";
 import { normalizeLink } from "../../links";
 import { fakeUpdates, memoryStorage } from "./fakes";
 
@@ -56,6 +57,20 @@ describe("preview links", () => {
     expect(normalizeLink("https://acme.app/clients/1", links)).toBe("/clients/1");
     expect(normalizeLink("https://acme.app/preview?channel=pr-42", { ...links, previews: false })).toBe("/");
     expect(normalizeLink("https://acme.app/preview?channel=pr-42", { ...links, ignore: ["/preview"] })).toBeNull();
+  });
+});
+
+describe("preview screen attempts", () => {
+  it("starts over when the channel changes, back to an earlier one included, and drops an earlier attempt's answer", () => {
+    const attempts = createAttempts();
+    const first = attempts.for("pr-1");
+    expect(attempts.for("pr-1")).toBe(first);
+    attempts.for("pr-2");
+    const again = attempts.for("pr-1");
+    expect(again).not.toBe(first);
+    // A pr-1 preparation started in the first attempt finishes now: it isn't the attempt shown.
+    expect(attempts.isCurrent(first)).toBe(false);
+    expect(attempts.isCurrent(again)).toBe(true);
   });
 });
 
@@ -144,7 +159,7 @@ describe("channel switching, hardened", () => {
 
   it("answers an error when the build can't override the header, instead of rejecting", async () => {
     const updates = fakeUpdates({ next: { id: "x" } });
-    updates.setUpdateRequestHeadersOverride.mockImplementationOnce(() => {
+    (updates.setUpdateRequestHeadersOverride as unknown as { mockImplementationOnce: (f: () => void) => void }).mockImplementationOnce(() => {
       throw new Error("expo-channel-name is not an embedded request header");
     });
     const switcher = createChannelSwitcher({ updates, enabled: true, guard: createReloadGuard() });

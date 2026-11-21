@@ -16,6 +16,26 @@ import { isChannelName, type ChannelCheck, type ChannelState, type ChannelSwitch
 
 const EMPTY: ChannelState = { requested: null, build: null };
 
+/**
+ * Numbers each channel a preview screen is given, so an answer can be matched to the attempt that
+ * asked: `for(channel)` keeps the number while the channel stays, and moves on when it changes
+ * (back to an earlier one included); `isCurrent(n)` says whether `n` is still the attempt shown.
+ */
+export function createAttempts() {
+  let n = 0;
+  let last: string | null | undefined;
+  return {
+    for(channel: string | null): number {
+      if (channel !== last) {
+        last = channel;
+        n += 1;
+      }
+      return n;
+    },
+    isCurrent: (attempt: number) => attempt === n,
+  };
+}
+
 /** The picked channel and the build's own, kept current. */
 export function useChannelState(): ChannelState {
   const { channels } = useUpdates();
@@ -55,13 +75,15 @@ export function PreviewScreen({ channel, onDone, testID = "genesis-preview" }: P
   const { channels } = useUpdates();
   const state = useChannelStateOf(channels);
   const valid = isChannelName(channel ?? "") ? (channel as string) : null;
-  // The phase belongs to one channel: a new link starts over, and a late answer for an earlier one is dropped.
-  const [run, setRun] = useState<{ channel: string | null; phase: Phase }>({ channel: valid, phase: { kind: "confirm" } });
-  const current = useRef(valid);
-  current.current = valid;
-  const phase: Phase = run.channel === valid ? run.phase : { kind: "confirm" };
-  const setPhase = (next: Phase, forChannel: string | null = valid) => {
-    if (forChannel === current.current) setRun({ channel: forChannel, phase: next });
+  // Each channel the screen is given is a new attempt: a new link (even back to an earlier one)
+  // starts at confirm, and a late answer from an earlier attempt is dropped.
+  const attempts = useRef<ReturnType<typeof createAttempts> | null>(null);
+  attempts.current ??= createAttempts();
+  const attempt = attempts.current.for(valid);
+  const [run, setRun] = useState<{ attempt: number; phase: Phase }>({ attempt, phase: { kind: "confirm" } });
+  const phase: Phase = run.attempt === attempt ? run.phase : { kind: "confirm" };
+  const setPhase = (next: Phase, forAttempt: number = attempt) => {
+    if (attempts.current!.isCurrent(forAttempt)) setRun({ attempt: forAttempt, phase: next });
   };
 
   if (!valid) {
@@ -72,16 +94,16 @@ export function PreviewScreen({ channel, onDone, testID = "genesis-preview" }: P
   }
 
   const load = async () => {
-    const target = valid;
+    const target = attempt;
     setPhase({ kind: "working" }, target);
     try {
-      setPhase(await channels.prepare(target), target);
+      setPhase(await channels.prepare(valid), target);
     } catch (raw) {
       setPhase({ kind: "error", error: raw instanceof Error ? raw : new Error(String(raw)) }, target);
     }
   };
   const restart = async () => {
-    const target = valid;
+    const target = attempt;
     setPhase({ kind: "restarting" }, target);
     try {
       const r = await channels.restart();
@@ -111,7 +133,7 @@ export function PreviewScreen({ channel, onDone, testID = "genesis-preview" }: P
       case "restarting":
         return { title: "Restarting…", body: "" };
       case "latest":
-        return { title: "Nothing newer to load", body: `This phone already has the newest version of ${valid} it can run.`, primary: { label: "Done", onPress: onDone } };
+        return { title: "Nothing newer to load", body: "No update was picked for this phone, so it keeps the one it runs now.", primary: { label: "Done", onPress: onDone } };
       case "nothing":
         return {
           title: "Nothing to open yet",
@@ -193,9 +215,14 @@ export function PreviewNotice({ channel, leave, leaving, problem }: PreviewNotic
           Preview: {channel}
         </NativeText>
         <NativeText preset="caption" className="text-warning-foreground" style={{ fontWeight: "600", textDecorationLine: "underline" }}>
-          {leaving ? "Leaving…" : problem ? "Restart to leave" : "Leave"}
+          {leaving ? "Leaving…" : problem ? "Try again" : "Leave"}
         </NativeText>
       </Pressable>
+      {problem ? (
+        <NativeText testID="genesis-preview-notice-problem" preset="caption" className="text-warning-foreground bg-warning" style={{ marginTop: 4, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, textAlign: "center" }}>
+          {problem}
+        </NativeText>
+      ) : null}
     </View>
   );
 }
@@ -207,19 +234,21 @@ export function usePreviewNotice(): PreviewNoticeProps | null {
   const [leaving, setLeaving] = useState(false);
   // Leaving clears the override at once, but the preview's code runs until the app restarts: keep
   // the notice (and a way to finish) until it does.
-  const [stuck, setStuck] = useState<{ channel: string; problem: string } | null>(null);
+  // `blocked`: the build's update is downloaded, only the restart is left. Anything else: leave again
+  // from the top (it fetches the build's channel again, so the restart can't land on the preview).
+  const [stuck, setStuck] = useState<{ channel: string; problem: string; blocked: boolean } | null>(null);
   const channel = requested ?? stuck?.channel ?? null;
   if (!channel) return null;
   const finish = async () => {
     setLeaving(true);
     try {
-      const r = stuck ? await channels.restart() : await channels.reset();
+      const r = stuck?.blocked ? await channels.restart() : await channels.reset();
       if (r.kind === "reloading") return;
       const problem =
         r.kind === "blocked" ? "Save or discard what you're editing, then restart." : r.kind === "error" ? r.error.message || "Couldn't restart the app." : "Close and reopen the app to finish leaving.";
-      setStuck({ channel, problem });
+      setStuck({ channel, problem, blocked: r.kind === "blocked" });
     } catch (raw) {
-      setStuck({ channel, problem: raw instanceof Error ? raw.message : "Couldn't restart the app." });
+      setStuck({ channel, problem: raw instanceof Error ? raw.message : "Couldn't restart the app.", blocked: false });
     } finally {
       setLeaving(false);
     }

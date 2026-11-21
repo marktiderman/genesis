@@ -407,9 +407,12 @@ people already have. No device registration, no new build, and anyone with the l
    name at it, and comments the link and a QR code. Per platform: one with no matching release
    build (its native code changed) gets a preview build instead, repacked from a preview build
    with the preview variant's fingerprint or built, and the comment says so. The update is
-   exported with the release profile's eas.json `env`, as the release lane publishes. The QR
+   exported as the release lane publishes: the release profile's eas.json `env` over the job's EAS
+   environment, without `--environment`, and only for a platform whose fingerprint, computed with
+   that profile, matches the release build's. The QR
    code's scheme is `release.previews.scheme`, else the app's resolved Expo config.
-   `pr-preview-teardown.yml` deletes the channel and branch when the pull request closes.
+   `pr-preview-teardown.yml` deletes the channel and branch when the pull request closes, waits
+   until EAS has no preview run queued or running (up to 45 minutes), and deletes again.
 2. **The link.** `https://<origin>/preview?channel=pr-42` (a universal link, with
    `release.previews.origin`) or `<scheme>:///preview?channel=pr-42` (the QR code, with
    `release.previews.scheme`, which defaults to `app.json`'s `expo.scheme`). genesis-native's

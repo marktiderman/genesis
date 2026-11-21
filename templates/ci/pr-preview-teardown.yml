@@ -9,8 +9,10 @@
 # can't change what runs with the token. It checks out nothing: eas-cli needs only the project id.
 #
 # A preview run still publishing when the pull request closes would make the channel again (EAS
-# Workflows and GitHub Actions can't share a concurrency group), so the job deletes, waits for any
-# such run to finish, and deletes once more.
+# Workflows and GitHub Actions can't share a concurrency group). A closed pull request starts no
+# new run, so the job deletes, waits until EAS has no pr-preview.yml run queued or running (up to
+# 45 minutes; EAS can't say which pull request a run is for, so it waits for all of them), and
+# deletes once more.
 #
 # Needs the repository secret EXPO_TOKEN (an Expo robot token with access to the project): a
 # repository secret, not an environment's, because an environment limited to main can't serve a
@@ -34,7 +36,7 @@ jobs:
   teardown:
     name: Delete the preview channel and branch
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     env:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
       EAS_PROJECT_ID: ${{ vars.EAS_PROJECT_ID }}
@@ -53,26 +55,59 @@ jobs:
           printf '{"expo":{"name":"preview-teardown","slug":"preview-teardown","extra":{"eas":{"projectId":"%s"}}}}' "$EAS_PROJECT_ID" > "$dir/app.json"
           cd "$dir"
           failed=0
-          # Gone already is fine (a preview that never published, or a rerun); any other error fails the run.
+          eas() { npx --yes eas-cli@26.0.0 "$@"; }
+          # Whether a channel or branch named $CHANNEL exists, from EAS's own list (25 a page): 0 yes, 1 no, 2 couldn't tell.
+          exists() {
+            local kind="$1" offset=0 page
+            while :; do
+              page="$(eas "$kind:list" --json --non-interactive --limit 25 --offset "$offset" 2>/dev/null)" || return 2
+              case "$(printf '%s' "$page" | node -e 'let s="";process.stdin.on("data",(d)=>s+=d).on("end",()=>{const want=process.argv[1];let j;try{j=JSON.parse(s)}catch{process.stdout.write("bad");return}const list=Array.isArray(j)?j:Object.values(j).find(Array.isArray)||[];process.stdout.write(list.some((x)=>x&&x.name===want)?"yes":list.length<25?"no":"more")})' "$CHANNEL")" in
+                yes) return 0 ;;
+                no) return 1 ;;
+                more) offset=$((offset + 25)) ;;
+                *) return 2 ;;
+              esac
+            done
+          }
+          # Delete it; a failed delete is fine only when EAS's list confirms it's gone.
           remove() {
-            local what="$1" out
-            if out="$(npx --yes eas-cli@26.0.0 "$what:delete" "$CHANNEL" --non-interactive 2>&1)"; then
-              echo "Deleted $what $CHANNEL."
-            elif printf '%s' "$out" | grep -qiE "not found|could not find|couldn't find|does not exist|doesn't exist|no $what named"; then
-              echo "No $what $CHANNEL."
-            else
-              printf '%s\n' "$out"
-              echo "::error::Couldn't delete the $what $CHANNEL."
-              failed=1
+            local kind="$1" out
+            if out="$(eas "$kind:delete" "$CHANNEL" --non-interactive 2>&1)"; then
+              echo "Deleted $kind $CHANNEL."
+              return
             fi
+            exists "$kind"
+            case $? in
+              1) echo "No $kind $CHANNEL." ;;
+              *)
+                printf '%s\n' "$out"
+                echo "::error::Couldn't delete the $kind $CHANNEL."
+                failed=1
+                ;;
+            esac
           }
           sweep() {
             # The channel first: EAS won't delete a branch a channel still points at.
             remove channel
             remove branch
           }
+          # How many pr-preview.yml runs EAS has queued, waiting or running.
+          pending() {
+            local total=0 n status
+            for status in NEW WAITING IN_PROGRESS ACTION_REQUIRED; do
+              n="$(eas workflow:runs --workflow pr-preview.yml --status "$status" --limit 100 --json 2>/dev/null | node -e 'let s="";process.stdin.on("data",(d)=>s+=d).on("end",()=>{try{const j=JSON.parse(s);const l=Array.isArray(j)?j:Object.values(j).find(Array.isArray)||[];process.stdout.write(String(l.length))}catch{process.stdout.write("x")}})')"
+              [ "$n" = "x" ] && { echo "unknown"; return; }
+              total=$((total + n))
+            done
+            echo "$total"
+          }
           sweep
-          # A preview run that started before the close may still publish: wait it out, then again.
-          sleep 600
+          for _ in $(seq 1 45); do
+            left="$(pending)"
+            [ "$left" = "0" ] && break
+            echo "Waiting for $left preview run(s) on EAS to finish…"
+            sleep 60
+          done
+          [ "$left" = "0" ] || echo "::warning::Preview runs were still open after 45 minutes ($left); deleting anyway."
           sweep
           exit "$failed"
