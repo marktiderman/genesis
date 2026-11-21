@@ -157,6 +157,28 @@ describe("package declarations", () => {
 });
 
 describe("package rules in the doctor", () => {
+  it("reads a package reached through a second link with that link's paths, not the first's (since removed)", () => {
+    const real = mkdtempSync(path.join(tmpdir(), "genesis-linked-pkg-"));
+    mkdirSync(path.join(real, "dist"));
+    writeFileSync(path.join(real, "dist", "fixes.js"), "export default [];\n");
+    writeFileSync(path.join(real, "package.json"), JSON.stringify({ name: "@marktiderman/genesis-widgets", version: "1.0.0", genesis: { doctor: { plugin: "./dist/fixes.js", fixes: "./dist/fixes.js" } } }));
+    const appAt = () => {
+      const app = mkdtempSync(path.join(tmpdir(), "genesis-linked-app-"));
+      writeFileSync(path.join(app, "package.json"), JSON.stringify({ name: "sample-app", dependencies: { "@marktiderman/genesis-widgets": "1.0.0" } }));
+      mkdirSync(path.join(app, "node_modules", "@marktiderman"), { recursive: true });
+      symlinkSync(real, path.join(app, "node_modules", "@marktiderman", "genesis-widgets"), "dir");
+      return app;
+    };
+    const first = appAt();
+    expect(discoverPackages(first).find((p) => p.name === "@marktiderman/genesis-widgets")).toBeDefined();
+    rmSync(first, { recursive: true, force: true });
+    const second = appAt();
+    const pkg = discoverPackages(second).find((p) => p.name === "@marktiderman/genesis-widgets")!;
+    for (const file of [pkg.dir, pkg.declaration!.plugin!, pkg.declaration!.fixes!]) expect(existsSync(file), file).toBe(true);
+    rmSync(second, { recursive: true, force: true });
+    rmSync(real, { recursive: true, force: true });
+  });
+
   it("discovers an installed package's rules and runs them: JSX, imports and patterns, comments ignored", async () => {
     const root = makeApp(null, { ...widgets({ prefer: [LIST_RULE] }), "src/Screen.tsx": SCREEN });
     const result = await runDoctor({ root, config: {} });

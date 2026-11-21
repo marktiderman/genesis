@@ -8,16 +8,18 @@
  * - `metro`: a native app's Metro config without `getSentryExpoConfig` (`@sentry/react-native/metro`):
  *   bundles carry no Debug IDs, so Sentry can't match an error to its source map.
  * - `expo-plugin`: no `@sentry/react-native/expo` config plugin: EAS builds upload no source maps.
- * - `update-uploads`: a workflow that publishes updates (`eas update`, an EAS `update` job) and
- *   uploads no source maps for them (`sentry-expo-upload-sourcemaps`, `upload_sentry_sourcemaps: true`).
- * - `vite`: a web app's Vite config without a Sentry source maps plugin (`@sentry/vite-plugin`, or a
- *   framework wrapper such as `sentryTanstackStart`).
+ * - `update-uploads`: a workflow with a job that publishes updates (`eas update`, an EAS `update`
+ *   job) and uploads no source maps for them in that job (`sentry-expo-upload-sourcemaps`, `upload_sentry_sourcemaps: true`).
+ * - `vite`: a web app's Vite config that calls no Sentry source maps plugin (`sentryVitePlugin`
+ *   from `@sentry/vite-plugin`, or a framework wrapper such as `sentryTanstackStart`); an import alone
+ *   doesn't count.
  *
  * An app whose genesis.config.json has `observability.sentry` with an empty organization or
  * project has said Sentry isn't set up yet: one `info` saying how to turn it on, nothing else.
  */
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import * as path from "node:path";
+import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { readGenesisConfig, sentryProject, type GenesisConfigFile, type GenesisSentry } from "./config.js";
 import type { DoctorPlugin } from "./types.js";
 
@@ -49,8 +51,8 @@ const APP_CONFIG = ["app.config.ts", "app.config.js", "app.config.mjs", "app.con
 const VITE = ["vite.config.ts", "vite.config.mts", "vite.config.js", "vite.config.mjs", "vite.config.cts", "vite.config.cjs"];
 /** Packages that aren't a web SDK: native, tooling and the bundler plugins themselves. */
 const NOT_WEB = new Set(["@sentry/react-native", "@sentry/cli", "@sentry/vite-plugin", "@sentry/webpack-plugin", "@sentry/esbuild-plugin", "@sentry/rollup-plugin", "@sentry/babel-plugin-component-annotate"]);
-/** A Vite config that uploads source maps: the plugin, or a framework's wrapper around it. */
-const VITE_SENTRY = /@sentry\/vite-plugin|\bsentryVitePlugin\b|\bsentryTanstackStart\b|\bsentrySvelteKit\b|\bsentryReactRouter\b|\bsentrySolidStartVite\b|\bsentryAstro\b/;
+/** A Vite config that uploads source maps: the plugin, or a framework's wrapper around it, called (an import alone adds nothing to the build). */
+const VITE_SENTRY = /\b(?:sentryVitePlugin|sentryTanstackStart|sentrySvelteKit|sentryReactRouter|sentrySolidStartVite|sentryAstro)\s*\(/;
 /** A step that publishes an update: `eas update` (any eas-cli spelling), not `update:configure` or `update:roll-back`. */
 const PUBLISHES = /\beas(?:-cli(?:@[\w.^~-]+)?)?\s+update(?![:\w-])/;
 const UPDATE_JOB = /^\s*type:\s*["']?update["']?\s*$/m;
@@ -59,6 +61,22 @@ const UPLOADS = /sentry-expo-upload-sourcemaps|upload_sentry_sourcemaps:\s*true\
 /** Script text without comments (block, and line comments not inside a URL), for a string check. */
 export function stripJsComments(code: string): string {
   return code.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:\\"'`])\/\/.*$/gm, "$1");
+}
+
+/**
+ * A workflow's jobs, each as its own YAML text, so an upload on one job never covers another; the
+ * whole file as one when it has no `jobs` map (or doesn't parse).
+ */
+function jobTexts(text: string): string[] {
+  try {
+    const doc = parseYaml(text) as { jobs?: unknown } | null;
+    if (doc && typeof doc === "object" && doc.jobs && typeof doc.jobs === "object" && !Array.isArray(doc.jobs)) {
+      return Object.values(doc.jobs as Record<string, unknown>).map((job) => stringifyYaml(job ?? null));
+    }
+  } catch {
+    // Not YAML we can read: the file as one.
+  }
+  return [text];
 }
 
 const stripYamlComments = (text: string) =>
@@ -150,7 +168,8 @@ export function sentryState(root: string): SentryState {
     const updatesOff = config?.release?.sentry === false;
     for (const file of updatesOff ? [] : workflowFiles(root)) {
       const text = stripYamlComments(read(file) ?? "");
-      if (!(PUBLISHES.test(text) || UPDATE_JOB.test(text)) || UPLOADS.test(text)) continue;
+      // Per publishing job: `ios` uploading doesn't cover `android` beside it.
+      if (!jobTexts(text).some((job) => (PUBLISHES.test(job) || UPDATE_JOB.test(job)) && !UPLOADS.test(job))) continue;
       gap("update-uploads", rel(root, file), `${rel(root, file)} publishes updates with no source map upload that must succeed (an EAS update job with upload_sentry_sourcemaps unset tries it, and passes when it fails), so an update's errors can read minified with no sign of it. A Genesis release template: set genesis.config.json observability.sentry (release.sentry follows it) and run genesis add template release; your own: run npx --no sentry-expo-upload-sourcemaps dist after eas update, or set upload_sentry_sourcemaps: true on the update job`);
     }
   }

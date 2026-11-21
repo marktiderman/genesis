@@ -65,6 +65,10 @@ describe("missed-value", () => {
     ["no trailing comma", "createUpdates({ channels: { enabled: __DEV__ } })", true],
     ["a trailing comma", "createUpdates({ channels: { enabled: __DEV__, } })", true],
     ["switching on", "createUpdates({ channels: { enabled: true } })", false],
+    ["__DEV__ === false (on in release builds)", "createUpdates({ channels: { enabled: __DEV__ === false } })", false],
+    ["__DEV__ || true (always on)", "createUpdates({ channels: { enabled: __DEV__ || true } })", false],
+    ["!__DEV__", "createUpdates({ channels: { enabled: !__DEV__ } })", false],
+    ["__DEV__ || a test flag", "createUpdates({ channels: { enabled: __DEV__ || process.env.EXPO_PUBLIC_TEST === \"1\" } })", true],
   ])("genesis-native's switched-off pattern, with %s", async (_label, call, reported) => {
     const { ctx, found } = app({ "src/lib/updates.ts": `import { createUpdates } from "@marktiderman/genesis-native/updates";\nexport const u = ${call};\nconst diagnostics = { channels: { enabled: __DEV__ } };\n` }, { eas: true });
     await missedValueCheck({ blocks: async () => [{ manifest: block({ id: "app-updates", detect: nativeDetect }), from: "installed" }], catalog: () => [] })(ctx);
@@ -101,6 +105,13 @@ describe("missed-value", () => {
     const ns = 'import * as U from "@marktiderman/genesis-native/updates";\n';
     expect(await run(`${ns}export const u = U.createUpdates({ channels: { enabled: true } });\n`)).toBe(false);
     expect(await run(`${ns}export const u = U.createUpdates({ channels: { enabled: __DEV__ } });\n`)).toBe(true);
+    // A namespace use written only in a comment or a string isn't a use: the block is unused (reported).
+    const nsOnly = async (code: string) => {
+      const { ctx, found } = app({ "src/lib/updates.ts": code }, { eas: true });
+      await missedValueCheck({ blocks: async () => [{ manifest: block({ id: "app-updates", detect: nativeDetect }), from: "installed" }], catalog: () => [] })(ctx);
+      return found.find((f) => f.subject === "app-updates")?.message ?? "";
+    };
+    expect(await nsOnly(`${ns}// U.createUpdates({})\nconst doc = "U.createUpdates({})";\nexport const v = U;\n`)).toMatch(/available and unused/);
     // A string inside the call quoting the old config isn't the config.
     expect(await run(`${plain}export const u = createUpdates({\n  platform: "ios",\n  channels: { enabled: true },\n  onError: () => console.warn("channels: { enabled: __DEV__ }"),\n});\n`)).toBe(false);
   });

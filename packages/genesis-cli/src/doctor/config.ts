@@ -317,7 +317,7 @@ export function validateRelease(raw: unknown, source = "config"): GenesisRelease
         else previews.origin = p.origin;
       }
       if (p.scheme !== undefined) {
-        if (typeof p.scheme !== "string" || !/^[a-z][a-z0-9+.-]{0,39}$/.test(p.scheme)) fail(`previews.scheme must be the app's URL scheme, such as "myapp" (got ${JSON.stringify(p.scheme)})`);
+        if (typeof p.scheme !== "string" || !/^[a-z][a-z0-9+.-]*$/.test(p.scheme)) fail(`previews.scheme must be the app's URL scheme, such as "myapp" (got ${JSON.stringify(p.scheme)})`);
         else previews.scheme = p.scheme;
       }
       out.previews = previews;

@@ -277,6 +277,57 @@ describe("channel switching, hardened", () => {
     await expect(onRelease.state()).resolves.toMatchObject({ requested: null, lingering: null });
   });
 
+  it("a deleted preview that isn't the one running keeps the running preview's notice", async () => {
+    const gone = new Error("There is no channel named pr-b.");
+    const storage = memoryStorage({ "genesis:updates:channel": "pr-a" });
+    const switcher = createChannelSwitcher({ updates: fakeUpdates({ updateId: "pr-a-1", channel: "pr-a", next: { id: "pr-b-1" } }), enabled: true, guard: createReloadGuard(), storage });
+    await switcher.state();
+    // pr-a runs; pr-b is prepared (downloaded, no restart), then its pull request closes.
+    await expect(switcher.prepare("pr-b")).resolves.toEqual({ kind: "downloaded" });
+    await expect(switcher.recover(gone)).resolves.toBe(true);
+    await expect(switcher.state()).resolves.toMatchObject({ requested: null, lingering: "pr-a" });
+  });
+
+  it("a release record that can't be read is never written over, and holds every restart until it's saved", async () => {
+    const releaseKey = "genesis:updates:channel:release-updates";
+    const storage = memoryStorage({ [releaseKey]: JSON.stringify(["release-0"]) });
+    const getItem = storage.getItem as unknown as { mockImplementation: (f: (k: string) => Promise<string | null>) => void };
+    let broken = true;
+    getItem.mockImplementation(async (key) => {
+      if (broken && key === releaseKey) throw new Error("io");
+      return storage.data.get(key) ?? null;
+    });
+    const updates = fakeUpdates({ updateId: "release-1" });
+    const switcher = createChannelSwitcher({ updates, enabled: true, guard: createReloadGuard(), storage });
+    await switcher.state();
+    await expect(switcher.noteRelease("release-2")).resolves.toBe(false);
+    expect(JSON.parse(storage.data.get(releaseKey)!)).toEqual(["release-0"]);
+    await expect(switcher.readyToReload()).resolves.toBe(false);
+    await expect(switcher.restart()).resolves.toMatchObject({ kind: "error" });
+    expect(updates.reloadAsync).not.toHaveBeenCalled();
+    broken = false;
+    await expect(switcher.restart()).resolves.toEqual({ kind: "reloading" });
+    expect(JSON.parse(storage.data.get(releaseKey)!)).toEqual(["release-0", "release-2"]);
+  });
+
+  it("a release record that failed to save is kept and saved before the next restart", async () => {
+    const releaseKey = "genesis:updates:channel:release-updates";
+    const storage = memoryStorage();
+    const setItem = storage.setItem as unknown as { mockImplementation: (f: (k: string, v: string) => Promise<void>) => void };
+    let full = true;
+    setItem.mockImplementation(async (key, value) => {
+      if (full && key === releaseKey) throw new Error("disk full");
+      storage.data.set(key, value);
+    });
+    const updates = fakeUpdates({ updateId: "release-1" });
+    const switcher = createChannelSwitcher({ updates, enabled: true, guard: createReloadGuard(), storage });
+    await expect(switcher.noteRelease("release-2")).resolves.toBe(false);
+    await expect(switcher.readyToReload()).resolves.toBe(false);
+    full = false;
+    await expect(switcher.readyToReload()).resolves.toBe(true);
+    expect(JSON.parse(storage.data.get(releaseKey)!)).toContain("release-2");
+  });
+
   it("keeps every preview's updates: concurrent records, and a retry of an older one, drop none", async () => {
     const storage = memoryStorage({ "genesis:updates:channel": "pr-6" });
     const switcher = createChannelSwitcher({ updates: fakeUpdates({ updateId: "x", channel: "pr-6" }), enabled: true, guard: createReloadGuard(), storage });

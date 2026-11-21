@@ -56,7 +56,16 @@ export function withSentryMetro(code: string): string | null {
     const line = /^.*(?:require\((["'])expo\/metro-config\1\)|from\s*(["'])expo\/metro-config\2).*$/m.exec(out);
     if (!line) return null;
     const add = /^\s*import\b/.test(line[0]) ? 'import { getSentryExpoConfig } from "@sentry/react-native/metro";' : 'const { getSentryExpoConfig } = require("@sentry/react-native/metro");';
-    const at = line.index + line[0].length;
+    let at = line.index + line[0].length;
+    // The binding goes before the first call: on a line that also calls it (a one-line config),
+    // right after the import's own statement; with no `;` to end it there, that's left to you.
+    const firstCall = out.search(/\bgetDefaultConfig\(/);
+    if (firstCall < at) {
+      const spec = /require\((["'])expo\/metro-config\1\)|from\s*(["'])expo\/metro-config\2/.exec(line[0])!;
+      const semi = out.indexOf(";", line.index + spec.index + spec[0].length);
+      if (semi < 0 || semi >= at || firstCall < semi) return null;
+      at = semi + 1;
+    }
     out = `${out.slice(0, at)}\n${add}${out.slice(at)}`;
   }
   out = out.replace(/\bgetDefaultConfig\(/g, "getSentryExpoConfig(");
@@ -88,6 +97,30 @@ export function withSentryPlugin(file: string, code: string, p: GenesisSentry): 
   return `${code.slice(0, at)}\n${m[1]}  ${pluginSource(p)},${code.slice(at)}`;
 }
 
+const OPTION = {
+  organization: /\borganization\s*:\s*["']([^"'\s]+)["']/,
+  project: /\bproject\s*:\s*["']([^"'\s]+)["']/,
+  url: /\burl\s*:\s*["']([^"'\s]+)["']/,
+};
+
+/** The source of the options object in `["@sentry/react-native/expo", { … }]` (braces balanced, strings skipped), or null. */
+export function sentryPluginOptions(code: string): string | null {
+  const m = /\[\s*(["'])@sentry\/react-native\/expo\1\s*,\s*\{/.exec(code);
+  if (!m) return null;
+  const start = m.index + m[0].length - 1;
+  let depth = 0;
+  for (let i = start; i < code.length; i++) {
+    const c = code[i]!;
+    if (c === '"' || c === "'" || c === "`") {
+      for (i++; i < code.length && code[i] !== c; i++) if (code[i] === "\\") i++;
+      continue;
+    }
+    if (c === "{") depth++;
+    else if (c === "}" && --depth === 0) return code.slice(start, i + 1);
+  }
+  return null;
+}
+
 /** The project the app's own `@sentry/react-native/expo` options name, to adopt into genesis.config.json. */
 export function projectFromAppConfig(root: string): GenesisSentry | null {
   for (const name of APP_CONFIG) {
@@ -106,14 +139,13 @@ export function projectFromAppConfig(root: string): GenesisSentry | null {
       }
       continue;
     }
-    const code = stripJsComments(text);
-    const at = code.indexOf(SDK);
-    if (at < 0) continue;
-    const near = code.slice(at, at + 400);
-    const value = (key: string) => new RegExp(`\\b${key}\\s*:\\s*["']([^"'\\s]+)["']`).exec(near)?.[1];
-    const organization = value("organization");
-    const project = value("project");
-    const url = value("url");
+    // Only the plugin's own options: `["@sentry/react-native/expo", { … }]`. Another plugin's
+    // options next to it name another project; no literal options object leaves it to you.
+    const options = sentryPluginOptions(stripJsComments(text));
+    if (options === null) continue;
+    const organization = OPTION.organization.exec(options)?.[1];
+    const project = OPTION.project.exec(options)?.[1];
+    const url = OPTION.url.exec(options)?.[1];
     if (organization && project && /^[a-z0-9][a-z0-9_-]*$/.test(organization) && /^[a-z0-9][a-z0-9_-]*$/.test(project)) return { organization, project, ...(url ? { url } : {}) };
   }
   return null;
