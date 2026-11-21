@@ -176,4 +176,44 @@ describe("the checker's downloads and the preview record", () => {
     expect(fake.reloadAsync).toHaveBeenCalledTimes(1);
     expect(JSON.parse(storage.data.get("genesis:updates:channel:preview-update")!).ids).toContain("pr-6-c");
   });
+
+  it("doesn't restart when the download's record couldn't be saved: Leave answers an error to retry", async () => {
+    const storage = memoryStorage({ "genesis:updates:channel": "pr-6" });
+    const setItem = storage.setItem as unknown as { mockImplementation: (f: (k: string, v: string) => Promise<void>) => void };
+    setItem.mockImplementation(async (key, value) => {
+      if (key.endsWith(":preview-update")) throw new Error("disk full");
+      storage.data.set(key, value);
+    });
+    const fake = fakeUpdates({ next: { id: "pr-6-d" }, channel: "pr-6" });
+    let finish!: () => void;
+    fake.fetchUpdateAsync.mockImplementationOnce(() => new Promise((resolve) => (finish = () => resolve({ isNew: true, isRollBackToEmbedded: false, manifest: { id: "pr-6-d" } } as never))));
+    const updates = createUpdates({ platform: "ios", application, policyTimeoutMs: 50, updates: fake, storage, channels: { enabled: true } });
+    await updates.channels.state();
+    const checking = updates.checker.check();
+    await act(settle);
+    const leaving = updates.channels.reset();
+    finish();
+    await checking;
+    await expect(leaving).resolves.toMatchObject({ kind: "error" });
+    expect(fake.reloadAsync).not.toHaveBeenCalled();
+  });
+
+  it("doesn't restart when a download is still running after 10 s", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const storage = memoryStorage({ "genesis:updates:channel": "pr-6" });
+      const fake = fakeUpdates({ next: { id: "pr-6-e" }, channel: "pr-6" });
+      fake.fetchUpdateAsync.mockImplementationOnce(() => new Promise(() => {}));
+      const updates = createUpdates({ platform: "ios", application, policyTimeoutMs: 50, updates: fake, storage, channels: { enabled: true } });
+      await updates.channels.state();
+      void updates.checker.check();
+      await vi.advanceTimersByTimeAsync(10);
+      const leaving = updates.channels.reset();
+      await vi.advanceTimersByTimeAsync(10_500);
+      await expect(leaving).resolves.toMatchObject({ kind: "error" });
+      expect(fake.reloadAsync).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

@@ -87,10 +87,13 @@ export interface ChannelSwitcher {
    * the download started; recorded while it's still picked or none is (left mid-download), not
    * once another preview is picked.
    */
-  noteDownloaded(updateId: string, channel: string): Promise<void>;
+  /** Resolves `false` when the record couldn't be saved. */
+  noteDownloaded(updateId: string, channel: string): Promise<boolean>;
   /**
    * Hold the next reload until `work` settles (at most 10 s): a checker download and its record, so
-   * leaving can't restart into a preview update before it's recorded as the preview's.
+   * leaving can't restart into a preview update before it's recorded as the preview's. If it
+   * doesn't settle in time, or resolves `false` (the record wasn't saved), the reload doesn't
+   * happen: it answers an error, and trying again (Leave) waits again.
    */
   holdReload(work: Promise<unknown>): void;
   /** Reload into what was downloaded (respects the reload guard). */
@@ -201,13 +204,16 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
       return null;
     }
   };
-  const write = async (key: string, value: string | null) => {
-    if (!storage) return;
+  /** Whether it was saved (no storage: nothing to save, so yes). */
+  const write = async (key: string, value: string | null): Promise<boolean> => {
+    if (!storage) return true;
     try {
       if (value === null) await (storage.removeItem ? storage.removeItem(key) : storage.setItem(key, ""));
       else await storage.setItem(key, value);
+      return true;
     } catch (error) {
       report(toError(error));
+      return false;
     }
   };
   const init = async (): Promise<ChannelState> => {
@@ -285,17 +291,30 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
       return { kind: "error", error };
     }
   };
-  const holds = new Set<Promise<unknown>>();
-  const settled = async () => {
-    if (!holds.size) return;
-    await Promise.race([Promise.allSettled([...holds]), new Promise((resolve) => setTimeout(resolve, 10_000))]);
+  const holds = new Set<Promise<boolean>>();
+  /** True once every hold settled well; false on a timeout or a hold that failed. */
+  const settled = async (): Promise<boolean> => {
+    if (!holds.size) return true;
+    const all = Promise.all([...holds]).then((oks) => oks.every(Boolean));
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const late = new Promise<boolean>((resolve) => (timer = setTimeout(() => resolve(false), 10_000)));
+    try {
+      return await Promise.race([all, late]);
+    } finally {
+      clearTimeout(timer);
+    }
   };
   const reload = async (): Promise<ChannelSwitchResult> => {
     const u = updates as UpdatesModuleLike;
     try {
       if (!guard.canReload()) return { kind: "blocked" };
-      // A checker download still running (or its record) first: what the restart launches is then known.
-      await settled();
+      // A checker download still running (or its record) first: what the restart launches is then
+      // known. Not settled in time, or not saved: no restart that could hide a running preview.
+      if (!(await settled())) {
+        const error = new Error("The app is still saving a download. Try again in a moment.");
+        report(error);
+        return { kind: "error", error };
+      }
       // Queued crash reports and events would be lost with the runtime: flush them first.
       await runBeforeReload();
       await u.reloadAsync(reloadScreenOptions ? { reloadScreenOptions } : undefined);
@@ -307,12 +326,12 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
     }
   };
   /** Add `id` to `channel`'s record (default: the open preview's; none open: nothing). */
-  const recordPreviewUpdate = async (id: string, channel?: string) => {
+  const recordPreviewUpdate = async (id: string, channel?: string): Promise<boolean> => {
     const picked = channel ?? (await load()).requested;
-    if (!picked) return;
+    if (!picked) return true;
     const record = parsePreviewRecord(await read(previewKey));
     const ids = record?.channel === picked ? record.ids : [];
-    await write(previewKey, JSON.stringify({ channel: picked, ids: [...ids.filter((x) => x !== id), id].slice(-20) }));
+    return write(previewKey, JSON.stringify({ channel: picked, ids: [...ids.filter((x) => x !== id), id].slice(-20) }));
   };
   /** Check and fetch what the current header names. */
   const fetch = async (): Promise<ChannelCheck> => {
@@ -329,7 +348,11 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
         }
         // Remember which update a preview downloaded, so its code can be told apart after leaving.
         const id = (got?.manifest as { id?: unknown } | undefined)?.id;
-        if (typeof id === "string") await recordPreviewUpdate(id);
+        if (typeof id === "string" && !(await recordPreviewUpdate(id))) {
+          const error = new Error("Couldn't save the preview on this phone. Try again.");
+          report(error);
+          return { kind: "error", error };
+        }
         return { kind: "downloaded" };
       }
       const reason = (check as { reason?: string }).reason;
@@ -377,7 +400,7 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
       });
     },
     holdReload(work) {
-      const held = work.catch(() => undefined).finally(() => holds.delete(held));
+      const held: Promise<boolean> = work.then((value) => value !== false, () => false).finally(() => holds.delete(held));
       holds.add(held);
     },
     noteDownloaded(updateId, channel) {
@@ -386,7 +409,7 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
         // Still on that preview, or left it while the download ran (the download asked for the
         // preview's header, so it is the preview's): record. Moved to another preview: not this one's.
         const now = (await load()).requested;
-        if (now === channel || now === null) await recordPreviewUpdate(updateId, channel);
+        return now === channel || now === null ? recordPreviewUpdate(updateId, channel) : true;
       })();
     },
     restart() {

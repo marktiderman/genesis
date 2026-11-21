@@ -206,14 +206,14 @@ export function createUpdates(options: UpdatesOptions): UpdatesBlock {
   let pickedAtStart: Promise<string | null> | null = null;
   // Settles once the running download has ended and, if it was a preview's, been recorded; a
   // reload (leaving) waits for it.
-  let downloadDone: (() => void) | null = null;
+  let downloadDone: ((saved: boolean) => void) | null = null;
   checker.subscribe(() => {
     const state = checker.getState();
     const previous = lastStatus;
     lastStatus = state.status;
     if (state.status === "downloading" && previous !== "downloading") {
       pickedAtStart = switcher.requested();
-      switcher.holdReload(new Promise<void>((resolve) => (downloadDone = resolve)));
+      switcher.holdReload(new Promise<boolean>((resolve) => (downloadDone = resolve)));
     }
     if (previous === "downloading" && state.status !== "downloading") {
       const done = downloadDone;
@@ -221,9 +221,9 @@ export function createUpdates(options: UpdatesOptions): UpdatesBlock {
       const started = pickedAtStart;
       pickedAtStart = null;
       const id = state.status === "ready" ? state.updateId : null;
-      void (started && id ? started.then((channel) => (channel ? switcher.noteDownloaded(id, channel) : undefined)) : Promise.resolve())
-        .catch(() => undefined)
-        .finally(() => done?.());
+      void (started && id ? started.then((channel) => (channel ? switcher.noteDownloaded(id, channel) : true)) : Promise.resolve(true))
+        .catch(() => false)
+        .then((saved) => done?.(saved));
     }
   });
   const signature = versionSignature({ application, updates, platform, buildMetadata: options.buildMetadata ?? null });
