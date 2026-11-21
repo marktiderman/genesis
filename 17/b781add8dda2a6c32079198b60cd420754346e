@@ -1,0 +1,23 @@
+features.json
+  s_22dadcff902f4f::t_1225f01553cbcb 6616-6617,6623-6624,6627-6628
+packages/genesis-cli/src/doctor/package-rules.ts
+  s_22dadcff902f4f::t_b2cecd06e77d0e 249-252
+packages/genesis-cli/test/doctor-package-rules.test.ts
+  s_22dadcff902f4f::t_3dfdfe60e03a57 160-181
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "17b781add8dda2a6c32079198b60cd420754346e",
+  "prompts": {},
+  "sessions": {
+    "s_22dadcff902f4f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e30c0aa7-4664-443f-9187-dce5753baa7d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
