@@ -35,12 +35,12 @@ updates:
       - dependency-name: "react-native"
       - dependency-name: "react-native-*"
       - dependency-name: "@react-native/*"
-      # Majors that move with the Expo SDK (`expo install` picks the version the SDK supports) or
-      # with eslint-config-expo (eslint). Minors and patches still come through.
+      # Also in the SDK's bundledNativeModules.json, at the version `expo install` picks: a bump
+      # past it is a drift `genesis doctor` reports (`expo-native-deps`), so they move with the SDK.
+      - dependency-name: "@react-native-community/*"
       - dependency-name: "@react-native-async-storage/*"
-        update-types: ["version-update:semver-major"]
+      - dependency-name: "@shopify/flash-list"
       - dependency-name: "@sentry/react-native"
-        update-types: ["version-update:semver-major"]
       # react, react-dom and @types/react are pinned to the SDK's exact version in
       # pnpm-workspace.yaml (react-dom and React Native's renderer refuse a react of another
       # patch), so every bump, patches too, comes with the Expo SDK.
