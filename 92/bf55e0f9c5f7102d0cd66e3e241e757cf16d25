@@ -1,0 +1,33 @@
+.changeset/stepper-block-slots.md
+  s_7081dae02ae2cb::t_b5f46c18746326 5
+packages/ui/src/components/ui/__tests__/native-twins.test.tsx
+  s_c74019eeae3e83::t_8b94bb53d3b89c 269-273
+packages/ui/src/components/ui/progress.tsx
+  s_c74019eeae3e83::t_b089fd4aaa3cde 8,10,14
+packages/ui/src/components/ui/stepper.tsx
+  s_c74019eeae3e83::t_d03fdacf7cccff 7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "92bf55e0f9c5f7102d0cd66e3e241e757cf16d25",
+  "prompts": {},
+  "sessions": {
+    "s_7081dae02ae2cb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7a2b62bd-584c-47e8-8b1a-72015db941a7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_c74019eeae3e83": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b8c727f3-2d7c-4f24-9e88-36063837b957",
+        "model": "unknown"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
