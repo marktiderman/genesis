@@ -1,0 +1,27 @@
+packages/genesis-cli/test/release.test.ts
+  s_c74019eeae3e83::t_9618ebce6435c4 236-273
+  s_c74019eeae3e83::t_9126ea32103a75 212-213
+  s_c74019eeae3e83::t_40e37b47e1f35d 468-470,475,477
+.changeset/release-env-strings.md
+  s_c74019eeae3e83::t_dbde4fc6d95e62 1-7
+docs/NATIVE-RELEASE.md
+  s_c74019eeae3e83::t_2325428e8ce0a4 113
+templates/release/deploy-production.yml
+  s_c74019eeae3e83::t_e58616dff5da87 104,107
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "37c53d84b4463d9952c0b2214acd157bd352b730",
+  "prompts": {},
+  "sessions": {
+    "s_c74019eeae3e83": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b8c727f3-2d7c-4f24-9e88-36063837b957",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
