@@ -124,6 +124,16 @@ export function isChannelNotFoundError(error: unknown): boolean {
   return /there is no channel named/i.test(message);
 }
 
+function parseIds(raw: string | null): string[] {
+  if (!raw) return [];
+  try {
+    const value = JSON.parse(raw) as unknown;
+    return Array.isArray(value) ? value.filter((x): x is string => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
 function parsePreviewRecord(raw: string | null): { channel: string; ids: string[] } | null {
   if (!raw) return null;
   try {
@@ -141,6 +151,8 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
   const buildKey = `${storageKey}:build`;
   /** `{ ids, channel }`: the preview updates this device downloaded or ran (newest last), to tell when one still runs. */
   const previewKey = `${storageKey}:preview-update`;
+  /** The updates seen running with no preview picked (the build's own), newest last: never a preview's. */
+  const releaseKey = `${storageKey}:release-updates`;
   const listeners = new Set<(state: ChannelState) => void>();
   let cache: ChannelState | null = null;
   /** The first read of storage, shared: a later publish always wins over it. */
@@ -192,14 +204,22 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
     let lingering: string | null = null;
     const running = updates?.updateId ?? null;
     const record = parsePreviewRecord(await read(previewKey));
+    const release = parseIds(await read(releaseKey));
     if (requested && running) {
-      // Launched on a preview: whatever runs is that preview's (the switcher's download, or a newer
-      // one the update checker fetched), so it is recorded too.
+      // Launched with a preview picked. What runs is the preview's (the switcher's download, or a
+      // newer one the update checker fetched) unless it is the embedded update or one already seen
+      // running without a preview: expo-updates rolled back from a crashed preview, or the download
+      // never finished. Only the preview's are recorded.
       const ids = record?.channel === requested ? record.ids : [];
-      if (!ids.includes(running)) await write(previewKey, JSON.stringify({ channel: requested, ids: [...ids, running].slice(-20) }));
-    } else if (!requested && record) {
-      if (running && record.ids.includes(running)) lingering = record.channel;
-      else await write(previewKey, null);
+      if (!updates?.isEmbeddedLaunch && !release.includes(running) && !ids.includes(running)) {
+        await write(previewKey, JSON.stringify({ channel: requested, ids: [...ids, running].slice(-20) }));
+      }
+    } else if (!requested && record && running && record.ids.includes(running)) {
+      lingering = record.channel;
+    } else if (!requested) {
+      if (record) await write(previewKey, null);
+      // The build's own code: remember it, so a later launch with a preview picked can tell it apart.
+      if (running && !release.includes(running)) await write(releaseKey, JSON.stringify([...release, running].slice(-20)));
     }
     // A launch with no override runs on the build's own channel: remember it, since under an
     // override `Updates.channel` reports the override instead.

@@ -209,6 +209,24 @@ describe("channel switching, hardened", () => {
     expect(storage.data.has("genesis:updates:channel:preview-update")).toBe(false);
   });
 
+  it("never records the build's own update as a preview's: a rollback from a crashed preview, an unfinished download, the embedded update", async () => {
+    const storage = memoryStorage();
+    const make = (o: Parameters<typeof fakeUpdates>[0]) => createChannelSwitcher({ updates: fakeUpdates(o), enabled: true, guard: createReloadGuard(), storage });
+    // A launch on the release, with no preview picked: its update is remembered as the build's.
+    await make({ updateId: "release-1" }).state();
+    // pr-4 is picked, but expo-updates rolled back to the release (or the download never finished).
+    storage.data.set("genesis:updates:channel", "pr-4");
+    await make({ updateId: "release-1", channel: "pr-4" }).state();
+    // The embedded update, likewise.
+    const embedded = fakeUpdates({ updateId: "embedded-1", channel: "pr-4" });
+    (embedded as { isEmbeddedLaunch: boolean }).isEmbeddedLaunch = true;
+    await createChannelSwitcher({ updates: embedded, enabled: true, guard: createReloadGuard(), storage }).state();
+    expect(storage.data.has("genesis:updates:channel:preview-update")).toBe(false);
+    // After leaving, the release runs and nothing lingers.
+    storage.data.delete("genesis:updates:channel");
+    await expect(make({ updateId: "release-1" }).state()).resolves.toMatchObject({ requested: null, lingering: null });
+  });
+
   it("runs one write at a time, in order", async () => {
     const updates = fakeUpdates({ next: { id: "x" } });
     const order: string[] = [];
