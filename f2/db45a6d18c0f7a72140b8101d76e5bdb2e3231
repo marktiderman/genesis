@@ -1,0 +1,49 @@
+apps/genesis-rn-starter/.eas/workflows/pr-preview.yml
+  s_22dadcff902f4f::t_1fcdaaf106dc3e 151
+apps/genesis-rn-starter/__tests__/preview-path.test.ts
+  s_22dadcff902f4f::t_6362e3ed1deb6f 1-17
+apps/genesis-rn-starter/src/app/+native-intent.ts
+  s_22dadcff902f4f::t_f54d27e89c8f7b 5,11-13
+apps/genesis-rn-starter/src/lib/preview-path.ts
+  s_22dadcff902f4f::t_3855f585b026cf 1-14
+packages/genesis-cli/src/blocks/release.ts
+  s_22dadcff902f4f::t_b701118e6bf526 142
+packages/genesis-cli/src/doctor/config.ts
+  s_22dadcff902f4f::t_6276f797634a1f 320
+packages/genesis-cli/src/doctor/missed-value.ts
+  s_22dadcff902f4f::t_d5f6a06c445537 71-72,79-80
+packages/genesis-cli/src/doctor/sentry.ts
+  s_22dadcff902f4f::t_1dd3809005046d 11-15,22,54-55,66-81,171-172
+packages/genesis-cli/src/fix/sentry.ts
+  s_22dadcff902f4f::t_e9915e930be34f 59-68,100-123,142-148
+packages/genesis-cli/test/doctor-sentry.test.ts
+  s_22dadcff902f4f::t_2ffbde826a37fc 16,107-109,111-122,124-126,143-155,220-227
+packages/genesis-cli/test/missed-value.test.ts
+  s_22dadcff902f4f::t_922af419590df1 68-71,108-114
+packages/genesis-cli/test/release.test.ts
+  s_22dadcff902f4f::t_c6ca29167ab881 995-1011
+packages/native/package.json
+  s_22dadcff902f4f::t_447b1e8b5f964d 289
+packages/native/src/__tests__/updates/previews.test.ts
+  s_22dadcff902f4f::t_8dc181388874bb 280-330
+packages/native/src/updates/channels.ts
+  s_22dadcff902f4f::t_842021420c52a9 95-96,232-233,240,243,258-259,266-268,274,283,397-414,418-419,504,532-535,537-538
+templates/release/pr-preview.yml
+  s_22dadcff902f4f::t_e41296f91ad45f 172
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f2db45a6d18c0f7a72140b8101d76e5bdb2e3231",
+  "prompts": {},
+  "sessions": {
+    "s_22dadcff902f4f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e30c0aa7-4664-443f-9187-dce5753baa7d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
