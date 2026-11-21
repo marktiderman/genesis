@@ -1,0 +1,51 @@
+packages/genesis-cli/src/repo/github.ts
+  s_7081dae02ae2cb::t_6539ee57513ecd 20-45,86,97,154-155,159-172,176-195
+packages/genesis-cli/test/repo-protect.test.ts
+  s_7081dae02ae2cb::t_7c32223c0b1ed3 646-652
+  s_7081dae02ae2cb::t_751729fd8bd432 375-376
+  s_7081dae02ae2cb::t_ac027bb5186176 22,24,300-374,377-385,398-402,593-598,606
+  s_7081dae02ae2cb::t_c527767b5241f3 608,613
+  s_7081dae02ae2cb::t_40cf12ed67f85d 1,93-94,222,431-434,443-446,461,561,612,614-621
+packages/genesis-cli/src/doctor/repo-protection.ts
+  s_7081dae02ae2cb::t_2ecd4494a79f55 8,40-42
+packages/genesis-cli/src/repo/spec.ts
+  s_7081dae02ae2cb::t_7c32223c0b1ed3 17-20
+  s_7081dae02ae2cb::t_d8fc6a84305668 427-428,434
+  s_7081dae02ae2cb::t_6539ee57513ecd 92-93
+  s_7081dae02ae2cb::t_4942839a7e372c 30,119,190-196,210-215,217-240,287-292,297,345,357-363,367-368,372-379,426,429-431,433,435,449
+  s_7081dae02ae2cb::t_d5b74dd0bdaa60 29,216
+packages/genesis-cli/src/repo/checks.ts
+  s_7081dae02ae2cb::t_d5b74dd0bdaa60 51-79,84-111,116-123,145-149,151-158,161,163,169-174,176-178,180,255-258,267-270
+  s_7081dae02ae2cb::t_125e14dae5539c 271-272
+docs/APP-CI.md
+  s_7081dae02ae2cb::t_7c32223c0b1ed3 350-354,371-373
+packages/genesis-cli/README.md
+  s_7081dae02ae2cb::t_7c32223c0b1ed3 2058-2059
+  s_7081dae02ae2cb::t_bcfd09f953e71b 1817
+packages/genesis-cli/src/wizard/steps/github-protect.ts
+  s_7081dae02ae2cb::t_2ecd4494a79f55 37,41
+packages/genesis-cli/src/repo/index.ts
+  s_7081dae02ae2cb::t_751729fd8bd432 17
+  s_7081dae02ae2cb::t_13688ad911761a 269-270,285-286,291,300,304-307,309,311,315
+  s_7081dae02ae2cb::t_22247983f5850a 12-14,93-116,123-129,132-134,137-147,149
+features.json
+  s_7081dae02ae2cb::t_1bad28accf9fed 3458,3481
+features.ts
+  s_7081dae02ae2cb::t_adad979b56eed9 1523,1532
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b74222419107af89ca75c9ac5450bd081ed7a5b0",
+  "prompts": {},
+  "sessions": {
+    "s_7081dae02ae2cb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7a2b62bd-584c-47e8-8b1a-72015db941a7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
