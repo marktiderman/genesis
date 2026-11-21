@@ -2109,6 +2109,45 @@ describe("the EAS trigger (release.trigger eas, the default; ADR 0026)", () => {
     expect(existsSync(path.join(plain, ".github/workflows/native-release.yml"))).toBe(true);
   });
 
+  it("refreshOwned says what a merge writes, in a dry run too, so the upgrade checks the merged text's push trigger", () => {
+    const base = "on:\n  push:\n    branches: [main]\njobs:\n  u:\n    type: update\nname: one\n";
+    const theirs = base.replace("name: one", "name: two");
+    const mine = base.replace("branches: [main]", "branches: [release]");
+    for (const dryRun of [true, false]) {
+      const root = makeApp({ ".eas/workflows/d.yml": mine });
+      const lock = { version: 1, blocks: {}, files: { ".eas/workflows/d.yml": { source: `${CLI}:templates/x.yml`, sha256: sha256(base) } } } as Parameters<typeof refreshOwned>[1];
+      const out = refreshOwned(root, lock, { path: ".eas/workflows/d.yml", theirs, base }, { dryRun });
+      expect(out.outcome).toBe("merged");
+      expect(out.written).toContain("branches: [release]");
+      expect(out.written).toContain("name: two");
+      expect(hasPushTrigger(out.written!)).toBe(false);
+      expect(read(root, ".eas/workflows/d.yml")).toBe(dryRun ? mine : out.written);
+    }
+  });
+
+  it("a clean merge that keeps the app's own push filter (not main) keeps the dispatcher, in a dry run as in a real one", async () => {
+    for (const dryRun of [true, false]) {
+      const root = onGithubLane({ release: { trigger: "eas" } });
+      // The app's deploy-production.yml is the EAS render, with its push trigger moved off main.
+      const v1 = renderTemplate(".eas/workflows/deploy-production.yml", template("release/deploy-production.yml"), { release: releaseContext(root) });
+      expect(v1).toContain("branches: [main]");
+      writeTree(root, { ".eas/workflows/deploy-production.yml": v1.replace("branches: [main]", "branches: [release]") });
+      const lock = readLock(root);
+      lock.files[".eas/workflows/deploy-production.yml"] = { ...lock.files[".eas/workflows/deploy-production.yml"]!, sha256: sha256(v1) };
+      writeLock(root, lock);
+      // The next release changes another line, so the merge is clean and keeps the app's filter.
+      const v2 = template("release/deploy-production.yml").replace("name: Deploy production", "name: Deploy production (2)");
+      const install = (r: string) => void fakePackage(r, CLI, { version: "1.2.0" }, Object.fromEntries(resolveTemplateNames(["release"]).map((t) => [`dist/templates/${t}`, t === "release/deploy-production.yml" ? v2 : template(t)])));
+      const report = await runUpgrade({ root, lookup: release({ [CLI]: "1.2.0" }), install, doctor: false, checkGithubLink: linked, ...(dryRun ? { dryRun: true } : {}) });
+      // A dry run compares with the packages installed now (genesis upgrade's own rule), so only the real run merges.
+      if (!dryRun) expect(report.refreshed.find((r) => r.path === ".eas/workflows/deploy-production.yml")?.outcome).toBe("merged");
+      expect(report.refreshed.find((r) => r.path === ".github/workflows/native-release.yml"), String(dryRun)).toMatchObject({ outcome: "held" });
+      expect(existsSync(path.join(root, ".github/workflows/native-release.yml"))).toBe(true);
+      expect(report.removed).toBeUndefined();
+      if (!dryRun) expect(read(root, ".eas/workflows/deploy-production.yml")).toContain("branches: [release]");
+    }
+  });
+
   it("genesis upgrade keeps old previews until their own EAS environment exists", async () => {
     const root = onGithubLane();
     const old = "on:\n  pull_request:\n    branches: [main]\njobs:\n  publish_update:\n    environment: production\n    steps:\n      - run: echo\n";

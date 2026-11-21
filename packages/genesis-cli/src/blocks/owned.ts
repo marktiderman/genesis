@@ -52,7 +52,7 @@ export function copyOwned(root: string, lock: GenesisLock, write: OwnedWrite, dr
 }
 
 export type RefreshOutcome =
-  | { path: string; outcome: "unchanged" | "updated" | "merged" | "conflict" | "kept-deleted" | "gone-upstream" | "kept-mine" | "refused" | "deferred" | "resolved" | "repository" | "held" | "removed"; detail?: string };
+  | { path: string; outcome: "unchanged" | "updated" | "merged" | "conflict" | "kept-deleted" | "gone-upstream" | "kept-mine" | "refused" | "deferred" | "resolved" | "repository" | "held" | "removed"; detail?: string; written?: string };
 
 const CLI = "@marktiderman/genesis-cli";
 
@@ -147,7 +147,8 @@ export function refreshOwned(root: string, lock: GenesisLock, input: RefreshInpu
   if (mineSha === entry.sha256 || mineSha === theirsSha) {
     write(input.path, input.theirs);
     record(theirsSha);
-    return { path: input.path, outcome: "updated" };
+    // `written`: the file's text after this run (a dry run's too, though it writes nothing).
+    return { path: input.path, outcome: "updated", written: input.theirs };
   }
   // Both changed.
   const next = `${input.path}.genesis-next`;
@@ -177,7 +178,7 @@ export function refreshOwned(root: string, lock: GenesisLock, input: RefreshInpu
       write(input.path, merged.text);
       // The new base is the package's text: the app's edits stay on top of it.
       record(theirsSha);
-      return { path: input.path, outcome: "merged", detail: input.baseIsPending ? `merged on the version the last .genesis-next held, because this file changed since; if that was unrelated, compare with ${entry.source}` : "your edits kept on top of the new version" };
+      return { path: input.path, outcome: "merged", written: merged.text, detail: input.baseIsPending ? `merged on the version the last .genesis-next held, because this file changed since; if that was unrelated, compare with ${entry.source}` : "your edits kept on top of the new version" };
     }
     if (merged) {
       const blocked = writeNext(merged.text);
