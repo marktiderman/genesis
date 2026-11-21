@@ -1,0 +1,105 @@
+.changeset/native-previews.md
+  s_ee1136e5d8692a::t_dcb571b663ded9 1-9
+AGENTS.md
+  s_7081dae02ae2cb::t_1db86a81e7ec45 155
+apps/genesis-rn-starter/.eas/workflows/pr-preview.yml
+  s_ee1136e5d8692a::t_c83a95ac348d53 6-7,9-19,34-38,40-45,79-84,91-92,95,98,101-102,105,108,110-201,205,217-238,240,253-255,264,267
+apps/genesis-rn-starter/__tests__/release.test.ts
+  s_ee1136e5d8692a::t_50a3144205fc0f 185-191,195-200,244-262,266-267
+apps/genesis-rn-starter/src/app/+native-intent.ts
+  s_ee1136e5d8692a::t_72fe0eb54a8d44 2,10-11
+apps/genesis-rn-starter/src/app/preview.tsx
+  s_ee1136e5d8692a::t_db7114b85ef07b 1-20
+apps/genesis-rn-starter/src/lib/updates.ts
+  s_ee1136e5d8692a::t_6bde6f3ea669d9 35-37
+docs/APP-CI.md
+  s_ee1136e5d8692a::t_5d4b33774671ba 313-317
+docs/NATIVE-RELEASE.md
+  s_ee1136e5d8692a::t_b0b356e78c7b13 15-16,27-30,380-386,399-440,456
+features.json
+  s_ee1136e5d8692a::t_3c5e461ffce2af 5150,5168-5221
+features.ts
+  s_ee1136e5d8692a::t_cc1451530600a3 2254,2264-2292
+packages/genesis-cli/README.md
+  s_ee1136e5d8692a::t_106e9a2acef541 214-215,219-223,1209
+packages/genesis-cli/src/blocks/manifest.ts
+  s_ee1136e5d8692a::t_0a28510ada7a6c 108-113,318,347,351-386
+packages/genesis-cli/src/blocks/release-render.ts
+  s_ee1136e5d8692a::t_74718430f6a12f 40-41,53,80,119-120
+packages/genesis-cli/src/blocks/release.ts
+  s_ee1136e5d8692a::t_f97e078fc04cff 131-146,169,211,232-236,579-580
+packages/genesis-cli/src/doctor/config.ts
+  s_ee1136e5d8692a::t_960a08e2ea73ca 240-245,248,307-323,376,645-650
+packages/genesis-cli/src/doctor/index.ts
+  s_ee1136e5d8692a::t_80f24b2272c8e2 53,361,437-443
+packages/genesis-cli/src/doctor/missed-value.ts
+  s_ee1136e5d8692a::t_4a2d170f40f868 1-390
+packages/genesis-cli/src/doctor/rules.ts
+  s_ee1136e5d8692a::t_1ed10447fdde27 17
+packages/genesis-cli/src/doctor/types.ts
+  s_ee1136e5d8692a::t_f61f532464a7ef 218-219
+packages/genesis-cli/src/fix/builtin.ts
+  s_ee1136e5d8692a::t_ada33fe6474064 308-325,478
+packages/genesis-cli/test/missed-value.test.ts
+  s_ee1136e5d8692a::t_5d0cdc2f95121c 1-129
+packages/genesis-cli/test/pr-preview-teardown.test.ts
+  s_ee1136e5d8692a::t_2bc276c060cf0e 1-111
+packages/genesis-cli/test/release.test.ts
+  s_ee1136e5d8692a::t_e5870d3062fb76 18,50,617-618,633-640,664,990-996,1000-1008,1016
+packages/native/README.md
+  s_ee1136e5d8692a::t_9627d009a63e5d 236,269-272,311-361
+packages/native/figma/code-connect.json
+  s_ee1136e5d8692a::t_b58eb0c95a21d7 10-12,16-17
+packages/native/package.json
+  s_ee1136e5d8692a::t_2063f9bc5e40c6 245-249,282-293,351-355,376-381
+packages/native/src/__tests__/updates/preview-screen.test.tsx
+  s_ee1136e5d8692a::t_0979aad82420bb 1-264
+packages/native/src/__tests__/updates/previews.test.ts
+  s_ee1136e5d8692a::t_5bd27633433122 1-363
+packages/native/src/app.tsx
+  s_ee1136e5d8692a::t_a11bffead50e7c 622
+packages/native/src/link-parse.ts
+  s_ee1136e5d8692a::t_632c9038848876 1-58
+packages/native/src/links.ts
+  s_ee1136e5d8692a::t_f3f9a97455b029 15-17,36-41,44,88-89,91,95-112
+packages/native/src/updates/block.tsx
+  s_ee1136e5d8692a::t_5115de005126ef 28,65-66,92-96,172-187,203-232,468,495-496
+packages/native/src/updates/channels.ts
+  s_ee1136e5d8692a::t_af2ac142461ebe 2-7,9-24,44-73,77,79-106,111-119,124,127,129,135-190,194-210,218,225-226,228-229,232-276,278-280,282-344,347-352,356-357,366-425,430-442,444-486,489-503
+packages/native/src/updates/checker.ts
+  s_ee1136e5d8692a::t_497ef69239301a 81-82,98,179-187,190-194
+packages/native/src/updates/index.ts
+  s_ee1136e5d8692a::t_55b541d8545e7b 78-90
+packages/native/src/updates/preview-links.ts
+  s_ee1136e5d8692a::t_0a74acb6de7a3f 1-99
+packages/native/src/updates/preview.tsx
+  s_ee1136e5d8692a::t_4e3595dd778792 1-270
+templates/ci/pr-preview-teardown.yml
+  s_ee1136e5d8692a::t_9030c1eb706e62 1-144
+templates/release/pr-preview.yml
+  s_ee1136e5d8692a::t_abd7c3488ba80a 6-7,9-19,34-38,40-45,80-85,93-94,97,100,105-106,109,112,116-132,134-225,227,238-247,251-262,264,277-279,289,292
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6805825ec73df91a54976b009920cb32752fb754",
+  "prompts": {},
+  "sessions": {
+    "s_7081dae02ae2cb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7a2b62bd-584c-47e8-8b1a-72015db941a7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_ee1136e5d8692a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7ae1bc89-ab61-49a4-ad8e-066febd5d1ba",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
