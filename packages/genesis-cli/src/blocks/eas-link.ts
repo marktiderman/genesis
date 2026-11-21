@@ -93,3 +93,32 @@ export async function checkGithubLink(root: string, options: { env?: NodeJS.Proc
 export function linkSteps(appFolder: string | null): string {
   return `link the repository on expo.dev (the project's settings, GitHub: install Expo's GitHub app and pick the repository${appFolder ? `, base directory ${appFolder}` : ""}), then run this again with EXPO_TOKEN set or after eas login, so the link can be checked`;
 }
+
+export type EasEnvironmentState = { state: "present" } | { state: "absent" | "unknown"; why: string };
+
+const ENVIRONMENTS = "query GenesisEnvironments($appId: String!) { app { byId(appId: $appId) { environmentVariableEnvironments } } }";
+
+/** Whether the app's EAS project has the EAS environment `name` (Expo's API). Never throws; unknown holds whatever waits on it. */
+export async function checkEasEnvironment(root: string, name: string, options: { env?: NodeJS.ProcessEnv; home?: string; fetch?: typeof fetch } = {}): Promise<EasEnvironmentState> {
+  const projectId = easProjectId(root);
+  if (!projectId) return { state: "unknown", why: "the app names no EAS project id" };
+  const headers = authHeaders(options.env ?? process.env, options.home ?? homedir());
+  if (!headers) return { state: "unknown", why: "no Expo login to ask with (set EXPO_TOKEN, or run eas login)" };
+  try {
+    const res = await (options.fetch ?? fetch)("https://api.expo.dev/graphql", {
+      method: "POST",
+      headers: { "content-type": "application/json", ...headers },
+      body: JSON.stringify({ query: ENVIRONMENTS, variables: { appId: projectId } }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!res.ok) return { state: "unknown", why: `Expo's API answered HTTP ${res.status}` };
+    const body = (await res.json()) as { data?: { app?: { byId?: { environmentVariableEnvironments?: unknown } } }; errors?: { message?: string }[] };
+    if (body.errors?.length) return { state: "unknown", why: `Expo's API said: ${body.errors[0]?.message ?? "an error"}` };
+    const names = body.data?.app?.byId?.environmentVariableEnvironments;
+    if (!Array.isArray(names)) return { state: "unknown", why: `Expo's API returned no environments for ${projectId}` };
+    return names.map((n) => String(n).toLowerCase()).includes(name.toLowerCase()) ? { state: "present" } : { state: "absent", why: `the EAS project has no environment "${name}"` };
+  } catch (error) {
+    return { state: "unknown", why: `couldn't reach Expo's API (${error instanceof Error ? error.message : String(error)})` };
+  }
+}
+

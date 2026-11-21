@@ -8,7 +8,7 @@
  * gate. Literal colors in native code are reported by rules.ts checkColors
  * as `native-literal-color`.
  */
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import * as path from "node:path";
 import { NATIVE_WRAPPED_PRIMITIVES, wrappedPrimitivesIn } from "../../../../scripts/lib/native-primitives.mjs";
 import { privacyApisFor } from "../expo.js";
@@ -21,7 +21,7 @@ import { insideOverlayOf, markedOverlays } from "./overlays.js";
 import type { DoctorContext } from "./types.js";
 import { appFolderOf } from "../blocks/app-folder.js";
 import { parse as parseYaml } from "yaml";
-import { competingReleaseWorkflows, hasPushTrigger, hasReleaseJob, LANE_DISPATCH_TARGET, NATIVE_RELEASE_PATH, releaseContext, repositoryRoot, RELEASE_COMMAND, stepRuns } from "../blocks/release.js";
+import { competingReleaseWorkflows, EAS_WORKFLOW_MAX_BYTES, hasPushTrigger, hasReleaseJob, LANE_DISPATCH_TARGET, NATIVE_RELEASE_PATH, releaseContext, repositoryRoot, RELEASE_COMMAND, stepRuns } from "../blocks/release.js";
 
 const SCRIPT_EXTS = new Set([".ts", ".tsx", ".js", ".jsx", ".mts", ".cts", ".mjs", ".cjs"]);
 const JSX_EXTS = new Set([".tsx", ".jsx"]);
@@ -57,6 +57,7 @@ export function checkNativePack(ctx: DoctorContext): void {
   checkReleaseLaneTwice(ctx);
   checkReleaseLaneLive(ctx);
   checkPreviewEnvironment(ctx);
+  checkEasWorkflowSize(ctx);
 }
 
 const APP_CONFIGS = ["app.json", "app.config.json", "app.config.ts", "app.config.js", "app.config.mjs", "app.config.cjs"];
@@ -254,7 +255,11 @@ export function checkReleaseLaneTwice(ctx: DoctorContext): void {
     return; // An invalid genesis.config.json is the config's own error.
   }
   const repo = appFolder ? repositoryRoot(ctx.root, appFolder) : ctx.root;
-  const github = existsSync(path.join(repo, ".github", "workflows", "native-release.yml"));
+  // GitHub's lane only when its workflow is live: a dispatch-only native-release.yml kept beside
+  // EAS's trigger releases nothing.
+  const nativeFile = path.join(repo, ".github", "workflows", "native-release.yml");
+  const nativeText = existsSync(nativeFile) ? readFileSync(nativeFile, "utf8") : null;
+  const github = nativeText !== null && hasPushTrigger(nativeText) && stepRuns(nativeText).some((run) => RELEASE_COMMAND.test(run));
   const deploy = path.join(ctx.root, LANE_DISPATCH_TARGET);
   const easLane = !github && existsSync(deploy) && (() => {
     const text = readFileSync(deploy, "utf8");
@@ -313,7 +318,7 @@ export function checkReleaseLaneLive(ctx: DoctorContext): void {
       level: "error",
       file: LANE_DISPATCH_TARGET,
       subject: LANE_DISPATCH_TARGET,
-      message: `nothing starts a release: ${LANE_DISPATCH_TARGET} runs only when started, and ${native === null ? `there is no ${shownNative}` : `${shownNative} has no push trigger to start it`}, so a merge to main ships nothing. Run genesis add template release: with release.trigger "eas" (the default) it gives deploy-production.yml EAS's own push trigger (docs/NATIVE-RELEASE.md, "The release path")`,
+      message: `nothing starts a release: ${LANE_DISPATCH_TARGET} runs only when started, and ${native === null ? `there is no ${shownNative}` : `${shownNative} has no push trigger to start it`}, so a merge to main ships nothing. Run genesis add template release --trigger eas, which gives deploy-production.yml EAS's own push trigger, or --trigger github, which writes the GitHub workflow that starts it (docs/NATIVE-RELEASE.md, "The release path")`,
     });
     return;
   }
@@ -324,7 +329,7 @@ export function checkReleaseLaneLive(ctx: DoctorContext): void {
       level: "warn",
       file: shownNative,
       subject: "release.trigger",
-      message: `genesis.config.json release.trigger is "eas", but releases still start from GitHub Actions (${shownNative}), so a merge ships only while GitHub Actions runs. Run genesis add template release, which gives deploy-production.yml its push trigger and retires ${shownNative} once the EAS project's GitHub link is confirmed; or set release.trigger to "github" (docs/NATIVE-RELEASE.md, "Moving to EAS's trigger")`,
+      message: `genesis.config.json release.trigger is "eas", but releases still start from GitHub Actions (${shownNative}), so a merge ships only while GitHub Actions runs. Run genesis add template release --trigger eas, which gives deploy-production.yml its push trigger and retires ${shownNative} once the EAS project's GitHub link is confirmed; or genesis add template release --trigger github to keep GitHub's (docs/NATIVE-RELEASE.md, "Moving to EAS's trigger")`,
     });
   } else if (trigger === "github" && githubLive && !easLive) {
     ctx.report({
@@ -342,6 +347,21 @@ export function checkReleaseLaneLive(ctx: DoctorContext): void {
       subject: "release.trigger",
       message: `genesis.config.json release.trigger is "github", but ${LANE_DISPATCH_TARGET} starts each release on EAS itself. Run genesis add template release to write the GitHub lane, or set release.trigger to "eas" (or remove it)`,
     });
+  }
+}
+
+/**
+ * `eas-workflow-size` (an error): a `.eas/workflows/*.yml` over 16 KiB, which EAS Workflows refuses
+ * (docs.expo.dev/eas/workflows/syntax, "Workflow files"), so it never runs.
+ */
+export function checkEasWorkflowSize(ctx: DoctorContext): void {
+  const dir = path.join(ctx.root, ".eas", "workflows");
+  if (!existsSync(dir)) return;
+  for (const name of readdirSync(dir).sort()) {
+    if (!/\.ya?ml$/.test(name)) continue;
+    const bytes = statSync(path.join(dir, name)).size;
+    if (bytes <= EAS_WORKFLOW_MAX_BYTES) continue;
+    ctx.report({ rule: "eas-workflow-size", level: "error", file: `.eas/workflows/${name}`, subject: name, message: `is ${bytes} bytes, over EAS's 16 KiB limit for a workflow file, so EAS refuses it and it never runs. A Genesis template: run genesis upgrade (or genesis add template release) for the current, smaller one; your own: move its scripts into a file it runs` });
   }
 }
 

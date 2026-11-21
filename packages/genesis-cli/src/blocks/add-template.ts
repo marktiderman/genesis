@@ -6,11 +6,11 @@
  * beside it as `<file>.genesis-next` (or over it, with --replace).
  */
 import { CLI_PACKAGE } from "./discover.js";
-import { checkGithubLink, type GithubLink } from "./eas-link.js";
+import { checkEasEnvironment, checkGithubLink, type EasEnvironmentState, type GithubLink } from "./eas-link.js";
 import { readApp, replaceApp } from "./files.js";
 import { readLock } from "./lock.js";
 import { pinnedVersion } from "./pm.js";
-import { adoptTemplates, competingReleaseWorkflows, folderInRepository, githubLaneInPlace, LANE_DISPATCH_TARGET, lookupPin, missingTemplateSets, releaseContext, resolveTemplateNames, TEMPLATE_SETS, type AdoptResult, type ReleasePin } from "./release.js";
+import { adoptTemplates, competingReleaseWorkflows, folderInRepository, githubLaneInPlace, previewsInReleaseEnvironment, LANE_DISPATCH_TARGET, lookupPin, missingTemplateSets, releaseContext, resolveTemplateNames, TEMPLATE_SETS, type AdoptResult, type ReleasePin } from "./release.js";
 
 export interface AddTemplateOptions {
   list?: boolean;
@@ -24,6 +24,8 @@ export interface AddTemplateOptions {
   trigger?: string;
   /** How the EAS project's GitHub link is checked before a move to EAS's trigger (default: Expo's API). */
   checkGithubLink?: (root: string) => Promise<GithubLink>;
+  /** How the previews' own EAS environment is checked before an old pr-preview.yml moves to it (default: Expo's API). */
+  checkEasEnvironment?: (root: string, name: string) => Promise<EasEnvironmentState>;
   /** How the installed release's pin is found (default: git ls-remote); null when it can't be. */
   findPin?: (root: string) => ReleasePin | null;
   log?: (msg: string) => void;
@@ -93,9 +95,12 @@ export async function addTemplates(root: string, names: string[], options: AddTe
   const moving = laneCtx.release.trigger === "eas" && templates.includes("release/deploy-production.yml") && githubLaneInPlace(root, laneCtx.appFolder);
   const githubLink = moving ? await (options.checkGithubLink ?? checkGithubLink)(root) : undefined;
   if (githubLink?.state === "linked") log(`✔ The EAS project is linked to ${githubLink.repository} on GitHub.`);
+  // An old pr-preview.yml (previews in the release's environment) moves only once theirs exists.
+  const previewEnvironment = templates.includes("release/pr-preview.yml") && previewsInReleaseEnvironment(root, laneCtx) ? await (options.checkEasEnvironment ?? checkEasEnvironment)(root, laneCtx.release.previews.easEnvironment) : undefined;
   const results = adoptTemplates(root, templates, {
     ...(planned ? { config: planned } : {}),
-    ...(githubLink ? { githubLink } : {}), ...(options.dryRun ? { dryRun: true } : {}), ...(options.replace ? { replace: true } : {}), ...(options.replaceRival ? { replaceRival: true } : {}), pin, ...(version ? { version } : {}) });
+    ...(githubLink ? { githubLink } : {}),
+    ...(previewEnvironment ? { previewEnvironment } : {}), ...(options.dryRun ? { dryRun: true } : {}), ...(options.replace ? { replace: true } : {}), ...(options.replaceRival ? { replaceRival: true } : {}), pin, ...(version ? { version } : {}) });
   const attention = (o: AdoptResult["outcome"]) => o === "next" || o === "pending" || o === "held";
   for (const r of results) log(`${attention(r.outcome) ? "!" : "✔"} ${r.location}: ${WORDS[r.outcome]}${r.detail ? ` (${r.detail})` : ""}`);
   const steps: string[] = [];

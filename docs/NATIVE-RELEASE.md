@@ -42,11 +42,15 @@ Nothing on GitHub Actions takes part, so a GitHub billing or runner problem neve
    ([syntax](https://docs.expo.dev/eas/workflows/syntax/#on), "Workflow doesn't start" in
    [troubleshooting](https://docs.expo.dev/eas/workflows/troubleshooting/)).
    - `source` fails, and so stops every job, unless `main` contains the commit; checks eas.json's
-     profile still builds on `release.channel` with the EAS environment the file was rendered with;
-     and finds each platform's runtime version as a production build records it
-     (`eas fingerprint:generate --build-profile <profile>`, the profile's env over the EAS
-     environment's, or your `release.runtimeVersion` command). A platform it can't find stops the
-     run: nothing is built or published on a guess.
+     profile still builds on `release.channel` with the EAS environment the file was rendered with.
+   - per platform, in a job of its own (`runtime_<platform>`, so one platform's failure holds back
+     only it), `native-release.mjs runtime-version` finds the runtime version as a production build
+     records it (`eas fingerprint:generate --build-profile <profile>`, the profile's env over the
+     EAS environment's, or your `release.runtimeVersion` command). A platform whose runtime
+     version can't be found is neither built nor published. The publishing is in the script too
+     (`native-release.mjs publish`): EAS refuses a workflow file over 16 KiB
+     ([syntax](https://docs.expo.dev/eas/workflows/syntax/), "Workflow files"), and `genesis
+     doctor` errors (`eas-workflow-size`) on one.
    - per platform, `get-build` finds a production build on the release channel with that runtime
      version, finished or still being made (`wait_for_in_progress`): this commit goes out as an
      update on it (the lane's script: the profile's env, the runtime checked before and after, the

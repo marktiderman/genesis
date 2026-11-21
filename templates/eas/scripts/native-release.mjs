@@ -519,11 +519,161 @@ export function checkRuntime(text, platform, expected) {
 
 const readJson = (file) => JSON.parse(readFileSync(file, "utf8"));
 
+const NAMES = { ios: "iOS", android: "Android" };
+
+/** How the lane runs eas-cli: RELEASE_EAS (on EAS's workers, the pinned eas-cli the workflow names), else `eas`. */
+function easCommand(env) {
+  const [cmd, ...pre] = (env.RELEASE_EAS?.trim() || "eas").split(/\s+/);
+  return { cmd, pre };
+}
+
+/** The app's own genesis-cli bin, found as Node resolves the package (the app's node_modules, then each folder above), or throws. */
+export function genesisBin(cwd = process.cwd()) {
+  const dir = installedAt(cwd, "@marktiderman/genesis-cli");
+  if (!dir) throw new Error(`@marktiderman/genesis-cli isn't installed here or in a folder above (looked in node_modules from ${cwd} up). Add it to the app's devDependencies. Nothing was released.`);
+  const pkg = readJson(join(dir, "package.json"));
+  const bin = typeof pkg.bin === "string" ? pkg.bin : pkg.bin?.genesis;
+  if (typeof bin !== "string") throw new Error(`${dir}/package.json names no genesis bin. Nothing was released.`);
+  return join(dir, bin);
+}
+
+/** The commands publishUpdate and runtimeVersion run, swappable in tests. */
+export function laneDeps(env, cwd = process.cwd()) {
+  const { cmd, pre } = easCommand(env);
+  const exec = (command, args, childEnv = env) => execFileSync(command, args, { cwd, env: childEnv, encoding: "utf8", stdio: ["ignore", "pipe", "inherit"], maxBuffer: 64 * 1024 * 1024 });
+  return {
+    eas: (args, childEnv = env) => execFileSync(cmd, [...pre, ...args], { cwd, env: childEnv, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: 64 * 1024 * 1024 }),
+    exec,
+    // Its output shown in the job's log; throws when it fails.
+    run: (command, args, childEnv = env) => {
+      const result = spawnSync(command, args, { cwd, env: childEnv, stdio: ["ignore", "inherit", "inherit"] });
+      if (result.error) throw result.error;
+      if (result.status !== 0) throw new Error(`${command} ${args.join(" ")} failed (exit ${result.status}).`);
+    },
+    // A commit the shallow checkout lacks is fetched first; git can't tell (null) when that fails.
+    contains: (commit, later) => {
+      for (const c of [commit, later]) if (spawnSync("git", ["cat-file", "-e", `${c}^{commit}`], { cwd, stdio: "ignore" }).status !== 0) spawnSync("git", ["fetch", "--quiet", "origin", c], { cwd, stdio: "ignore" });
+      return gitContains(commit, later, cwd);
+    },
+    subject: (commit) => spawnSync("git", ["log", "-1", "--format=%s", commit], { cwd, encoding: "utf8" }).stdout?.trim() ?? "",
+    read: (file) => readFileSync(join(cwd, file), "utf8"),
+    installed: (name) => Boolean(installedAt(cwd, name)),
+    genesisBin: () => genesisBin(cwd),
+    log: (line) => console.error(line),
+  };
+}
+
+/**
+ * runtime-version <platform>: the commit's runtime version as a production build records it.
+ * RELEASE_RUNTIME_COMMAND (release.runtimeVersion's command) runs with the build profile's env for
+ * the platform over this environment (and RELEASE_PLATFORM); otherwise Expo's fingerprint as the
+ * build profile computes it (eas fingerprint:generate --build-profile RELEASE_PROFILE).
+ */
+export function runtimeVersion(platform, env, deps = laneDeps(env)) {
+  if (!PLATFORMS.includes(platform)) throw new Error("runtime-version needs ios or android.");
+  const profile = env.RELEASE_PROFILE?.trim();
+  if (!profile) throw new Error("RELEASE_PROFILE is not set.");
+  const command = env.RELEASE_RUNTIME_COMMAND?.trim();
+  if (command) {
+    const childEnv = { ...env, ...profileEnvValues(JSON.parse(deps.read("eas.json")), profile, platform), RELEASE_PLATFORM: platform, EXPO_NO_DOTENV: "1" };
+    const printed = printedRuntime(deps.exec("bash", ["-c", command], childEnv));
+    if (!isRuntimeVersion(printed)) throw new Error(`release.runtimeVersion's command printed no ${platform} runtime version (got "${printed}"). Nothing was built or published.`);
+    return printed;
+  }
+  // EXPO_NO_DOTENV=1: the app config is read without .env, as the update's export reads it.
+  const out = deps.eas(["fingerprint:generate", "--platform", platform, "--build-profile", profile, "--json", "--non-interactive"], { ...env, EXPO_NO_DOTENV: "1" });
+  const hash = JSON.parse(out)?.hash;
+  if (!isRuntimeVersion(hash)) throw new Error(`eas fingerprint:generate printed no ${platform} fingerprint hash (got ${JSON.stringify(hash)}). Nothing was built or published.`);
+  return hash;
+}
+
+/**
+ * publish <platform>: deploy-production.yml's update for one platform. From the job's env:
+ * COMMIT_SHA, RUNTIME_VERSION and BUILD_COMMIT (the build get-build found), RELEASE_CHANNEL,
+ * RELEASE_PROFILE, RELEASE_SENTRY and RELEASE_HOOK ("true" when on). In order:
+ * - the channel's latest update already carries this commit or a later one (runs land out of
+ *   order), or the build was made from one: nothing is published, said out loud. A re-run of this
+ *   commit's release recovers its update group, so the release hook runs again. A channel it
+ *   can't read stops it (fail closed);
+ * - with Sentry, its token and the app's own uploader must be there;
+ * - this checkout's runtime version (the profile's env) must be the build's;
+ * - the channel is read again, the bundle stamped (genesis build-stamp), and the update published
+ *   with the profile's env (no --environment, which would put the EAS environment's values over
+ *   it), to every install, checked to have gone to that runtime version;
+ * - with Sentry, its source maps uploaded; a failure fails the job, or with a hook, is reported
+ *   (sourcemaps=failed) so the hook still runs, then its job fails.
+ * Returns the step's outputs.
+ */
+export function publishUpdate(platform, env, deps = laneDeps(env)) {
+  if (!PLATFORMS.includes(platform)) throw new Error("publish needs ios or android.");
+  const name = NAMES[platform];
+  const commit = env.COMMIT_SHA?.trim() ?? "";
+  const runtime = env.RUNTIME_VERSION?.trim() ?? "";
+  const built = env.BUILD_COMMIT?.trim() ?? "";
+  const channel = env.RELEASE_CHANNEL?.trim() ?? "";
+  const profile = env.RELEASE_PROFILE?.trim() ?? "";
+  const sentry = env.RELEASE_SENTRY === "true";
+  const hook = env.RELEASE_HOOK === "true";
+  if (!/^[0-9a-f]{40}$/i.test(commit) || !channel || !profile) throw new Error("publish needs COMMIT_SHA, RELEASE_CHANNEL and RELEASE_PROFILE.");
+  const carrier = () => {
+    let latest;
+    try {
+      latest = latestCommits(deps.eas, channel, platform);
+    } catch (error) {
+      throw new Error(`Couldn't read the channel's latest ${name} update, so its order can't be checked: nothing was published. (${error instanceof Error ? error.message : error})`);
+    }
+    return latest.find((c) => deps.contains(commit, c) === true) ?? null;
+  };
+  const skip = (found) => {
+    deps.log(`Not published: the channel's latest ${name} update (${found}) already carries ${commit} or a later commit.`);
+    if (found !== commit) return { update_group: "" };
+    // A re-run of this release: its update went out before. Nothing is published again.
+    if (sentry) deps.log(`This commit's ${name} update went out in an earlier run, whose bundle isn't here: if that run's Sentry upload failed, upload its source maps from this commit's export by hand.`);
+    if (!hook) return { update_group: "" };
+    const line = publishedGroup(deps.eas, channel, platform, commit).find((l) => l.startsWith(`${platform}_update_group=`));
+    return { update_group: line?.slice(`${platform}_update_group=`.length) ?? "" };
+  };
+  const first = carrier();
+  if (first) return skip(first);
+  if (built && deps.contains(commit, built) === true) {
+    deps.log(`Not published: the ${name} build this update would run on was made from ${built}, which already carries ${commit}.`);
+    return { update_group: "" };
+  }
+  if (sentry) {
+    if (!env.SENTRY_AUTH_TOKEN?.trim()) throw new Error("SENTRY_AUTH_TOKEN is not set in the EAS environment. Nothing was published.");
+    if (!deps.installed("@sentry/react-native")) throw new Error("@sentry/react-native isn't installed here: the release only runs the app's own Sentry uploader. Nothing was published.");
+  }
+  // The build's environment: this job's (the EAS environment), the build profile's env over it.
+  const profileEnv = { ...env, ...profileEnvValues(JSON.parse(deps.read("eas.json")), profile, platform), EXPO_NO_DOTENV: "1" };
+  checkRuntime(deps.exec("npx", ["--no", "expo-updates", "runtimeversion:resolve", "--platform", platform], profileEnv), platform, runtime);
+  // Again, just before publishing: another run may have published a later commit since.
+  const second = carrier();
+  if (second) return skip(second);
+  deps.run(process.execPath, [deps.genesisBin(), "build-stamp", "--channel", channel], env);
+  checkStamp(JSON.parse(deps.read("build-metadata.json")), channel);
+  const message = deps.subject(commit) || `Release ${commit}`;
+  // CI=1: eas update takes the environment it's given.
+  const out = deps.eas(["update", "--channel", channel, "--platform", platform, "--message", message, "--json", "--non-interactive"], { ...profileEnv, CI: "1" });
+  const lines = updateOutputs(JSON.parse(out), platform, runtime);
+  for (const line of lines) deps.log(line);
+  const outputs = { update_group: lines[0].slice(`${platform}_update_group=`.length) };
+  if (sentry) {
+    try {
+      deps.run("npx", ["--no", "sentry-expo-upload-sourcemaps", "dist"], env);
+    } catch {
+      if (!hook) throw new Error(`The ${name} update is published, but its source maps didn't upload to Sentry. Upload them from this commit's export by hand.`);
+      deps.log(`The ${name} update is published, but its source maps didn't upload to Sentry: the release hook runs, then the run fails.`);
+      outputs.sourcemaps = "failed";
+    }
+  }
+  return outputs;
+}
+
 /** What a failed release run posts: one line naming the commit, the repository and the channel. */
 export function failureText(env) {
   const commit = env.RELEASE_COMMIT?.trim();
   const where = [env.RELEASE_REPOSITORY?.trim(), commit ? commit.slice(0, 12) : "a run started by hand"].filter(Boolean).join(" ");
-  return `The native release (${where}) failed on EAS; nothing after the failed job went out to the ${env.RELEASE_CHANNEL?.trim() || "release"} channel. See the run on expo.dev (the project's Workflows).`;
+  return `The native release (${where}) failed on EAS. Some platforms may already have published an update to the ${env.RELEASE_CHANNEL?.trim() || "release"} channel or submitted a build: see the run on expo.dev (the project's Workflows).`;
 }
 
 /** Posts the failure to RELEASE_FAILURE_WEBHOOK (Slack-compatible `{ text }`), when it's an https URL; otherwise only logs. Never throws. */
@@ -629,16 +779,18 @@ async function main(command, args, env) {
     const printed = printedRuntime(readFileSync(file, "utf8"));
     if (!isRuntimeVersion(printed)) throw new Error(`release.runtimeVersion's command printed no ${platform} runtime version (got "${printed}"). Nothing was published.`);
     console.log(printed);
+  } else if (command === "runtime-version") {
+    console.log(runtimeVersion(args[0], env));
+  } else if (command === "publish") {
+    const [platform, file] = args;
+    if (!file) throw new Error("publish needs <platform> <outputs file>.");
+    const outputs = publishUpdate(platform, env);
+    writeFileSync(file, Object.entries(outputs).map(([k, v]) => `${k}=${v}\n`).join(""));
   } else if (command === "genesis") {
     // genesis <args…>: the app's own genesis-cli, found the way Node resolves it (the app's
     // node_modules, then each folder above: a workspace root's, for an app in a subfolder), at the
     // version its lockfile pins. Never fetched.
-    const dir = installedAt(process.cwd(), "@marktiderman/genesis-cli");
-    if (!dir) throw new Error(`@marktiderman/genesis-cli isn't installed here or in a folder above (looked in node_modules from ${process.cwd()} up). Add it to the app's devDependencies. Nothing was released.`);
-    const pkg = readJson(join(dir, "package.json"));
-    const bin = typeof pkg.bin === "string" ? pkg.bin : pkg.bin?.genesis;
-    if (typeof bin !== "string") throw new Error(`${dir}/package.json names no genesis bin. Nothing was released.`);
-    const result = spawnSync(process.execPath, [join(dir, bin), ...args], { stdio: "inherit", env });
+    const result = spawnSync(process.execPath, [genesisBin(), ...args], { stdio: "inherit", env });
     if (result.error) throw result.error;
     process.exitCode = result.status ?? 1;
   } else if (command === "notify-failure") {
@@ -663,7 +815,7 @@ async function main(command, args, env) {
     if (!file || !PLATFORMS.includes(platform)) throw new Error("runtime needs <resolved.txt> <platform> <runtime version>.");
     checkRuntime(readFileSync(file, "utf8"), platform, expected);
   } else {
-    throw new Error(`Unknown command "${command ?? ""}": snapshot, mask, require, plan, update, profile-env, with-profile, channel, environment, latest-commit, published-group, runtime-printed, fingerprint-hash, notify-failure, genesis, installed, stamped or runtime.`);
+    throw new Error(`Unknown command "${command ?? ""}": snapshot, mask, require, plan, update, profile-env, with-profile, channel, environment, latest-commit, published-group, runtime-printed, fingerprint-hash, runtime-version, publish, notify-failure, genesis, installed, stamped or runtime.`);
   }
 }
 

@@ -45,18 +45,32 @@ still needs, when:
 JavaScript-only updates then wait for an EAS worker instead of a GitHub runner. That is minutes on
 a paid plan's priority queue, and longer on the free plan.
 
-🔴 **PR previews run on the `Preview` label only, in their own EAS environment.** `pr-preview.yml`
-runs the pull request's own code before review, so it no longer runs on every pull request and no
-longer reads the release's EAS environment. Before the next upgrade merges:
+🟡 **PR previews move to the `Preview` label and an EAS environment of their own.**
+`pr-preview.yml` runs the pull request's own code before review. So new previews run only on the
+label, and they read `release.previews.easEnvironment` (default `preview-release`), not the
+release's environment.
 
-1. Create the EAS environment `preview-release` (or name one in `release.previews.easEnvironment`).
+An app whose previews still run in the release's environment keeps them as they are. `genesis
+upgrade` (and `genesis add template`) hold that refresh until Expo's API shows the new environment
+exists, and print these steps:
+
+1. Create the EAS environment `preview-release`.
 2. Copy the release environment's plain values into it (`APP_VARIANT`, the `EXPO_PUBLIC_*` ones).
 3. Add a robot `EXPO_TOKEN` and, with Sentry, `SENTRY_AUTH_TOKEN`. Nothing else.
 4. Create the `Preview` label in GitHub.
+5. Upgrade again with `EXPO_TOKEN` set, or after `eas login`.
 
-To keep previewing every pull request, set `release.previews.everyPullRequest`, only where everyone
-who can push is trusted. `genesis doctor` warns (`preview-environment`) when previews still read
-the release's environment.
+Meanwhile `genesis doctor` warns (`preview-environment`). To keep previewing every pull request,
+set `release.previews.everyPullRequest`, but only where everyone who can push is trusted.
+
+🟢 **deploy-production.yml is smaller.** EAS takes workflow files up to 16 KiB, and the previous
+render was over it. The publishing now runs in `.eas/scripts/native-release.mjs` (`publish`,
+`runtime-version`), and each platform's runtime version is found in a job of its own, so one
+platform's failure no longer holds back the other. `genesis doctor` errors (`eas-workflow-size`)
+on any EAS workflow over the limit.
+
+To go back to releasing from GitHub Actions after moving: `genesis add template release --trigger
+github`.
 
 🟢 **New apps** (`genesis init --template native`) start on EAS's trigger and get no
 `native-release.yml`. Link the repository to the EAS project before the first merge.

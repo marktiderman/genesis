@@ -20,7 +20,11 @@ until they choose to move (docs/MIGRATION.md).
   `release.previews.everyPullRequest` opt-in), in an EAS environment of their own
   (`release.previews.easEnvironment`, default `preview-release`) rather than the release's: a
   preview runs the pull request's code before review. New doctor rule `preview-environment`.
-  Create that environment (the release's plain values, a robot EXPO_TOKEN) before upgrading.
+  An app whose previews still read the release's environment keeps them as they are until that
+  environment exists (checked on Expo's API), and the upgrade prints the setup steps.
+- deploy-production.yml fits EAS's 16 KiB limit for workflow files: the publishing moved into
+  .eas/scripts/native-release.mjs (`publish`, `runtime-version`), and each platform's runtime
+  version is found in its own job. New doctor rule `eas-workflow-size`.
 - A failed release says so: a `release_failed` job posts to `RELEASE_FAILURE_WEBHOOK` (an EAS
   secret) when set, and new `release.failureEmails` adds an Expo email job.
 - A run started by hand releases only committed code at main's tip. Updates carry the commit

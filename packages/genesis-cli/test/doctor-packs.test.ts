@@ -77,7 +77,7 @@ describe("packs config", () => {
   });
 
   it("pack rule ids are built-in, so rules and allow work and patterns can't take them", async () => {
-    for (const id of ["native-raw-primitive", "native-literal-color", "native-custom-header", "native-screen-layout", "store-readiness", "eas-placeholder", "fingerprint-plugin-files", "release-lane-twice", "release-lane-live", "release-trigger-github", "preview-environment"]) {
+    for (const id of ["native-raw-primitive", "native-literal-color", "native-custom-header", "native-screen-layout", "store-readiness", "eas-placeholder", "fingerprint-plugin-files", "release-lane-twice", "release-lane-live", "release-trigger-github", "preview-environment", "eas-workflow-size"]) {
       expect(BUILTIN_RULES).toContain(id);
     }
     for (const id of ["migration-grants", "migration-rls", "migration-definer-search-path", "migration-edited", "migration-testing-kit", "migration-view-rls"]) expect(BUILTIN_RULES).toContain(id);
@@ -294,7 +294,7 @@ describe("native pack", () => {
   });
 
   it("release-lane-twice: native-release.yml beside a workflow that also releases (error)", async () => {
-    const lane = { ".github/workflows/native-release.yml": "name: Native release\n" };
+    const lane = { ".github/workflows/native-release.yml": "name: Native release\non:\n  push:\n    branches: [main]\njobs:\n  release:\n    steps:\n      - run: eas workflow:run .eas/workflows/deploy-production.yml --ref x\n" };
     const pushEas = { ".eas/workflows/deploy-production.yml": "on:\n  push:\n    branches: [main]\njobs:\n  update:\n    type: update\n" };
     const twice = await nativeApp({
       ...lane,
@@ -337,6 +337,7 @@ describe("native pack", () => {
       expect(brief(dead.findings, "release-lane-live")).toEqual(["release-lane-live .eas/workflows/deploy-production.yml:0 .eas/workflows/deploy-production.yml"]);
       expect(levels(dead.findings, "release-lane-live")).toEqual(["error"]);
       expect(dead.findings.find((f) => f.rule === "release-lane-live")!.message).toContain("nothing starts a release");
+      expect(dead.findings.find((f) => f.rule === "release-lane-live")!.message).toContain("genesis add template release --trigger eas");
     }
     // One live trigger that matches release.trigger: quiet.
     expect(brief((await nativeApp(pushEas)).findings, "release-lane-live")).toEqual([]);
@@ -366,6 +367,17 @@ describe("native pack", () => {
     expect(brief((await nativeApp(preview("preview-release"))).findings, "preview-environment")).toEqual([]);
     // The release's environment is the one release.easEnvironment names.
     expect(brief((await nativeApp({ ...preview("store"), "genesis.config.json": JSON.stringify({ release: { easEnvironment: "store" } }) })).findings, "preview-environment")).toHaveLength(1);
+  });
+
+  it("release-lane-twice reads GitHub's lane from a live workflow; eas-workflow-size refuses a file EAS won't run", async () => {
+    const pushEas = { ".eas/workflows/deploy-production.yml": "on:\n  push:\n    branches: [main]\njobs:\n  update:\n    type: update\n" };
+    // A native-release.yml kept beside EAS's trigger with no push trigger releases nothing: no error.
+    const kept = await nativeApp({ ...pushEas, ".github/workflows/native-release.yml": "on:\n  workflow_dispatch: {}\njobs:\n  release:\n    steps:\n      - run: eas workflow:run .eas/workflows/deploy-production.yml --ref x\n" });
+    expect(brief(kept.findings, "release-lane-twice")).toEqual([]);
+    const big = await nativeApp({ ".eas/workflows/huge.yml": `name: huge\n# ${"x".repeat(17000)}\njobs: {}\n` });
+    expect(brief(big.findings, "eas-workflow-size")).toEqual(["eas-workflow-size .eas/workflows/huge.yml:0 huge.yml"]);
+    expect(levels(big.findings, "eas-workflow-size")).toEqual(["error"]);
+    expect(brief((await nativeApp(pushEas)).findings, "eas-workflow-size")).toEqual([]);
   });
 
   it("store-readiness: a ready app.json passes", async () => {

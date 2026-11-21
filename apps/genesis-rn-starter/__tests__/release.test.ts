@@ -159,13 +159,15 @@ describe("EAS workflows", () => {
 
   it("deploy-production updates every install, and submits each build in the run that made it", () => {
     const { jobs } = workflow("deploy-production.yml");
-    // Published by the lane's script (the profile's env, the runtime checked), to every install:
-    // eas update with no --rollout-percentage.
+    // Published by the lane's script (publishUpdate: the profile's env, the runtime checked), to
+    // every install: eas update with no --rollout-percentage.
+    const script = read(".eas/scripts/native-release.mjs");
+    expect(script).toContain('deps.eas(["update", "--channel", channel, "--platform", platform, "--message", message, "--json", "--non-interactive"]');
+    expect(script).not.toContain("rollout-percentage");
     for (const platform of ["ios", "android"]) {
       const publish = jobs[`update_${platform}`]?.steps?.map((st) => st.run ?? "").join("\n") ?? "";
-      expect(publish).toContain(`update --channel "production" --platform ${platform}`);
-      expect(publish).not.toContain("rollout-percentage");
-      expect(publish).toContain(`with-profile eas.json "production" ${platform} --`);
+      expect(publish).toContain(`node .eas/scripts/native-release.mjs publish ${platform}`);
+      expect(jobs[`update_${platform}`]?.env).toMatchObject({ RELEASE_CHANNEL: "production", RELEASE_PROFILE: "production" });
       expect(jobs[`get_${platform}_build`]?.if).toBe(`\${{ needs.source.outputs.${platform} == 'true' }}`);
       expect(jobs[`update_${platform}`]?.if).toBe(`\${{ needs.source.outputs.${platform} == 'true' && needs.get_${platform}_build.outputs.build_id }}`);
       expect(jobs[`update_${platform}`]?.needs).toEqual(["source", `get_${platform}_build`]);
@@ -335,10 +337,13 @@ describe("the build stamp", () => {
   });
 
   it("is stamped for the channel, and checked, before every update is published", () => {
-    const publishing = [
-      ...["update_ios", "update_android"].map((job) => ({ job, channel: "production", run: workflow("deploy-production.yml").jobs[job]!.steps!.map((s) => s.run ?? "").join("\n") })),
-      { job: "publish_update", channel: "$PREVIEW_CHANNEL", run: workflow("pr-preview.yml").jobs["publish_update"]!.steps!.map((s) => s.run ?? "").join("\n") },
-    ];
+    // deploy-production's update jobs stamp and check in publishUpdate, before eas update.
+    const script = read(".eas/scripts/native-release.mjs");
+    const body = script.slice(script.indexOf("export function publishUpdate("));
+    expect(body.indexOf('"build-stamp", "--channel", channel')).toBeGreaterThan(-1);
+    expect(body.indexOf("checkStamp(")).toBeGreaterThan(body.indexOf('"build-stamp"'));
+    expect(body.indexOf('deps.eas(["update"')).toBeGreaterThan(body.indexOf("checkStamp("));
+    const publishing = [{ job: "publish_update", channel: "$PREVIEW_CHANNEL", run: workflow("pr-preview.yml").jobs["publish_update"]!.steps!.map((s) => s.run ?? "").join("\n") }];
     for (const { job, channel, run } of publishing) {
       const stamped = run.indexOf(`node .eas/scripts/native-release.mjs genesis build-stamp --channel "${channel}"`);
       const checked = run.indexOf(`node .eas/scripts/native-release.mjs stamped build-metadata.json "${channel}"`);

@@ -140,5 +140,14 @@ optional, for starting a workflow with `eas workflow:run` from an event EAS does
 - `pr-preview-teardown.yml` still runs on GitHub Actions. With Actions blocked, a closed pull
   request's channel stays until it's deleted by hand; the phone heals by itself. Moving it to EAS
   is left for later.
+- EAS takes workflow files up to 16 KiB, and the previous `deploy-production.yml` render was over
+  it. The publishing and the runtime lookup now live in `.eas/scripts/native-release.mjs`
+  (`publish`, `runtime-version`, unit-tested). Every render combination is tested to fit, and
+  `genesis doctor` (`eas-workflow-size`) errors on any EAS workflow that doesn't.
+- Each platform's runtime version is found in a job of its own, so one platform's failure holds
+  back only that platform, as GitHub's plan did.
+- An app whose previews still read the release's environment keeps them until
+  `release.previews.easEnvironment` exists (checked on Expo's API), so its previews don't stop.
+- To go back to GitHub Actions after moving: `genesis add template release --trigger github`.
 - Not yet run on a live EAS project. The templates validate against EAS's workflow schema, and the
   `source` job's checks run in the tests. Watch the first merge after moving.
