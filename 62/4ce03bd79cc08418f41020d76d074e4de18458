@@ -1,0 +1,19 @@
+features.json
+  s_7081dae02ae2cb::t_f93487e64b949d 5113,5152
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "624ce03bd79cc08418f41020d76d074e4de18458",
+  "prompts": {},
+  "sessions": {
+    "s_7081dae02ae2cb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7a2b62bd-584c-47e8-8b1a-72015db941a7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
