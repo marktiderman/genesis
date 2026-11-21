@@ -10,7 +10,7 @@
  * screen assembled from library components, no template by design) in
  * packages/<package>/figma/code-connect.json (one allowlist per package: ui-native and ui; chat has
  * one per entry point, packages/chat/figma/{native,web}/code-connect.json, and so has
- * notifications; native and product have one each).
+ * notifications; native has one).
  * Promote a component by moving it to `required` once its Figma node exists and its template is
  * published (docs/DESIGN-LIBRARY.md).
  *
@@ -45,7 +45,6 @@
  *   - genesis-notifications: src/web/index.tsx and src/native/index.tsx declare their components
  *     in the index itself (`export function Name(`), so those declarations are read, each entry
  *     point on its own. The React Email parts (./email) are not app UI and are not read.
- *   - genesis-product: src/native/index.ts, PascalCase value exports minus hooks and constants.
  *   - genesis-forms-native and genesis-forms-web: src/index.ts, PascalCase value exports minus
  *     hooks, providers, constants, React contexts (`*Context`) and the ChoiceRow parts (Indicator,
  *     OptionImage). forms-web exports its slots and field renderers, each with a template.
@@ -141,11 +140,6 @@ export const PACKAGES = [
     name: "notifications-web",
     indexes: [{ file: "packages/notifications/src/web/index.tsx", rule: "declared" }],
     figmaDir: "packages/notifications/figma/web",
-  },
-  {
-    name: "product",
-    indexes: [{ file: "packages/product/src/native/index.ts", rule: "pascal" }],
-    figmaDir: "packages/product/figma",
   },
   {
     name: "forms-native",
