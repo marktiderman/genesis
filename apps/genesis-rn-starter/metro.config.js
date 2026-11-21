@@ -21,7 +21,7 @@ const config = withSentry ? require("@sentry/react-native/metro").getSentryExpoC
 // The workspace packages the app imports, so edits to them reload the app.
 config.watchFolders = [
   ...(config.watchFolders || []),
-  ...["chat", "core", "design-system", "features", "forms", "forms-native", "forms-react", "native", "notifications", "product", "supabase", "support", "ui-native"].map((name) => path.resolve(monorepoRoot, "packages", name)),
+  ...["chat", "core", "design-system", "features", "forms", "forms-native", "forms-react", "native", "notifications", "supabase", "support", "ui-native"].map((name) => path.resolve(monorepoRoot, "packages", name)),
 ];
 
 config.resolver.nodeModulesPaths = [
