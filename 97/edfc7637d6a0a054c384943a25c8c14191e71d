@@ -1,0 +1,131 @@
+.changeset/cli-sentry-step-settings.md
+  s_22dadcff902f4f::t_cb9e75ac4ed283 1-5
+.changeset/genesis-config-setting-pattern.md
+  s_22dadcff902f4f::t_ae014755ecb5ec 1-5
+.changeset/native-sentry-from-settings.md
+  s_22dadcff902f4f::t_4008fc66b595ca 1-7
+.changeset/release-unbumped-fixes.md
+  s_22dadcff902f4f::t_e866c7fbbfd67d 1-6
+.changeset/supabase-settings-pattern.md
+  s_22dadcff902f4f::t_3489ad17d65403 1-5
+.changeset/support-sentry-link-from-settings.md
+  s_22dadcff902f4f::t_3518c2a2298b56 1-5
+.github/workflows/hub-catalog.yml
+  s_22dadcff902f4f::t_e01385aab99078 1-41
+apps/genesis-rn-starter/README.md
+  s_7081dae02ae2cb::t_ece1d8d4f1cdd9 85,315-326
+apps/genesis-rn-starter/__tests__/starter.test.ts
+  s_22dadcff902f4f::t_411c2d5771da2b 560-568
+apps/genesis-rn-starter/package.json
+  s_22dadcff902f4f::t_2349517c9648b3 25
+apps/genesis-rn-starter/src/app/_layout.tsx
+  s_22dadcff902f4f::t_c7d4e3064b41e5 14-15
+apps/genesis-rn-starter/src/lib/define-starter.ts
+  s_22dadcff902f4f::t_5e168bcc3a0101 70-72
+apps/genesis-rn-starter/src/lib/health.ts
+  s_22dadcff902f4f::t_0a02083920304c 2-3,8,12
+apps/genesis-rn-starter/src/lib/observability.ts
+  s_22dadcff902f4f::t_8aef8fb85b6201 4-13,18,36-45,49-50
+apps/genesis-rn-starter/src/lib/settings.ts
+  s_22dadcff902f4f::t_21fd3f4a59c84c 3-10,15-16,18-19,22-27,57,81-85
+apps/genesis-rn-starter/supabase/migrations/20261026001300_genesis_settings_pattern.sql
+  s_22dadcff902f4f::t_60ad5ba06ebef0 1-92
+docs/MIGRATION.md
+  s_22dadcff902f4f::t_9bea78c45b3b84 14-41
+features.json
+  s_22dadcff902f4f::t_4d8f92df194504 5054,6571,6613-6616,6618
+features.ts
+  s_7081dae02ae2cb::t_042956da04a1b8 2215,2865,2884-2886,2889
+packages/features/README.md
+  s_22dadcff902f4f::t_6b8ebcf8aab705 158-165
+packages/features/src/__tests__/settings.test.ts
+  s_22dadcff902f4f::t_d86c02bfe2053d 603-656
+packages/features/src/settings.ts
+  s_22dadcff902f4f::t_1659cd0a932151 91-96,139-140,172,218,234,251-328,355-359,389,407,814-815,851,880
+packages/genesis-cli/src/mcp/settings.ts
+  s_22dadcff902f4f::t_819446054887cd 221-222,229-235,242-252,257,260,278-295,301,303-304,311-321
+packages/genesis-cli/src/wizard/steps/framework.ts
+  s_22dadcff902f4f::t_c8c40cfcdfdba6 25,110,114,116-118,121
+packages/genesis-cli/src/wizard/steps/sentry.ts
+  s_22dadcff902f4f::t_84d73dbbb86173 4-7,24,26
+packages/genesis-cli/test/doctor-secrets.test.ts
+  s_22dadcff902f4f::t_f7fe6e1e012a9d 592-622
+packages/genesis-cli/test/mcp.test.ts
+  s_22dadcff902f4f::t_6dc208143941c2 32-33,128-129,328-334
+packages/genesis-cli/test/setup-steps.test.ts
+  s_22dadcff902f4f::t_dcf81443968983 262-296
+packages/native/README.md
+  s_22dadcff902f4f::t_b2336ced134c55 486-526
+packages/native/package.json
+  s_22dadcff902f4f::t_1cd3d585425c31 410-474,477
+packages/native/src/__tests__/devtools/settings.test.tsx
+  s_22dadcff902f4f::t_3cfacc942ab2f2 11-13
+packages/native/src/__tests__/observability/sentry.test.ts
+  s_22dadcff902f4f::t_eff38b14a6f5cb 3,41,43-44,46-57,232-450
+packages/native/src/__tests__/observability/settings.test.ts
+  s_22dadcff902f4f::t_5dda0bca9ee3f0 1-71
+packages/native/src/observability/index.ts
+  s_22dadcff902f4f::t_ea53cc3a482025 7-9,46-72
+packages/native/src/observability/sentry.ts
+  s_22dadcff902f4f::t_ee23fe71710624 7-23,55,85-100,103-105,107-110,112-116,146-149,201-259,261-263,267-269,271-302,331-337,339-340,345-346,348-408,411,416-437,439,455,466-469,471,475-483
+packages/native/src/observability/settings.ts
+  s_22dadcff902f4f::t_7288b9fa4d1e39 1-188
+packages/supabase/migrations/0025_genesis_settings_pattern.sql
+  s_22dadcff902f4f::t_def10603f77e7b 1-92
+packages/supabase/migrations/tests/0025_genesis_settings_pattern.test.sql
+  s_22dadcff902f4f::t_abb9d21208d164 1-35
+packages/supabase/package.json
+  s_22dadcff902f4f::t_38130abc1afcdf 382-385
+packages/supabase/src/__tests__/settings.test.ts
+  s_22dadcff902f4f::t_33444c95595a8b 365,377
+packages/supabase/src/blocks.ts
+  s_22dadcff902f4f::t_eef71c0bdaae65 144-145
+packages/support/README.md
+  s_22dadcff902f4f::t_edaec65403d8bd 611-618
+packages/support/src/__tests__/dump-viewer.test.tsx
+  s_22dadcff902f4f::t_066b537186bce9 7,70-84,107-127
+packages/support/src/diagnostics/index.ts
+  s_22dadcff902f4f::t_419b66199a2102 8
+packages/support/src/diagnostics/sentry-link.ts
+  s_22dadcff902f4f::t_ccefd347a85695 1-44
+packages/support/src/settings-values.ts
+  s_22dadcff902f4f::t_d6f650289ef90f 1-22
+packages/support/src/settings.ts
+  s_22dadcff902f4f::t_a7fbfef7171725 37
+packages/support/src/web-chat/agent-inbox.tsx
+  s_22dadcff902f4f::t_f1aca32a8d7d24 96,609,612,661,924
+packages/support/src/web-chat/diagnostics-viewer.tsx
+  s_22dadcff902f4f::t_892d7d5ede67dc 19-20,25-28,39-40,81,83-85
+pnpm-lock.yaml
+  s_22dadcff902f4f::t_9436c662594e83 63-65
+scripts/__tests__/hub-catalog-sync.test.mjs
+  s_22dadcff902f4f::t_036e95f0a0d626 1-32
+scripts/hub-catalog-sync.mjs
+  s_22dadcff902f4f::t_98c0a37e2a7c45 1-69
+scripts/pgtap-local/suites.sh
+  s_22dadcff902f4f::t_2f8f8fe591fd99 20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "97edfc7637d6a0a054c384943a25c8c14191e71d",
+  "prompts": {},
+  "sessions": {
+    "s_22dadcff902f4f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e30c0aa7-4664-443f-9187-dce5753baa7d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_7081dae02ae2cb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7a2b62bd-584c-47e8-8b1a-72015db941a7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
