@@ -1,0 +1,21 @@
+packages/genesis-cli/src/fix/sentry.ts
+  s_22dadcff902f4f::t_dd45c21f8bb6fe 135-181,228
+packages/genesis-cli/test/doctor-sentry.test.ts
+  s_22dadcff902f4f::t_f75bd31b768f5a 16,160-178
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c50bc6d5a16fd970f4565643f05e5203a8114e58",
+  "prompts": {},
+  "sessions": {
+    "s_22dadcff902f4f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e30c0aa7-4664-443f-9187-dce5753baa7d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
