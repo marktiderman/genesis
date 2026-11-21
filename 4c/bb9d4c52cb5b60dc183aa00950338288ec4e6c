@@ -1,0 +1,53 @@
+AGENTS.md
+  s_7081dae02ae2cb::t_a0c9182c3f8ac8 155
+README.md
+  s_7081dae02ae2cb::t_33a2dc2bcdea4b 165-166
+apps/genesis-rn-starter/README.md
+  s_7081dae02ae2cb::t_f2a092f9d4d712 67
+apps/genesis-rn-starter/__tests__/starter.test.ts
+  s_7081dae02ae2cb::t_e0d600996063b1 1
+apps/genesis-rn-starter/metro.config.js
+  s_7081dae02ae2cb::t_99998f231486af 24
+docs/APP-CI.md
+  s_7081dae02ae2cb::t_205cb0f042eefa 48-58,69
+docs/DESIGN-LIBRARY.md
+  s_7081dae02ae2cb::t_bf9a52d7e08997 156,173
+docs/PACKAGE-STRATEGY.md
+  s_7081dae02ae2cb::t_96dc5773cede0a 121,306,346
+docs/RELEASING.md
+  s_7081dae02ae2cb::t_e7e292481959ad 42-43,52
+features.json
+  s_7081dae02ae2cb::t_6c0f425dcc518e 3580,3582,3584,3596,3603,3605,3607,3616,3623,3625,3627,3639,7603
+features.ts
+  s_7081dae02ae2cb::t_620cd26381258b 1580,1582,1584,1590,1594,1596,1598,1603,1607,1609,1611,1617,3320
+package.json
+  s_7081dae02ae2cb::t_0ad3b41304d590 44
+packages/genesis-cli/test/blocks-modules.test.ts
+  s_7081dae02ae2cb::t_98092c8c1db135 21
+packages/native/src/updates/screens.tsx
+  s_7081dae02ae2cb::t_889bbb8afb7d96 137
+packages/ui-native/src/components/whats-new-sheet.tsx
+  s_7081dae02ae2cb::t_c78b032e2f61b3 4-5
+scripts/__tests__/check-code-connect.test.mjs
+  s_7081dae02ae2cb::t_e9cfa7e59f4cf0 329,355,358-359,362
+scripts/__tests__/rn-starter-template.test.mjs
+  s_7081dae02ae2cb::t_0c8cc3b243c268 10
+scripts/check-code-connect.mjs
+  s_7081dae02ae2cb::t_b6e635c26791b2 13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4cbb9d4c52cb5b60dc183aa00950338288ec4e6c",
+  "prompts": {},
+  "sessions": {
+    "s_7081dae02ae2cb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7a2b62bd-584c-47e8-8b1a-72015db941a7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
