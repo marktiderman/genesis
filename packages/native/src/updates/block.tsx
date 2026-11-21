@@ -199,10 +199,22 @@ export function createUpdates(options: UpdatesOptions): UpdatesBlock {
   });
   healChannel = (error) => void switcher.recover(error).catch(() => undefined);
   // An update the checker downloads while a preview is open is that preview's: record it, so a
-  // restart after leaving that launches it still shows the notice.
+  // restart after leaving that launches it still shows the notice. Only a download that finished
+  // (downloading → ready), with the preview picked when it started (the header named it): a
+  // release update already waiting, or a later banner change, is never recorded.
+  let lastStatus = checker.getState().status;
+  let pickedAtStart: Promise<string | null> | null = null;
   checker.subscribe(() => {
     const state = checker.getState();
-    if (state.status === "ready" && state.updateId) void switcher.noteDownloaded(state.updateId).catch(() => undefined);
+    const previous = lastStatus;
+    lastStatus = state.status;
+    if (state.status === "downloading" && previous !== "downloading") pickedAtStart = switcher.requested();
+    if (state.status === "ready" && previous === "downloading" && state.updateId && pickedAtStart) {
+      const id = state.updateId;
+      const started = pickedAtStart;
+      pickedAtStart = null;
+      void started.then((channel) => (channel ? switcher.noteDownloaded(id, channel) : undefined)).catch(() => undefined);
+    }
   });
   const signature = versionSignature({ application, updates, platform, buildMetadata: options.buildMetadata ?? null });
 

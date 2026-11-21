@@ -104,3 +104,31 @@ describe("the preview notice", () => {
     allow = true;
   });
 });
+
+describe("the checker's downloads and the preview record", () => {
+  it("records a download that finishes while a preview is open, never a release update already waiting", async () => {
+    const storage = memoryStorage();
+    const fake = fakeUpdates({ next: { id: "release-x" } });
+    const updates = createUpdates({ platform: "ios", application, policyTimeoutMs: 50, updates: fake, storage, channels: { enabled: true } });
+    // The release update downloads on the build's channel; then a preview is picked and the banner dismissed.
+    await updates.checker.check();
+    await act(settle);
+    expect(updates.checker.getState().status).toBe("ready");
+    storage.data.set("genesis:updates:channel", "pr-6");
+    await updates.channels.state();
+    updates.checker.dismiss();
+    await act(settle);
+    const record = storage.data.get("genesis:updates:channel:preview-update");
+    expect(record ? JSON.parse(record).ids : []).not.toContain("release-x");
+  });
+
+  it("records a download the checker finishes with a preview open", async () => {
+    const storage = memoryStorage({ "genesis:updates:channel": "pr-6" });
+    const fake = fakeUpdates({ next: { id: "pr-6-b" }, channel: "pr-6" });
+    const updates = createUpdates({ platform: "ios", application, policyTimeoutMs: 50, updates: fake, storage, channels: { enabled: true } });
+    await updates.channels.state();
+    await updates.checker.check();
+    await act(settle);
+    expect(JSON.parse(storage.data.get("genesis:updates:channel:preview-update")!).ids).toContain("pr-6-b");
+  });
+});

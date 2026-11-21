@@ -82,10 +82,11 @@ export interface ChannelSwitcher {
    */
   prepare(channel: string): Promise<ChannelCheck>;
   /**
-   * Record an update something else downloaded (the update checker) as the open preview's, so its
-   * code is still recognized if a restart after leaving launches it. Does nothing with no preview open.
+   * Record an update something else downloaded (the update checker) as `channel`'s, so its code is
+   * still recognized if a restart after leaving launches it. Only while `channel` is the preview
+   * picked (it was when the download started); otherwise nothing.
    */
-  noteDownloaded(updateId: string): Promise<void>;
+  noteDownloaded(updateId: string, channel: string): Promise<void>;
   /** Reload into what was downloaded (respects the reload guard). */
   restart(): Promise<ChannelSwitchResult>;
   /** Back to the build's own channel. Always allowed. */
@@ -362,8 +363,10 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
         return fetch();
       });
     },
-    noteDownloaded(updateId) {
-      return serial(() => recordPreviewUpdate(updateId));
+    noteDownloaded(updateId, channel) {
+      return serial(async () => {
+        if ((await load()).requested === channel) await recordPreviewUpdate(updateId);
+      });
     },
     restart() {
       return serial(async () => unavailable() ?? reload());

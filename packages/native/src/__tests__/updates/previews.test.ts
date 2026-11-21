@@ -216,13 +216,13 @@ describe("channel switching, hardened", () => {
     const on = createChannelSwitcher({ updates: fakeUpdates({ updateId: "pr-6-a", channel: "pr-6" }), enabled: true, guard: createReloadGuard(), storage });
     await on.state();
     // The checker fetched pr-6-b in the background; nothing launched it yet.
-    await on.noteDownloaded("pr-6-b");
+    await on.noteDownloaded("pr-6-b", "pr-6");
     // The person leaves, the check on the build's channel finds nothing, and Android launches pr-6-b.
     storage.data.delete("genesis:updates:channel");
     const after = createChannelSwitcher({ updates: fakeUpdates({ updateId: "pr-6-b" }), enabled: true, guard: createReloadGuard(), storage });
     await expect(after.state()).resolves.toMatchObject({ requested: null, lingering: "pr-6" });
     // With no preview open, a download isn't recorded.
-    await after.noteDownloaded("release-9");
+    await after.noteDownloaded("release-9", "pr-6");
     expect(JSON.parse(storage.data.get("genesis:updates:channel:preview-update")!).ids).not.toContain("release-9");
   });
 
