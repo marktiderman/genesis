@@ -5,7 +5,13 @@ import starter from "./starter.config";
 
 const MICROPHONE = "Record voice and video messages to send in a conversation.";
 const CAMERA = "Record video messages to send in a conversation.";
-import { easConfig, nativePlatforms, privacyBlocks } from "./src/lib/define-starter";
+import { easConfig, nativePlatforms, privacyBlocks, sentryProject } from "./src/lib/define-starter";
+import { readFileSync } from "node:fs";
+
+// genesis.config.json `observability.sentry`, or null while its organization or project is empty.
+// Read, not imported: an imported file is fingerprinted whole, so any change to genesis.config.json
+// would give a new runtime version. The plugin's options are in the evaluated config, which is.
+const sentry = sentryProject(JSON.parse(readFileSync(`${__dirname}/genesis.config.json`, "utf8")).observability);
 
 // Name, ids and plugins only. The Genesis plugin (`@marktiderman/genesis-cli`) adds the rest:
 // APP_VARIANT variants (development / preview / production), associated domains and app links from
@@ -52,10 +58,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     // until a push carries chatPushPayload's fields. After the Genesis plugin, so the extension's
     // bundle id follows the APP_VARIANT suffix.
     "@marktiderman/genesis-native/rich-push-plugin",
-    // Optional: upload source maps to Sentry from EAS builds (the observability block). Set your
-    // organization and project slugs, add SENTRY_AUTH_TOKEN as an EAS secret, set "@sentry/cli" to
-    // true under allowBuilds in pnpm-workspace.yaml, and switch metro.config.js to
-    // getSentryExpoConfig. See the README's Observability section.
-    // ["@sentry/react-native/expo", { organization: "your-org", project: "your-project", url: "https://sentry.io/" }],
+    // Readable Sentry stack traces (the observability block): with genesis.config.json
+    // `observability.sentry` set, every EAS build uploads its source maps to Sentry. Needs
+    // SENTRY_AUTH_TOKEN in the build's EAS environment: without it the build fails, so a release
+    // never ships unreadable. See the README's Observability section.
+    ...(sentry ? [["@sentry/react-native/expo", sentry] as [string, typeof sentry]] : []),
   ],
 });

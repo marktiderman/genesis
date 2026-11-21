@@ -163,7 +163,7 @@ typo can't silently do nothing.
 | `platforms` | `["ios", "android"]` | The platforms released, in `native-release.yml`, `deploy-production.yml` and `pr-preview.yml`: the other platform's jobs and steps aren't written. |
 | `environment` | `production` | The GitHub environment that holds the release secrets (`EXPO_TOKEN`; `SENTRY_AUTH_TOKEN`; the hook's). Limit it to `main`. |
 | `paths` | none | Folders outside the app its bundle reads (every folder its Metro config watches), from the repository root. One list for every workflow: `native-release.yml` runs on them and `pr-preview.yml` previews them. |
-| `sentry` | `false` | Uploads each update's source maps to Sentry with the app's own `sentry-expo-upload-sourcemaps`, in both lanes (GitHub and EAS), and stops before publishing when `SENTRY_AUTH_TOKEN` or the uploader is missing. On GitHub the release hook (when there is one) runs first, then the upload; on EAS the upload runs in the update job, then the hook job runs (also after a failed upload). A failed upload fails the run either way. |
+| `sentry` | on when `observability.sentry` names a project, else `false` | Uploads each update's source maps to Sentry with the app's own `sentry-expo-upload-sourcemaps`, in both lanes (GitHub and EAS) and in `pr-preview.yml` (each platform's preview update), and stops before publishing when `SENTRY_AUTH_TOKEN` or the uploader is missing. On GitHub the release hook (when there is one) runs first, then the upload; on EAS the upload runs in the update job, then the hook job runs (also after a failed upload). A failed upload fails the run either way. Set it `false` to keep update uploads off while builds upload. |
 | `pushHook` | none | A script in the app (`node <script>`) run once a release is out, per platform: after an update (GitHub or EAS) and after a submitted build (EAS). A string, or `{ "script", "secrets" }`: `secrets` are GitHub secret names passed to it on GitHub. |
 | `profile` | `production` | The EAS build profile releases build with, and whose fingerprint they match. |
 | `channel` | `production` | The update channel the production builds read: the build profile's `channel` in eas.json. The release stops when the profile names another, and matches only builds on it. |
@@ -199,6 +199,33 @@ or the artifact expired), and on EAS, which keeps nothing a later run can rely o
 upload them from this commit's export by hand. Decide yourself whether a hook failure should fail
 the job.
 
+### Sentry source maps
+
+One switch turns readable Sentry stack traces on: the top-level `observability.sentry` in
+genesis.config.json, with the Sentry organization and project slugs.
+
+```json
+{ "observability": { "sentry": { "organization": "acme", "project": "sample-app", "url": "https://sentry.io/" } } }
+```
+
+With both set, `release.sentry` defaults to true, so the next `genesis add template release` (or
+`genesis upgrade`) writes the update uploads into the release workflows. The starter (and an app made
+with `genesis init --template native`) also adds the `@sentry/react-native/expo` plugin in
+`app.config.ts`, so each EAS build uploads its source maps, and builds Metro on
+`getSentryExpoConfig` (`@sentry/react-native/metro`), whose Debug IDs let Sentry match a bundle to
+its map. Builds have no switch of their own: the plugin uploads, and without `SENTRY_AUTH_TOKEN` in
+the build's EAS environment the build fails rather than ship minified traces (the development
+profile sets `SENTRY_DISABLE_AUTO_UPLOAD`, so it needs no token). Empty slugs, or no block, leave
+all of it off.
+
+`SENTRY_AUTH_TOKEN` (a Sentry organization token, scope `org:ci`) goes in every EAS environment
+that builds or publishes updates and in the GitHub release environment ([One-time setup](#one-time-setup)).
+`genesis doctor` flags each missing piece in an app on Sentry (`cli/sentry-source-maps`: Metro
+without Debug IDs, the Expo plugin missing, a workflow that publishes updates without uploading,
+a web Vite build without Sentry's source maps plugin), and `genesis fix cli/sentry-source-maps`
+writes what it can and lists the token step. Sentry's "InternalBytecode.js has no debug ID" note
+is Hermes's built-in code, which has no source map: ignore it.
+
 ## One-time setup
 
 Nothing in the templates names a real account. Before the first run:
@@ -225,6 +252,7 @@ Nothing in the templates names a real account. Before the first run:
    | --- | --- |
    | `development`, `preview`, `production` | `APP_VARIANT` (the environment's name), `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` |
    | `production` | `EXPO_TOKEN` (secret), for the EAS lane's update jobs and `rollout.yml`'s EAS CLI steps; `SENTRY_AUTH_TOKEN` with `release.sentry`; whatever your release hook reads on EAS |
+   | `preview`, `production` | `SENTRY_AUTH_TOKEN` (secret) with `observability.sentry`: the Sentry Expo plugin uploads each build's source maps with it, and a build without it fails ([Sentry source maps](#sentry-source-maps)) |
    | `development` | `MAESTRO_TEST_EMAIL`, `MAESTRO_TEST_PASSWORD` (secret), for the `account` flows |
 
    `preview` also takes `PREVIEW_IOS=true` once an iOS device is registered ([Build cost](#build-cost)).

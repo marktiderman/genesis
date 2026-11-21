@@ -507,11 +507,13 @@ Router, wrap a subtree in `<ScreenErrorBoundary>`.
 - `useRecentActivity()` gives the last breadcrumbs and errors, scrubbed (the devtools overlay
   shows them).
 
-**Source maps (Sentry).** Optional: add the `@sentry/react-native/expo` config plugin with your
-organization and project, put `SENTRY_AUTH_TOKEN` in EAS secrets, use `getSentryExpoConfig` from
-`@sentry/react-native/metro` in `metro.config.js` (Debug IDs), and for `eas update` run
-`npx @sentry/expo-upload-sourcemaps dist` after the update. In this monorepo also set
-`"@sentry/cli": true` under `allowBuilds` in `pnpm-workspace.yaml`, so the upload binary installs.
+**Source maps (Sentry).** One switch: genesis.config.json `observability.sentry` with your
+organization and project slugs. The starter then adds the `@sentry/react-native/expo` config plugin
+(builds upload their source maps), builds Metro on `getSentryExpoConfig` from
+`@sentry/react-native/metro` (Debug IDs), and the release lane uploads each update's source maps
+(`release.sentry`, docs/NATIVE-RELEASE.md "Sentry source maps"). Add `SENTRY_AUTH_TOKEN` to the EAS
+environments and the GitHub release environment. `genesis doctor` (`cli/sentry-source-maps`) flags
+a piece that's missing, and `genesis fix cli/sentry-source-maps` writes what it can.
 
 **EAS Observe.** EAS Observe (`expo-observe`) measures cold and warm launch, bundle load, time to
 first render and EAS Update download time on its own once the root is wrapped

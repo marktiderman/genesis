@@ -153,8 +153,9 @@
     "group": "core",
     "owner": "@marktiderman",
     "doctor": {
-      "enforce": false,
-      "reason": "The doctor itself: its rules are the built-ins."
+      "$comment": "The doctor's own rules are built in. This declares the ones every app with genesis-cli runs as package rules: readable Sentry stack traces (cli/sentry-source-maps), web and native, with its fix.",
+      "plugin": "./dist/doctor-sentry.js",
+      "fixes": "./dist/fix-sentry.js"
     }
   }
 }

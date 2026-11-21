@@ -9,7 +9,9 @@
 # 1. Fingerprint the native project as the release builds it (GENESIS_RELEASE_PROFILE).
 # 2. A release build (store or TestFlight) with that fingerprint exists, so the pull request changed
 #    no native code: publish its JavaScript to the branch `pr-<number>` and point the channel
-#    `pr-<number>` at it. Any phone with that build opens it from the preview link.
+#    `pr-<number>` at it. Any phone with that build opens it from the preview link. With Sentry on
+#    (release.sentry, which follows genesis.config.json observability.sentry), each platform's
+#    update uploads its source maps, and a missing SENTRY_AUTH_TOKEN stops the run before publishing.
 # 3. None exists (the pull request changed native code): an update can't load on any build out
 #    there, so a preview build is made instead: the preview variant's build with the same
 #    fingerprint is repacked with this JavaScript, or one is built (iOS only with PREVIEW_IOS=true:
@@ -192,6 +194,12 @@ jobs:
             comment "This pull request changes native code, so it can't load in the app people have.$native_note" none
             exit 0
           fi
+#@if sentry
+          # Before anything is published: each update's source maps go to Sentry, which needs its
+          # token (in this EAS environment) and the app's own uploader.
+          node .eas/scripts/native-release.mjs require SENTRY_AUTH_TOKEN
+          node .eas/scripts/native-release.mjs installed @sentry/react-native
+#@end
           npx --no genesis build-stamp --channel "$PREVIEW_CHANNEL"
           node .eas/scripts/native-release.mjs stamped build-metadata.json "$PREVIEW_CHANNEL"
           # The channel names the branch; both are created once, and kept in step on every push.
@@ -201,6 +209,14 @@ jobs:
             # env over it, and no --environment (it would put the EAS values back over the profile's).
             node .eas/scripts/native-release.mjs with-profile eas.json "GENESIS_RELEASE_PROFILE" "$p" -- env CI=1 EXPO_NO_DOTENV=1 npx --yes eas-cli@26.0.0 update --branch "$PREVIEW_CHANNEL" --platform "$p" \
               --message "PR ${PREVIEW_CHANNEL#pr-}: ${PR_TITLE}" --non-interactive
+#@if sentry
+            # This platform's export (dist) is the one just published: its source maps, before the
+            # next platform's export replaces it. The app's own uploader: npx --no never installs one.
+            if ! npx --no sentry-expo-upload-sourcemaps dist; then
+              echo "The $p preview update is published, but its source maps didn't upload to Sentry: its stack traces won't be readable."
+              exit 1
+            fi
+#@end
           done
           npx --yes eas-cli@26.0.0 channel:edit "$PREVIEW_CHANNEL" --branch "$PREVIEW_CHANNEL" --non-interactive
           set-output status "published:$platforms"

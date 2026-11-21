@@ -69,6 +69,7 @@ export const GENESIS_CONFIG_KEYS: readonly string[] = [
   "links",
   "localPackages",
   "notifications",
+  "observability",
   "preset",
   "privacy",
   "release",

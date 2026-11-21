@@ -9,7 +9,9 @@
 # 1. Fingerprint the native project as the release builds it (production).
 # 2. A release build (store or TestFlight) with that fingerprint exists, so the pull request changed
 #    no native code: publish its JavaScript to the branch `pr-<number>` and point the channel
-#    `pr-<number>` at it. Any phone with that build opens it from the preview link.
+#    `pr-<number>` at it. Any phone with that build opens it from the preview link. With Sentry on
+#    (release.sentry, which follows genesis.config.json observability.sentry), each platform's
+#    update uploads its source maps, and a missing SENTRY_AUTH_TOKEN stops the run before publishing.
 # 3. None exists (the pull request changed native code): an update can't load on any build out
 #    there, so a preview build is made instead: the preview variant's build with the same
 #    fingerprint is repacked with this JavaScript, or one is built (iOS only with PREVIEW_IOS=true:

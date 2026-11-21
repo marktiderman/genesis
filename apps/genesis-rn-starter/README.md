@@ -316,8 +316,8 @@ it (App Store Review Guideline 4.8): `defineStarter` refuses Google without Appl
 - **Sentry.** Set `EXPO_PUBLIC_SENTRY_DSN` in `.env` (and in each EAS environment). Without it,
   nothing is sent. `src/lib/observability.ts` starts Sentry at module scope; `src/lib/app.ts`
   imports it first, and the root layout is exported wrapped (`wrapRoot`). Release and dist come
-  from the version signature, with the update id and channel as tags. Source map upload is
-  optional: the commented plugin line in `app.config.ts` says what to turn on.
+  from the version signature, with the update id and channel as tags. Readable stack traces are
+  one switch away (Sentry source maps, below).
 - **Errors per tab.** Each tab's `_layout.tsx` exports `ScreenErrorBoundary` (from
   `src/lib/observability.ts`) as its Expo Router `ErrorBoundary`: a screen that throws shows "This
   screen hit a problem" with Try again, the tab bar keeps working, and the error is reported
@@ -325,12 +325,36 @@ it (App Store Review Guideline 4.8): `defineStarter` refuses Google without Appl
   unexpectedly are reported too; offline, signed-out and refused requests are not.
 - **Trace headers.** `tracePropagationTargets` lists the hosts that get Sentry's trace headers:
   this app's Supabase project only. Add your own API's origin there; every other host gets none.
-- **Source maps.** Builds upload theirs to EAS for EAS Observe (`uploadSourceMaps: true` in the
-  preview and production profiles of `eas.json`), so its stack traces are symbolicated. The
-  workflows' update jobs set `upload_sentry_sourcemaps: false`: left unset, EAS tries a Sentry
-  upload whenever `@sentry/react-native` is installed and only prints the error when it fails. When
-  you turn the Sentry plugin on (`app.config.ts`) and add `SENTRY_AUTH_TOKEN`, set it to `true` in
-  `.eas/workflows/pr-preview.yml` and `deploy-production.yml`, so a failed upload fails the job.
+- **Source maps (EAS Observe).** Builds upload theirs to EAS for EAS Observe (`uploadSourceMaps:
+  true` in the preview and production profiles of `eas.json`), so its stack traces are symbolicated.
+- **Sentry source maps: one switch.** Set your Sentry organization and project slugs in
+  `genesis.config.json`:
+
+  ```json
+  { "observability": { "sentry": { "organization": "acme", "project": "sample-app", "url": "https://sentry.io/" } } }
+  ```
+
+  With both set:
+  - `app.config.ts` adds the `@sentry/react-native/expo` plugin, so every EAS build uploads its
+    source maps (and native debug files) to Sentry;
+  - `metro.config.js` builds on `getSentryExpoConfig` (`@sentry/react-native/metro`), which writes a
+    Debug ID into each bundle and its map so Sentry matches them, with the monorepo's
+    `watchFolders` and `resolveRequest` on it and NativeWind wrapping it last;
+  - the release lane's `release.sentry` defaults to on: each update (`native-release.yml`,
+    `deploy-production.yml`) and each pull request preview (`pr-preview.yml`) uploads its source maps
+    with `sentry-expo-upload-sourcemaps`. Run `genesis add template release` to write the workflows
+    again after you set it.
+
+  Then add `SENTRY_AUTH_TOKEN` (a Sentry organization token, scope `org:ci`) to each EAS environment
+  that builds or publishes (`eas env:create --name SENTRY_AUTH_TOKEN --visibility secret
+  --environment production --environment preview`) and to the GitHub release environment
+  (`genesis setup --step sentry` sets that one). A missing token fails the build or the release
+  before it ships unreadable stack traces. Development builds set `SENTRY_DISABLE_AUTO_UPLOAD`
+  (`eas.json`), so they need no token; on a laptop, `SENTRY_DISABLE_AUTO_UPLOAD=true pnpm ios`
+  does the same for a release build. `genesis doctor` checks every piece
+  (`cli/sentry-source-maps`), and `genesis fix cli/sentry-source-maps` writes what it can. Sentry's
+  "InternalBytecode.js has no debug ID" note is Hermes's built-in code, which has no source map:
+  ignore it.
 - **Privacy manifest.** The Genesis plugin declares, in the iOS privacy manifest, what the blocks
   that are on send off the phone (`privacyBlocks` in `src/lib/define-starter.ts`): `account` (email
   address, user id, name), `observability` (crash, performance and other diagnostic data, user id, and the typed

@@ -2902,9 +2902,10 @@ export const features = defineFeatures({
       "Emails, JWTs, Supabase keys, bearer tokens, Authorization and cookie headers and URL query strings are removed before any sink sees an event, breadcrumb, span or log; the user is sent as an id only; a scrubber failure drops the event.",
       "track() accepts only events and props in the app's schema (closed string lists, numbers, booleans) and drops and reports anything else.",
       "Sentry's release and dist follow its own format from the version signature, with the update id, channel and runtime version as tags.",
+      "With genesis.config.json observability.sentry set, stack traces are readable from builds (the Sentry Expo plugin), Metro's Debug IDs (getSentryExpoConfig) and every published update (release.sentry), and genesis doctor flags each missing piece in any app on Sentry, web or native (cli/sentry-source-maps).",
     ],
     reviewedAt: "2026-10-24",
-    links: { code: ["packages/native/src/observability", "apps/genesis-rn-starter/src/lib/observability.ts"], docs: ["packages/native/README.md"] },
+    links: { code: ["packages/native/src/observability", "apps/genesis-rn-starter/src/lib/observability.ts", "packages/genesis-cli/src/doctor/sentry.ts"], docs: ["packages/native/README.md", "docs/NATIVE-RELEASE.md"] },
   },
   "devtools-overlay": {
     name: "Devtools overlay",

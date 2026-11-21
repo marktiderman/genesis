@@ -143,6 +143,8 @@ export interface GenesisConfigFile {
   client?: GenesisClient;
   /** The native release lane's settings (templates/ci/native-release.yml and the EAS build lane): see {@link validateRelease}. */
   release?: GenesisRelease;
+  /** Where the app's errors go and how their stack traces are read: see {@link validateObservability}. */
+  observability?: GenesisObservability;
   /** The settings preset (`max`, the default, `standard` or `min`), resolved as its own layer: see {@link validatePreset}. */
   preset?: SettingsPreset;
   /**
@@ -324,6 +326,52 @@ export function validateRelease(raw: unknown, source = "config"): GenesisRelease
   return out;
 }
 
+/**
+ * The `observability` block. `sentry`: the Sentry organization and project the app's errors go
+ * to. With both set, readable stack traces are on: the starter wires the `@sentry/react-native/expo`
+ * plugin and Metro's Debug IDs (`getSentryExpoConfig`), and the release lane uploads each update's
+ * source maps (`release.sentry` defaults to true). Empty strings, or no block, leave it off.
+ */
+export interface GenesisObservability {
+  sentry?: GenesisSentry;
+}
+
+/** A Sentry project: its organization and project slugs, and Sentry's URL (default `https://sentry.io/`). */
+export interface GenesisSentry {
+  organization: string;
+  project: string;
+  url?: string;
+}
+
+const SENTRY_SLUG = /^(?:[a-z0-9][a-z0-9_-]{0,99})?$/;
+
+/** Check the top-level `observability` block: unknown keys and values fail, so a typo can't silently leave source maps off. */
+export function validateObservability(raw: unknown, source = "config"): GenesisObservability {
+  const fail = (msg: string): never => {
+    throw new GenesisConfigError(`${source}: observability.${msg}`);
+  };
+  if (!isObject(raw)) throw new GenesisConfigError(`${source}: "observability" must be an object, such as { "sentry": { "organization": "acme", "project": "sample-app" } }`);
+  for (const key of Object.keys(raw)) if (key !== "sentry" && key !== "$comment") fail(`${key} isn't a setting (known: sentry)`);
+  const out: GenesisObservability = {};
+  if (raw.sentry !== undefined) {
+    const s = raw.sentry;
+    if (!isObject(s)) return fail(`sentry must be { "organization": "<slug>", "project": "<slug>", "url"?: "https://sentry.io/" }`);
+    for (const key of Object.keys(s)) if (!["organization", "project", "url", "$comment"].includes(key)) fail(`sentry.${key} isn't a setting (known: organization, project, url)`);
+    for (const key of ["organization", "project"] as const) {
+      if (typeof s[key] !== "string" || !SENTRY_SLUG.test(s[key])) fail(`sentry.${key} must be a Sentry slug (lower-case letters, digits, _ and -), or "" for none (got ${JSON.stringify(s[key])})`);
+    }
+    if (s.url !== undefined && (typeof s.url !== "string" || !/^https:\/\/[a-z0-9.-]+(?::\d+)?\/?$/i.test(s.url))) fail(`sentry.url must be Sentry's https origin, such as "https://sentry.io/" (got ${JSON.stringify(s.url)})`);
+    out.sentry = { organization: s.organization as string, project: s.project as string, ...(typeof s.url === "string" ? { url: s.url } : {}) };
+  }
+  return out;
+}
+
+/** The Sentry project when the app has one configured (organization and project both set), else null. */
+export function sentryProject(config: Pick<GenesisConfigFile, "observability"> | null | undefined): GenesisSentry | null {
+  const s = config?.observability?.sentry;
+  return s && s.organization && s.project ? s : null;
+}
+
 /** The `client` block: where the app's client layer lives (ADR 0020). */
 export interface GenesisClient {
   /** The layer's folder, relative to the app. Default `src/client`. */
@@ -502,6 +550,7 @@ export function readGenesisConfig(root: string): GenesisConfigFile | null {
   if (raw.environments !== undefined) out.environments = validateEnvironments(raw.environments, file);
   if (raw.client !== undefined) out.client = validateClient(raw.client, file);
   if (raw.release !== undefined) out.release = validateRelease(raw.release, file);
+  if (raw.observability !== undefined) out.observability = validateObservability(raw.observability, file);
   const legacy = legacySettingsKeys(raw);
   if (legacy.length) out.legacySettingsKeys = legacy;
   if (raw.preset !== undefined && !legacy.some((l) => l.key === "preset")) out.preset = validatePreset(raw.preset, file);
