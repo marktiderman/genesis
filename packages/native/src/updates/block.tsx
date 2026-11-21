@@ -25,6 +25,7 @@ import { defineBlock } from "@marktiderman/genesis-config/blocks";
 import type { NativeBlock } from "../blocks";
 import { createUpdateChecker, createReloadGuard, type ReloadGuard, type UpdateChecker, type UpdateCheckState } from "./checker";
 import { createChannelSwitcher, type ChannelSwitcher } from "./channels";
+import { PreviewNotice, usePreviewNotice, type PreviewNoticeProps } from "./preview";
 import { delay } from "./store";
 import {
   WEEK_MS,
@@ -61,6 +62,8 @@ export type UpdatesSlots = {
   updateBanner: UpdateBannerProps;
   /** Once per version. Default `WhatsNewSheet`. */
   whatsNew: WhatsNewProps;
+  /** Over every screen while a preview channel is open, with Leave. Default `PreviewNotice`; `null` hides it. */
+  previewNotice: PreviewNoticeProps;
 };
 
 export interface UpdatesOptions {
@@ -86,7 +89,11 @@ export interface UpdatesOptions {
   notes?: readonly ReleaseNote[];
   /** `false` turns what's new off. */
   whatsNew?: boolean;
-  /** Channel switching, for development and preview builds only: `{ enabled: __DEV__ || isPreview }`. */
+  /**
+   * Channel switching and previews (`PreviewScreen`, `PreviewNotice`): `{ enabled: true }` in every
+   * build that should open preview links, store builds included (channel surfing changes no native
+   * code and keeps the fallback to the embedded update). Off when left out.
+   */
   channels?: { enabled: boolean };
   /** The longest the first policy load holds the splash. Default 3000 ms. */
   policyTimeoutMs?: number;
@@ -413,6 +420,7 @@ function UpdatesParts({ slots, slotProps, children }: Omit<UpdatesRootProps, "bl
   const maintenance = useMaintenance();
   const banner = useUpdateBanner();
   const whatsNew = useWhatsNew();
+  const preview = usePreviewNotice();
   // An ejected blocking slot (`null`) falls through to the screens: a block that is turned off never blocks.
   const blocking =
     forceUpgrade && slots?.forceUpgrade !== null
@@ -434,6 +442,7 @@ function UpdatesParts({ slots, slotProps, children }: Omit<UpdatesRootProps, "bl
       </View>
       {!blocking && banner ? renderSlot(UpdateBanner, slots?.updateBanner, banner, slotProps?.updateBanner) : null}
       {!blocking && whatsNew ? renderSlot(WhatsNewSheet, slots?.whatsNew, whatsNew, slotProps?.whatsNew) : null}
+      {preview && slots?.previewNotice !== null ? renderSlot(PreviewNotice, slots?.previewNotice, preview, slotProps?.previewNotice) : null}
       {blocking ? (
         <View style={FILL} testID="genesis-updates-blocking">
           {blocking}

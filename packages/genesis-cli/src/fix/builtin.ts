@@ -305,6 +305,24 @@ const removeUnknownSettings: Fix = {
   },
 };
 
+const adoptMissed: Fix = {
+  id: "missed-value.adopt",
+  kind: "guided",
+  rules: ["missed-value"],
+  title: "adopt what Genesis offers that the app doesn't use (each finding says how), or decline it in doctor.declined with the reason",
+  async plan(ctx) {
+    const missed = ctx.findings.filter((f) => f.rule === "missed-value");
+    if (!missed.length) return { summary: "nothing Genesis offers is missed" };
+    const ids = [...new Set(missed.map((f) => f.subject ?? f.file))];
+    const lane = ids.includes("pr-previews");
+    return {
+      summary: `missed: ${ids.join(", ")}`,
+      commands: lane ? [{ tool: "genesis", args: ["add", "template", "previews"], why: "pull request previews on their own channel, and their teardown" }] : [],
+      manual: "Follow each finding's steps in a pull request, or add the id to genesis.config.json doctor.declined with why the app doesn't want it.",
+    };
+  },
+};
+
 const resetBadSettings: Fix = {
   id: "settings.reset",
   kind: "guided",
@@ -457,5 +475,5 @@ function setSecrets(): Fix {
 
 /** Every built-in fix, in the order the engine tries them for a rule. */
 export function builtinFixes(deps: BuiltinDeps = {}): Fix[] {
-  return [scopeNames, featuresRenamed, eslintConfig, agentGuide, agentHooks, contractsFix(deps), migrateCopyFix(deps), migrateForwardFix(deps), upgradeFix(deps), removeUnknownSettings, resetBadSettings, reviewSettings, settingRequires, settingSetup, firstAdmin, setSecrets()];
+  return [scopeNames, featuresRenamed, eslintConfig, agentGuide, agentHooks, contractsFix(deps), migrateCopyFix(deps), migrateForwardFix(deps), upgradeFix(deps), removeUnknownSettings, resetBadSettings, adoptMissed, reviewSettings, settingRequires, settingSetup, firstAdmin, setSecrets()];
 }

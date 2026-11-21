@@ -128,6 +128,17 @@ export function easProfileEnvironment(root: string, profile: string, platform: "
   return (field("distribution") ?? "store") === "store" ? "production" : field("developmentClient") === true ? "development" : "preview";
 }
 
+/** The app's URL scheme from app.json (`expo.scheme`), or null (app.config.ts is code: set release.previews.scheme). */
+export function appScheme(root: string): string | null {
+  try {
+    const json = JSON.parse(readFileSync(path.join(root, "app.json"), "utf8")) as { expo?: { scheme?: unknown } };
+    const scheme = Array.isArray(json.expo?.scheme) ? json.expo?.scheme[0] : json.expo?.scheme;
+    return typeof scheme === "string" ? scheme : null;
+  } catch {
+    return null;
+  }
+}
+
 /** The release context for an app: its `release` block with the defaults, and its folder. */
 export function releaseContext(root: string): ReleaseContext {
   const config = readGenesisConfig(root);
@@ -150,6 +161,7 @@ export function releaseContext(root: string): ReleaseContext {
         ...(set.easEnvironment ? { easEnvironment: set.easEnvironment } : {}),
         ...(set.packageManager ? { packageManager: set.packageManager } : {}),
         ...(set.runtimeVersion && set.runtimeVersion !== "fingerprint" ? { runtimeCommand: set.runtimeVersion.command } : {}),
+        ...(set.previews || appScheme(root) ? { previews: { origin: set.previews?.origin ?? "", scheme: set.previews?.scheme ?? appScheme(root) ?? "" } } : {}),
       },
       detected as ReleasePackageManager,
     ),
@@ -191,7 +203,7 @@ export function currentSource(source: string): string {
 }
 
 /** Workflows that are Genesis's alone: with `appFolder`, written and refreshed at the repository's root. */
-export const DEDICATED_WORKFLOWS: ReadonlySet<string> = new Set([".github/workflows/native-release.yml"]);
+export const DEDICATED_WORKFLOWS: ReadonlySet<string> = new Set([".github/workflows/native-release.yml", ".github/workflows/pr-preview-teardown.yml"]);
 
 export const isDedicatedWorkflow = (rel: string) => DEDICATED_WORKFLOWS.has(rel);
 
@@ -212,7 +224,11 @@ export function ownedDir(root: string, rel: string, appFolder: string | null): s
 export const TEMPLATE_SETS: Readonly<Record<string, { summary: string; templates: readonly string[] }>> = {
   release: {
     summary: "the native release lane: native-release.yml (GitHub), deploy-production.yml and pr-preview.yml (EAS), its script, the fingerprint config",
-    templates: ["ci/native-release.yml", "release/deploy-production.yml", "release/pr-preview.yml", "eas/scripts/native-release.mjs", "expo/fingerprint.config.js", "expo/.fingerprintignore"],
+    templates: ["ci/native-release.yml", "release/deploy-production.yml", "release/pr-preview.yml", "ci/pr-preview-teardown.yml", "eas/scripts/native-release.mjs", "expo/fingerprint.config.js", "expo/.fingerprintignore"],
+  },
+  previews: {
+    summary: "pull request previews alone, for an app that ships its releases another way: pr-preview.yml (EAS) and pr-preview-teardown.yml (GitHub)",
+    templates: ["release/pr-preview.yml", "ci/pr-preview-teardown.yml", "expo/fingerprint.config.js", "expo/.fingerprintignore"],
   },
   eas: { summary: "eas.json and every EAS workflow and script", templates: ["eas/", "release/"] },
   expo: { summary: "the fingerprint config and .fingerprintignore", templates: ["expo/"] },
@@ -555,6 +571,8 @@ export function missingTemplateSets(root: string, lock: GenesisLock, dir = templ
   const native = ["app.json", "app.config.ts", "app.config.js", "eas.json"].some((f) => existsSync(path.join(root, f)));
   const wanted = Object.keys(TEMPLATE_SETS).filter((name) => {
     if (["release", "eas", "expo", "maestro"].includes(name)) return native;
+    // Previews alone is the release lane's subset: an app offered the lane isn't offered both.
+    if (name === "previews") return false;
     if (name === "database") return existsSync(path.join(root, "supabase"));
     if (name === "vercel") return !native;
     return true;

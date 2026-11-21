@@ -210,9 +210,15 @@ A manifest entry:
   "routes": [{ "path": "/settings/notifications", "signedIn": true }],
   "skills": ["skills/push/SKILL.md"],
   "agents": "agents/push.md",
-  "steps": ["npx expo install expo-notifications, and add it to the plugins in app.config."]
+  "steps": ["npx expo install expo-notifications, and add it to the plugins in app.config."],
+  "detect": { "imports": ["createPush"], "off": [{ "pattern": "push\\s*:\\s*false", "message": "push is off" }] }
 }
 ```
+
+`detect` says how the doctor tells whether an app uses the block (rule `missed-value`): `imports`
+are names a file imports from the block's `packages` (a block in `genesis.lock.json` counts as
+used too), and each `off` pattern, matched in the app's code, means it is adopted but switched off
+there, with what that costs.
 
 Every path is package-relative and checked before anything reads it: no absolute paths, no `..`,
 no backslashes, and a file that resolves (through a symlink) outside its package is refused.
@@ -1197,6 +1203,7 @@ keep `raw-color`).
 | `eas-placeholder` | warn | A `REPLACE_WITH_…` placeholder from the EAS templates still in `eas.json` or `.eas/workflows/*.yml` (YAML comment lines aren't read), each with what replaces it: the store ids in `eas.json` `submit.production` (the App Store Connect Apple ID, the Apple Team ID, the Google Play service account key's path), or `REPLACE_WITH_APP_FOLDER` in `pr-preview.yml`'s `paths`, which otherwise matches nothing, so code changes never start a preview. `genesis init --template native` fills the app folder in (`src`). |
 | `fingerprint-plugin-files` | warn | The app's Expo config uses the fingerprint runtime version (the Genesis plugin sets it) and loads `@marktiderman/genesis-native/rich-push-plugin`, but no `fingerprint.config.js` sets `configPluginSourceType: "files"`. Hashed by `package.json`, each new Genesis version would make a store build instead of an update. `genesis add template expo` writes the config (docs/NATIVE-RELEASE.md, "Fingerprints"). |
 | `release-lane-twice` | error | The app has `.github/workflows/native-release.yml` (at the repository's root under `appFolder`) and another workflow that also releases: a GitHub workflow running `eas update`, `eas build` or `eas workflow:run`, or an EAS workflow with a `push` trigger that can fire on `main` (no branch filter, a matching `branches` glob, not in `branches_ignore`) and an update or build job (the old push-triggered `deploy-production.yml`). Each release would go out twice, so it fails the run. `genesis add release` holds `native-release.yml` back while one is there, unless run with `--replace-rival`, which doesn't apply to the app's own push-triggered `deploy-production.yml` (merge its `.genesis-next`: `native-release.yml` dispatches to it). |
+| `missed-value` | info | What Genesis offers the app that it isn't getting: a block of an installed package (or one in the CLI's catalog, for packages the app doesn't have) for the app's platforms that nothing uses, or one adopted but switched off (a `detect.off` pattern, reported at its line), and a native app's missing PR preview lane (`.eas/workflows/pr-preview.yml`). Each says what it does and how to adopt it, and the report always ends with the count ("Missed value: N …"), so it's never only in `--verbose`. An app that doesn't want one says why: `"doctor": { "declined": { "push": "the web sends our pushes" } }` (`pr-previews` for the lane); a declined id nothing offers is reported so the list stays true. `genesis fix` walks through adopting each. |
 
 **`supabase`**, for `supabase/migrations/*.sql` (`supabase.migrations`). The SQL is read
 statement by statement with comments removed and string (`'…'`, `E'…'`) and dollar-quoted

@@ -619,6 +619,7 @@ const SLOT_NAMES: Record<keyof NativeAppSlots, true> = {
   maintenance: true,
   updateBanner: true,
   whatsNew: true,
+      previewNotice: true,
   devtoolsFeedback: true,
   devtoolsDiagnostics: true,
   pushPrompt: true,

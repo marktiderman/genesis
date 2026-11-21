@@ -1,0 +1,52 @@
+# Copy to .github/workflows/pr-preview-teardown.yml (`genesis add template previews` writes it).
+#
+# When a pull request closes (merged or not), delete its preview: the EAS channel `pr-<number>`
+# and the branch of the same name that pr-preview.yml published to. A phone still on it heals by
+# itself: EAS answers "There is no channel named pr-<number>", and genesis-native drops the override
+# at its next check (channels.recover) and is back on its build's channel.
+#
+# It runs on pull_request_target, with the base branch's copy of this file, so a pull request
+# can't change what runs with the token. It checks out nothing: eas-cli needs only the project id.
+#
+# Needs the repository secret EXPO_TOKEN (an Expo robot token with access to the project): a
+# repository secret, not an environment's, because an environment limited to main can't serve a
+# pull request's event. And the repository variable EAS_PROJECT_ID (expo.dev → the project →
+# its ID), so eas-cli can name the project without the app's config.
+#
+# Genesis template (templates/ci/pr-preview-teardown.yml); see docs/NATIVE-RELEASE.md, "Previews".
+name: PR preview teardown
+
+on:
+  pull_request_target:
+    types: [closed]
+
+permissions: {}
+
+concurrency:
+  group: pr-preview-teardown-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  teardown:
+    name: Delete the preview channel and branch
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EAS_PROJECT_ID: ${{ vars.EAS_PROJECT_ID }}
+      CHANNEL: pr-${{ github.event.pull_request.number }}
+    steps:
+      - name: Delete pr-<number>
+        run: |
+          set -u
+          if [ -z "$EXPO_TOKEN" ] || [ -z "$EAS_PROJECT_ID" ]; then
+            echo "::warning::EXPO_TOKEN (secret) or EAS_PROJECT_ID (variable) isn't set: the preview $CHANNEL is left on EAS."
+            exit 0
+          fi
+          dir="$(mktemp -d)"
+          printf '{"expo":{"slug":"preview-teardown","extra":{"eas":{"projectId":"%s"}}}}' "$EAS_PROJECT_ID" > "$dir/app.json"
+          cd "$dir"
+          # The channel first: EAS won't delete a branch a channel still points at. Either may be
+          # gone already (a pull request whose preview never published), which is fine.
+          npx --yes eas-cli@26.0.0 channel:delete "$CHANNEL" --non-interactive || echo "No channel $CHANNEL."
+          npx --yes eas-cli@26.0.0 branch:delete "$CHANNEL" --non-interactive || echo "No branch $CHANNEL."

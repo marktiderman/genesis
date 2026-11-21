@@ -233,7 +233,7 @@ export const updates = createUpdates({
   storage: AsyncStorage,
   appState: AppState,
   openURL: Linking.openURL,
-  channels: { enabled: __DEV__ || process.env.EXPO_PUBLIC_PREVIEW === "1" },
+  channels: { enabled: true },
 });
 
 // app/_layout.tsx
@@ -266,10 +266,10 @@ export const updates = createUpdates({
   (`1.4.0 (37) · preview · 3f2a9c1b`) for a Settings "About" row and `text` (version,
   build, platform, channel, runtime, update id, emergency launch) for a support
   report. A value the modules can't give prints as `unknown`.
-- **Channel switching** (test builds only): `useUpdates().channels.switchTo("pr-42")`
-  overrides the `expo-channel-name` header, fetches and reloads (or reports
-  `blocked` mid-edit). It throws unless `channels: { enabled: true }`; never
-  enable it in a store build. `channels.reset()` goes back and always works.
+- **Channel switching and previews** (see [Previews](#previews)):
+  `useUpdates().channels.switchTo("pr-42")` overrides the `expo-channel-name`
+  header, fetches and reloads (or reports `blocked` mid-edit). It throws unless
+  `channels: { enabled: true }`. `channels.reset()` goes back and always works.
 
 **Policy sources.** `UpdatePolicySource` is `{ load(): Promise<UpdatePolicy | null> }`.
 `staticPolicySource(policy)` is a policy written in the app;
@@ -307,6 +307,50 @@ under `UpdatesProvider` (or the shell): `useForceUpgrade`, `useMaintenance`,
 imported: without `updates` there is no banner and no channel switching;
 without `application` nothing is forced and no notes show. The banner uses
 `react-native-safe-area-context`, a peer (genesis-ui-native needs it too).
+
+## Previews
+
+A pull request's preview is an update channel, `pr-<number>`, that the app people already have
+opens from a link (EAS [channel surfing](https://docs.expo.dev/eas-update/channel-surfing/)). The
+release lane's `pr-preview.yml` publishes it and comments the link; `pr-preview-teardown.yml`
+deletes it when the pull request closes (`genesis add template previews`, docs/NATIVE-RELEASE.md).
+
+1. **Turn channels on** in every build that should open previews, store builds included:
+   `createUpdates({ …, channels: { enabled: true } })`. The header override only picks which
+   compatible update (same runtime version) the build loads; expo-updates keeps its fallback to
+   the embedded update. Never pair it with `disableAntiBrickingMeasures`.
+2. **Route the links.** `normalizeLink` (in `app/+native-intent.ts`) turns every form of a preview
+   link into `/preview?channel=pr-42`: `https://<host>/preview?channel=pr-42` (a universal link:
+   list `/preview` in the web's AASA and assetlinks, and serve a landing page there for phones
+   without the app), `<scheme>:///preview?channel=pr-42`, `/preview/pr-42`, and Expo's
+   development-client QR. A channel name is checked first, so a link can't put anything else in
+   the header. Don't hold a preview link for sign-in: it changes the code, not the data.
+3. **Add the screen**, `app/preview.tsx`:
+
+   ```tsx
+   import { router, useLocalSearchParams } from "expo-router";
+   import { PreviewScreen } from "@marktiderman/genesis-native/updates";
+
+   export default function Preview() {
+     const { channel } = useLocalSearchParams<{ channel?: string }>();
+     return <PreviewScreen channel={channel} onDone={() => router.back()} />;
+   }
+   ```
+
+   It asks, downloads (`channels.prepare`) and restarts into the preview (`channels.restart`), and
+   says why when there's nothing to load: nothing published for this build's runtime (the pull
+   request changed native code), an update that crashed on this phone before, or a channel that
+   was deleted.
+4. **The banner.** While a preview is open the updates root draws `PreviewNotice` over every
+   screen ("Preview: pr-42 · Leave"); Leave is `channels.reset()`. Slot `previewNotice` (`null`
+   hides it). `useChannelState()` reads the picked channel and the build's own.
+
+The switcher queues its writes (a link, Leave and recovery never race), remembers the build's own
+channel on a plain launch (under an override `Updates.channel` names the override), and heals a
+closed pull request's channel: call `channels.recover(error)` with a launch check's error, and when
+EAS says "There is no channel named …" the override is dropped. `genesis doctor`'s `missed-value`
+check flags an app with channels on only in `__DEV__` (where expo-updates can't switch) or with no
+preview lane.
 
 ## Observability: errors, breadcrumbs, events, timings
 

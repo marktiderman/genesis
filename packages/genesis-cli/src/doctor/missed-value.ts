@@ -4,8 +4,8 @@
  * platforms is one of:
  *
  * - used: in genesis.lock.json, or a file imports one of its `detect.imports` from its packages;
- * - switched off: used, but a `detect.off` pattern matches (Growth90's channel switch was on only
- *   in development, where it can't work), reported at the line with what it costs;
+ * - switched off: used, but a `detect.off` pattern matches (a consumer app had channel switching on
+ *   only in development, where it can't work), reported at the line with what it costs;
  * - missed: its package isn't installed, or it declares `detect` and nothing imports it;
  * - unknown: installed, with no `detect` to tell (not reported).
  *
@@ -125,7 +125,7 @@ export function missedValueCheck(deps: { blocks?: (root: string) => Promise<{ ma
           file: ".eas/workflows",
           subject: "pr-previews",
           message:
-            "PR previews (the release lane's pr-preview.yml) are missing: no pull request can be tried on a phone. Run genesis add template release (docs/NATIVE-RELEASE.md, \"Adopting the lane\"; an app with its own OTA workflow keeps it and adds only the preview). Not wanted? Add pr-previews to doctor.declined with the reason",
+            "PR previews (the release lane's pr-preview.yml) are missing: no pull request can be tried on a phone. Run genesis add template release, or genesis add template previews for an app that keeps its own release workflow (docs/NATIVE-RELEASE.md, \"Previews\"). Not wanted? Add pr-previews to doctor.declined with the reason",
         });
       }
     }

@@ -102,7 +102,9 @@ describe("channel switching, hardened", () => {
   it("runs one write at a time, in order", async () => {
     const updates = fakeUpdates({ next: { id: "x" } });
     const order: string[] = [];
-    updates.setUpdateRequestHeadersOverride.mockImplementation((h: Record<string, string> | null) => order.push(h ? h["expo-channel-name"]! : "reset"));
+    (updates.setUpdateRequestHeadersOverride as unknown as { mockImplementation: (f: (h: Record<string, string> | null) => void) => void }).mockImplementation((h) => {
+      order.push(h ? h["expo-channel-name"]! : "reset");
+    });
     const switcher = createChannelSwitcher({ updates, enabled: true, guard: createReloadGuard() });
     await Promise.all([switcher.prepare("pr-1"), switcher.reset(), switcher.prepare("pr-2")]);
     expect(order).toEqual(["pr-1", "reset", "pr-2"]);

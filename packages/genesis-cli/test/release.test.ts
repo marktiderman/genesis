@@ -47,7 +47,7 @@ describe("the release block", () => {
   });
 
   it("defaults: both platforms, production everywhere, no Sentry, no hook, the fingerprint", () => {
-    expect(resolveRelease({}, "bun")).toEqual({ platforms: ["ios", "android"], environment: "production", paths: [], sentry: false, pushHook: null, profile: "production", channel: "production", easEnvironment: "production", packageManager: "bun", runtimeCommand: null });
+    expect(resolveRelease({}, "bun")).toEqual({ platforms: ["ios", "android"], environment: "production", paths: [], sentry: false, pushHook: null, profile: "production", channel: "production", easEnvironment: "production", packageManager: "bun", runtimeCommand: null, previews: { origin: "", scheme: "" } });
     expect(resolveRelease({ profile: "store" }).easEnvironment).toBe("store");
   });
 });
@@ -614,7 +614,8 @@ describe("rendering the templates", () => {
     expect(doc.on.pull_request.paths).toContain("app/src/**");
     expect(doc.on.pull_request.paths).not.toContain("mobile/app/src/**");
     expect(Object.keys(doc.jobs).filter((j) => j.includes("android"))).toEqual([]);
-    expect(doc.jobs.comment.after).toEqual(["repack_ios", "build_ios", "publish_update"]);
+    expect(doc.jobs.comment.needs).toEqual(["publish_update"]);
+    expect(doc.jobs.publish_update.needs).toEqual(["get_release_ios_build"]);
     // renderOwned alone never prefixes a release.paths line.
     expect(renderOwned(".eas/workflows/x.yml", 'on:\n  push:\n    paths:\n      - "a/**" # release.paths\n', "mobile")).toContain('- "a/**" # release.paths');
   });
@@ -629,12 +630,14 @@ describe("rendering the templates", () => {
     expect(lane).not.toContain("scripts/acme-push.mjs");
   });
 
-  it("pr-preview publishes the update for the platforms it builds", () => {
-    const platformOf = (platforms: ("ios" | "android")[]) =>
-      /eas-cli@[\d.]+ update [^\n]*--platform (\S+)/.exec((yaml("release/pr-preview.yml", ctx({ platforms })).jobs.publish_update.steps as { run?: string }[]).map((s) => s.run ?? "").join("\n"))?.[1];
-    expect(platformOf(["android"])).toBe("android");
-    expect(platformOf(["ios"])).toBe("ios");
-    expect(platformOf(["ios", "android"])).toBe("all");
+  it("pr-preview publishes onto the release builds of the platforms it releases, to its own branch and channel", () => {
+    const releaseLookups = (platforms: ("ios" | "android")[]) => Object.keys(yaml("release/pr-preview.yml", ctx({ platforms })).jobs).filter((j) => j.startsWith("get_release_"));
+    expect(releaseLookups(["android"])).toEqual(["get_release_android_build"]);
+    expect(releaseLookups(["ios"])).toEqual(["get_release_ios_build"]);
+    expect(releaseLookups(["ios", "android"])).toEqual(["get_release_ios_build", "get_release_android_build"]);
+    const run = (yaml("release/pr-preview.yml", ctx({ platforms: ["ios"] })).jobs.publish_update.steps as { run?: string }[]).map((s) => s.run ?? "").join("\n");
+    expect(run).toMatch(/update --branch "\$PREVIEW_CHANNEL"/);
+    expect(run).toMatch(/channel:edit "\$PREVIEW_CHANNEL" --branch "\$PREVIEW_CHANNEL"/);
   });
 
   it("pins the CI callers to a release, and moves any caller's pin", () => {
@@ -658,7 +661,7 @@ describe("rendering the templates", () => {
     for (const [key, t] of [["vercel.json", "vercel/vercel.json"], ["scripts/vercel-ignore-build.sh", "vercel/ignore-build.sh"], ["fingerprint.config.js", "expo/fingerprint.config.js"], [".fingerprintignore", "expo/.fingerprintignore"]]) {
       expect(ownedKeyProblem(key!, `${CLI}:templates/${t}`)).toBeNull();
     }
-    expect(resolveTemplateNames(["release"])).toEqual(["ci/native-release.yml", "release/deploy-production.yml", "release/pr-preview.yml", "eas/scripts/native-release.mjs", "expo/fingerprint.config.js", "expo/.fingerprintignore"]);
+    expect(resolveTemplateNames(["release"])).toEqual(["ci/native-release.yml", "release/deploy-production.yml", "release/pr-preview.yml", "ci/pr-preview-teardown.yml", "eas/scripts/native-release.mjs", "expo/fingerprint.config.js", "expo/.fingerprintignore"]);
     expect(() => resolveTemplateNames(["nope"])).toThrow(/isn't a template set/);
   });
 });
@@ -994,6 +997,7 @@ describe("genesis add template", () => {
       ".github/workflows/native-release.yml": "created",
       ".eas/workflows/deploy-production.yml": "next",
       ".eas/workflows/pr-preview.yml": "created",
+      ".github/workflows/pr-preview-teardown.yml": "created",
       ".eas/scripts/native-release.mjs": "created",
       "fingerprint.config.js": "created",
       ".fingerprintignore": "created",

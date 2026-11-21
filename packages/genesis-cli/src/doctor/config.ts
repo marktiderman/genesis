@@ -237,9 +237,15 @@ export interface GenesisRelease {
    * per-platform `runtimeVersion`).
    */
   runtimeVersion?: "fingerprint" | { command: string };
+  /**
+   * Pull request previews (pr-preview.yml): the links its comment shares. `origin`: the web app's
+   * origin, whose `/preview?channel=…` is a universal link into the app (and the landing page
+   * without it); `scheme`: the app's scheme, for the QR code. Default: the scheme only, from app config.
+   */
+  previews?: { origin?: string; scheme?: string };
 }
 
-const RELEASE_KEYS = ["platforms", "environment", "paths", "sentry", "pushHook", "profile", "channel", "easEnvironment", "packageManager", "runtimeVersion"];
+const RELEASE_KEYS = ["platforms", "environment", "paths", "sentry", "pushHook", "profile", "channel", "easEnvironment", "packageManager", "runtimeVersion", "previews"];
 const RELEASE_NAME = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,59}$/;
 const RELEASE_HOOK = /^[A-Za-z0-9_][A-Za-z0-9_./-]{0,119}\.(?:mjs|cjs|js)$/;
 const RELEASE_SECRET = /^[A-Z][A-Z0-9_]{0,63}$/;
@@ -298,6 +304,23 @@ export function validateRelease(raw: unknown, source = "config"): GenesisRelease
     }
     out.runtimeVersion = { command: (command as string).trim() };
   } else if (raw.runtimeVersion === "fingerprint") out.runtimeVersion = "fingerprint";
+  if (raw.previews !== undefined) {
+    const p = raw.previews;
+    if (!isObject(p)) fail(`previews must be { "origin": "https://…", "scheme": "myapp" }`);
+    else {
+      for (const key of Object.keys(p)) if (key !== "origin" && key !== "scheme" && key !== "$comment") fail(`previews.${key} isn't a setting (known: origin, scheme)`);
+      const previews: { origin?: string; scheme?: string } = {};
+      if (p.origin !== undefined) {
+        if (typeof p.origin !== "string" || !/^https:\/\/[a-z0-9.-]+(?::\d+)?$/i.test(p.origin)) fail(`previews.origin must be an https origin with no path, such as "https://example.com" (got ${JSON.stringify(p.origin)})`);
+        else previews.origin = p.origin;
+      }
+      if (p.scheme !== undefined) {
+        if (typeof p.scheme !== "string" || !/^[a-z][a-z0-9+.-]{0,39}$/.test(p.scheme)) fail(`previews.scheme must be the app's URL scheme, such as "myapp" (got ${JSON.stringify(p.scheme)})`);
+        else previews.scheme = p.scheme;
+      }
+      out.previews = previews;
+    }
+  }
   return out;
 }
 

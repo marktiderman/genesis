@@ -5203,7 +5203,7 @@
       ],
       "visibility": "internal",
       "acceptance": [
-        "No pull request workflow can submit, publish to the production channel or use a production profile or environment.",
+        "No pull request workflow can submit, build with the production profile or publish to the production channel; a preview update reads the release's EAS environment (to match the release builds' runtime) and goes only to its own pr-<number> channel.",
         "The production deploy runs only on a push to main, with no require-approval job; its updates go to 100% (EAS allows one rollout at a time), and each store build is submitted in the run that built it.",
         "The starter's eas.json, workflows and rollout check are byte-identical to templates/eas."
       ],
@@ -5213,6 +5213,60 @@
           "templates/eas",
           "apps/genesis-rn-starter/.eas",
           "apps/genesis-rn-starter/eas.json"
+        ],
+        "docs": [
+          "docs/NATIVE-RELEASE.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "native-previews",
+      "name": "Native previews",
+      "summary": "Each pull request that changes a native app on its own update channel (pr-<number>), opened in the app people already have: a preview link (https universal link, the app's scheme, or Expo's QR) opens the preview screen, which asks, downloads and restarts into it; a banner shows while a preview is open, with Leave; a closed pull request's channel heals on the phone and is deleted on EAS; and genesis doctor's missed-value check names an app without it.",
+      "category": "Tooling",
+      "status": "building",
+      "claimedBy": "messages-builder",
+      "kind": "tool",
+      "keywords": [
+        "preview",
+        "pr preview",
+        "channel surfing",
+        "update channel",
+        "deep link",
+        "universal link",
+        "qr code",
+        "testflight",
+        "ota"
+      ],
+      "platforms": {
+        "native": "building"
+      },
+      "entry": {
+        "native": "@marktiderman/genesis-native/updates"
+      },
+      "requires": [
+        "app-updates",
+        "eas-workflows"
+      ],
+      "owner": "mark",
+      "apps": [
+        "native"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "links": {
+        "code": [
+          "packages/native/src/updates/channels.ts",
+          "packages/native/src/updates/preview-links.ts",
+          "packages/native/src/updates/preview.tsx",
+          "templates/release/pr-preview.yml",
+          "templates/ci/pr-preview-teardown.yml",
+          "packages/genesis-cli/src/doctor/missed-value.ts",
+          "apps/genesis-rn-starter/src/app/preview.tsx"
         ],
         "docs": [
           "docs/NATIVE-RELEASE.md"
