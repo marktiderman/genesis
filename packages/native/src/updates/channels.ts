@@ -83,8 +83,9 @@ export interface ChannelSwitcher {
   prepare(channel: string): Promise<ChannelCheck>;
   /**
    * Record an update something else downloaded (the update checker) as `channel`'s, so its code is
-   * still recognized if a restart after leaving launches it. Only while `channel` is the preview
-   * picked (it was when the download started); otherwise nothing.
+   * still recognized if a restart after leaving launches it. `channel` is the preview picked when
+   * the download started; recorded while it's still picked or none is (left mid-download), not
+   * once another preview is picked.
    */
   noteDownloaded(updateId: string, channel: string): Promise<void>;
   /** Reload into what was downloaded (respects the reload guard). */
@@ -293,9 +294,9 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
       return { kind: "error", error };
     }
   };
-  /** Add `id` to the open preview's record (no preview open: nothing). */
-  const recordPreviewUpdate = async (id: string) => {
-    const picked = (await load()).requested;
+  /** Add `id` to `channel`'s record (default: the open preview's; none open: nothing). */
+  const recordPreviewUpdate = async (id: string, channel?: string) => {
+    const picked = channel ?? (await load()).requested;
     if (!picked) return;
     const record = parsePreviewRecord(await read(previewKey));
     const ids = record?.channel === picked ? record.ids : [];
@@ -365,7 +366,10 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
     },
     noteDownloaded(updateId, channel) {
       return serial(async () => {
-        if ((await load()).requested === channel) await recordPreviewUpdate(updateId);
+        // Still on that preview, or left it while the download ran (the download asked for the
+        // preview's header, so it is the preview's): record. Moved to another preview: not this one's.
+        const now = (await load()).requested;
+        if (now === channel || now === null) await recordPreviewUpdate(updateId, channel);
       });
     },
     restart() {

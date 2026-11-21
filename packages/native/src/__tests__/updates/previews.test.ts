@@ -221,9 +221,10 @@ describe("channel switching, hardened", () => {
     storage.data.delete("genesis:updates:channel");
     const after = createChannelSwitcher({ updates: fakeUpdates({ updateId: "pr-6-b" }), enabled: true, guard: createReloadGuard(), storage });
     await expect(after.state()).resolves.toMatchObject({ requested: null, lingering: "pr-6" });
-    // With no preview open, a download isn't recorded.
-    await after.noteDownloaded("release-9", "pr-6");
-    expect(JSON.parse(storage.data.get("genesis:updates:channel:preview-update")!).ids).not.toContain("release-9");
+    // A download that started on pr-6 doesn't count once another preview is picked.
+    await after.prepare("pr-7");
+    await after.noteDownloaded("pr-6-c", "pr-6");
+    expect(storage.data.get("genesis:updates:channel:preview-update") ?? "").not.toContain("pr-6-c");
   });
 
   it("never records the build's own update as a preview's: a rollback from a crashed preview, an unfinished download, the embedded update", async () => {

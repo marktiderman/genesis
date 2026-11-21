@@ -78,69 +78,176 @@ export function namesImportedFrom(code: string, packages: readonly string[]): Ma
   return out;
 }
 
-/** `code` with the contents of every string, template literal and comment replaced by spaces (same length). */
-export function blankStrings(code: string): string {
-  let out = "";
-  let quote: string | null = null;
-  for (let i = 0; i < code.length; i++) {
-    const c = code[i]!;
-    if (quote) {
-      if (c === "\\") {
-        out += "  ";
+/**
+ * Which characters of `code` are code (1) rather than inside a string, a template literal's text,
+ * a comment or a regex literal (0). A `/` starts a regex where an expression can begin (after an
+ * operator, `(`, `,`, `=`, `return` and the like), else it divides. Template `${…}` holes are code.
+ */
+export function codeMask(code: string): Uint8Array {
+  const mask = new Uint8Array(code.length).fill(1);
+  const templates: number[] = []; // brace depth at each open `${`
+  let depth = 0;
+  let lastSignificant = ""; // the last code character that isn't space
+  let lastWord = "";
+  const regexCanStart = () => lastSignificant === "" || /[(,=:[!&|?{};+\-*%<>~^]/.test(lastSignificant) || /^(return|typeof|case|do|else|in|of|new|delete|void|throw|yield|await)$/.test(lastWord);
+  let i = 0;
+  const skipQuoted = (quote: string) => {
+    mask[i] = 0;
+    i++;
+    while (i < code.length && code[i] !== quote) {
+      mask[i] = 0;
+      if (code[i] === "\\") {
+        if (i + 1 < code.length) mask[i + 1] = 0;
         i++;
-      } else if (c === quote) {
-        quote = null;
-        out += c;
-      } else out += c === "\n" ? "\n" : " ";
+      }
+      i++;
+    }
+    if (i < code.length) mask[i] = 0;
+    i++;
+  };
+  const skipTemplateText = () => {
+    // From just after a backtick (or a closing `}` of a hole) to the next backtick or `${`.
+    while (i < code.length) {
+      const c = code[i]!;
+      if (c === "\\") {
+        mask[i] = 0;
+        if (i + 1 < code.length) mask[i + 1] = 0;
+        i += 2;
+        continue;
+      }
+      if (c === "`") {
+        mask[i] = 0;
+        i++;
+        return;
+      }
+      if (c === "$" && code[i + 1] === "{") {
+        mask[i] = 0;
+        mask[i + 1] = 0;
+        i += 2;
+        templates.push(depth);
+        depth++;
+        lastSignificant = "{";
+        lastWord = "";
+        return;
+      }
+      mask[i] = 0;
+      i++;
+    }
+  };
+  while (i < code.length) {
+    const c = code[i]!;
+    if (c === '"' || c === "'") {
+      skipQuoted(c);
+      lastSignificant = "a";
+      lastWord = "";
       continue;
     }
-    if (c === '"' || c === "'" || c === "`") {
-      quote = c;
-      out += c;
-    } else if (c === "/" && code[i + 1] === "/") {
-      const nl = code.indexOf("\n", i);
-      const end = nl < 0 ? code.length : nl;
-      out += " ".repeat(end - i);
-      i = end - 1;
-    } else if (c === "/" && code[i + 1] === "*") {
+    if (c === "`") {
+      mask[i] = 0;
+      i++;
+      skipTemplateText();
+      if (templates.length === 0 || code[i - 1] === "`") {
+        lastSignificant = "a";
+        lastWord = "";
+      }
+      continue;
+    }
+    if (c === "/" && code[i + 1] === "/") {
+      while (i < code.length && code[i] !== "\n") mask[i++] = 0;
+      continue;
+    }
+    if (c === "/" && code[i + 1] === "*") {
       const close = code.indexOf("*/", i + 2);
-      const end = close < 0 ? code.length : close + 2;
-      out += code.slice(i, end).replace(/[^\n]/g, " ");
-      i = end - 1;
-    } else out += c;
+      const stop = close < 0 ? code.length : close + 2;
+      while (i < stop) mask[i++] = 0;
+      continue;
+    }
+    if (c === "/" && regexCanStart()) {
+      mask[i] = 0;
+      i++;
+      let inClass = false;
+      while (i < code.length && code[i] !== "\n") {
+        const r = code[i]!;
+        mask[i] = 0;
+        if (r === "\\") {
+          if (i + 1 < code.length) mask[i + 1] = 0;
+          i += 2;
+          continue;
+        }
+        i++;
+        if (r === "[") inClass = true;
+        else if (r === "]") inClass = false;
+        else if (r === "/" && !inClass) break;
+      }
+      while (i < code.length && /[a-z]/i.test(code[i]!)) mask[i++] = 0; // flags
+      lastSignificant = "a";
+      lastWord = "";
+      continue;
+    }
+    if (c === "{") depth++;
+    if (c === "}") {
+      depth--;
+      if (templates.length && templates[templates.length - 1] === depth) {
+        // The end of a `${…}` hole: back into the template's text.
+        templates.pop();
+        mask[i] = 0;
+        i++;
+        skipTemplateText();
+        lastSignificant = "a";
+        lastWord = "";
+        continue;
+      }
+    }
+    if (/\s/.test(c)) {
+      i++;
+      continue;
+    }
+    if (/[A-Za-z0-9_$]/.test(c)) {
+      let j = i;
+      while (j < code.length && /[A-Za-z0-9_$]/.test(code[j]!)) j++;
+      lastWord = code.slice(i, j);
+      lastSignificant = "a";
+      i = j;
+      continue;
+    }
+    lastSignificant = c;
+    lastWord = "";
+    i++;
   }
+  return mask;
+}
+
+const masks = new Map<string, Uint8Array>();
+function maskOf(code: string): Uint8Array {
+  let m = masks.get(code);
+  if (!m) {
+    m = codeMask(code);
+    if (masks.size > 200) masks.clear();
+    masks.set(code, m);
+  }
+  return m;
+}
+
+/** `code` with every string, template text, comment and regex literal replaced by spaces (same length, newlines kept). */
+export function blankStrings(code: string): string {
+  const mask = maskOf(code);
+  let out = "";
+  for (let i = 0; i < code.length; i++) out += mask[i] || code[i] === "\n" ? code[i] : " ";
   return out;
 }
 
-/** Whether `index` in `code` falls inside a string, a template literal or a comment. */
+/** Whether `index` in `code` falls inside a string, a template's text, a comment or a regex literal. */
 function inStringOrComment(code: string, index: number): boolean {
-  let quote: string | null = null;
-  for (let i = 0; i < index; i++) {
-    const c = code[i]!;
-    if (quote) {
-      if (c === "\\") i++;
-      else if (c === quote) quote = null;
-      continue;
-    }
-    if (c === '"' || c === "'" || c === "`") quote = c;
-    else if (c === "/" && code[i + 1] === "/") {
-      const nl = code.indexOf("\n", i);
-      if (nl < 0 || nl >= index) return true;
-      i = nl;
-    } else if (c === "/" && code[i + 1] === "*") {
-      const close = code.indexOf("*/", i + 2);
-      if (close < 0 || close + 1 >= index) return true;
-      i = close + 1;
-    }
-  }
-  return quote !== null;
+  return maskOf(code)[index] === 0;
 }
 
 /**
  * The argument text of every call to `name` in `code` (`createUpdates({ … })`), with where it
- * starts: balanced parentheses; a mention inside a string or a comment isn't a call.
+ * starts: balanced parentheses counted in code only; a mention inside a string, a comment or a
+ * regex literal isn't a call.
  */
 export function callArguments(code: string, name: string): { start: number; text: string }[] {
+  const mask = maskOf(code);
   const out: { start: number; text: string }[] = [];
   let from = 0;
   for (;;) {
@@ -148,31 +255,21 @@ export function callArguments(code: string, name: string): { start: number; text
     if (at < 0) return out;
     from = at + name.length;
     const before = at > 0 ? code[at - 1]! : "";
-    if (/[A-Za-z0-9_$.]/.test(before) || inStringOrComment(code, at)) continue;
+    if (/[A-Za-z0-9_$.]/.test(before) || !mask[at]) continue;
     let i = from;
     while (i < code.length && /\s/.test(code[i]!)) i++;
     if (code[i] !== "(") continue;
     const open = i;
     let depth = 0;
-    let quote: string | null = null;
     for (; i < code.length; i++) {
-      const c = code[i]!;
-      if (quote) {
-        if (c === "\\") i++;
-        else if (c === quote) quote = null;
-        continue;
-      }
-      if (c === '"' || c === "'" || c === "`") quote = c;
-      else if (c === "/" && code[i + 1] === "/") i = code.indexOf("\n", i) < 0 ? code.length : code.indexOf("\n", i);
-      else if (c === "/" && code[i + 1] === "*") i = code.indexOf("*/", i + 2) < 0 ? code.length : code.indexOf("*/", i + 2) + 1;
-      else if (c === "(") depth++;
-      else if (c === ")" && --depth === 0) break;
+      if (!mask[i]) continue;
+      if (code[i] === "(") depth++;
+      else if (code[i] === ")" && --depth === 0) break;
     }
     out.push({ start: open + 1, text: code.slice(open + 1, i) });
     from = i;
   }
 }
-
 
 /** Whether the app uses `block`, and where it switched it off. */
 export function classify(
@@ -200,7 +297,7 @@ export function classify(
         const calls = locals(f.code).flatMap((n) => callArguments(f.code, n));
         for (const call of calls) {
           // Strings in the call (a log message quoting a config) aren't configuration: blank them, keeping positions.
-          const m = re.exec(blankStrings(call.text));
+          const m = re.exec(blankStrings(f.code).slice(call.start, call.start + call.text.length));
           if (!m) continue;
           off.push({ file: f.path, line: f.code.slice(0, call.start + m.index).split("\n").length, message: o.message });
           break;

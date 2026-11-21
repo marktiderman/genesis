@@ -86,6 +86,10 @@ describe("missed-value", () => {
     const quoted = app({ "src/docs.ts": `const example = 'import { createPush } from "@marktiderman/genesis-native/push"';\n` }, { eas: true });
     await missedValueCheck({ blocks: async () => [pushBlock], catalog: () => [] })(quoted.ctx);
     expect(quoted.found.map((f) => f.subject)).toEqual(["push"]);
+    // A quote inside a regex literal opens no string: the import and call after it are still read.
+    expect(await run(`const quote = /"/;\nconst ratio = a / b;\n${plain}export const u = createUpdates({ channels: { enabled: __DEV__ } });\n`)).toBe(true);
+    // A template literal's \${…} hole is code; its text isn't.
+    expect(await run(`${plain}const label = \`v\${1}\`;\nexport const u = createUpdates({ channels: { enabled: __DEV__ } });\n`)).toBe(true);
     // A string inside the call quoting the old config isn't the config.
     expect(await run(`${plain}export const u = createUpdates({\n  platform: "ios",\n  channels: { enabled: true },\n  onError: () => console.warn("channels: { enabled: __DEV__ }"),\n});\n`)).toBe(false);
   });
