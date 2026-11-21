@@ -3618,6 +3618,45 @@
       "flags": []
     },
     {
+      "id": "npm-publish-verify",
+      "name": "npm publish verification",
+      "summary": "After Release publishes, a verify-publish job polls the npm registry (up to 30 minutes, with backoff) until every published version exists and latest points at it when it's the highest release; a daily npm drift workflow compares every public package on main with npm the same way. Anything missing or mistagged fails the run, writes a summary table and opens or updates one issue labelled release, which a clean drift run closes.",
+      "status": "building",
+      "claimedBy": "ci/npm-publish-verify",
+      "kind": "tool",
+      "keywords": [
+        "release",
+        "npm",
+        "publish",
+        "dist-tag",
+        "latest",
+        "registry",
+        "drift",
+        "changesets"
+      ],
+      "owner": "mark",
+      "apps": [
+        "cli"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "reviewedAt": "2026-11-21",
+      "links": {
+        "code": [
+          "scripts/verify-npm-publish.mjs",
+          ".github/workflows/release.yml",
+          ".github/workflows/npm-drift.yml"
+        ],
+        "docs": [
+          "docs/RELEASING.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
       "id": "product-releases",
       "name": "Release notes that close the loop",
       "summary": "Retired 2026-11-10: removed from Genesis, and nothing in Genesis replaces it.",
