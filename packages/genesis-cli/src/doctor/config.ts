@@ -147,6 +147,14 @@ export interface GenesisConfigFile {
   observability?: GenesisObservability;
   /** The settings preset (`max`, the default, `standard` or `min`), resolved as its own layer: see {@link validatePreset}. */
   preset?: SettingsPreset;
+  /** The repository's branch protection (`genesis repo protect`): see {@link validateRepo}. */
+  repo?: GenesisRepo;
+  /**
+   * A `repo` that isn't the branch-protection block (an app's own value from before Genesis read
+   * the key, or a mistake in it): never fatal here (the Expo plugin reads this file), reported by
+   * the doctor's `repo-protection`, and refused by `genesis repo`, which validates it strictly.
+   */
+  repoProblem?: string;
   /**
    * A top-level `preset` or `settings` that isn't the settings shape at all (an app that used the
    * key for something of its own before Genesis read it): left out of `preset` / `settings`, and
@@ -405,6 +413,43 @@ export function sentryProject(config: Pick<GenesisConfigFile, "observability"> |
   return s && s.organization && s.project ? s : null;
 }
 
+/**
+ * The `repo` block: what `genesis repo protect` and the doctor's `repo-protection` read
+ * (docs/APP-CI.md, "Branch protection"). Every key is optional: the required checks come from the
+ * app's workflows, and staging protection is on when the repository already has staging batches.
+ */
+export interface GenesisRepo {
+  /** The default branch's required checks, exactly (instead of the ones read from the workflows). */
+  requiredChecks?: string[];
+  /** The staging batches' required checks, exactly. */
+  stagingChecks?: string[];
+  /** Protect `staging/**` batches. Default: on when the repository has a staging branch or ruleset. */
+  staging?: boolean;
+}
+
+const REPO_KEYS = ["requiredChecks", "stagingChecks", "staging"];
+
+/** Check the top-level `repo` block: unknown keys fail, and every check is a non-empty name. */
+export function validateRepo(raw: unknown, source = "config"): GenesisRepo {
+  const fail = (msg: string): never => {
+    throw new GenesisConfigError(`${source}: repo.${msg}`);
+  };
+  if (!isObject(raw)) throw new GenesisConfigError(`${source}: "repo" must be an object (docs/APP-CI.md, "Branch protection")`);
+  for (const key of Object.keys(raw)) if (key !== "$comment" && !REPO_KEYS.includes(key)) fail(`${key} isn't a setting (known: ${REPO_KEYS.join(", ")})`);
+  const out: GenesisRepo = {};
+  for (const key of ["requiredChecks", "stagingChecks"] as const) {
+    if (raw[key] === undefined) continue;
+    const list = raw[key];
+    if (!isStringList(list) || list.some((c) => !c.trim() || c.length > 200)) fail(`${key} must be a list of check names, such as ["app / App checks", "Adversarial review"]`);
+    out[key] = [...new Set((list as string[]).map((c) => c.trim()))];
+  }
+  if (raw.staging !== undefined) {
+    if (typeof raw.staging !== "boolean") fail("staging must be true or false");
+    out.staging = raw.staging as boolean;
+  }
+  return out;
+}
+
 /** The `client` block: where the app's client layer lives (ADR 0020). */
 export interface GenesisClient {
   /** The layer's folder, relative to the app. Default `src/client`. */
@@ -588,6 +633,13 @@ export function parseGenesisConfig(raw: unknown, file = "genesis.config.json"): 
   if (raw.client !== undefined) out.client = validateClient(raw.client, file);
   if (raw.release !== undefined) out.release = validateRelease(raw.release, file);
   if (raw.observability !== undefined) out.observability = validateObservability(raw.observability, file);
+  if (raw.repo !== undefined) {
+    try {
+      out.repo = validateRepo(raw.repo, file);
+    } catch (err) {
+      out.repoProblem = `${(err as Error).message}; nothing reads it until it is the branch-protection block (or renamed, if it is the app's own)`;
+    }
+  }
   const legacy = legacySettingsKeys(raw);
   if (legacy.length) out.legacySettingsKeys = legacy;
   if (raw.preset !== undefined && !legacy.some((l) => l.key === "preset")) out.preset = validatePreset(raw.preset, file);

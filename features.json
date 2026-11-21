@@ -3450,6 +3450,54 @@
       "flags": []
     },
     {
+      "id": "repo-protection",
+      "name": "Branch protection",
+      "summary": "One GitHub ruleset standard for every Genesis app's repository: genesis repo protect creates or converges the default-branch and staging-batch rulesets and the merge settings, with the required checks read from the app's own workflows; the doctor's repo-protection rule reports drift; genesis repo prune-staging deletes merged batches through the admin bypass, with no rule turned off.",
+      "category": "Tooling",
+      "status": "building",
+      "claimedBy": "feat/repo-protect",
+      "kind": "tool",
+      "keywords": [
+        "branch protection",
+        "rulesets",
+        "required checks",
+        "github",
+        "staging",
+        "merge settings"
+      ],
+      "requires": [
+        "cli-doctor",
+        "ci-templates"
+      ],
+      "owner": "mark",
+      "apps": [
+        "cli"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "acceptance": [
+        "genesis repo protect --dry-run on a repository with a hand-made ruleset lists only the differences, and keeps the rules and checks Genesis doesn't name.",
+        "Discovery never requires a check whose workflow is path-filtered; a check genesis.config.json repo.requiredChecks names stays required.",
+        "genesis repo prune-staging deletes only staging batches merged into the default branch, never the newest or one with an open pull request."
+      ],
+      "reviewedAt": "2026-11-21",
+      "links": {
+        "code": [
+          "packages/genesis-cli/src/repo",
+          "packages/genesis-cli/src/doctor/repo-protection.ts",
+          "packages/genesis-cli/src/wizard/steps/github-protect.ts"
+        ],
+        "docs": [
+          "docs/APP-CI.md",
+          "packages/genesis-cli/README.md"
+        ]
+      },
+      "visibility": "customer",
+      "access": "all",
+      "flags": []
+    },
+    {
       "id": "ci-templates",
       "name": "CI templates",
       "summary": "Reusable GitHub Actions workflows an app calls in a few lines: app-ci (install, typecheck, lint, test, doctor, features check), supabase-ci (doctor with the supabase pack, db start, pgTAP) and genesis-upgrade (moves every Genesis package to one release and opens a pull request), for pnpm, Bun or npm; and a Vercel ignore-build script that builds previews only on request.",

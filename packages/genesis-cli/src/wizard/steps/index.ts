@@ -11,6 +11,7 @@ import { aiKeyBudget } from "./ai-key-budget.js";
 import { easPush } from "./eas-push.js";
 import { stepContext, StepError, type StepDeps, type StepRunner } from "./framework.js";
 import { githubIssues } from "./github-issues.js";
+import { githubProtect } from "./github-protect.js";
 import { resendDomain } from "./resend-domain.js";
 import { sentry } from "./sentry.js";
 import { supabaseLink } from "./supabase-link.js";
@@ -18,7 +19,7 @@ import { supabaseLink } from "./supabase-link.js";
 export { stepFix, stepFixId, StepError, type StepDeps, type StepRunner } from "./framework.js";
 
 /** Every runner, in the order a new app wants them (Supabase first: the others keep secrets there). */
-export const STEP_RUNNERS: readonly StepRunner[] = [supabaseLink, githubIssues, resendDomain, sentry, aiKeyBudget, easPush];
+export const STEP_RUNNERS: readonly StepRunner[] = [supabaseLink, githubIssues, githubProtect, resendDomain, sentry, aiKeyBudget, easPush];
 
 export function runnerFor(id: string): StepRunner | undefined {
   return STEP_RUNNERS.find((r) => r.step.id === id);

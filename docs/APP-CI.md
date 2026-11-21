@@ -317,6 +317,81 @@ people already have (or a preview build when the pull request changed native cod
 the pull request closes ([NATIVE-RELEASE.md, Previews](./NATIVE-RELEASE.md#previews)). GitHub keeps one label per name whatever its case, so
 one `preview` label serves both; name it in `pull_request_labeled.labels` as GitHub shows it.
 
+## Branch protection
+
+The checks above only gate a merge when a ruleset requires them. Every Genesis app's repository
+carries the same rulesets and merge settings, made by the CLI, never by hand:
+`genesis repo protect --dry-run` shows the diff, `genesis repo protect` makes it (as the
+repository's admin), the doctor's `repo-protection` rule reports drift, and the setup wizard offers
+it as the `github.branch-protection` step. The genesis-cli README ("genesis repo") has the flags.
+
+| Ruleset | On | Rules | Why |
+|---|---|---|---|
+| `default` | the default branch | no deletion, no force push; a pull request with every review thread resolved, merge or squash only; the required checks | Every change arrives as a reviewed pull request, and its history stays as merged (Genesis merges, never rebases). No approval count: the approval is the adversarial review gate's `Adversarial review` check, which a person's review turns green. |
+| `staging-branches` | `staging/**`, when the app releases through staging batches | no deletion, no force push; the checks that run on pull requests into a batch, not enforced when a batch is cut | A batch collects reviewed pull requests for one release into the default branch; it is cut from that branch, so its first push carries no checks yet. |
+
+Only `staging-branches` lets the repository's admin role bypass it ("always"), so
+`genesis repo prune-staging` can delete a merged batch. The default branch gets no bypass from
+Genesis: nothing reaches it past the review gate, not even an admin account. A bypass the app
+already has there is kept as it is. The settings delete head branches on merge, turn auto-merge on
+and rebase merging off. Merge commits are never turned back on: a squash-only repository stays
+squash-only, and when turning rebase off would leave no merge method, nothing is written.
+The default branch's rules go only on a ruleset aimed at it alone, and the staging bypass only on
+one confined to `staging/` refs; a shared ruleset is left as it is and a separate one created.
+
+**Required checks come from the app's CI.** The CLI reads `.github/workflows` on the default
+branch through GitHub (what runs on a pull request, not a local checkout that may be stale or on
+another branch; it falls back to the checkout only when GitHub can't be read, and says so, and
+then a real run writes nothing unless given `--use-local`): every job of a
+workflow that runs on pull requests into the branch, by the name GitHub gives its check
+(`app / App checks` for a job `app` that calls app-ci; `database / Database and pgTAP` for one that
+calls supabase-ci). A called job the caller turns off (`doctor: false`) isn't required, nor is
+claude-review, which advises. Each check is pinned to GitHub Actions, so no other app can post a
+status of that name and satisfy it. A workflow with `paths` on its pull request trigger, like a
+database workflow on `supabase/**`, is never required: GitHub doesn't run it on a pull request
+outside those paths, and a required check that never reports holds that pull request forever. Run
+pgTAP on every pull request (no `paths`) to require it. A workflow whose pull request `types` leave out `opened`, `synchronize` or `reopened` isn't
+required (a later commit, or the first, gets no run); triggers are alternatives, so one unfiltered
+trigger keeps a workflow required whatever another's `paths` say. The staging checks are read for
+each staging branch the repository has: a check only some batches report is treated as
+conditional. A matrix job is never required either:
+GitHub reports one check per leg (`Test (18)`, `Test (20)`), never the job's own name. Where the
+workflows can't say (a matrix, a name built at run time), list the checks in `genesis.config.json`:
+`"repo": { "requiredChecks": [...], "stagingChecks": [...] }`. A check listed there is required
+as listed, a path-filtered one included (with a note).
+
+**Converging adopts what's there.** A ruleset of the same name, or on the same branches, is updated
+in place; a rule, parameter, bypass actor or required check Genesis doesn't name is kept and noted,
+except a check that can never report. Genesis's values are a floor, never a ceiling: more
+approvals, code-owner review, last-push approval, dismissing stale reviews, strict status checks
+and fewer merge methods stay as the app set them, and an existing bypass actor's mode is never
+changed. Nothing is turned off to make a change. `genesis repo protect` writes only the plan it
+showed; when a write fails, it says which already landed. Each ruleset is read again just before
+its PUT and left alone if it changed since it was planned; the rulesets API has no version
+condition, so a change made in the instant between that read and the PUT can still be overwritten.
+
+**What it refuses** (nothing written, exit 1, `refused` in `--json`; a dry run shows the plan and
+what a real run would refuse): the workflows couldn't be read from GitHub (unless `--use-local`);
+the staging branches couldn't be listed (this one fails a dry run too, with or without changes:
+staging protection is then unknown, never read for a sample batch, and the doctor warns); the default branch has a merge queue and a new required
+check has no `merge_group` trigger; a staging batch carries other workflows than the default
+branch, so a new staging check might never report there (merge the default branch into it, or name
+`repo.stagingChecks`); a staging batch has a merge queue and a new check there has no
+`merge_group` trigger (pinning an unpinned check to GitHub Actions counts as new); a ruleset to
+update has no `updated_at` to re-check; turning rebase off would leave no merge method.
+
+**Deleting a merged staging batch** is `genesis repo prune-staging`, not a rule switched off and on
+again. It deletes a `staging/…` branch only when all of it is on the default branch, no open pull
+request comes from or goes into it, it is a dated batch (`staging/YYYY-MM-DD/<letter>`) and it
+isn't the newest one (by date, then letter), through the staging ruleset's admin bypass. The delete
+is conditional on the exact commit that was checked (GraphQL `updateRefs` with `beforeOid`, atomic
+on GitHub's side): a commit pushed to the batch after the check makes the delete fail, never lose it.
+`--dry-run` lists what it would delete, and says so when this account can't bypass (every active
+ruleset whose deletion rule covers that exact branch is checked, `~ALL` included). A batch merged
+into the default branch with **squash** isn't prunable: its own commits never reach the default
+branch, so it stays after its pull request closes. Merge a batch you mean to prune with a merge
+commit.
+
 ## Security
 
 - No input is written into a script: every input and `github.*` value reaches a shell through

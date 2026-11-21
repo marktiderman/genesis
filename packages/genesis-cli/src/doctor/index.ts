@@ -52,6 +52,7 @@ import { checkFigmaRoutesRule } from "./figma-routes.js";
 import { checkMigrationDrift } from "./migration-drift.js";
 import { missedValueCheck, STALE_DECLINED } from "./missed-value.js";
 import { genesisBehindCheck } from "./behind.js";
+import { repoProtectionCheck, type RepoProtectionDeps } from "./repo-protection.js";
 import { allFixes, builtinFixes } from "../fix/registry.js";
 import { attachFixes } from "../fix/engine.js";
 import type { RegistryDeps } from "../upgrade/registry.js";
@@ -69,7 +70,9 @@ export {
   readGenesisConfig,
   validateConfig,
   validateLinks,
+  validateRepo,
   type GenesisConfigFile,
+  type GenesisRepo,
   type GenesisLinks,
   type GenesisSupabase,
 } from "./config.js";
@@ -163,6 +166,8 @@ export interface RunDoctorOptions {
   database?: boolean;
   /** Test seam for the `settings` check's secret status and database reads (supabase, gh, eas). */
   stores?: Pick<SettingsCheckOptions, "run">;
+  /** Test seam for `repo-protection`'s git and gh calls. It runs only when `network` is on. */
+  repo?: Omit<RepoProtectionDeps, "network">;
 }
 
 export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorResult> {
@@ -188,7 +193,8 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
   // doctor.network: false is --offline for good: genesis-behind reads only its cache.
   const behind = { ...options.registry, network: (options.network ?? false) && config.network !== false };
   const settings: SettingsCheckOptions = { network: behind.network, ...(options.database !== undefined ? { database: options.database } : {}), ...options.stores };
-  await runChecks(ctx, [...builtinChecks(config, { contracts: options.contracts ?? true, figma: options.figma ?? true, behind, settings }), ...appChecks]);
+  const repo: RepoProtectionDeps = { ...options.repo, network: behind.network };
+  await runChecks(ctx, [...builtinChecks(config, { contracts: options.contracts ?? true, figma: options.figma ?? true, behind, settings, repo }), ...appChecks]);
   for (const p of fixes.problems) raw.push({ rule: "package-rules-invalid", level: "warn", file: `${p.package}/package.json`, subject: p.package, message: `genesis.doctor.fixes: ${p.message}` });
 
   if (options.build) {
@@ -322,7 +328,7 @@ async function runChecks(ctx: DoctorContext, checks: DoctorPlugin[]): Promise<vo
  * here plus its ids in BUILTIN_RULES (rules.ts); a pack's checks run only when
  * `packs` lists it.
  */
-export function builtinChecks(config: DoctorConfig, options: { contracts?: boolean; figma?: boolean; behind?: RegistryDeps; settings?: SettingsCheckOptions } = {}): DoctorPlugin[] {
+export function builtinChecks(config: DoctorConfig, options: { contracts?: boolean; figma?: boolean; behind?: RegistryDeps; settings?: SettingsCheckOptions; repo?: RepoProtectionDeps } = {}): DoctorPlugin[] {
   const packs: Record<DoctorPack, DoctorPlugin> = {
     native: { name: "native", check: checkNativePack },
     supabase: { name: "supabase", check: checkSupabasePack },
@@ -361,6 +367,8 @@ export function builtinChecks(config: DoctorConfig, options: { contracts?: boole
     ...(config.rules?.["missed-value"] === "off" ? [] : [{ name: "missed-value", check: missedValueCheck() }]),
     // Switched off, it doesn't run at all: no npm, no advisory endpoint, no cache.
     ...(config.rules?.["genesis-behind"] === "off" ? [] : [{ name: "genesis-behind", check: genesisBehindCheck(options.behind ?? { network: false }) }]),
+    // Switched off, it doesn't run at all: no git, no gh.
+    ...(config.rules?.["repo-protection"] === "off" ? [] : [{ name: "repo-protection", check: repoProtectionCheck(options.repo ?? { network: false }) }]),
     ...(config.packs ?? []).map((p) => packs[p]),
     ...(options.figma !== false ? [{ name: "figma-routes", check: checkFigmaRoutesRule }] : []),
     ...(config.packs?.includes("supabase") && config.contracts && options.contracts !== false ? [{ name: "contracts", check: (ctx: DoctorContext) => checkContracts(ctx) }] : []),

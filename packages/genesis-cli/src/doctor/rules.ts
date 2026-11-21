@@ -116,6 +116,8 @@ export const BUILTIN_RULES = [
   "migration-drift",
   // the installed Genesis release against the latest, and advisories (behind.ts)
   "genesis-behind",
+  // the app's GitHub repository against the branch-protection standard (repo-protection.ts)
+  "repo-protection",
   // custom views and app parts (custom-views.ts)
   "app-part-colors",
   "app-part-name",

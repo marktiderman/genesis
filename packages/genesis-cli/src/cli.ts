@@ -21,6 +21,8 @@
  *   npx @marktiderman/genesis-cli figma:routes [--json] [--strict]
  *   npx @marktiderman/genesis-cli client init [--folder <dir>] [--type <name>] [--force]
  *   npx @marktiderman/genesis-cli build-stamp [--out <file>] [--channel <name>] [--app-version <v>]
+ *   npx @marktiderman/genesis-cli repo protect [--dry-run] [--json] [--repo <owner/name>]
+ *   npx @marktiderman/genesis-cli repo prune-staging [--dry-run] [--repo <owner/name>]
  */
 import { Command } from "commander";
 import { runScaffold, type FileSystem } from "./scaffolder.js";
@@ -663,6 +665,32 @@ upstream
     const own = register.problems.filter((p) => p.startsWith(`${id}:`) || p.startsWith(`${id} `));
     if (own.length) return program.error(`Fix the entry first:\n${own.map((p) => `  ${p}`).join("\n")}`);
     console.log(`Open this to file it (check it names no app or customer; Genesis is public), then set its status to proposed:\n${exportIssueUrl(entry)}`);
+  });
+
+const repoCommand = program.command("repo").description("The app's GitHub repository on Genesis's branch-protection standard (docs/APP-CI.md, \"Branch protection\")");
+
+repoCommand
+  .command("protect")
+  .description("Create or converge the rulesets (default branch, staging batches) and merge settings; the required checks come from the app's workflows or genesis.config.json repo.requiredChecks. Each ruleset is re-read just before its PUT and left alone if it changed (the API has no version condition, so a change in that instant can still be overwritten); a conflict it can't settle is refused, exit 1")
+  .option("-d, --dir <dir>", "The app's folder", process.cwd())
+  .option("--repo <owner/name>", "The GitHub repository (default: the origin remote's)")
+  .option("--dry-run", "Print the changes; write nothing", false)
+  .option("--json", "Print the plan as JSON", false)
+  .option("--use-local", "When GitHub's copy of the workflows can't be read, write the checks read from the local checkout", false)
+  .action(async (opts: { dir: string; repo?: string; dryRun?: boolean; json?: boolean; useLocal?: boolean }) => {
+    const { runRepoProtect } = await import("./repo/index.js");
+    process.exitCode = await runRepoProtect({ root: path.resolve(opts.dir), dryRun: opts.dryRun === true, json: opts.json === true, useLocal: opts.useLocal === true, ...(opts.repo ? { repo: opts.repo } : {}) });
+  });
+
+repoCommand
+  .command("prune-staging")
+  .description("Delete staging batches that are merged into the default branch, have no open pull request and aren't the newest, through the staging ruleset's admin bypass (no rule is turned off)")
+  .option("-d, --dir <dir>", "The app's folder", process.cwd())
+  .option("--repo <owner/name>", "The GitHub repository (default: the origin remote's)")
+  .option("--dry-run", "List what would be deleted; delete nothing", false)
+  .action(async (opts: { dir: string; repo?: string; dryRun?: boolean }) => {
+    const { runPruneStaging } = await import("./repo/index.js");
+    process.exitCode = await runPruneStaging({ root: path.resolve(opts.dir), dryRun: opts.dryRun === true, ...(opts.repo ? { repo: opts.repo } : {}) });
   });
 
 const client = program.command("client").description("The app's client layer: its own layer over Genesis (ADR 0020)");

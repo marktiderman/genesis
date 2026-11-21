@@ -99,7 +99,7 @@ function expectContained(calls: Call[], requests: Request[], shown: string) {
 
 describe("the step framework", () => {
   it("has a runner for each of the six steps, each defined through defineSetupStep", () => {
-    expect(STEP_RUNNERS.map((r) => r.step.id)).toEqual(["supabase.link", "github.issues", "resend.domain", "sentry", "ai.key-budget", "eas.push"]);
+    expect(STEP_RUNNERS.map((r) => r.step.id)).toEqual(["supabase.link", "github.issues", "github.branch-protection", "resend.domain", "sentry", "ai.key-budget", "eas.push"]);
     for (const r of STEP_RUNNERS) expect(Object.isFrozen(r.step)).toBe(true);
   });
 

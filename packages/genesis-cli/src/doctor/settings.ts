@@ -73,6 +73,7 @@ export const GENESIS_CONFIG_KEYS: readonly string[] = [
   "preset",
   "privacy",
   "release",
+  "repo",
   "settings",
   "starter",
   "supabase",
