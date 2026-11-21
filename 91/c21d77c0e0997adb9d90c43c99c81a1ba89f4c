@@ -1,0 +1,27 @@
+packages/genesis-cli/src/cli.ts
+  s_7081dae02ae2cb::t_95969a4286cae2 679-680,682
+packages/genesis-cli/src/repo/index.ts
+  s_7081dae02ae2cb::t_95969a4286cae2 56,58,62,72-73,98,119-128,158-161,179-180,189-197
+docs/APP-CI.md
+  s_7081dae02ae2cb::t_4aa7101845332a 341-342
+packages/genesis-cli/README.md
+  s_7081dae02ae2cb::t_dfaa26fbf801be 2018-2019
+packages/genesis-cli/test/repo-protect.test.ts
+  s_7081dae02ae2cb::t_2cc704e750c35e 372-374,378,386,427-446,465,471,475,478
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "91c21d77c0e0997adb9d90c43c99c81a1ba89f4c",
+  "prompts": {},
+  "sessions": {
+    "s_7081dae02ae2cb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7a2b62bd-584c-47e8-8b1a-72015db941a7",
+        "model": "unknown"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
