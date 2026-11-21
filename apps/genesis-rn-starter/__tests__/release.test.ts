@@ -143,21 +143,18 @@ describe("EAS workflows", () => {
     expect(read(`.eas/workflows/${file}`)).not.toMatch(/expo_[A-Za-z0-9]{20,}|-----BEGIN/);
   });
 
-  it("deploy-production runs only when started (by native-release.yml), for a named commit, with no approval to wait on", () => {
+  it("deploy-production starts on EAS's own push to main (Expo's deploy lane), from main only, with no approval to wait on", () => {
     const { on, jobs } = workflow("deploy-production.yml");
-    // On push it would race native-release.yml on every merge.
-    expect(Object.keys(on)).toEqual(["workflow_dispatch"]);
-    const inputs = (on.workflow_dispatch as { inputs: Record<string, { type?: string; required?: boolean }> }).inputs;
-    expect(inputs.commit_sha).toMatchObject({ type: "string", required: true });
-    // Choices compared as text: eas workflow:run -F sends every value as a string.
-    expect(inputs.ios?.type).toBe("choice");
-    expect(inputs.android?.type).toBe("choice");
+    // release.trigger "eas" (the default render): EAS Workflows starts it; no GitHub workflow does.
+    expect(Object.keys(on)).toEqual(["push", "workflow_dispatch"]);
+    expect((on.push as { branches?: string[] }).branches).toEqual(["main"]);
+    expect(Object.keys(jobs)[0]).toBe("source");
     // main's merge is the approval: an approval job would hold every merge's release.
     expect(Object.values(jobs).filter((j) => j.type === "require-approval")).toEqual([]);
-    // One deploy at a time, and the running one always finishes: never cancel_in_progress. Every
-    // waiting run is kept (queue: max), so one for a platform never replaces one for the other.
+    // One deploy at a time, and the running one always finishes: never cancel_in_progress. As
+    // Expo recommends for deploys, the newest waiting run replaces those in between.
     const { concurrency } = parse(read(".eas/workflows/deploy-production.yml")) as { concurrency?: unknown };
-    expect(concurrency).toEqual({ group: "${{ workflow.filename }}", queue: "max" });
+    expect(concurrency).toEqual({ group: "${{ workflow.filename }}" });
   });
 
   it("deploy-production updates every install, and submits each build in the run that made it", () => {
@@ -169,10 +166,10 @@ describe("EAS workflows", () => {
       expect(publish).toContain(`update --channel "production" --platform ${platform}`);
       expect(publish).not.toContain("rollout-percentage");
       expect(publish).toContain(`with-profile eas.json "production" ${platform} --`);
-      expect(jobs[`get_${platform}_build`]?.if).toBe(`\${{ inputs.${platform} == 'true' }}`);
-      expect(jobs[`update_${platform}`]?.if).toBe(`\${{ inputs.${platform} == 'true' && needs.get_${platform}_build.outputs.build_id }}`);
-      expect(jobs[`update_${platform}`]?.needs).toEqual([`get_${platform}_build`]);
-      expect(jobs[`build_${platform}`]?.if).toBe(`\${{ inputs.${platform} == 'true' && !needs.get_${platform}_build.outputs.build_id }}`);
+      expect(jobs[`get_${platform}_build`]?.if).toBe(`\${{ needs.source.outputs.${platform} == 'true' }}`);
+      expect(jobs[`update_${platform}`]?.if).toBe(`\${{ needs.source.outputs.${platform} == 'true' && needs.get_${platform}_build.outputs.build_id }}`);
+      expect(jobs[`update_${platform}`]?.needs).toEqual(["source", `get_${platform}_build`]);
+      expect(jobs[`build_${platform}`]?.if).toBe(`\${{ needs.source.outputs.${platform} == 'true' && !needs.get_${platform}_build.outputs.build_id }}`);
       expect(jobs[`submit_${platform}`]?.needs).toEqual([`build_${platform}`]);
       expect(jobs[`submit_${platform}`]?.params?.build_id).toBe(`\${{ needs.build_${platform}.outputs.build_id }}`);
     }

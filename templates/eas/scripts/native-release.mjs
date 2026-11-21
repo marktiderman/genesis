@@ -602,6 +602,13 @@ async function main(command, args, env) {
     const printed = printedRuntime(readFileSync(file, "utf8"));
     if (!isRuntimeVersion(printed)) throw new Error(`release.runtimeVersion's command printed no ${platform} runtime version (got "${printed}"). Nothing was published.`);
     console.log(printed);
+  } else if (command === "fingerprint-hash") {
+    // fingerprint-hash <fingerprint.json> <platform>: the hash `eas fingerprint:generate --json` printed.
+    const [file, platform] = args;
+    if (!file || !PLATFORMS.includes(platform)) throw new Error("fingerprint-hash needs <fingerprint.json> <platform>.");
+    const hash = readJson(file)?.hash;
+    if (!isRuntimeVersion(hash)) throw new Error(`eas fingerprint:generate printed no ${platform} fingerprint hash (got ${JSON.stringify(hash)}). Nothing was built or published.`);
+    console.log(hash);
   } else if (command === "installed") {
     const name = args[0] ?? "";
     if (!name) throw new Error("installed needs a package name.");
@@ -615,7 +622,7 @@ async function main(command, args, env) {
     if (!file || !PLATFORMS.includes(platform)) throw new Error("runtime needs <resolved.txt> <platform> <runtime version>.");
     checkRuntime(readFileSync(file, "utf8"), platform, expected);
   } else {
-    throw new Error(`Unknown command "${command ?? ""}": snapshot, mask, require, plan, update, profile-env, with-profile, channel, environment, latest-commit, published-group, runtime-printed, installed, stamped or runtime.`);
+    throw new Error(`Unknown command "${command ?? ""}": snapshot, mask, require, plan, update, profile-env, with-profile, channel, environment, latest-commit, published-group, runtime-printed, fingerprint-hash, installed, stamped or runtime.`);
   }
 }
 

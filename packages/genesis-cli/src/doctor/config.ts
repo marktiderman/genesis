@@ -214,6 +214,14 @@ export function validateSettings(raw: unknown, source = "config"): Record<string
  * (docs/NATIVE-RELEASE.md). Every key is optional; {@link resolveRelease} fills in the defaults.
  */
 export interface GenesisRelease {
+  /**
+   * What starts a release when code merges to main (default `"eas"`): `"eas"`, EAS Workflows'
+   * own push trigger on `.eas/workflows/deploy-production.yml` (Expo's documented lane, nothing on
+   * GitHub Actions); `"github"`, `.github/workflows/native-release.yml` on GitHub Actions, which
+   * publishes JavaScript-only updates itself and starts deploy-production.yml (dispatch-only) for
+   * the rest. Exactly one of the two is ever written, so a merge has one owner.
+   */
+  trigger?: "eas" | "github";
   /** The platforms released (default both). */
   platforms?: ("ios" | "android")[];
   /** The GitHub environment that holds the release secrets (default `production`). */
@@ -247,7 +255,7 @@ export interface GenesisRelease {
   previews?: { origin?: string; scheme?: string };
 }
 
-const RELEASE_KEYS = ["platforms", "environment", "paths", "sentry", "pushHook", "profile", "channel", "easEnvironment", "packageManager", "runtimeVersion", "previews"];
+const RELEASE_KEYS = ["trigger", "platforms", "environment", "paths", "sentry", "pushHook", "profile", "channel", "easEnvironment", "packageManager", "runtimeVersion", "previews"];
 const RELEASE_NAME = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,59}$/;
 const RELEASE_HOOK = /^[A-Za-z0-9_][A-Za-z0-9_./-]{0,119}\.(?:mjs|cjs|js)$/;
 const RELEASE_SECRET = /^[A-Z][A-Z0-9_]{0,63}$/;
@@ -260,6 +268,10 @@ export function validateRelease(raw: unknown, source = "config"): GenesisRelease
   if (!isObject(raw)) throw new GenesisConfigError(`${source}: "release" must be an object (docs/NATIVE-RELEASE.md, "The release block")`);
   for (const key of Object.keys(raw)) if (key !== "$comment" && !RELEASE_KEYS.includes(key)) fail(`${key} isn't a setting (known: ${RELEASE_KEYS.join(", ")})`);
   const out: GenesisRelease = {};
+  if (raw.trigger !== undefined) {
+    if (raw.trigger !== "eas" && raw.trigger !== "github") fail(`trigger must be "eas" (EAS Workflows starts each release) or "github" (GitHub Actions does) (got ${JSON.stringify(raw.trigger)})`);
+    out.trigger = raw.trigger as "eas" | "github";
+  }
   if (raw.platforms !== undefined) {
     const list = raw.platforms;
     if (!Array.isArray(list) || !list.length || list.some((p) => p !== "ios" && p !== "android") || new Set(list).size !== list.length) fail(`platforms must list "ios", "android" or both (got ${JSON.stringify(list)})`);

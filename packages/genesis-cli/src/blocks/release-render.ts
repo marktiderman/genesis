@@ -13,6 +13,9 @@
  *   items, at its indent.
  * - `#@extra-paths`: replaced by `paths` alone, each marked `# release.paths` so the app-folder
  *   rendering (app-folder.ts) leaves them from the repository root.
+ * - `#@root-install-paths`: with `appFolder`, the repository root's package.json and lockfiles (a
+ *   workspace installs from there), each marked `# repository root` so app-folder.ts leaves them;
+ *   nothing for an app at the root.
  * - `#@hook-secrets`: replaced by `NAME: ${{ secrets.NAME }}` for each of `pushHook.secrets`.
  * - `GENESIS_RELEASE_<NAME>` tokens: replaced by the settings' values (see {@link releaseTokens}).
  *
@@ -23,9 +26,12 @@
 
 export type ReleasePlatform = "ios" | "android";
 export type ReleasePackageManager = "pnpm" | "bun" | "npm" | "yarn";
+export type ReleaseTrigger = "eas" | "github";
 
 /** The `release` block with every default filled in. */
 export interface ResolvedRelease {
+  /** What starts a release on a merge to main: EAS Workflows' push trigger, or GitHub Actions. */
+  trigger: ReleaseTrigger;
   platforms: ReleasePlatform[];
   environment: string;
   paths: string[];
@@ -49,6 +55,8 @@ export interface ReleaseContext {
 }
 
 export const RELEASE_DEFAULTS: Readonly<Omit<ResolvedRelease, "easEnvironment" | "packageManager">> = {
+  // Expo's documented lane: EAS Workflows starts each release itself (docs/adr/0026).
+  trigger: "eas",
   runtimeCommand: null,
   previews: { origin: "", scheme: "" },
   platforms: ["ios", "android"],
@@ -67,6 +75,7 @@ export function resolveRelease(
 ): ResolvedRelease {
   const profile = set.profile ?? RELEASE_DEFAULTS.profile;
   return {
+    trigger: set.trigger ?? RELEASE_DEFAULTS.trigger,
     platforms: set.platforms?.length ? [...set.platforms] : [...RELEASE_DEFAULTS.platforms],
     environment: set.environment ?? RELEASE_DEFAULTS.environment,
     paths: [...(set.paths ?? RELEASE_DEFAULTS.paths)],
@@ -140,6 +149,9 @@ function holds(cond: string, ctx: ReleaseContext): boolean {
     case "appFolder":
       value = ctx.appFolder !== null;
       break;
+    case "githubTrigger":
+      value = r.trigger === "github";
+      break;
     case "fingerprint":
       value = r.runtimeCommand === null;
       break;
@@ -159,15 +171,18 @@ const IF = /^\s*#@if\s+(.+?)\s*$/;
 const END = /^\s*#@end\s*$/;
 const PATHS = /^(\s*)#@paths\s*$/;
 const EXTRA_PATHS = /^(\s*)#@extra-paths\s*$/;
+const ROOT_INSTALL_PATHS = /^(\s*)#@root-install-paths\s*$/;
 const HOOK_SECRETS = /^(\s*)#@hook-secrets\s*$/;
 /** The comment on a path item `#@extra-paths` writes: app-folder.ts leaves these as they are. */
 export const EXTRA_PATH_MARK = "# release.paths";
+/** The comment on a path item `#@root-install-paths` writes: from the repository root too. */
+export const ROOT_PATH_MARK = "# repository root";
 /** A token's name: GENESIS_RELEASE_ and capitals, never part of a longer word. */
 const TOKEN = /\bGENESIS_RELEASE_[A-Z_]*[A-Z]\b/g;
 
 /** True when the text holds release markup (a template, not a rendered copy). */
 export function hasReleaseMarkup(text: string): boolean {
-  return /^\s*#@(?:if|end|paths|extra-paths|hook-secrets)\b/m.test(text) || /\bGENESIS_RELEASE_[A-Z_]*[A-Z]\b/.test(text);
+  return /^\s*#@(?:if|end|paths|extra-paths|root-install-paths|hook-secrets)\b/m.test(text) || /\bGENESIS_RELEASE_[A-Z_]*[A-Z]\b/.test(text);
 }
 
 /**
@@ -205,6 +220,12 @@ export function renderRelease(text: string, ctx: ReleaseContext): string {
     const extra = EXTRA_PATHS.exec(line);
     if (extra) {
       for (const p of ctx.release.paths) out.push(`${extra[1]}- "${p}/**" ${EXTRA_PATH_MARK}`);
+      continue;
+    }
+    const rootInstall = ROOT_INSTALL_PATHS.exec(line);
+    if (rootInstall) {
+      // From the repository root already, so app-folder.ts leaves them as they are.
+      if (ctx.appFolder) for (const f of ROOT_INSTALL_FILES) out.push(`${rootInstall[1]}- "${f}" ${ROOT_PATH_MARK}`);
       continue;
     }
     const secrets = HOOK_SECRETS.exec(line);

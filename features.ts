@@ -2236,7 +2236,7 @@ export const features = defineFeatures({
   },
   "eas-workflows": {
     name: "EAS release workflows",
-    summary: "The release workflows a native app owns, from templates/ (written by genesis init or genesis add template release, refreshed by genesis upgrade, customised in genesis.config.json `release`): a GitHub job on every merge to main that publishes an over-the-air update per platform when a finished store build has the commit's runtime version, and otherwise hands that platform to a dispatch-only EAS workflow that builds and submits, or waits for a build in progress and publishes on it; pull request previews (repack a matching build or build one, an update on pr-<number>, a comment with the install QR code); a manual promote or roll back for an update staged by hand; Maestro on a simulator build; and an eas.json whose profiles match the APP_VARIANT variants.",
+    summary: "The release workflows a native app owns, from templates/ (written by genesis init or genesis add template release, refreshed by genesis upgrade, customised in genesis.config.json `release`): Expo's deploy-to-production lane, started by EAS Workflows' own push trigger on every merge to main (release.trigger eas, the default; ADR 0026), which finds each platform's runtime version with the build profile's env and publishes an over-the-air update on a store build that has it, or builds and submits when native code changed; or, with release.trigger github, a GitHub job that publishes JavaScript-only updates itself and hands the rest to a dispatch-only EAS workflow, exactly one of the two written; pull request previews (repack a matching build or build one, an update on pr-<number>, a comment with the install QR code); a manual promote or roll back for an update staged by hand; Maestro on a simulator build; an eas.json whose profiles match the APP_VARIANT variants; and genesis doctor's release-lane-live and release-lane-twice checks that one live trigger starts each release",
     category: "Tooling",
     // Not run against a real EAS project yet: the files pass eas-cli's schema checks offline and
     // the starter's safety tests. Beta once a preview, a deploy and a rollout have run for real.
@@ -2253,6 +2253,7 @@ export const features = defineFeatures({
     acceptance: [
       "No pull request workflow can submit, build with the production profile or publish to the production channel; a preview update reads the release's EAS environment (to match the release builds' runtime) and goes only to its own pr-<number> channel.",
       "The production deploy runs only on a push to main, with no require-approval job; its updates go to 100% (EAS allows one rollout at a time), and each store build is submitted in the run that built it.",
+      "Each merge to main has exactly one trigger: deploy-production.yml's own push (release.trigger eas) or native-release.yml (github); upgrade and add template move an app between them atomically, and genesis doctor errors when nothing starts a release.",
       "The starter's eas.json, workflows and rollout check are byte-identical to templates/eas.",
     ],
     reviewedAt: "2026-10-24",

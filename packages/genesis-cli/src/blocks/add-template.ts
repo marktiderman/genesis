@@ -38,6 +38,7 @@ const WORDS: Record<AdoptResult["outcome"], string> = {
   replaced: "written over",
   pending: "left alone",
   held: "held back",
+  removed: "removed",
 };
 
 /** Runs the command; the exit code (1 when something needs the app's attention). */
@@ -66,6 +67,15 @@ export async function addTemplates(root: string, names: string[], options: AddTe
     // holds native-release.yml back until its .genesis-next is merged).
     const rivals = competingReleaseWorkflows(root, ctx.appFolder).filter((rel) => rel !== LANE_DISPATCH_TARGET);
     if (rivals.length) steps.push(`Remove ${rivals.join(", ")} in the same change, before it merges: ${rivals.length === 1 ? "it publishes" : "they publish"} EAS updates or start EAS runs too, and beside native-release.yml a release would go out twice (genesis doctor fails with release-lane-twice until then).`);
+  }
+  const easDeploy = results.find((r) => r.path === LANE_DISPATCH_TARGET && ["created", "adopted", "updated", "replaced"].includes(r.outcome));
+  const ctxNow = easDeploy ? releaseContext(root) : null;
+  if (easDeploy && ctxNow?.release.trigger === "eas") {
+    const r = ctxNow.release;
+    steps.push(`Connect the GitHub repository to the EAS project (expo.dev, project settings, GitHub${ctxNow.appFolder ? `; base directory ${ctxNow.appFolder}` : ""}): EAS Workflows starts each release from its push trigger, and without the link a merge starts nothing (docs/NATIVE-RELEASE.md, "One-time setup").`);
+    steps.push(`Add EXPO_TOKEN (an Expo robot token, a secret)${r.sentry ? ", SENTRY_AUTH_TOKEN" : ""}${r.pushHook?.secrets.length ? `, ${r.pushHook.secrets.join(", ")}` : ""} to the EAS environment "${r.easEnvironment}".`);
+    const rivals = competingReleaseWorkflows(root, ctxNow.appFolder).filter((rel) => rel !== LANE_DISPATCH_TARGET);
+    if (rivals.length) steps.push(`Remove ${rivals.join(", ")} in the same change, before it merges: beside deploy-production.yml's push trigger a release would go out twice (genesis doctor fails with release-lane-twice until then).`);
   }
   if (results.some((r) => r.outcome === "next")) steps.push("Merge each .genesis-next into its file and delete it; or move your edits into genesis.config.json `release` and run again with --replace.");
   if (steps.length) {
