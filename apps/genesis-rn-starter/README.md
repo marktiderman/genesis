@@ -82,7 +82,7 @@ Each line of `features` in `starter.config.ts` is one feature, `true` by default
 | `push` | The push block (`createPush`, `src/lib/push.ts`): this phone's push token on sign-in once permission is granted, off on sign-out; Settings > Notifications (`NotificationSettings`: categories, quiet hours, previews); the soft prompt, offered when the Notifications tab opens, never at launch; taps open their screen through the link map. Needs an EAS project id for a token. | No token, no prompt, no Notifications row in Settings; expo-notifications stays in the build. |
 | `support` | The support block (`createSupport`, `src/lib/support.ts`): Settings > Support > Send feedback and Help; shake the phone to capture the screen you're on and open the feedback screen with it (mark it up, hide private parts, or drop it); Help lists your reports with staff replies; the idea board with one vote each and "you asked, we shipped". Screens: `src/app/(app)/settings/support/`. | No Support rows, no shake; react-native-view-shot and expo-sensors stay in the build. |
 | `updates` | The updates block (`createUpdates`, `src/lib/updates.ts`): force upgrade and maintenance from the `app_release_policy` row, the update banner (never reloads mid sign-in or mid deletion: `useBlockReload`), what's new, and the version signature in Settings > About. | No blocking screens, banner or notes; About shows the version and build from `expo-application`. |
-| `observability` | The observability block (`src/lib/observability.ts`): every error the shell catches, route breadcrumbs and timings, the user's id and the typed events in `events`, to Sentry when `EXPO_PUBLIC_SENTRY_DSN` is set and to the console in development, scrubbed of emails, tokens and query strings on the phone. | Errors only reach `console` (LogBox in development). |
+| `observability` | The observability block (`src/lib/observability.ts`): every error the shell catches, route breadcrumbs and timings, the user's id and the typed events in `events`, to Sentry when a DSN is set (the `observability.sentryDsn` setting, or `EXPO_PUBLIC_SENTRY_DSN` in the build) and to the console in development, scrubbed of emails, tokens and query strings on the phone. | Errors only reach `console` (LogBox in development). |
 | `devtools` | The devtools overlay (`src/lib/devtools.ts`) in development and preview builds: a three-finger hold, "Open devtools" in the dev menu or Settings > About > Developer tools open a sheet with the version signature, channel switch, user id, blocks, flags and recent errors. Never in a production bundle. | No overlay and no Settings row. |
 
 A config with every sign-in method off, or Google without Apple, fails at start-up. Apple's button
@@ -312,11 +312,18 @@ it (App Store Review Guideline 4.8): `defineStarter` refuses Google without Appl
 
 ## Observability and devtools
 
-- **Sentry.** Set `EXPO_PUBLIC_SENTRY_DSN` in `.env` (and in each EAS environment). Without it,
-  nothing is sent. `src/lib/observability.ts` starts Sentry at module scope; `src/lib/app.ts`
-  imports it first, and the root layout is exported wrapped (`wrapRoot`). Release and dist come
-  from the version signature, with the update id and channel as tags. Readable stack traces are
-  one switch away (Sentry source maps, below).
+- **Sentry.** Sign in as a platform admin and set `observability.sentryDsn` in Settings (the
+  project's DSN, from Sentry's Project Settings → Client Keys): no build, no env var. `genesis
+  setup --step sentry` saves it to genesis.config.json instead, which reaches installed apps with
+  the next build or update. Sentry starts as soon as the settings are read, and this device
+  keeps them, so every later launch starts it at once, before anyone signs in. Turning
+  `observability.enabled` off stops it at once; a new DSN, or turning it back on, applies at the
+  next launch (the devtools overlay's Sentry check says so). `EXPO_PUBLIC_SENTRY_DSN` in `.env`
+  (and each EAS environment) still works, and wins over the setting. With neither, nothing is
+  sent. `src/lib/observability.ts` builds the sink at module scope; `src/lib/app.ts` imports it
+  first, and the root layout is exported wrapped (`wrapRoot`). Release and dist come from the
+  version signature, with the update id and channel as tags. Readable stack traces are one switch
+  away (Sentry source maps, below).
 - **Errors per tab.** Each tab's `_layout.tsx` exports `ScreenErrorBoundary` (from
   `src/lib/observability.ts`) as its Expo Router `ErrorBoundary`: a screen that throws shows "This
   screen hit a problem" with Try again, the tab bar keeps working, and the error is reported

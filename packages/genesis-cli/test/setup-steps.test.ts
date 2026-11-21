@@ -259,6 +259,41 @@ describe("sentry", () => {
   });
 });
 
+describe("sentry's settings", () => {
+  const NATIVE = "@marktiderman/genesis-native";
+  const native = JSON.parse(readFileSync(new URL("../../native/package.json", import.meta.url), "utf8")) as { genesis: { settings: unknown } };
+
+  it("saves the organization and the DSN as observability.sentryOrg and .sentryDsn, in one write", async () => {
+    const root = app({
+      "eas.json": "{}",
+      [`node_modules/${NATIVE}/package.json`]: JSON.stringify({ name: NATIVE, version: "9.0.0", genesis: { settings: native.genesis.settings } }),
+      "package.json": JSON.stringify({ name: "sample-app", dependencies: { [SUPPORT]: "^0.12.0", [NATIVE]: "^9.0.0" } }),
+    });
+    const { run } = tools();
+    const { fetch } = web({ "GET https://sentry.io/api/0/projects/acme/app/": { body: { slug: "app" } }, "POST https://o1.ingest.sentry.io/api/7/envelope/": { body: { id: "x" } } });
+    const dsn = "https://0123456789abcdef0123456789abcdef@o1.ingest.sentry.io/7";
+    const { plan, result } = await runStep("sentry", root, { org: "acme", project: "app", dsn }, { run, fetch }, { SENTRY_AUTH_TOKEN: SECRET });
+    expect(plan.files.map((f) => f.path)).toEqual(["genesis.config.json"]);
+    expect(JSON.parse(readFileSync(`${root}/genesis.config.json`, "utf8")).settings).toEqual({ "observability.sentryOrg": "acme", "observability.sentryDsn": dsn });
+    expect(result.verify).toMatchObject({ ok: true });
+  });
+
+  it("saves the organization alone when no DSN is given", async () => {
+    const root = app({
+      [`node_modules/${NATIVE}/package.json`]: JSON.stringify({ name: NATIVE, version: "9.0.0", genesis: { settings: native.genesis.settings } }),
+      "package.json": JSON.stringify({ name: "sample-app", dependencies: { [SUPPORT]: "^0.12.0", [NATIVE]: "^9.0.0" } }),
+    });
+    const plan = await planFix(stepFix(runnerFor("sentry")!, { org: "acme", project: "app" }, { run: tools().run }), { root, findings: [] });
+    expect(plan.summary).toContain("settings.observability.sentryOrg set to \"acme\"");
+    expect(plan.summary).not.toContain("sentryDsn");
+  });
+
+  it("saves nothing where no installed package declares the keys", async () => {
+    const plan = await planFix(stepFix(runnerFor("sentry")!, { org: "acme", project: "app" }, { run: tools().run }), { root: app(), findings: [] });
+    expect(plan.files).toEqual([]);
+  });
+});
+
 describe("sentry's DSN", () => {
   it("is sentry.io's only: a private, loopback or other host is refused before any request", async () => {
     for (const host of ["127.0.0.1", "localhost", "169.254.169.254", "10.0.0.1:9000", "sentry.io.evil.example", "evilsentry.io"]) {

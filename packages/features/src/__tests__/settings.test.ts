@@ -600,3 +600,57 @@ describe("whole numbers", () => {
     expect(() => defineSettings("acme", { name: { type: "string", default: "x", integer: true } as never })).toThrow();
   });
 });
+
+describe("patterns", () => {
+  it("a string with a pattern refuses a value of another shape in every layer, and the manifest carries it", async () => {
+    const { defineSettings, settingsCatalogue, resolveSettings, catalogueManifest, catalogueFromManifest, settingValueProblem } = await import("../settings");
+    const decl = defineSettings("acme", { org: { type: "string", default: null, pattern: "^[a-z0-9][a-z0-9_-]*$" } });
+    const cat = settingsCatalogue([decl]);
+    const r = resolveSettings(cat, { file: { "acme.org": { value: "acme" } }, database: { "acme.org": { value: "Not A Slug" } } });
+    expect(r.values["acme.org"]).toBe("acme");
+    expect(r.problems).toEqual([expect.objectContaining({ kind: "type", key: "acme.org", layer: "database", message: expect.stringContaining("must match ^[a-z0-9][a-z0-9_-]*$") })]);
+    expect(resolveSettings(cat, { database: { "acme.org": { value: null } } }).problems).toEqual([]);
+    expect(catalogueManifest(cat)["acme.org"]).toMatchObject({ pattern: "^[a-z0-9][a-z0-9_-]*$" });
+    const rebuilt = catalogueFromManifest(catalogueManifest(cat));
+    expect(rebuilt.problems).toEqual([]);
+    expect(settingValueProblem(rebuilt.catalogue.keys["acme.org"]!, "x y")).toMatch(/must match/);
+    expect(settingValueProblem({ type: "string" }, "x y")).toBeNull();
+  });
+
+  it("refuses a pattern on another type, unanchored, or one that doesn't compile", async () => {
+    const { defineSettings } = await import("../settings");
+    expect(() => defineSettings("acme", { n: { type: "number", default: 1, pattern: "^1$" } as never })).toThrow(/only a string takes/);
+    expect(() => defineSettings("acme", { s: { type: "string", default: null, pattern: "[a-z]+" } })).toThrow(/anchored/);
+    expect(() => defineSettings("acme", { s: { type: "string", default: null, pattern: "^[a-z]+\\$" } })).toThrow(/anchored/);
+    expect(() => defineSettings("acme", { s: { type: "string", default: null, pattern: "^([a-z]$" } })).toThrow(/doesn't compile/);
+    expect(() => defineSettings("acme", { s: { type: "string", default: "BAD", pattern: "^[a-z]+$" } })).toThrow(/default must match/);
+  });
+
+  it("matches the whole value, every alternative included", async () => {
+    const { settingValueProblem } = await import("../settings");
+    const def = { type: "string" as const, pattern: "^foo|bar$" };
+    expect(settingValueProblem(def, "foo")).toBeNull();
+    expect(settingValueProblem(def, "bar")).toBeNull();
+    expect(settingValueProblem(def, "foo-extra")).toMatch(/must match/);
+    expect(settingValueProblem(def, "extra-bar")).toMatch(/must match/);
+    expect(settingValueProblem({ type: "string", pattern: "^(foo|bar)$" }, "foo")).toBeNull();
+  });
+
+  it("refuses syntax the database can't compile: a bound over 255, named groups, lookbehind, \\k<…>, \\u{…}", async () => {
+    const { defineSettings } = await import("../settings");
+    expect(() => defineSettings("acme", { s: { type: "string", default: null, pattern: "^[a-z]{1,256}$" } })).toThrow(/more than 255/);
+    expect(() => defineSettings("acme", { s: { type: "string", default: null, pattern: "^[a-z]{300}$" } })).toThrow(/more than 255/);
+    expect(() => defineSettings("acme", { s: { type: "string", default: null, pattern: "^[a-z]{1,255}$" } })).not.toThrow();
+    expect(() => defineSettings("acme", { s: { type: "string", default: null, pattern: "^[a-z]{1,}$" } })).not.toThrow();
+    expect(() => defineSettings("acme", { s: { type: "string", default: null, pattern: "^(?<word>[a-z]+)$" } })).toThrow(/named group or lookbehind/);
+    expect(() => defineSettings("acme", { s: { type: "string", default: null, pattern: "^(?<=a)b$" } })).toThrow(/named group or lookbehind/);
+    expect(() => defineSettings("acme", { s: { type: "string", default: null, pattern: "^(?<w>a)\\k<w>$" } })).toThrow(/database can't compile/);
+    expect(() => defineSettings("acme", { s: { type: "string", default: null, pattern: "^\\u{1F600}$" } })).toThrow(/code-point escape/);
+    // Inside a character class these are literal characters, not syntax.
+    expect(() => defineSettings("acme", { s: { type: "string", default: null, pattern: "^[{999}]+$" } })).not.toThrow();
+    expect(() => defineSettings("acme", { s: { type: "string", default: null, pattern: "^[(?<]+$" } })).not.toThrow();
+    expect(() => defineSettings("acme", { s: { type: "string", default: null, pattern: "^[\\]{]{1,300}$" } })).toThrow(/more than 255/);
+    // An escaped brace is a literal, not a bound.
+    expect(() => defineSettings("acme", { s: { type: "string", default: null, pattern: "^x\\{999\\}$" } })).not.toThrow();
+  });
+});
