@@ -209,7 +209,8 @@ describe("rendering the templates", () => {
   it("every deploy-production run, a manual one too, checks eas.json's channel and environment for the platforms it releases", () => {
     const doc = yaml("release/deploy-production.yml", ctx({ trigger: "github", easEnvironment: "production" }));
     const script = sourceRun(doc);
-    expect(doc.jobs.source.env).toMatchObject({ RELEASE_IOS: "${{ inputs.ios == 'true' }}", RELEASE_ANDROID: "${{ inputs.android == 'true' }}" });
+    // The choice's own text: EAS refuses an env value that isn't a string, and the step compares it as text.
+    expect(doc.jobs.source.env).toMatchObject({ RELEASE_IOS: "${{ inputs.ios }}", RELEASE_ANDROID: "${{ inputs.android }}" });
     const repo = tempDir("genesis-source-env-");
     const git = (...args: string[]) => execFileSync("git", args, { cwd: repo, encoding: "utf8" }).trim();
     git("init", "-q", "-b", "main");
@@ -232,6 +233,44 @@ describe("rendering the templates", () => {
     // Only the platforms it releases: an Android-only override doesn't stop an iOS run.
     expect(start({ build: { production: { channel: "production", android: { environment: "staging" } } } }, { RELEASE_IOS: "true" }).status).toBe(0);
     expect(start({ build: { production: { channel: "stable" } } }, { RELEASE_IOS: "true" }).stderr).toContain('listen to the channel "stable"');
+    // An iOS-only lane never sets RELEASE_ANDROID: the step reads it as false.
+    const iosOnly = yaml("release/deploy-production.yml", ctx({ trigger: "github", platforms: ["ios"] }));
+    expect(iosOnly.jobs.source.env.RELEASE_ANDROID).toBeUndefined();
+    writeTree(repo, { "eas.json": JSON.stringify({ build: { production: { channel: "production" } } }) });
+    const { RELEASE_ANDROID: _unset, ...parent } = process.env;
+    const iosRun = spawnSync("bash", ["-c", `${SET_OUTPUT}\n${sourceRun(iosOnly)}`], { cwd: repo, encoding: "utf8", env: { ...parent, COMMIT_SHA: sha, HANDOFF: "", MANUAL: "true", RELEASE_IOS: "true" } });
+    expect(iosRun.status).toBe(0);
+    expect(iosRun.stdout).toContain("ios=true");
+    expect(iosRun.stdout).toContain("android=false");
+  });
+
+  it("every env value in every rendered EAS workflow is a string, never a boolean or number expression", () => {
+    // EAS Workflows refuses a non-string env value ("[env.X]: Invalid input") before any job runs.
+    const easWorkflows = [...readdirSync(path.join(TEMPLATES, "release")).map((f) => `release/${f}`), ...readdirSync(path.join(TEMPLATES, "eas", "workflows")).map((f) => `eas/workflows/${f}`)]
+      .filter((rel) => rel.endsWith(".yml") && /^\.eas\/workflows\/[^/]+\.yml$/.test(templateTarget(rel, template(rel))));
+    expect(easWorkflows).toContain("release/deploy-production.yml");
+    // Comparison and logical operators make an expression's result a boolean.
+    const typed = /\$\{\{[^}]*(==|!=|&&|\|\||!|<|>)[^}]*\}\}/;
+    const problems: string[] = [];
+    let checked = 0;
+    for (const rel of easWorkflows) {
+      for (const platforms of [["ios", "android"], ["ios"], ["android"]] as const) {
+        for (const trigger of ["eas", "github"] as const) {
+          const doc = yaml(rel, ctx({ trigger, platforms: [...platforms] })) as { env?: Record<string, unknown>; jobs?: Record<string, { env?: Record<string, unknown> }> };
+          const envs: [string, Record<string, unknown> | undefined][] = [["env", doc.env], ...Object.entries(doc.jobs ?? {}).map(([id, job]): [string, Record<string, unknown> | undefined] => [`jobs.${id}.env`, job.env])];
+          for (const [where, env] of envs) {
+            for (const [key, value] of Object.entries(env ?? {})) {
+              checked++;
+              const at = `${rel} (${platforms.join("+")}, ${trigger}) ${where}.${key}`;
+              if (typeof value !== "string") problems.push(`${at}: ${typeof value} ${JSON.stringify(value)}`);
+              else if (typed.test(value)) problems.push(`${at}: ${value}`);
+            }
+          }
+        }
+      }
+    }
+    expect(checked).toBeGreaterThan(0);
+    expect(problems).toEqual([]);
   });
 
   it("deploy-production's get-build matches only builds on the release channel", () => {
@@ -426,15 +465,16 @@ describe("rendering the templates", () => {
     const doc = yaml("release/deploy-production.yml", ctx({ trigger: "github" }));
     for (const p of ["ios", "android"]) {
       expect(doc.on.workflow_dispatch.inputs[p]).toEqual({ type: "choice", options: ["true", "false"], default: "true", description: expect.any(String) });
-      // The source job reads the input as text; every other job reads its output, also as text.
-      expect(doc.jobs.source.env[`RELEASE_${p.toUpperCase()}`]).toBe(`\${{ inputs.${p} == 'true' }}`);
+      // The source job takes the input's own text (EAS env values are strings) and its step compares
+      // it as text; every other job reads its output, also as text.
+      expect(doc.jobs.source.env[`RELEASE_${p.toUpperCase()}`]).toBe(`\${{ inputs.${p} }}`);
       expect(doc.jobs[`get_${p}_build`].if).toBe(`\${{ needs.source.outputs.${p} == 'true' }}`);
       expect(doc.jobs[`build_${p}`].if).toBe(`\${{ needs.source.outputs.${p} == 'true' && !needs.get_${p}_build.outputs.build_id }}`);
       expect(doc.jobs[`update_${p}`].if).toBe(`\${{ needs.source.outputs.${p} == 'true' && needs.get_${p}_build.outputs.build_id }}`);
     }
-    // Every platform reference in the file is the text comparison.
+    // Every other platform reference in the file is the text comparison.
     for (const trigger of ["github", "eas"] as const) {
-      const text = renderRelease(template("release/deploy-production.yml"), ctx({ trigger }));
+      const text = renderRelease(template("release/deploy-production.yml"), ctx({ trigger })).replace(/^ +RELEASE_(?:IOS|ANDROID): \$\{\{ inputs\.(?:ios|android) \}\}$/gm, "");
       expect([...text.matchAll(/(?:inputs|needs\.source\.outputs)\.(ios|android)\b(?!_)(?! == 'true')/g)], trigger).toEqual([]);
     }
     // No order check that could skip a release green: EAS's concurrency keeps the order.
