@@ -10,13 +10,16 @@
  * - **Staging batches** (ruleset `staging-branches`, `refs/heads/staging/**` + `/*`), when the app
  *   releases through them: no deletion, no force push, the checks that run on pull requests into
  *   a batch, not enforced when a batch is cut.
- * - **Both** let the repository's admin role bypass ("always"): the one way a merged batch is
- *   deleted with the rules left on, `genesis repo prune-staging`.
+ * - **Staging only** lets the repository's admin role bypass ("always"): the one way a merged batch
+ *   is deleted with the rules left on, `genesis repo prune-staging`. The default branch gets no
+ *   bypass from Genesis, so nothing reaches it past the review gate; one the app has is kept as is.
  * - **Merge settings**: delete head branches on merge, auto-merge on, rebase merging off.
  *
- * Converging never fights what a repository already has: a rule, a parameter, a bypass actor or a
- * required check Genesis doesn't name is kept. The one exception is a required check that can
- * never report on some pull requests (its workflow is path-filtered), which would hold them forever.
+ * Converging never fights what a repository already has, and never loosens it: a rule, a parameter,
+ * a bypass actor or a required check Genesis doesn't name is kept; a stricter value (more approvals,
+ * code-owner review, strict status checks, fewer merge methods) stays; an existing bypass actor's
+ * mode is never changed. The one removal is a required check that can never report on some pull
+ * requests (its workflow is path-filtered), which would hold them forever.
  */
 
 /** GitHub Actions' app id: required checks are pinned to it, so another app can't satisfy one. */
@@ -52,7 +55,8 @@ export interface Ruleset {
   enforcement: string;
   conditions: { ref_name: { include: string[]; exclude: string[] } };
   rules: RulesetRule[];
-  bypass_actors: BypassActor[];
+  /** Left out by the API for an account without admin. */
+  bypass_actors?: BypassActor[];
   /** Read only: whether the signed-in account can bypass it. */
   current_user_can_bypass?: string;
 }
@@ -133,7 +137,7 @@ export function protectionSpec(input: SpecInput): ProtectionSpec {
         },
         ...statusChecksRule(input.defaultChecks, false),
       ],
-      bypass_actors: [{ ...ADMIN_BYPASS }],
+      bypass_actors: [],
     },
   ];
   if (input.stagingChecks) {
@@ -198,9 +202,48 @@ export function matchRuleset(spec: Ruleset, live: readonly Ruleset[]): Ruleset |
   );
 }
 
-/** The body the rulesets API takes (PUT or POST). */
+/**
+ * The body the rulesets API takes (PUT or POST). Without `bypass_actors` (an account that can't
+ * read them), the field is left out, so a PUT keeps the ones the ruleset has.
+ */
 export function rulesetBody(r: Ruleset): Record<string, unknown> {
-  return { name: r.name, target: r.target, enforcement: r.enforcement, conditions: r.conditions, rules: r.rules, bypass_actors: r.bypass_actors };
+  return { name: r.name, target: r.target, enforcement: r.enforcement, conditions: r.conditions, rules: r.rules, ...(r.bypass_actors ? { bypass_actors: r.bypass_actors } : {}) };
+}
+
+/**
+ * How a parameter's value compares in strictness. Genesis's value is a floor, never a ceiling:
+ * `max` keeps the larger number, `true` / `false` keep the value named when either side has it,
+ * `narrow` keeps only the live methods Genesis allows (it never adds one).
+ */
+const STRICTNESS: Readonly<Record<string, "max" | "true" | "false" | "narrow">> = {
+  required_approving_review_count: "max",
+  dismiss_stale_reviews_on_push: "true",
+  require_code_owner_review: "true",
+  require_last_push_approval: "true",
+  required_review_thread_resolution: "true",
+  strict_required_status_checks_policy: "true",
+  do_not_enforce_on_create: "false",
+  allowed_merge_methods: "narrow",
+};
+
+/** The value that is at least as strict as both: Genesis's floor applied to the live value. */
+export function stricter(key: string, live: unknown, want: unknown): unknown {
+  if (live === undefined) return want;
+  switch (STRICTNESS[key]) {
+    case "max":
+      return typeof live === "number" && typeof want === "number" ? Math.max(live, want) : want;
+    case "true":
+      return live === true || want === true;
+    case "false":
+      return !(live === false || want === false);
+    case "narrow": {
+      if (!Array.isArray(live) || !Array.isArray(want)) return want;
+      const kept = live.filter((m) => want.includes(m));
+      return kept.length ? kept : want;
+    }
+    default:
+      return want;
+  }
 }
 
 function convergeChecks(scope: string, ruleset: string, live: RulesetRule, want: RulesetRule, options: PlanOptions, changes: Change[], notes: string[]): RulesetRule {
@@ -236,9 +279,10 @@ function convergeChecks(scope: string, ruleset: string, live: RulesetRule, want:
     out.push(w);
   }
   for (const key of ["strict_required_status_checks_policy", "do_not_enforce_on_create"]) {
-    if (!equalValue(params[key], want.parameters![key])) {
-      if (params[key] !== undefined) changes.push({ scope, kind: "change", what: `required_status_checks.${key}: ${show(params[key])} → ${show(want.parameters![key])}` });
-      params[key] = want.parameters![key];
+    const value = stricter(key, params[key], want.parameters![key]);
+    if (!equalValue(params[key], value)) {
+      if (params[key] !== undefined) changes.push({ scope, kind: "change", what: `required_status_checks.${key}: ${show(params[key])} → ${show(value)}` });
+      params[key] = value;
     }
   }
   params.required_status_checks = out;
@@ -250,8 +294,8 @@ function copyRuleset(r: Ruleset): Ruleset {
     ...r,
     conditions: { ref_name: { include: [...(r.conditions?.ref_name?.include ?? [])], exclude: [...(r.conditions?.ref_name?.exclude ?? [])] } },
     rules: (r.rules ?? []).map((x) => ({ ...x, ...(x.parameters ? { parameters: { ...x.parameters } } : {}) })),
-    bypass_actors: (r.bypass_actors ?? []).map((b) => ({ ...b })),
-  };
+    ...(r.bypass_actors ? { bypass_actors: r.bypass_actors.map((b) => ({ ...b })) } : {}),
+  } as Ruleset;
 }
 
 function convergeRuleset(want: Ruleset, live: Ruleset, options: PlanOptions, changes: Change[], notes: string[]): Ruleset {
@@ -283,21 +327,29 @@ function convergeRuleset(want: Ruleset, live: Ruleset, options: PlanOptions, cha
     }
     if (!rule.parameters) continue;
     const params = { ...(next.rules[i]!.parameters ?? {}) };
-    for (const [key, value] of Object.entries(rule.parameters)) {
+    for (const [key, floor] of Object.entries(rule.parameters)) {
+      const value = stricter(key, params[key], floor);
       if (equalValue(params[key], value)) continue;
       changes.push({ scope, kind: "change", what: `${rule.type}.${key}: ${params[key] === undefined ? "unset" : show(params[key])} → ${show(value)}` });
       params[key] = value;
     }
     next.rules[i] = { ...next.rules[i]!, parameters: params };
   }
-  for (const actor of want.bypass_actors) {
-    const j = next.bypass_actors.findIndex((b) => b.actor_type === actor.actor_type && b.actor_id === actor.actor_id);
-    if (j < 0) {
-      changes.push({ scope, kind: "add", what: `bypass: the repository admin role (${actor.bypass_mode})`, why: "the sanctioned way to delete a merged branch with the rules on: genesis repo prune-staging" });
+  const wanted = want.bypass_actors ?? [];
+  if (!wanted.length) return next;
+  if (!next.bypass_actors) {
+    // The rulesets API leaves bypass_actors out for an account without admin: nothing to compare.
+    notes.push(`${scope}: can't tell whether the repository admin role bypasses it (reading bypass actors needs the admin role)`);
+    return next;
+  }
+  for (const actor of wanted) {
+    const have = next.bypass_actors.find((b) => b.actor_type === actor.actor_type && b.actor_id === actor.actor_id);
+    if (!have) {
+      changes.push({ scope, kind: "add", what: `bypass: the repository admin role (${actor.bypass_mode})`, why: "the sanctioned way to delete a merged batch with the rules on: genesis repo prune-staging" });
       next.bypass_actors.push({ ...actor });
-    } else if (next.bypass_actors[j]!.bypass_mode !== actor.bypass_mode) {
-      changes.push({ scope, kind: "change", what: `bypass mode of the repository admin role: ${next.bypass_actors[j]!.bypass_mode} → ${actor.bypass_mode}` });
-      next.bypass_actors[j] = { ...actor };
+    } else if (have.bypass_mode !== actor.bypass_mode) {
+      // Never changed by Genesis: say what prune-staging needs.
+      notes.push(`${scope}: the repository admin role bypasses it only "${have.bypass_mode}"; genesis repo prune-staging needs "${actor.bypass_mode}" to delete merged batches (change it by hand if you want that)`);
     }
   }
   return next;
@@ -319,7 +371,7 @@ export function planProtection(spec: ProtectionSpec, live: LiveRepo, options: Pl
       changes.push({
         scope: `ruleset "${want.name}"`,
         kind: "add",
-        what: `new ruleset on ${want.conditions.ref_name.include.join(", ")}: ${rules.map((r) => r.type).join(", ")}${listed?.length ? ` (checks: ${listed.map((c) => c.context).join(", ")})` : ""}; the admin role bypasses`,
+        what: `new ruleset on ${want.conditions.ref_name.include.join(", ")}: ${rules.map((r) => r.type).join(", ")}${listed?.length ? ` (checks: ${listed.map((c) => c.context).join(", ")})` : ""}${want.bypass_actors?.length ? "; the admin role bypasses" : ""}`,
       });
       writes.push({ method: "POST", path: `repos/${live.slug}/rulesets`, body: rulesetBody({ ...want, rules }) });
       continue;

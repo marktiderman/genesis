@@ -12,7 +12,8 @@
  * - A workflow that runs only on other pull request activity (`types: [closed]`) reports nothing
  *   while the pull request is open, so it is left out.
  * - Advisory reviews (Genesis's `claude-review.yml`) aren't required; jobs whose names GitHub
- *   builds at run time (a matrix, an expression) can't be named here, and are said in `notes`.
+ *   builds at run time (a matrix, named or not: GitHub appends each leg's values; an expression)
+ *   aren't required, and are said in `notes`.
  */
 import { parse } from "yaml";
 import type { ConditionalCheck } from "./spec.js";
@@ -199,8 +200,9 @@ export async function checksFromWorkflows(files: readonly WorkflowFile[], branch
         found.push(...calledChecks(caller, called, inputs, `${file.path} → ${uses.split("@")[0]}`, notes));
         continue;
       }
-      if (isObj(raw.strategy) && raw.strategy.matrix !== undefined && typeof raw.name !== "string") {
-        notes.push(`${file.path}: job ${key} is a matrix, so its check names aren't known here (list them in repo.requiredChecks)`);
+      // GitHub reports one check per matrix leg (`Test (18)`, `Test (20)`), never the bare name.
+      if (isObj(raw.strategy) && raw.strategy.matrix !== undefined) {
+        notes.push(`${file.path}: job ${key} is a matrix, which reports one check per leg, so it isn't required (list its checks in repo.requiredChecks)`);
         continue;
       }
       found.push(caller);

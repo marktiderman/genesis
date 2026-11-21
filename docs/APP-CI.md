@@ -330,8 +330,11 @@ it as the `github.branch-protection` step. The genesis-cli README ("genesis repo
 | `default` | the default branch | no deletion, no force push; a pull request with every review thread resolved, merge or squash only; the required checks | Every change arrives as a reviewed pull request, and its history stays as merged (Genesis merges, never rebases). No approval count: the approval is the adversarial review gate's `Adversarial review` check, which a person's review turns green. |
 | `staging-branches` | `staging/**`, when the app releases through staging batches | no deletion, no force push; the checks that run on pull requests into a batch, not enforced when a batch is cut | A batch collects reviewed pull requests for one release into the default branch; it is cut from that branch, so its first push carries no checks yet. |
 
-Both let the repository's admin role bypass them, and the settings delete head branches on merge,
-turn auto-merge on and rebase merging off.
+Only `staging-branches` lets the repository's admin role bypass it ("always"), so
+`genesis repo prune-staging` can delete a merged batch. The default branch gets no bypass from
+Genesis: nothing reaches it past the review gate, not even an admin account. A bypass the app
+already has there is kept as it is. The settings delete head branches on merge, turn auto-merge on
+and rebase merging off.
 
 **Required checks come from the app's CI.** The CLI reads `.github/workflows`: every job of a
 workflow that runs on pull requests into the branch, by the name GitHub gives its check
@@ -341,18 +344,25 @@ claude-review, which advises. Each check is pinned to GitHub Actions, so no othe
 status of that name and satisfy it. A workflow with `paths` on its pull request trigger, like a
 database workflow on `supabase/**`, is never required: GitHub doesn't run it on a pull request
 outside those paths, and a required check that never reports holds that pull request forever. Run
-pgTAP on every pull request (no `paths`) to require it. Where the workflows can't say (a matrix, a
-name built at run time), list the checks in `genesis.config.json`:
-`"repo": { "requiredChecks": [...], "stagingChecks": [...] }`.
+pgTAP on every pull request (no `paths`) to require it. A matrix job is never required either:
+GitHub reports one check per leg (`Test (18)`, `Test (20)`), never the job's own name. Where the
+workflows can't say (a matrix, a name built at run time), list the checks in `genesis.config.json`:
+`"repo": { "requiredChecks": [...], "stagingChecks": [...] }`. A check listed there is required
+as listed, a path-filtered one included (with a note).
 
 **Converging adopts what's there.** A ruleset of the same name, or on the same branches, is updated
 in place; a rule, parameter, bypass actor or required check Genesis doesn't name is kept and noted,
-except a check that can never report. Nothing is turned off to make a change.
+except a check that can never report. Genesis's values are a floor, never a ceiling: more
+approvals, code-owner review, last-push approval, dismissing stale reviews, strict status checks
+and fewer merge methods stay as the app set them, and an existing bypass actor's mode is never
+changed. Nothing is turned off to make a change. `genesis repo protect` writes only the plan it
+showed; when a write fails, it says which already landed.
 
 **Deleting a merged staging batch** is `genesis repo prune-staging`, not a rule switched off and on
 again. It deletes a `staging/…` branch only when all of it is on the default branch, no open pull
-request comes from or goes into it, it is a dated batch (`staging/YYYY-MM-DD/<letter>`) and it isn't the newest one, through the admin role's bypass.
-`--dry-run` lists what it would delete.
+request comes from or goes into it, it is a dated batch (`staging/YYYY-MM-DD/<letter>`) and it
+isn't the newest one (by date, then letter), through the staging ruleset's admin bypass.
+`--dry-run` lists what it would delete, and says so when this account can't bypass.
 
 ## Security
 

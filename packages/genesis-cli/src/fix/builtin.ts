@@ -473,7 +473,6 @@ function setSecrets(): Fix {
   };
 }
 
-/** Every built-in fix, in the order the engine tries them for a rule. */
 /**
  * `repo.protect`: `genesis repo protect` as a fix. The plan is its dry run (it reads GitHub, so it
  * needs the network); applying makes the writes through gh as the repository's admin.
@@ -488,18 +487,20 @@ function repoProtectFix(deps: BuiltinDeps): Fix {
     step: "github.branch-protection",
     async plan(ctx) {
       if (!ctx.network) return { summary: "reads the repository's rulesets from GitHub: run it online", manual: "genesis repo protect --dry-run shows the change; genesis repo protect makes it" };
-      const { planRepo } = await import("../repo/index.js");
-      const { plan } = await planRepo(options(ctx.root));
-      return { summary: plan.changes.length ? `${plan.slug}: ${plan.changes.map((c) => `${c.scope} ${c.kind} ${c.what}`).join("; ")}` : `${plan.slug} already matches the standard` };
+      const { planRepo, planSummary } = await import("../repo/index.js");
+      return { summary: planSummary((await planRepo(options(ctx.root))).plan) };
     },
-    async apply(_plan, ctx) {
-      const { applyRepoPlan, planRepo } = await import("../repo/index.js");
-      const { plan } = await planRepo(options(ctx.root));
-      return { ran: await applyRepoPlan(options(ctx.root), plan) };
+    // The approved plan's digest: a repository that changed since is refused, never applied unseen.
+    async apply(plan, ctx) {
+      const { applyApprovedPlan, digestOf } = await import("../repo/index.js");
+      const digest = digestOf(plan.summary);
+      if (!digest) throw new Error("repo.protect: the approved plan has no digest; plan it again");
+      return { ran: await applyApprovedPlan(options(ctx.root), digest) };
     },
   };
 }
 
+/** Every built-in fix, in the order the engine tries them for a rule. */
 export function builtinFixes(deps: BuiltinDeps = {}): Fix[] {
   return [scopeNames, featuresRenamed, eslintConfig, agentGuide, agentHooks, contractsFix(deps), migrateCopyFix(deps), migrateForwardFix(deps), upgradeFix(deps), removeUnknownSettings, resetBadSettings, adoptMissed, reviewSettings, settingRequires, settingSetup, firstAdmin, setSecrets(), repoProtectFix(deps)];
 }

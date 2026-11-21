@@ -683,7 +683,7 @@ repoCommand
 
 repoCommand
   .command("prune-staging")
-  .description("Delete staging batches that are merged into the default branch, have no open pull request and aren't the newest, through the rulesets' admin bypass (no rule is turned off)")
+  .description("Delete staging batches that are merged into the default branch, have no open pull request and aren't the newest, through the staging ruleset's admin bypass (no rule is turned off)")
   .option("-d, --dir <dir>", "The app's folder", process.cwd())
   .option("--repo <owner/name>", "The GitHub repository (default: the origin remote's)")
   .option("--dry-run", "List what would be deleted; delete nothing", false)

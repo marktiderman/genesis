@@ -35,7 +35,8 @@ async function gh(deps: GitHubDeps, args: string[], stdin?: string): Promise<str
   const res = await deps.run("gh", ["api", ...args], { cwd: deps.cwd, timeoutMs: 30_000, passEnv: TOOL_AUTH_ENV["gh"] ?? [], ...(stdin !== undefined ? { stdin } : {}) });
   if (res.code !== 0) {
     const said = (res.stderr.trim() || res.stdout.trim()).split("\n")[0] ?? "";
-    throw new GitHubError(`gh api ${args.filter((a) => !a.startsWith("-")).at(-1) ?? ""} failed: ${said || `exit ${res.code}`}`);
+    const admin = /\b(403|404)\b/.test(res.stderr) && args.includes("-X") ? " (this needs the repository's admin role)" : "";
+    throw new GitHubError(`gh api ${args.filter((a) => !a.startsWith("-") && a.startsWith("repos/")).at(-1) ?? ""} failed: ${said || `exit ${res.code}`}${admin}`);
   }
   return res.stdout;
 }
@@ -99,9 +100,16 @@ export interface OpenPull {
   head: string;
 }
 
+/** Every open pull request, every page: one JSON line each. */
 export async function openPulls(deps: GitHubDeps, slug: string): Promise<OpenPull[]> {
-  const pulls = await ghJson<Array<{ base?: { ref?: string }; head?: { ref?: string; repo?: { full_name?: string } | null } }>>(deps, [`repos/${slug}/pulls?state=open&per_page=100`]);
-  return pulls.map((p) => ({ base: p.base?.ref ?? "", head: p.head?.repo?.full_name === slug ? (p.head?.ref ?? "") : "" }));
+  const out = await gh(deps, ["--paginate", "--jq", ".[] | {base: .base.ref, head: .head.ref, repo: .head.repo.full_name} | @json", `repos/${slug}/pulls?state=open&per_page=100`]);
+  return out
+    .split("\n")
+    .filter((l) => l.trim())
+    .map((l) => {
+      const p = JSON.parse(l) as { base?: string | null; head?: string | null; repo?: string | null };
+      return { base: p.base ?? "", head: p.repo === slug ? (p.head ?? "") : "" };
+    });
 }
 
 /** How many commits `branch` has that `base` doesn't. */

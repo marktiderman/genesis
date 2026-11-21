@@ -8,7 +8,7 @@
 import { existsSync } from "node:fs";
 import * as path from "node:path";
 import { defineSetupStep } from "./define.js";
-import { applyRepoPlan, formatPlan, planRepo } from "../../repo/index.js";
+import { applyApprovedPlan, digestOf, formatPlan, planRepo, planSummary } from "../../repo/index.js";
 import { OFFLINE, StepError, type StepContext, type StepRunner } from "./framework.js";
 
 export const githubProtectStep = defineSetupStep({
@@ -61,13 +61,13 @@ export const githubProtect: StepRunner = {
   },
   async plan(ctx) {
     if (!ctx.network) throw new StepError("Branch protection reads the repository from GitHub: run it online.");
-    const { plan } = await planRepo(options(ctx));
-    const summary = plan.changes.length ? `${plan.slug}: ${plan.changes.map((c) => `${c.scope} ${c.kind} ${c.what}`).join("; ")}` : `${plan.slug} already matches the Genesis standard`;
-    return { summary };
+    return { summary: planSummary((await planRepo(options(ctx))).plan) };
   },
-  async apply(ctx) {
-    const { plan } = await planRepo(options(ctx));
-    const done = await applyRepoPlan(options(ctx), plan);
+  // Applies the approved plan only: a repository that changed since it was shown is refused.
+  async apply(ctx, _secrets, approved) {
+    const digest = approved ? digestOf(approved.summary) : null;
+    if (!digest) throw new StepError("The approved plan has no digest: plan the step again.");
+    const done = await applyApprovedPlan(options(ctx), digest);
     return done.length ? done : ["Nothing to change."];
   },
   async verify(ctx) {

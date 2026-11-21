@@ -51,7 +51,8 @@ export interface StepRunner {
   appliesTo?(root: string): boolean;
   detect?(ctx: StepContext): Promise<string[]>;
   plan(ctx: StepContext): FixPlanDraft | Promise<FixPlanDraft>;
-  apply?(ctx: StepContext, secrets: SecretVault): Promise<string[]>;
+  /** `approved` is the plan the person approved (its summary, commands and hash). */
+  apply?(ctx: StepContext, secrets: SecretVault, approved?: FixPlan): Promise<string[]>;
   /** Without `secrets` (a re-check), a runner checks what it can by name and says what it couldn't. */
   verify(ctx: StepContext, secrets?: SecretVault): Promise<VerifyResult>;
 }
@@ -168,7 +169,7 @@ export function stepFix(runner: StepRunner, rawFields: unknown, deps: StepDeps =
       const vault = SecretVault.from(context.secrets);
       const ctx = ctxFor(context.root, context.log);
       const ran = await runCommands(plan, ctx, vault);
-      const notes = runner.apply ? await runner.apply(ctx, vault) : [];
+      const notes = runner.apply ? await runner.apply(ctx, vault, plan) : [];
       return { ran, notes };
     },
     async verify(context): Promise<VerifyResult> {

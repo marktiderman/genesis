@@ -13,6 +13,9 @@ import {
   planProtection,
   planRepo,
   protectionSpec,
+  applyApprovedPlan,
+  compareBatches,
+  planDigest,
   runPruneStaging,
   runRepoProtect,
   slugFromRemote,
@@ -79,7 +82,8 @@ describe("protectionSpec", () => {
       { context: "app / App checks", integration_id: GITHUB_ACTIONS_APP_ID },
       { context: "Adversarial review", integration_id: GITHUB_ACTIONS_APP_ID },
     ]);
-    expect(one.rulesets[0]!.bypass_actors).toEqual([{ actor_id: 5, actor_type: "RepositoryRole", bypass_mode: "always" }]);
+    // No bypass on the default branch: nothing reaches it past the review gate.
+    expect(one.rulesets[0]!.bypass_actors).toEqual([]);
     expect(one.settings).toEqual({ delete_branch_on_merge: true, allow_auto_merge: true, allow_rebase_merge: false, allow_merge_commit: true });
 
     const two = protectionSpec({ defaultChecks: [], stagingChecks: ["Adversarial review"] });
@@ -88,6 +92,7 @@ describe("protectionSpec", () => {
     expect(staging.conditions.ref_name.include).toEqual([STAGING_REF]);
     expect(staging.rules.map((r) => r.type)).toEqual(["deletion", "non_fast_forward", "required_status_checks"]);
     expect(staging.rules[2]!.parameters).toMatchObject({ do_not_enforce_on_create: true });
+    expect(staging.bypass_actors).toEqual([{ actor_id: 5, actor_type: "RepositoryRole", bypass_mode: "always" }]);
   });
 });
 
@@ -97,7 +102,7 @@ describe("planProtection", () => {
   it("creates what's missing with one POST per ruleset and one PATCH for the settings", () => {
     const plan = planProtection(spec, live([], { delete_branch_on_merge: false, allow_auto_merge: true, allow_rebase_merge: true, allow_merge_commit: true }));
     expect(plan.writes.map((w) => `${w.method} ${w.path}`)).toEqual(["POST repos/acme/sample-app/rulesets", "PATCH repos/acme/sample-app"]);
-    expect(plan.writes[0]!.body).toMatchObject({ name: "default", target: "branch", enforcement: "active", bypass_actors: [{ actor_id: 5 }] });
+    expect(plan.writes[0]!.body).toMatchObject({ name: "default", target: "branch", enforcement: "active", bypass_actors: [] });
     expect(plan.writes[1]!.body).toEqual({ delete_branch_on_merge: true, allow_rebase_merge: false });
     expect(formatPlan(plan, { dryRun: true })).toContain("~ allow_rebase_merge: true → false");
   });
@@ -127,7 +132,7 @@ describe("planProtection", () => {
     expect(plan.changes.filter((c) => c.kind === "remove").map((c) => c.what)).toEqual(['required check "database / Database and pgTAP"', 'required check "Adversarial review"']);
   });
 
-  it("pins unpinned checks, takes rebase out of the merge methods, adds a missing bypass and a missing staging ruleset", () => {
+  it("pins unpinned checks, takes rebase out of the merge methods, adds no bypass to the default branch and adds a missing staging ruleset", () => {
     const r = handMade();
     (r.rules[2]!.parameters as Record<string, unknown>).allowed_merge_methods = ["merge", "squash", "rebase"];
     (r.rules[3]!.parameters as Record<string, unknown>).required_status_checks = [{ context: "app / App checks" }, { context: "Adversarial review", integration_id: GITHUB_ACTIONS_APP_ID }];
@@ -136,9 +141,43 @@ describe("planProtection", () => {
     const said = plan.changes.map((c) => `${c.kind} ${c.what}`);
     expect(said).toContain("change pull_request.allowed_merge_methods: [merge, squash, rebase] → [merge, squash]");
     expect(said).toContain('change required check "app / App checks": pinned to GitHub Actions (app 15368)');
-    expect(said).toContain("add bypass: the repository admin role (always)");
-    expect(said.some((s) => s.startsWith("add new ruleset on refs/heads/staging/**/*"))).toBe(true);
+    expect(said.some((s) => s.includes("bypass: the repository admin role"))).toBe(false);
+    expect(said.some((s) => s.startsWith("add new ruleset on refs/heads/staging/**/*") && s.endsWith("the admin role bypasses"))).toBe(true);
     expect(plan.writes.map((w) => w.method)).toEqual(["PUT", "POST"]);
+    expect((plan.writes[0]!.body.bypass_actors as unknown[]).length).toBe(0);
+  });
+
+  it("never loosens a stricter hand-set rule: approvals, code owners, last push, stale reviews, strict checks, merge methods", () => {
+    const r = handMade();
+    Object.assign(r.rules[2]!.parameters!, { required_approving_review_count: 2, require_code_owner_review: true, require_last_push_approval: true, dismiss_stale_reviews_on_push: true, allowed_merge_methods: ["squash"] });
+    Object.assign(r.rules[3]!.parameters!, { strict_required_status_checks_policy: true });
+    const plan = planProtection(protectionSpec({ defaultChecks: ["app / App checks", "database / Database and pgTAP", "Adversarial review"], stagingChecks: null }), live([r]));
+    expect(plan.changes).toEqual([]);
+    expect(plan.writes).toEqual([]);
+
+    // A stricter staging ruleset (enforced on create) stays enforced on create.
+    const staging: Ruleset = { ...handMade(), id: 7, name: "staging-branches", conditions: { ref_name: { include: [STAGING_REF], exclude: [] } }, rules: [{ type: "deletion" }, { type: "non_fast_forward" }, { type: "required_status_checks", parameters: { strict_required_status_checks_policy: false, do_not_enforce_on_create: false, required_status_checks: [{ context: "Adversarial review", integration_id: GITHUB_ACTIONS_APP_ID }] } }] };
+    const both = planProtection(protectionSpec({ defaultChecks: ["app / App checks", "database / Database and pgTAP", "Adversarial review"], stagingChecks: ["Adversarial review"] }), live([handMade(), staging]));
+    expect(both.changes).toEqual([]);
+  });
+
+  it("keeps a bypass the default branch already has, never widens an existing mode, and says so when it can't read bypass actors", () => {
+    const main = handMade();
+    main.bypass_actors = [{ actor_id: 5, actor_type: "RepositoryRole", bypass_mode: "pull_request" }];
+    const staging: Ruleset = { ...handMade(), id: 7, name: "staging-branches", conditions: { ref_name: { include: [STAGING_REF], exclude: [] } }, rules: [{ type: "deletion" }, { type: "non_fast_forward" }, { type: "required_status_checks", parameters: { strict_required_status_checks_policy: false, do_not_enforce_on_create: true, required_status_checks: [{ context: "Adversarial review", integration_id: GITHUB_ACTIONS_APP_ID }] } }], bypass_actors: [{ actor_id: 5, actor_type: "RepositoryRole", bypass_mode: "pull_request" }] };
+    const spec2 = protectionSpec({ defaultChecks: ["app / App checks", "database / Database and pgTAP", "Adversarial review"], stagingChecks: ["Adversarial review"] });
+    const plan = planProtection(spec2, live([main, staging]));
+    expect(plan.changes).toEqual([]);
+    expect(plan.notes.join("\n")).toContain('bypasses it only "pull_request"; genesis repo prune-staging needs "always"');
+
+    const unread = { ...staging };
+    delete unread.bypass_actors;
+    const blind = planProtection(spec2, live([main, unread]));
+    expect(blind.changes).toEqual([]);
+    expect(blind.notes.join("\n")).toContain("can't tell whether the repository admin role bypasses it");
+    const pin = { ...unread, rules: unread.rules.map((x) => (x.type === "required_status_checks" ? { ...x, parameters: { ...x.parameters, required_status_checks: [{ context: "Adversarial review" }] } } : x)) };
+    const put = planProtection(spec2, live([main, pin])).writes[0]!;
+    expect("bypass_actors" in put.body).toBe(false);
   });
 
   it("turns an evaluate-only ruleset on", () => {
@@ -226,6 +265,17 @@ jobs:
     expect(out.notes.join("\n")).toMatch(/couldn't be read[\s\S]*matrix[\s\S]*built at run time/);
   });
 
+  it("never requires a matrix job, named or not: GitHub reports one check per leg", async () => {
+    const named = "on: pull_request\njobs:\n  test:\n    name: Test\n    strategy: { matrix: { node: [18, 20] } }\n    runs-on: ubuntu-latest\n  lint:\n    runs-on: ubuntu-latest\n";
+    const unnamed = "on: pull_request\njobs:\n  test:\n    strategy: { matrix: { node: [18, 20] } }\n    runs-on: ubuntu-latest\n";
+    const a = await checksFromWorkflows([{ path: ".github/workflows/a.yml", text: named }], "main");
+    expect(a.required).toEqual(["lint"]);
+    expect(a.notes.join("\n")).toContain("job test is a matrix, which reports one check per leg");
+    const b = await checksFromWorkflows([{ path: ".github/workflows/b.yml", text: unnamed }], "main");
+    expect(b.required).toEqual([]);
+    expect(b.notes.join("\n")).toContain("job test is a matrix");
+  });
+
   it("calls a local reusable workflow by path", async () => {
     const files = [
       { path: ".github/workflows/ci.yml", text: "on: { pull_request: {} }\njobs:\n  checks:\n    name: Checks\n    uses: ./.github/workflows/reusable.yml\n" },
@@ -283,21 +333,22 @@ interface Fake {
   calls: Array<{ args: string[]; stdin?: string }>;
 }
 
-function fakeGitHub(top: string, state: { rulesets: Ruleset[]; settings?: Record<string, unknown>; branches?: string[]; pulls?: unknown[]; ahead?: Record<string, number> }): Fake {
+function fakeGitHub(top: string, state: { rulesets: Ruleset[]; settings?: Record<string, unknown>; branches?: string[]; pulls?: unknown[]; ahead?: Record<string, number>; failWrites?: string[] }): Fake {
   const calls: Fake["calls"] = [];
   const ok = (stdout: unknown): RunToolResult => ({ code: 0, stdout: typeof stdout === "string" ? stdout : JSON.stringify(stdout), stderr: "" });
   const run: ToolRunner = async (tool, args, options) => {
     calls.push({ args: [tool, ...args], ...(options.stdin !== undefined ? { stdin: options.stdin } : {}) });
     if (tool === "git") return args[0] === "rev-parse" ? ok(`${top}\n`) : ok("git@github.com:acme/sample-app.git\n");
     const target = args.filter((a) => a.startsWith("repos/")).at(-1) ?? "";
-    if (args.includes("-X")) return ok("{}");
+    if (args.includes("-X") && !(state.failWrites ?? []).includes(target)) return ok("{}");
+    if (args.includes("-X")) return { code: 1, stdout: "", stderr: "gh: Resource not accessible (HTTP 403)" };
     if (target === "repos/acme/sample-app") return ok({ default_branch: "main", delete_branch_on_merge: true, allow_auto_merge: true, allow_rebase_merge: true, allow_merge_commit: true, ...state.settings });
     if (target.startsWith("repos/acme/sample-app/rulesets?")) return ok(state.rulesets.map((r) => ({ id: r.id, name: r.name, target: r.target, source_type: "Repository" })));
     const rs = /rulesets\/(\d+)$/.exec(target);
     if (rs) return ok(state.rulesets.find((r) => String(r.id) === rs[1]));
     if (target.includes("/git/matching-refs/heads/staging/")) return ok((state.branches ?? []).map((b) => ({ ref: `refs/heads/${b}` })));
     if (target.includes("/contents/")) return ok(genesisWorkflow(path.basename(target.split("?")[0]!)));
-    if (target.includes("/pulls?")) return ok(state.pulls ?? []);
+    if (target.includes("/pulls?")) return ok(((state.pulls ?? []) as Array<{ base?: { ref?: string }; head?: { ref?: string; repo?: { full_name?: string } } }>).map((p) => JSON.stringify({ base: p.base?.ref, head: p.head?.ref, repo: p.head?.repo?.full_name })).join("\n"));
     const cmp = /compare\/main\.\.\.(.+)$/.exec(target);
     if (cmp) return ok({ ahead_by: state.ahead?.[cmp[1]!] ?? 0 });
     return { code: 1, stdout: "", stderr: `unexpected ${target}` };
@@ -341,7 +392,39 @@ describe("genesis repo protect", () => {
   });
 });
 
+describe("applying", () => {
+  it("names the checks repo.requiredChecks lists even when their workflow is path-filtered, with a note", async () => {
+    const top = repoDir(CI_FILES, { repo: { requiredChecks: ["app / App checks", "database / Database and pgTAP", "Adversarial review"] } });
+    const result = await planRepo({ root: top, run: fakeGitHub(top, { rulesets: [handMade()] }).run });
+    expect(result.plan.changes.filter((c) => c.scope !== "settings")).toEqual([]);
+    expect(result.plan.notes.join("\n")).toContain('"database / Database and pgTAP" is required because genesis.config.json repo names it');
+  });
+
+  it("says which writes landed when one fails, and that it needs the admin role", async () => {
+    const top = repoDir(CI_FILES);
+    const fake = fakeGitHub(top, { rulesets: [handMade()], failWrites: ["repos/acme/sample-app"] });
+    await expect(runRepoProtect({ root: top, run: fake.run, out: () => {} })).rejects.toThrow(/admin role\)\. Already written: PUT repos\/acme\/sample-app\/rulesets\/101/);
+  });
+
+  it("applies only the approved plan: a repository that changed since is refused", async () => {
+    const top = repoDir(CI_FILES);
+    const before = await planRepo({ root: top, run: fakeGitHub(top, { rulesets: [handMade()] }).run });
+    const changed = handMade();
+    // Someone added a rule since: the PUT that keeps it isn't the PUT that was approved.
+    changed.rules.push({ type: "required_signatures" });
+    const now = fakeGitHub(top, { rulesets: [changed] });
+    await expect(applyApprovedPlan({ root: top, run: now.run }, planDigest(before.plan))).rejects.toThrow(/changed since the plan was approved/);
+    expect(now.calls.some((c) => c.args.includes("-X"))).toBe(false);
+    const same = fakeGitHub(top, { rulesets: [handMade()] });
+    expect(await applyApprovedPlan({ root: top, run: same.run }, planDigest(before.plan))).toEqual(["PUT repos/acme/sample-app/rulesets/101", "PATCH repos/acme/sample-app"]);
+  });
+});
+
 describe("genesis repo prune-staging", () => {
+  it("orders batches by date, then letter (z before aa)", () => {
+    expect(["staging/2026-11-21/aa", "staging/2026-11-21/z", "staging/2026-11-20/b"].sort(compareBatches)).toEqual(["staging/2026-11-20/b", "staging/2026-11-21/z", "staging/2026-11-21/aa"]);
+  });
+
   it("deletes merged batches, never the newest, one with an open pull request or an undated staging branch", async () => {
     const top = repoDir(CI_FILES);
     const state = {
@@ -369,6 +452,9 @@ describe("genesis repo prune-staging", () => {
     const lines: string[] = [];
     expect(await runPruneStaging({ root: top, run: fake.run, out: (l) => lines.push(l) })).toBe(1);
     expect(lines.join("\n")).toContain("can't bypass it");
+    const dry: string[] = [];
+    expect(await runPruneStaging({ root: top, run: fake.run, dryRun: true, out: (l) => dry.push(l) })).toBe(1);
+    expect(dry.join("\n")).toContain("would fail staging/2026-01-01/a: no bypass");
   });
 });
 

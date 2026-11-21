@@ -1995,8 +1995,9 @@ genesis repo prune-staging       # delete merged staging batches, with the rules
 - **`staging-branches`** on `staging/**`, when the app releases through staging batches (the
   repository has a staging branch or ruleset, or `repo.staging: true`): no deletion, no force
   push, the checks that run on pull requests into a batch, not enforced when a batch is cut.
-- **The admin role bypasses both**, and **the settings**: head branches deleted on merge,
-  auto-merge on, rebase merging off.
+- **The admin role bypasses `staging-branches` only** ("always", for `prune-staging`). The default
+  branch gets no bypass from Genesis; one it already has is kept as it is.
+- **The settings**: head branches deleted on merge, auto-merge on, rebase merging off.
 
 The required checks are read from the app's own workflows: every job of a workflow that runs on a
 pull request into that branch, named as GitHub names its check (`app / App checks` for a job
@@ -2007,7 +2008,16 @@ a pull request outside those paths, which would then wait for it forever.
 
 Converging adopts what is there: a ruleset of the same name (or on the same branches) is updated
 in place, and a rule, parameter, bypass actor or required check Genesis doesn't name is kept (and
-noted). Name the checks yourself when the workflows don't say, in `genesis.config.json`:
+noted).
+
+Genesis's values are a floor, never a ceiling: a ruleset with more approvals, code-owner review,
+last-push approval, dismissed stale reviews, strict status checks or fewer merge methods keeps
+them, and an existing bypass actor's mode is never changed. A matrix job is never required (GitHub
+reports one check per leg). When gh can't read the bypass actors (no admin), the plan says it
+can't tell rather than flag them. The fix and the wizard step write only the plan that was shown,
+and refuse when the repository changed since; a failed write says which already landed.
+
+Name the checks yourself when the workflows don't say, in `genesis.config.json`:
 
 ```json
 {
@@ -2019,7 +2029,8 @@ noted). Name the checks yourself when the workflows don't say, in `genesis.confi
 }
 ```
 
-Each list is then exact: a check it doesn't name is removed. `--repo owner/name` picks the
+Each list is then exact: a check it doesn't name is removed, and a check it names is required even
+when its workflow is path-filtered (with a note). `--repo owner/name` picks the
 repository (default: the `origin` remote), `--json` prints the plan as data. The doctor's
 [`repo-protection`](#rules) reports the drift, and the wizard offers it as the
 `github.branch-protection` step.
@@ -2027,7 +2038,7 @@ repository (default: the `origin` remote), `--json` prints the plan as data. The
 `prune-staging` deletes a dated batch (`staging/YYYY-MM-DD/<letter>`) only when everything in it
 is on the default branch, no open pull request comes from or goes into it, and it isn't the
 newest batch; a staging branch of another name is kept. It deletes through
-the rulesets' admin bypass, so no rule is ever turned off; an account that can't bypass is told so
+the staging ruleset's admin bypass, so no rule is ever turned off; an account that can't bypass is told so
 and nothing is deleted.
 
 ## genesis upstream
