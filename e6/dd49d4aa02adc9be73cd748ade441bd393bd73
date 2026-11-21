@@ -1,0 +1,30 @@
+packages/genesis-cli/src/repo/spec.ts
+  s_7081dae02ae2cb::t_695bd2020b3421 479-480
+docs/APP-CI.md
+  s_7081dae02ae2cb::t_1317daca882891 375-376
+  s_7081dae02ae2cb::t_d9c52672bb5aeb 379-381
+packages/genesis-cli/src/repo/index.ts
+  s_7081dae02ae2cb::t_695bd2020b3421 14,74-79,150-151,153,173-179,184,189-197,210,245-246
+  s_7081dae02ae2cb::t_0b5223e96b104f 295-296,298,300-301
+packages/genesis-cli/test/repo-protect.test.ts
+  s_7081dae02ae2cb::t_c554a7ea1fd462 466-468
+  s_7081dae02ae2cb::t_8209bd6591ad1a 73,463-465,469-520
+packages/genesis-cli/src/doctor/repo-protection.ts
+  s_7081dae02ae2cb::t_af930bc414f2a5 67
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e6dd49d4aa02adc9be73cd748ade441bd393bd73",
+  "prompts": {},
+  "sessions": {
+    "s_7081dae02ae2cb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7a2b62bd-584c-47e8-8b1a-72015db941a7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
