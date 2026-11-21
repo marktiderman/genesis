@@ -946,6 +946,10 @@ describe("expo-native-deps", () => {
   it("compares prereleases in range and a React Native TV install by major.minor, as @expo/cli does", async () => {
     const r = await app({ dependencies: ok }, { ...matching, ...installed("expo-modules-core", "58.1.1-canary.0", "node_modules/expo/node_modules"), ...installed("react-native", "0.88.0-0", "node_modules", "react-native-tvos") });
     expect(brief(r.findings, "expo-native-deps")).toEqual([]);
+    // Outside the range they're still reported: a TV install of another minor, a prerelease past the range.
+    const out = await app({ dependencies: ok }, { ...matching, ...installed("expo-modules-core", "58.2.0-canary.0", "node_modules/expo/node_modules"), ...installed("react-native", "0.87.2-0", "node_modules", "react-native-tvos") });
+    expect(brief(out.findings, "expo-native-deps").sort()).toEqual(["expo-native-deps package.json:0 expo-modules-core", "expo-native-deps package.json:0 react-native"]);
+    expect(levels(out.findings, "expo-native-deps")).toEqual(["error", "error"]);
   });
 
   it("is quiet when everything matches, when expo isn't installed, and in an app without expo", async () => {

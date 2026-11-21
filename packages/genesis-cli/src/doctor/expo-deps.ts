@@ -152,7 +152,7 @@ function inRange(name: string, manifest: Manifest, installed: string, range: str
     // A TV install follows React Native's major.minor with its own patches.
     const v = parseVersion(installed);
     const want = /(\d+)\.(\d+)/.exec(range);
-    return !v || !want || (v.major === +want[1]! && v.minor === +want[2]!);
+    if (v && want) return v.major === +want[1]! && v.minor === +want[2]!;
   }
   return satisfies(installed, range, { includePrerelease: true }) !== false;
 }
