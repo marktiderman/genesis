@@ -8,10 +8,6 @@ on:
   # publishes every local version not yet on npm, which is exactly the retry.
   workflow_dispatch:
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false
-
 # Each job asks for what it needs.
 permissions: {}
 
@@ -20,6 +16,11 @@ jobs:
     name: Release
     # workflow_dispatch can target any ref; only main may version or publish.
     if: github.ref == 'refs/heads/main'
+    # On the job, not the workflow: verify-publish polls npm for up to 30 minutes and must not
+    # hold the next release's queue slot (a second push would cancel the first waiting run).
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     # The `npm` environment allows deployments from `main` ONLY (repo
     # Settings → Environments → npm → deployment branches: main). Every npm
@@ -342,7 +343,8 @@ jobs:
   verify-publish:
     name: Verify npm publish
     needs: release
-    if: needs.release.outputs.published == 'true' || needs.release.outputs.published_on_main == 'true'
+    # Runs even when a later release step failed after a successful publish.
+    if: ${{ !cancelled() && (needs.release.outputs.published == 'true' || needs.release.outputs.published_on_main == 'true') }}
     runs-on: ubuntu-latest
     # The script gives up after 30 minutes of polling.
     timeout-minutes: 40
