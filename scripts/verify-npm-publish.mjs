@@ -6,8 +6,9 @@
 // package was published while its `latest` dist-tag stayed on the previous version. This script
 // reads the registry itself, so nobody has to check by hand.
 //
-//   node scripts/verify-npm-publish.mjs published [--local] [--timeout <minutes>] [--issue]
-//     Each package changesets/action published (PUBLISHED_PACKAGES, its `publishedPackages`
+//   node scripts/verify-npm-publish.mjs published [--local] [--expect-some] [--timeout <minutes>] [--issue]
+//   (--expect-some: fail when the published list is empty, since the job runs only after a publish)
+//     Each package changesets/action published (PUBLISHED_PACKAGES, its `published-packages`
 //     output: JSON [{ name, version }]), plus with --local every public package's version on this
 //     checkout (the "Publish versions already on main" path, which changesets/action doesn't see).
 //     Polls until every version exists and, when it is the package's highest non-prerelease,
@@ -74,14 +75,14 @@ export function highestStable(versions) {
 
 // ── inputs ─────────────────────────────────────────────────────────────────────
 
-/** changesets/action's publishedPackages output (JSON [{ name, version }]); "" or missing is []. */
+/** changesets/action v2's published-packages output (JSON [{ name, version }]); "" or missing is []. */
 export function parsePublished(text) {
   if (text === undefined || text === null || String(text).trim() === "") return [];
   const list = JSON.parse(text);
-  if (!Array.isArray(list)) throw new Error("publishedPackages is not a JSON array");
+  if (!Array.isArray(list)) throw new Error("published-packages is not a JSON array");
   return list.map((p) => {
     if (!p || typeof p.name !== "string" || typeof p.version !== "string") {
-      throw new Error(`publishedPackages entry without a name and version: ${JSON.stringify(p)}`);
+      throw new Error(`published-packages entry without a name and version: ${JSON.stringify(p)}`);
     }
     return { name: p.name, version: p.version };
   });
@@ -280,12 +281,13 @@ export async function syncIssue({ fetchImpl = fetch, token, repo, mode, results,
 export function parseArgs(argv) {
   const [mode, ...rest] = argv;
   if (mode !== "published" && mode !== "drift") {
-    throw new Error("usage: verify-npm-publish.mjs <published|drift> [--local] [--packages <json>] [--timeout <minutes>] [--issue]");
+    throw new Error("usage: verify-npm-publish.mjs <published|drift> [--local] [--expect-some] [--packages <json>] [--timeout <minutes>] [--issue]");
   }
   const opts = { mode, local: mode === "drift", issue: false, packages: undefined, timeoutMinutes: mode === "drift" ? 0 : 30 };
   for (let i = 0; i < rest.length; i++) {
     const a = rest[i];
     if (a === "--local") opts.local = true;
+    else if (a === "--expect-some") opts.expectSome = true;
     else if (a === "--issue") opts.issue = true;
     else if (a === "--packages") opts.packages = rest[++i];
     else if (a === "--timeout") {
@@ -304,6 +306,13 @@ async function main() {
     ...(opts.local ? localPackages(root) : []),
   ]);
   if (packages.length === 0) {
+    // The job runs only when a publish happened: an empty list then means the list was lost
+    // (e.g. a renamed action output), never that there's nothing to check.
+    if (opts.expectSome) {
+      console.error("::error::A publish happened but no published packages reached this check: refusing to pass without checking anything.");
+      process.exitCode = 1;
+      return;
+    }
     console.log("Nothing to check: no packages were published.");
     return;
   }

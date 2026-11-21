@@ -31,7 +31,8 @@ jobs:
     # What was published, for the verify-publish job below.
     outputs:
       published: ${{ steps.changesets.outputs.published }}
-      published_packages: ${{ steps.changesets.outputs.publishedPackages }}
+      # changesets/action v2 names it published-packages (v1's publishedPackages is always empty here).
+      published_packages: ${{ steps.changesets.outputs['published-packages'] }}
       published_on_main: ${{ steps.publish_on_main.outputs.published }}
     # Publishing is I/O-bound and short; anything past this is a hang, not work.
     # ci.yml's BILLING CONTRACT rule 3 — the July 2026 runaways (118 and
@@ -366,4 +367,4 @@ jobs:
           PUBLISHED_ON_MAIN: ${{ needs.release.outputs.published_on_main }}
         run: |
           if [ "$PUBLISHED_ON_MAIN" = true ]; then set -- --local; fi
-          node scripts/verify-npm-publish.mjs published --timeout 30 --issue "$@"
+          node scripts/verify-npm-publish.mjs published --timeout 30 --issue --expect-some "$@"

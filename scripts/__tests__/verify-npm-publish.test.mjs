@@ -228,3 +228,21 @@ describe("syncIssue", () => {
     expect(await syncIssue({ fetchImpl: none.fetchImpl, token: "t", repo: "o/r", mode: "drift", results: good, runUrl: "u" })).toEqual({ action: "none" });
   });
 });
+
+describe("an empty published list after a publish", () => {
+  it("parses --expect-some", () => {
+    expect(parseArgs(["published", "--expect-some"]).expectSome).toBe(true);
+    expect(parseArgs(["published"]).expectSome).toBeUndefined();
+  });
+
+  it("fails instead of passing with nothing checked", async () => {
+    const { spawnSync } = await import("node:child_process");
+    const script = join(import.meta.dirname, "..", "verify-npm-publish.mjs");
+    const env = { ...process.env, PUBLISHED_PACKAGES: "", GITHUB_STEP_SUMMARY: "", GITHUB_TOKEN: "" };
+    const strict = spawnSync(process.execPath, [script, "published", "--timeout", "0", "--expect-some"], { env, encoding: "utf8" });
+    expect(strict.status).toBe(1);
+    expect(strict.stdout + strict.stderr).toMatch(/refusing to pass/);
+    const lenient = spawnSync(process.execPath, [script, "published", "--timeout", "0"], { env, encoding: "utf8" });
+    expect(lenient.status).toBe(0);
+  });
+});
