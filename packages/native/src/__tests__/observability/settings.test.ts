@@ -69,3 +69,34 @@ describe("error reporting's settings", () => {
     expect(r.problem).toMatch(/must match/);
   });
 });
+
+describe("the platform-neutral entry, /observability-settings", () => {
+  const src = join(__dirname, "..", "..", "observability");
+
+  it("exports the same settings as /observability, so a web app's catalogue can include them", async () => {
+    const neutral = await import("../../observability/settings-entry");
+    expect(neutral.observabilitySettings).toBe(observabilitySettings);
+    expect(neutral.OBSERVABILITY_SETTING_SPECS).toBe(OBSERVABILITY_SETTING_SPECS);
+    expect(Object.keys(settingsCatalogue([neutral.observabilitySettings]).keys)).toEqual(Object.keys(observabilitySettings.keys));
+    const pkg = JSON.parse(readFileSync(join(__dirname, "..", "..", "..", "package.json"), "utf8")) as { exports: Record<string, Record<string, string>> };
+    expect(pkg.exports["./observability-settings"]).toEqual({ types: "./dist/observability-settings.d.ts", import: "./dist/observability-settings.js", default: "./dist/observability-settings.js" });
+  });
+
+  it("imports no React, React Native or Expo, here or in what it imports", () => {
+    const seen = new Set<string>();
+    const bare: string[] = [];
+    const visit = (file: string) => {
+      if (seen.has(file)) return;
+      seen.add(file);
+      const text = readFileSync(join(src, file), "utf8");
+      for (const m of text.matchAll(/\bfrom\s+["']([^"']+)["']/g)) {
+        const spec = m[1]!;
+        if (spec.startsWith("./")) visit(`${spec.slice(2)}.ts`);
+        else bare.push(spec);
+      }
+    };
+    visit("settings-entry.ts");
+    expect(seen.size).toBeGreaterThan(1);
+    expect(bare.filter((s) => /^(?:react|react-native|expo)(?:[/-]|$)|^@expo\//.test(s))).toEqual([]);
+  });
+});

@@ -617,6 +617,11 @@ doesn't fit, is a warning.
    summary says to run `genesis upgrade` in that app.
 4. Regenerates what comes from the installed packages, and the pull request carries it: the agent
    guide (`genesis agents`), when the app has it, and `features build`, when it has a registry.
+   An app whose package.json has a `features:build` script of its own (one that isn't
+   `genesis features build`) gets that script, run with its package manager, so its outputs come
+   out exactly as its own build and check write them (`genesis add` does the same). The agent
+   guide leaves out a deprecated package (a renamed one's alias) that the app's package.json no
+   longer lists, though its folder is still in node_modules.
    `--no-agents` and `--no-features-build` turn them off; a failure is a warning in the summary.
    And names each export the release added that the app builds by hand, with the swap to make,
    before the doctor's `shadowed-export` reports it. That swap isn't mechanical, so it's named and
@@ -687,6 +692,16 @@ npx @marktiderman/genesis-cli@latest upgrade --version <v>
 
 The next `genesis upgrade` (and `genesis doctor`) in the app then runs the new CLI from its
 dependencies.
+
+**`npx` stops with `EOVERRIDE`.** npm checks the app's own package.json before `npx` runs
+anything, whatever the package: an npm `overrides` entry with another spec than the app's direct
+dependency on the same package (`"zod": "4.6.7"` in `overrides`, `"zod": "^4.6.7"` in
+`dependencies`) stops it with `Override for zod@^4.6.7 conflicts with direct dependency`. It isn't
+genesis-cli's dependencies (it has no zod range of its own), and no range in Genesis changes it.
+Either run the app's installed CLI (`npx genesis upgrade --version <v>`, `pnpm exec genesis …`,
+`bunx genesis …`), then the new CLI's `genesis agents` and `genesis doctor` once it is installed;
+or make the override point at the dependency's own spec, which is npm's way to say "the same"
+(`"overrides": { "zod": "$zod" }`), and `npx @marktiderman/genesis-cli@<v>` works.
 
 `genesis.lock.json` is checked like a manifest, since anyone with commit access can edit it: each
 entry may only write where its kind of source goes (a template to `eas.json`, `.eas/`, `.maestro/`,
@@ -991,7 +1006,7 @@ Exit codes: `0` pass, `1` findings, `2` the doctor couldn't run (bad config, Gen
 | `platform-admin-missing` | warn / info | The app has genesis-supabase's default platform-admin list (migration 0022's copy), no `private.genesis_platform_admin` hook of its own, and the list is empty, so nobody can change a setting or answer support tickets. Read with the database layer (`--database`, or a linked project when the network is on). **info**: the list couldn't be read. |
 | `genesis-eslint-config` | warn | A native app (with `expo` or `react-native`, or the `native` pack) whose ESLint flat config doesn't load [`@marktiderman/genesis-cli/eslint`](#lint-rules), so `genesis upgrade` can't bring Genesis's lint rules; or loads it without `eslint-plugin-testing-library` in package.json, so the config can't load. The message gives the fix: `genesis codemod genesis-cli-eslint-config`, or the two lines to add. Web apps (Genesis has no web lint rules yet) and apps without a flat config aren't checked. Ratcheted by default: under `--base`, an unchanged config reports it as `info`. |
 | `migration-pending` | warn | A package migration of one of the app's blocks (`genesis.lock.json`) that isn't in the app yet, as `genesis migrate --dry-run` reports it: the database the app deploys lacks what the installed package needs. Fix: `migrate.copy` (`genesis migrate`). An app whose lock lists no blocks, or whose database files live in another app, isn't checked. |
-| `migration-drift` | warn | A copy of a package migration the app edited, one whose package text changed since it was copied, or a same-named file with other text (unless another file carries the migration's header: that one is the copy, and a same-named draft beside it is the app's own), with no forward migration carrying it. An applied migration is never rewritten. Fix: `migrate.forward` (guided: `genesis migrate --forward` writes the stub, you fill it in); when several files hold the migration and their headers can't tell which is the copy, giving exactly one of them the migration's `genesis-migration` header clears it instead. |
+| `migration-drift` | warn | A copy of a package migration the app edited, one whose package text changed since it was copied, or a same-named file with other text (unless another file carries the migration's header: that one is the copy, and a same-named draft beside it is the app's own), with no forward migration carrying it. A copy that differs from the package only in SQL comments (`--`, `/* */`, outside strings and dollar-quoted bodies) and whitespace is current, not drift. An applied migration is never rewritten. Fix: `migrate.forward` (guided: `genesis migrate --forward` writes the stub, you fill it in); when several files hold the migration and their headers can't tell which is the copy, giving exactly one of them the migration's `genesis-migration` header clears it instead. |
 | `genesis-behind` | info / warn / error | The installed `@marktiderman/genesis` release against npm's latest, and the advisories published for the installed Genesis packages. See [genesis-behind](#genesis-behind). |
 | `lock-files` | warn / info | `genesis.lock.json` against the files on disk. **warn**: a file the lock owns is missing; `genesis upgrade` never brings a deleted owned file back, so a lock naming files that aren't there passes every upgrade silently. A file you deleted on purpose gets `"deleted": true` in its lock entry: the warning stops and upgrade still leaves it deleted. **info**: a locked file whose checksum differs from the lock's (an app edit, which upgrade three-way merges the next version into, or one waiting on its `.genesis-next`); a file marked deleted that is back; a locked block whose `starter.config.ts` switch is off (upgrade and migrate leave it out, and its files aren't checked); files under `supabase/` the lock still lists in an app whose database lives elsewhere (upgrade leaves them alone, so delete the entries). Also `bun.lock` (at or above the app, with or without `genesis.lock.json`), **warn**: a nested copy of a Genesis package at another version than the root's, when the root's version satisfies the range of the package it's nested under. Bun keeps it across installs, so the app runs two copies; the finding names the entry to delete, then reinstall (`genesis upgrade` does both). |
 | `ratchet-skipped` | warn / error | `--base` was given, but git couldn't compare (not a repository, or the ref isn't fetched). A warning when only the ratchet was skipped (every rule ran at its full level); an error when the config file holds `allow`, `rules` or `packageRules`, which then went uncompared. In CI, check out with `fetch-depth: 0`. |

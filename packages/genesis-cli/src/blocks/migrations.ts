@@ -44,6 +44,85 @@ const FORWARD = /^-- genesis-forward: (\S+) (\S+) sha256:([0-9a-f]{64}) copy-sha
 const normal = (text: string) => text.replace(/\r\n/g, "\n");
 export const textSha = (text: string) => sha256(normal(text));
 
+/** Characters that run together into one token: a word's, or an operator's. */
+const WORD = /[\w$\u0080-￿]/;
+const OPERATOR = /[+\-*/<>=~!@#%^&|`?]/;
+
+/**
+ * A migration's SQL with what doesn't change the database taken out: comments (`--` to the end of
+ * the line, and `/* … *\/`, nested as Postgres nests them) and whitespace, outside string literals
+ * (`'…'`, `E'…'`), quoted identifiers (`"…"`) and dollar-quoted bodies (`$$…$$`, `$tag$…$tag$`),
+ * which are kept exactly: a function's body is stored as written. A space is kept only where it
+ * separates two tokens (`create table`, `- -1`), so `primary key /* note *\/)` reads as
+ * `primary key)`. Two migrations with the same signature make the same database.
+ */
+export function sqlSignature(text: string): string {
+  const src = normal(text);
+  let out = "";
+  let gap = false;
+  let i = 0;
+  const emit = (chunk: string) => {
+    if (gap && out) {
+      const last = out[out.length - 1]!;
+      const first = chunk[0]!;
+      if ((WORD.test(last) && WORD.test(first)) || (OPERATOR.test(last) && OPERATOR.test(first))) out += " ";
+    }
+    gap = false;
+    out += chunk;
+  };
+  const space = () => {
+    gap = true;
+  };
+  while (i < src.length) {
+    const c = src[i]!;
+    const next = src[i + 1];
+    if (c === "-" && next === "-") {
+      const end = src.indexOf("\n", i);
+      i = end === -1 ? src.length : end;
+      space();
+    } else if (c === "/" && next === "*") {
+      let depth = 1;
+      i += 2;
+      while (i < src.length && depth) {
+        if (src[i] === "/" && src[i + 1] === "*") {
+          depth++;
+          i += 2;
+        } else if (src[i] === "*" && src[i + 1] === "/") {
+          depth--;
+          i += 2;
+        } else i++;
+      }
+      space();
+    } else if (/\s/.test(c)) {
+      while (i < src.length && /\s/.test(src[i]!)) i++;
+      space();
+    } else if (c === "'" || c === '"') {
+      // `E'…'` takes backslash escapes; a doubled quote is the quote itself in every form.
+      const escapes = c === "'" && /[eE]/.test(src[i - 1] ?? "") && !WORD.test(src[i - 2] ?? "");
+      let j = i + 1;
+      while (j < src.length) {
+        if (escapes && src[j] === "\\") j += 2;
+        else if (src[j] === c && src[j + 1] === c) j += 2;
+        else if (src[j] === c) break;
+        else j++;
+      }
+      emit(src.slice(i, j + 1));
+      i = j + 1;
+    } else if (c === "$" && !WORD.test(src[i - 1] ?? "")) {
+      // `$tag$`, never a positional parameter (`$1`).
+      const tag = /^\$(?:[A-Za-z_\u0080-￿][\w\u0080-￿]*)?\$/.exec(src.slice(i))?.[0];
+      const end = tag ? src.indexOf(tag, i + tag.length) : -1;
+      const stop = !tag ? i + 1 : end === -1 ? src.length : end + tag.length;
+      emit(src.slice(i, stop));
+      i = stop;
+    } else {
+      emit(c);
+      i++;
+    }
+  }
+  return out;
+}
+
 export function migrationHeader(pkg: string, file: string, source: string): string {
   return `-- genesis-migration: ${pkg} ${file} sha256:${textSha(source)}\n-- Copied by the Genesis CLI. Never edit it once applied: write a new migration instead.\n`;
 }
@@ -356,7 +435,12 @@ export function planMigrations(
     const renamed = copy.tracked && (copy.tracked.package !== src.package || copy.tracked.file !== src.file) ? ` (its header names ${copy.tracked.package} ${copy.tracked.file}: renamed or moved upstream)` : "";
     let state: MigrationState;
     let detail: string;
-    if (copy.tracked && copySha !== copy.tracked.sha256) {
+    if (copySha !== sourceSha && sqlSignature(copyBody) === sqlSignature(src.source)) {
+      // Only comments or whitespace differ (the app's, or the package's since the copy): the copy
+      // makes the database the package's does, so there is nothing for a forward migration to carry.
+      state = "current";
+      detail = "differs from the package only in comments and whitespace";
+    } else if (copy.tracked && copySha !== copy.tracked.sha256) {
       state = "edited";
       detail = "edited after it was copied; it is never rewritten";
     } else if (copySha === sourceSha) {
