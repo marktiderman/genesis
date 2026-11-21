@@ -222,6 +222,8 @@ export interface GenesisRelease {
    * the rest. Exactly one of the two is ever written, so a merge has one owner.
    */
   trigger?: "eas" | "github";
+  /** Who EAS emails when a release run fails (with EAS's trigger; default none). */
+  failureEmails?: string[];
   /** The platforms released (default both). */
   platforms?: ("ios" | "android")[];
   /** The GitHub environment that holds the release secrets (default `production`). */
@@ -252,10 +254,10 @@ export interface GenesisRelease {
    * origin, whose `/preview?channel=…` is a universal link into the app (and the landing page
    * without it); `scheme`: the app's scheme, for the QR code. Default: the scheme only, from app config.
    */
-  previews?: { origin?: string; scheme?: string };
+  previews?: { origin?: string; scheme?: string; branches?: string[] };
 }
 
-const RELEASE_KEYS = ["trigger", "platforms", "environment", "paths", "sentry", "pushHook", "profile", "channel", "easEnvironment", "packageManager", "runtimeVersion", "previews"];
+const RELEASE_KEYS = ["trigger", "failureEmails", "platforms", "environment", "paths", "sentry", "pushHook", "profile", "channel", "easEnvironment", "packageManager", "runtimeVersion", "previews"];
 const RELEASE_NAME = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,59}$/;
 const RELEASE_HOOK = /^[A-Za-z0-9_][A-Za-z0-9_./-]{0,119}\.(?:mjs|cjs|js)$/;
 const RELEASE_SECRET = /^[A-Z][A-Z0-9_]{0,63}$/;
@@ -271,6 +273,12 @@ export function validateRelease(raw: unknown, source = "config"): GenesisRelease
   if (raw.trigger !== undefined) {
     if (raw.trigger !== "eas" && raw.trigger !== "github") fail(`trigger must be "eas" (EAS Workflows starts each release) or "github" (GitHub Actions does) (got ${JSON.stringify(raw.trigger)})`);
     out.trigger = raw.trigger as "eas" | "github";
+  }
+  if (raw.failureEmails !== undefined) {
+    const list = raw.failureEmails;
+    // Rendered into the workflow as a quoted list: plain addresses only.
+    if (!Array.isArray(list) || list.length > 20 || list.some((e) => typeof e !== "string" || !/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(e))) fail(`failureEmails must list email addresses, such as ["releases@example.com"] (got ${JSON.stringify(list)})`);
+    out.failureEmails = [...new Set(list as string[])];
   }
   if (raw.platforms !== undefined) {
     const list = raw.platforms;
@@ -322,8 +330,13 @@ export function validateRelease(raw: unknown, source = "config"): GenesisRelease
     const p = raw.previews;
     if (!isObject(p)) fail(`previews must be { "origin": "https://…", "scheme": "myapp" }`);
     else {
-      for (const key of Object.keys(p)) if (key !== "origin" && key !== "scheme" && key !== "$comment") fail(`previews.${key} isn't a setting (known: origin, scheme)`);
-      const previews: { origin?: string; scheme?: string } = {};
+      for (const key of Object.keys(p)) if (!["origin", "scheme", "branches", "$comment"].includes(key)) fail(`previews.${key} isn't a setting (known: origin, scheme, branches)`);
+      const previews: { origin?: string; scheme?: string; branches?: string[] } = {};
+      if (p.branches !== undefined) {
+        // Base branches besides main whose pull requests get previews (globs, as EAS reads them).
+        if (!Array.isArray(p.branches) || p.branches.some((b) => typeof b !== "string" || !/^[A-Za-z0-9._/*-]{1,100}$/.test(b) || b === "main")) fail(`previews.branches must list base branches besides main, such as ["staging/**"] (got ${JSON.stringify(p.branches)})`);
+        else previews.branches = [...new Set(p.branches as string[])];
+      }
       if (p.origin !== undefined) {
         if (typeof p.origin !== "string" || !/^https:\/\/[a-z0-9.-]+(?::\d+)?$/i.test(p.origin)) fail(`previews.origin must be an https origin with no path, such as "https://example.com" (got ${JSON.stringify(p.origin)})`);
         else previews.origin = p.origin;

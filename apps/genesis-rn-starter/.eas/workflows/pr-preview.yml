@@ -54,7 +54,9 @@ name: PR preview
 on:
   pull_request:
     types: [opened, reopened, synchronize]
-    branches: [main]
+    branches:
+      - main
+      # genesis.config.json release.previews.branches: other base branches (a staging batch, say).
     paths:
       - "REPLACE_WITH_APP_FOLDER/**"
       - "app.json"
@@ -173,7 +175,7 @@ jobs:
             comment "This pull request changes native code, so it can't load in the app people have.$native_note" none
             exit 0
           fi
-          npx --no genesis build-stamp --channel "$PREVIEW_CHANNEL"
+          node .eas/scripts/native-release.mjs genesis build-stamp --channel "$PREVIEW_CHANNEL"
           node .eas/scripts/native-release.mjs stamped build-metadata.json "$PREVIEW_CHANNEL"
           # The channel names the branch; both are created once, and kept in step on every push.
           npx --yes eas-cli@26.0.0 channel:create "$PREVIEW_CHANNEL" --non-interactive >/dev/null 2>&1 || true

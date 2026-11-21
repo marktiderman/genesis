@@ -14,7 +14,7 @@
  * fills with its own jobs) are only named on upgrade, and their pins moved in place.
  */
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import * as path from "node:path";
 import { parse as parseYaml } from "yaml";
 import { compareVersions } from "../upgrade/bump-core.mjs";
@@ -24,7 +24,8 @@ import { CLI_PACKAGE } from "./discover.js";
 import { readApp, replaceApp, sha256 } from "./files.js";
 import { readLock, substitute, writeLock, type GenesisLock, type OwnedFile } from "./lock.js";
 import { detectPackageManager } from "./pm.js";
-import { renderRelease, resolveRelease, type ReleaseContext, type ReleasePackageManager } from "./release-render.js";
+import { RELEASE_GITHUB_TOKEN, renderRelease, resolveRelease, type ReleaseContext, type ReleasePackageManager } from "./release-render.js";
+import { linkSteps, type GithubLink } from "./eas-link.js";
 import { templateTarget, templatesDir, walk } from "./templates.js";
 
 export { renderRelease, resolveRelease, RELEASE_DEFAULTS, DEFAULT_RELEASE_CONTEXT, type ReleaseContext, type ResolvedRelease } from "./release-render.js";
@@ -145,6 +146,31 @@ export function appScheme(root: string): string | null {
   }
 }
 
+/** Where the app sits in its git repository ("mobile"), or null at its root or outside git. */
+export function folderInRepository(root: string): string | null {
+  try {
+    const top = execFileSync("git", ["rev-parse", "--show-toplevel"], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+    const rel = path.relative(realpathSync(top), realpathSync(root)).split(path.sep).join("/");
+    return rel && !rel.startsWith("..") ? rel : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The fingerprint's own config files: written into an app that already builds, they change its runtime version. */
+const FINGERPRINT_TEMPLATES = new Set(["expo/fingerprint.config.js", "expo/.fingerprintignore"]);
+const FINGERPRINT_CONFIGS = ["fingerprint.config.js", "fingerprint.config.cjs", "fingerprint.config.mjs", ".fingerprintignore"];
+
+/** Whether the app has the GitHub lane's native-release.yml (in genesis.lock.json, or the file itself). */
+export function githubLaneInPlace(root: string, appFolder: string | null): boolean {
+  try {
+    if (readLock(root).files[NATIVE_RELEASE_PATH]) return true;
+  } catch {
+    // An unreadable lock: the file decides.
+  }
+  return existsSync(path.join(appFolder ? repositoryRoot(root, appFolder) : root, NATIVE_RELEASE_PATH));
+}
+
 /** The release context for an app: its `release` block with the defaults, and its folder. */
 export function releaseContext(root: string): ReleaseContext {
   const config = readGenesisConfig(root);
@@ -157,7 +183,10 @@ export function releaseContext(root: string): ReleaseContext {
     release: resolveRelease(
       {
         ...(built ? { easEnvironment: built } : {}),
-        ...(set.trigger ? { trigger: set.trigger } : {}),
+        // Unset, an app whose releases already start on GitHub stays there: the move to EAS's
+        // trigger is the app's choice (release.trigger "eas"), never a side effect of an upgrade.
+        ...(set.trigger ? { trigger: set.trigger } : githubLaneInPlace(root, config?.appFolder ?? null) ? { trigger: "github" as const } : {}),
+        ...(set.failureEmails ? { failureEmails: set.failureEmails } : {}),
         ...(set.platforms ? { platforms: set.platforms } : {}),
         ...(set.environment ? { environment: set.environment } : {}),
         ...(set.paths ? { paths: set.paths } : {}),
@@ -169,7 +198,7 @@ export function releaseContext(root: string): ReleaseContext {
         ...(set.easEnvironment ? { easEnvironment: set.easEnvironment } : {}),
         ...(set.packageManager ? { packageManager: set.packageManager } : {}),
         ...(set.runtimeVersion && set.runtimeVersion !== "fingerprint" ? { runtimeCommand: set.runtimeVersion.command } : {}),
-        ...(set.previews || appScheme(root) ? { previews: { origin: set.previews?.origin ?? "", scheme: set.previews?.scheme ?? appScheme(root) ?? "" } } : {}),
+        ...(set.previews || appScheme(root) ? { previews: { origin: set.previews?.origin ?? "", scheme: set.previews?.scheme ?? appScheme(root) ?? "", branches: set.previews?.branches ?? [] } } : {}),
       },
       detected as ReleasePackageManager,
     ),
@@ -290,7 +319,8 @@ export function githubLaneState(root: string, options: { replace?: boolean; dir?
   const where = ownedDir(root, NATIVE_RELEASE_PATH, ctx.appFolder);
   const mine = readApp(where, NATIVE_RELEASE_PATH);
   if (mine === null) return { state: "absent" };
-  if (!hasPushTrigger(mine)) return { state: "removable", text: mine };
+  // Edits are checked first: an edited one is kept whatever its trigger (a dispatch-only or
+  // scheduled copy the app made is the app's).
   const entry = readLock(root).files[NATIVE_RELEASE_PATH];
   if (options.replace || (entry && sha256(mine) === entry.sha256)) return { state: "removable", text: mine };
   try {
@@ -301,6 +331,22 @@ export function githubLaneState(root: string, options: { replace?: boolean; dir?
     // No template to compare with: the app's copy is kept.
   }
   return { state: "kept", why: entry ? "it has your edits" : "it isn't in genesis.lock.json, so it may be your own" };
+}
+
+/**
+ * Why moving an app from GitHub's trigger to EAS's must wait, or null. The move removes the
+ * GitHub lane, so it needs what replaces it confirmed first: the EAS project's GitHub link (EAS's
+ * push trigger starts nothing without it), and with a release hook, RELEASE_GITHUB_TOKEN listed in
+ * pushHook.secrets (stored as an EAS secret: the hook loses the GitHub run's own token).
+ */
+export function moveToEasHold(ctx: ReleaseContext, link: GithubLink | undefined): string | null {
+  const steps: string[] = [];
+  if (!link || link.state !== "linked") steps.push(`EAS Workflows' push trigger needs the repository linked to the EAS project, and ${link ? link.why : "the link wasn't checked"}: ${linkSteps(ctx.appFolder)}`);
+  const hook = ctx.release.pushHook;
+  if (hook && !hook.secrets.includes(RELEASE_GITHUB_TOKEN)) {
+    steps.push(`the release hook (${hook.script}) would lose GitHub's run token on EAS: create a fine-grained GitHub token (this repository, Pull requests: read), store it as the EAS secret RELEASE_GITHUB_TOKEN in the environment "${ctx.release.easEnvironment}", and add "RELEASE_GITHUB_TOKEN" to genesis.config.json release.pushHook.secrets`);
+  }
+  return steps.length ? `not moved to EAS's trigger yet (releases stay on GitHub until then): ${steps.join("; and ")}` : null;
 }
 
 export interface AdoptResult {
@@ -330,6 +376,8 @@ export interface AdoptOptions {
   /** The CLI version recorded in the lock. */
   version?: string;
   dir?: string;
+  /** The EAS project's GitHub link, checked online (eas-link.ts) before an app's GitHub lane is retired; unset holds the move. */
+  githubLink?: GithubLink;
 }
 
 /**
@@ -366,12 +414,16 @@ export function adoptTemplates(root: string, templates: readonly string[], optio
   if (easLane && templates.includes(DEPLOY_PRODUCTION)) {
     dispatcher = githubLaneState(root, { ...(options.replace ? { replace: true } : {}), dir, ...(lock.substitutions ? { substitutions: lock.substitutions } : {}), pin: options.pin ?? null });
     const others = [...githubReleaseWorkflows(root, appFolder), ...pushTriggeredEasWorkflows(root).filter((rel) => rel !== LANE_DISPATCH_TARGET)];
-    // Kept (the app's edits), or Genesis's but not retired by this run (the eas set alone).
-    const nativeStays = dispatcher.state === "kept" || (dispatcher.state === "removable" && !templates.includes(NATIVE_RELEASE) && hasPushTrigger(dispatcher.text));
+    const live = dispatcher.state !== "absent" && hasPushTrigger(readApp(ownedDir(root, NATIVE_RELEASE_PATH, appFolder), NATIVE_RELEASE_PATH) ?? "");
+    // Kept with the app's edits while it still starts releases, or Genesis's but not retired by this run (the eas set alone).
+    const nativeStays = live && (dispatcher.state === "kept" || !templates.includes(NATIVE_RELEASE));
     if (nativeStays) {
       easHold = `not written: ${NATIVE_RELEASE_PATH} still starts each release from GitHub${dispatcher.state === "kept" ? ` and ${dispatcher.why}` : ""}, and beside a push-triggered deploy-production.yml each release would go out twice. ${dispatcher.state === "kept" ? "Remove it in this change (or run with --replace), or set genesis.config.json release.trigger to \"github\" to keep releasing from GitHub, then run this again" : "Adopt the whole lane with `genesis add template release`, which retires it"}`;
     } else if (others.length && !options.replaceRival) {
       easHold = `not written: ${others.join(", ")} still release${others.length === 1 ? "s" : ""} on every push, and both lanes would publish each release. Remove ${others.length === 1 ? "it" : "them"}, then run this again; or, to write deploy-production.yml now, run it with --replace-rival and remove ${others.length === 1 ? "that workflow" : "those workflows"} in the same change`;
+    } else if (live) {
+      // Retiring a live GitHub lane: only once what replaces it is confirmed.
+      easHold = moveToEasHold(ctx, options.githubLink);
     }
   }
   // The GitHub workflow goes first with the EAS trigger (it is retired, never written), last with GitHub's.
@@ -390,8 +442,13 @@ export function adoptTemplates(root: string, templates: readonly string[], optio
         }
         continue;
       }
-      if (easHold || dispatcher.state === "kept") {
+      if (easHold) {
         results.push({ template, path: NATIVE_RELEASE_PATH, location, outcome: "held", detail: "kept: releases stay on GitHub until deploy-production.yml can take the push trigger (below)" });
+        continue;
+      }
+      if (dispatcher.state === "kept") {
+        // No push trigger, so it releases nothing beside deploy-production.yml; but it's the app's, so it stays.
+        results.push({ template, path: NATIVE_RELEASE_PATH, location, outcome: "held", detail: `kept: ${dispatcher.why}, so it isn't removed; it has no push trigger, so it doesn't release beside deploy-production.yml. Remove it yourself when you no longer need it` });
         continue;
       }
       if (!options.dryRun) rmSync(path.join(ownedDir(root, NATIVE_RELEASE_PATH, appFolder), NATIVE_RELEASE_PATH));
@@ -430,6 +487,26 @@ export function adoptTemplates(root: string, templates: readonly string[], optio
     }
     const raw = readFileSync(path.join(dir, template), "utf8");
     const target = templateTarget(template, raw);
+    // GitHub reads workflows only from the repository's root: in an app below it with no appFolder
+    // set, one written here would never run.
+    if (!appFolder && target.startsWith(".github/workflows/")) {
+      const below = folderInRepository(root);
+      if (below) {
+        results.push({ template, path: target, location: target, outcome: "held", detail: `not written: this app is in ${below}/ of its repository, and GitHub reads workflows only from the repository's root. Set "appFolder": "${below}" in genesis.config.json (genesis add template does it for you), then run this again` });
+        continue;
+      }
+    }
+    // A fingerprint config the app never had changes what its runtime version hashes: every build it
+    // has made stops taking updates until the next store build. Only on purpose (--replace).
+    if (FINGERPRINT_TEMPLATES.has(template) && !lock.files[target] && !options.replace && readApp(root, target) === null) {
+      // The app's own: not one Genesis wrote (this run's fingerprint.config.js beside its .fingerprintignore).
+      const others = FINGERPRINT_CONFIGS.filter((f) => f !== target && !lock.files[f] && existsSync(path.join(root, f)));
+      const builds = existsSync(path.join(root, "eas.json"));
+      if (others.length || builds) {
+        results.push({ template, path: target, location: target, outcome: "held", detail: `not written: ${others.length ? `the app has ${others.join(", ")}, and` : "the app already builds (eas.json), and"} ${target} would change its runtime version, so installed builds stop taking updates until the next store build. Write it with --replace when a store build is due${others.length ? ` (and merge ${others.join(", ")} into it)` : ""}` });
+        continue;
+      }
+    }
     if (!easLane && template === DEPLOY_PRODUCTION && !templates.includes(NATIVE_RELEASE)) {
       // The dispatch-only lane over an app's push-triggered one, with nothing to start it
       // (native-release.yml isn't written here, and the app has none): merges would stop releasing.

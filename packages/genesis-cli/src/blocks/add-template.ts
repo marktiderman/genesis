@@ -6,9 +6,11 @@
  * beside it as `<file>.genesis-next` (or over it, with --replace).
  */
 import { CLI_PACKAGE } from "./discover.js";
+import { checkGithubLink, type GithubLink } from "./eas-link.js";
+import { readApp, replaceApp } from "./files.js";
 import { readLock } from "./lock.js";
 import { pinnedVersion } from "./pm.js";
-import { adoptTemplates, competingReleaseWorkflows, LANE_DISPATCH_TARGET, lookupPin, missingTemplateSets, releaseContext, resolveTemplateNames, TEMPLATE_SETS, type AdoptResult, type ReleasePin } from "./release.js";
+import { adoptTemplates, competingReleaseWorkflows, folderInRepository, githubLaneInPlace, LANE_DISPATCH_TARGET, lookupPin, missingTemplateSets, releaseContext, resolveTemplateNames, TEMPLATE_SETS, type AdoptResult, type ReleasePin } from "./release.js";
 
 export interface AddTemplateOptions {
   list?: boolean;
@@ -18,6 +20,10 @@ export interface AddTemplateOptions {
   replaceRival?: boolean;
   /** The release the CI callers pin; default: the installed umbrella's tag, looked up with git, else the lock's. */
   pin?: ReleasePin | null;
+  /** Write genesis.config.json release.trigger first ("eas" or "github"). */
+  trigger?: string;
+  /** How the EAS project's GitHub link is checked before a move to EAS's trigger (default: Expo's API). */
+  checkGithubLink?: (root: string) => Promise<GithubLink>;
   /** How the installed release's pin is found (default: git ls-remote); null when it can't be. */
   findPin?: (root: string) => ReleasePin | null;
   log?: (msg: string) => void;
@@ -51,10 +57,39 @@ export async function addTemplates(root: string, names: string[], options: AddTe
     log("Or a single template by its path under templates/, such as eas/workflows/rollout.yml.");
     return names.length || options.list ? 0 : 1;
   }
+  // An app below its repository's root: appFolder says so, so GitHub workflows go to the root's
+  // .github and EAS workflows' paths start there.
+  {
+    const text = readApp(root, "genesis.config.json");
+    const config = (text === null ? {} : JSON.parse(text)) as Record<string, unknown>;
+    const below = config.appFolder === undefined ? folderInRepository(root) : null;
+    if (below) {
+      config.appFolder = below;
+      if (!options.dryRun) replaceApp(root, "genesis.config.json", `${JSON.stringify(config, null, 2)}\n`);
+      log(`✔ genesis.config.json: "appFolder": "${below}" (the app is in ${below}/ of its repository)${options.dryRun ? " (dry run: not written)" : ""}`);
+    }
+  }
+  if (options.trigger !== undefined) {
+    if (options.trigger !== "eas" && options.trigger !== "github") throw new Error(`--trigger must be eas or github (got ${JSON.stringify(options.trigger)})`);
+    const text = readApp(root, "genesis.config.json");
+    const config = (text === null ? {} : JSON.parse(text)) as Record<string, unknown>;
+    const set = typeof config.release === "object" && config.release !== null ? (config.release as Record<string, unknown>) : {};
+    if (set.trigger !== options.trigger) {
+      config.release = { ...set, trigger: options.trigger };
+      if (!options.dryRun) replaceApp(root, "genesis.config.json", `${JSON.stringify(config, null, 2)}\n`);
+      log(`✔ genesis.config.json: release.trigger is "${options.trigger}"${options.dryRun ? " (dry run: not written)" : ""}`);
+    }
+  }
   const templates = resolveTemplateNames(names);
   const pin = options.pin !== undefined ? options.pin : templates.some((t) => t.startsWith("ci/") || t.startsWith("vercel/")) ? ((options.findPin ?? installedPin)(root) ?? readLock(root).pin ?? null) : null;
   const version = pinnedVersion(root, CLI_PACKAGE)?.version;
-  const results = adoptTemplates(root, templates, { ...(options.dryRun ? { dryRun: true } : {}), ...(options.replace ? { replace: true } : {}), ...(options.replaceRival ? { replaceRival: true } : {}), pin, ...(version ? { version } : {}) });
+  // Moving off GitHub's trigger: the EAS project's GitHub link is checked online first.
+  const laneCtx = releaseContext(root);
+  const moving = laneCtx.release.trigger === "eas" && templates.includes("release/deploy-production.yml") && githubLaneInPlace(root, laneCtx.appFolder);
+  const githubLink = moving ? await (options.checkGithubLink ?? checkGithubLink)(root) : undefined;
+  if (githubLink?.state === "linked") log(`✔ The EAS project is linked to ${githubLink.repository} on GitHub.`);
+  const results = adoptTemplates(root, templates, {
+    ...(githubLink ? { githubLink } : {}), ...(options.dryRun ? { dryRun: true } : {}), ...(options.replace ? { replace: true } : {}), ...(options.replaceRival ? { replaceRival: true } : {}), pin, ...(version ? { version } : {}) });
   const attention = (o: AdoptResult["outcome"]) => o === "next" || o === "pending" || o === "held";
   for (const r of results) log(`${attention(r.outcome) ? "!" : "✔"} ${r.location}: ${WORDS[r.outcome]}${r.detail ? ` (${r.detail})` : ""}`);
   const steps: string[] = [];
@@ -73,7 +108,9 @@ export async function addTemplates(root: string, names: string[], options: AddTe
   if (easDeploy && ctxNow?.release.trigger === "eas") {
     const r = ctxNow.release;
     steps.push(`Connect the GitHub repository to the EAS project (expo.dev, project settings, GitHub${ctxNow.appFolder ? `; base directory ${ctxNow.appFolder}` : ""}): EAS Workflows starts each release from its push trigger, and without the link a merge starts nothing (docs/NATIVE-RELEASE.md, "One-time setup").`);
-    steps.push(`Add EXPO_TOKEN (an Expo robot token, a secret)${r.sentry ? ", SENTRY_AUTH_TOKEN" : ""}${r.pushHook?.secrets.length ? `, ${r.pushHook.secrets.join(", ")}` : ""} to the EAS environment "${r.easEnvironment}".`);
+    steps.push(`Add EXPO_TOKEN (an Expo robot token, a secret)${r.sentry ? ", SENTRY_AUTH_TOKEN" : ""}${r.pushHook?.secrets.length ? `, ${r.pushHook.secrets.join(", ")}` : ""} to the EAS environment "${r.easEnvironment}".${r.pushHook ? " The release hook reads GitHub with RELEASE_GITHUB_TOKEN there: a fine-grained token for this repository with Pull requests: read, stored as an EAS secret." : ""}`);
+    steps.push(`Say where a failed release goes (EAS posts no status on the commit): list who gets an email in genesis.config.json release.failureEmails, and/or add RELEASE_FAILURE_WEBHOOK (a Slack-compatible incoming webhook, a secret) to "${r.easEnvironment}" (docs/NATIVE-RELEASE.md, "When a release fails").`);
+    if (results.some((x) => x.path === ".github/workflows/native-release.yml" && x.outcome === "removed")) steps.push("JavaScript-only updates now wait for an EAS worker (minutes on a paid plan's priority queue, longer on the free plan) instead of a GitHub runner.");
     const rivals = competingReleaseWorkflows(root, ctxNow.appFolder).filter((rel) => rel !== LANE_DISPATCH_TARGET);
     if (rivals.length) steps.push(`Remove ${rivals.join(", ")} in the same change, before it merges: beside deploy-production.yml's push trigger a release would go out twice (genesis doctor fails with release-lane-twice until then).`);
   }

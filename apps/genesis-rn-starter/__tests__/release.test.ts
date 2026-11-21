@@ -352,7 +352,7 @@ describe("the build stamp", () => {
       { job: "publish_update", channel: "$PREVIEW_CHANNEL", run: workflow("pr-preview.yml").jobs["publish_update"]!.steps!.map((s) => s.run ?? "").join("\n") },
     ];
     for (const { job, channel, run } of publishing) {
-      const stamped = run.indexOf(`npx --no genesis build-stamp --channel "${channel}"`);
+      const stamped = run.indexOf(`node .eas/scripts/native-release.mjs genesis build-stamp --channel "${channel}"`);
       const checked = run.indexOf(`node .eas/scripts/native-release.mjs stamped build-metadata.json "${channel}"`);
       const published = run.search(/eas-cli@[\d.]+ update/);
       expect(stamped, job).toBeGreaterThan(-1);

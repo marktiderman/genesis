@@ -34,7 +34,8 @@ optional, for starting a workflow with `eas workflow:run` from an event EAS does
 ## Decision
 
 1. **One trigger per app, chosen in config.** `genesis.config.json` `release.trigger` is `"eas"`
-   (the default) or `"github"`. The templates render exactly one live trigger:
+   (the default for new apps) or `"github"` (what an app with `native-release.yml` and no setting
+   reads as). The templates render exactly one live trigger:
    - `"eas"`: `.eas/workflows/deploy-production.yml` runs `on.push` to `main` (paths: the app,
      `release.paths`, the root's install files under `appFolder`) and by hand. Its first job,
      `source`, checks `main` contains the commit and eas.json still matches, and computes each
@@ -51,18 +52,34 @@ optional, for starting a workflow with `eas workflow:run` from an event EAS does
    channel, Sentry and the hook are config. The templates stay in `templates/`, rendered by
    `genesis init`, `genesis add template release` and `genesis upgrade`. An app never edits a
    trigger into its copy (G1, G2).
-3. **Moving is atomic.** `genesis add template release` and `genesis upgrade`, with the EAS trigger,
-   give `deploy-production.yml` its push trigger and remove an unedited `native-release.yml` in the
-   same change, or do neither: an edited or unlocked `native-release.yml`, another workflow that
-   releases on push, or a `deploy-production.yml` whose change waits in a `.genesis-next` holds the
-   move and says why. `--replace` and `--replace-rival` are the ways out. The upgrade's pull
-   request stages the deletion.
+3. **Moving is the app's choice, checked, and atomic.**
+   - An upgrade never moves an app: it writes `"trigger": "github"` for an app on GitHub's lane
+     that names none, and the doctor (`release-trigger-github`) names the move.
+   - The move is `genesis add template release --trigger eas`, or `genesis upgrade` once the app
+     sets `"eas"` itself. In one change it gives `deploy-production.yml` its push trigger and
+     removes an unedited `native-release.yml`, or does neither. The upgrade's pull request stages
+     the deletion.
+   - It holds, saying what's left, until what replaces the GitHub lane is confirmed:
+     - the EAS project's GitHub link, asked of Expo's GraphQL API (`app.byId.githubRepository`)
+       with `EXPO_TOKEN` or the `eas login` session, since EAS's push trigger starts nothing
+       without it;
+     - with a release hook, `RELEASE_GITHUB_TOKEN` in `pushHook.secrets`.
+   - It also holds for a `native-release.yml` with the app's edits that still runs on push (an
+     edited one is never deleted), for another workflow that releases on push, and for a
+     `deploy-production.yml` whose change waits in a `.genesis-next`.
+   - `--replace` and `--replace-rival` are the ways out of the last three.
 4. **The doctor checks the lane can run.** `release-lane-live` (new): an error when
    `deploy-production.yml` is dispatch-only and nothing live starts it (the failure above), a
    warning when the files are on the other trigger than `release.trigger`. `release-lane-twice`
    now also guards EAS's lane: a GitHub workflow releasing on push beside a push-triggered
    `deploy-production.yml` is an error.
-5. **New apps** (`genesis init --template native`) get the EAS trigger and no
+5. **A failed release says so.** Expo Workflows posts no status on the GitHub commit, so the
+   workflow adds:
+   - a `release_failed` job (`after` every job, `if: failure()`) that posts to a Slack-compatible
+     webhook (`RELEASE_FAILURE_WEBHOOK`, an EAS secret) when one is set;
+   - with `release.failureEmails`, an Expo `email` job.
+   NATIVE-RELEASE.md, "When a release fails", says where to look.
+6. **New apps** (`genesis init --template native`) get the EAS trigger and no
    `native-release.yml`; their first step is linking the repository to the EAS project.
 
 ## Glossary
@@ -72,6 +89,10 @@ optional, for starting a workflow with `eas workflow:run` from an event EAS does
 
 ## Alternatives
 
+- **Flip every app to EAS's trigger on its next upgrade**: an app on GitHub's lane started EAS
+  with `eas workflow:run`, which needs no GitHub link, so many never linked one. After a flip,
+  every merge would start nothing, the same silent stop this ADR fixes, and no file shows the link.
+  Rejected: the move is opt-in and checks the link online.
 - **Add a push trigger to `deploy-production.yml` beside `native-release.yml`** (the consumer
   app's proposal): two owners of each merge. Their order checks narrow the race but fail open,
   so an older commit could land over a newer one, and every merge would run twice.
@@ -85,16 +106,28 @@ optional, for starting a workflow with `eas workflow:run` from an event EAS does
 
 ## Consequences
 
-- Apps on GitHub's trigger that don't set `release.trigger` move to EAS's on their next upgrade.
-  Before merging it they connect the repository to the EAS project (if they haven't) and put
-  `EXPO_TOKEN`, `SENTRY_AUTH_TOKEN` (with Sentry) and the hook's secrets in the EAS environment.
-  An app that wants to stay sets `"trigger": "github"`.
-- JavaScript-only updates now wait for an EAS worker (minutes on a paid plan's priority queue,
-  longer on the free one) instead of a GitHub runner.
-- The release hook on EAS has the EAS environment, not the GitHub run's token: a hook that read
-  pull requests with `RELEASE_GITHUB_TOKEN` needs a token of its own in the EAS environment.
-- `pr-preview-teardown.yml` still runs on GitHub Actions: with Actions blocked, a closed pull
-  request's channel stays until deleted by hand (the phone heals by itself). Moving it to EAS is
-  left for later.
-- Not yet run on a live EAS project: the templates validate against EAS's workflow schema and the
-  `source` job's checks run in the tests; watch the first merge after moving.
+- An app on GitHub's trigger keeps it until it moves. Before moving it:
+  - links the repository on expo.dev (the move checks the link);
+  - puts `EXPO_TOKEN`, `SENTRY_AUTH_TOKEN` (with Sentry) and the hook's secrets in the EAS
+    environment;
+  - with a hook, adds `RELEASE_GITHUB_TOKEN`.
+
+  docs/MIGRATION.md has the steps. This stays a minor of genesis-cli: nothing changes for an app
+  until it chooses to move.
+- JavaScript-only updates on EAS's trigger wait for an EAS worker (minutes on a paid plan's
+  priority queue, longer on the free one) instead of a GitHub runner. The move's summary says so.
+- A manual run releases only committed code at `main`'s tip. `source` refuses an uploaded folder,
+  a dirty checkout, and, by hand, any commit but `main`'s latest. GitHub's lane's `--ref` and
+  handoff gave the same guarantee.
+- Smaller differences:
+  - L1: on EAS a Sentry upload that failed is re-done by hand from the commit's export. GitHub kept
+    the `dist` artifact 7 days for a re-run. Left as is: EAS keeps nothing a later run can rely on.
+  - L2: the update's message is the commit subject, as on GitHub.
+  - L3: `RELEASE_REPOSITORY` falls back to the checkout's `origin` on a manual run.
+  - L4: `[eas skip]` is EAS's own push-skip marker (Expo's syntax and troubleshooting docs), so the
+    workflow doesn't check it again.
+- `pr-preview-teardown.yml` still runs on GitHub Actions. With Actions blocked, a closed pull
+  request's channel stays until it's deleted by hand; the phone heals by itself. Moving it to EAS
+  is left for later.
+- Not yet run on a live EAS project. The templates validate against EAS's workflow schema, and the
+  `source` job's checks run in the tests. Watch the first merge after moving.

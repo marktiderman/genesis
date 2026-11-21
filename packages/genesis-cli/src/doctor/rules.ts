@@ -54,6 +54,7 @@ export const BUILTIN_RULES = [
   "fingerprint-plugin-files",
   "release-lane-twice",
   "release-lane-live",
+  "release-trigger-github",
   // supabase pack
   "migration-grants",
   "migration-rls",

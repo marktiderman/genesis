@@ -519,6 +519,33 @@ export function checkRuntime(text, platform, expected) {
 
 const readJson = (file) => JSON.parse(readFileSync(file, "utf8"));
 
+/** What a failed release run posts: one line naming the commit, the repository and the channel. */
+export function failureText(env) {
+  const commit = env.RELEASE_COMMIT?.trim();
+  const where = [env.RELEASE_REPOSITORY?.trim(), commit ? commit.slice(0, 12) : "a run started by hand"].filter(Boolean).join(" ");
+  return `The native release (${where}) failed on EAS; nothing after the failed job went out to the ${env.RELEASE_CHANNEL?.trim() || "release"} channel. See the run on expo.dev (the project's Workflows).`;
+}
+
+/** Posts the failure to RELEASE_FAILURE_WEBHOOK (Slack-compatible `{ text }`), when it's an https URL; otherwise only logs. Never throws. */
+export async function notifyFailure(env, post = fetch) {
+  const text = failureText(env);
+  console.log(text);
+  const url = env.RELEASE_FAILURE_WEBHOOK?.trim();
+  if (!url) return "logged";
+  if (!/^https:\/\//.test(url)) {
+    console.log("RELEASE_FAILURE_WEBHOOK isn't an https URL: not posted.");
+    return "refused";
+  }
+  try {
+    const res = await post(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text }) });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return "posted";
+  } catch (error) {
+    console.log(`Couldn't post to RELEASE_FAILURE_WEBHOOK (${error instanceof Error ? error.message : error}).`);
+    return "failed";
+  }
+}
+
 /** Fails unless `genesis build-stamp`'s output names the commit, the build time and `channel`. */
 export function checkStamp(stamp, channel) {
   if (!channel?.trim()) throw new Error("No channel to check the build stamp against: set GENESIS_CHANNEL in the eas.json profile's env (or pass the release channel). Nothing was released.");
@@ -602,6 +629,20 @@ async function main(command, args, env) {
     const printed = printedRuntime(readFileSync(file, "utf8"));
     if (!isRuntimeVersion(printed)) throw new Error(`release.runtimeVersion's command printed no ${platform} runtime version (got "${printed}"). Nothing was published.`);
     console.log(printed);
+  } else if (command === "genesis") {
+    // genesis <args…>: the app's own genesis-cli, found the way Node resolves it (the app's
+    // node_modules, then each folder above: a workspace root's, for an app in a subfolder), at the
+    // version its lockfile pins. Never fetched.
+    const dir = installedAt(process.cwd(), "@marktiderman/genesis-cli");
+    if (!dir) throw new Error(`@marktiderman/genesis-cli isn't installed here or in a folder above (looked in node_modules from ${process.cwd()} up). Add it to the app's devDependencies. Nothing was released.`);
+    const pkg = readJson(join(dir, "package.json"));
+    const bin = typeof pkg.bin === "string" ? pkg.bin : pkg.bin?.genesis;
+    if (typeof bin !== "string") throw new Error(`${dir}/package.json names no genesis bin. Nothing was released.`);
+    const result = spawnSync(process.execPath, [join(dir, bin), ...args], { stdio: "inherit", env });
+    if (result.error) throw result.error;
+    process.exitCode = result.status ?? 1;
+  } else if (command === "notify-failure") {
+    await notifyFailure(env);
   } else if (command === "fingerprint-hash") {
     // fingerprint-hash <fingerprint.json> <platform>: the hash `eas fingerprint:generate --json` printed.
     const [file, platform] = args;
@@ -622,7 +663,7 @@ async function main(command, args, env) {
     if (!file || !PLATFORMS.includes(platform)) throw new Error("runtime needs <resolved.txt> <platform> <runtime version>.");
     checkRuntime(readFileSync(file, "utf8"), platform, expected);
   } else {
-    throw new Error(`Unknown command "${command ?? ""}": snapshot, mask, require, plan, update, profile-env, with-profile, channel, environment, latest-commit, published-group, runtime-printed, fingerprint-hash, installed, stamped or runtime.`);
+    throw new Error(`Unknown command "${command ?? ""}": snapshot, mask, require, plan, update, profile-env, with-profile, channel, environment, latest-commit, published-group, runtime-printed, fingerprint-hash, notify-failure, genesis, installed, stamped or runtime.`);
   }
 }
 

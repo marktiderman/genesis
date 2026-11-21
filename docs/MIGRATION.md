@@ -11,6 +11,42 @@ This file is appended to (never rewritten) at every release. Newest version on t
 
 ---
 
+## The native release trigger: EAS Workflows by default (ADR 0026) — `@marktiderman/genesis-cli` (**minor**)
+
+🟢 **An app on GitHub's release trigger keeps it.** `genesis upgrade` writes
+`"release": { "trigger": "github" }` into genesis.config.json when the app has
+`.github/workflows/native-release.yml` and names no trigger. Nothing about its releases changes.
+`genesis doctor` then warns (`release-trigger-github`) that a blocked GitHub Actions account would
+stop its releases silently, and names the move.
+
+🟡 **Moving to EAS's trigger is recommended, and is your call.** Before you run it:
+
+1. Link the repository to the EAS project: on expo.dev, open the project's settings, then GitHub,
+   and install Expo's GitHub app. In a monorepo, set the base directory to the app's folder.
+2. Put `EXPO_TOKEN` in the EAS environment the release reads. Add `SENTRY_AUTH_TOKEN` too with
+   `release.sentry`, and every secret in `release.pushHook.secrets`.
+3. With a release hook, the hook loses the GitHub run's own token. Create a fine-grained GitHub
+   token for the repository with Pull requests: read. Store it as the EAS secret
+   `RELEASE_GITHUB_TOKEN`, and add `"RELEASE_GITHUB_TOKEN"` to `release.pushHook.secrets`.
+4. Optional: say where a failed release goes. Set `release.failureEmails`, or put
+   `RELEASE_FAILURE_WEBHOOK` in the EAS environment. EAS posts no status on the commit.
+5. Run `genesis add template release --trigger eas`, with `EXPO_TOKEN` set or after `eas login`.
+
+The command checks the link on Expo's API first. In one change it then gives `deploy-production.yml`
+its push trigger and removes the unedited `native-release.yml`. It holds both, with the steps it
+still needs, when:
+
+- the link can't be confirmed;
+- the hook token isn't listed;
+- `native-release.yml` has your edits;
+- or another workflow releases on push.
+
+JavaScript-only updates then wait for an EAS worker instead of a GitHub runner. That is minutes on
+a paid plan's priority queue, and longer on the free plan.
+
+🟢 **New apps** (`genesis init --template native`) start on EAS's trigger and get no
+`native-release.yml`. Link the repository to the EAS project before the first merge.
+
 ## Sentry from Genesis settings — `@marktiderman/genesis-native` (observability settings), `@marktiderman/genesis-supabase` (migration `0025_genesis_settings_pattern.sql`), `@marktiderman/genesis-support`, `@marktiderman/genesis-cli` (**minor**)
 
 🟡 **Apply migration 0025** (`genesis migrate` copies it) and write the manifest again

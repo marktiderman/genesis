@@ -74,29 +74,39 @@ jobs:
     # eas-cli fingerprints with the EAS environment the builds read, and EXPO_TOKEN from it.
     environment: "production"
     env:
+      # push for a merge; workflow_dispatch for a run started by hand (eas workflow:run --ref main).
+      EVENT: ${{ github.event_name }}
       # The push's commit; empty when started by hand, which releases the commit it checked out.
       COMMIT_SHA: ${{ github.sha }}
+      # Empty when started by hand: read from the checkout's origin then.
       REPOSITORY: ${{ github.repository }}
     outputs:
-      commit_sha: ${{ steps.check.outputs.commit_sha }}
-      repository: ${{ steps.check.outputs.repository }}
+      commit_sha: ${{ steps.commit.outputs.commit_sha }}
+      repository: ${{ steps.commit.outputs.repository }}
       ios: ${{ steps.check.outputs.ios }}
       ios_runtime_version: ${{ steps.check.outputs.ios_runtime_version }}
       android: ${{ steps.check.outputs.android }}
       android_runtime_version: ${{ steps.check.outputs.android_runtime_version }}
     steps:
       - uses: eas/checkout
-      # eas-cli evaluates app.config.ts to fingerprint it (or your runtime command runs), so it needs the packages.
-      - uses: eas/install_node_modules
-      - id: check
-        name: The commit is on main; its platforms and runtime versions
+      # Before anything is installed, so the tree is exactly what was checked out.
+      - id: commit
+        name: The commit is on main, and is what was checked out
         run: |
           set -eo pipefail
-          head=$(git rev-parse HEAD)
-          # A push releases its own commit; a run started by hand (--ref main) releases what it checked out.
+          if ! head=$(git rev-parse HEAD 2>/dev/null); then
+            echo "This run has no git checkout (an uploaded folder): start it with --ref main. Nothing was built or published."
+            exit 1
+          fi
+          # A push releases its own commit; a run started by hand releases what it checked out.
           COMMIT_SHA="${COMMIT_SHA:-$head}"
           if [ "$head" != "$COMMIT_SHA" ]; then
             echo "The checkout is $head, not commit_sha $COMMIT_SHA: start this workflow with --ref $COMMIT_SHA. Nothing was built or published."
+            exit 1
+          fi
+          # Only committed code ships: an uploaded working folder with local edits is refused.
+          if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+            echo "The checkout has changes that aren't in $COMMIT_SHA: start this workflow with --ref main, not from a working folder. Nothing was built or published."
             exit 1
           fi
           git fetch --quiet origin main
@@ -104,6 +114,22 @@ jobs:
             echo "$COMMIT_SHA isn't on main: production releases only from main. Nothing was built or published."
             exit 1
           fi
+          # By hand, only main's tip: an older commit would land below what main already shipped.
+          if [ "$EVENT" != push ] && [ "$COMMIT_SHA" != "$(git rev-parse FETCH_HEAD)" ]; then
+            echo "$COMMIT_SHA isn't main's latest commit: a release started by hand ships main as it is (eas workflow:run deploy-production.yml --ref main). Nothing was built or published."
+            exit 1
+          fi
+          if [ -z "$REPOSITORY" ]; then
+            REPOSITORY=$(git remote get-url origin 2>/dev/null | sed -E 's#\.git$##; s#^.*github\.com[:/]##') || REPOSITORY=""
+          fi
+          set-output commit_sha "$COMMIT_SHA"
+          set-output repository "$REPOSITORY"
+      # eas-cli evaluates app.config.ts to fingerprint it (or your runtime command runs), so it needs the packages.
+      - uses: eas/install_node_modules
+      - id: check
+        name: eas.json matches; the platforms and their runtime versions
+        run: |
+          set -eo pipefail
           platforms="ios,android"
           # Every run (a manual one too) checks eas.json against what this file was rendered with, for
           # the platforms it releases: builds on the release channel, and the same EAS environment.
@@ -124,8 +150,6 @@ jobs:
             set-output "$platform" true
             set-output "${platform}_runtime_version" "$runtime"
           done
-          set-output commit_sha "$COMMIT_SHA"
-          set-output repository "$REPOSITORY"
 
   get_ios_build:
     name: Find a production iOS build with this runtime version
@@ -233,11 +257,13 @@ jobs:
           fi
           # The bundle names its commit, build time and channel (build-metadata.json, git-ignored):
           # stamped for this release, and nothing is published when the stamp can't say them.
-          npx --no genesis build-stamp --channel "production"
+          node .eas/scripts/native-release.mjs genesis build-stamp --channel "production"
           node .eas/scripts/native-release.mjs stamped build-metadata.json "production"
+          # The update's message on the EAS dashboard: the commit's subject, as GitHub's lane writes it.
+          RELEASE_MESSAGE=$(git log -1 --format=%s "$COMMIT_SHA" 2>/dev/null || echo "Release $COMMIT_SHA")
           # No --environment: with it, eas update bundles with the EAS environment over the profile's
           # values. CI=1: it then takes the environment it's given; EXPO_NO_DOTENV as --environment sets it.
-          node .eas/scripts/native-release.mjs with-profile eas.json "production" ios -- env CI=1 EXPO_NO_DOTENV=1 npx --yes eas-cli@26.0.0 update --channel "production" --platform ios --message "Release $COMMIT_SHA" --json --non-interactive > "$scratch/update-ios.json"
+          node .eas/scripts/native-release.mjs with-profile eas.json "production" ios -- env CI=1 EXPO_NO_DOTENV=1 npx --yes eas-cli@26.0.0 update --channel "production" --platform ios --message "$RELEASE_MESSAGE" --json --non-interactive > "$scratch/update-ios.json"
           out=$(node .eas/scripts/native-release.mjs update "$scratch/update-ios.json" ios "$RUNTIME_VERSION")
           echo "$out"
           set-output update_group "$(echo "$out" | sed -n 's/^ios_update_group=//p')"
@@ -348,11 +374,40 @@ jobs:
           fi
           # The bundle names its commit, build time and channel (build-metadata.json, git-ignored):
           # stamped for this release, and nothing is published when the stamp can't say them.
-          npx --no genesis build-stamp --channel "production"
+          node .eas/scripts/native-release.mjs genesis build-stamp --channel "production"
           node .eas/scripts/native-release.mjs stamped build-metadata.json "production"
+          # The update's message on the EAS dashboard: the commit's subject, as GitHub's lane writes it.
+          RELEASE_MESSAGE=$(git log -1 --format=%s "$COMMIT_SHA" 2>/dev/null || echo "Release $COMMIT_SHA")
           # No --environment: with it, eas update bundles with the EAS environment over the profile's
           # values. CI=1: it then takes the environment it's given; EXPO_NO_DOTENV as --environment sets it.
-          node .eas/scripts/native-release.mjs with-profile eas.json "production" android -- env CI=1 EXPO_NO_DOTENV=1 npx --yes eas-cli@26.0.0 update --channel "production" --platform android --message "Release $COMMIT_SHA" --json --non-interactive > "$scratch/update-android.json"
+          node .eas/scripts/native-release.mjs with-profile eas.json "production" android -- env CI=1 EXPO_NO_DOTENV=1 npx --yes eas-cli@26.0.0 update --channel "production" --platform android --message "$RELEASE_MESSAGE" --json --non-interactive > "$scratch/update-android.json"
           out=$(node .eas/scripts/native-release.mjs update "$scratch/update-android.json" android "$RUNTIME_VERSION")
           echo "$out"
           set-output update_group "$(echo "$out" | sed -n 's/^android_update_group=//p')"
+
+  # A failed release is a failed run on expo.dev (Workflows); EAS posts no status on the commit. So
+  # it is also said where people look: a Slack-compatible incoming webhook in the EAS environment
+  # (RELEASE_FAILURE_WEBHOOK, a secret) when the app sets one, and an email to
+  # genesis.config.json release.failureEmails when it lists any.
+  release_failed:
+    name: Say the release failed
+    after:
+      - source
+      - get_ios_build
+      - build_ios
+      - submit_ios
+      - update_ios
+      - get_android_build
+      - build_android
+      - submit_android
+      - update_android
+    if: ${{ failure() }}
+    environment: "production"
+    env:
+      RELEASE_COMMIT: ${{ github.sha }}
+      RELEASE_REPOSITORY: ${{ github.repository }}
+      RELEASE_CHANNEL: "production"
+    steps:
+      - uses: eas/checkout
+      - name: Post the failure
+        run: node .eas/scripts/native-release.mjs notify-failure

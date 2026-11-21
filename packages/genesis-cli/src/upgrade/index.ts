@@ -49,7 +49,8 @@ import { copyOwned, ownedKeyProblem, refreshOwned, type RefreshOutcome } from ".
 import { localPackageNames } from "../blocks/local.js";
 import { dedupeCommand, detectPackageManager, findLockfile, installCommand, run, shellLine } from "../blocks/pm.js";
 import { starterDir, templatesDir } from "../blocks/templates.js";
-import { adoptTemplates, bumpCallerPins, calledWorkflows, currentSource, githubLaneState, githubReleaseWorkflows, hasPushTrigger, MOVED_TEMPLATES, NATIVE_RELEASE_PATH, pushTriggeredEasWorkflows, competingReleaseWorkflows, isDedicatedWorkflow, lookupPin, missingTemplateSets, ownedDir, releaseContext, renderPin, repositoryRoot, resolveTemplateNames, TEMPLATE_SETS, type ReleasePin } from "../blocks/release.js";
+import { checkGithubLink, type GithubLink } from "../blocks/eas-link.js";
+import { adoptTemplates, bumpCallerPins, calledWorkflows, currentSource, githubLaneInPlace, githubLaneState, moveToEasHold, githubReleaseWorkflows, hasPushTrigger, MOVED_TEMPLATES, NATIVE_RELEASE_PATH, pushTriggeredEasWorkflows, competingReleaseWorkflows, isDedicatedWorkflow, lookupPin, missingTemplateSets, ownedDir, releaseContext, renderPin, repositoryRoot, resolveTemplateNames, TEMPLATE_SETS, type ReleasePin } from "../blocks/release.js";
 import { renderRelease, type ReleaseContext } from "../blocks/release-render.js";
 
 /** Whether a workflow pins its Genesis caller of `workflow` to `release` or a later one (by the `# @marktiderman/genesis@<version>` beside it, or the same commit). */
@@ -78,6 +79,8 @@ export interface ReleaseLookup extends ChangelogReader {
 
 export interface UpgradeOptions {
   root: string;
+  /** How the EAS project's GitHub link is checked before a move to EAS's release trigger (default: Expo's API, eas-link.ts). */
+  checkGithubLink?: (root: string) => Promise<GithubLink>;
   /** An exact umbrella version or a dist-tag. Default `latest`. */
   version?: string;
   /** Read the release from this versions.json instead of npm. */
@@ -443,6 +446,24 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
   checkSubstitutions(lock.substitutions);
   const appFolder = appFolderOf(root);
   const written = folderSubstitutions(lock.substitutions, appFolder);
+  // An app on GitHub's release trigger that doesn't name one keeps it, written down so it's seen:
+  // the move to EAS's trigger is the app's choice (docs/NATIVE-RELEASE.md, "Moving to EAS's trigger").
+  let pinnedTrigger = false;
+  {
+    const configText = readApp(root, "genesis.config.json");
+    let config: Record<string, unknown> | null = null;
+    try {
+      config = configText === null ? {} : (JSON.parse(configText) as Record<string, unknown>);
+    } catch {
+      config = null; // Not JSON: readGenesisConfig reports it.
+    }
+    const set = config && typeof config.release === "object" && config.release !== null ? (config.release as Record<string, unknown>) : null;
+    if (config && set?.trigger === undefined && githubLaneInPlace(root, appFolder)) {
+      config.release = { trigger: "github", ...(set ?? {}) };
+      if (!options.dryRun) replaceApp(root, "genesis.config.json", `${JSON.stringify(config, null, 2)}\n`);
+      pinnedTrigger = true;
+    }
+  }
   const releaseCtx = releaseContext(root);
   // The release pin: the lock's (what the files were written with) for the merge bases, the new
   // release's for the new text.
@@ -483,6 +504,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
   const valuesBefore = options.dryRun ? null : componentValues(root);
 
   const files = new Set<string>();
+  if (pinnedTrigger) files.add("genesis.config.json");
   const lockEdits: OverlayLockEdit[] = [];
   const codemodRuns: UpgradeReport["codemods"] = [];
   if (!options.dryRun) {
@@ -622,14 +644,23 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
   const removed: string[] = [];
   let easHeld: string | null = null;
   let retireGithub = false;
+  let keptNative: string | null = null;
   if (easLane && lock.files[OLD_LANE_FILE]) {
     const dispatcher = githubLaneState(root, { ...(written ? { substitutions: written } : {}), pin: oldPin });
     const others = [...githubReleaseWorkflows(root, appFolder), ...pushTriggeredEasWorkflows(root).filter((rel) => rel !== OLD_LANE_FILE)];
-    if (dispatcher.state === "kept" && hasPushTrigger(readApp(ownedDir(root, NATIVE_RELEASE_PATH, appFolder), NATIVE_RELEASE_PATH) ?? "")) {
+    const live = hasPushTrigger(readApp(ownedDir(root, NATIVE_RELEASE_PATH, appFolder), NATIVE_RELEASE_PATH) ?? "");
+    if (dispatcher.state === "kept" && live) {
       easHeld = `release.trigger is "eas", but ${NATIVE_RELEASE_PATH} still starts each release from GitHub and ${dispatcher.why}: both stay as they are. Remove it and run \`genesis add template release\`, or set release.trigger to "github" in genesis.config.json (docs/NATIVE-RELEASE.md, "Moving to EAS's trigger")`;
     } else if (others.length) {
       easHeld = `release.trigger is "eas", but ${others.join(", ")} still release${others.length === 1 ? "s" : ""} on every push: this file keeps its trigger until ${others.length === 1 ? "it is" : "they are"} removed (then \`genesis add template release --replace-rival\`)`;
-    } else retireGithub = dispatcher.state !== "absent" || Boolean(lock.files[NATIVE_RELEASE_PATH]);
+    } else {
+      // A live GitHub lane goes only once its replacement is confirmed: the EAS project's GitHub link, and the hook's token.
+      if (live) easHeld = moveToEasHold(releaseCtx, await (options.checkGithubLink ?? checkGithubLink)(root));
+      if (!easHeld) {
+        retireGithub = dispatcher.state === "removable" || (dispatcher.state === "absent" && Boolean(lock.files[NATIVE_RELEASE_PATH]));
+        if (dispatcher.state === "kept") keptNative = `kept: ${dispatcher.why}, so it isn't removed; it has no push trigger, so it doesn't release beside deploy-production.yml. Remove it yourself when you no longer need it`;
+      }
+    }
   }
   const onOldLane = !easLane && Boolean(lock.files[OLD_LANE_FILE]?.source.startsWith("@marktiderman/genesis-cli:templates/")) && !lock.files[NATIVE_RELEASE_PATH];
   // The database's files are the other app's to refresh: entries under supabase/ are left alone.
@@ -747,7 +778,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
       removed.push(shown);
       refreshed.push({ path: file, outcome: "removed", detail: "release.trigger is \"eas\": deploy-production.yml now starts each release on EAS, so the GitHub lane is retired (the old text is in git)" });
     } else if (lock.files[file]) {
-      refreshed.push({ path: file, outcome: "held", detail: easHeld ?? "kept until deploy-production.yml takes the push trigger: merge its .genesis-next, then run genesis add template release, which retires this file" });
+      refreshed.push({ path: file, outcome: "held", detail: easHeld ?? keptNative ?? "kept until deploy-production.yml takes the push trigger: merge its .genesis-next, then run genesis add template release, which retires this file" });
     }
   }
 
@@ -869,6 +900,12 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
   if (touched.length || added.length) {
     lines.push("", options.dryRun ? "Files Genesis owns (against the packages installed now; a real run compares with the new versions after the install):" : "Files Genesis owns:", "", ...touched.map((r) => `- ${r.path}: ${r.outcome}${r.detail ? ` (${r.detail})` : ""}`), ...added.map((a) => `- ${a}: added`));
   }
+  if (pinnedTrigger) {
+    lines.push(
+      "",
+      "This app's releases start on GitHub Actions (native-release.yml), so genesis.config.json now says so (`\"release\": { \"trigger\": \"github\" }`) and nothing about them changed. Genesis's default is now EAS's own trigger (ADR 0026), which keeps releasing when GitHub Actions can't run. To move: `genesis add template release --trigger eas` (docs/NATIVE-RELEASE.md, \"Moving to EAS's trigger\").",
+    );
+  }
   if (removed.length) {
     lines.push(
       "",
@@ -876,6 +913,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
       "",
       "- connect the GitHub repository to the EAS project (expo.dev, project settings, GitHub), if it isn't yet;",
       `- add EXPO_TOKEN${releaseCtx.release.sentry ? ", SENTRY_AUTH_TOKEN" : ""}${releaseCtx.release.pushHook?.secrets.length ? ` and ${releaseCtx.release.pushHook.secrets.join(", ")}` : ""} to the EAS environment "${releaseCtx.release.easEnvironment}", if they're only in GitHub;`,
+      "- expect JavaScript-only updates to wait for an EAS worker (minutes on a paid plan's priority queue, longer on the free plan) instead of a GitHub runner;",
       "- to keep releasing from GitHub Actions instead, set release.trigger to \"github\" in genesis.config.json and run the upgrade again.",
     );
   }

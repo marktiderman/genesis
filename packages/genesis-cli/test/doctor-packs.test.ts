@@ -77,7 +77,7 @@ describe("packs config", () => {
   });
 
   it("pack rule ids are built-in, so rules and allow work and patterns can't take them", async () => {
-    for (const id of ["native-raw-primitive", "native-literal-color", "native-custom-header", "native-screen-layout", "store-readiness", "eas-placeholder", "fingerprint-plugin-files", "release-lane-twice", "release-lane-live"]) {
+    for (const id of ["native-raw-primitive", "native-literal-color", "native-custom-header", "native-screen-layout", "store-readiness", "eas-placeholder", "fingerprint-plugin-files", "release-lane-twice", "release-lane-live", "release-trigger-github"]) {
       expect(BUILTIN_RULES).toContain(id);
     }
     for (const id of ["migration-grants", "migration-rls", "migration-definer-search-path", "migration-edited", "migration-testing-kit", "migration-view-rls"]) expect(BUILTIN_RULES).toContain(id);
@@ -340,11 +340,17 @@ describe("native pack", () => {
     }
     // One live trigger that matches release.trigger: quiet.
     expect(brief((await nativeApp(pushEas)).findings, "release-lane-live")).toEqual([]);
-    expect(brief((await nativeApp({ ...dispatchOnly, ...githubLane, "genesis.config.json": JSON.stringify({ release: { trigger: "github" } }) })).findings, "release-lane-live")).toEqual([]);
-    // Drift: the default (eas) with GitHub's lane still in place, or github with EAS's.
-    const drift = await nativeApp({ ...dispatchOnly, ...githubLane });
+    // Drift: release.trigger eas with GitHub's lane still in place, or github with EAS's.
+    const drift = await nativeApp({ ...dispatchOnly, ...githubLane, "genesis.config.json": JSON.stringify({ release: { trigger: "eas" } }) });
     expect(levels(drift.findings, "release-lane-live")).toEqual(["warn"]);
     expect(drift.findings.find((f) => f.rule === "release-lane-live")!.message).toContain('release.trigger is "eas", but releases still start from GitHub Actions');
+    // On GitHub's trigger (set, or read from the lane in place): a warning of its own names the move.
+    for (const config of [{}, { "genesis.config.json": JSON.stringify({ release: { trigger: "github" } }) }]) {
+      const onGithub = await nativeApp({ ...dispatchOnly, ...githubLane, ...config });
+      expect(brief(onGithub.findings, "release-lane-live")).toEqual([]);
+      expect(levels(onGithub.findings, "release-trigger-github")).toEqual(["warn"]);
+      expect(onGithub.findings.find((f) => f.rule === "release-trigger-github")!.message).toContain("genesis add template release --trigger eas");
+    }
     const back = await nativeApp({ ...pushEas, "genesis.config.json": JSON.stringify({ release: { trigger: "github" } }) });
     expect(levels(back.findings, "release-lane-live")).toEqual(["warn"]);
     // No release workflow at all: nothing to say.

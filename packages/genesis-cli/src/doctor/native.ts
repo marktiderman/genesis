@@ -284,6 +284,9 @@ export function checkReleaseLaneTwice(ctx: DoctorContext): void {
  * (release.trigger "github"). Dispatch-only with no live dispatcher means a merge to main starts
  * nothing (an error). Files on the other trigger than the config names are drift (a warning):
  * the next genesis add template release or genesis upgrade rewrites them.
+ *
+ * `release-trigger-github` (a warning): releases start on GitHub Actions (release.trigger
+ * "github"), so a blocked Actions account stops them silently; it names the move to EAS's trigger.
  */
 export function checkReleaseLaneLive(ctx: DoctorContext): void {
   const deployFile = path.join(ctx.root, LANE_DISPATCH_TARGET);
@@ -319,7 +322,15 @@ export function checkReleaseLaneLive(ctx: DoctorContext): void {
       level: "warn",
       file: shownNative,
       subject: "release.trigger",
-      message: `genesis.config.json release.trigger is "eas", but releases still start from GitHub Actions (${shownNative}), so a merge ships only while GitHub Actions runs. Run genesis add template release (or genesis upgrade), which gives deploy-production.yml its push trigger and retires ${shownNative}; or set release.trigger to "github" (docs/NATIVE-RELEASE.md, "Moving to EAS's trigger")`,
+      message: `genesis.config.json release.trigger is "eas", but releases still start from GitHub Actions (${shownNative}), so a merge ships only while GitHub Actions runs. Run genesis add template release, which gives deploy-production.yml its push trigger and retires ${shownNative} once the EAS project's GitHub link is confirmed; or set release.trigger to "github" (docs/NATIVE-RELEASE.md, "Moving to EAS's trigger")`,
+    });
+  } else if (trigger === "github" && githubLive && !easLive) {
+    ctx.report({
+      rule: "release-trigger-github",
+      level: "warn",
+      file: shownNative,
+      subject: "release.trigger",
+      message: `releases start on GitHub Actions (${shownNative}), so when GitHub Actions can't run (billing, an outage) a merge to main ships nothing and nothing says so. Genesis's default is EAS Workflows' own trigger (ADR 0026): link the repository to the EAS project on expo.dev, then run genesis add template release --trigger eas (docs/NATIVE-RELEASE.md, "Moving to EAS's trigger"). To keep GitHub's on purpose, set "release-trigger-github": "off" under doctor.rules`,
     });
   } else if (trigger === "github" && !githubLive) {
     ctx.report({

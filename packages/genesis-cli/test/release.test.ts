@@ -17,6 +17,7 @@ import { DEFAULT_RELEASE_CONTEXT, renderRelease, resolveRelease, type ReleaseCon
 import { addTemplates } from "../src/blocks/add-template.js";
 import { adoptTemplates, appScheme, bumpCallerPins, competingReleaseWorkflows, easProfileEnvironment, RELEASE_COMMAND, releaseContext, currentSource, MOVED_TEMPLATES, hasPushTrigger, missingTemplateSets, renderPin, renderTemplate, resolveTemplateNames } from "../src/blocks/release.js";
 import { templateTarget } from "../src/blocks/templates.js";
+import { checkGithubLink, easProjectId } from "../src/blocks/eas-link.js";
 import { GenesisConfigError, validateRelease } from "../src/doctor/config.js";
 import { runUpgrade, type ReleaseLookup } from "../src/upgrade/index.js";
 import { fakePackage, makeApp, read, tempDir, writeTree } from "./blocks-helpers.js";
@@ -31,6 +32,8 @@ const template = (rel: string) => readFileSync(path.join(TEMPLATES, rel), "utf8"
 const ctx = (set: Parameters<typeof resolveRelease>[0] = {}, appFolder: string | null = null, pm: "pnpm" | "bun" | "npm" | "yarn" = "pnpm"): ReleaseContext => ({ release: resolveRelease(set, pm), appFolder });
 const yaml = (rel: string, c: ReleaseContext) => parse(renderRelease(template(rel), c)) as Record<string, any>;
 const PIN = { sha: "a".repeat(40), version: "2.40.0" };
+/** The source job's scripts (the commit's checks, then eas.json's and the runtime versions), as one. */
+const sourceRun = (doc: Record<string, any>): string => (doc.jobs.source.steps as { run?: string }[]).filter((st) => st.run).map((st) => st.run).join("\n");
 /** EAS's `set-output` for a step's script run here: prints `name=value`. */
 const SET_OUTPUT = 'set-output() { echo "$1=$2"; }';
 
@@ -49,7 +52,7 @@ describe("the release block", () => {
   });
 
   it("defaults: both platforms, production everywhere, no Sentry, no hook, the fingerprint", () => {
-    expect(resolveRelease({}, "bun")).toEqual({ trigger: "eas", platforms: ["ios", "android"], environment: "production", paths: [], sentry: false, pushHook: null, profile: "production", channel: "production", easEnvironment: "production", packageManager: "bun", runtimeCommand: null, previews: { origin: "", scheme: "" } });
+    expect(resolveRelease({}, "bun")).toEqual({ trigger: "eas", failureEmails: [], platforms: ["ios", "android"], environment: "production", paths: [], sentry: false, pushHook: null, profile: "production", channel: "production", easEnvironment: "production", packageManager: "bun", runtimeCommand: null, previews: { origin: "", scheme: "", branches: [] } });
     expect(resolveRelease({ profile: "store" }).easEnvironment).toBe("store");
   });
 });
@@ -111,13 +114,13 @@ describe("rendering the templates", () => {
     for (const platforms of [["ios", "android"], ["ios"], ["android"]] as const) {
       const doc = yaml("release/deploy-production.yml", ctx({ trigger: "github", platforms: [...platforms] }));
       expect(Object.keys(doc.jobs)[0]).toBe("source");
-      const run = (doc.jobs.source.steps as { run?: string }[])[1]!.run!;
+      const run = sourceRun(doc);
       expect(run).toContain('if [ "$head" != "$COMMIT_SHA" ]; then');
       expect(run).toContain("git fetch --quiet origin main");
       expect(run).toContain('if ! git merge-base --is-ancestor "$COMMIT_SHA" FETCH_HEAD; then');
       // Every job waits on it, through get-build.
       for (const p of platforms) expect(doc.jobs[`get_${p}_build`].needs).toEqual(["source"]);
-      const waits = (id: string): boolean => id === "source" || (doc.jobs[id].needs ?? []).some((n: string) => waits(n));
+      const waits = (id: string): boolean => id === "source" || [...(doc.jobs[id].needs ?? []), ...(doc.jobs[id].after ?? [])].some((n: string) => waits(n));
       for (const id of Object.keys(doc.jobs)) expect(waits(id), id).toBe(true);
     }
     // The check itself, on a real repository: a commit off main fails, one on main passes.
@@ -132,7 +135,7 @@ describe("rendering the templates", () => {
     git("switch", "-q", "-c", "feature");
     git("-c", "user.email=a@example.com", "-c", "user.name=a", "commit", "-q", "--allow-empty", "-m", "off main");
     const offMain = git("rev-parse", "HEAD");
-    const script = (yaml("release/deploy-production.yml", ctx({ trigger: "github" })).jobs.source.steps as { run?: string }[])[1]!.run!;
+    const script = sourceRun(yaml("release/deploy-production.yml", ctx({ trigger: "github" })));
     const check = (sha: string, start: Record<string, string> = { HANDOFF: "native-release" }) => spawnSync("bash", ["-c", `${SET_OUTPUT}\n${script}`], { cwd: repo, encoding: "utf8", env: { ...process.env, COMMIT_SHA: sha, HANDOFF: "", MANUAL: "", ...start } });
     expect(check(offMain).status).toBe(1);
     expect(check(offMain).stdout).toContain("isn't on main");
@@ -155,7 +158,7 @@ describe("rendering the templates", () => {
 
   it("every deploy-production run, a manual one too, checks eas.json's channel and environment for the platforms it releases", () => {
     const doc = yaml("release/deploy-production.yml", ctx({ trigger: "github", easEnvironment: "production" }));
-    const script = (doc.jobs.source.steps as { run?: string }[])[1]!.run!;
+    const script = sourceRun(doc);
     expect(doc.jobs.source.env).toMatchObject({ RELEASE_IOS: "${{ inputs.ios == 'true' }}", RELEASE_ANDROID: "${{ inputs.android == 'true' }}" });
     const repo = tempDir("genesis-source-env-");
     const git = (...args: string[]) => execFileSync("git", args, { cwd: repo, encoding: "utf8" }).trim();
@@ -1532,6 +1535,8 @@ describe("genesis upgrade and the release lane", () => {
 describe("the EAS trigger (release.trigger eas, the default; ADR 0026)", () => {
   const nativeApp = (files: Record<string, string> = {}) => makeApp({ "app.json": "{}", "pnpm-lock.yaml": "", ...files });
   const GITHUB = JSON.stringify({ release: { trigger: "github" } });
+  const EAS = JSON.stringify({ release: { trigger: "eas" } });
+  const LINKED = { state: "linked", repository: "acme/sample-app" } as const;
 
   it("deploy-production starts on EAS's own push to main, the app's paths only, one run at a time with the newest waiting", () => {
     const doc = yaml("release/deploy-production.yml", ctx());
@@ -1542,9 +1547,9 @@ describe("the EAS trigger (release.trigger eas, the default; ADR 0026)", () => {
     // Expo's deploy concurrency: never cancel the running one; EAS keeps only the newest waiting run.
     expect(doc.concurrency).toEqual({ group: "${{ workflow.filename }}" });
     expect(doc.jobs.source.environment).toBe("production");
-    expect(doc.jobs.source.env).toEqual({ COMMIT_SHA: "${{ github.sha }}", REPOSITORY: "${{ github.repository }}" });
-    expect(doc.jobs.source.steps.map((st: { uses?: string; id?: string }) => st.uses ?? st.id)).toEqual(["eas/checkout", "eas/install_node_modules", "check"]);
-    const run = doc.jobs.source.steps[2].run as string;
+    expect(doc.jobs.source.env).toEqual({ EVENT: "${{ github.event_name }}", COMMIT_SHA: "${{ github.sha }}", REPOSITORY: "${{ github.repository }}" });
+    expect(doc.jobs.source.steps.map((st: { uses?: string; id?: string }) => st.uses ?? st.id)).toEqual(["eas/checkout", "commit", "eas/install_node_modules", "check"]);
+    const run = sourceRun(doc);
     expect(run).toContain('npx --yes eas-cli@26.0.0 fingerprint:generate --platform "$platform" --build-profile "production" --json --non-interactive');
     expect(run).not.toContain("HANDOFF");
     // Every later job reads the release from source's outputs.
@@ -1561,7 +1566,7 @@ describe("the EAS trigger (release.trigger eas, the default; ADR 0026)", () => {
 
   it("source releases the push's commit (or the checkout, by hand) only from main, and finds each platform's runtime version", () => {
     const doc = yaml("release/deploy-production.yml", ctx({ platforms: ["ios"], runtimeCommand: "echo 1.0.0-$RELEASE_PLATFORM" }));
-    const script = doc.jobs.source.steps[2].run as string;
+    const script = sourceRun(doc);
     const repo = tempDir("genesis-eas-source-");
     const git = (...args: string[]) => execFileSync("git", args, { cwd: repo, encoding: "utf8" }).trim();
     git("init", "-q", "-b", "main");
@@ -1588,8 +1593,151 @@ describe("the EAS trigger (release.trigger eas, the default; ADR 0026)", () => {
     expect(off.stdout).toContain("isn't on main");
     // A command that prints no runtime version stops the run: nothing is built on a guess.
     git("switch", "-q", "main");
-    const empty = yaml("release/deploy-production.yml", ctx({ platforms: ["ios"], runtimeCommand: "echo" })).jobs.source.steps[2].run as string;
+    const empty = sourceRun(yaml("release/deploy-production.yml", ctx({ platforms: ["ios"], runtimeCommand: "echo" })));
     expect(spawnSync("bash", ["-c", `${SET_OUTPUT}\n${empty}`], { cwd: repo, encoding: "utf8", env: { ...process.env, COMMIT_SHA: "" } }).status).toBe(1);
+  });
+
+  it("a run by hand releases only committed code at main's tip; the repository comes from origin then", () => {
+    const script = sourceRun(yaml("release/deploy-production.yml", ctx({ platforms: ["ios"], runtimeCommand: "echo 1.0.0" })));
+    const repo = tempDir("genesis-eas-manual-");
+    const git = (...args: string[]) => execFileSync("git", args, { cwd: repo, encoding: "utf8" }).trim();
+    git("init", "-q", "-b", "main");
+    writeTree(repo, { ".eas/scripts/native-release.mjs": template("eas/scripts/native-release.mjs"), "eas.json": JSON.stringify({ build: { production: { channel: "production" } } }), "app.ts": "1\n" });
+    git("add", "-A");
+    const commit = (m: string) => git("-c", "user.email=a@example.com", "-c", "user.name=a", "commit", "-q", "--allow-empty", "-m", m);
+    commit("one");
+    const one = git("rev-parse", "HEAD");
+    const remote = tempDir("genesis-eas-manual-remote-");
+    commit("two");
+    execFileSync("git", ["clone", "-q", "--bare", repo, remote]);
+    git("remote", "add", "origin", "https://github.com/acme/sample-app.git");
+    git("remote", "set-url", "--push", "origin", remote);
+    git("config", "remote.origin.url", remote);
+    const run = (env: Record<string, string>) => spawnSync("bash", ["-c", `${SET_OUTPUT}\n${script}`], { cwd: repo, encoding: "utf8", env: { ...process.env, EVENT: "workflow_dispatch", COMMIT_SHA: "", REPOSITORY: "", ...env } });
+    expect(run({}).status, run({}).stdout).toBe(0);
+    // Local edits in an uploaded folder never ship.
+    writeTree(repo, { "app.ts": "2\n" });
+    const dirty = run({});
+    expect(dirty.status).toBe(1);
+    expect(dirty.stdout).toContain("has changes that aren't in");
+    git("checkout", "--", "app.ts");
+    // By hand, only main's tip; a push may release an older commit (EAS's order keeps it right).
+    git("checkout", "-q", one);
+    const old = run({});
+    expect(old.status).toBe(1);
+    expect(old.stdout).toContain("isn't main's latest commit");
+    expect(run({ EVENT: "push", COMMIT_SHA: one }).status).toBe(0);
+    // No git checkout at all (an uploaded folder without .git).
+    const bare = tempDir("genesis-eas-nogit-");
+    expect(spawnSync("bash", ["-c", `${SET_OUTPUT}\n${script}`], { cwd: bare, encoding: "utf8", env: { ...process.env, GIT_CEILING_DIRECTORIES: path.dirname(bare), EVENT: "workflow_dispatch", COMMIT_SHA: "" } }).stdout).toContain("no git checkout");
+  });
+
+  it("a failed release says so: the release_failed job after every job, a webhook when set, an email when listed", async () => {
+    const doc = yaml("release/deploy-production.yml", ctx({ pushHook: { script: "scripts/p.mjs", secrets: [] } }));
+    const others = Object.keys(doc.jobs).filter((j) => !j.startsWith("release_failed"));
+    expect(doc.jobs.release_failed).toMatchObject({ if: "${{ failure() }}", environment: "production" });
+    expect([...doc.jobs.release_failed.after].sort()).toEqual(others.sort());
+    expect(doc.jobs.release_failed_email).toBeUndefined();
+    const mailed = yaml("release/deploy-production.yml", ctx({ failureEmails: ["releases@example.com"] }));
+    expect(mailed.jobs.release_failed_email).toMatchObject({ type: "email", if: "${{ failure() }}", params: { emails: ["releases@example.com"] } });
+    expect(validateRelease({ failureEmails: ["releases@example.com"] }).failureEmails).toEqual(["releases@example.com"]);
+    expect(() => validateRelease({ failureEmails: ["not an email"] })).toThrow(GenesisConfigError);
+    // The post: Slack-compatible text, only to an https URL, never throwing.
+    const posts: { url: string; body: string }[] = [];
+    const post = (async (url: string, init: { body: string }) => (posts.push({ url, body: init.body }), { ok: true })) as unknown as typeof fetch;
+    const env = { RELEASE_COMMIT: "a".repeat(40), RELEASE_REPOSITORY: "acme/sample-app", RELEASE_CHANNEL: "production" };
+    expect(await plan.notifyFailure(env, post)).toBe("logged");
+    expect(await plan.notifyFailure({ ...env, RELEASE_FAILURE_WEBHOOK: "http://hooks.example.com/x" }, post)).toBe("refused");
+    expect(await plan.notifyFailure({ ...env, RELEASE_FAILURE_WEBHOOK: "https://hooks.example.com/x" }, post)).toBe("posted");
+    expect(JSON.parse(posts[0]!.body).text).toContain("acme/sample-app aaaaaaaaaaaa");
+    const failing = (async () => ({ ok: false, status: 500 })) as unknown as typeof fetch;
+    expect(await plan.notifyFailure({ ...env, RELEASE_FAILURE_WEBHOOK: "https://hooks.example.com/x" }, failing)).toBe("failed");
+  });
+
+  it("the GitHub link is read from Expo's API with the app's EAS project id and the Expo login", async () => {
+    const id = "0f0e0d0c-0b0a-4908-8706-050403020100";
+    const root = nativeApp({ "app.json": JSON.stringify({ expo: { extra: { eas: { projectId: id } } } }) });
+    expect(easProjectId(root)).toBe(id);
+    expect(easProjectId(nativeApp({ "starter.config.ts": `export default { app: { easProjectId: "${id}" } };\n` }))).toBe(id);
+    const seen: { headers: Record<string, string>; body: string }[] = [];
+    const answer = (data: unknown) => (async (_u: string, init: { headers: Record<string, string>; body: string }) => (seen.push(init), { ok: true, json: async () => data })) as unknown as typeof fetch;
+    const home = tempDir("genesis-home-");
+    expect(await checkGithubLink(root, { env: { EXPO_TOKEN: "t" }, home, fetch: answer({ data: { app: { byId: { githubRepository: { metadata: { githubRepoOwnerName: "acme", githubRepoName: "sample-app" } } } } } }) })).toEqual({ state: "linked", repository: "acme/sample-app" });
+    expect(seen[0]!.headers.authorization).toBe("Bearer t");
+    expect(JSON.parse(seen[0]!.body).variables).toEqual({ appId: id });
+    expect((await checkGithubLink(root, { env: { EXPO_TOKEN: "t" }, home, fetch: answer({ data: { app: { byId: { githubRepository: null } } } }) })).state).toBe("not-linked");
+    // No login, no project id, or no network: unknown, so the move holds.
+    expect((await checkGithubLink(root, { env: {}, home, fetch: answer({}) })).state).toBe("unknown");
+    expect((await checkGithubLink(nativeApp(), { env: { EXPO_TOKEN: "t" }, home })).state).toBe("unknown");
+    const offline = (async () => { throw new Error("offline"); }) as unknown as typeof fetch;
+    expect(await checkGithubLink(root, { env: { EXPO_TOKEN: "t" }, home, fetch: offline })).toMatchObject({ state: "unknown", why: expect.stringContaining("offline") });
+    // eas login's session works too.
+    writeTree(home, { ".expo/state.json": JSON.stringify({ auth: { sessionSecret: "s" } }) });
+    seen.length = 0;
+    await checkGithubLink(root, { env: {}, home, fetch: answer({ data: { app: { byId: { githubRepository: null } } } }) });
+    expect(seen[0]!.headers["expo-session"]).toBe("s");
+  });
+
+  it("an app below its repository's root: add template sets appFolder and writes GitHub workflows at the root; adopting alone holds them", async () => {
+    const repo = tempDir("genesis-sub-");
+    execFileSync("git", ["init", "-q"], { cwd: repo });
+    const root = path.join(repo, "mobile");
+    mkdirSync(root);
+    writeTree(root, { "app.json": "{}", "package.json": "{}", "pnpm-lock.yaml": "" });
+    // adoptTemplates alone, with no appFolder: a workflow under the app would never run.
+    expect(adoptTemplates(root, ["ci/pr-preview-teardown.yml"])[0]).toMatchObject({ outcome: "held", detail: expect.stringContaining('"appFolder": "mobile"') });
+    expect(existsSync(path.join(root, ".github"))).toBe(false);
+    const logged: string[] = [];
+    await addTemplates(root, ["previews"], { log: (m) => logged.push(m) });
+    expect(JSON.parse(read(root, "genesis.config.json")).appFolder).toBe("mobile");
+    expect(logged.join("\n")).toContain('"appFolder": "mobile"');
+    expect(existsSync(path.join(repo, ".github/workflows/pr-preview-teardown.yml"))).toBe(true);
+    expect(existsSync(path.join(root, ".github"))).toBe(false);
+  });
+
+  it("never writes a fingerprint config into an app that already builds, or beside its own, without --replace: it would change the runtime version", () => {
+    const building = nativeApp({ "eas.json": "{}" });
+    const held = adoptTemplates(building, resolveTemplateNames(["previews"]));
+    for (const f of ["fingerprint.config.js", ".fingerprintignore"]) {
+      expect(held.find((r) => r.path === f)).toMatchObject({ outcome: "held", detail: expect.stringContaining("runtime version") });
+      expect(existsSync(path.join(building, f))).toBe(false);
+    }
+    const own = nativeApp({ "fingerprint.config.cjs": "module.exports = {};\n" });
+    expect(adoptTemplates(own, ["expo/fingerprint.config.js"])[0]).toMatchObject({ outcome: "held", detail: expect.stringContaining("fingerprint.config.cjs") });
+    expect(adoptTemplates(building, resolveTemplateNames(["previews"]), { replace: true }).find((r) => r.path === "fingerprint.config.js")?.outcome).toBe("created");
+    // A new app (nothing built yet) takes both.
+    const fresh = nativeApp();
+    expect(adoptTemplates(fresh, resolveTemplateNames(["previews"])).filter((r) => r.path.includes("fingerprint")).map((r) => r.outcome)).toEqual(["created", "created"]);
+  });
+
+  it("pr-preview previews pull requests into release.previews.branches as well as main", () => {
+    const doc = yaml("release/pr-preview.yml", ctx({ previews: { origin: "", scheme: "", branches: ["staging/**"] } }));
+    expect(doc.on.pull_request.branches).toEqual(["main", "staging/**"]);
+    expect(yaml("release/pr-preview.yml", ctx()).on.pull_request.branches).toEqual(["main"]);
+    expect(validateRelease({ previews: { branches: ["staging/**"] } }).previews).toEqual({ branches: ["staging/**"] });
+    for (const bad of [["main"], ["a b"], "staging/**"]) expect(() => validateRelease({ previews: { branches: bad } }), JSON.stringify(bad)).toThrow(GenesisConfigError);
+    const root = nativeApp({ "genesis.config.json": JSON.stringify({ release: { previews: { branches: ["staging/**"] } } }) });
+    adoptTemplates(root, ["release/pr-preview.yml"]);
+    expect(parse(read(root, ".eas/workflows/pr-preview.yml")).on.pull_request.branches).toEqual(["main", "staging/**"]);
+  });
+
+  it("the workflows run the app's own genesis-cli wherever the workspace installed it, never npx", () => {
+    for (const t of ["release/pr-preview.yml", "release/deploy-production.yml", "ci/native-release.yml"]) {
+      const text = template(t);
+      expect(text, t).not.toContain("npx --no genesis");
+      expect(text, t).toContain("node .eas/scripts/native-release.mjs genesis build-stamp");
+    }
+    const repo = tempDir("genesis-ws-");
+    const app = path.join(repo, "mobile");
+    writeTree(app, { ".eas/scripts/native-release.mjs": template("eas/scripts/native-release.mjs") });
+    const run = () => spawnSync(process.execPath, [".eas/scripts/native-release.mjs", "genesis", "build-stamp", "--channel", "pr-1"], { cwd: app, encoding: "utf8" });
+    expect(run().status).toBe(1);
+    expect(run().stderr).toContain("isn't installed here or in a folder above");
+    // Hoisted to the workspace root, as pnpm's hoisted layout puts it.
+    writeTree(repo, { "node_modules/@marktiderman/genesis-cli/package.json": JSON.stringify({ name: "@marktiderman/genesis-cli", bin: { genesis: "dist/cli.js" } }), "node_modules/@marktiderman/genesis-cli/dist/cli.js": "console.log('ran ' + process.argv.slice(2).join(' '));\n" });
+    const ok = run();
+    expect(ok.status, ok.stderr).toBe(0);
+    expect(ok.stdout).toContain("ran build-stamp --channel pr-1");
   });
 
   it("a new app gets deploy-production.yml with the push trigger and no GitHub release workflow", async () => {
@@ -1606,12 +1754,29 @@ describe("the EAS trigger (release.trigger eas, the default; ADR 0026)", () => {
     expect(adoptTemplates(root, ["ci/native-release.yml"])[0]).toMatchObject({ outcome: "held", detail: expect.stringContaining("so EAS Workflows starts each release") });
   });
 
-  it("moving an app from GitHub's trigger retires native-release.yml in the same run as deploy-production.yml takes the push", () => {
+  it("an app on GitHub's trigger stays there unless it chooses EAS's: no release.trigger reads as github while native-release.yml is there", () => {
     const root = nativeApp({ "genesis.config.json": GITHUB });
     adoptTemplates(root, resolveTemplateNames(["release"]));
-    expect(existsSync(path.join(root, ".github/workflows/native-release.yml"))).toBe(true);
     writeTree(root, { "genesis.config.json": "{}" });
-    const results = adoptTemplates(root, resolveTemplateNames(["release"]));
+    expect(releaseContext(root).release.trigger).toBe("github");
+    const again = adoptTemplates(root, resolveTemplateNames(["release"]));
+    expect(again.find((r) => r.path === ".github/workflows/native-release.yml")?.outcome).toBe("unchanged");
+    expect(Object.keys(parse(read(root, ".eas/workflows/deploy-production.yml")).on)).toEqual(["workflow_dispatch"]);
+  });
+
+  it("moving an app (release.trigger eas) retires native-release.yml in the same run as deploy-production.yml takes the push, once the EAS project's GitHub link is confirmed", () => {
+    const root = nativeApp({ "genesis.config.json": GITHUB });
+    adoptTemplates(root, resolveTemplateNames(["release"]));
+    writeTree(root, { "genesis.config.json": EAS });
+    // Not checked, or not linked: both stay, and the hold says how to link.
+    for (const githubLink of [undefined, { state: "not-linked", why: "the EAS project has no GitHub repository linked" } as const, { state: "unknown", why: "no Expo login to ask with" } as const]) {
+      const held = adoptTemplates(root, resolveTemplateNames(["release"]), githubLink ? { githubLink } : {});
+      expect(held.find((r) => r.path === ".eas/workflows/deploy-production.yml")).toMatchObject({ outcome: "held", detail: expect.stringContaining("link the repository on expo.dev") });
+      expect(held.find((r) => r.path === ".github/workflows/native-release.yml")).toMatchObject({ outcome: "held" });
+      expect(existsSync(path.join(root, ".github/workflows/native-release.yml"))).toBe(true);
+      expect(hasPushTrigger(read(root, ".eas/workflows/deploy-production.yml"))).toBe(false);
+    }
+    const results = adoptTemplates(root, resolveTemplateNames(["release"]), { githubLink: LINKED });
     expect(results.find((r) => r.path === ".github/workflows/native-release.yml")).toMatchObject({ outcome: "removed" });
     expect(results.find((r) => r.path === ".eas/workflows/deploy-production.yml")).toMatchObject({ outcome: "updated" });
     expect(existsSync(path.join(root, ".github/workflows/native-release.yml"))).toBe(false);
@@ -1619,19 +1784,34 @@ describe("the EAS trigger (release.trigger eas, the default; ADR 0026)", () => {
     expect(competingReleaseWorkflows(root, null)).toEqual([".eas/workflows/deploy-production.yml"]);
   });
 
+  it("a release hook holds the move until RELEASE_GITHUB_TOKEN (an EAS secret) is in pushHook.secrets; GitHub's lane keeps the run's own token", () => {
+    const hook = (secrets: string[]) => JSON.stringify({ release: { trigger: "eas", pushHook: { script: "scripts/push.mjs", secrets } } });
+    const root = nativeApp({ "genesis.config.json": JSON.stringify({ release: { trigger: "github", pushHook: { script: "scripts/push.mjs", secrets: ["RELEASE_GITHUB_TOKEN"] } } }) });
+    adoptTemplates(root, resolveTemplateNames(["release"]));
+    // On GitHub the run's token stays the hook's: the listed name isn't a second, empty one.
+    const gh = read(root, ".github/workflows/native-release.yml");
+    expect(gh).toContain("RELEASE_GITHUB_TOKEN: ${{ github.token }}");
+    expect(gh).not.toContain("secrets.RELEASE_GITHUB_TOKEN");
+    writeTree(root, { "genesis.config.json": hook([]) });
+    const held = adoptTemplates(root, resolveTemplateNames(["release"]), { githubLink: LINKED });
+    expect(held.find((r) => r.path === ".eas/workflows/deploy-production.yml")).toMatchObject({ outcome: "held", detail: expect.stringContaining("store it as the EAS secret RELEASE_GITHUB_TOKEN") });
+    writeTree(root, { "genesis.config.json": hook(["RELEASE_GITHUB_TOKEN"]) });
+    expect(adoptTemplates(root, resolveTemplateNames(["release"]), { githubLink: LINKED }).find((r) => r.path === ".github/workflows/native-release.yml")).toMatchObject({ outcome: "removed" });
+  });
+
   it("holds both while native-release.yml has the app's edits, or another workflow releases on push; --replace and --replace-rival are the ways out", () => {
     const root = nativeApp({ "genesis.config.json": GITHUB });
     adoptTemplates(root, resolveTemplateNames(["release"]));
-    writeTree(root, { "genesis.config.json": "{}", ".github/workflows/native-release.yml": read(root, ".github/workflows/native-release.yml") + "# ours\n" });
+    writeTree(root, { "genesis.config.json": EAS, ".github/workflows/native-release.yml": read(root, ".github/workflows/native-release.yml") + "# ours\n" });
     const before = read(root, ".eas/workflows/deploy-production.yml");
-    const held = adoptTemplates(root, resolveTemplateNames(["release"]));
+    const held = adoptTemplates(root, resolveTemplateNames(["release"]), { githubLink: LINKED });
     expect(held.find((r) => r.path === ".eas/workflows/deploy-production.yml")).toMatchObject({ outcome: "held", detail: expect.stringContaining("it has your edits") });
     expect(held.find((r) => r.path === ".github/workflows/native-release.yml")).toMatchObject({ outcome: "held" });
     expect(read(root, ".eas/workflows/deploy-production.yml")).toBe(before);
     expect(existsSync(path.join(root, ".github/workflows/native-release.yml"))).toBe(true);
     // The eas set alone never takes the push trigger beside a live native-release.yml either.
-    expect(adoptTemplates(root, resolveTemplateNames(["eas"])).find((r) => r.path === ".eas/workflows/deploy-production.yml")).toMatchObject({ outcome: "held" });
-    const replaced = adoptTemplates(root, resolveTemplateNames(["release"]), { replace: true });
+    expect(adoptTemplates(root, resolveTemplateNames(["eas"]), { githubLink: LINKED }).find((r) => r.path === ".eas/workflows/deploy-production.yml")).toMatchObject({ outcome: "held" });
+    const replaced = adoptTemplates(root, resolveTemplateNames(["release"]), { replace: true, githubLink: LINKED });
     expect(replaced.find((r) => r.path === ".github/workflows/native-release.yml")).toMatchObject({ outcome: "removed" });
     expect(hasPushTrigger(read(root, ".eas/workflows/deploy-production.yml"))).toBe(true);
     // Another GitHub workflow releasing on push holds deploy-production.yml, unless --replace-rival.
@@ -1641,20 +1821,64 @@ describe("the EAS trigger (release.trigger eas, the default; ADR 0026)", () => {
     expect(adoptTemplates(other, resolveTemplateNames(["release"]), { replaceRival: true }).find((r) => r.path === ".eas/workflows/deploy-production.yml")).toMatchObject({ outcome: "created" });
   });
 
+  it("an edited native-release.yml with no push trigger is kept, never deleted, while deploy-production.yml takes the push", () => {
+    const root = nativeApp({ "genesis.config.json": GITHUB });
+    adoptTemplates(root, resolveTemplateNames(["release"]));
+    // The app made it dispatch-only (say while GitHub Actions was blocked).
+    const dispatchOnly = read(root, ".github/workflows/native-release.yml").replace(/^on:\n[\s\S]*?\n(?=permissions:)/m, "on:\n  workflow_dispatch:\n\n");
+    expect(hasPushTrigger(dispatchOnly)).toBe(false);
+    writeTree(root, { "genesis.config.json": EAS, ".github/workflows/native-release.yml": dispatchOnly });
+    const results = adoptTemplates(root, resolveTemplateNames(["release"]), { githubLink: LINKED });
+    expect(results.find((r) => r.path === ".github/workflows/native-release.yml")).toMatchObject({ outcome: "held", detail: expect.stringContaining("it has your edits") });
+    expect(read(root, ".github/workflows/native-release.yml")).toBe(dispatchOnly);
+    expect(hasPushTrigger(read(root, ".eas/workflows/deploy-production.yml"))).toBe(true);
+  });
+
+  it("genesis add template release --trigger eas writes the choice, checks the link online, and moves", async () => {
+    const root = nativeApp({ "genesis.config.json": GITHUB });
+    adoptTemplates(root, resolveTemplateNames(["release"]));
+    const logged: string[] = [];
+    const asked: string[] = [];
+    expect(await addTemplates(root, ["release"], { trigger: "eas", checkGithubLink: async (r) => (asked.push(r), LINKED), log: (m) => logged.push(m) })).toBe(0);
+    expect(asked).toEqual([root]);
+    expect(JSON.parse(read(root, "genesis.config.json")).release.trigger).toBe("eas");
+    expect(existsSync(path.join(root, ".github/workflows/native-release.yml"))).toBe(false);
+    const out = logged.join("\n");
+    expect(out).toContain("linked to acme/sample-app");
+    expect(out).toContain("wait for an EAS worker");
+    expect(out).toContain("release.failureEmails");
+    await expect(addTemplates(root, ["release"], { trigger: "actions", log: () => {} })).rejects.toThrow(/--trigger must be eas or github/);
+  });
+
   const release = (packages: Record<string, string>, version = "2.0.0"): ReleaseLookup => ({ release: () => ({ version, packages }), latest: () => null });
   const ship = (root: string, version: string) => fakePackage(root, CLI, { version }, Object.fromEntries(resolveTemplateNames(["release"]).map((t) => [`dist/templates/${t}`, template(t)])));
-  const onGithubLane = () => {
+  const onGithubLane = (config: Record<string, unknown> = {}) => {
     const root = makeApp({ "package.json": JSON.stringify({ name: "a", devDependencies: { [CLI]: "^1.0.0" } }), "app.json": "{}", "pnpm-lock.yaml": "", "genesis.config.json": GITHUB });
     ship(root, "1.0.0");
     adoptTemplates(root, resolveTemplateNames(["release"]), { dir: path.join(root, "node_modules", CLI, "dist", "templates") });
-    // The release that makes EAS's trigger the default: the app's config doesn't set one.
-    writeTree(root, { "genesis.config.json": "{}" });
+    writeTree(root, { "genesis.config.json": JSON.stringify(config) });
     return root;
   };
+  const linked = async () => LINKED;
 
-  it("genesis upgrade moves an app on GitHub's trigger to EAS's: deploy-production.yml takes the push, native-release.yml goes, and the summary says what to set up", async () => {
+  it("genesis upgrade never moves an app off GitHub's trigger by itself: it writes release.trigger github and says how to move", async () => {
     const root = onGithubLane();
-    const report = await runUpgrade({ root, lookup: release({ [CLI]: "1.2.0" }), install: (r) => void ship(r, "1.2.0"), doctor: false });
+    const report = await runUpgrade({ root, lookup: release({ [CLI]: "1.2.0" }), install: (r) => void ship(r, "1.2.0"), doctor: false, checkGithubLink: linked });
+    expect(JSON.parse(read(root, "genesis.config.json")).release).toEqual({ trigger: "github" });
+    expect(report.files).toContain("genesis.config.json");
+    expect(report.refreshed.find((r) => r.path === ".github/workflows/native-release.yml")?.outcome).toBe("unchanged");
+    expect(Object.keys(parse(read(root, ".eas/workflows/deploy-production.yml")).on)).toEqual(["workflow_dispatch"]);
+    expect(report.removed).toBeUndefined();
+    expect(report.summary).toContain("genesis add template release --trigger eas");
+  });
+
+  it("genesis upgrade moves an app that chose EAS's trigger: deploy-production.yml takes the push, native-release.yml goes, and the summary says what to set up", async () => {
+    const root = onGithubLane({ release: { trigger: "eas" } });
+    // The link not confirmed: nothing moves.
+    const held = await runUpgrade({ root, lookup: release({ [CLI]: "1.2.0" }), install: (r) => void ship(r, "1.2.0"), doctor: false, checkGithubLink: async () => ({ state: "not-linked", why: "no repository linked" }) });
+    expect(held.refreshed.find((r) => r.path === ".eas/workflows/deploy-production.yml")).toMatchObject({ outcome: "held", detail: expect.stringContaining("link the repository on expo.dev") });
+    expect(existsSync(path.join(root, ".github/workflows/native-release.yml"))).toBe(true);
+    const report = await runUpgrade({ root, lookup: release({ [CLI]: "1.3.0" }), install: (r) => void ship(r, "1.3.0"), doctor: false, checkGithubLink: linked });
     expect(report.refreshed.find((r) => r.path === ".eas/workflows/deploy-production.yml")).toMatchObject({ outcome: "updated" });
     expect(report.refreshed.find((r) => r.path === ".github/workflows/native-release.yml")).toMatchObject({ outcome: "removed" });
     expect(report.removed).toEqual([".github/workflows/native-release.yml"]);
@@ -1663,12 +1887,13 @@ describe("the EAS trigger (release.trigger eas, the default; ADR 0026)", () => {
     expect(hasPushTrigger(read(root, ".eas/workflows/deploy-production.yml"))).toBe(true);
     expect(report.summary).toContain("now starts on EAS");
     expect(report.summary).toContain("connect the GitHub repository to the EAS project");
+    expect(report.summary).toContain("wait for an EAS worker");
   });
 
   it("genesis upgrade keeps native-release.yml while deploy-production.yml's change waits in a .genesis-next, so a merge always starts a release", async () => {
-    const root = onGithubLane();
+    const root = onGithubLane({ release: { trigger: "eas" } });
     writeTree(root, { ".eas/workflows/deploy-production.yml": read(root, ".eas/workflows/deploy-production.yml").replace("        description: Release iOS in this run.", "        description: Release iOS in this run (ours).") });
-    const report = await runUpgrade({ root, lookup: release({ [CLI]: "1.2.0" }), install: (r) => void ship(r, "1.2.0"), doctor: false });
+    const report = await runUpgrade({ root, lookup: release({ [CLI]: "1.2.0" }), install: (r) => void ship(r, "1.2.0"), doctor: false, checkGithubLink: linked });
     expect(report.refreshed.find((r) => r.path === ".eas/workflows/deploy-production.yml")?.outcome).toMatch(/conflict|kept-mine/);
     expect(report.refreshed.find((r) => r.path === ".github/workflows/native-release.yml")).toMatchObject({ outcome: "held" });
     expect(existsSync(path.join(root, ".github/workflows/native-release.yml"))).toBe(true);
@@ -1676,8 +1901,7 @@ describe("the EAS trigger (release.trigger eas, the default; ADR 0026)", () => {
   });
 
   it("genesis upgrade with release.trigger github leaves the GitHub lane as it is", async () => {
-    const root = onGithubLane();
-    writeTree(root, { "genesis.config.json": GITHUB });
+    const root = onGithubLane({ release: { trigger: "github" } });
     const report = await runUpgrade({ root, lookup: release({ [CLI]: "1.2.0" }), install: (r) => void ship(r, "1.2.0"), doctor: false });
     expect(report.refreshed.find((r) => r.path === ".github/workflows/native-release.yml")?.outcome).toBe("unchanged");
     expect(Object.keys(parse(read(root, ".eas/workflows/deploy-production.yml")).on)).toEqual(["workflow_dispatch"]);
