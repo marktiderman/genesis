@@ -511,7 +511,11 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
         const was = (await load()).requested;
         await dropOverride();
         // The deleted preview's code still runs until the next restart: keep the notice up for it.
-        if (was) publish({ ...(await load()), lingering: was });
+        // Only when it is that preview's code (its record, or a record still unsaved): a preview
+        // whose download never landed leaves the release running, with nothing to show.
+        const running = updates?.updateId ?? null;
+        const ran = !!running && ((parsePreviewRecord(await read(previewKey))[was ?? ""] ?? []).includes(running) || unsaved.get(running) === was);
+        if (was && ran) publish({ ...(await load()), lingering: was });
         return true;
       });
     },

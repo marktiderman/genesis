@@ -90,7 +90,7 @@ describe("cli/sentry-source-maps", () => {
     expect(found.map((f) => [f.level, f.subject])).toEqual([["info", "observability"]]);
   });
 
-  it("the starter's metro config, with Sentry on or off, builds on getSentryExpoConfig", () => {
+  it("the starter's metro source calls getSentryExpoConfig before the monorepo's changes, with NativeWind outermost", () => {
     expect(STARTER_METRO).toMatch(/getSentryExpoConfig\(projectRoot\)/);
     // NativeWind is the outermost wrapper, around the monorepo's changes.
     expect(STARTER_METRO.trim().split("\n").at(-1)).toBe('module.exports = withNativeWind(config, { input: "./global.css" });');
@@ -144,6 +144,17 @@ describe("genesis fix sentry-source-maps", () => {
     for (const f of plan.files!) writeFileSync(path.join(root, f.path), f.content);
     expect(read(root, "pnpm-workspace.yaml")).toBe('allowBuilds:\n  "@sentry/cli": true\n  esbuild: true\n');
     expect(sentryState(root).gaps.map((g) => g.piece)).toEqual(["update-uploads"]);
+  });
+
+  it("takes release.sentry: false as the app's choice, and lists the pnpm step when the workspace doesn't name @sentry/cli", async () => {
+    const off = nativeApp({
+      "genesis.config.json": `{\n  "observability": { "sentry": ${JSON.stringify(PROJECT)} },\n  "release": { "sentry": false }\n}\n`,
+      ".github/workflows/ota.yml": "jobs:\n  ota:\n    steps:\n      - run: eas update --branch production\n",
+    });
+    expect(sentryState(off).gaps.map((g) => g.piece)).not.toContain("update-uploads");
+    const root = nativeApp({ "pnpm-workspace.yaml": "packages:\n  - apps/*\n", "pnpm-lock.yaml": "" });
+    const plan = await sentrySourceMapsFix.plan({ root, findings: [] });
+    expect(plan.manual).toContain("onlyBuiltDependencies (pnpm 10)");
   });
 
   it("adopts the project from the app's own plugin options into genesis.config.json", async () => {

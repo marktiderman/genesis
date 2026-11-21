@@ -178,6 +178,8 @@ export const sentrySourceMapsFix: Fix = {
       const blocked = /^(\s*)(["']?)@sentry\/cli\2\s*:\s*false\s*$/m;
       if (workspace && blocked.test(workspace)) {
         files.push(plannedFile(root, "pnpm-workspace.yaml", workspace.replace(blocked, (_m, ind: string, q: string) => `${ind}${q}@sentry/cli${q}: true`), "pnpm runs @sentry/cli's install script, which downloads the uploader builds and releases run"));
+      } else if (workspace && !/["']?@sentry\/cli["']?\s*:\s*true\b|^\s*-\s*["']?@sentry\/cli["']?\s*$/m.test(workspace)) {
+        manual.push(`Allow @sentry/cli's install script (it downloads the uploader) in pnpm-workspace.yaml: "@sentry/cli": true under allowBuilds (pnpm 11), or "- '@sentry/cli'" under onlyBuiltDependencies (pnpm 10).`);
       } else if (!workspace && existsSync(path.join(root, "pnpm-lock.yaml"))) {
         manual.push(`With pnpm 11, allow @sentry/cli's install script (it downloads the uploader): "@sentry/cli": true under allowBuilds in pnpm-workspace.yaml.`);
       }

@@ -146,10 +146,12 @@ export function sentryState(root: string): SentryState {
     if (!hasPlugin) {
       gap("expo-plugin", appConfigs[0] ?? "app.config.ts", `the Expo config has no @sentry/react-native/expo plugin, so EAS builds upload no source maps and their stack traces stay minified. Add ["@sentry/react-native/expo", { organization, project, url }]${project ? "" : " (and set genesis.config.json observability.sentry)"}`);
     }
-    for (const file of workflowFiles(root)) {
+    // release.sentry: false is the app's own choice (builds upload, updates don't): not a gap.
+    const updatesOff = config?.release?.sentry === false;
+    for (const file of updatesOff ? [] : workflowFiles(root)) {
       const text = stripYamlComments(read(file) ?? "");
       if (!(PUBLISHES.test(text) || UPDATE_JOB.test(text)) || UPLOADS.test(text)) continue;
-      gap("update-uploads", rel(root, file), `${rel(root, file)} publishes updates without uploading their source maps to Sentry, so errors in an update read minified. A Genesis release template: set genesis.config.json observability.sentry (release.sentry follows it) and run genesis add template release; your own: run npx --no sentry-expo-upload-sourcemaps dist after eas update, or set upload_sentry_sourcemaps: true on the update job`);
+      gap("update-uploads", rel(root, file), `${rel(root, file)} publishes updates with no source map upload that must succeed (an EAS update job with upload_sentry_sourcemaps unset tries it, and passes when it fails), so an update's errors can read minified with no sign of it. A Genesis release template: set genesis.config.json observability.sentry (release.sentry follows it) and run genesis add template release; your own: run npx --no sentry-expo-upload-sourcemaps dist after eas update, or set upload_sentry_sourcemaps: true on the update job`);
     }
   }
 

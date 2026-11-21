@@ -268,6 +268,13 @@ describe("channel switching, hardened", () => {
     await switcher.state();
     await expect(switcher.recover(gone)).resolves.toBe(true);
     await expect(switcher.state()).resolves.toMatchObject({ requested: null, lingering: "pr-3" });
+    // Its download never landed (the release still runs): nothing lingers.
+    const released = memoryStorage();
+    await createChannelSwitcher({ updates: fakeUpdates({ updateId: "release-1" }), enabled: true, guard: createReloadGuard(), storage: released }).state();
+    released.data.set("genesis:updates:channel", "pr-3");
+    const onRelease = createChannelSwitcher({ updates: fakeUpdates({ updateId: "release-1", channel: "pr-3" }), enabled: true, guard: createReloadGuard(), storage: released });
+    await expect(onRelease.recover(gone)).resolves.toBe(true);
+    await expect(onRelease.state()).resolves.toMatchObject({ requested: null, lingering: null });
   });
 
   it("keeps every preview's updates: concurrent records, and a retry of an older one, drop none", async () => {
