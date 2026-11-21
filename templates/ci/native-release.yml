@@ -263,7 +263,7 @@ jobs:
           done
           # The bundle names its commit, build time and channel (build-metadata.json, git-ignored):
           # stamped for this release, and nothing is published when the stamp can't say them.
-          npx --no genesis build-stamp --channel "GENESIS_RELEASE_CHANNEL"
+          node .eas/scripts/native-release.mjs genesis build-stamp --channel "GENESIS_RELEASE_CHANNEL"
           node .eas/scripts/native-release.mjs stamped build-metadata.json "GENESIS_RELEASE_CHANNEL"
           RELEASE_MESSAGE=$(git log -1 --format=%s)
           export RELEASE_MESSAGE
@@ -372,7 +372,7 @@ jobs:
           done
           # The bundle names its commit, build time and channel (build-metadata.json, git-ignored):
           # stamped for this release, and nothing is published when the stamp can't say them.
-          npx --no genesis build-stamp --channel "GENESIS_RELEASE_CHANNEL"
+          node .eas/scripts/native-release.mjs genesis build-stamp --channel "GENESIS_RELEASE_CHANNEL"
           node .eas/scripts/native-release.mjs stamped build-metadata.json "GENESIS_RELEASE_CHANNEL"
           RELEASE_MESSAGE=$(git log -1 --format=%s)
           export RELEASE_MESSAGE

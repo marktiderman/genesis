@@ -168,9 +168,9 @@ An Expo app made with \`genesis init ${slug} --template native\` from the Genesi
   \`genesis upgrade\`.
 - The CI workflows in \`.github/workflows\` pin the Genesis release you run; \`genesis upgrade\`
   moves the pin with your packages (see docs/APP-CI.md in marktiderman/genesis).
-- Releases: every push to main ships (\`.github/workflows/native-release.yml\` and
-  \`.eas/workflows/deploy-production.yml\`); change the lane in \`genesis.config.json\` \`release\`
-  (docs/NATIVE-RELEASE.md in marktiderman/genesis).
+- Releases: every push to main ships (\`.eas/workflows/deploy-production.yml\`, started by EAS
+  Workflows once the repository is connected to the EAS project); change the lane in
+  \`genesis.config.json\` \`release\` (docs/NATIVE-RELEASE.md in marktiderman/genesis).
 `;
 }
 
@@ -276,6 +276,8 @@ export function initNative(options: InitNativeOptions): InitNativeResult {
   if (options.pin) lock.pin = checkPin(options.pin);
   for (const rel of walk(templates)) {
     if (shared && DATABASE_TEMPLATES.has(rel)) continue;
+    // EAS Workflows starts each release (release.trigger "eas", the default): no GitHub release workflow.
+    if (rel === "ci/native-release.yml" && release.release.trigger === "eas") continue;
     if (WEB_TEMPLATES.test(rel)) continue;
     const raw = readFileSync(path.join(templates, rel), "utf8");
     const to = templateTarget(rel, raw);
@@ -335,7 +337,7 @@ export function initNative(options: InitNativeOptions): InitNativeResult {
     }
     steps.push(
       ...(options.pin ? [] : ["Replace GENESIS_SHA in .github/workflows/*.yml with the commit of the Genesis release you run (genesis upgrade writes it from then on)."]),
-      "Set up the release lane's secrets: EXPO_TOKEN in the GitHub environment production (docs/NATIVE-RELEASE.md, \"One-time setup\"); change the lane in genesis.config.json `release`.",
+      "Connect the GitHub repository to the EAS project (expo.dev, project settings, GitHub), so EAS Workflows starts each release on a push to main, and add EXPO_TOKEN (an Expo robot token, a secret) to the EAS environment production (docs/NATIVE-RELEASE.md, \"One-time setup\"); change the lane in genesis.config.json `release`.",
       "Run eas init and put the project id in starter.config.ts app.easProjectId (builds, previews, updates).",
       "Set links.hosts in genesis.config.json to your web domain, or delete the links block (no app links then).",
       // The store ids only the person has: the doctor's eas-placeholder warnings say the same.

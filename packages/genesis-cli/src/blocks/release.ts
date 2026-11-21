@@ -14,17 +14,18 @@
  * fills with its own jobs) are only named on upgrade, and their pins moved in place.
  */
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import * as path from "node:path";
 import { parse as parseYaml } from "yaml";
 import { compareVersions } from "../upgrade/bump-core.mjs";
-import { readGenesisConfig, sentryProject } from "../doctor/config.js";
+import { parseGenesisConfig, readGenesisConfig, sentryProject } from "../doctor/config.js";
 import { appFolderOf, folderSubstitutions, renderOwned } from "./app-folder.js";
 import { CLI_PACKAGE } from "./discover.js";
 import { readApp, replaceApp, sha256 } from "./files.js";
 import { readLock, substitute, writeLock, type GenesisLock, type OwnedFile } from "./lock.js";
 import { detectPackageManager } from "./pm.js";
-import { renderRelease, resolveRelease, type ReleaseContext, type ReleasePackageManager } from "./release-render.js";
+import { RELEASE_GITHUB_TOKEN, renderRelease, resolveRelease, type ReleaseContext, type ReleasePackageManager } from "./release-render.js";
+import { linkSteps, type EasEnvironmentState, type GithubLink } from "./eas-link.js";
 import { templateTarget, templatesDir, walk } from "./templates.js";
 
 export { renderRelease, resolveRelease, RELEASE_DEFAULTS, DEFAULT_RELEASE_CONTEXT, type ReleaseContext, type ResolvedRelease } from "./release-render.js";
@@ -145,9 +146,54 @@ export function appScheme(root: string): string | null {
   }
 }
 
+/** Where the app sits in its git repository ("mobile"), or null at its root or outside git. */
+export function folderInRepository(root: string): string | null {
+  try {
+    const top = execFileSync("git", ["rev-parse", "--show-toplevel"], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+    const rel = path.relative(realpathSync(top), realpathSync(root)).split(path.sep).join("/");
+    return rel && !rel.startsWith("..") ? rel : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The fingerprint's own config files: written into an app that already builds, they change its runtime version. */
+const FINGERPRINT_TEMPLATES = new Set(["expo/fingerprint.config.js", "expo/.fingerprintignore"]);
+const FINGERPRINT_CONFIGS = ["fingerprint.config.js", "fingerprint.config.cjs", "fingerprint.config.mjs", ".fingerprintignore"];
+
+/** EAS Workflows takes a workflow file of 16 KiB at most (docs.expo.dev/eas/workflows/syntax, "Workflow files"). */
+export const EAS_WORKFLOW_MAX_BYTES = 16 * 1024;
+
+/** Whether the app's pr-preview.yml has a job reading the release's EAS environment (previews before ADR 0026's split). */
+export function previewsInReleaseEnvironment(root: string, ctx: ReleaseContext): boolean {
+  const text = readApp(root, ".eas/workflows/pr-preview.yml");
+  if (text === null) return false;
+  const jobs = parseWorkflow(text)?.jobs;
+  if (!jobs || typeof jobs !== "object") return false;
+  return Object.values(jobs as Record<string, { environment?: unknown } | null>).some((job) => job?.environment === ctx.release.easEnvironment);
+}
+
+/** Why an app's previews stay as they are for now, or null once their own EAS environment exists. */
+export function previewMoveHold(ctx: ReleaseContext, state: EasEnvironmentState | undefined): string | null {
+  if (state?.state === "present") return null;
+  const env = ctx.release.previews.easEnvironment;
+  return `kept as it is, so previews keep running: the new pr-preview.yml runs on the Preview label only, in the EAS environment "${env}", and ${state ? state.why : "that environment wasn't checked"}. Meanwhile a pull request's code reads the release's environment (genesis doctor: preview-environment). To move: (1) create the EAS environment "${env}" on expo.dev (the project's environment variables) with the release environment's plain values (APP_VARIANT, the EXPO_PUBLIC_ ones), a robot EXPO_TOKEN${ctx.release.sentry ? " and SENTRY_AUTH_TOKEN" : ""}, and nothing else; (2) create the label Preview in GitHub; (3) run this again with EXPO_TOKEN set or after eas login, so the environment can be checked`;
+}
+
+/** Whether the app has the GitHub lane's native-release.yml (in genesis.lock.json, or the file itself). */
+export function githubLaneInPlace(root: string, appFolder: string | null): boolean {
+  try {
+    if (readLock(root).files[NATIVE_RELEASE_PATH]) return true;
+  } catch {
+    // An unreadable lock: the file decides.
+  }
+  return existsSync(path.join(appFolder ? repositoryRoot(root, appFolder) : root, NATIVE_RELEASE_PATH));
+}
+
 /** The release context for an app: its `release` block with the defaults, and its folder. */
-export function releaseContext(root: string): ReleaseContext {
-  const config = readGenesisConfig(root);
+export function releaseContext(root: string, planned?: Record<string, unknown>): ReleaseContext {
+  // `planned`: the genesis.config.json a command is about to write (a dry run plans with it).
+  const config = planned ? parseGenesisConfig(planned, "genesis.config.json (planned)") : readGenesisConfig(root);
   const set = config?.release ?? {};
   const detected = detectPackageManager(root);
   // Unset, the EAS environment is the one the profile's builds read (eas.json), not its name.
@@ -157,6 +203,10 @@ export function releaseContext(root: string): ReleaseContext {
     release: resolveRelease(
       {
         ...(built ? { easEnvironment: built } : {}),
+        // Unset, an app whose releases already start on GitHub stays there: the move to EAS's
+        // trigger is the app's choice (release.trigger "eas"), never a side effect of an upgrade.
+        ...(set.trigger ? { trigger: set.trigger } : githubLaneInPlace(root, config?.appFolder ?? null) ? { trigger: "github" as const } : {}),
+        ...(set.failureEmails ? { failureEmails: set.failureEmails } : {}),
         ...(set.platforms ? { platforms: set.platforms } : {}),
         ...(set.environment ? { environment: set.environment } : {}),
         ...(set.paths ? { paths: set.paths } : {}),
@@ -168,7 +218,7 @@ export function releaseContext(root: string): ReleaseContext {
         ...(set.easEnvironment ? { easEnvironment: set.easEnvironment } : {}),
         ...(set.packageManager ? { packageManager: set.packageManager } : {}),
         ...(set.runtimeVersion && set.runtimeVersion !== "fingerprint" ? { runtimeCommand: set.runtimeVersion.command } : {}),
-        ...(set.previews || appScheme(root) ? { previews: { origin: set.previews?.origin ?? "", scheme: set.previews?.scheme ?? appScheme(root) ?? "" } } : {}),
+        ...(set.previews || appScheme(root) ? { previews: { origin: set.previews?.origin ?? "", scheme: set.previews?.scheme ?? appScheme(root) ?? "", branches: set.previews?.branches ?? [], everyPullRequest: set.previews?.everyPullRequest ?? false, easEnvironment: set.previews?.easEnvironment ?? "preview-release" } } : {}),
       },
       detected as ReleasePackageManager,
     ),
@@ -230,7 +280,7 @@ export function ownedDir(root: string, rel: string, appFolder: string | null): s
  */
 export const TEMPLATE_SETS: Readonly<Record<string, { summary: string; templates: readonly string[] }>> = {
   release: {
-    summary: "the native release lane: native-release.yml (GitHub), deploy-production.yml and pr-preview.yml (EAS), its script, the fingerprint config",
+    summary: "the native release lane: deploy-production.yml and pr-preview.yml (EAS), its script, the fingerprint config, and native-release.yml (GitHub) only with release.trigger github",
     templates: ["ci/native-release.yml", "release/deploy-production.yml", "release/pr-preview.yml", "ci/pr-preview-teardown.yml", "eas/scripts/native-release.mjs", "expo/fingerprint.config.js", "expo/.fingerprintignore"],
   },
   previews: {
@@ -266,12 +316,58 @@ export function resolveTemplateNames(names: readonly string[], dir = templatesDi
   return out;
 }
 
-export type AdoptOutcome = "created" | "adopted" | "updated" | "unchanged" | "next" | "replaced" | "pending" | "held";
+export type AdoptOutcome = "created" | "adopted" | "updated" | "unchanged" | "next" | "replaced" | "pending" | "held" | "removed";
 
 const NATIVE_RELEASE = "ci/native-release.yml";
+/** The GitHub release workflow, where the lane keeps it (the repository's .github/workflows). */
+export const NATIVE_RELEASE_PATH = ".github/workflows/native-release.yml";
 /** The workflow native-release.yml starts on EAS (`eas workflow:run`): the lane needs it, so it's never a file to remove. */
 export const LANE_DISPATCH_TARGET = ".eas/workflows/deploy-production.yml";
 const DEPLOY_PRODUCTION = "release/deploy-production.yml";
+
+/** The GitHub release workflow in an app whose release.trigger is "eas": none, Genesis's own (unedited, so it can go), or one to keep. */
+export type GithubLaneState = { state: "absent" } | { state: "removable"; text: string } | { state: "kept"; why: string };
+
+/**
+ * Whether the app's native-release.yml can be retired for EAS's push trigger: it is Genesis's
+ * text unedited (its lock checksum, or the GitHub lane's render of today's template), or `replace`
+ * says to write over the app's files (the old text is in git). Anything else is the app's, and
+ * kept: the release then stays on GitHub until the app removes it or sets release.trigger "github".
+ */
+export function githubLaneState(root: string, options: { replace?: boolean; dir?: string; substitutions?: Record<string, string>; pin?: ReleasePin | null; config?: Record<string, unknown> } = {}): GithubLaneState {
+  const ctx = releaseContext(root, options.config);
+  const where = ownedDir(root, NATIVE_RELEASE_PATH, ctx.appFolder);
+  const mine = readApp(where, NATIVE_RELEASE_PATH);
+  if (mine === null) return { state: "absent" };
+  // Edits are checked first: an edited one is kept whatever its trigger (a dispatch-only or
+  // scheduled copy the app made is the app's).
+  const entry = readLock(root).files[NATIVE_RELEASE_PATH];
+  if (options.replace || (entry && sha256(mine) === entry.sha256)) return { state: "removable", text: mine };
+  try {
+    const raw = readFileSync(path.join(options.dir ?? templatesDir(), NATIVE_RELEASE), "utf8");
+    const github = { ...ctx, release: { ...ctx.release, trigger: "github" as const } };
+    if (renderTemplate(NATIVE_RELEASE_PATH, raw, { release: github, substitutions: options.substitutions, pin: options.pin ?? null }) === mine) return { state: "removable", text: mine };
+  } catch {
+    // No template to compare with: the app's copy is kept.
+  }
+  return { state: "kept", why: entry ? "it has your edits" : "it isn't in genesis.lock.json, so it may be your own" };
+}
+
+/**
+ * Why moving an app from GitHub's trigger to EAS's must wait, or null. The move removes the
+ * GitHub lane, so it needs what replaces it confirmed first: the EAS project's GitHub link (EAS's
+ * push trigger starts nothing without it), and with a release hook, RELEASE_GITHUB_TOKEN listed in
+ * pushHook.secrets (stored as an EAS secret: the hook loses the GitHub run's own token).
+ */
+export function moveToEasHold(ctx: ReleaseContext, link: GithubLink | undefined): string | null {
+  const steps: string[] = [];
+  if (!link || link.state !== "linked") steps.push(`EAS Workflows' push trigger needs the repository linked to the EAS project, and ${link ? link.why : "the link wasn't checked"}: ${linkSteps(ctx.appFolder)}`);
+  const hook = ctx.release.pushHook;
+  if (hook && !hook.secrets.includes(RELEASE_GITHUB_TOKEN)) {
+    steps.push(`the release hook (${hook.script}) would lose GitHub's run token on EAS: create a fine-grained GitHub token (this repository, Pull requests: read), store it as the EAS secret RELEASE_GITHUB_TOKEN in the environment "${ctx.release.easEnvironment}", and add "RELEASE_GITHUB_TOKEN" to genesis.config.json release.pushHook.secrets`);
+  }
+  return steps.length ? `not moved to EAS's trigger yet (releases stay on GitHub until then): ${steps.join("; and ")}` : null;
+}
 
 export interface AdoptResult {
   template: string;
@@ -300,6 +396,12 @@ export interface AdoptOptions {
   /** The CLI version recorded in the lock. */
   version?: string;
   dir?: string;
+  /** The genesis.config.json the command is about to write (its appFolder, release.trigger), to plan with in a dry run. */
+  config?: Record<string, unknown>;
+  /** Whether the previews' own EAS environment exists (eas-link.ts); unset holds an old pr-preview.yml's refresh. */
+  previewEnvironment?: EasEnvironmentState;
+  /** The EAS project's GitHub link, checked online (eas-link.ts) before an app's GitHub lane is retired; unset holds the move. */
+  githubLink?: GithubLink;
 }
 
 /**
@@ -322,12 +424,78 @@ export interface AdoptOptions {
 export function adoptTemplates(root: string, templates: readonly string[], options: AdoptOptions = {}): AdoptResult[] {
   const dir = options.dir ?? templatesDir();
   const lock = readLock(root);
-  const ctx = releaseContext(root);
+  const ctx = releaseContext(root, options.config);
   const appFolder = ctx.appFolder;
+  // Whether the app already builds: read before this run writes an eas.json of its own.
+  const alreadyBuilds = existsSync(path.join(root, "eas.json"));
   const results: AdoptResult[] = [];
+  // release.trigger "eas" (the default): deploy-production.yml takes the push trigger, and the
+  // GitHub lane's native-release.yml goes, both in this run or neither. Held while anything else
+  // still releases on push (the two lanes would publish each release twice), unless --replace-rival
+  // says the app removes those in the same change; never beside a native-release.yml with the app's
+  // edits, which this command doesn't delete.
+  const easLane = ctx.release.trigger === "eas";
+  let easHold: string | null = null;
+  let dispatcher: GithubLaneState = { state: "absent" };
+  if (easLane && templates.includes(DEPLOY_PRODUCTION)) {
+    dispatcher = githubLaneState(root, { ...(options.replace ? { replace: true } : {}), ...(options.config ? { config: options.config } : {}), dir, ...(lock.substitutions ? { substitutions: lock.substitutions } : {}), pin: options.pin ?? null });
+    const others = [...githubReleaseWorkflows(root, appFolder), ...pushTriggeredEasWorkflows(root).filter((rel) => rel !== LANE_DISPATCH_TARGET)];
+    const live = dispatcher.state !== "absent" && hasPushTrigger(readApp(ownedDir(root, NATIVE_RELEASE_PATH, appFolder), NATIVE_RELEASE_PATH) ?? "");
+    // Kept with the app's edits while it still starts releases, or Genesis's but not retired by this run (the eas set alone).
+    const nativeStays = live && (dispatcher.state === "kept" || !templates.includes(NATIVE_RELEASE));
+    if (nativeStays) {
+      easHold = `not written: ${NATIVE_RELEASE_PATH} still starts each release from GitHub${dispatcher.state === "kept" ? ` and ${dispatcher.why}` : ""}, and beside a push-triggered deploy-production.yml each release would go out twice. ${dispatcher.state === "kept" ? "Remove it in this change (or run with --replace), or set genesis.config.json release.trigger to \"github\" to keep releasing from GitHub, then run this again" : "Adopt the whole lane with `genesis add template release`, which retires it"}`;
+    } else if (others.length && !options.replaceRival) {
+      easHold = `not written: ${others.join(", ")} still release${others.length === 1 ? "s" : ""} on every push, and both lanes would publish each release. Remove ${others.length === 1 ? "it" : "them"}, then run this again; or, to write deploy-production.yml now, run it with --replace-rival and remove ${others.length === 1 ? "that workflow" : "those workflows"} in the same change`;
+    } else if (live) {
+      // Retiring a live GitHub lane: only once what replaces it is confirmed.
+      easHold = moveToEasHold(ctx, options.githubLink);
+    }
+  }
+  // The GitHub workflow goes last either way: written after the rest with GitHub's trigger, and
+  // with EAS's retired only once deploy-production.yml has taken the push trigger in this run.
   const ordered = [...templates.filter((t) => t !== NATIVE_RELEASE), ...templates.filter((t) => t === NATIVE_RELEASE)];
   for (const template of ordered) {
-    if (template === NATIVE_RELEASE) {
+    if (easLane && template === NATIVE_RELEASE) {
+      const location = path.relative(root, path.join(ownedDir(root, NATIVE_RELEASE_PATH, appFolder), NATIVE_RELEASE_PATH)).split(path.sep).join("/");
+      if (!templates.includes(DEPLOY_PRODUCTION)) {
+        results.push({ template, path: NATIVE_RELEASE_PATH, location, outcome: "held", detail: "not written: genesis.config.json release.trigger is \"eas\", so EAS Workflows starts each release (deploy-production.yml's push trigger). Set release.trigger to \"github\" to release from GitHub Actions instead" });
+        continue;
+      }
+      if (dispatcher.state === "absent") {
+        if (lock.files[NATIVE_RELEASE_PATH]) {
+          delete lock.files[NATIVE_RELEASE_PATH];
+          results.push({ template, path: NATIVE_RELEASE_PATH, location, outcome: "removed", detail: "already gone; dropped from genesis.lock.json" });
+        }
+        continue;
+      }
+      if (easHold) {
+        results.push({ template, path: NATIVE_RELEASE_PATH, location, outcome: "held", detail: "kept: releases stay on GitHub until deploy-production.yml can take the push trigger (below)" });
+        continue;
+      }
+      // deploy-production.yml must have taken the push trigger first: left in a .genesis-next (or
+      // pending), removing this would leave a merge starting nothing.
+      const deploy = results.find((r) => r.path === LANE_DISPATCH_TARGET);
+      const taken = deploy && ["created", "adopted", "updated", "unchanged", "replaced"].includes(deploy.outcome) && (options.dryRun || hasPushTrigger(readApp(root, LANE_DISPATCH_TARGET) ?? ""));
+      if (!taken) {
+        results.push({ template, path: NATIVE_RELEASE_PATH, location, outcome: "held", detail: "kept: deploy-production.yml hasn't taken the push trigger yet (its new text waits to be merged): merge it, then run this again, which retires this file" });
+        continue;
+      }
+      if (dispatcher.state === "kept") {
+        // No push trigger, so it releases nothing beside deploy-production.yml; but it's the app's, so it stays.
+        results.push({ template, path: NATIVE_RELEASE_PATH, location, outcome: "held", detail: `kept: ${dispatcher.why}, so it isn't removed; it has no push trigger, so it doesn't release beside deploy-production.yml. Remove it yourself when you no longer need it` });
+        continue;
+      }
+      if (!options.dryRun) rmSync(path.join(ownedDir(root, NATIVE_RELEASE_PATH, appFolder), NATIVE_RELEASE_PATH));
+      delete lock.files[NATIVE_RELEASE_PATH];
+      results.push({ template, path: NATIVE_RELEASE_PATH, location, outcome: "removed", detail: "release.trigger is \"eas\": deploy-production.yml now starts each release on EAS, so the GitHub lane is retired (the old text is in git)" });
+      continue;
+    }
+    if (easLane && template === DEPLOY_PRODUCTION && easHold) {
+      results.push({ template, path: LANE_DISPATCH_TARGET, location: LANE_DISPATCH_TARGET, outcome: "held", detail: easHold });
+      continue;
+    }
+    if (!easLane && template === NATIVE_RELEASE) {
       // In a dry run nothing was written: a workflow this run would write anew isn't a rival.
       const rewritten = (rel: string) => results.some((r) => r.path === rel && ["created", "updated", "replaced"].includes(r.outcome));
       const easRivals = pushTriggeredEasWorkflows(root).filter((rel) => !(options.dryRun && rewritten(rel)));
@@ -354,7 +522,36 @@ export function adoptTemplates(root: string, templates: readonly string[], optio
     }
     const raw = readFileSync(path.join(dir, template), "utf8");
     const target = templateTarget(template, raw);
-    if (template === DEPLOY_PRODUCTION && !templates.includes(NATIVE_RELEASE)) {
+    // GitHub reads workflows only from the repository's root: in an app below it with no appFolder
+    // set, one written here would never run.
+    if (!appFolder && target.startsWith(".github/workflows/")) {
+      const below = folderInRepository(root);
+      if (below) {
+        results.push({ template, path: target, location: target, outcome: "held", detail: `not written: this app is in ${below}/ of its repository, and GitHub reads workflows only from the repository's root. Set "appFolder": "${below}" in genesis.config.json (genesis add template does it for you), then run this again` });
+        continue;
+      }
+    }
+    // Previews moved to the Preview label and an EAS environment of their own: an app whose
+    // pr-preview.yml still runs in the release's environment keeps it until that environment exists,
+    // so its previews never stop silently.
+    if (template === "release/pr-preview.yml" && !options.replace && previewsInReleaseEnvironment(root, ctx)) {
+      const hold = previewMoveHold(ctx, options.previewEnvironment);
+      if (hold) {
+        results.push({ template, path: target, location: target, outcome: "held", detail: hold });
+        continue;
+      }
+    }
+    // A fingerprint config the app never had changes what its runtime version hashes: every build it
+    // has made stops taking updates until the next store build. Only on purpose (--replace).
+    if (FINGERPRINT_TEMPLATES.has(template) && !lock.files[target] && !options.replace && readApp(root, target) === null) {
+      // The app's own: not one Genesis wrote (this run's fingerprint.config.js beside its .fingerprintignore).
+      const others = FINGERPRINT_CONFIGS.filter((f) => f !== target && !lock.files[f] && existsSync(path.join(root, f)));
+      if (others.length || alreadyBuilds) {
+        results.push({ template, path: target, location: target, outcome: "held", detail: `not written: ${others.length ? `the app has ${others.join(", ")}, and` : "the app already builds (eas.json), and"} ${target} would change its runtime version, so installed builds stop taking updates until the next store build. Write it with --replace when a store build is due${others.length ? ` (and merge ${others.join(", ")} into it)` : ""}` });
+        continue;
+      }
+    }
+    if (!easLane && template === DEPLOY_PRODUCTION && !templates.includes(NATIVE_RELEASE)) {
       // The dispatch-only lane over an app's push-triggered one, with nothing to start it
       // (native-release.yml isn't written here, and the app has none): merges would stop releasing.
       const current = readApp(root, target);
@@ -365,6 +562,11 @@ export function adoptTemplates(root: string, templates: readonly string[], optio
       }
     }
     const text = renderTemplate(target, raw, { release: ctx, substitutions: lock.substitutions, pin: options.pin ?? null });
+    // EAS refuses a workflow file over 16 KiB: never write one it would refuse.
+    if (target.startsWith(".eas/workflows/") && Buffer.byteLength(text) > EAS_WORKFLOW_MAX_BYTES) {
+      results.push({ template, path: target, location: target, outcome: "held", detail: `not written: it renders to ${Buffer.byteLength(text)} bytes, over EAS's 16 KiB limit for a workflow file. Shorten genesis.config.json release.paths or release.runtimeVersion's command` });
+      continue;
+    }
     const where = ownedDir(root, target, appFolder);
     const location = path.relative(root, path.join(where, target)).split(path.sep).join("/");
     const mine = readApp(where, target);
@@ -591,8 +793,16 @@ export function missingTemplateSets(root: string, lock: GenesisLock, dir = templ
       return null;
     }
   })();
+  // With EAS's trigger (the default) the GitHub release workflow is never written: not missing.
+  const githubTrigger = (() => {
+    try {
+      return releaseContext(root).release.trigger === "github";
+    } catch {
+      return false;
+    }
+  })();
   return wanted.filter((name) => {
-    const templates = resolveTemplateNames([name], dir);
+    const templates = resolveTemplateNames([name], dir).filter((t) => githubTrigger || t !== NATIVE_RELEASE);
     return templates.some((t) => {
       const target = templateTarget(t, readFileSync(path.join(dir, t), "utf8"));
       return !lock.files[target] && readApp(ownedDir(root, target, appFolder), target) === null;

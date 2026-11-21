@@ -7,12 +7,18 @@
  *
  * - `#@if <cond> [<cond>…]` … `#@end`: the lines between are kept only when every condition holds
  *   (nesting allowed). A condition is `ios`, `android`, `sentry`, `pushHook`, `appFolder`,
+ *   `githubTrigger` (`release.trigger` is `"github"`), `failureEmails` (`release.failureEmails` lists someone),
+ *   `previewsEveryPr` (`release.previews.everyPullRequest`),
  *   `fingerprint` (the runtime version is Expo's fingerprint), a package manager (`pnpm`, `bun`,
  *   `npm`, `yarn`), or one of these with `!` in front; `a|b` holds when either does.
  * - `#@paths`: replaced by the release's source folders (the app's folder and `paths`) as YAML list
  *   items, at its indent.
  * - `#@extra-paths`: replaced by `paths` alone, each marked `# release.paths` so the app-folder
  *   rendering (app-folder.ts) leaves them from the repository root.
+ * - `#@root-install-paths`: with `appFolder`, the repository root's package.json and lockfiles (a
+ *   workspace installs from there), each marked `# repository root` so app-folder.ts leaves them;
+ *   nothing for an app at the root.
+ * - `#@preview-branches`: replaced by `release.previews.branches` as YAML list items.
  * - `#@hook-secrets`: replaced by `NAME: ${{ secrets.NAME }}` for each of `pushHook.secrets`.
  * - `GENESIS_RELEASE_<NAME>` tokens: replaced by the settings' values (see {@link releaseTokens}).
  *
@@ -23,9 +29,12 @@
 
 export type ReleasePlatform = "ios" | "android";
 export type ReleasePackageManager = "pnpm" | "bun" | "npm" | "yarn";
+export type ReleaseTrigger = "eas" | "github";
 
 /** The `release` block with every default filled in. */
 export interface ResolvedRelease {
+  /** What starts a release on a merge to main: EAS Workflows' push trigger, or GitHub Actions. */
+  trigger: ReleaseTrigger;
   platforms: ReleasePlatform[];
   environment: string;
   paths: string[];
@@ -37,8 +46,10 @@ export interface ResolvedRelease {
   packageManager: ReleasePackageManager;
   /** A command that prints the runtime version of `$RELEASE_PLATFORM`, or null for Expo's fingerprint. */
   runtimeCommand: string | null;
+  /** Who EAS emails when a release run fails (an `email` job); empty for none. */
+  failureEmails: string[];
   /** What a preview's links open: the web origin (universal link) and the app's scheme (QR). */
-  previews: { origin: string; scheme: string };
+  previews: { origin: string; scheme: string; branches: string[]; everyPullRequest: boolean; easEnvironment: string };
 }
 
 /** What a template is rendered with: the resolved block and where the app sits in its repository. */
@@ -49,8 +60,12 @@ export interface ReleaseContext {
 }
 
 export const RELEASE_DEFAULTS: Readonly<Omit<ResolvedRelease, "easEnvironment" | "packageManager">> = {
+  // Expo's documented lane: EAS Workflows starts each release itself (docs/adr/0026).
+  trigger: "eas",
+  failureEmails: [],
   runtimeCommand: null,
-  previews: { origin: "", scheme: "" },
+  // Label-only, in an EAS environment of their own: a pull request's code runs in them before review.
+  previews: { origin: "", scheme: "", branches: [], everyPullRequest: false, easEnvironment: "preview-release" },
   platforms: ["ios", "android"],
   environment: "production",
   paths: [],
@@ -62,11 +77,13 @@ export const RELEASE_DEFAULTS: Readonly<Omit<ResolvedRelease, "easEnvironment" |
 
 /** The defaults over what the app set. The package manager is the app's (its lockfile) unless set. */
 export function resolveRelease(
-  set: Partial<Omit<ResolvedRelease, "pushHook">> & { pushHook?: { script: string; secrets: string[] } | null } = {},
+  set: Partial<Omit<ResolvedRelease, "pushHook" | "previews">> & { pushHook?: { script: string; secrets: string[] } | null; previews?: Partial<ResolvedRelease["previews"]> } = {},
   detected: ReleasePackageManager = "pnpm",
 ): ResolvedRelease {
   const profile = set.profile ?? RELEASE_DEFAULTS.profile;
   return {
+    trigger: set.trigger ?? RELEASE_DEFAULTS.trigger,
+    failureEmails: [...(set.failureEmails ?? RELEASE_DEFAULTS.failureEmails)],
     platforms: set.platforms?.length ? [...set.platforms] : [...RELEASE_DEFAULTS.platforms],
     environment: set.environment ?? RELEASE_DEFAULTS.environment,
     paths: [...(set.paths ?? RELEASE_DEFAULTS.paths)],
@@ -77,7 +94,13 @@ export function resolveRelease(
     easEnvironment: set.easEnvironment ?? profile,
     packageManager: set.packageManager ?? detected,
     runtimeCommand: set.runtimeCommand ?? null,
-    previews: { origin: set.previews?.origin ?? "", scheme: set.previews?.scheme ?? "" },
+    previews: {
+      origin: set.previews?.origin ?? "",
+      scheme: set.previews?.scheme ?? "",
+      branches: [...(set.previews?.branches ?? [])],
+      everyPullRequest: set.previews?.everyPullRequest ?? RELEASE_DEFAULTS.previews.everyPullRequest,
+      easEnvironment: set.previews?.easEnvironment ?? RELEASE_DEFAULTS.previews.easEnvironment,
+    },
   };
 }
 
@@ -118,6 +141,9 @@ export function releaseTokens(ctx: ReleaseContext): Record<string, string> {
     GENESIS_RELEASE_RUNTIME_COMMAND: r.runtimeCommand ?? "",
     GENESIS_RELEASE_PREVIEW_ORIGIN: r.previews.origin,
     GENESIS_RELEASE_PREVIEW_SCHEME: r.previews.scheme,
+    GENESIS_RELEASE_PREVIEW_EAS_ENVIRONMENT: r.previews.easEnvironment,
+    // A YAML flow list, quoted.
+    GENESIS_RELEASE_FAILURE_EMAILS: JSON.stringify(r.failureEmails),
   };
 }
 
@@ -140,6 +166,15 @@ function holds(cond: string, ctx: ReleaseContext): boolean {
     case "appFolder":
       value = ctx.appFolder !== null;
       break;
+    case "previewsEveryPr":
+      value = r.previews.everyPullRequest;
+      break;
+    case "failureEmails":
+      value = r.failureEmails.length > 0;
+      break;
+    case "githubTrigger":
+      value = r.trigger === "github";
+      break;
     case "fingerprint":
       value = r.runtimeCommand === null;
       break;
@@ -159,15 +194,21 @@ const IF = /^\s*#@if\s+(.+?)\s*$/;
 const END = /^\s*#@end\s*$/;
 const PATHS = /^(\s*)#@paths\s*$/;
 const EXTRA_PATHS = /^(\s*)#@extra-paths\s*$/;
+const ROOT_INSTALL_PATHS = /^(\s*)#@root-install-paths\s*$/;
+const PREVIEW_BRANCHES = /^(\s*)#@preview-branches\s*$/;
 const HOOK_SECRETS = /^(\s*)#@hook-secrets\s*$/;
+/** The token the release hook reads GitHub with: the run's own on GitHub, an EAS secret of this name on EAS. */
+export const RELEASE_GITHUB_TOKEN = "RELEASE_GITHUB_TOKEN";
 /** The comment on a path item `#@extra-paths` writes: app-folder.ts leaves these as they are. */
 export const EXTRA_PATH_MARK = "# release.paths";
+/** The comment on a path item `#@root-install-paths` writes: from the repository root too. */
+export const ROOT_PATH_MARK = "# repository root";
 /** A token's name: GENESIS_RELEASE_ and capitals, never part of a longer word. */
 const TOKEN = /\bGENESIS_RELEASE_[A-Z_]*[A-Z]\b/g;
 
 /** True when the text holds release markup (a template, not a rendered copy). */
 export function hasReleaseMarkup(text: string): boolean {
-  return /^\s*#@(?:if|end|paths|extra-paths|hook-secrets)\b/m.test(text) || /\bGENESIS_RELEASE_[A-Z_]*[A-Z]\b/.test(text);
+  return /^\s*#@(?:if|end|paths|extra-paths|root-install-paths|preview-branches|hook-secrets)\b/m.test(text) || /\bGENESIS_RELEASE_[A-Z_]*[A-Z]\b/.test(text);
 }
 
 /**
@@ -207,10 +248,23 @@ export function renderRelease(text: string, ctx: ReleaseContext): string {
       for (const p of ctx.release.paths) out.push(`${extra[1]}- "${p}/**" ${EXTRA_PATH_MARK}`);
       continue;
     }
+    const previewBranches = PREVIEW_BRANCHES.exec(line);
+    if (previewBranches) {
+      for (const b of ctx.release.previews.branches) out.push(`${previewBranches[1]}- "${b}"`);
+      continue;
+    }
+    const rootInstall = ROOT_INSTALL_PATHS.exec(line);
+    if (rootInstall) {
+      // From the repository root already, so app-folder.ts leaves them as they are.
+      if (ctx.appFolder) for (const f of ROOT_INSTALL_FILES) out.push(`${rootInstall[1]}- "${f}" ${ROOT_PATH_MARK}`);
+      continue;
+    }
     const secrets = HOOK_SECRETS.exec(line);
     if (secrets) {
       // GitHub's expression, written out: "$" and "{{" apart, so nothing reads it as a template.
-      for (const name of ctx.release.pushHook?.secrets ?? []) out.push(secrets[1] + name + ": $" + "{{ secrets." + name + " }}");
+      // RELEASE_GITHUB_TOKEN is the run's own token on GitHub (the hook's step sets it); listed, it's
+      // the EAS secret of that name, for the hook on EAS (docs/NATIVE-RELEASE.md, "The release hook").
+      for (const name of (ctx.release.pushHook?.secrets ?? []).filter((n) => n !== RELEASE_GITHUB_TOKEN)) out.push(secrets[1] + name + ": $" + "{{ secrets." + name + " }}");
       continue;
     }
     out.push(

@@ -11,6 +11,70 @@ This file is appended to (never rewritten) at every release. Newest version on t
 
 ---
 
+## The native release trigger: EAS Workflows by default (ADR 0026) — `@marktiderman/genesis-cli` (**minor**)
+
+🟢 **An app on GitHub's release trigger keeps it.** `genesis upgrade` writes
+`"release": { "trigger": "github" }` into genesis.config.json when the app has
+`.github/workflows/native-release.yml` and names no trigger. Nothing about its releases changes.
+`genesis doctor` then warns (`release-trigger-github`) that a blocked GitHub Actions account would
+stop its releases silently, and names the move.
+
+🟡 **Moving to EAS's trigger is recommended, and is your call.** Before you run it:
+
+1. Link the repository to the EAS project: on expo.dev, open the project's settings, then GitHub,
+   and install Expo's GitHub app. In a monorepo, set the base directory to the app's folder.
+2. Put `EXPO_TOKEN` in the EAS environment the release reads. Add `SENTRY_AUTH_TOKEN` too with
+   `release.sentry`, and every secret in `release.pushHook.secrets`.
+3. With a release hook, the hook loses the GitHub run's own token. Create a fine-grained GitHub
+   token for the repository with Pull requests: read. Store it as the EAS secret
+   `RELEASE_GITHUB_TOKEN`, and add `"RELEASE_GITHUB_TOKEN"` to `release.pushHook.secrets`.
+4. Optional: say where a failed release goes. Set `release.failureEmails`, or put
+   `RELEASE_FAILURE_WEBHOOK` in the EAS environment. EAS sets a commit status on GitHub, but emails
+   nobody by default.
+5. Run `genesis add template release --trigger eas`, with `EXPO_TOKEN` set or after `eas login`.
+
+The command checks the link on Expo's API first. In one change it then gives `deploy-production.yml`
+its push trigger and removes the unedited `native-release.yml`. It holds both, with the steps it
+still needs, when:
+
+- the link can't be confirmed;
+- the hook token isn't listed;
+- `native-release.yml` has your edits;
+- or another workflow releases on push.
+
+JavaScript-only updates then wait for an EAS worker instead of a GitHub runner. That is minutes on
+a paid plan's priority queue, and longer on the free plan.
+
+🟡 **PR previews move to the `Preview` label and an EAS environment of their own.**
+`pr-preview.yml` runs the pull request's own code before review. So new previews run only on the
+label, and they read `release.previews.easEnvironment` (default `preview-release`), not the
+release's environment.
+
+An app whose previews still run in the release's environment keeps them as they are. `genesis
+upgrade` (and `genesis add template`) hold that refresh until Expo's API shows the new environment
+exists, and print these steps:
+
+1. Create the EAS environment `preview-release`.
+2. Copy the release environment's plain values into it (`APP_VARIANT`, the `EXPO_PUBLIC_*` ones).
+3. Add a robot `EXPO_TOKEN` and, with Sentry, `SENTRY_AUTH_TOKEN`. Nothing else.
+4. Create the `Preview` label in GitHub.
+5. Upgrade again with `EXPO_TOKEN` set, or after `eas login`.
+
+Meanwhile `genesis doctor` warns (`preview-environment`). To keep previewing every pull request,
+set `release.previews.everyPullRequest`, but only where everyone who can push is trusted.
+
+🟢 **deploy-production.yml is smaller.** EAS takes workflow files up to 16 KiB, and the previous
+render was over it. The publishing now runs in `.eas/scripts/native-release.mjs` (`publish`,
+`runtime-version`), and each platform's runtime version is found in a job of its own, so one
+platform's failure no longer holds back the other. `genesis doctor` errors (`eas-workflow-size`)
+on any EAS workflow over the limit.
+
+To go back to releasing from GitHub Actions after moving: `genesis add template release --trigger
+github`.
+
+🟢 **New apps** (`genesis init --template native`) start on EAS's trigger and get no
+`native-release.yml`. Link the repository to the EAS project before the first merge.
+
 ## Sentry from Genesis settings — `@marktiderman/genesis-native` (observability settings), `@marktiderman/genesis-supabase` (migration `0025_genesis_settings_pattern.sql`), `@marktiderman/genesis-support`, `@marktiderman/genesis-cli` (**minor**)
 
 🟡 **Apply migration 0025** (`genesis migrate` copies it) and write the manifest again

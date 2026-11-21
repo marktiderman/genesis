@@ -8,7 +8,7 @@
  * gate. Literal colors in native code are reported by rules.ts checkColors
  * as `native-literal-color`.
  */
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import * as path from "node:path";
 import { NATIVE_WRAPPED_PRIMITIVES, wrappedPrimitivesIn } from "../../../../scripts/lib/native-primitives.mjs";
 import { privacyApisFor } from "../expo.js";
@@ -20,7 +20,8 @@ import { localImports, readSource } from "./source.js";
 import { insideOverlayOf, markedOverlays } from "./overlays.js";
 import type { DoctorContext } from "./types.js";
 import { appFolderOf } from "../blocks/app-folder.js";
-import { competingReleaseWorkflows, LANE_DISPATCH_TARGET, repositoryRoot } from "../blocks/release.js";
+import { parse as parseYaml } from "yaml";
+import { competingReleaseWorkflows, EAS_WORKFLOW_MAX_BYTES, hasPushTrigger, hasReleaseJob, LANE_DISPATCH_TARGET, NATIVE_RELEASE_PATH, releaseContext, repositoryRoot, RELEASE_COMMAND, stepRuns } from "../blocks/release.js";
 
 const SCRIPT_EXTS = new Set([".ts", ".tsx", ".js", ".jsx", ".mts", ".cts", ".mjs", ".cjs"]);
 const JSX_EXTS = new Set([".tsx", ".jsx"]);
@@ -54,6 +55,9 @@ export function checkNativePack(ctx: DoctorContext): void {
   checkEasPlaceholders(ctx);
   checkFingerprintConfig(ctx);
   checkReleaseLaneTwice(ctx);
+  checkReleaseLaneLive(ctx);
+  checkPreviewEnvironment(ctx);
+  checkEasWorkflowSize(ctx);
 }
 
 const APP_CONFIGS = ["app.json", "app.config.json", "app.config.ts", "app.config.js", "app.config.mjs", "app.config.cjs"];
@@ -237,10 +241,11 @@ function isFingerprintPolicy(value: string): boolean {
 }
 
 /**
- * `release-lane-twice`: the app has the release lane's native-release.yml and another workflow
- * that also releases (an EAS workflow with a push trigger and an update or build job, the old
- * push-triggered deploy-production.yml say, or a GitHub workflow running `eas update`). Each release
- * would go out twice.
+ * `release-lane-twice`: the app's release lane and another workflow that also releases on a push
+ * to main. The lane is native-release.yml when the app has it (GitHub's trigger), else a
+ * push-triggered deploy-production.yml (EAS's, release.trigger "eas"). A rival is an EAS workflow
+ * with a push trigger and an update or build job, or a GitHub workflow running `eas update`, `eas
+ * build` or `eas workflow:run` on push. Each release would go out twice.
  */
 export function checkReleaseLaneTwice(ctx: DoctorContext): void {
   let appFolder: string | null = null;
@@ -250,8 +255,20 @@ export function checkReleaseLaneTwice(ctx: DoctorContext): void {
     return; // An invalid genesis.config.json is the config's own error.
   }
   const repo = appFolder ? repositoryRoot(ctx.root, appFolder) : ctx.root;
-  if (!existsSync(path.join(repo, ".github", "workflows", "native-release.yml"))) return;
+  // GitHub's lane only when its workflow is live: a dispatch-only native-release.yml kept beside
+  // EAS's trigger releases nothing.
+  const nativeFile = path.join(repo, ".github", "workflows", "native-release.yml");
+  const nativeText = existsSync(nativeFile) ? readFileSync(nativeFile, "utf8") : null;
+  const github = nativeText !== null && hasPushTrigger(nativeText) && stepRuns(nativeText).some((run) => RELEASE_COMMAND.test(run));
+  const deploy = path.join(ctx.root, LANE_DISPATCH_TARGET);
+  const easLane = !github && existsSync(deploy) && (() => {
+    const text = readFileSync(deploy, "utf8");
+    return hasPushTrigger(text) && hasReleaseJob(text);
+  })();
+  if (!github && !easLane) return;
+  const lane = github ? NATIVE_RELEASE_PATH : LANE_DISPATCH_TARGET;
   for (const rival of competingReleaseWorkflows(ctx.root, appFolder)) {
+    if (!github && rival === LANE_DISPATCH_TARGET) continue;
     ctx.report({
       rule: "release-lane-twice",
       // An error: both lanes are live, so every release is published twice (or races itself).
@@ -260,11 +277,126 @@ export function checkReleaseLaneTwice(ctx: DoctorContext): void {
       subject: rival,
       // deploy-production.yml is the file native-release.yml dispatches to: merged, never removed.
       message:
-        rival === LANE_DISPATCH_TARGET
-          ? `${rival} still releases on every push beside .github/workflows/native-release.yml, so each release would go out twice. native-release.yml starts this file on EAS, so keep it: merge its .genesis-next into it (the lane's dispatch-only version), or move your edits into genesis.config.json and run genesis add template release --replace (docs/NATIVE-RELEASE.md, "Adopting the lane")`
-          : `${rival} also releases (EAS updates or builds) beside .github/workflows/native-release.yml, so each release would go out twice. Remove it (docs/NATIVE-RELEASE.md, "Adopting the lane"). If it only ships a staging update or a preview build, not production, keep it and set "release-lane-twice": "warn" under doctor.rules in genesis.config.json`,
+        github && rival === LANE_DISPATCH_TARGET
+          ? `${rival} releases on every push beside .github/workflows/native-release.yml, so each release would go out twice. With release.trigger "eas" (the default) EAS starts each release and native-release.yml goes: run genesis add template release --trigger eas, which retires it. To keep releasing from GitHub, set release.trigger to "github" and merge deploy-production.yml's .genesis-next (its dispatch-only version) (docs/NATIVE-RELEASE.md, "Moving to EAS's trigger")`
+          : `${rival} also releases (EAS updates or builds) beside ${lane}, so each release would go out twice. Remove it (docs/NATIVE-RELEASE.md, "Adopting the lane"). If it only ships a staging update or a preview build, not production, keep it and set "release-lane-twice": "warn" under doctor.rules in genesis.config.json`,
     });
   }
+}
+
+/**
+ * `release-lane-live`: the release lane can't start, or doesn't match genesis.config.json. An app
+ * with deploy-production.yml must have exactly one live trigger for it: its own push trigger
+ * (release.trigger "eas"), or native-release.yml on GitHub with a push trigger that starts it
+ * (release.trigger "github"). Dispatch-only with no live dispatcher means a merge to main starts
+ * nothing (an error). Files on the other trigger than the config names are drift (a warning):
+ * the next genesis add template release or genesis upgrade rewrites them.
+ *
+ * `release-trigger-github` (a warning): releases start on GitHub Actions (release.trigger
+ * "github"), so a blocked Actions account stops them silently; it names the move to EAS's trigger.
+ */
+export function checkReleaseLaneLive(ctx: DoctorContext): void {
+  const deployFile = path.join(ctx.root, LANE_DISPATCH_TARGET);
+  if (!existsSync(deployFile)) return;
+  let release;
+  try {
+    release = releaseContext(ctx.root);
+  } catch {
+    return; // An invalid genesis.config.json is the config's own error.
+  }
+  const deploy = readFileSync(deployFile, "utf8");
+  if (!hasReleaseJob(deploy)) return; // Not a release workflow.
+  const repo = release.appFolder ? repositoryRoot(ctx.root, release.appFolder) : ctx.root;
+  const nativeFile = path.join(repo, NATIVE_RELEASE_PATH);
+  const native = existsSync(nativeFile) ? readFileSync(nativeFile, "utf8") : null;
+  const easLive = hasPushTrigger(deploy);
+  const githubLive = native !== null && hasPushTrigger(native) && stepRuns(native).some((run) => RELEASE_COMMAND.test(run));
+  const shownNative = release.appFolder ? path.relative(ctx.root, nativeFile).split(path.sep).join("/") : NATIVE_RELEASE_PATH;
+  if (!easLive && !githubLive) {
+    ctx.report({
+      rule: "release-lane-live",
+      level: "error",
+      file: LANE_DISPATCH_TARGET,
+      subject: LANE_DISPATCH_TARGET,
+      message: `nothing starts a release: ${LANE_DISPATCH_TARGET} runs only when started, and ${native === null ? `there is no ${shownNative}` : `${shownNative} has no push trigger to start it`}, so a merge to main ships nothing. Run genesis add template release --trigger eas, which gives deploy-production.yml EAS's own push trigger, or --trigger github, which writes the GitHub workflow that starts it (docs/NATIVE-RELEASE.md, "The release path")`,
+    });
+    return;
+  }
+  const trigger = release.release.trigger;
+  if (trigger === "eas" && !easLive) {
+    ctx.report({
+      rule: "release-lane-live",
+      level: "warn",
+      file: shownNative,
+      subject: "release.trigger",
+      message: `genesis.config.json release.trigger is "eas", but releases still start from GitHub Actions (${shownNative}), so a merge ships only while GitHub Actions runs. Run genesis add template release --trigger eas, which gives deploy-production.yml its push trigger and retires ${shownNative} once the EAS project's GitHub link is confirmed; or genesis add template release --trigger github to keep GitHub's (docs/NATIVE-RELEASE.md, "Moving to EAS's trigger")`,
+    });
+  } else if (trigger === "github" && githubLive && !easLive) {
+    ctx.report({
+      rule: "release-trigger-github",
+      level: "warn",
+      file: shownNative,
+      subject: "release.trigger",
+      message: `releases start on GitHub Actions (${shownNative}), so when GitHub Actions can't run (billing, an outage) a merge to main ships nothing and nothing says so. Genesis's default is EAS Workflows' own trigger (ADR 0026): link the repository to the EAS project on expo.dev, then run genesis add template release --trigger eas (docs/NATIVE-RELEASE.md, "Moving to EAS's trigger"). To keep GitHub's on purpose, set "release-trigger-github": "off" under doctor.rules`,
+    });
+  } else if (trigger === "github" && !githubLive) {
+    ctx.report({
+      rule: "release-lane-live",
+      level: "warn",
+      file: LANE_DISPATCH_TARGET,
+      subject: "release.trigger",
+      message: `genesis.config.json release.trigger is "github", but ${LANE_DISPATCH_TARGET} starts each release on EAS itself. Run genesis add template release to write the GitHub lane, or set release.trigger to "eas" (or remove it)`,
+    });
+  }
+}
+
+/**
+ * `eas-workflow-size` (an error): a `.eas/workflows/*.yml` over 16 KiB, which EAS Workflows refuses
+ * (docs.expo.dev/eas/workflows/syntax, "Workflow files"), so it never runs.
+ */
+export function checkEasWorkflowSize(ctx: DoctorContext): void {
+  const dir = path.join(ctx.root, ".eas", "workflows");
+  if (!existsSync(dir)) return;
+  for (const name of readdirSync(dir).sort()) {
+    if (!/\.ya?ml$/.test(name)) continue;
+    const bytes = statSync(path.join(dir, name)).size;
+    if (bytes <= EAS_WORKFLOW_MAX_BYTES) continue;
+    ctx.report({ rule: "eas-workflow-size", level: "error", file: `.eas/workflows/${name}`, subject: name, message: `is ${bytes} bytes, over EAS's 16 KiB limit for a workflow file, so EAS refuses it and it never runs. A Genesis template: run genesis upgrade (or genesis add template release) for the current, smaller one; your own: move its scripts into a file it runs` });
+  }
+}
+
+/**
+ * `preview-environment` (a warning): a job in `.eas/workflows/pr-preview.yml` reads the release's
+ * EAS environment. A preview runs the pull request's own code before review, so whatever that
+ * environment holds (EXPO_TOKEN with the release's rights, Sentry's token, the release hook's
+ * secrets) is the pull request's to read. Previews read an environment of their own
+ * (release.previews.easEnvironment, default preview-release).
+ */
+export function checkPreviewEnvironment(ctx: DoctorContext): void {
+  const file = ".eas/workflows/pr-preview.yml";
+  const at = path.join(ctx.root, file);
+  if (!existsSync(at)) return;
+  let release;
+  try {
+    release = releaseContext(ctx.root).release;
+  } catch {
+    return; // An invalid genesis.config.json is the config's own error.
+  }
+  let jobs: Record<string, { environment?: unknown }> = {};
+  try {
+    jobs = ((parseYaml(readFileSync(at, "utf8")) as { jobs?: typeof jobs } | null)?.jobs ?? {}) as typeof jobs;
+  } catch {
+    return; // Not YAML EAS would run either.
+  }
+  const reading = Object.entries(jobs).filter(([, job]) => job && typeof job === "object" && job.environment === release.easEnvironment).map(([id]) => id);
+  if (!reading.length) return;
+  ctx.report({
+    rule: "preview-environment",
+    level: "warn",
+    file,
+    subject: release.easEnvironment,
+    message: `${reading.join(", ")} read${reading.length === 1 ? "s" : ""} the release's EAS environment "${release.easEnvironment}". A preview runs the pull request's own code before review, so it could read the release's secrets (EXPO_TOKEN, SENTRY_AUTH_TOKEN, the release hook's). Run genesis add template previews (or release) to move them to "${release.previews.easEnvironment}", an environment with only the release's plain values and a preview EXPO_TOKEN (docs/NATIVE-RELEASE.md, "Previews")`,
+  });
 }
 
 /**
