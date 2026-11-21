@@ -1,5 +1,12 @@
 # @marktiderman/genesis-features
 
+## 0.10.2
+
+### Patch Changes
+
+- Updated dependencies [c9541ac]
+  - @marktiderman/genesis-config@0.13.0
+
 ## 0.10.1
 
 ### Patch Changes

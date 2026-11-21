@@ -1,5 +1,23 @@
 # @marktiderman/genesis-native
 
+## 0.14.0
+
+### Minor Changes
+
+- e1278f3: Previews on the phone, opened by a link, and the doctor's missed-value check.
+
+  - **genesis-native:** preview links (`previewLinkChannel`, `previewLink`, `previewPath`, `PREVIEW_PATH`), read by `normalizeLink` where the app's own `map` has no pattern for the path (an app's `/preview/:id` route keeps its links; `links.previews: false` turns previews off). `PreviewScreen`, `PreviewNotice` (the updates block's new `previewNotice` slot) and `useChannelState`. The channel switcher gains `prepare`, `restart`, `state`, `recover`, `subscribe`, `noteDownloaded`, `noteRelease` and `holdReload`, runs its writes one at a time, remembers the build's channel, and heals when a preview's channel was deleted. `switchTo` and `prepare` are async: a bad channel name, or switching while it's off, now rejects their promise instead of throwing synchronously, so catch it (`await` in a try, or `.catch`). The `channels` docs now turn switching on in release builds (`{ enabled: true }`); it can't work in a development client.
+  - **genesis-cli:** `pr-preview.yml` publishes each pull request as an update on `pr-<number>` for the release builds people already have, and comments a preview link and QR code; it builds a preview only when native code changed. New `pr-preview-teardown.yml` deletes the channel when the pull request closes. `release.previews` (`origin`, `scheme`) and the `previews` template set (`genesis add template previews`). New rule `missed-value` (info) reports blocks an app doesn't use, ones it switched off, and a missing preview lane, with `doctor.declined` for the ones it doesn't want; block manifests take `detect`.
+
+- 67d5859: Observability: Sentry from Genesis settings, with no build. `observabilitySettings` declares `observability.enabled`, `observability.sentryDsn` (checked against `SENTRY_DSN_PATTERN`) and `observability.sentryOrg`, also in package.json `genesis.settings` (now a list: devtools, observability). `sentrySink` returns a `SentrySink`: `applySettings(settings)` starts Sentry live from the settings' DSN when the build has none, closes it live when `observability.enabled` turns off: its hooks drop everything from that moment, the SDK's own captures included, and `SentryLike.close` then releases the client, and leaves a new DSN, or turning it back on, to the next launch (`status().restartPending`); `cache` (AsyncStorage, or localStorage) keeps the settings' values so later launches start at once; `healthCheck()` fits genesis-support's `healthChecks`. A `Sentry.init` that throws when the settings start it leaves Sentry off and is reported there (`status().problem`), never thrown into the settings watch. The build's `EXPO_PUBLIC_SENTRY_DSN` still wins. Also `resolveSentryDsn`, `parseSentryDsn`, `sentryDsnProblem` and `observabilitySettingValues`.
+
+  Changed: without a DSN, the sink now always has its methods, and they do nothing while Sentry isn't running (it was a sink with none). The missing-DSN message is now a development-only notice, printed once when the settings have been read and give no DSN either; it was a `console.warn` outside development at start-up. `onMissingDsn` still replaces it, in any build.
+
+### Patch Changes
+
+- Updated dependencies [c9541ac]
+  - @marktiderman/genesis-config@0.13.0
+
 ## 0.13.0
 
 ### Minor Changes

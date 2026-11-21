@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 871 components · 5324 other exports · 4515 standalone types across 229 entry points in 32 packages.
+**Totals:** 891 components · 5279 other exports · 4476 standalone types across 229 entry points in 33 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -2567,6 +2567,219 @@ export type { ErrorKind };
 export type { ErrorMessages };
 export type { ErrorReportContext };
 export type { ErrorReporter };
+```
+
+---
+
+## @marktiderman/genesis-data
+
+Genesis Data workspace UI — a table sidebar and a sheet grid with version-checked, audited cell edits, as the signed-in user. See packages/data/README.md + docs/DATA.md.
+
+**Barrel:** [`packages/data/src/index.ts`](../packages/data/src/index.ts)
+
+### Components (22)
+
+| Name | Props | Stability | Summary |
+| --- | --- | --- | --- |
+| [`ActivityPanel`](../packages/data/src/DataStudio.tsx) | `ActivityPanelProps` | Beta | The studio's activity panel: recent changes, with undo. |
+| [`BulkEditDialog`](../packages/data/src/toolbar/BulkEdit.tsx) | `BulkEditDialogProps` | Beta | Set one field on every selected row: all of them change, or none do. |
+| [`CalendarView`](../packages/data/src/views/CalendarView.tsx) | `CalendarViewProps` | Beta | A month of the table's rows, placed by a date field and drawn by Genesis UI's EventCalendar. One request per month grid (a `gte`/`lt` range on the field covering the month's whole weeks, so the days shown from the months either side are ... |
+| [`DataStudio`](../packages/data/src/DataStudio.tsx) | `DataStudioProps` | Experimental | Genesis Data: a sidebar of the tables this user may see, and a sheet of the selected one where a cell is edited in place. Every edit carries the version it was read at, so a stale edit is refused rather than saved over someone else's, an... |
+| [`ExportButton`](../packages/data/src/toolbar/Toolbar.tsx) | `ExportButtonProps` | Beta | The studio toolbar's export button, with its progress. |
+| [`FieldIcon`](../packages/data/src/grid/cells.tsx) | `FieldIconProps` | Beta | An icon for the field's type, as Airtable shows in each column header. |
+| [`FilterBuilder`](../packages/data/src/toolbar/Toolbar.tsx) | `FilterBuilderProps` | Beta | Filters by field, with the operators that fit each field's type. |
+| [`GroupPicker`](../packages/data/src/toolbar/Toolbar.tsx) | `GroupPickerProps` | Beta | Group rows by a field with few distinct values. |
+| [`HideFields`](../packages/data/src/toolbar/Toolbar.tsx) | `HideFieldsProps` | Beta | Which fields the grid shows. |
+| [`ImportDialog`](../packages/data/src/toolbar/ImportDialog.tsx) | `ImportDialogProps` | Beta | CSV import (DATA.md P2): map the file's columns to fields, check every row against the database with a dry run, then add them all in one transaction. Nothing is coerced or dropped: a value that won't convert is listed, with the database'... |
+| [`KanbanView`](../packages/data/src/views/KanbanView.tsx) | `KanbanViewProps` | Beta | A board of the table's rows, one column per value of `field`. Each column is paged on its own (50 cards, then "Load more"), with the same filters, search and sort as the table. Moving a card is a version-checked update of `field`, so a c... |
+| [`NewRowButton`](../packages/data/src/toolbar/Toolbar.tsx) | `NewRowButtonProps` | Beta | The studio toolbar's new row button, disabled with a reason when not allowed. |
+| [`Pill`](../packages/data/src/grid/cells.tsx) | `PillProps` | Beta | A value drawn as a tinted pill. |
+| [`RecordPanel`](../packages/data/src/record/RecordPanel.tsx) | `RecordPanelProps` | Beta | One record, in a side panel: its fields as a form, the records it links to and from, and its audit history. The URL names it, so the link copies. |
+| [`RelationPicker`](../packages/data/src/record/RelationPicker.tsx) | `RelationPickerProps` | Beta | Pick a linked row by searching the target resource on the server, so it works for a table of any size; shows each row by its label field. |
+| [`SearchBox`](../packages/data/src/toolbar/Toolbar.tsx) | `SearchBoxProps` | Beta | Search every text field, as you type. |
+| [`SheetView`](../packages/data/src/sheet/SheetView.tsx) | `SheetViewProps` | Beta | The spreadsheet view of a table (DATA.md P2). A paste across rows is saved in ONE transaction through `updateMany`: every row changes, at the version it was read, or none does, and the failing cells are marked. |
+| [`SortBuilder`](../packages/data/src/toolbar/Toolbar.tsx) | `SortBuilderProps` | Beta | Sort by several fields, first one first. |
+| [`TableTabs`](../packages/data/src/workspace/ViewsPanel.tsx) | `TableTabsProps` | Beta | Table tabs across the top, as Airtable shows a base's tables. |
+| [`ViewFieldPicker`](../packages/data/src/toolbar/Toolbar.tsx) | `ViewFieldPickerProps` | Beta | Which field lays out the board or the calendar. |
+| [`ViewsPanel`](../packages/data/src/workspace/ViewsPanel.tsx) | `ViewsPanelProps` | Beta | The left column: how to look at this table, and the views you've saved. |
+| [`ViewSwitch`](../packages/data/src/toolbar/Toolbar.tsx) | `ViewSwitchProps` | Beta | Switch between the table, the spreadsheet grid, a board and a calendar. |
+
+### Other exports (5)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`createSearchParamsRouter`](../packages/data/src/router.ts) | function | — | An adapter over any router that exposes search params with a setter — React Router's `useSearchParams`, or Next.js's `useSearchParams` plus `router.replace`/`push`. |
+| [`locationFromSearchParams`](../packages/data/src/router.ts) | function | — | _(no summary)_ |
+| [`searchParamsFromLocation`](../packages/data/src/router.ts) | function | — | The studio's location as query parameters, keeping every parameter in `base` that isn't the studio's own. |
+| [`useHistoryRouter`](../packages/data/src/router.ts) | function | — | For an app with no router: keeps the studio's state in the current page's query string through the History API. |
+| [`useMemoryRouter`](../packages/data/src/router.ts) | function | — | A router held in memory, for tests and embedded previews. |
+
+### Types (7)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { StudioActivity };
+export type { StudioLocation };
+export type { StudioNavigateOptions };
+export type { StudioRouter };
+export type { StudioSessionSource };
+export type { StudioView };
+export type { ViewKind };
+```
+
+---
+
+## @marktiderman/genesis-data-server
+
+Genesis Data server handler (Request → Response) that acts as the signed-in user over Postgres/Supabase. The only package that touches database credentials. See packages/data-server/README.md.
+
+**Barrel:** [`packages/data-server/src/index.ts`](../packages/data-server/src/index.ts)
+
+### Other exports (23)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`ADD_COMMENT_FUNCTION`](../packages/data-server/src/setup-sql.ts) | const | — | Comments on records. |
+| [`AUDIT_FUNCTION`](../packages/data-server/src/setup-sql.ts) | const | — | Name of the audit function the handler calls. |
+| [`backoffDelay`](../packages/data-server/src/outbox.ts) | function | — | Delay before attempt `attempt + 1`, with jitter. |
+| [`bearerToken`](../packages/data-server/src/auth.ts) | function | — | Read a bearer token from the `Authorization` header. |
+| [`byResource`](../packages/data-server/src/authorize.ts) | function | — | The common case of `authorize`: a fixed allow-list by `schema.table`, for the users `who` admits. Anything not listed is denied, and a listed table without `update` is read-only. |
+| [`COMMENTS_FUNCTION`](../packages/data-server/src/setup-sql.ts) | const | — | _(no summary)_ |
+| [`createOutboxWorker`](../packages/data-server/src/outbox.ts) | function | — | _(no summary)_ |
+| [`createPostgresDatabase`](../packages/data-server/src/db.ts) | function | — | A `StudioDatabase` over a Postgres connection string, or over a postgres.js pool you already have. A pool you pass in keeps its own type parsing, so dates arrive as JS Dates rather than Postgres's exact text; version tokens are unaffecte... |
+| [`createStudioHandler`](../packages/data-server/src/handler.ts) | function | — | Create the handler. It opens one transaction per request, switches to the signed-in user (`set local role` plus their verified claims), and only then reads the catalog or touches a row, so the database's own privileges and row rules alwa... |
+| [`databaseDecides`](../packages/data-server/src/authorize.ts) | function | — | Turn Genesis Data on for every table, and let the database decide: each user reads, edits, adds and deletes exactly what their grants and row rules allow, sees history and comments on the rows they can see, and runs the row actions confi... |
+| [`DEFAULT_SWITCH_ROLES`](../packages/data-server/src/switch.ts) | const | — | The roles `switchToUser` switches to unless `allowRoles` says otherwise. |
+| [`HISTORY_FUNCTION`](../packages/data-server/src/setup-sql.ts) | const | — | Reads a record's audit history. |
+| [`IdentitySwitchError`](../packages/data-server/src/switch.ts) | class | — | Thrown when the transaction did not end up as the requested role. |
+| [`jwtAuth`](../packages/data-server/src/auth.ts) | function | — | Verify a bearer JWT with a shared secret or a JWKS endpoint. Exactly one of `secret` and `jwksUrl` is required. |
+| [`jwtVerifier`](../packages/data-server/src/auth.ts) | function | — | `jwtAuth`'s check on a raw token, for a token that doesn't arrive as a bearer header, e.g. a socket handshake's `auth.token`. Same rules: the signature, `exp`, `sub`, the audience and the issuer. |
+| [`OUTBOX_AUDIT_FUNCTION`](../packages/data-server/src/setup-sql.ts) | const | — | The `outbox` sink's audit function: writes the log entry and queues it. |
+| [`PermanentDeliveryError`](../packages/data-server/src/outbox.ts) | class | — | Throw this from `deliver` when retrying can't help (the receiver rejected the payload). |
+| [`STUDIO_PROTOCOL_VERSION`](../packages/data-server/src/protocol.ts) | const | — | Bumped on any incompatible change; the handler rejects other versions. |
+| [`studioSetupSql`](../packages/data-server/src/setup-sql.ts) | function | — | SQL that installs the tamper-proof audit trail: |
+| [`supabaseAuth`](../packages/data-server/src/auth.ts) | function | — | Verify Supabase Auth access tokens: JWKS from the project, issuer `<url>/auth/v1`, audience `authenticated`. |
+| [`supabaseStudio`](../packages/data-server/src/supabase.ts) | function | — | The studio handler for a Supabase project, on for every table in `public`: each user sees and edits what their row rules allow, every write is version-checked and audited (`genesis_studio.audit_log`, from `genesis data init`'s migration)... |
+| [`supabaseVerifier`](../packages/data-server/src/auth.ts) | function | — | `supabaseAuth`'s check on a raw token, e.g. a socket handshake's. |
+| [`switchToUser`](../packages/data-server/src/switch.ts) | function | — | Switch the current transaction to `identity`, then check, in SQL, that it took: `current_user` must be `identity.role` and must not bypass RLS, or the transaction is aborted and it throws `IdentitySwitchError`. Call it first, inside a tr... |
+
+### Types (50)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { AuditSink };
+export type { Authorize };
+export type { AuthorizeContext };
+export type { AuthorizeDecision };
+export type { BulkResponse };
+export type { ByResourceOptions };
+export type { CommentResponse };
+export type { CommentsResponse };
+export type { CreateResponse };
+export type { DatabaseDecidesOptions };
+export type { DeadLetter };
+export type { DeleteResponse };
+export type { DescribeResponse };
+export type { ErrorResponse };
+export type { HistoryResponse };
+export type { Identity };
+export type { JwtAuthOptions };
+export type { ListResponse };
+export type { OutboxEntry };
+export type { OutboxWorker };
+export type { OutboxWorkerOptions };
+export type { PostgresOptions };
+export type { PostgresPool };
+export type { PostgresTransaction };
+export type { Query };
+export type { ReadResponse };
+export type { ResourceRule };
+export type { ResourceSettings };
+export type { ResourcesResponse };
+export type { RowActionSettings };
+export type { RunActionResponse };
+export type { RunSummary };
+export type { SetupSqlOptions };
+export type { SqlRow };
+export type { StudioAction };
+export type { StudioAuth };
+export type { StudioClaims };
+export type { StudioContract };
+export type { StudioDatabase };
+export type { StudioHandler };
+export type { StudioHandlerOptions };
+export type { StudioRequest };
+export type { StudioRow };
+export type { StudioTokenVerifier };
+export type { SupabaseAuthOptions };
+export type { SupabaseStudioOptions };
+export type { SwitchOptions };
+export type { TaggedQuery };
+export type { UndoResponse };
+export type { UpdateResponse };
+```
+
+---
+
+## @marktiderman/genesis-data-server/client
+
+**Barrel:** [`packages/data-server/src/client.ts`](../packages/data-server/src/client.ts)
+
+### Other exports (2)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`createStudioProvider`](../packages/data-server/src/client.ts) | function | — | _(no summary)_ |
+| [`createSupabaseStudioProvider`](../packages/data-server/src/client.ts) | function | — | Genesis Data's provider for an app that signs in with Supabase: it sends the current session's token with every request and tells `DataStudio` when the user changes, so embedding Genesis Data is one line. |
+
+### Types (5)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { StudioProvider };
+export type { StudioProviderOptions };
+export type { StudioSession };
+export type { SupabaseClientLike };
+export type { SupabaseStudioProviderOptions };
+```
+
+---
+
+## @marktiderman/genesis-data-server/auth
+
+**Barrel:** [`packages/data-server/src/auth.ts`](../packages/data-server/src/auth.ts)
+
+### Other exports (5)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`bearerToken`](../packages/data-server/src/auth.ts) | function | — | Read a bearer token from the `Authorization` header. |
+| [`jwtAuth`](../packages/data-server/src/auth.ts) | function | — | Verify a bearer JWT with a shared secret or a JWKS endpoint. Exactly one of `secret` and `jwksUrl` is required. |
+| [`jwtVerifier`](../packages/data-server/src/auth.ts) | function | — | `jwtAuth`'s check on a raw token, for a token that doesn't arrive as a bearer header, e.g. a socket handshake's `auth.token`. Same rules: the signature, `exp`, `sub`, the audience and the issuer. |
+| [`supabaseAuth`](../packages/data-server/src/auth.ts) | function | — | Verify Supabase Auth access tokens: JWKS from the project, issuer `<url>/auth/v1`, audience `authenticated`. |
+| [`supabaseVerifier`](../packages/data-server/src/auth.ts) | function | — | `supabaseAuth`'s check on a raw token, e.g. a socket handshake's. |
+
+### Types (5)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { JwtAuthOptions };
+export type { StudioAuth };
+export type { StudioClaims };
+export type { StudioTokenVerifier };
+export type { SupabaseAuthOptions };
 ```
 
 ---
@@ -8232,7 +8445,7 @@ export type { SettingsProblemKind };
 
 ## @marktiderman/genesis-cli
 
-Genesis CLI — `genesis init` scaffolds a Genesis app (`--template native`: a new Expo app from the RN starter); `genesis add <block>` adds a block from what its package declares; `genesis migrate` copies new package migrations in and never rewrites an applied one; `genesis upgrade` moves every Genesis package to one release and refreshes the files Genesis owns; `genesis doctor` checks an app against the installed Genesis; `genesis studio init` turns the Data Studio on; `genesis introspect` writes a checked-in contract; `genesis features build|check` keeps generated feature docs in step with features.ts; `withGenesis()` (`app.plugin.js`, `/expo`) is the Expo config plugin; `/eslint` is Genesis's lint rules for an app's eslint.config.
+Genesis CLI — `genesis init` scaffolds a Genesis app (`--template native`: a new Expo app from the RN starter); `genesis add <block>` adds a block from what its package declares; `genesis migrate` copies new package migrations in and never rewrites an applied one; `genesis upgrade` moves every Genesis package to one release and refreshes the files Genesis owns; `genesis doctor` checks an app against the installed Genesis; `genesis data init` turns Genesis Data on; `genesis introspect` writes a checked-in contract; `genesis features build|check` keeps generated feature docs in step with features.ts; `withGenesis()` (`app.plugin.js`, `/expo`) is the Expo config plugin; `/eslint` is Genesis's lint rules for an app's eslint.config.
 
 **Barrel:** [`packages/genesis-cli/src/index.ts`](../packages/genesis-cli/src/index.ts)
 
@@ -9150,19 +9363,22 @@ export type { SqliteLocalCacheOptions };
 
 **Barrel:** [`packages/native/src/updates/index.ts`](../packages/native/src/updates/index.ts)
 
-### Components (2)
+### Components (4)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
+| [`PreviewNotice`](../packages/native/src/updates/preview.tsx) | `PreviewNoticeProps` | — | A small bar over every screen while a preview is open: which one, and Leave. |
+| [`PreviewScreen`](../packages/native/src/updates/preview.tsx) | `PreviewScreenProps` | — | What a preview link opens: confirm, load, restart into the preview. |
 | [`UpdateBanner`](../packages/native/src/updates/screens.tsx) | `UpdateBannerProps` | — | Non-blocking: floats over the top of the screens while an update is downloaded. Liquid Glass on iOS 26 when the app passed expo-glass-effect (`modules.glass`); the solid secondary surface otherwise. |
 | [`UpdatesRoot`](../packages/native/src/updates/block.tsx) | `UpdatesRootProps` | — | The block's parts around your screens. |
 
-### Other exports (33)
+### Other exports (42)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
+| [`CHANNEL_NAME`](../packages/native/src/updates/channels.ts) | const | — | What a channel name may be: letters, digits, `.`, `_`, `-` and `/`, at most 100, starting with a letter or digit. |
 | [`CLOCK_SKEW_MS`](../packages/native/src/updates/policy.ts) | const | — | How far in the future a cache's time may be (clocks drift) before it isn't trusted. |
 | [`compareVersions`](../packages/native/src/updates/version.ts) | function | — | -1, 0 or 1 as `a` is older than, the same as or newer than `b`; `null` when either doesn't parse. |
 | [`createChannelSwitcher`](../packages/native/src/updates/channels.ts) | function | — | _(no summary)_ |
@@ -9174,9 +9390,15 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`evaluatePolicy`](../packages/native/src/updates/policy.ts) | function | — | Force upgrade first (the store is the way out), then maintenance, else ok. Fails open. |
 | [`ForceUpgradeScreen`](../packages/native/src/updates/screens.tsx) | function | — | Blocking: this version is below the minimum. "Update" opens the store. |
 | [`isBelowMinimum`](../packages/native/src/updates/version.ts) | function | — | True only when both parse and `installed` is older than `minimum`. Fails open. |
+| [`isChannelName`](../packages/native/src/updates/channels.ts) | function | — | _(no summary)_ |
+| [`isChannelNotFoundError`](../packages/native/src/updates/channels.ts) | function | — | EAS's answer for a channel that doesn't exist. |
 | [`MaintenanceScreen`](../packages/native/src/updates/screens.tsx) | function | — | Blocking: the policy says maintenance is on. "Try again" asks again. |
 | [`notesSince`](../packages/native/src/updates/whats-new.ts) | function | — | The notes after `seen`, up to `version`, newest first. |
 | [`parseVersion`](../packages/native/src/updates/version.ts) | function | — | `"1.10"` → `[1, 10, 0, 0]`; `null` when it isn't a plain dotted version. |
+| [`PREVIEW_PATH`](../packages/native/src/updates/preview-links.ts) | const | — | The app path a preview link opens. |
+| [`previewLink`](../packages/native/src/updates/preview-links.ts) | function | — | The link to share for a channel: `https://<origin>/preview?channel=…` when the app has a web origin (it opens the app where installed, the landing page elsewhere), else the scheme link. |
+| [`previewLinkChannel`](../packages/native/src/updates/preview-links.ts) | function | — | What a link says about a preview: `null` when it isn't a preview link; `{ channel }` when it names a valid channel; `{ channel: null }` when it is a preview link without a usable channel (missing, or not a channel name). |
+| [`previewPath`](../packages/native/src/updates/preview-links.ts) | function | — | The app path for a channel's preview (`/preview?channel=pr-42`). |
 | [`sanitizePolicy`](../packages/native/src/updates/policy.ts) | function | — | Keeps only well-formed fields; throws when `raw` isn't an object at all (so the cache answers instead). |
 | [`staticPolicySource`](../packages/native/src/updates/policy.ts) | function | — | A policy written in the app (or a test). |
 | [`supabasePolicySource`](../packages/native/src/updates/policy.ts) | function | — | Reads one row of `public.app_release_policy` (readable by anon and authenticated, written only with the service role). No row is no policy. |
@@ -9184,8 +9406,10 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`UpdatesProvider`](../packages/native/src/updates/block.tsx) | function | — | Provides the block to the hooks, without rendering any of its parts (rung 4). |
 | [`useBlockReload`](../packages/native/src/updates/block.tsx) | function | — | Hold reloads off while `active` (a form with unsaved changes): `useBlockReload(form.formState.isDirty)`. Does nothing without an updates block, so a screen can call it whether or not the block is on. |
 | [`useCanReload`](../packages/native/src/updates/block.tsx) | function | — | True when a reload would be allowed now. |
+| [`useChannelState`](../packages/native/src/updates/preview.tsx) | function | — | The picked channel and the build's own, kept current. |
 | [`useForceUpgrade`](../packages/native/src/updates/block.tsx) | function | — | The force-upgrade screen's props, or `null` when this version is supported. |
 | [`useMaintenance`](../packages/native/src/updates/block.tsx) | function | — | The maintenance screen's props, or `null` when maintenance is off (or not known live). |
+| [`usePreviewNotice`](../packages/native/src/updates/preview.tsx) | function | — | The notice's props while a preview is open, else `null`. |
 | [`useUpdateBanner`](../packages/native/src/updates/block.tsx) | function | — | The banner's props, or `null` when there is nothing to show. |
 | [`useUpdateCheck`](../packages/native/src/updates/block.tsx) | function | — | _(no summary)_ |
 | [`useUpdatePolicy`](../packages/native/src/updates/block.tsx) | function | — | _(no summary)_ |
@@ -9195,15 +9419,17 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useWhatsNew`](../packages/native/src/updates/block.tsx) | function | — | The notes to show now, or `null`. |
 | [`versionSignature`](../packages/native/src/updates/signature.ts) | function | — | _(no summary)_ |
 | [`WEEK_MS`](../packages/native/src/updates/policy.ts) | const | — | _(no summary)_ |
-| [`WhatsNewSheet`](../packages/native/src/updates/screens.tsx) | function | — | The release notes for this version, once, in a sheet: the updates block's slot, drawn by genesis-ui-native's `NativeWhatsNewSheet` (the same sheet genesis-product's uses). |
+| [`WhatsNewSheet`](../packages/native/src/updates/screens.tsx) | function | — | The release notes for this version, once, in a sheet: the updates block's slot, drawn by genesis-ui-native's `NativeWhatsNewSheet`. |
 
-### Types (38)
+### Types (41)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
 export type { ApplicationLike };
 export type { BuildMetadata };
+export type { ChannelCheck };
+export type { ChannelState };
 export type { ChannelSwitchResult };
 export type { ChannelSwitcher };
 export type { ChannelSwitcherOptions };
@@ -9215,6 +9441,7 @@ export type { PolicyOrigin };
 export type { PolicyState };
 export type { PolicyStore };
 export type { PolicyStoreOptions };
+export type { PreviewLinkOptions };
 export type { ReleaseNote };
 export type { ReloadGuard };
 export type { SupabasePolicySourceOptions };
@@ -9365,7 +9592,7 @@ export type { SubscriptionLike };
 
 **Barrel:** [`packages/native/src/observability/index.ts`](../packages/native/src/observability/index.ts)
 
-### Other exports (24)
+### Other exports (33)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -9379,8 +9606,13 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`FILTERED`](../packages/native/src/observability/scrub.ts) | const | — | What replaces a value under a secret-looking key. |
 | [`isSecretKey`](../packages/native/src/observability/scrub.ts) | function | — | True when a value under `key` is a secret (or contact detail) whatever it looks like. |
 | [`OBSERVABILITY_BLOCK_ID`](../packages/native/src/observability/block.tsx) | const | — | The FeatureId of the observability block. |
+| [`OBSERVABILITY_SETTING_SPECS`](../packages/native/src/observability/settings.ts) | const | Beta | `observability.*`, as declared (and as package.json `genesis.settings` repeats it). @stability Beta |
 | [`ObservabilityProvider`](../packages/native/src/observability/block.tsx) | function | Beta | Provides a block to the hooks without its root (rung 4). @stability Beta |
+| [`observabilitySettings`](../packages/native/src/observability/settings.ts) | const | Beta | _(no summary)_ |
+| [`observabilitySettingValues`](../packages/native/src/observability/settings.ts) | function | Beta | Error reporting's settings from `resolveSettings`' result (or the values alone, by full key). A key that's missing, or whose value doesn't fit (a DSN of the wrong shape), takes its default: on, and no DSN or organization. |
 | [`observeSink`](../packages/native/src/observability/sink.ts) | function | Beta | EAS Observe. It measures launch (cold, warm, bundle load, first render), time to interactive and, with its Expo Router integration, per-route render times on its own; it has no API for a custom timing metric, so `timing` is logged as an ... |
+| [`parseSentryDsn`](../packages/native/src/observability/settings.ts) | function | Beta | A DSN's key, host and project, or null when it isn't one. @stability Beta |
+| [`resolveSentryDsn`](../packages/native/src/observability/settings.ts) | function | Beta | The DSN by precedence: the build's (`EXPO_PUBLIC_SENTRY_DSN`), then the settings' (`observability.sentryDsn`), and none while `observability.enabled` is off. A build DSN of the wrong shape is still used, as before, and reported as a prob... |
 | [`ScreenErrorScreen`](../packages/native/src/screen-boundary.tsx) | function | — | The default screen fallback: the screen hit a problem, and "Try again". |
 | [`scrubbedError`](../packages/native/src/observability/sink.ts) | function | — | A copy of `error` whose message and stack have been scrubbed (for sinks that don't scrub themselves). |
 | [`scrubBreadcrumb`](../packages/native/src/observability/sink.ts) | function | — | Breadcrumb data scrubbed and made plain (for sinks and the devtools overlay). |
@@ -9390,13 +9622,17 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`scrubUrl`](../packages/native/src/observability/scrub.ts) | function | — | A URL without its query string and fragment, then scrubbed (an email in a path). |
 | [`scrubValue`](../packages/native/src/observability/scrub.ts) | function | — | A deep copy of `value` with every string scrubbed and every value under a secret key replaced. Cycles become `"[Circular]"`; past 8 levels, `"[Truncated]"`. Errors become `{ name, message }`. Header lists (`[["authorization", "…"]]`) are... |
 | [`scrubValueStrict`](../packages/native/src/observability/scrub.ts) | function | — | `scrubValue` without the pass for Sentry's own id fields (`release`, `environment`, `event_id`, …): for data that isn't a Sentry envelope (a support dump, an app's own object), where a key named like one can hold anything. |
+| [`SENTRY_DSN_PATTERN`](../packages/native/src/observability/settings.ts) | const | Beta | A Sentry DSN's shape: `https://<public key>@<host>[:port][/path]/<project id>`. A DSN is a public client key (it ships in the app), so it is a setting, not a secret. Read the same way by JavaScript and Postgres (the database checks it too). |
+| [`SENTRY_ORG_PATTERN`](../packages/native/src/observability/settings.ts) | const | Beta | A Sentry organization's slug (`acme` in `https://acme.sentry.io`). @stability Beta |
+| [`SENTRY_SETTINGS_CACHE_KEY`](../packages/native/src/observability/sentry.ts) | const | — | The cache's key. It holds the settings' values (never the DSN in use), so a new build's DSN still wins. |
+| [`sentryDsnProblem`](../packages/native/src/observability/settings.ts) | function | Beta | Why `dsn` isn't a Sentry DSN, or null when it is (`SENTRY_DSN_PATTERN`). Missing or empty is "not set", not a problem: null. |
 | [`sentryRelease`](../packages/native/src/observability/sentry.ts) | function | — | Sentry's release format: `<applicationId>@<version>+<build>`, with `dist` the build; `undefined` parts when unknown. |
-| [`sentrySink`](../packages/native/src/observability/sentry.ts) | function | Beta | Start Sentry and return a sink for it. Without a DSN it starts nothing and returns a sink that does nothing (a warning outside development says so). |
+| [`sentrySink`](../packages/native/src/observability/sentry.ts) | function | Beta | Sentry as an observability sink. With the build's DSN it starts Sentry at once; otherwise the settings start it (`applySettings`, or the `cache` at launch). While Sentry isn't running, every method does nothing. |
 | [`signatureTags`](../packages/native/src/observability/sentry.ts) | function | — | The tags each event carries from the signature. Unknown values are written `unknown`, never left out. |
 | [`useObservability`](../packages/native/src/observability/block.tsx) | function | Beta | The block, or `null` when it is off (so a screen can call it whether or not the block is on). @stability Beta |
 | [`useRecentActivity`](../packages/native/src/observability/block.tsx) | function | Beta | The last breadcrumbs and errors, scrubbed; empty when the block is off. @stability Beta |
 
-### Types (23)
+### Types (32)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -9412,17 +9648,26 @@ export type { EventSchema };
 export type { EventValues };
 export type { ObservabilityBlock };
 export type { ObservabilityOptions };
+export type { ObservabilitySettingValues };
+export type { ObservabilitySettingsInput };
 export type { ObservabilitySink };
 export type { ObserveLike };
 export type { ObserveSinkOptions };
 export type { RecentActivity };
 export type { RecentError };
 export type { RecentStore };
+export type { ResolvedSentryDsn };
 export type { RouteErrorBoundaryProps };
 export type { ScreenErrorProps };
 export type { ScrubbableEvent };
+export type { SentryDsnParts };
+export type { SentryDsnSource };
+export type { SentryHealthCheck };
 export type { SentryLike };
+export type { SentrySettingsCache };
+export type { SentrySink };
 export type { SentrySinkOptions };
+export type { SentrySinkStatus };
 export type { TimingTags };
 ```
 
@@ -9947,315 +10192,6 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
 | [`notificationsBlock`](../packages/notifications/src/blocks.ts) | const | Beta | Notifications: the feed, push and email for every domain, on one notifier. |
-
----
-
-## @marktiderman/genesis-product
-
-The product system for a Genesis repo: a Now / Next / Later board from features.ts with demand from ideas and feedback, a triage inbox, and release notes that close the loop with the people who asked. Ideas and feedback come from GitHub issues today, behind a SignalSource contract. Part of the Genesis framework.
-
-**Barrel:** [`packages/product/src/index.ts`](../packages/product/src/index.ts)
-
-### Other exports (25)
-
-Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
-
-| Name | Kind | Stability | Summary |
-| --- | --- | --- | --- |
-| [`answeredBy`](../packages/product/src/release.ts) | function | Experimental | The open ideas a release answers: the people to tell, and the asks to close. This is how the loop closes. Feedback and bugs are left alone: a feature going live doesn't mean a reported problem with it is fixed. |
-| [`buildBoard`](../packages/product/src/board.ts) | function | Experimental | Lays the catalog and its signals out as a board. A building feature with no horizon counts as now. Signals are matched to features by id or alias. |
-| [`cancelShipped`](../packages/product/src/notifications.ts) | function | Experimental | A release was withdrawn: stop the shipped notifications for one feature that haven't gone out yet, and take them out of the feed (`archive`, on by default). Only sends still waiting are stopped: email goes out as soon as the runner picks... |
-| [`createProductWhatsNew`](../packages/product/src/app.ts) | function | Experimental | "What's new", once per app version plus over-the-air update. A first install remembers the key and shows nothing; a new key fetches its notes then (never bundled) and opens when there are any. No notes for it: remembered, nothing shown. ... |
-| [`createVoteQueue`](../packages/product/src/app.ts) | function | Experimental | The offline vote queue, modelled on chat's outbox: a vote shows at once, is saved, and is sent when there is a connection (`flush()`: on start, after each vote and on reconnect). Votes on one idea collapse into the last one, and a toggle... |
-| [`demand`](../packages/product/src/board.ts) | function | Experimental | Demand for a feature: each open signal counts its importance (1 when unset) plus its votes. Closed signals don't count, so demand falls as asks are answered. |
-| [`diffRelease`](../packages/product/src/release.ts) | function | Experimental | The features a release shipped: those that reached `live` or `beta` between the catalog before and after it. Features with `visibility: internal` are left out of release notes. |
-| [`isAppPath`](../packages/product/src/notifications.ts) | function | Experimental | _(no summary)_ |
-| [`isPermanentVoteError`](../packages/product/src/app.ts) | function | Experimental | True for an error retrying won't fix: `permanent: true`, or an HTTP 4xx other than 408 and 429. @stability Experimental |
-| [`memoryProductSource`](../packages/product/src/app.ts) | function | Experimental | A source in memory, for tests and demos: votes change its own copy. @stability Experimental |
-| [`memorySignals`](../packages/product/src/model.ts) | function | Experimental | Signals held in memory, for tests and demos. @stability Experimental |
-| [`memoryVoteQueueStore`](../packages/product/src/app.ts) | function | Experimental | A queue store in memory (the default: queued votes last as long as the app runs). @stability Experimental |
-| [`NOTIFY_BATCH`](../packages/product/src/notifications.ts) | const | Experimental | The most recipients genesis-notifications' `notify()` takes in one call. @stability Experimental |
-| [`notifyShipped`](../packages/product/src/notifications.ts) | function | Experimental | One `product.idea_shipped` notification to everyone who asked for a feature, keyed `shipped:<release>:<feature>`. `notify` is genesis-notifications' `notify` with the client and registry bound. It is called once per 1,000 recipients (not... |
-| [`PRODUCT_SHIPPED_TYPE`](../packages/product/src/notifications.ts) | const | Experimental | The notification type of "an idea you asked for shipped". @stability Experimental |
-| [`PRODUCT_UPDATES_CATEGORY`](../packages/product/src/notifications.ts) | const | Experimental | Its category: what a person turns on or off in their preferences. @stability Experimental |
-| [`productNotifications`](../packages/product/src/notifications.ts) | const | Experimental | The fragment for the app's `defineNotifications({ categories, types })`. Not critical and not transactional, so preferences, quiet hours and the unsubscribe link all apply. In the feed and by email by default; push is offered as an opt-i... |
-| [`renderBoard`](../packages/product/src/board.ts) | function | Experimental | The board as GitHub-flavoured markdown: one table per horizon, the top ideas by demand, and the triage inbox. |
-| [`renderRelease`](../packages/product/src/release.ts) | function | Experimental | Draft release notes for people, not developers: each feature's tagline (or its summary), grouped into shipped and in beta, with the asks it answers. A person edits and publishes them. |
-| [`roadmapFromBoard`](../packages/product/src/app.ts) | function | Experimental | The board's Now / Next / Later columns as roadmap rows. Only features everyone may see are kept (`public`, `customer`, or no visibility): `internal` and every `client:<name>` feature are left out, except that `client`'s own when it is gi... |
-| [`shippedKey`](../packages/product/src/notifications.ts) | function | Experimental | `shipped:<release>:<feature>`: the same release and feature never notify twice. @stability Experimental |
-| [`SIGNAL_KINDS`](../packages/product/src/model.ts) | const | Experimental | What someone sent: an idea, a piece of feedback or a bug. @stability Experimental |
-| [`storageVoteQueueStore`](../packages/product/src/app.ts) | function | Experimental | A queue store in AsyncStorage, under one key. A value that can't be read counts as empty. @stability Experimental |
-| [`VoteRefusedError`](../packages/product/src/app.ts) | class | Experimental | A vote the source refused for good: the queue drops it and the board shows the source's state again. @stability Experimental |
-| [`whatsNewKey`](../packages/product/src/app.ts) | function | Experimental | What "what's new" is shown once for: the store version plus the over-the-air update running (`"1.4.0+3f2a…"`), or `"1.4.0+embedded"` for the code that shipped in the binary. `null` without a version: it never shows. |
-
-### Types (34)
-
-Type-only exports not consumed as a component's `Props`.
-
-```ts
-export type { Board };
-export type { BoardItem };
-export type { CatalogFeature };
-export type { Importance };
-export type { MemoryProductSeed };
-export type { NotifyShippedOptions };
-export type { ProductCancelInput };
-export type { ProductIdea };
-export type { ProductIdeaStatus };
-export type { ProductNotifyInput };
-export type { ProductRecipient };
-export type { ProductSource };
-export type { ProductStorageLike };
-export type { ProductWhatsNew };
-export type { ProductWhatsNewOptions };
-export type { ProductWhatsNewState };
-export type { QueuedVote };
-export type { ReleaseChange };
-export type { RenderBoardOptions };
-export type { RenderReleaseOptions };
-export type { RoadmapFromBoardOptions };
-export type { RoadmapItem };
-export type { ShippedData };
-export type { ShippedFeature };
-export type { Signal };
-export type { SignalKind };
-export type { SignalSource };
-export type { VoteFlushResult };
-export type { VoteQueue };
-export type { VoteQueueOptions };
-export type { VoteQueueStore };
-export type { WhatsNewApplicationLike };
-export type { WhatsNewNote };
-export type { WhatsNewUpdatesLike };
-```
-
----
-
-## @marktiderman/genesis-product/server
-
-**Barrel:** [`packages/product/src/server.ts`](../packages/product/src/server.ts)
-
-### Other exports (8)
-
-Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
-
-| Name | Kind | Stability | Summary |
-| --- | --- | --- | --- |
-| [`cancelShipped`](../packages/product/src/notifications.ts) | function | Experimental | A release was withdrawn: stop the shipped notifications for one feature that haven't gone out yet, and take them out of the feed (`archive`, on by default). Only sends still waiting are stopped: email goes out as soon as the runner picks... |
-| [`isAppPath`](../packages/product/src/notifications.ts) | function | Experimental | _(no summary)_ |
-| [`NOTIFY_BATCH`](../packages/product/src/notifications.ts) | const | Experimental | The most recipients genesis-notifications' `notify()` takes in one call. @stability Experimental |
-| [`notifyShipped`](../packages/product/src/notifications.ts) | function | Experimental | One `product.idea_shipped` notification to everyone who asked for a feature, keyed `shipped:<release>:<feature>`. `notify` is genesis-notifications' `notify` with the client and registry bound. It is called once per 1,000 recipients (not... |
-| [`PRODUCT_SHIPPED_TYPE`](../packages/product/src/notifications.ts) | const | Experimental | The notification type of "an idea you asked for shipped". @stability Experimental |
-| [`PRODUCT_UPDATES_CATEGORY`](../packages/product/src/notifications.ts) | const | Experimental | Its category: what a person turns on or off in their preferences. @stability Experimental |
-| [`productNotifications`](../packages/product/src/notifications.ts) | const | Experimental | The fragment for the app's `defineNotifications({ categories, types })`. Not critical and not transactional, so preferences, quiet hours and the unsubscribe link all apply. In the feed and by email by default; push is offered as an opt-i... |
-| [`shippedKey`](../packages/product/src/notifications.ts) | function | Experimental | `shipped:<release>:<feature>`: the same release and feature never notify twice. @stability Experimental |
-
-### Types (6)
-
-Type-only exports not consumed as a component's `Props`.
-
-```ts
-export type { NotifyShippedOptions };
-export type { ProductCancelInput };
-export type { ProductNotifyInput };
-export type { ProductRecipient };
-export type { ShippedData };
-export type { ShippedFeature };
-```
-
----
-
-## @marktiderman/genesis-product/node
-
-**Barrel:** [`packages/product/src/node.ts`](../packages/product/src/node.ts)
-
-### Other exports (34)
-
-Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
-
-| Name | Kind | Stability | Summary |
-| --- | --- | --- | --- |
-| [`answeredBy`](../packages/product/src/release.ts) | function | Experimental | The open ideas a release answers: the people to tell, and the asks to close. This is how the loop closes. Feedback and bugs are left alone: a feature going live doesn't mean a reported problem with it is fixed. |
-| [`BOARD_LABEL`](../packages/product/src/node.ts) | const | Experimental | The label that marks the board issue. No issue form applies it. @stability Experimental |
-| [`buildBoard`](../packages/product/src/board.ts) | function | Experimental | Lays the catalog and its signals out as a board. A building feature with no horizon counts as now. Signals are matched to features by id or alias. |
-| [`cancelShipped`](../packages/product/src/notifications.ts) | function | Experimental | A release was withdrawn: stop the shipped notifications for one feature that haven't gone out yet, and take them out of the feed (`archive`, on by default). Only sends still waiting are stopped: email goes out as soon as the runner picks... |
-| [`catalogAt`](../packages/product/src/node.ts) | function | Experimental | The catalog at a git ref (a tag, a branch or a commit). `[]` only when the ref exists and the file didn't exist at it yet; a ref that doesn't exist, or a file that can't be read at it, throws, so a typo never reads as "everything is new"... |
-| [`closeAnswered`](../packages/product/src/node.ts) | function | Experimental | Closes the loop on GitHub: closes each answered issue as completed, then comments on it saying what shipped. Closing first means a rerun after a failure never comments twice (the issue is no longer open). Only for signals from GitHub. |
-| [`createProductWhatsNew`](../packages/product/src/app.ts) | function | Experimental | "What's new", once per app version plus over-the-air update. A first install remembers the key and shows nothing; a new key fetches its notes then (never bundled) and opens when there are any. No notes for it: remembered, nothing shown. ... |
-| [`createVoteQueue`](../packages/product/src/app.ts) | function | Experimental | The offline vote queue, modelled on chat's outbox: a vote shows at once, is saved, and is sent when there is a connection (`flush()`: on start, after each vote and on reconnect). Votes on one idea collapse into the last one, and a toggle... |
-| [`demand`](../packages/product/src/board.ts) | function | Experimental | Demand for a feature: each open signal counts its importance (1 when unset) plus its votes. Closed signals don't count, so demand falls as asks are answered. |
-| [`diffRelease`](../packages/product/src/release.ts) | function | Experimental | The features a release shipped: those that reached `live` or `beta` between the catalog before and after it. Features with `visibility: internal` are left out of release notes. |
-| [`githubSignals`](../packages/product/src/node.ts) | function | Experimental | Signals from a repo's open issues. For each linked one, votes are the distinct people who gave it a 👍, not counting its author or bots. |
-| [`isAppPath`](../packages/product/src/notifications.ts) | function | Experimental | _(no summary)_ |
-| [`isPermanentVoteError`](../packages/product/src/app.ts) | function | Experimental | True for an error retrying won't fix: `permanent: true`, or an HTTP 4xx other than 408 and 429. @stability Experimental |
-| [`issueToSignal`](../packages/product/src/node.ts) | function | Experimental | One issue as a signal, or `null` when it isn't intake. An issue is intake when it carries an `idea`, `feedback` or `bug` label, or its title starts with `[Idea]`, `[Feedback]` or `[Bug]` (the issue forms set both). |
-| [`memoryProductSource`](../packages/product/src/app.ts) | function | Experimental | A source in memory, for tests and demos: votes change its own copy. @stability Experimental |
-| [`memorySignals`](../packages/product/src/model.ts) | function | Experimental | Signals held in memory, for tests and demos. @stability Experimental |
-| [`memoryVoteQueueStore`](../packages/product/src/app.ts) | function | Experimental | A queue store in memory (the default: queued votes last as long as the app runs). @stability Experimental |
-| [`NOTIFY_BATCH`](../packages/product/src/notifications.ts) | const | Experimental | The most recipients genesis-notifications' `notify()` takes in one call. @stability Experimental |
-| [`notifyShipped`](../packages/product/src/notifications.ts) | function | Experimental | One `product.idea_shipped` notification to everyone who asked for a feature, keyed `shipped:<release>:<feature>`. `notify` is genesis-notifications' `notify` with the client and registry bound. It is called once per 1,000 recipients (not... |
-| [`parseCatalog`](../packages/product/src/node.ts) | function | Experimental | The catalog from a `features.json` (what `genesis features build` writes), whose `features` is an object keyed by id or an array. |
-| [`PRODUCT_SHIPPED_TYPE`](../packages/product/src/notifications.ts) | const | Experimental | The notification type of "an idea you asked for shipped". @stability Experimental |
-| [`PRODUCT_UPDATES_CATEGORY`](../packages/product/src/notifications.ts) | const | Experimental | Its category: what a person turns on or off in their preferences. @stability Experimental |
-| [`productNotifications`](../packages/product/src/notifications.ts) | const | Experimental | The fragment for the app's `defineNotifications({ categories, types })`. Not critical and not transactional, so preferences, quiet hours and the unsubscribe link all apply. In the feed and by email by default; push is offered as an opt-i... |
-| [`publishBoardIssue`](../packages/product/src/node.ts) | function | Experimental | Writes the board into the open issue labelled `product-board` that `author` opened, opening one if there is none, so the board is one link away on any device. Nobody else's issue is ever written, and the issue is left alone when only the... |
-| [`readCatalog`](../packages/product/src/node.ts) | function | Experimental | The catalog in a file. @stability Experimental |
-| [`renderBoard`](../packages/product/src/board.ts) | function | Experimental | The board as GitHub-flavoured markdown: one table per horizon, the top ideas by demand, and the triage inbox. |
-| [`renderRelease`](../packages/product/src/release.ts) | function | Experimental | Draft release notes for people, not developers: each feature's tagline (or its summary), grouped into shipped and in beta, with the asks it answers. A person edits and publishes them. |
-| [`repoFromGit`](../packages/product/src/node.ts) | function | Experimental | `owner/repo` from the `origin` remote, or `undefined`. @stability Experimental |
-| [`roadmapFromBoard`](../packages/product/src/app.ts) | function | Experimental | The board's Now / Next / Later columns as roadmap rows. Only features everyone may see are kept (`public`, `customer`, or no visibility): `internal` and every `client:<name>` feature are left out, except that `client`'s own when it is gi... |
-| [`shippedKey`](../packages/product/src/notifications.ts) | function | Experimental | `shipped:<release>:<feature>`: the same release and feature never notify twice. @stability Experimental |
-| [`SIGNAL_KINDS`](../packages/product/src/model.ts) | const | Experimental | What someone sent: an idea, a piece of feedback or a bug. @stability Experimental |
-| [`storageVoteQueueStore`](../packages/product/src/app.ts) | function | Experimental | A queue store in AsyncStorage, under one key. A value that can't be read counts as empty. @stability Experimental |
-| [`VoteRefusedError`](../packages/product/src/app.ts) | class | Experimental | A vote the source refused for good: the queue drops it and the board shows the source's state again. @stability Experimental |
-| [`whatsNewKey`](../packages/product/src/app.ts) | function | Experimental | What "what's new" is shown once for: the store version plus the over-the-air update running (`"1.4.0+3f2a…"`), or `"1.4.0+embedded"` for the code that shipped in the binary. `null` without a version: it never shows. |
-
-### Types (37)
-
-Type-only exports not consumed as a component's `Props`.
-
-```ts
-export type { Board };
-export type { BoardItem };
-export type { CatalogFeature };
-export type { GitHubIssue };
-export type { GitHubOptions };
-export type { Importance };
-export type { MemoryProductSeed };
-export type { NotifyShippedOptions };
-export type { ProductCancelInput };
-export type { ProductIdea };
-export type { ProductIdeaStatus };
-export type { ProductNotifyInput };
-export type { ProductRecipient };
-export type { ProductSource };
-export type { ProductStorageLike };
-export type { ProductWhatsNew };
-export type { ProductWhatsNewOptions };
-export type { ProductWhatsNewState };
-export type { PublishBoardOptions };
-export type { QueuedVote };
-export type { ReleaseChange };
-export type { RenderBoardOptions };
-export type { RenderReleaseOptions };
-export type { RoadmapFromBoardOptions };
-export type { RoadmapItem };
-export type { ShippedData };
-export type { ShippedFeature };
-export type { Signal };
-export type { SignalKind };
-export type { SignalSource };
-export type { VoteFlushResult };
-export type { VoteQueue };
-export type { VoteQueueOptions };
-export type { VoteQueueStore };
-export type { WhatsNewApplicationLike };
-export type { WhatsNewNote };
-export type { WhatsNewUpdatesLike };
-```
-
----
-
-## @marktiderman/genesis-product/native
-
-**Barrel:** [`packages/product/src/native/index.ts`](../packages/product/src/native/index.ts)
-
-### Components (4)
-
-| Name | Props | Stability | Summary |
-| --- | --- | --- | --- |
-| [`ProductWhatsNew`](../packages/product/src/native/whats-new.tsx) | `ProductWhatsNewProps` | — | Renders the sheet while the store shows notes, and nothing otherwise. |
-| [`ProductWhatsNewSheet`](../packages/product/src/native/whats-new.tsx) | `ProductWhatsNewSheetProps` | — | The sheet, in the product's copy: genesis-ui-native's `NativeWhatsNewSheet` with the notes' ids as keys. |
-| [`RoadmapDetailSheet`](../packages/product/src/native/roadmap.tsx) | `RoadmapDetailSheetProps` | — | _(no summary)_ |
-| [`VoteButton`](../packages/product/src/native/idea-board.tsx) | `VoteButtonProps` | — | _(no summary)_ |
-
-### Other exports (32)
-
-Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
-
-| Name | Kind | Stability | Summary |
-| --- | --- | --- | --- |
-| [`answeredBy`](../packages/product/src/release.ts) | function | Experimental | The open ideas a release answers: the people to tell, and the asks to close. This is how the loop closes. Feedback and bugs are left alone: a feature going live doesn't mean a reported problem with it is fixed. |
-| [`buildBoard`](../packages/product/src/board.ts) | function | Experimental | Lays the catalog and its signals out as a board. A building feature with no horizon counts as now. Signals are matched to features by id or alias. |
-| [`cancelShipped`](../packages/product/src/notifications.ts) | function | Experimental | A release was withdrawn: stop the shipped notifications for one feature that haven't gone out yet, and take them out of the feed (`archive`, on by default). Only sends still waiting are stopped: email goes out as soon as the runner picks... |
-| [`createProductWhatsNew`](../packages/product/src/app.ts) | function | Experimental | "What's new", once per app version plus over-the-air update. A first install remembers the key and shows nothing; a new key fetches its notes then (never bundled) and opens when there are any. No notes for it: remembered, nothing shown. ... |
-| [`createVoteQueue`](../packages/product/src/app.ts) | function | Experimental | The offline vote queue, modelled on chat's outbox: a vote shows at once, is saved, and is sent when there is a connection (`flush()`: on start, after each vote and on reconnect). Votes on one idea collapse into the last one, and a toggle... |
-| [`demand`](../packages/product/src/board.ts) | function | Experimental | Demand for a feature: each open signal counts its importance (1 when unset) plus its votes. Closed signals don't count, so demand falls as asks are answered. |
-| [`diffRelease`](../packages/product/src/release.ts) | function | Experimental | The features a release shipped: those that reached `live` or `beta` between the catalog before and after it. Features with `visibility: internal` are left out of release notes. |
-| [`haptic`](../packages/product/src/native/haptics.ts) | function | — | Plays a haptic when the app gave expo-haptics; never throws, never rejects (genesis-ui-native's `playHaptic`). |
-| [`IdeaBoardScreen`](../packages/product/src/native/idea-board.tsx) | function | — | The idea board screen. Put `getInboxPageStackOptions({ headerTitle })` on its `<Stack.Screen>`. |
-| [`isAppPath`](../packages/product/src/notifications.ts) | function | Experimental | _(no summary)_ |
-| [`isPermanentVoteError`](../packages/product/src/app.ts) | function | Experimental | True for an error retrying won't fix: `permanent: true`, or an HTTP 4xx other than 408 and 429. @stability Experimental |
-| [`memoryProductSource`](../packages/product/src/app.ts) | function | Experimental | A source in memory, for tests and demos: votes change its own copy. @stability Experimental |
-| [`memorySignals`](../packages/product/src/model.ts) | function | Experimental | Signals held in memory, for tests and demos. @stability Experimental |
-| [`memoryVoteQueueStore`](../packages/product/src/app.ts) | function | Experimental | A queue store in memory (the default: queued votes last as long as the app runs). @stability Experimental |
-| [`NOTIFY_BATCH`](../packages/product/src/notifications.ts) | const | Experimental | The most recipients genesis-notifications' `notify()` takes in one call. @stability Experimental |
-| [`notifyShipped`](../packages/product/src/notifications.ts) | function | Experimental | One `product.idea_shipped` notification to everyone who asked for a feature, keyed `shipped:<release>:<feature>`. `notify` is genesis-notifications' `notify` with the client and registry bound. It is called once per 1,000 recipients (not... |
-| [`PRODUCT_COPY`](../packages/product/src/native/copy.ts) | const | — | Every word the product screens show. Pass a part of it as `copy` to change or translate it. |
-| [`PRODUCT_SHIPPED_TYPE`](../packages/product/src/notifications.ts) | const | Experimental | The notification type of "an idea you asked for shipped". @stability Experimental |
-| [`PRODUCT_UPDATES_CATEGORY`](../packages/product/src/notifications.ts) | const | Experimental | Its category: what a person turns on or off in their preferences. @stability Experimental |
-| [`productNotifications`](../packages/product/src/notifications.ts) | const | Experimental | The fragment for the app's `defineNotifications({ categories, types })`. Not critical and not transactional, so preferences, quiet hours and the unsubscribe link all apply. In the feed and by email by default; push is offered as an opt-i... |
-| [`renderBoard`](../packages/product/src/board.ts) | function | Experimental | The board as GitHub-flavoured markdown: one table per horizon, the top ideas by demand, and the triage inbox. |
-| [`renderRelease`](../packages/product/src/release.ts) | function | Experimental | Draft release notes for people, not developers: each feature's tagline (or its summary), grouped into shipped and in beta, with the asks it answers. A person edits and publishes them. |
-| [`roadmapFromBoard`](../packages/product/src/app.ts) | function | Experimental | The board's Now / Next / Later columns as roadmap rows. Only features everyone may see are kept (`public`, `customer`, or no visibility): `internal` and every `client:<name>` feature are left out, except that `client`'s own when it is gi... |
-| [`RoadmapScreen`](../packages/product/src/native/roadmap.tsx) | function | — | The roadmap screen: the segmented control above the rows, and the open item's sheet. |
-| [`shippedKey`](../packages/product/src/notifications.ts) | function | Experimental | `shipped:<release>:<feature>`: the same release and feature never notify twice. @stability Experimental |
-| [`SIGNAL_KINDS`](../packages/product/src/model.ts) | const | Experimental | What someone sent: an idea, a piece of feedback or a bug. @stability Experimental |
-| [`storageVoteQueueStore`](../packages/product/src/app.ts) | function | Experimental | A queue store in AsyncStorage, under one key. A value that can't be read counts as empty. @stability Experimental |
-| [`useIdeaBoard`](../packages/product/src/native/idea-board.tsx) | function | — | The idea board as InboxPage props: `<InboxPage {...useIdeaBoard({ source })} />`. |
-| [`useProductWhatsNew`](../packages/product/src/native/whats-new.tsx) | function | — | The store's state; loads it once on mount. |
-| [`useRoadmap`](../packages/product/src/native/roadmap.tsx) | function | — | _(no summary)_ |
-| [`VoteRefusedError`](../packages/product/src/app.ts) | class | Experimental | A vote the source refused for good: the queue drops it and the board shows the source's state again. @stability Experimental |
-| [`whatsNewKey`](../packages/product/src/app.ts) | function | Experimental | What "what's new" is shown once for: the store version plus the over-the-air update running (`"1.4.0+3f2a…"`), or `"1.4.0+embedded"` for the code that shipped in the binary. `null` without a version: it never shows. |
-
-### Types (42)
-
-Type-only exports not consumed as a component's `Props`.
-
-```ts
-export type { Board };
-export type { BoardItem };
-export type { CatalogFeature };
-export type { HapticsLike };
-export type { IdeaBoard };
-export type { IdeaBoardOptions };
-export type { Importance };
-export type { MemoryProductSeed };
-export type { NotifyShippedOptions };
-export type { ProductCancelInput };
-export type { ProductCopy };
-export type { ProductCopyInput };
-export type { ProductHapticEvent };
-export type { ProductIdea };
-export type { ProductIdeaStatus };
-export type { ProductNotifyInput };
-export type { ProductRecipient };
-export type { ProductSource };
-export type { ProductStorageLike };
-export type { ProductWhatsNew };
-export type { ProductWhatsNewOptions };
-export type { ProductWhatsNewState };
-export type { QueuedVote };
-export type { ReleaseChange };
-export type { RenderBoardOptions };
-export type { RenderReleaseOptions };
-export type { Roadmap };
-export type { RoadmapFromBoardOptions };
-export type { RoadmapItem };
-export type { RoadmapOptions };
-export type { ShippedData };
-export type { ShippedFeature };
-export type { Signal };
-export type { SignalKind };
-export type { SignalSource };
-export type { VoteFlushResult };
-export type { VoteQueue };
-export type { VoteQueueOptions };
-export type { VoteQueueStore };
-export type { WhatsNewApplicationLike };
-export type { WhatsNewNote };
-export type { WhatsNewUpdatesLike };
-```
 
 ---
 
@@ -10966,7 +10902,7 @@ export type { IndustryTemplate };
 
 ## @marktiderman/genesis-studio
 
-Data Studio workspace UI — a table sidebar and a sheet grid with version-checked, audited cell edits, as the signed-in user. See packages/studio/README.md + docs/DATA-STUDIO.md.
+Deprecated: renamed to @marktiderman/genesis-data. A thin re-export of genesis-data with the same entries and stylesheets, kept for two minor versions. Part of the Genesis framework.
 
 **Barrel:** [`packages/studio/src/index.ts`](../packages/studio/src/index.ts)
 
@@ -10974,28 +10910,28 @@ Data Studio workspace UI — a table sidebar and a sheet grid with version-check
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
-| [`ActivityPanel`](../packages/studio/src/DataStudio.tsx) | `ActivityPanelProps` | Beta | The studio's activity panel: recent changes, with undo. |
-| [`BulkEditDialog`](../packages/studio/src/toolbar/BulkEdit.tsx) | `BulkEditDialogProps` | Beta | Set one field on every selected row: all of them change, or none do. |
-| [`CalendarView`](../packages/studio/src/views/CalendarView.tsx) | `CalendarViewProps` | Beta | A month of the table's rows, placed by a date field and drawn by Genesis UI's EventCalendar. One request per month grid (a `gte`/`lt` range on the field covering the month's whole weeks, so the days shown from the months either side are ... |
-| [`DataStudio`](../packages/studio/src/DataStudio.tsx) | `DataStudioProps` | Experimental | The Data Studio: a sidebar of the tables this user may see, and a sheet of the selected one where a cell is edited in place. Every edit carries the version it was read at, so a stale edit is refused rather than saved over someone else's,... |
-| [`ExportButton`](../packages/studio/src/toolbar/Toolbar.tsx) | `ExportButtonProps` | Beta | The studio toolbar's export button, with its progress. |
-| [`FieldIcon`](../packages/studio/src/grid/cells.tsx) | `FieldIconProps` | Beta | An icon for the field's type, as Airtable shows in each column header. |
-| [`FilterBuilder`](../packages/studio/src/toolbar/Toolbar.tsx) | `FilterBuilderProps` | Beta | Filters by field, with the operators that fit each field's type. |
-| [`GroupPicker`](../packages/studio/src/toolbar/Toolbar.tsx) | `GroupPickerProps` | Beta | Group rows by a field with few distinct values. |
-| [`HideFields`](../packages/studio/src/toolbar/Toolbar.tsx) | `HideFieldsProps` | Beta | Which fields the grid shows. |
-| [`ImportDialog`](../packages/studio/src/toolbar/ImportDialog.tsx) | `ImportDialogProps` | Beta | CSV import (DATA-STUDIO.md P2): map the file's columns to fields, check every row against the database with a dry run, then add them all in one transaction. Nothing is coerced or dropped: a value that won't convert is listed, with the da... |
-| [`KanbanView`](../packages/studio/src/views/KanbanView.tsx) | `KanbanViewProps` | Beta | A board of the table's rows, one column per value of `field`. Each column is paged on its own (50 cards, then "Load more"), with the same filters, search and sort as the table. Moving a card is a version-checked update of `field`, so a c... |
-| [`NewRowButton`](../packages/studio/src/toolbar/Toolbar.tsx) | `NewRowButtonProps` | Beta | The studio toolbar's new row button, disabled with a reason when not allowed. |
-| [`Pill`](../packages/studio/src/grid/cells.tsx) | `PillProps` | Beta | A value drawn as a tinted pill. |
-| [`RecordPanel`](../packages/studio/src/record/RecordPanel.tsx) | `RecordPanelProps` | Beta | One record, in a side panel: its fields as a form, the records it links to and from, and its audit history. The URL names it, so the link copies. |
-| [`RelationPicker`](../packages/studio/src/record/RelationPicker.tsx) | `RelationPickerProps` | Beta | Pick a linked row by searching the target resource on the server, so it works for a table of any size; shows each row by its label field. |
-| [`SearchBox`](../packages/studio/src/toolbar/Toolbar.tsx) | `SearchBoxProps` | Beta | Search every text field, as you type. |
-| [`SheetView`](../packages/studio/src/sheet/SheetView.tsx) | `SheetViewProps` | Beta | The spreadsheet view of a table (DATA-STUDIO.md P2). A paste across rows is saved in ONE transaction through `updateMany`: every row changes, at the version it was read, or none does, and the failing cells are marked. |
-| [`SortBuilder`](../packages/studio/src/toolbar/Toolbar.tsx) | `SortBuilderProps` | Beta | Sort by several fields, first one first. |
-| [`TableTabs`](../packages/studio/src/workspace/ViewsPanel.tsx) | `TableTabsProps` | Beta | Table tabs across the top, as Airtable shows a base's tables. |
-| [`ViewFieldPicker`](../packages/studio/src/toolbar/Toolbar.tsx) | `ViewFieldPickerProps` | Beta | Which field lays out the board or the calendar. |
-| [`ViewsPanel`](../packages/studio/src/workspace/ViewsPanel.tsx) | `ViewsPanelProps` | Beta | The left column: how to look at this table, and the views you've saved. |
-| [`ViewSwitch`](../packages/studio/src/toolbar/Toolbar.tsx) | `ViewSwitchProps` | Beta | Switch between the table, the spreadsheet grid, a board and a calendar. |
+| [`ActivityPanel`](../packages/data/src/DataStudio.tsx) | `ActivityPanelProps` | Beta | The studio's activity panel: recent changes, with undo. |
+| [`BulkEditDialog`](../packages/data/src/toolbar/BulkEdit.tsx) | `BulkEditDialogProps` | Beta | Set one field on every selected row: all of them change, or none do. |
+| [`CalendarView`](../packages/data/src/views/CalendarView.tsx) | `CalendarViewProps` | Beta | A month of the table's rows, placed by a date field and drawn by Genesis UI's EventCalendar. One request per month grid (a `gte`/`lt` range on the field covering the month's whole weeks, so the days shown from the months either side are ... |
+| [`DataStudio`](../packages/data/src/DataStudio.tsx) | `DataStudioProps` | Experimental | Genesis Data: a sidebar of the tables this user may see, and a sheet of the selected one where a cell is edited in place. Every edit carries the version it was read at, so a stale edit is refused rather than saved over someone else's, an... |
+| [`ExportButton`](../packages/data/src/toolbar/Toolbar.tsx) | `ExportButtonProps` | Beta | The studio toolbar's export button, with its progress. |
+| [`FieldIcon`](../packages/data/src/grid/cells.tsx) | `FieldIconProps` | Beta | An icon for the field's type, as Airtable shows in each column header. |
+| [`FilterBuilder`](../packages/data/src/toolbar/Toolbar.tsx) | `FilterBuilderProps` | Beta | Filters by field, with the operators that fit each field's type. |
+| [`GroupPicker`](../packages/data/src/toolbar/Toolbar.tsx) | `GroupPickerProps` | Beta | Group rows by a field with few distinct values. |
+| [`HideFields`](../packages/data/src/toolbar/Toolbar.tsx) | `HideFieldsProps` | Beta | Which fields the grid shows. |
+| [`ImportDialog`](../packages/data/src/toolbar/ImportDialog.tsx) | `ImportDialogProps` | Beta | CSV import (DATA.md P2): map the file's columns to fields, check every row against the database with a dry run, then add them all in one transaction. Nothing is coerced or dropped: a value that won't convert is listed, with the database'... |
+| [`KanbanView`](../packages/data/src/views/KanbanView.tsx) | `KanbanViewProps` | Beta | A board of the table's rows, one column per value of `field`. Each column is paged on its own (50 cards, then "Load more"), with the same filters, search and sort as the table. Moving a card is a version-checked update of `field`, so a c... |
+| [`NewRowButton`](../packages/data/src/toolbar/Toolbar.tsx) | `NewRowButtonProps` | Beta | The studio toolbar's new row button, disabled with a reason when not allowed. |
+| [`Pill`](../packages/data/src/grid/cells.tsx) | `PillProps` | Beta | A value drawn as a tinted pill. |
+| [`RecordPanel`](../packages/data/src/record/RecordPanel.tsx) | `RecordPanelProps` | Beta | One record, in a side panel: its fields as a form, the records it links to and from, and its audit history. The URL names it, so the link copies. |
+| [`RelationPicker`](../packages/data/src/record/RelationPicker.tsx) | `RelationPickerProps` | Beta | Pick a linked row by searching the target resource on the server, so it works for a table of any size; shows each row by its label field. |
+| [`SearchBox`](../packages/data/src/toolbar/Toolbar.tsx) | `SearchBoxProps` | Beta | Search every text field, as you type. |
+| [`SheetView`](../packages/data/src/sheet/SheetView.tsx) | `SheetViewProps` | Beta | The spreadsheet view of a table (DATA.md P2). A paste across rows is saved in ONE transaction through `updateMany`: every row changes, at the version it was read, or none does, and the failing cells are marked. |
+| [`SortBuilder`](../packages/data/src/toolbar/Toolbar.tsx) | `SortBuilderProps` | Beta | Sort by several fields, first one first. |
+| [`TableTabs`](../packages/data/src/workspace/ViewsPanel.tsx) | `TableTabsProps` | Beta | Table tabs across the top, as Airtable shows a base's tables. |
+| [`ViewFieldPicker`](../packages/data/src/toolbar/Toolbar.tsx) | `ViewFieldPickerProps` | Beta | Which field lays out the board or the calendar. |
+| [`ViewsPanel`](../packages/data/src/workspace/ViewsPanel.tsx) | `ViewsPanelProps` | Beta | The left column: how to look at this table, and the views you've saved. |
+| [`ViewSwitch`](../packages/data/src/toolbar/Toolbar.tsx) | `ViewSwitchProps` | Beta | Switch between the table, the spreadsheet grid, a board and a calendar. |
 
 ### Other exports (5)
 
@@ -11003,11 +10939,11 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
-| [`createSearchParamsRouter`](../packages/studio/src/router.ts) | function | — | An adapter over any router that exposes search params with a setter — React Router's `useSearchParams`, or Next.js's `useSearchParams` plus `router.replace`/`push`. |
-| [`locationFromSearchParams`](../packages/studio/src/router.ts) | function | — | _(no summary)_ |
-| [`searchParamsFromLocation`](../packages/studio/src/router.ts) | function | — | The studio's location as query parameters, keeping every parameter in `base` that isn't the studio's own. |
-| [`useHistoryRouter`](../packages/studio/src/router.ts) | function | — | For an app with no router: keeps the studio's state in the current page's query string through the History API. |
-| [`useMemoryRouter`](../packages/studio/src/router.ts) | function | — | A router held in memory, for tests and embedded previews. |
+| [`createSearchParamsRouter`](../packages/data/src/router.ts) | function | — | An adapter over any router that exposes search params with a setter — React Router's `useSearchParams`, or Next.js's `useSearchParams` plus `router.replace`/`push`. |
+| [`locationFromSearchParams`](../packages/data/src/router.ts) | function | — | _(no summary)_ |
+| [`searchParamsFromLocation`](../packages/data/src/router.ts) | function | — | The studio's location as query parameters, keeping every parameter in `base` that isn't the studio's own. |
+| [`useHistoryRouter`](../packages/data/src/router.ts) | function | — | For an app with no router: keeps the studio's state in the current page's query string through the History API. |
+| [`useMemoryRouter`](../packages/data/src/router.ts) | function | — | A router held in memory, for tests and embedded previews. |
 
 ### Types (7)
 
@@ -11027,7 +10963,7 @@ export type { ViewKind };
 
 ## @marktiderman/genesis-studio-server
 
-Data Studio server handler (Request → Response) that acts as the signed-in user over Postgres/Supabase. The only package that touches database credentials. See packages/studio-server/README.md.
+Deprecated: renamed to @marktiderman/genesis-data-server. A thin re-export of genesis-data-server with the same entries and command, kept for two minor versions. Part of the Genesis framework.
 
 **Barrel:** [`packages/studio-server/src/index.ts`](../packages/studio-server/src/index.ts)
 
@@ -11037,29 +10973,29 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
-| [`ADD_COMMENT_FUNCTION`](../packages/studio-server/src/setup-sql.ts) | const | — | Comments on records. |
-| [`AUDIT_FUNCTION`](../packages/studio-server/src/setup-sql.ts) | const | — | Name of the audit function the handler calls. |
-| [`backoffDelay`](../packages/studio-server/src/outbox.ts) | function | — | Delay before attempt `attempt + 1`, with jitter. |
-| [`bearerToken`](../packages/studio-server/src/auth.ts) | function | — | Read a bearer token from the `Authorization` header. |
-| [`byResource`](../packages/studio-server/src/authorize.ts) | function | — | The common case of `authorize`: a fixed allow-list by `schema.table`, for the users `who` admits. Anything not listed is denied, and a listed table without `update` is read-only. |
-| [`COMMENTS_FUNCTION`](../packages/studio-server/src/setup-sql.ts) | const | — | _(no summary)_ |
-| [`createOutboxWorker`](../packages/studio-server/src/outbox.ts) | function | — | _(no summary)_ |
-| [`createPostgresDatabase`](../packages/studio-server/src/db.ts) | function | — | A `StudioDatabase` over a Postgres connection string, or over a postgres.js pool you already have. A pool you pass in keeps its own type parsing, so dates arrive as JS Dates rather than Postgres's exact text; version tokens are unaffecte... |
-| [`createStudioHandler`](../packages/studio-server/src/handler.ts) | function | — | Create the handler. It opens one transaction per request, switches to the signed-in user (`set local role` plus their verified claims), and only then reads the catalog or touches a row, so the database's own privileges and row rules alwa... |
-| [`databaseDecides`](../packages/studio-server/src/authorize.ts) | function | — | Turn the studio on for every table, and let the database decide: each user reads, edits, adds and deletes exactly what their grants and row rules allow, sees history and comments on the rows they can see, and runs the row actions configu... |
-| [`DEFAULT_SWITCH_ROLES`](../packages/studio-server/src/switch.ts) | const | — | The roles `switchToUser` switches to unless `allowRoles` says otherwise. |
-| [`HISTORY_FUNCTION`](../packages/studio-server/src/setup-sql.ts) | const | — | Reads a record's audit history. |
-| [`IdentitySwitchError`](../packages/studio-server/src/switch.ts) | class | — | Thrown when the transaction did not end up as the requested role. |
-| [`jwtAuth`](../packages/studio-server/src/auth.ts) | function | — | Verify a bearer JWT with a shared secret or a JWKS endpoint. Exactly one of `secret` and `jwksUrl` is required. |
-| [`jwtVerifier`](../packages/studio-server/src/auth.ts) | function | — | `jwtAuth`'s check on a raw token, for a token that doesn't arrive as a bearer header, e.g. a socket handshake's `auth.token`. Same rules: the signature, `exp`, `sub`, the audience and the issuer. |
-| [`OUTBOX_AUDIT_FUNCTION`](../packages/studio-server/src/setup-sql.ts) | const | — | The `outbox` sink's audit function: writes the log entry and queues it. |
-| [`PermanentDeliveryError`](../packages/studio-server/src/outbox.ts) | class | — | Throw this from `deliver` when retrying can't help (the receiver rejected the payload). |
-| [`STUDIO_PROTOCOL_VERSION`](../packages/studio-server/src/protocol.ts) | const | — | Bumped on any incompatible change; the handler rejects other versions. |
-| [`studioSetupSql`](../packages/studio-server/src/setup-sql.ts) | function | — | SQL that installs the tamper-proof audit trail: |
-| [`supabaseAuth`](../packages/studio-server/src/auth.ts) | function | — | Verify Supabase Auth access tokens: JWKS from the project, issuer `<url>/auth/v1`, audience `authenticated`. |
-| [`supabaseStudio`](../packages/studio-server/src/supabase.ts) | function | — | The studio handler for a Supabase project, on for every table in `public`: each user sees and edits what their row rules allow, every write is version-checked and audited (`genesis_studio.audit_log`, from `genesis studio init`'s migratio... |
-| [`supabaseVerifier`](../packages/studio-server/src/auth.ts) | function | — | `supabaseAuth`'s check on a raw token, e.g. a socket handshake's. |
-| [`switchToUser`](../packages/studio-server/src/switch.ts) | function | — | Switch the current transaction to `identity`, then check, in SQL, that it took: `current_user` must be `identity.role` and must not bypass RLS, or the transaction is aborted and it throws `IdentitySwitchError`. Call it first, inside a tr... |
+| [`ADD_COMMENT_FUNCTION`](../packages/data-server/src/setup-sql.ts) | const | — | Comments on records. |
+| [`AUDIT_FUNCTION`](../packages/data-server/src/setup-sql.ts) | const | — | Name of the audit function the handler calls. |
+| [`backoffDelay`](../packages/data-server/src/outbox.ts) | function | — | Delay before attempt `attempt + 1`, with jitter. |
+| [`bearerToken`](../packages/data-server/src/auth.ts) | function | — | Read a bearer token from the `Authorization` header. |
+| [`byResource`](../packages/data-server/src/authorize.ts) | function | — | The common case of `authorize`: a fixed allow-list by `schema.table`, for the users `who` admits. Anything not listed is denied, and a listed table without `update` is read-only. |
+| [`COMMENTS_FUNCTION`](../packages/data-server/src/setup-sql.ts) | const | — | _(no summary)_ |
+| [`createOutboxWorker`](../packages/data-server/src/outbox.ts) | function | — | _(no summary)_ |
+| [`createPostgresDatabase`](../packages/data-server/src/db.ts) | function | — | A `StudioDatabase` over a Postgres connection string, or over a postgres.js pool you already have. A pool you pass in keeps its own type parsing, so dates arrive as JS Dates rather than Postgres's exact text; version tokens are unaffecte... |
+| [`createStudioHandler`](../packages/data-server/src/handler.ts) | function | — | Create the handler. It opens one transaction per request, switches to the signed-in user (`set local role` plus their verified claims), and only then reads the catalog or touches a row, so the database's own privileges and row rules alwa... |
+| [`databaseDecides`](../packages/data-server/src/authorize.ts) | function | — | Turn Genesis Data on for every table, and let the database decide: each user reads, edits, adds and deletes exactly what their grants and row rules allow, sees history and comments on the rows they can see, and runs the row actions confi... |
+| [`DEFAULT_SWITCH_ROLES`](../packages/data-server/src/switch.ts) | const | — | The roles `switchToUser` switches to unless `allowRoles` says otherwise. |
+| [`HISTORY_FUNCTION`](../packages/data-server/src/setup-sql.ts) | const | — | Reads a record's audit history. |
+| [`IdentitySwitchError`](../packages/data-server/src/switch.ts) | class | — | Thrown when the transaction did not end up as the requested role. |
+| [`jwtAuth`](../packages/data-server/src/auth.ts) | function | — | Verify a bearer JWT with a shared secret or a JWKS endpoint. Exactly one of `secret` and `jwksUrl` is required. |
+| [`jwtVerifier`](../packages/data-server/src/auth.ts) | function | — | `jwtAuth`'s check on a raw token, for a token that doesn't arrive as a bearer header, e.g. a socket handshake's `auth.token`. Same rules: the signature, `exp`, `sub`, the audience and the issuer. |
+| [`OUTBOX_AUDIT_FUNCTION`](../packages/data-server/src/setup-sql.ts) | const | — | The `outbox` sink's audit function: writes the log entry and queues it. |
+| [`PermanentDeliveryError`](../packages/data-server/src/outbox.ts) | class | — | Throw this from `deliver` when retrying can't help (the receiver rejected the payload). |
+| [`STUDIO_PROTOCOL_VERSION`](../packages/data-server/src/protocol.ts) | const | — | Bumped on any incompatible change; the handler rejects other versions. |
+| [`studioSetupSql`](../packages/data-server/src/setup-sql.ts) | function | — | SQL that installs the tamper-proof audit trail: |
+| [`supabaseAuth`](../packages/data-server/src/auth.ts) | function | — | Verify Supabase Auth access tokens: JWKS from the project, issuer `<url>/auth/v1`, audience `authenticated`. |
+| [`supabaseStudio`](../packages/data-server/src/supabase.ts) | function | — | The studio handler for a Supabase project, on for every table in `public`: each user sees and edits what their row rules allow, every write is version-checked and audited (`genesis_studio.audit_log`, from `genesis data init`'s migration)... |
+| [`supabaseVerifier`](../packages/data-server/src/auth.ts) | function | — | `supabaseAuth`'s check on a raw token, e.g. a socket handshake's. |
+| [`switchToUser`](../packages/data-server/src/switch.ts) | function | — | Switch the current transaction to `identity`, then check, in SQL, that it took: `current_user` must be `identity.role` and must not bypass RLS, or the transaction is aborted and it throws `IdentitySwitchError`. Call it first, inside a tr... |
 
 ### Types (50)
 
@@ -11130,8 +11066,8 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
-| [`createStudioProvider`](../packages/studio-server/src/client.ts) | function | — | _(no summary)_ |
-| [`createSupabaseStudioProvider`](../packages/studio-server/src/client.ts) | function | — | The studio's provider for an app that signs in with Supabase: it sends the current session's token with every request and tells `DataStudio` when the user changes, so embedding the studio is one line. |
+| [`createStudioProvider`](../packages/data-server/src/client.ts) | function | — | _(no summary)_ |
+| [`createSupabaseStudioProvider`](../packages/data-server/src/client.ts) | function | — | Genesis Data's provider for an app that signs in with Supabase: it sends the current session's token with every request and tells `DataStudio` when the user changes, so embedding Genesis Data is one line. |
 
 ### Types (5)
 
@@ -11157,11 +11093,11 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
-| [`bearerToken`](../packages/studio-server/src/auth.ts) | function | — | Read a bearer token from the `Authorization` header. |
-| [`jwtAuth`](../packages/studio-server/src/auth.ts) | function | — | Verify a bearer JWT with a shared secret or a JWKS endpoint. Exactly one of `secret` and `jwksUrl` is required. |
-| [`jwtVerifier`](../packages/studio-server/src/auth.ts) | function | — | `jwtAuth`'s check on a raw token, for a token that doesn't arrive as a bearer header, e.g. a socket handshake's `auth.token`. Same rules: the signature, `exp`, `sub`, the audience and the issuer. |
-| [`supabaseAuth`](../packages/studio-server/src/auth.ts) | function | — | Verify Supabase Auth access tokens: JWKS from the project, issuer `<url>/auth/v1`, audience `authenticated`. |
-| [`supabaseVerifier`](../packages/studio-server/src/auth.ts) | function | — | `supabaseAuth`'s check on a raw token, e.g. a socket handshake's. |
+| [`bearerToken`](../packages/data-server/src/auth.ts) | function | — | Read a bearer token from the `Authorization` header. |
+| [`jwtAuth`](../packages/data-server/src/auth.ts) | function | — | Verify a bearer JWT with a shared secret or a JWKS endpoint. Exactly one of `secret` and `jwksUrl` is required. |
+| [`jwtVerifier`](../packages/data-server/src/auth.ts) | function | — | `jwtAuth`'s check on a raw token, for a token that doesn't arrive as a bearer header, e.g. a socket handshake's `auth.token`. Same rules: the signature, `exp`, `sub`, the audience and the issuer. |
+| [`supabaseAuth`](../packages/data-server/src/auth.ts) | function | — | Verify Supabase Auth access tokens: JWKS from the project, issuer `<url>/auth/v1`, audience `authenticated`. |
+| [`supabaseVerifier`](../packages/data-server/src/auth.ts) | function | — | `supabaseAuth`'s check on a raw token, e.g. a socket handshake's. |
 
 ### Types (5)
 
@@ -11538,7 +11474,7 @@ Support and feedback for Genesis apps, in the app's own Supabase: a feedback rec
 
 **Barrel:** [`packages/support/src/index.ts`](../packages/support/src/index.ts)
 
-### Other exports (177)
+### Other exports (178)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -11660,6 +11596,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`resolveSupportSettings`](../packages/support/src/settings.ts) | function | Beta | Resolve support's keys alone, through the given layers. No layers: the `max` preset. @stability Beta |
 | [`sanitizeContext`](../packages/support/src/record.ts) | function | — | The context as the database takes it: a clean route, short strings, bags under their caps. |
 | [`sanitizeContext`](../packages/support/src/record.ts) | function | — | The context as the database takes it: a clean route, short strings, bags under their caps. |
+| [`sentryEventLink`](../packages/support/src/diagnostics/sentry-link.ts) | function | Beta | A dump's Sentry event link from the settings, or null when they don't say where Sentry is (no organization, or no DSN, or either of the wrong shape). |
 | [`SHAKE_SETTING_SPECS`](../packages/support/src/settings.ts) | const | Beta | `shake.*`: shake to report. @stability Beta |
 | [`shakeSettings`](../packages/support/src/settings.ts) | const | Beta | _(no summary)_ |
 | [`storedByteLength`](../packages/support/src/diagnostics/report.ts) | function | — | A dump's size as the database measures it (`octet_length(report::text)` in migration 0019): Postgres writes jsonb with a space after every `,` and `:`, a few percent over compact JSON. The whole-dump cap counts this, so a dump at the cap... |
@@ -11722,7 +11659,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`zoneOf`](../packages/support/src/routes.ts) | function | Beta | The navigation zone a path is in: the longest of `zones` (route prefixes like `/admin`, `/coach`; expo-router groups such as `(tabs)` aren't in a path) that starts it, else "" (no zone). |
 | [`zoneOf`](../packages/support/src/routes.ts) | function | Beta | The navigation zone a path is in: the longest of `zones` (route prefixes like `/admin`, `/coach`; expo-router groups such as `(tabs)` aren't in a path) that starts it, else "" (no zone). |
 
-### Types (129)
+### Types (130)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -11815,6 +11752,7 @@ export type { SavedReply };
 export type { ScreenshotContentType };
 export type { SectionValue };
 export type { SendDiagnosticsOptions };
+export type { SentryEventLink };
 export type { SubmitFeedbackInput };
 export type { SubmitFeedbackResult };
 export type { SubmitValidation };
