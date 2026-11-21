@@ -1,0 +1,19 @@
+.github/ISSUE_TEMPLATE/idea.yml
+  s_19540ac767aab7::t_9bcd303fec62b7 2
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "331d0555dd5a14bbd2959e16f444989952910e5d",
+  "prompts": {},
+  "sessions": {
+    "s_19540ac767aab7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4cfc9c3b-d983-4fbe-96d8-cb3b15fd4758",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
