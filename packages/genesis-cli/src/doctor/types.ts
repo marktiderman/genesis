@@ -215,6 +215,8 @@ export interface DoctorConfig {
    * level, files and exclusions, each with a reason.
    */
   packageRules?: Record<string, PackageRuleSetting>;
+  /** Genesis features this app doesn't want, each with why (rule missed-value). */
+  declined?: Record<string, string>;
   /**
    * With `--base`, a rule's findings drop to `info` unless they are in a new file or a file
    * now has more of them than at the merge base, so new code meets the rule and old code is

@@ -1,4 +1,5 @@
 import { normalizeLink } from "@marktiderman/genesis-native";
+import { PREVIEW_PATH } from "@marktiderman/genesis-native/updates";
 import starter from "../../starter.config";
 import { linkHold, links } from "@/lib/links";
 
@@ -6,6 +7,7 @@ import { linkHold, links } from "@/lib/links";
 export function redirectSystemPath({ path }: { path: string; initial: boolean }) {
   if (!starter.features.deepLinks) return "/";
   const to = normalizeLink(path, links);
-  if (to && to !== "/") linkHold.hold(to);
+  // A preview link opens at once, signed in or not: it changes the app's code, not the person's data.
+  if (to && to !== "/" && !to.startsWith(PREVIEW_PATH)) linkHold.hold(to);
   return to;
 }

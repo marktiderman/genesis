@@ -310,9 +310,11 @@ run with `--base` fails as `allow-grew`). The rule is a warning, so an app that 
 ### Native: EAS
 
 [`templates/release/pr-preview.yml`](../templates/release/pr-preview.yml) is the native
-equivalent: an installable build and an update channel per pull request, started by the `Preview`
-label or by a pull request into `main` that changes the app's code or build config
-([NATIVE-RELEASE.md](./NATIVE-RELEASE.md)). GitHub keeps one label per name whatever its case, so
+equivalent: an update channel per pull request, opened by a link in the TestFlight or store build
+people already have (or a preview build when the pull request changed native code), started by the
+`Preview` label or by a pull request into `main` that changes the app's code or build config.
+[`templates/ci/pr-preview-teardown.yml`](../templates/ci/pr-preview-teardown.yml) deletes it when
+the pull request closes ([NATIVE-RELEASE.md, Previews](./NATIVE-RELEASE.md#previews)). GitHub keeps one label per name whatever its case, so
 one `preview` label serves both; name it in `pull_request_labeled.labels` as GitHub shows it.
 
 ## Security

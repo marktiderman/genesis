@@ -37,6 +37,8 @@ export interface ResolvedRelease {
   packageManager: ReleasePackageManager;
   /** A command that prints the runtime version of `$RELEASE_PLATFORM`, or null for Expo's fingerprint. */
   runtimeCommand: string | null;
+  /** What a preview's links open: the web origin (universal link) and the app's scheme (QR). */
+  previews: { origin: string; scheme: string };
 }
 
 /** What a template is rendered with: the resolved block and where the app sits in its repository. */
@@ -48,6 +50,7 @@ export interface ReleaseContext {
 
 export const RELEASE_DEFAULTS: Readonly<Omit<ResolvedRelease, "easEnvironment" | "packageManager">> = {
   runtimeCommand: null,
+  previews: { origin: "", scheme: "" },
   platforms: ["ios", "android"],
   environment: "production",
   paths: [],
@@ -74,6 +77,7 @@ export function resolveRelease(
     easEnvironment: set.easEnvironment ?? profile,
     packageManager: set.packageManager ?? detected,
     runtimeCommand: set.runtimeCommand ?? null,
+    previews: { origin: set.previews?.origin ?? "", scheme: set.previews?.scheme ?? "" },
   };
 }
 
@@ -112,6 +116,8 @@ export function releaseTokens(ctx: ReleaseContext): Record<string, string> {
     GENESIS_RELEASE_WORKING_DIRECTORY: ctx.appFolder ?? ".",
     GENESIS_RELEASE_PUSH_HOOK: r.pushHook?.script ?? "",
     GENESIS_RELEASE_RUNTIME_COMMAND: r.runtimeCommand ?? "",
+    GENESIS_RELEASE_PREVIEW_ORIGIN: r.previews.origin,
+    GENESIS_RELEASE_PREVIEW_SCHEME: r.previews.scheme,
   };
 }
 

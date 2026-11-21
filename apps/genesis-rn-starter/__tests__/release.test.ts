@@ -182,12 +182,22 @@ describe("EAS workflows", () => {
     // The one command of its own: pr-preview's update, to the pull request's channel (stamped first).
     const own = file === "pr-preview.yml" ? ["publish_update"] : [];
     const commands = [...read(`.eas/workflows/${file}`).matchAll(/eas(?:-cli)?(?:@[\d.]+)? (update|submit)\b.*/g)].map((m) => m[0]);
-    expect(commands).toEqual(own.length ? [expect.stringMatching(/^eas-cli@[\d.]+ update --channel "\$PREVIEW_CHANNEL" /)] : []);
+    // Only to the branch pr-<number>, which only the channel pr-<number> points at.
+    expect(commands).toEqual(own.length ? [expect.stringMatching(/^eas-cli@[\d.]+ update --branch "\$PREVIEW_CHANNEL" /)] : []);
+    if (own.length) {
+      const run = workflow(file).jobs.publish_update!.steps!.map((s) => s.run ?? "").join("\n");
+      expect(run).not.toMatch(/eas-cli@[\d.]+ update\b[^\n]*--channel\b/);
+      expect([...run.matchAll(/channel:(?:create|edit) (\S+)/g)].map((m) => m[1])).toEqual(['"$PREVIEW_CHANNEL"', '"$PREVIEW_CHANNEL"']);
+    }
     for (const [id, job] of Object.entries(workflow(file).jobs)) {
       expect(["submit", "testflight", "update-rollout"], `${file} ${id}`).not.toContain(job.type);
       if (!own.includes(id)) expect(job.steps, `${file} ${id}`).toBeUndefined();
-      expect(job.environment ?? "", `${file} ${id}`).not.toBe("production");
-      expect(job.params?.profile ?? "", `${file} ${id}`).not.toBe("production");
+      // The preview update, and the jobs that find the release build it loads on, read the
+      // release's EAS environment (an update must match its build); no build job does.
+      const readsRelease = file === "pr-preview.yml" && (id === "fingerprint" || id === "publish_update" || id.startsWith("get_release_"));
+      if (!readsRelease) expect(job.environment ?? "", `${file} ${id}`).not.toBe("production");
+      // get_release_* only looks a release build up (type get-build); it builds nothing.
+      if (!(readsRelease && job.type === "get-build")) expect(job.params?.profile ?? "", `${file} ${id}`).not.toBe("production");
       expect(job.params?.channel ?? "", `${file} ${id}`).not.toBe("production");
     }
   });
@@ -231,10 +241,30 @@ describe("EAS workflows", () => {
     expect(Object.keys(workflow("e2e.yml").on)).toEqual(["workflow_dispatch"]);
   });
 
+  it("pr-preview's jobs list every job whose outputs they read, and fall back per platform", () => {
+    const { jobs } = workflow("pr-preview.yml");
+    for (const [id, job] of Object.entries(jobs)) {
+      const read = new Set([...JSON.stringify(job).matchAll(/needs\.([a-z_]+)\./g)].map((m) => m[1]));
+      const needs = Array.isArray(job.needs) ? job.needs : job.needs ? [job.needs] : [];
+      for (const r of read) expect(needs, `${id} reads needs.${r}`).toContain(r);
+    }
+    expect(jobs.get_android_build?.if).toContain("android_native == 'true'");
+    expect(jobs.get_ios_build?.if).toContain("ios_native == 'true'");
+    expect(jobs.get_android_build?.params?.fingerprint_hash).toContain("needs.fingerprint_preview.");
+    // The update as the release lane publishes it: the release profile's env over the job's EAS
+    // environment, and no --environment (it would put EAS's value back over the profile's).
+    const run = jobs.publish_update!.steps!.map((s) => s.run ?? "").join("\n");
+    const update = run.split("\n").find((l) => /eas-cli@[\d.]+ update\b/.test(l))!;
+    expect(update).toMatch(/native-release\.mjs with-profile eas\.json "production" "\$p" -- /);
+    expect(run.slice(run.indexOf(update), run.indexOf("done", run.indexOf(update)))).not.toContain("--environment");
+    expect(run).toContain('fingerprint:generate --platform "$1" --build-profile "production"');
+  });
+
   it("pr-preview publishes to the pull request's own channel", () => {
     const job = workflow("pr-preview.yml").jobs.publish_update!;
     expect(job.env?.PREVIEW_CHANNEL).toBe("pr-${{ github.event.pull_request.number }}");
-    expect(job.environment).toBe("preview");
+    // The release's environment, so the update matches the TestFlight or store build it loads on.
+    expect(job.environment).toBe("production");
   });
 
   it("rollout promotes only after the health check, whose limits no input can change", () => {
