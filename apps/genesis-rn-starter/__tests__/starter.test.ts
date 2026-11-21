@@ -536,10 +536,15 @@ describe("metro", () => {
     const pkg = JSON.parse(read("package.json")) as { dependencies: Record<string, string> };
     const watched = /\.\.\.\[([^\]]+)\]\.map\(\(name\) => path\.resolve\(monorepoRoot, "packages", name\)\)/.exec(read("metro.config.js"))?.[1] ?? "";
     const names = [...watched.matchAll(/"([^"]+)"/g)].map((m) => m[1]);
-    const genesis = Object.keys(pkg.dependencies)
-      .filter((d) => d.startsWith("@marktiderman/genesis-"))
-      .map((d) => d.slice("@marktiderman/genesis-".length));
-    for (const name of genesis) expect(names, name).toContain(name);
+    // A package's folder isn't always its name (genesis-config is packages/features).
+    const packages = join(root, "..", "..", "packages");
+    const folderOf = new Map(
+      readdirSync(packages)
+        .filter((dir) => existsSync(join(packages, dir, "package.json")))
+        .map((dir) => [(JSON.parse(readFileSync(join(packages, dir, "package.json"), "utf8")) as { name: string }).name, dir] as const),
+    );
+    const genesis = Object.keys(pkg.dependencies).filter((d) => d.startsWith("@marktiderman/genesis-"));
+    for (const name of genesis) expect(names, name).toContain(folderOf.get(name));
   });
 });
 

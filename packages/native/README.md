@@ -483,7 +483,47 @@ export default observability.wrap(RootLayout); // Sentry.wrap: touch and profile
   `update.id`, `update.channel`, `update.runtime` and `update.launch`, so an over-the-air update is
   told apart from the binary it runs on. Without an application id or version, it leaves the
   release to Sentry rather than guess.
-- **Without a DSN** `sentrySink` starts nothing (a warning outside development).
+- **Without a DSN anywhere** `sentrySink` starts nothing and its methods do nothing. Once the
+  settings are read and give none either, it says so once, in development only (`onMissingDsn`
+  replaces the notice, in any build).
+
+**Sentry from Genesis settings.** Error reporting declares three settings
+(`observabilitySettings`, also in this package's `genesis.settings`, so the doctor and the synced
+catalogue know them): `observability.enabled` (default on), `observability.sentryDsn` (the
+project's DSN; a public client key, not a secret) and `observability.sentryOrg` (the
+organization's slug, for the support dump viewer's link). A platform admin sets them on the
+in-app Settings screen, with no code and no build; `genesis setup --step sentry` writes both to
+genesis.config.json instead, which installed apps read from their next build or update. Every layer refuses a DSN of the wrong shape (`SENTRY_DSN_PATTERN`, in
+genesis-config, the database and the doctor).
+
+```ts
+export const sentry = sentrySink(Sentry, { dsn: process.env.EXPO_PUBLIC_SENTRY_DSN, cache: AsyncStorage, signature });
+// Whenever the app's settings change (genesis-supabase's watchAppSettings):
+sentry.applySettings(resolvedSettings);
+healthChecks.register(sentry.healthCheck()); // genesis-support
+```
+
+- **Where the DSN comes from**, highest first: the build (`EXPO_PUBLIC_SENTRY_DSN`, `dsn`), then
+  `observability.sentryDsn` through the settings layers (the database, then genesis.config.json,
+  then the default, none). `observability.enabled` off stops reporting whichever gave it.
+  `resolveSentryDsn({ build, settings })` is the same rule on its own.
+- **The first launch and every later one.** Settings are read for a signed-in person, so on a
+  device's first launch Sentry starts once someone signs in. `cache` (AsyncStorage, or
+  localStorage; sync or async) keeps the settings' values, never the DSN in use, so every later
+  launch starts Sentry at once from them, and a new build's own DSN still wins. Settings read
+  since a launch win over the cached copy.
+- **What applies live, and what waits for the next launch.** Starting Sentry the first time, and
+  turning it off (`Sentry.close`), happen at once. A new DSN, or turning it back on after it was
+  closed, applies at the next launch: Genesis never starts Sentry twice in one process.
+  `status()` says whether it is running, where its DSN came from, whether a change is waiting
+  (`restartPending`) and what is wrong (`problem`).
+- **The health check.** `healthCheck()` is `observability.sentry` for genesis-support's
+  `healthChecks`: ok when reporting, off or not configured; warn while a change waits for the next
+  launch; fail for a DSN that isn't one.
+- **Wrapping.** `wrap` and `wrapRouteErrorBoundary` are given when Sentry can be running by the
+  time the root layout is wrapped: with a build DSN, or with a `cache`.
+- **A catalogue without the keys** (an app that doesn't install them) never stops Sentry:
+  `applySettings` changes nothing for settings without `observability.*`.
 
 **Screen errors.** The shell's boundary is fatal: it replaces the whole app. For one screen that
 throws, export a screen boundary from a route or layout file as Expo Router's `ErrorBoundary`:

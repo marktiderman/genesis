@@ -2212,7 +2212,7 @@ export const features = defineFeatures({
   },
   "native-starter": {
     name: "Native starter",
-    summary: "apps/genesis-rn-starter: an Expo SDK 58 app (New Architecture, React Compiler, typed routes, native tabs) whose root layout is GenesisNativeApp, with every universal feature the packages ship on and each turned off in one line of starter.config.ts: email and Apple sign-in, settings with account deletion, notifications, query persistence and lifecycle, keyboard scrolling, deep links, the reinstall wipe and foreground refresh, the updates block (force upgrade, maintenance, update banner, what's new, the version signature in Settings) on the release-policy migration, and the push block (building: Settings → Notifications, the soft prompt on the Notifications tab, the sender function) on the push migration, a check-in example on genesis-forms-native (FormFocus with a draft per user and the offline outbox, behind features.checkIn), observability (Sentry when EXPO_PUBLIC_SENTRY_DSN is set), the devtools overlay in development and preview builds, and the support block (building: Send feedback and Help in Settings, shake to report with a marked-up screenshot, your reports with staff replies, the idea board) on the support migration. EAS Workflows and Maestro smoke flows ship with it. Onboarding joins as its block ships.",
+    summary: "apps/genesis-rn-starter: an Expo SDK 58 app (New Architecture, React Compiler, typed routes, native tabs) whose root layout is GenesisNativeApp, with every universal feature the packages ship on and each turned off in one line of starter.config.ts: email and Apple sign-in, settings with account deletion, notifications, query persistence and lifecycle, keyboard scrolling, deep links, the reinstall wipe and foreground refresh, the updates block (force upgrade, maintenance, update banner, what's new, the version signature in Settings) on the release-policy migration, and the push block (building: Settings → Notifications, the soft prompt on the Notifications tab, the sender function) on the push migration, a check-in example on genesis-forms-native (FormFocus with a draft per user and the offline outbox, behind features.checkIn), observability (Sentry from the observability.sentryDsn setting or EXPO_PUBLIC_SENTRY_DSN), the devtools overlay in development and preview builds, and the support block (building: Send feedback and Help in Settings, shake to report with a marked-up screenshot, your reports with staff replies, the idea board) on the support migration. EAS Workflows and Maestro smoke flows ship with it. Onboarding joins as its block ships.",
     category: "Starters",
     status: "beta",
     kind: "tool",
@@ -2862,7 +2862,7 @@ export const features = defineFeatures({
   },
   "observability": {
     name: "Errors and events",
-    summary: "Crash and error reporting, breadcrumbs, the user id, a typed analytics event API and timings behind vendor-neutral sinks (Sentry, EAS Observe, console), with PII scrubbed on the device and release and update tags on every event. Native first (genesis-native/observability, wired into GenesisNativeApp's error paths); the web and server sides are not built yet.",
+    summary: "Crash and error reporting, breadcrumbs, the user id, a typed analytics event API and timings behind vendor-neutral sinks (Sentry, EAS Observe, console), with PII scrubbed on the device and release and update tags on every event. Sentry is configured from Genesis settings (observability.enabled, .sentryDsn, .sentryOrg) with no build, the build's EXPO_PUBLIC_SENTRY_DSN still winning, and the last settings kept on the device for the next launch; the support dump viewer links to the event from the same settings. Native first (genesis-native/observability, wired into GenesisNativeApp's error paths); the web and server sides are not built yet.",
     category: "Observability",
     // In a PR. Not yet seen sending to a real Sentry project from a device build.
     status: "building",
@@ -2881,8 +2881,11 @@ export const features = defineFeatures({
       "Emails, JWTs, Supabase keys, bearer tokens, Authorization and cookie headers and URL query strings are removed before any sink sees an event, breadcrumb, span or log; the user is sent as an id only; a scrubber failure drops the event.",
       "track() accepts only events and props in the app's schema (closed string lists, numbers, booleans) and drops and reports anything else.",
       "Sentry's release and dist follow its own format from the version signature, with the update id, channel and runtime version as tags.",
+      "With no build DSN, setting observability.sentryDsn starts Sentry live once the settings are read, and every later launch starts it at once from the device's cached settings; EXPO_PUBLIC_SENTRY_DSN wins over the setting.",
+      "observability.enabled off closes Sentry live; a new DSN, or turning it back on, waits for the next launch and the Sentry health check warns until then; a DSN of the wrong shape is refused by every layer (genesis-config, the database, the doctor) and the health check fails.",
+      "Without links.sentry, the staff dump viewer links a dump to its Sentry event from observability.sentryOrg and observability.sentryDsn, on sentry.io or a self-hosted Sentry.",
     ],
-    reviewedAt: "2026-10-24",
+    reviewedAt: "2026-11-21",
     links: { code: ["packages/native/src/observability", "apps/genesis-rn-starter/src/lib/observability.ts"], docs: ["packages/native/README.md"] },
   },
   "devtools-overlay": {

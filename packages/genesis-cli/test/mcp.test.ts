@@ -29,6 +29,8 @@ const settings = {
     issues: { type: "boolean", default: false, needs: "secret:SUPPORT_GITHUB_TOKEN", store: "server-env" },
     triage: { type: "boolean", default: false, needs: "secret:SUPPORT_AI_KEY" },
     label: { type: "string", default: null },
+    code: { type: "string", default: null, pattern: "^[A-Z]{3}$" },
+    retries: { type: "number", default: 3, integer: true },
   },
 };
 
@@ -123,8 +125,8 @@ describe("genesis mcp: tools", () => {
     const issues = all.keys.find((k: { key: string }) => k.key === "support.issues");
     expect(issues).toMatchObject({ package: SUPPORT, type: "boolean", needsSecret: { name: "SUPPORT_GITHUB_TOKEN", store: "server-env" } });
     expect(all.keys.find((k: { key: string }) => k.key === "support.agentDesk").defaults).toEqual({ max: true, standard: true, min: false });
-    expect((await call("settings_catalogue", { package: "support" })).keys).toHaveLength(6);
-    expect((await call("settings_catalogue", { package: SUPPORT })).keys).toHaveLength(6);
+    expect((await call("settings_catalogue", { package: "support" })).keys).toHaveLength(8);
+    expect((await call("settings_catalogue", { package: SUPPORT })).keys).toHaveLength(8);
     await expect(call("settings_catalogue", { package: "nope" })).rejects.toThrow(/no installed package/);
   });
 
@@ -321,6 +323,13 @@ describe("genesis mcp: plans and approval", () => {
     const applied = await call("fix_apply", { fixId: "upgrade.release", hash: planned.hash });
     expect(applied).toMatchObject({ applied: false, command: `genesis fix upgrade.release --expect ${planned.hash}` });
     expect(asked).toHaveLength(0);
+  });
+
+  it("settings_propose checks the whole declaration: a string's pattern and a whole number", async () => {
+    const { call } = await connect(app(), { answer: () => ({ action: "accept", content: { approve: true } }) });
+    await expect(call("settings_propose", { key: "support.code", value: "abc" })).rejects.toThrow(/must match \^\[A-Z\]\{3\}\$/);
+    await expect(call("settings_propose", { key: "support.retries", value: 2.5 })).rejects.toThrow(/whole number/);
+    await expect(call("settings_propose", { key: "support.code", value: "ABC" })).resolves.toBeDefined();
   });
 
   it("settings_propose without elicitation says what to set by hand", async () => {

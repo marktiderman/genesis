@@ -5,6 +5,7 @@
  */
 export * from "./report";
 export { redactReport, type RedactOptions } from "./redact";
+export { sentryEventLink, type SentryEventLink } from "./sentry-link";
 export { capReport, cutToBytes, type CapLimits } from "./cap";
 export { createDiagnostics, type CollectOptions, type Diagnostics, type DiagnosticsDelivery, type DiagnosticsOptions, type DiagnosticsUser, type FeedbackSubmission, type SendDiagnosticsOptions } from "./create";
 export {

@@ -362,6 +362,7 @@ describe("the settings block", () => {
       { package: "@marktiderman/genesis-supabase", file: "migrations/0021_genesis_settings_integer.sql", test: "migrations/tests/0021_genesis_settings_integer.test.sql", feature: "settings" },
       { package: "@marktiderman/genesis-supabase", file: "migrations/0022_genesis_platform_admins.sql", test: "migrations/tests/0022_genesis_platform_admins.test.sql", feature: "settings" },
       { package: "@marktiderman/genesis-supabase", file: "migrations/0023_genesis_settings_tenant_person.sql", test: "migrations/tests/0023_genesis_settings_tenant_person.test.sql", feature: "settings" },
+      { package: "@marktiderman/genesis-supabase", file: "migrations/0025_genesis_settings_pattern.sql", test: "migrations/tests/0025_genesis_settings_pattern.test.sql", feature: "settings" },
     ]);
     for (const m of resolved.migrations) {
       expect(existsSync(join(packageRoot, m.file)), m.file).toBe(true);
@@ -373,6 +374,7 @@ describe("the settings block", () => {
       { file: "migrations/0021_genesis_settings_integer.sql", test: "migrations/tests/0021_genesis_settings_integer.test.sql" },
       { file: "migrations/0022_genesis_platform_admins.sql", test: "migrations/tests/0022_genesis_platform_admins.test.sql" },
       { file: "migrations/0023_genesis_settings_tenant_person.sql", test: "migrations/tests/0023_genesis_settings_tenant_person.test.sql" },
+      { file: "migrations/0025_genesis_settings_pattern.sql", test: "migrations/tests/0025_genesis_settings_pattern.test.sql" },
     ]);
   });
 

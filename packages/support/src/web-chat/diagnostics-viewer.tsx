@@ -16,11 +16,16 @@ import type { SupportClient, TicketDiagnostics } from "../client";
 import { fill, resolveSupportCopy, type SupportCopy, type SupportCopyOverrides } from "../copy";
 import { diagnosticsViewSections } from "../diagnostics/view";
 import { DIAGNOSTIC_TRIGGERS, type DiagnosticTrigger } from "../diagnostics/report";
+import { sentryEventLink } from "../diagnostics/sentry-link";
+import type { SupportSettingsInput } from "../settings";
 import { useLoginScope } from "./tenant";
 
 /** Where a dump's Sentry event and GitHub issue are, in the app's own terms. Either may be left out. */
 export interface SupportDiagnosticsLinks {
-  /** The Sentry event's page from its ids (`https://acme.sentry.io/issues/?query=${encodeURIComponent(eventId)}`). Shown when the dump carries an event id. */
+  /**
+   * The Sentry event's page from its ids (`https://acme.sentry.io/issues/?query=${encodeURIComponent(eventId)}`). Shown when the dump carries an event id.
+   * Left out, the settings give it (`observability.sentryOrg` and `.sentryDsn`: `sentryEventLink`).
+   */
   sentry?: (ids: { eventId: string; replayId: string | null }) => string | null;
   /** The GitHub issue the app filed for this dump (`githubIssueNotifier`), or null when there is none. */
   githubIssue?: (dump: TicketDiagnostics) => string | null;
@@ -31,6 +36,8 @@ export interface SupportTicketDiagnosticsProps {
   ticketId: string;
   /** Links to the dump's Sentry event and GitHub issue. Only `https:` links show. */
   links?: SupportDiagnosticsLinks;
+  /** Genesis settings: without `links.sentry`, the Sentry link is built from `observability.sentryOrg` and `.sentryDsn`. */
+  settings?: SupportSettingsInput | null;
   copy?: SupportCopyOverrides;
   onError?: (error: unknown) => void;
 }
@@ -71,8 +78,11 @@ export function diagnosticsText(dump: TicketDiagnostics): string {
 }
 
 /** A ticket's dumps as text sections. Nothing when the client can't read them or there are none. */
-export function SupportTicketDiagnostics({ client, ticketId, links, copy: overrides, onError }: SupportTicketDiagnosticsProps) {
+export function SupportTicketDiagnostics({ client, ticketId, links: given, settings, copy: overrides, onError }: SupportTicketDiagnosticsProps) {
   const copy = resolveSupportCopy(overrides);
+  // The app's own Sentry link wins; without one, the settings say where Sentry is.
+  const fromSettings = given?.sentry ? null : sentryEventLink(settings);
+  const links: SupportDiagnosticsLinks | undefined = fromSettings ? { ...given, sentry: fromSettings } : given;
   const read = client.ticketDiagnostics?.bind(client);
   const login = useLoginScope(client, null);
   const scope = login.scope;
