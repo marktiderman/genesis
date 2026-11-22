@@ -1,0 +1,66 @@
+.changeset/chat-read-receipts.md
+  s_22dadcff902f4f::t_c738d4f994395c 1-22
+scripts/pgtap-local/suites.sh
+  s_22dadcff902f4f::t_eef859cc81ae18 29
+packages/chat/figma/native/code-connect.json
+  s_22dadcff902f4f::t_1617aa3017284b 26
+packages/chat/src/react/index.tsx
+  s_22dadcff902f4f::t_5bd1872fa39557 29
+  s_22dadcff902f4f::t_f9d7587b7102ac 422-427
+apps/genesis-rn-starter/supabase/migrations/20261025000091_genesis_chat_read_receipts.sql
+  s_22dadcff902f4f::t_3f09143e916e63 1-60
+packages/chat/src/core/types.ts
+  s_22dadcff902f4f::t_77e0f40c7ea0b6 116-120,250-251
+packages/chat/src/native/typing-bubble.tsx
+  s_22dadcff902f4f::t_4b18f4b0a9949f 37-45,48-49
+  s_22dadcff902f4f::t_c6e727bed047f7 1-4,6-36,46-47,50-72
+  s_22dadcff902f4f::t_171fa580700acf 5
+packages/chat/README.md
+  s_22dadcff902f4f::t_aec36612703d86 14,131,150-175,367
+apps/genesis-rn-starter/README.md
+  s_22dadcff902f4f::t_5177e254836eda 187-190
+packages/chat/migrations/0006_genesis_chat_read_receipts.sql
+  s_22dadcff902f4f::t_334c5ff0f38a39 1-60
+packages/chat/src/native/receipts.ts
+  s_22dadcff902f4f::t_59fc932106e9fd 1-60,62-64,66-99
+  s_22dadcff902f4f::t_29397ad8706610 61,65
+apps/genesis-rn-starter/__tests__/starter.test.ts
+  s_22dadcff902f4f::t_5177e254836eda 444-452
+packages/chat/src/native/message-bubble.tsx
+  s_22dadcff902f4f::t_171fa580700acf 75-78,199-200,417,422,427-454
+  s_22dadcff902f4f::t_04038e55f93baa 455-456
+packages/chat/src/native/__tests__/receipts.test.ts
+  s_22dadcff902f4f::t_8911cacf30df4e 1-95
+packages/chat/src/native/__tests__/thread-screen.test.tsx
+  s_22dadcff902f4f::t_6ae6fb89310005 219-316
+apps/genesis-rn-starter/supabase/tests/database/genesis_chat_read_receipts.test.sql
+  s_22dadcff902f4f::t_3f09143e916e63 1-79
+packages/chat/src/native/index.ts
+  s_22dadcff902f4f::t_aec36612703d86 31-32
+packages/chat/migrations/tests/0006_genesis_chat_read_receipts.test.sql
+  s_22dadcff902f4f::t_4b791cc9962568 1-79
+packages/chat/src/native/copy.ts
+  s_22dadcff902f4f::t_b4381e305f28ca 126-137,279-287
+packages/chat/src/native/thread-screen.tsx
+  s_22dadcff902f4f::t_e42cbd7f834cc2 9-11,27,46-48,98-103,145,147,199-210,388-389,394,429-436,489,526-545
+packages/chat/package.json
+  s_22dadcff902f4f::t_df6060fcd124db 260-263
+packages/chat/src/core/client.ts
+  s_22dadcff902f4f::t_77e0f40c7ea0b6 402,741-745
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7c39505cd3d4e9364c73d63e48ffe22e5d7f869c",
+  "prompts": {},
+  "sessions": {
+    "s_22dadcff902f4f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e30c0aa7-4664-443f-9187-dce5753baa7d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
