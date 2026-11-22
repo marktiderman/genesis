@@ -1,0 +1,32 @@
+packages/chat/src/native/__tests__/composer-attach-menu.test.tsx
+  s_22dadcff902f4f::t_78ee12aa6854e3 1-47
+packages/chat/src/native/__tests__/sheets-fit.test.tsx
+  s_22dadcff902f4f::t_b967a7eb641b73 11-12
+  s_22dadcff902f4f::t_7011fcb3f3bf7e 1-10,13-45
+packages/chat/src/native/composer.tsx
+  s_22dadcff902f4f::t_02618c30bc54ec 15-17,143,148-150,266-277,317-319,321-326,330-332,335,340,347-350,373-374,381-383,386,419-420,422,424
+  s_22dadcff902f4f::t_ee7ae7d4292041 333-334,336-339,375-379,390,421
+  s_22dadcff902f4f::t_74dbc5c62ef490 380
+packages/chat/src/native/emoji-picker.tsx
+  s_22dadcff902f4f::t_7c7aeba4345efa 215
+packages/chat/src/native/message-actions-sheet.tsx
+  s_22dadcff902f4f::t_7b7dc1cf40cba6 61
+packages/chat/src/native/schedule-sheet.tsx
+  s_22dadcff902f4f::t_d6d815317a5ab6 318
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1ef008c53701370f1fad402978ef0a15e4f6c749",
+  "prompts": {},
+  "sessions": {
+    "s_22dadcff902f4f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e30c0aa7-4664-443f-9187-dce5753baa7d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
