@@ -1,0 +1,27 @@
+.changeset/semver-eq-intersects.md
+  s_7081dae02ae2cb::t_b1e18dae37eee5 1-5
+packages/genesis-cli/src/doctor/semver.ts
+  s_7081dae02ae2cb::t_36698eabf59e68 182-185
+packages/genesis-cli/test/doctor-packs.test.ts
+  s_7081dae02ae2cb::t_a394b4c795f22b 982-987
+scripts/__tests__/check-lockfile-downgrades.test.mjs
+  s_7081dae02ae2cb::t_d43993008c37ec 324-330
+scripts/check-lockfile-downgrades.mjs
+  s_7081dae02ae2cb::t_41798f6ab674de 199-200,204
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6d6f4bb8e462cc71321600fa1c927becc40c4e42",
+  "prompts": {},
+  "sessions": {
+    "s_7081dae02ae2cb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7a2b62bd-584c-47e8-8b1a-72015db941a7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
