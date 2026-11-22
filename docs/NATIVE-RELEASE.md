@@ -640,6 +640,7 @@ run on each push. The templates start narrow; widen them in the app's copy when 
 | Workflow | Runs by default | Why | To widen it |
 | --- | --- | --- | --- |
 | `pr-preview.yml` | A pull request labeled `Preview`. With `release.previews.everyPullRequest`, also pull requests into `main` (and `release.previews.branches`) whose changes touch the app's code folder, `app.json`, `app.config.*`, `eas.json`, `package.json`, a lockfile or `release.paths`. One run per branch at a time. A JavaScript-only change is a fingerprint and an update (no build minutes); only a native change repacks or builds, Android only until iOS is on. | A docs-only pull request has nothing to install. An iOS preview build is an ad hoc build, which installs only on devices registered before it was built: with none, every iOS build job fails. | Add branches or paths under `on.pull_request`. Turn iOS preview builds on with `PREVIEW_IOS=true` in the `preview` EAS environment after `eas device:create`. |
+| `agentic-ci.yml` | A pull request labeled `Agent check`, or by hand. | Each run is a repack or a build, an Expo Simulators session (billed by the minute, capped by `AGENT_MAX_MINUTES`) and the agent's model tokens. | Not on every pull request: its verdict needs a person to read it. |
 | `e2e.yml` | Only by hand. | Maestro jobs need a paid EAS plan, and each run is a simulator build or repack. | Add the `pull_request` trigger in the file's header comment. |
 | `deploy-production.yml` | Every push to `main` that changes the app (with `trigger: "github"`, only when `native-release.yml` starts it). | A store build only when native code changed; otherwise a fingerprint and an update. | Not needed. |
 | `native-release.yml` | Only with `trigger: "github"`: every push to `main` that changes the app. | GitHub minutes; EAS only when it must. | Not needed. |
@@ -758,6 +759,54 @@ EAS's "crash rate" for an update is **failed launches**: expo-updates couldn't s
 fell back to the code before it. It is not crash-free sessions; a crash after the app started
 isn't counted. Before every promotion, open your crash reporter's release health for the update
 and compare crash-free sessions with the update before it. Promote only if it is no worse.
+
+## Agentic CI
+
+`agentic-ci.yml` (from `templates/release/agentic-ci.yml`, with `.eas/agents/` from
+`templates/eas/agents/`; `genesis add template agentic-ci`) is Expo's
+[Agentic CI](https://docs.expo.dev/agentic-workflows/agentic-ci/) for iOS: a coding agent tests a
+pull request on an Expo Simulators session and comments a verdict with evidence. It doesn't
+replace the Maestro flows or a person's review; it tests what the pull request says it changes,
+where no flow covers it.
+
+1. The `e2e` simulator build with this fingerprint is repacked with the pull request's JavaScript,
+   or one is built.
+2. `check` sources `.eas/agents/start-session.sh`: one named session (`--max-duration-minutes`
+   `AGENT_MAX_MINUTES`, default 25; `--max-idle-time-minutes` `AGENT_IDLE_MINUTES`, default 5),
+   the app opened, the screen recorded, and an EXIT trap that saves the recording and stops the
+   session however the step ends.
+3. `.eas/agents/run-maestro.sh` runs the flows listed in `.eas/agents/maestro-flows.txt` on that
+   session through agent-device (`test --maestro`: a subset of Maestro YAML; Expo Simulators has
+   no Maestro CLI). Their results go to `agent-output/evidence/maestro.md`.
+4. `.eas/agents/run-agent.sh` runs Claude Code on `.eas/agents/check-pr.md`, the pull request's
+   title and body, the device's commands and `.eas/agents/app-facts.md`, with no
+   `EXPO_TOKEN`, `EXPO_TOKEN_SIMULATOR` or `GITHUB_TOKEN` and only the file tools and agent-device
+   allowed. It writes `agent-output/evidence/verdict.md` (line 1 `PASS: …` or `FAIL: …`) and
+   screenshots; the evidence folder is uploaded as the run's artifact.
+5. `comment` posts the verdict, the session page (its recording) and the run; `result` fails the
+   run unless the verdict is `PASS`.
+
+When it runs: a reviewer adds the label `Agent check` (create it in GitHub) after reading the
+change, or `eas workflow:run agentic-ci.yml --ref <branch> -F title="…" -F body="…"`. Never on every
+pull request, and never a required check until its verdicts have been read on real runs: a false
+`FAIL` usually means `app-facts.md` is missing something.
+
+Setup, once:
+
+- Expo Simulators on the account (`eas simulator:availability --json`, read-only).
+- A robot user with the Developer role, and its token as the secret `EXPO_TOKEN_SIMULATOR` in the
+  `development` EAS environment; the agent's key (`CLAUDE_CODE_OAUTH_TOKEN` from
+  `claude setup-token`, or `ANTHROPIC_API_KEY`) beside it. The agent and the pull request's code
+  can read every variable of that environment, so nothing production depends on goes there.
+- The `e2e` build pointed at a test backend with test logins only (never production), and those
+  logins in `app-facts.md`. Until then the template's facts say not to sign in.
+- `.env.eas-simulator` and `agent-output/` in `.gitignore`. In a monorepo, prefix the artifact
+  `path` with the app's folder.
+
+The cloud device can't reach a stack on your machine from EAS. From a Mac, an agent can drive the
+same scripts with `eas simulator:start --egress local --egress-allow 127.0.0.1:<port>` (local
+egress, experimental), which routes the device's HTTP(S) through that machine to a local
+isolated stack.
 
 ## Maestro
 

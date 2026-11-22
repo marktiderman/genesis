@@ -2320,7 +2320,7 @@ describe("npx never fetches a package the lane didn't pin", () => {
   // An npx call may run the app's own installed tool (`npx --no <bin>`, which never installs), or a
   // package pinned to an exact version from this list (`npx --yes <package>@<x.y.z>`). Anything
   // else could fetch whatever npm serves under that name and run it with the release's secrets.
-  const PINNABLE = new Set(["eas-cli"]);
+  const PINNABLE = new Set(["eas-cli", "agent-device", "@anthropic-ai/claude-code"]);
   const files = [
     ...walkFiles(TEMPLATES),
     ...walkFiles(path.join(STARTER, ".eas")),

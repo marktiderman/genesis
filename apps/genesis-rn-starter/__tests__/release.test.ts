@@ -50,7 +50,8 @@ describe("templates", () => {
     ["eas.json", "eas/eas.json"],
     ...readdirSync(join(root, ".eas/scripts")).map((f): [string, string] => [`.eas/scripts/${f}`, `eas/scripts/${f}`]),
     // The release lane's workflows moved to templates/release/ when they took the release markup.
-    ...workflowFiles.map((f): [string, string] => [`.eas/workflows/${f}`, ["deploy-production.yml", "pr-preview.yml"].includes(f) ? `release/${f}` : `eas/workflows/${f}`]),
+    ...workflowFiles.map((f): [string, string] => [`.eas/workflows/${f}`, ["deploy-production.yml", "pr-preview.yml", "agentic-ci.yml"].includes(f) ? `release/${f}` : `eas/workflows/${f}`]),
+    ...readdirSync(join(root, ".eas/agents")).map((f): [string, string] => [`.eas/agents/${f}`, `eas/agents/${f}`]),
     ["fingerprint.config.js", "expo/fingerprint.config.js"],
     [".fingerprintignore", "expo/.fingerprintignore"],
     [".maestro/config.yaml", "maestro/config.yaml"],
@@ -220,6 +221,39 @@ describe("EAS workflows", () => {
       expect(jobs[id]?.if, id).toMatch(/^\$\{\{ env\.PREVIEW_IOS == 'true'( && | \}\}$)/);
     }
     for (const id of ["get_android_build", "repack_android", "build_android"]) expect(jobs[id]?.if ?? "", id).not.toContain("PREVIEW_IOS");
+  });
+
+  it("agentic-ci runs only on the Agent check label or by hand, never on every pull request", () => {
+    const { on } = workflow("agentic-ci.yml");
+    expect(Object.keys(on).sort()).toEqual(["pull_request_labeled", "workflow_dispatch"]);
+    expect(on.pull_request_labeled).toEqual({ labels: ["Agent check"] });
+  });
+
+  it("agentic-ci can't reach production, and the agent never holds the tokens", () => {
+    const text = read(".eas/workflows/agentic-ci.yml");
+    expect(text).not.toMatch(/eas(?:-cli)?(?:@[\w.]+)? (update|submit)\b/);
+    for (const [id, job] of Object.entries(workflow("agentic-ci.yml").jobs)) {
+      expect(["submit", "testflight", "update", "update-rollout"], id).not.toContain(job.type);
+      expect(job.environment ?? "", id).not.toBe("production");
+      expect(job.params?.profile ?? "", id).not.toBe("production");
+    }
+    const run = workflow("agentic-ci.yml").jobs.check!.steps!.map((s) => s.run ?? "").join("\n");
+    expect(run).toMatch(/env -u EXPO_TOKEN -u EXPO_TOKEN_SIMULATOR -u GITHUB_TOKEN\s+\\?\s*timeout /);
+  });
+
+  it("every Expo Simulators session has a maximum duration and an idle limit, and is stopped on exit", () => {
+    const start = read(".eas/agents/start-session.sh");
+    const cmd = start.slice(start.indexOf("$EAS simulator:start"), start.indexOf("/tmp/session.json"));
+    expect(cmd).toContain("--max-duration-minutes");
+    expect(cmd).toContain("--max-idle-time-minutes");
+    expect(start).toMatch(/trap agentic_ci_stop EXIT/);
+    expect(start).toMatch(/agentic_ci_stop\(\) \{[\s\S]*simulator:stop/);
+  });
+
+  it("the agent may run only agent-device on the session, and the file tools", () => {
+    const runner = read(".eas/agents/run-agent.sh");
+    expect(runner).toContain("tools='Read,Glob,Grep,Write,Bash(npx --yes eas-cli@27.11.0 simulator:exec npx --yes agent-device@0.21.41 *)'");
+    expect(runner).not.toMatch(/dangerously|bypassPermissions/);
   });
 
   it("e2e runs only by hand", () => {

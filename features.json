@@ -5355,6 +5355,58 @@
       "flags": []
     },
     {
+      "id": "agentic-ci",
+      "name": "Agentic CI (Expo Simulators)",
+      "summary": "An EAS workflow a native app owns (templates/release/agentic-ci.yml, with .eas/agents from templates/eas/agents; genesis add template agentic-ci), after Expo's Agentic CI: on the Agent check label or by hand, never on every pull request, it repacks a matching iOS simulator build or builds one, starts one named Expo Simulators session with a maximum duration and an idle limit, records the screen, runs the app's Maestro flows there through agent-device, has a coding agent (Claude Code, allowed only the file tools and agent-device) test what the pull request's title and body describe, and comments a PASS or FAIL verdict with the session recording, screenshots and log. The session is always stopped.",
+      "category": "Tooling",
+      "status": "building",
+      "claimedBy": "mark",
+      "kind": "tool",
+      "keywords": [
+        "agentic ci",
+        "expo simulators",
+        "eas simulator",
+        "cloud simulator",
+        "agent-device",
+        "pr check",
+        "ai qa",
+        "e2e"
+      ],
+      "platforms": {
+        "native": "building"
+      },
+      "requires": [
+        "eas-workflows",
+        "maestro-smoke"
+      ],
+      "owner": "mark",
+      "apps": [
+        "native"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "acceptance": [
+        "It starts only on the Agent check label or a manual run, never on every pull request, and no job publishes, submits, or uses the production environment or profile.",
+        "Every session it starts has --max-duration-minutes and --max-idle-time-minutes, and an EXIT trap stops it; the agent runs without EXPO_TOKEN, EXPO_TOKEN_SIMULATOR or GITHUB_TOKEN and may run only agent-device on the session.",
+        "The workflow file stays under EAS's 16 KiB limit (doctor eas-workflow-size), and the starter's copies are byte-identical to the templates."
+      ],
+      "reviewedAt": "2026-11-22",
+      "links": {
+        "code": [
+          "templates/release/agentic-ci.yml",
+          "templates/eas/agents",
+          "apps/genesis-rn-starter/.eas/agents"
+        ],
+        "docs": [
+          "docs/NATIVE-RELEASE.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
       "id": "account",
       "name": "Account",
       "summary": "Sign-in (email, phone, Google, Apple), profile and in-app account deletion, on web and native, with the sign-in rules app stores require.",

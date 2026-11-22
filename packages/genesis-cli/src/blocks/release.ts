@@ -287,6 +287,10 @@ export const TEMPLATE_SETS: Readonly<Record<string, { summary: string; templates
     summary: "pull request previews alone, for an app that ships its releases another way: pr-preview.yml (EAS), pr-preview-teardown.yml (GitHub), the script pr-preview.yml runs, the fingerprint config",
     templates: ["release/pr-preview.yml", "ci/pr-preview-teardown.yml", "eas/scripts/native-release.mjs", "expo/fingerprint.config.js", "expo/.fingerprintignore"],
   },
+  "agentic-ci": {
+    summary: "Agentic CI: agentic-ci.yml (EAS), on the Agent check label or by hand, where a coding agent tests a pull request on an Expo Simulators session (and runs the app's Maestro flows there) and comments its verdict, with the scripts and prompt in .eas/agents",
+    templates: ["release/agentic-ci.yml", "eas/agents/"],
+  },
   eas: { summary: "eas.json and every EAS workflow and script", templates: ["eas/", "release/"] },
   expo: { summary: "the fingerprint config and .fingerprintignore", templates: ["expo/"] },
   maestro: { summary: "the Maestro smoke flows", templates: ["maestro/"] },
@@ -782,6 +786,8 @@ export function missingTemplateSets(root: string, lock: GenesisLock, dir = templ
     if (["release", "eas", "expo", "maestro"].includes(name)) return native;
     // Previews alone is the release lane's subset: an app offered the lane isn't offered both.
     if (name === "previews") return false;
+    // Agentic CI is opt-in: each run is billed (a session, a repack and an agent's tokens).
+    if (name === "agentic-ci") return false;
     if (name === "database") return existsSync(path.join(root, "supabase"));
     if (name === "vercel") return !native;
     return true;
