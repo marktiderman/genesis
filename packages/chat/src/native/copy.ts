@@ -24,6 +24,18 @@ export interface ChatNativeCopy extends ChatOrganiseCopy {
   archive: string;
   threadEmptyTitle: string;
   threadEmptyBody: string;
+  /** The conversation or its first page couldn't be read, and there's nothing to show. */
+  threadErrorTitle: string;
+  threadErrorBody: string;
+  /** The phone is offline (NetInfo), in the thread's status line. */
+  waitingForNetwork: string;
+  /** Online, but the live channel hasn't joined (yet, or again). */
+  connecting: string;
+  /** The pill over the composer when new messages came in below where you are. */
+  newMessagesPillOne: string;
+  newMessagesPill: string;
+  /** VoiceOver's hint on the pill. */
+  newMessagesPillHint: string;
   loadEarlier: string;
   newMessages: string;
   placeholder: string;
@@ -191,6 +203,13 @@ export const chatNativeCopy: ChatNativeCopy = {
   archive: "Archive",
   threadEmptyTitle: "No messages yet",
   threadEmptyBody: "Say hello below.",
+  threadErrorTitle: "Couldn't load messages",
+  threadErrorBody: "Check your connection, then try again.",
+  waitingForNetwork: "Waiting for network…",
+  connecting: "Connecting…",
+  newMessagesPillOne: "1 new message",
+  newMessagesPill: "{count} new messages",
+  newMessagesPillHint: "Goes to the newest message",
   loadEarlier: "Load earlier messages",
   newMessages: "New messages",
   placeholder: "Message",

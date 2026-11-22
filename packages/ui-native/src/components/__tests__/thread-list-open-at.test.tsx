@@ -47,6 +47,37 @@ describe("NativeThreadList openAt", () => {
     expect(calls.scrollToIndex).toHaveBeenCalledTimes(count);
   });
 
+  it("waits until the first unread is known (undefined), then opens at it", async () => {
+    vi.useFakeTimers();
+    const { List, calls } = recordingList();
+    const view = (openAt: string | null | undefined) => (
+      <GenesisModulesProvider modules={{ list: List as never }}>
+        <NativeThreadList testID="l" data={rows} keyExtractor={(r) => r.id} renderItem={renderRow} openAt={openAt} />
+      </GenesisModulesProvider>
+    );
+    const { rerender } = render(view(undefined));
+    await tick(300);
+    expect(calls.scrollToIndex).not.toHaveBeenCalled();
+    rerender(view("unread"));
+    await tick(300);
+    expect(calls.scrollToIndex).toHaveBeenCalledWith({ index: 2, animated: false, viewPosition: 0 });
+  });
+
+  it("doesn't move a list the reader has already scrolled", async () => {
+    vi.useFakeTimers();
+    const { List, calls } = recordingList();
+    const view = (openAt: string | null | undefined) => (
+      <GenesisModulesProvider modules={{ list: List as never }}>
+        <NativeThreadList testID="l" data={rows} keyExtractor={(r) => r.id} renderItem={renderRow} openAt={openAt} />
+      </GenesisModulesProvider>
+    );
+    const { rerender } = render(view(undefined));
+    act(() => (calls.props.at(-1)!.onScrollBeginDrag as () => void)());
+    rerender(view("unread"));
+    await tick(300);
+    expect(calls.scrollToIndex).not.toHaveBeenCalled();
+  });
+
   it("waits for the first page, and leaves a jump to jumpTo", async () => {
     vi.useFakeTimers();
     const { List, calls } = recordingList();

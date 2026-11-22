@@ -403,8 +403,11 @@ export function useConversation(conversationId: string | null | undefined, opts:
 
   const [activity, setActivity] = useState<ChatActivity[]>([]);
   const channel = useRef<ConversationChannel | null>(null);
+  // Whether the live channel is joined: null until the client first says, false when it dropped.
+  const [live, setLive] = useState<boolean | null>(null);
   useEffect(() => {
     if (!enabled) return;
+    setLive(null);
     const fetchOne = async (messageId: string) => {
       const m = await client.message(messageId);
       if (!m) return;
@@ -436,6 +439,7 @@ export function useConversation(conversationId: string | null | undefined, opts:
       },
       onActivity: (a) => setActivity((prev) => currentActivity([...prev, a])),
       onJoin: () => void catchUp().catch(() => undefined),
+      onLive: setLive,
     });
     return () => {
       channel.current?.unsubscribe();
@@ -486,6 +490,13 @@ export function useConversation(conversationId: string | null | undefined, opts:
         queryClient.refetchQueries({ queryKey: ["genesis-chat", "kind"] }),
       ]).then(() => undefined),
     [queryClient, id],
+  );
+
+  const { refetch: refetchMessages } = messages;
+  const { refetch: refetchConversationRow } = conversation;
+  const reload = useCallback(
+    () => Promise.all([refetchConversationRow(), refetchMessages()]).then(() => undefined),
+    [refetchConversationRow, refetchMessages],
   );
 
   const loadEarlier = useCallback(async () => {
@@ -581,6 +592,8 @@ export function useConversation(conversationId: string | null | undefined, opts:
     loadUntil,
     /** Where to draw the "New" line, from what you had read when it opened. */
     firstUnreadId: readWhenOpened === null ? null : firstUnreadId(list, readWhenOpened, userId),
+    /** Whether `firstUnreadId` is known yet (your read place as of this opening has been fetched). */
+    firstUnreadKnown: readWhenOpened !== null,
     activity: currentActivity(activity),
     signalTyping,
     signalRecording,
@@ -591,6 +604,10 @@ export function useConversation(conversationId: string | null | undefined, opts:
     retry: outbox.retry,
     discard: outbox.discard,
     refetch: catchUp,
+    /** The conversation and its first page again, after either failed (a Retry on the thread's error row). */
+    reload,
+    /** The live channel: true once joined, false when it dropped (errored, timed out, closed), null until the client says. */
+    live,
   };
 }
 

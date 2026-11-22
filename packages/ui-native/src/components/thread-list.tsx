@@ -138,8 +138,9 @@ export interface NativeThreadListProps<T> {
   onAtBottomChange?: (atBottom: boolean) => void;
   /**
    * Open at this row (by `jumpId`), at the top of the screen, instead of the bottom: the first
-   * unread, when the "New" line would be above the screen. Once, when the rows first come; ignored
-   * while `jumpTo` is set.
+   * unread, when the "New" line would be above the screen. Once, when the rows and it are first
+   * known: `undefined` means not known yet (it waits), `null` means open at the bottom. Ignored
+   * while `jumpTo` is set, and once the reader has scrolled.
    */
   openAt?: string | null;
   /** Above the first row, before the "Load earlier" button: what the thread is about. */
@@ -347,7 +348,7 @@ function NativeThreadListInner<T>(props: NativeThreadListProps<T>, ref: React.Fo
   // Opening at a row (the first unread): once, when the rows first come, unless a jump is asked for.
   const opened = useRef(false);
   useEffect(() => {
-    if (opened.current || loading || data.length === 0) return;
+    if (opened.current || loading || data.length === 0 || openAt === undefined) return;
     opened.current = true;
     if (!openAt || jumpTo) return;
     const at = indexOf(openAt);
@@ -407,6 +408,7 @@ function NativeThreadListInner<T>(props: NativeThreadListProps<T>, ref: React.Fo
   // may report a programmatic smooth scroll), which would cancel the list's own retry. VoiceOver's
   // three-finger scroll and a wheel send no drag, so those count once the settling window (400ms) ends.
   const readerTookOver = useCallback(() => {
+    opened.current = true;
     settlingUntil.current = 0;
     moveId.current += 1;
     jumpTries.current = null;

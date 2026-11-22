@@ -20,11 +20,17 @@
  * closed one takes no posts from members), the away line under the header, scheduled send
  * (touch and hold Send) with the thread's scheduled messages over the composer, `jumpTo` a
  * message (a search result), and moderation's markers.
+ *
+ * It opens at the first unread when the "New" line would be above the screen, says when it is
+ * waiting for the network or reconnecting, shows an error row with Retry when nothing could be
+ * read, and a "↓ 3 new messages" pill when messages come in below where you are. Drag the thread
+ * left for every message's time. An app's own strip goes in `header`, its tools over the composer
+ * in `accessory`; `active={false}` keeps a thread mounted off screen without marking it read.
  */
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from "react";
-import { KeyboardAvoidingView, Platform, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
+import { KeyboardAvoidingView, Platform, Pressable, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { NativeAvatar, NativeEmptyState, NativeListItem, NativeSheet, NativeText, NativeThreadList, useGenesisModules, useToast, type NativeThreadListHandle, type ThreadRowInfo } from "@marktiderman/genesis-ui-native/components";
+import { NativeAvatar, NativeButton, NativeEmptyState, NativeIcon, NativeListItem, NativeSheet, NativeText, NativeThreadList, useGenesisModules, useToast, type NativeThreadListHandle, type ThreadRowInfo } from "@marktiderman/genesis-ui-native/components";
 import { useReducedMotion, useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
 import { activityLine } from "../core/thread";
 import type { ChatMessage, PendingFile } from "../core/types";
@@ -55,6 +61,10 @@ import { displayBody, MessageBubble } from "./message-bubble";
 import { haptic, type KeyboardAvoidingLike } from "./modules";
 import { pauseChatPlayback } from "./voice-player";
 import { buildThreadRows, type ThreadRow } from "./rows";
+import { ChatTimesProvider, useTimeReveal } from "./thread-times";
+import { isOnline } from "./auto-retry";
+import type { ChatComposerHandle } from "./use-composer";
+import type { NetInfoLike } from "./modules";
 
 /** How long an upload minted for a thrown-away take is kept for the next one. */
 const PREPARED_UPLOAD_MS = 20 * 60_000;
@@ -101,7 +111,59 @@ export interface ChatThreadScreenProps {
    * leaves it out. Default "show".
    */
   receipts?: ChatReceiptsMode;
+  /**
+   * Whether this thread is the one being read. False keeps it mounted (a tab, a split view's other
+   * pane) without marking it read, and pauses what it plays, as `focused` does; turning true marks
+   * it read again. Default true.
+   */
+  active?: boolean;
+  /** Above the messages, under the topic bar and away line: an app's own context strip. */
+  header?: ReactNode;
+  /**
+   * Over the composer: an app's own tools for this thread (quick replies, a template picker).
+   * Given the composer, so a tool can write into the draft, and whether you can post.
+   */
+  accessory?: (context: ChatThreadAccessoryContext) => ReactNode;
+  /** The longest video message, in ms. Default: your role's recording limit (`recordingLimitMs`). */
+  videoLimitMs?: number;
   testID?: string;
+}
+
+/** What `ChatThreadScreen`'s `accessory` is given. */
+export interface ChatThreadAccessoryContext {
+  conversationId: string;
+  /** The composer's draft and reply (`dispatch({ type: "text", text })` writes into it). */
+  composer: ChatComposerHandle;
+  /** null while your role loads. */
+  canPost: boolean | null;
+}
+
+/** What the thread's status line says: nothing, offline (NetInfo), or the live channel dropped. */
+export type ChatConnectionState = "online" | "offline" | "connecting";
+
+/** Offline wins; then a live channel that dropped; a channel not yet heard from is online. */
+export function connectionState(online: boolean | null, live: boolean | null): ChatConnectionState {
+  if (online === false) return "offline";
+  if (live === false) return "connecting";
+  return "online";
+}
+
+/** Whether the phone is online, from the app's NetInfo (`modules.netInfo`); null without it or until it says. */
+export function useOnline(netInfo: NetInfoLike | undefined): boolean | null {
+  const [online, setOnline] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!netInfo) return;
+    return netInfo.addEventListener((state) => setOnline(isOnline(state)));
+  }, [netInfo]);
+  return online;
+}
+
+/** How many messages from others came in after `afterSeq` (the newest when you scrolled up). */
+export function newBelowCount(messages: readonly { seq: number; senderId: string | null }[], afterSeq: number | null, me: string): number {
+  if (afterSeq === null) return 0;
+  let n = 0;
+  for (let i = messages.length - 1; i >= 0 && messages[i]!.seq > afterSeq; i--) if (messages[i]!.senderId !== me) n++;
+  return n;
 }
 
 export interface ChatThreadScreenSlots {
@@ -142,7 +204,9 @@ export function nearBottom(m: { contentOffset: { y: number }; contentSize: { hei
 }
 
 export function ChatThreadScreen(props: ChatThreadScreenProps) {
-  const { conversationId, threadRootId = null, keyboardVerticalOffset, onOpenAttachment, jumpTo, topic: topicProp, showTopics = false, scheduling = true, availability = true, focused = true, receipts = "show", testID = "chat-thread" } = props;
+  const { conversationId, threadRootId = null, keyboardVerticalOffset, onOpenAttachment, jumpTo, topic: topicProp, showTopics = false, scheduling = true, availability = true, receipts = "show", active = true, header, accessory, videoLimitMs, testID = "chat-thread" } = props;
+  // Off screen either way: not focused (a tab), or not the thread being read.
+  const focused = (props.focused ?? true) && active;
   const chat = useChat();
   const { userId, videoUpload, attachmentKinds, outbox, queue } = chat;
   const attachmentSlot = props.slots?.attachment;
@@ -164,7 +228,7 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
     if (jumpTo) setChosenTopic(null);
   }
   const topic = topicProp ?? chosenTopic ?? undefined;
-  const conv = useConversation(conversationId, { threadRootId: threadRootId ?? undefined, topic });
+  const conv = useConversation(conversationId, { threadRootId: threadRootId ?? undefined, topic, markRead: active });
   const pins = usePins(conversationId);
   const messageActions = useMessageActions();
   const { modules, copy, person } = useChatNative();
@@ -277,10 +341,10 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
   const { retry, discard, canPost: allowed } = conv;
   const onLongPress = useCallback(
     (message: ChatMessage) => {
-      haptic(modules.haptics, "select");
+      haptic(modules.haptics ?? genesis.haptics, "long-press");
       setActionsFor(message);
     },
-    [modules.haptics],
+    [modules.haptics, genesis.haptics],
   );
   const onSwipeReply = useCallback(() => haptic(modules.haptics, "select"), [modules.haptics]);
   const onRetry = useCallback((clientId: string) => void retry(clientId), [retry]);
@@ -349,6 +413,29 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
     },
     [copy.jumpedTo, nameOf, attachmentKinds],
   );
+  // ---- Where you are: the "↓ N new messages" pill ----
+  const [scrolledAwayAt, setScrolledAwayAt] = useState<number | null>(null);
+  const latestSeqNow = useRef(0);
+  latestSeqNow.current = conv.messages.length ? conv.messages[conv.messages.length - 1]!.seq : 0;
+  const onAtBottomChange = useCallback((atBottom: boolean) => setScrolledAwayAt(atBottom ? null : latestSeqNow.current), []);
+  const newBelow = newBelowCount(conv.messages, scrolledAwayAt, userId);
+  // Opens at the first unread, once that is known (the list keeps it at the bottom if it fits).
+  const openAt = conv.firstUnreadKnown ? conv.firstUnreadId : undefined;
+
+  // ---- Status: offline, reconnecting ----
+  const online = useOnline(modules.netInfo);
+  const connection = connectionState(online, conv.live);
+  const { reload } = conv;
+  const [reloading, setReloading] = useState(false);
+  const retryLoad = useCallback(() => {
+    if (!reload) return;
+    setReloading(true);
+    void reload()
+      .catch(() => fail())
+      .finally(() => setReloading(false));
+  }, [reload, fail]);
+  const times = useTimeReveal(reducedMotion);
+
   const onJumpFailed = useCallback(() => {
     if (jumpLoadFailed.current) jumpLoadFailed.current = false;
     else toast.show({ title: copy.messageGone });
@@ -468,7 +555,10 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
             <ChatTopicBar topics={topics} value={topic ?? null} onValueChange={setChosenTopic} canManage={canManageTopics(conv.role)} onSetTopic={topicsState.setTopic} testID={`${testID}-topics`} />
           ) : null}
           <ChatAwayLine text={awayLine} testID={`${testID}-away`} />
-          <View style={{ flex: 1 }}>
+          <ChatConnectionLine state={connection} testID={`${testID}-connection`} />
+          {header}
+          <View style={{ flex: 1 }} {...times.panHandlers}>
+            <ChatTimesProvider value={times.value}>
             <NativeThreadList<ThreadRow>
               ref={listRef}
               testID={`${testID}-list`}
@@ -487,11 +577,23 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
               jumpAnnouncement={jumpAnnouncement}
               onJumpFailed={onJumpFailed}
               footer={footer}
-              empty={<NativeEmptyState variant="first-run" title={copy.threadEmptyTitle} body={currentTopic?.closedAt ? copy.topicClosedNotice : copy.threadEmptyBody} testID={`${testID}-empty`} />}
+              openAt={openAt}
+              onAtBottomChange={onAtBottomChange}
+              header={firstPageFailed && rows.length ? <ThreadLoadError onRetry={retryLoad} retrying={reloading} testID={`${testID}-load-error`} /> : null}
+              empty={
+                firstPageFailed ? (
+                  <ThreadLoadError onRetry={retryLoad} retrying={reloading} testID={`${testID}-load-error`} />
+                ) : (
+                  <NativeEmptyState variant="first-run" title={copy.threadEmptyTitle} body={currentTopic?.closedAt ? copy.topicClosedNotice : copy.threadEmptyBody} testID={`${testID}-empty`} />
+                )
+              }
             />
+            </ChatTimesProvider>
+            {newBelow > 0 ? <NewMessagesPill count={newBelow} onPress={toNewest} testID={`${testID}-new-below`} /> : null}
           </View>
           {scheduling && !threadRootId ? <ChatScheduledBar conversationId={conversationId} testID={`${testID}-scheduled`} /> : null}
           <VideoUploadTray conversationId={conversationId} userId={userId} testID={`${testID}-video-uploads`} />
+          {accessory && !accessFailed ? <View testID={`${testID}-accessory`}>{accessory({ conversationId, composer, canPost })}</View> : null}
           {accessFailed ? (
             <ChatAccessError onRetry={retryAccess} retrying={retryingAccess} testID={`${testID}-access-error`} />
           ) : (
@@ -523,7 +625,7 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
           attachmentKinds={attachmentKinds}
           testID={`${testID}-actions`}
         />
-        <NativeSheet open={readersOpen && Boolean(readers?.length)} onOpenChange={setReadersOpen} testID={`${testID}-readers`}>
+        <NativeSheet open={readersOpen && Boolean(readers?.length)} onOpenChange={setReadersOpen} fitContent testID={`${testID}-readers`}>
           <View style={{ paddingTop: 20, paddingBottom: 8, paddingHorizontal: 16, gap: 8 }}>
             <NativeText preset="label" accessibilityRole="header" style={{ color: colors.secondaryLabel, paddingHorizontal: 4 }}>
               {copy.receiptReadersTitle}
@@ -548,7 +650,7 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
         <ChatVideoRecorder
           open={videoOpen}
           onClose={() => setVideoOpen(false)}
-          limitMs={recordingLimitMs(conv.role)}
+          limitMs={videoLimitMs ?? recordingLimitMs(conv.role)}
           onStart={onVideoStart}
           onTick={conv.signalRecordingVideo}
           onRecorded={onVideoRecorded}
@@ -579,6 +681,64 @@ function UnreadDivider({ label, testID }: { label: string; testID: string }) {
         {label}
       </NativeText>
       <View style={{ flex: 1, height: 1, backgroundColor: colors.tint }} />
+    </View>
+  );
+}
+
+/** "Waiting for network…" or "Connecting…" under the header; nothing while live. */
+function ChatConnectionLine({ state, testID }: { state: ChatConnectionState; testID: string }) {
+  const colors = useThemeRoles();
+  const { copy } = useChatNative();
+  if (state === "online") return null;
+  const text = state === "offline" ? copy.waitingForNetwork : copy.connecting;
+  return (
+    <View testID={testID} accessible accessibilityRole="text" accessibilityLabel={text} accessibilityLiveRegion="polite" style={{ alignItems: "center", paddingVertical: 6, backgroundColor: colors.fill }}>
+      <NativeText preset="caption" style={{ color: colors.secondaryLabel, fontWeight: "600" }}>
+        {text}
+      </NativeText>
+    </View>
+  );
+}
+
+/** Nothing could be read: say so, with Retry, instead of "No messages yet". */
+function ThreadLoadError({ onRetry, retrying, testID }: { onRetry: () => void; retrying: boolean; testID: string }) {
+  const { copy } = useChatNative();
+  return (
+    <NativeEmptyState
+      variant="error"
+      title={copy.threadErrorTitle}
+      body={copy.threadErrorBody}
+      testID={testID}
+      primaryAction={
+        <NativeButton onPress={onRetry} loading={retrying} disabled={retrying} testID={`${testID}-retry`}>
+          {copy.retry}
+        </NativeButton>
+      }
+    />
+  );
+}
+
+/** "↓ 3 new messages", over the bottom of the list while you're scrolled up; goes to the newest. */
+function NewMessagesPill({ count, onPress, testID }: { count: number; onPress: () => void; testID: string }) {
+  const colors = useThemeRoles();
+  const { copy } = useChatNative();
+  const label = count === 1 ? copy.newMessagesPillOne : fill(copy.newMessagesPill, { count });
+  return (
+    <View pointerEvents="box-none" style={{ position: "absolute", left: 0, right: 0, bottom: 8, alignItems: "center" }}>
+      <Pressable
+        testID={testID}
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        accessibilityHint={copy.newMessagesPillHint}
+        accessibilityLiveRegion="polite"
+        onPress={onPress}
+        style={{ flexDirection: "row", alignItems: "center", gap: 6, minHeight: 36, paddingHorizontal: 14, borderRadius: 18, backgroundColor: colors.tint }}
+      >
+        <NativeIcon name="chevron-down" size={14} color={colors.surface} />
+        <NativeText preset="caption" style={{ color: colors.surface, fontWeight: "600" }}>
+          {label}
+        </NativeText>
+      </Pressable>
     </View>
   );
 }

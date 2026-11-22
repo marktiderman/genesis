@@ -298,6 +298,8 @@ export interface ConversationHandlers {
   onJoin?: () => void;
   /** Re-joins only. Prefer `onJoin`. */
   onReconnect?: () => void;
+  /** Whether the channel is live, as it changes: true once joined, false when it errors, times out or closes. */
+  onLive?: (live: boolean) => void;
 }
 
 export interface ConversationChannel extends Subscription {
@@ -752,6 +754,7 @@ export function createChatClient(supabase: ChatSupabase, options: ChatClientOpti
       let joined = false;
       const leave = join(channel, (status) => {
         joined = status === "SUBSCRIBED";
+        handlers.onLive?.(joined);
         if (status === "SUBSCRIBED") {
           handlers.onJoin?.();
           if (joinedOnce) handlers.onReconnect?.();
