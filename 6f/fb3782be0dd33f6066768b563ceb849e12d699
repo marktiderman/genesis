@@ -1,0 +1,26 @@
+packages/chat/src/native/__tests__/media-cache-key.test.tsx
+  s_22dadcff902f4f::t_17fdcf49dc5777 1-21
+packages/chat/src/native/__tests__/stable-hooks.test.tsx
+  s_22dadcff902f4f::t_8dfe08420b62bf 27,51
+  s_22dadcff902f4f::t_d504e2044b156c 1-26,28-50,52-68
+packages/chat/src/native/media.tsx
+  s_22dadcff902f4f::t_23e92a0b54b436 25-29,53,154
+packages/chat/src/react/index.tsx
+  s_22dadcff902f4f::t_e38e52e2c35d1f 8,633-640,654,668,672-675,680-686
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6ffb3782be0dd33f6066768b563ceb849e12d699",
+  "prompts": {},
+  "sessions": {
+    "s_22dadcff902f4f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e30c0aa7-4664-443f-9187-dce5753baa7d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
