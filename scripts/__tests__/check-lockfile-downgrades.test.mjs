@@ -326,6 +326,13 @@ describe("check-lockfile-downgrades", () => {
     const files = { "package.json": '{"devDependencies":{"vitest":"^5.0.0"}}', "apps/starter/package.json": '{"dependencies":{"react-native":"0.88.1"}}' };
     const read = manifestPins(workspace({ ".": { vitest: "5.1.0" }, "apps/starter": { "react-native": "0.88.1" }, "apps/gone": { x: "1.0.0" } }), (f) => files[f] ?? null);
     expect(read).toEqual(new Map([[".", new Map([["vitest", "^5.0.0"]])], ["apps/starter", new Map([["react-native", "0.88.1"]])]]));
+    // A name in two sections with different specs has no one pin, so its downgrade still fails.
+    const lock2 = (v) => workspace({ "apps/starter": { bar: v } });
+    const manifest = (deps) => (f) => (f === "apps/starter/package.json" ? JSON.stringify({ optionalDependencies: { bar: "^1.0.0" }, dependencies: { bar: deps } }) : null);
+    expect(manifestPins(lock2("1.1.0"), manifest("1.1.0")).get("apps/starter").get("bar")).toBeNull();
+    expect(
+      lockfileDowngrades(lock2("1.2.0"), lock2("1.1.0"), { before: manifestPins(lock2("1.2.0"), manifest("^1.0.0")), after: manifestPins(lock2("1.1.0"), manifest("1.1.0")) }).downgrades,
+    ).toEqual(["bar: replaces 1.2.0 with 1.1.0, an older release, for apps/starter"]);
     expect(specifierTakes("2.3.2", "2.3.3")).toBe(false);
     expect(specifierTakes("~8.28.0", "8.35.0")).toBe(false);
     expect(specifierTakes("~8.28.0", "8.28.4")).toBe(true);

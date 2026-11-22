@@ -9,10 +9,10 @@
  * resolves every package to a release at least a week old, not only the one it bumps.
  *
  * One downgrade is deliberate and passes: a workspace package whose own package.json pin for that
- * dependency changed in the same diff (its specifier differs from the base lockfile's) to an exact,
- * `~` or `^` range that no longer admits the old version, as aligning with an Expo SDK does (read from
- * package.json itself, never from an override). A
- * downgrade with no such pin change still fails.
+ * dependency changed in the same diff (its package.json specifier at the base ref differs from the
+ * one at head; the lockfile's specifier, which carries overrides, isn't read) to an exact, `~` or
+ * `^` range that no longer admits the old version, as aligning with an Expo SDK does. A downgrade
+ * with no such pin change still fails.
  *
  * Usage: node scripts/check-lockfile-downgrades.mjs --base origin/main
  * Fix: `pnpm install && pnpm dedupe` on the branch, or restore the base lockfile and reinstall.
@@ -183,8 +183,10 @@ export function manifestPins(lockfile, read) {
       continue;
     }
     const pins = new Map();
-    for (const section of ["optionalDependencies", "devDependencies", "dependencies"])
-      for (const [name, spec] of Object.entries(pkg[section] ?? {})) if (typeof spec === "string") pins.set(name, spec);
+    // A name in more than one section with different specs has no one pin to judge (null never exempts).
+    for (const section of ["devDependencies", "dependencies", "optionalDependencies"])
+      for (const [name, spec] of Object.entries(pkg[section] ?? {}))
+        if (typeof spec === "string") pins.set(name, pins.has(name) && pins.get(name) !== spec ? null : spec);
     out.set(path, pins);
   }
   return out;
