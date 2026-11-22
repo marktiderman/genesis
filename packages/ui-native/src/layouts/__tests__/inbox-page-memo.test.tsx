@@ -51,4 +51,22 @@ describe("InboxPage rows", () => {
     act(() => bump());
     expect(screen.getByTestId("inbox-row-a-time").textContent).toBe("Yesterday");
   });
+
+  it("gives a formatter of the app's own the exact clock, every render (the default reads only minutes)", () => {
+    let clock = new Date(2026, 9, 24, 12, 0, 45);
+    const nowFn = () => clock;
+    const seconds = (date: Date, now: Date) => `${Math.round((now.getTime() - date.getTime()) / 1000)}s ago`;
+    const at = [{ id: "a", title: "Sam", timestamp: new Date(2026, 9, 24, 12, 0, 30) }];
+    let bump: () => void = () => undefined;
+    function Screen() {
+      const [n, setN] = useState(0);
+      bump = () => setN((x) => x + 1);
+      return <InboxPage testID="inbox" items={at} now={nowFn} formatTime={seconds} header={<Text>{String(n)}</Text>} />;
+    }
+    render(<Screen />);
+    expect(screen.getByTestId("inbox-row-a-time").textContent).toBe("15s ago");
+    clock = new Date(2026, 9, 24, 12, 0, 55);
+    act(() => bump());
+    expect(screen.getByTestId("inbox-row-a-time").textContent).toBe("25s ago");
+  });
 });

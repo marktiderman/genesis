@@ -143,7 +143,13 @@ export interface NativeThreadListProps<T> {
    * Open at this row (by `jumpId`), at the top of the screen, instead of the bottom: the first
    * unread, when the "New" line would be above the screen. Once, when the rows and it are first
    * known: `undefined` means not known yet (it waits), `null` means open at the bottom. Ignored
-   * while `jumpTo` is set, and once the reader has scrolled.
+   * while `jumpTo` is set, and once the reader has scrolled. If the row goes before the list
+   * reaches it, the list opens at the newest rows.
+   *
+   * "Once the reader has scrolled" is a drag, or a scroll away from the bottom outside the list's
+   * own moves. Inside the 400 ms after the list moves itself, a reader's scroll counts only when it
+   * goes up while the list is going down: the very first scroll event in that window can't be told
+   * apart from the list's own placement, so one that comes before any other is taken as the list's.
    */
   openAt?: string | null;
   /** Above the first row, before the "Load earlier" button: what the thread is about. */
@@ -263,6 +269,8 @@ function NativeThreadListInner<T>(props: NativeThreadListProps<T>, ref: React.Fo
     (animated: boolean) => {
       settlingUntil.current = Date.now() + SETTLING_MS;
       towardBottom.current = true;
+      // A newer move: any opening or jump retry still queued is dropped, so it can't pull the list back.
+      jumpTries.current = null;
       const move = ++moveId.current;
       const go = (a: boolean) => listRef.current?.scrollToEnd?.({ animated: a && !reducedMotion });
       requestAnimationFrame(() => {
@@ -357,6 +365,17 @@ function NativeThreadListInner<T>(props: NativeThreadListProps<T>, ref: React.Fo
 
   // Opening at a row (the first unread): once, when the rows first come, unless a jump is asked for.
   const opened = useRef(false);
+  // The opening row can't be reached (it went, or the retries ran out): open at the newest rows,
+  // following them again.
+  const openAtNewest = useCallback(
+    (target: object) => {
+      if (jumpTries.current !== target) return;
+      jumpTries.current = null;
+      setAtBottom(true);
+      toBottom(false);
+    },
+    [setAtBottom, toBottom],
+  );
   // An opening whose last try reported no failure has landed: drop its retry target.
   const clearOpened = useCallback((target: { tries: number }, tries: number) => {
     if (jumpTries.current === target && target.tries === tries) jumpTries.current = null;
@@ -373,9 +392,9 @@ function NativeThreadListInner<T>(props: NativeThreadListProps<T>, ref: React.Fo
     const target = { id: openAt, tries: 0, viewPosition: 0, opening: true };
     jumpTries.current = target;
     const go = () => {
-      if (move !== moveId.current) return;
+      if (move !== moveId.current || jumpTries.current !== target) return;
       const i = indexOf(openAt);
-      if (i < 0) return;
+      if (i < 0) return openAtNewest(target);
       settlingUntil.current = Date.now() + SETTLING_MS;
       towardBottom.current = false;
       listRef.current?.scrollToIndex?.({ index: i, animated: false, viewPosition: 0 });
@@ -388,7 +407,7 @@ function NativeThreadListInner<T>(props: NativeThreadListProps<T>, ref: React.Fo
     // Landed (no failure reported since): the opening is done, and a later failure isn't its to recover.
     later(() => clearOpened(target, 0), 250 + OPEN_SETTLED_MS);
     lookForBottom();
-  }, [loading, data.length, openAt, jumpTo, indexOf, setAtBottom, later, lookForBottom, clearOpened]);
+  }, [loading, data.length, openAt, jumpTo, indexOf, setAtBottom, later, lookForBottom, clearOpened, openAtNewest]);
 
   const loadEarlier = useCallback(() => {
     if (placed.current && !jumping && hasEarlier && !loadingEarlier) onLoadEarlier?.();
@@ -453,18 +472,17 @@ function NativeThreadListInner<T>(props: NativeThreadListProps<T>, ref: React.Fo
       listRef.current?.scrollToOffset?.({ offset: Math.max(0, index * averageItemLength - 200), animated: false });
       if (target.tries >= 3) {
         // Opening at the first unread couldn't reach it: open at the newest instead, following again.
-        if (target.opening) {
-          jumpTries.current = null;
-          setAtBottom(true);
-          toBottom(false);
-        }
+        if (target.opening) openAtNewest(target);
         return;
       }
       target.tries += 1;
       later(() => {
         if (jumpTries.current !== target) return;
         const at = indexOf(target.id);
-        if (at < 0) return;
+        if (at < 0) {
+          if (target.opening) openAtNewest(target);
+          return;
+        }
         settlingUntil.current = Date.now() + SETTLING_MS;
         towardBottom.current = false;
         listRef.current?.scrollToIndex?.({ index: at, animated: !reducedMotion && !target.opening, viewPosition: target.viewPosition });
@@ -475,7 +493,7 @@ function NativeThreadListInner<T>(props: NativeThreadListProps<T>, ref: React.Fo
         lookForBottom();
       }, 250);
     },
-    [indexOf, later, lookForBottom, reducedMotion, setAtBottom, toBottom],
+    [indexOf, later, lookForBottom, reducedMotion, openAtNewest],
   );
   const follow = useCallback(() => {
     if (atBottom.current && !jumping) toBottom(false);

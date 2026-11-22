@@ -154,10 +154,13 @@ export function InboxPage({
   const [menuRow, setMenuRow] = useState<InboxPageSlotMap["row"] | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   // Built again only when the items change, or the minute does (so "Yesterday" and the times turn
-  // over at midnight on a re-render): each row's props otherwise stay equal and its memo holds.
-  const minute = Math.floor(now().getTime() / 60_000);
+  // over at midnight on a re-render): each row's props otherwise stay equal and its memo holds. The
+  // default formatter reads only minutes; a formatter of the app's own gets the exact clock, every render.
+  const exactClock = formatTime !== formatInboxTime;
+  const nowMs = now().getTime();
+  const tick = exactClock ? nowMs : Math.floor(nowMs / 60_000) * 60_000;
   const rows: InboxPageSlotMap["row"][] = useMemo(() => {
-    const clock = new Date(minute * 60_000);
+    const clock = new Date(tick);
     return items.map((item, index) => ({
       ...item,
       testID: item.testID ?? `${testID}-row-${item.id}`,
@@ -165,7 +168,7 @@ export function InboxPage({
       isLast: index === items.length - 1,
       timeLabel: item.timestamp ? formatTime(typeof item.timestamp === "string" ? new Date(item.timestamp) : item.timestamp, clock) : null,
     }));
-  }, [items, minute, formatTime, testID]);
+  }, [items, tick, formatTime, testID]);
   const openRowMenu = useCallback((row: InboxPageSlotMap["row"]) => {
     setMenuRow(row);
     setMenuOpen(true);
