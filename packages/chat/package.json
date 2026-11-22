@@ -257,6 +257,10 @@
           {
             "file": "migrations/0005_genesis_chat_attachment_paths.sql",
             "test": "migrations/tests/0005_genesis_chat_attachment_paths.test.sql"
+          },
+          {
+            "file": "migrations/0006_genesis_chat_read_receipts.sql",
+            "test": "migrations/tests/0006_genesis_chat_read_receipts.test.sql"
           }
         ],
         "install": [

@@ -315,7 +315,7 @@ export function ChatScheduledBar({ conversationId, testID = "chat-scheduled-bar"
           {label}
         </NativeText>
       </Pressable>
-      <NativeSheet open={open} onOpenChange={setOpen} testID={`${testID}-sheet`}>
+      <NativeSheet open={open} onOpenChange={setOpen} fitContent testID={`${testID}-sheet`}>
         <View style={{ paddingVertical: 8 }}>
           <NativeText preset="h4" accessibilityRole="header" style={{ paddingHorizontal: 16, paddingBottom: 4 }}>
             {copy.scheduledTitle}

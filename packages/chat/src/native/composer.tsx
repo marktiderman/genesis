@@ -12,9 +12,9 @@
  * attachments and reply above it, the mic in Send's place and the recording in the input's.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { PanResponder, Pressable, ScrollView, View } from "react-native";
-import { NativeComposerBar, NativeIcon, NativeImage, NativeListItem, NativeSheet, NativeText, useGenesisModules } from "@marktiderman/genesis-ui-native/components";
-import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
+import { Animated, PanResponder, Pressable, ScrollView, View } from "react-native";
+import { NativeComposerBar, NativeContextMenu, NativeIcon, NativeImage, NativeText, useGenesisModules } from "@marktiderman/genesis-ui-native/components";
+import { useReducedMotion, useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
 import { CHAT_LIMITS, formatDuration, recordingLimitMs } from "../core/media";
 import type { LocalFile } from "../core/outbox";
 import type { ChatRole } from "../core/types";
@@ -140,18 +140,17 @@ function ComposerBody({ composer, canPost, onSend, signalTyping, onRecordVideo, 
     }
     setCanPaste(paste);
     // One source: straight to the picker, no sheet in between.
-    if (!paste && !modules.imagePicker?.launchCameraAsync && modules.imagePicker) return pick("library", false);
+    if (!paste && !modules.imagePicker?.launchCameraAsync && modules.imagePicker) return pick("library");
     setAttachOpen(true);
   };
 
   const remaining = CHAT_LIMITS.attachmentsPerMessage - state.attachments.length;
-  // The picker opens once the sheet has gone: iOS won't present one modal while another is dismissing.
-  const afterSheet = () => new Promise<void>((resolve) => setTimeout(resolve, 800));
-  const pick = async (from: "library" | "camera", fromSheet = true) => {
+  // From the menu, NativeContextMenu runs this once its sheet has gone (iOS won't present one modal
+  // while another is dismissing): no fixed wait.
+  const pick = async (from: "library" | "camera") => {
     setAttachOpen(false);
     const picker = modules.imagePicker;
     if (!picker) return;
-    if (fromSheet) await afterSheet();
     try {
       if (from === "camera") {
         const permission = await picker.requestCameraPermissionsAsync?.();
@@ -264,19 +263,18 @@ function ComposerBody({ composer, canPost, onSend, signalTyping, onRecordVideo, 
         replaceInput={recording && voice ? <RecordingBar voice={voice} testID={testID} /> : null}
       />
       <ChatEmojiPickerSheet open={emojiOpen} onClose={() => setEmojiOpen(false)} onSelect={insertEmoji} userId={userId} testID={`${testID}-emoji-sheet`} />
-      <NativeSheet open={attachOpen} onOpenChange={setAttachOpen} testID={`${testID}-attach-sheet`}>
-        <View>
-          {modules.imagePicker ? (
-            <NativeListItem testID={`${testID}-attach-library`} title={copy.attachLibrary} leading={<NativeIcon name="image" />} onPress={() => void pick("library")} />
-          ) : null}
-          {modules.imagePicker?.launchCameraAsync ? (
-            <NativeListItem testID={`${testID}-attach-camera`} title={copy.attachCamera} leading={<NativeIcon name="camera" />} onPress={() => void pick("camera")} />
-          ) : null}
-          {canPaste ? (
-            <NativeListItem testID={`${testID}-attach-paste`} title={copy.attachPaste} leading={<NativeIcon name="copy" />} onPress={() => void paste()} />
-          ) : null}
-        </View>
-      </NativeSheet>
+      <NativeContextMenu
+        open={attachOpen}
+        onOpenChange={setAttachOpen}
+        title={copy.attach}
+        cancelLabel={copy.cancel}
+        actions={[
+          ...(modules.imagePicker ? [{ id: "library", label: copy.attachLibrary, onPress: () => void pick("library") }] : []),
+          ...(modules.imagePicker?.launchCameraAsync ? [{ id: "camera", label: copy.attachCamera, onPress: () => void pick("camera") }] : []),
+          ...(canPaste ? [{ id: "paste", label: copy.attachPaste, onPress: () => void paste() }] : []),
+        ]}
+        testID={`${testID}-attach-sheet`}
+      />
     </>
   );
 }
@@ -316,16 +314,40 @@ function IconButton({
  * same button stops and sends. It stays one view throughout: swapping in another button while
  * the finger that locked is still down left the touch with a responder that no longer existed,
  * and the next tap anywhere on the screen did nothing.
+ *
+ * While held, the mic follows the finger (left toward cancel, up toward the lock) on the native
+ * driver, and springs home when it lets go or locks; with Reduce Motion it goes home at once.
  */
+export function micOffset(dx: number, dy: number): { x: number; y: number } {
+  return { x: Math.max(-MIC_FOLLOW_X, Math.min(0, dx)), y: Math.max(-MIC_FOLLOW_Y, Math.min(0, dy)) };
+}
+const MIC_FOLLOW_X = 120;
+const MIC_FOLLOW_Y = 72;
+
 function MicButton({ voice, disabled, testID }: { voice: Voice; disabled: boolean; testID: string }) {
   const { copy } = useChatNative();
   const colors = useThemeRoles();
+  const reducedMotion = useReducedMotion();
+  const reduced = useRef(reducedMotion);
+  reduced.current = reducedMotion;
+  const followX = useRef(new Animated.Value(0)).current;
+  const followY = useRef(new Animated.Value(0)).current;
+  const home = useRef(() => {
+    for (const v of [followX, followY]) {
+      if (reduced.current) v.setValue(0);
+      else Animated.spring(v, { toValue: 0, useNativeDriver: true, bounciness: 6 }).start();
+    }
+  }).current;
   const { state, dispatch } = voice;
   const latest = useRef(dispatch);
   latest.current = dispatch;
   const locked = state.phase === "recording" && state.locked;
   const lockedNow = useRef(locked);
   lockedNow.current = locked;
+  // Locking, or the recording ending, sends the mic home.
+  useEffect(() => {
+    if (locked || state.phase === "idle") home();
+  }, [locked, state.phase, home]);
   // VoiceOver and TalkBack can't hold and slide: a double tap starts a locked (hands-free) recording.
   const lockWhenReady = useRef(false);
   useEffect(() => {
@@ -348,14 +370,24 @@ function MicButton({ voice, disabled, testID }: { voice: Voice; disabled: boolea
         if (!tapToSend) latest.current({ type: "press" });
       },
       onPanResponderMove: (_e, g) => {
-        if (!tapToSend) latest.current({ type: "move", dx: g.dx, dy: g.dy });
+        if (tapToSend) return;
+        latest.current({ type: "move", dx: g.dx, dy: g.dy });
+        if (!lockedNow.current) {
+          const at = micOffset(g.dx, g.dy);
+          followX.setValue(at.x);
+          followY.setValue(at.y);
+        }
       },
-      onPanResponderRelease: () => latest.current({ type: tapToSend ? "send" : "release" }),
+      onPanResponderRelease: () => {
+        home();
+        latest.current({ type: tapToSend ? "send" : "release" });
+      },
       onPanResponderTerminate: () => {
+        home();
         if (!tapToSend) latest.current({ type: "cancel" });
       },
     });
-  }, []);
+  }, [followX, followY, home]);
 
   const holding = !locked && (state.phase === "starting" || state.phase === "recording");
   return (
@@ -384,9 +416,12 @@ function MicButton({ voice, disabled, testID }: { voice: Voice; disabled: boolea
         style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center", opacity: disabled ? 0.4 : 1, transform: [{ scale: holding ? 1.25 : 1 }] }}
         {...(disabled ? {} : responder.panHandlers)}
       >
-        <View style={{ width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center", backgroundColor: locked ? colors.tint : holding ? colors.destructive : "transparent" }}>
+        <Animated.View
+          testID={`${testID}-mic-follow`}
+          style={{ width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center", backgroundColor: locked ? colors.tint : holding ? colors.destructive : "transparent", transform: [{ translateX: followX }, { translateY: followY }] }}
+        >
           <NativeIcon name={locked ? "arrow-up" : "mic"} size={locked || holding ? 18 : 24} color={locked || holding ? colors.surface : colors.tint} weight={locked ? "semibold" : undefined} />
-        </View>
+        </Animated.View>
       </View>
     </View>
   );

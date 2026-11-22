@@ -30,7 +30,7 @@
  *
  * @stability Beta
  */
-import { createContext, Fragment, useContext, useState, type ReactNode } from "react";
+import { createContext, Fragment, memo, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import { renderSlot, type SlotPropsFor, type Slots } from "@marktiderman/genesis-core/slots";
 import { Alert, FlatList, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -144,23 +144,48 @@ export function InboxPage({
   errorTitle,
   errorBody,
   formatTime = formatInboxTime,
-  now = () => new Date(),
-  slots = {},
-  slotProps = {},
+  now = defaultNow,
+  slots = NO_SLOTS,
+  slotProps = NO_SLOT_PROPS,
   testID = "inbox-page",
 }: InboxPageProps) {
   const colors = useThemeRoles();
-  const clock = now();
   // One menu for the page: its row stays set while the sheet goes, so its words don't vanish first.
   const [menuRow, setMenuRow] = useState<InboxPageSlotMap["row"] | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const rows: InboxPageSlotMap["row"][] = items.map((item, index) => ({
-    ...item,
-    testID: item.testID ?? `${testID}-row-${item.id}`,
-    isFirst: index === 0,
-    isLast: index === items.length - 1,
-    timeLabel: item.timestamp ? formatTime(typeof item.timestamp === "string" ? new Date(item.timestamp) : item.timestamp, clock) : null,
-  }));
+  // Built again only when the items change, or the minute does (so "Yesterday" and the times turn
+  // over at midnight on a re-render): each row's props otherwise stay equal and its memo holds.
+  const minute = Math.floor(now().getTime() / 60_000);
+  const rows: InboxPageSlotMap["row"][] = useMemo(() => {
+    const clock = new Date(minute * 60_000);
+    return items.map((item, index) => ({
+      ...item,
+      testID: item.testID ?? `${testID}-row-${item.id}`,
+      isFirst: index === 0,
+      isLast: index === items.length - 1,
+      timeLabel: item.timestamp ? formatTime(typeof item.timestamp === "string" ? new Date(item.timestamp) : item.timestamp, clock) : null,
+    }));
+  }, [items, minute, formatTime, testID]);
+  const openRowMenu = useCallback((row: InboxPageSlotMap["row"]) => {
+    setMenuRow(row);
+    setMenuOpen(true);
+  }, []);
+  const rowSlot = slots.row;
+  const swipeSlot = slots.swipeable;
+  const rowProps = slotProps.row;
+  const swipeProps = slotProps.swipeable;
+  const renderRow = useCallback(
+    ({ item: row }: { item: InboxPageSlotMap["row"] }) => {
+      const content = renderSlot(DefaultRow, rowSlot, row, rowProps);
+      const actions = row.swipeActions ?? [];
+      return (
+        <Fragment>
+          {actions.length && swipeSlot !== null ? renderSlot(NativeSwipeRow, swipeSlot, { actions, testID: `${row.testID}-swipe`, children: content }, swipeProps) : content}
+        </Fragment>
+      );
+    },
+    [rowSlot, rowProps, swipeSlot, swipeProps],
+  );
 
   const headerNode = (
     <View>
@@ -216,16 +241,11 @@ export function InboxPage({
 
   return (
     <SafeAreaView testID={testID} edges={["left", "right", "bottom"]} style={{ flex: 1, backgroundColor: colors.groupedBackground }}>
-      <OpenRowMenu.Provider
-        value={(row) => {
-          setMenuRow(row);
-          setMenuOpen(true);
-        }}
-      >
+      <OpenRowMenu.Provider value={openRowMenu}>
       <FlatList
         testID={`${testID}-list`}
         data={rows}
-        keyExtractor={(row) => row.id}
+        keyExtractor={inboxRowKey}
         contentInsetAdjustmentBehavior="automatic"
         // The header can hold a text field (the idea board's "Suggest"): its button's first tap
         // must press it, not only close the keyboard.
@@ -237,17 +257,7 @@ export function InboxPage({
         onEndReachedThreshold={0.5}
         {...(onStartReached ? { onStartReached, onStartReachedThreshold: 0.5, maintainVisibleContentPosition: { minIndexForVisible: 0 } } : {})}
         refreshControl={refreshControl}
-        renderItem={({ item: row }) => {
-          const content = renderSlot(DefaultRow, slots.row, row, slotProps.row);
-          const actions = row.swipeActions ?? [];
-          return (
-            <Fragment>
-              {actions.length && slots.swipeable !== null
-                ? renderSlot(NativeSwipeRow, slots.swipeable, { actions, testID: `${row.testID}-swipe`, children: content }, slotProps.swipeable)
-                : content}
-            </Fragment>
-          );
-        }}
+        renderItem={renderRow}
       />
       </OpenRowMenu.Provider>
       {menuRow ? <NativeContextMenu open={menuOpen} onOpenChange={setMenuOpen} title={menuRow.title} actions={menuRow.swipeActions ?? []} testID={`${testID}-menu`} /> : null}
@@ -289,7 +299,13 @@ export function showInboxActions(title: string, actions: InboxSwipeAction[], can
   ]);
 }
 
-function DefaultRow(row: InboxPageSlotMap["row"]) {
+const defaultNow = () => new Date();
+const NO_SLOTS: Slots<InboxPageSlotMap> = Object.freeze({});
+const NO_SLOT_PROPS: SlotPropsFor<InboxPageSlotMap> = Object.freeze({});
+const inboxRowKey = (row: InboxPageSlotMap["row"]) => row.id;
+
+/** A row redraws only when one of its own props changes (memo), not when the page does. */
+const DefaultRow = memo(function DefaultRow(row: InboxPageSlotMap["row"]) {
   const colors = useThemeRoles();
   const ios = Platform.OS === "ios";
   const [pressed, setPressed] = useState(false);
@@ -385,7 +401,7 @@ function DefaultRow(row: InboxPageSlotMap["row"]) {
       )}
     </View>
   );
-}
+});
 
 function Chevron({ color }: { color: unknown }) {
   return (
