@@ -321,6 +321,13 @@ describe("check-lockfile-downgrades", () => {
         after: pins({ "apps/starter": { foo: "1.2.0" } }),
       }),
     ).toEqual(none);
+    // An exact pin with `+build` metadata parses (the metadata never counts), so it exempts.
+    expect(
+      lockfileDowngrades(workspace({ "apps/starter": { foo: "1.2.0" } }), workspace({ "apps/starter": { foo: "1.1.0" } }), {
+        before: pins({ "apps/starter": { foo: "1.2.0" } }),
+        after: pins({ "apps/starter": { foo: "1.1.0+sdk.1" } }),
+      }),
+    ).toEqual(none);
     // An exact prerelease pin lowered to a caret range: the range doesn't take the prerelease, so it exempts.
     expect(
       lockfileDowngrades(workspace({ "apps/starter": { foo: "1.3.0-beta.1" } }), workspace({ "apps/starter": { foo: "1.2.3" } }), {

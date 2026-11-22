@@ -179,8 +179,10 @@ export function rangeSubset(inner: string, outer: string): boolean | null {
     let hi: Bound = null;
     for (const c of set) {
       if (c.op === "=") {
-        lo = { v: c.v, inclusive: true };
-        hi = { v: c.v, inclusive: true };
+        // Intersects like `>=` and `<=` together: it only tightens, so `>=0.88.2 =0.88.1` stays empty in either order.
+        const eq = { v: c.v, inclusive: true };
+        if (!lo || compareVersions(eq.v, lo.v) > 0) lo = eq;
+        if (!hi || compareVersions(eq.v, hi.v) < 0) hi = eq;
       } else if (c.op === ">=" || c.op === ">") {
         const next = { v: c.v, inclusive: c.op === ">=" };
         if (!lo || compareVersions(next.v, lo.v) > 0 || (compareVersions(next.v, lo.v) === 0 && !next.inclusive)) lo = next;
