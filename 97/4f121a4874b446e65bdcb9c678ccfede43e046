@@ -1,0 +1,27 @@
+packages/genesis-cli/src/doctor/expo-deps.ts
+  s_7081dae02ae2cb::t_4015a25896aeab 17,71-73,170-172,177,179,184-188
+packages/genesis-cli/src/doctor/semver.ts
+  s_7081dae02ae2cb::t_86899b595cb8de 168-170,194-197
+packages/genesis-cli/test/doctor-packs.test.ts
+  s_7081dae02ae2cb::t_2b2b86cdce207a 982-999
+scripts/__tests__/check-lockfile-downgrades.test.mjs
+  s_7081dae02ae2cb::t_581396773a20fe 317-330,359-362
+scripts/check-lockfile-downgrades.mjs
+  s_7081dae02ae2cb::t_3c224e82c45aa9 24-26,30,88,178,229-230,277-278,284,288
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "974f121a4874b446e65bdcb9c678ccfede43e046",
+  "prompts": {},
+  "sessions": {
+    "s_7081dae02ae2cb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7a2b62bd-584c-47e8-8b1a-72015db941a7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
