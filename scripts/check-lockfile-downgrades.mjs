@@ -223,14 +223,21 @@ export function lockfileDowngrades(base, head, pins = {}) {
   const aliased = [importerAliases(base), importerAliases(head)];
   /**
    * The workspace package.json's own pin (never the lockfile's specifier, which carries
-   * pnpm-workspace.yaml overrides) changed in this diff and no longer admits `h`. A name the
-   * importer also reaches through an alias isn't judged by the direct pin.
+   * pnpm-workspace.yaml overrides) changed in this diff, no longer admits `h`, and admits every
+   * version the lockfile now has in its place (`kept`), so the pin, not an override, chose them.
+   * A name the importer also reaches through an alias isn't judged by the direct pin.
    */
-  const pinLowered = (dependent, name, h) => {
+  const pinLowered = (dependent, name, h, kept) => {
     if (aliased.some((a) => a.get(dependent)?.has(name))) return false;
     const was = pins.before?.get(dependent)?.get(name);
     const now = pins.after?.get(dependent)?.get(name);
-    return !!was && !!now && was !== now && specifierTakes(now, h) === false;
+    return (
+      !!was &&
+      !!now &&
+      was !== now &&
+      specifierTakes(now, h) === false &&
+      kept.every((v) => specifierTakes(now, v) === true)
+    );
   };
   for (const [dependent, deps] of lockedEdges(base)) {
     const now = after.get(dependent);
@@ -243,7 +250,7 @@ export function lockfileDowngrades(base, head, pins = {}) {
         const kept = range(h, versions);
         // Nothing in its range: the dependent moved to a new major, or dropped this copy.
         if (!kept.length || kept.some((v) => compare(v, h) >= 0)) continue;
-        if (pinLowered(dependent, name, h)) {
+        if (pinLowered(dependent, name, h, kept)) {
           lowered.add(`${name}@${h}`);
           continue;
         }

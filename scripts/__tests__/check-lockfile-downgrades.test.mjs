@@ -298,6 +298,11 @@ describe("check-lockfile-downgrades", () => {
     // The pin changed but still admits the old version, or can't be judged.
     for (const now of ["^4.1.0", ">=4 <4.2"])
       expect(failing(workspace({ "apps/starter": { zod: "4.2.0" } }), workspace({ "apps/starter": { zod: "4.1.0" } }), { "apps/starter": { zod: "^4.0.0" } }, { "apps/starter": { zod: now } })).toHaveLength(1);
+    // The pin changed and rejects the old version, but doesn't admit the new one: an override chose it.
+    for (const now of ["2.0.0", "^1.3.0", "1.0.0"])
+      expect(failing(workspace({ "apps/starter": { bar: "1.2.0" } }), workspace({ "apps/starter": { bar: "1.1.0" } }), { "apps/starter": { bar: "1.2.0" } }, { "apps/starter": { bar: now } })).toEqual([
+        "bar: replaces 1.2.0 with 1.1.0, an older release, for apps/starter",
+      ]);
     // Only an override changed (the lockfile's specifier moves, package.json doesn't).
     expect(
       lockfileDowngrades(workspace({ "apps/starter": { react: "19.3.0" } }, {}, { react: "19.3.0" }), workspace({ "apps/starter": { react: "19.2.0" } }, {}, { react: "19.2.0" }), {
