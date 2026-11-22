@@ -23,7 +23,7 @@
     "ChatScheduledBar",
     "ChatPhotoViewer"
   ],
-  "notYet": ["ChatTypingBubble"],
+  "notYet": ["ChatTypingBubble", "ChatThreadTitle"],
   "composed": [
     "ChatInboxScreen",
     "ChatThreadScreen",
