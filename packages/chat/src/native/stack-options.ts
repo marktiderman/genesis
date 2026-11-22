@@ -13,19 +13,51 @@
  * edge effect is drawn over the flipped list. Seen on iOS 27 with FlashList
  * and with FlatList.
  */
+import { createElement, type ReactNode } from "react";
 import type { ColorValue } from "react-native";
 import { getThreadPageStackOptions, type ScreenHeaderProps } from "@marktiderman/genesis-ui-native/layouts";
 import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
+import { ChatThreadTitle, type ChatThreadTitleAvatar } from "./thread-title";
 
-export type ChatThreadStackOptionsProps = ScreenHeaderProps & { headerTitle?: string };
+export type ChatThreadStackOptionsProps = ScreenHeaderProps & {
+  headerTitle?: string;
+  /** Beside the title: who it is (`{ src, name, id }`), or your own element. */
+  avatar?: ChatThreadTitleAvatar | ReactNode;
+  /**
+   * Under the title. Left out with `conversationId`: the away line ("Sam is away until Monday"),
+   * which needs `ChatProvider` above the navigator. `null`: none. Show it here, and pass
+   * `availability={false}` to `ChatThreadScreen` so it isn't said twice.
+   */
+  subtitle?: string | null;
+  /** Makes the title a button (to the conversation's details). */
+  onPressTitle?: () => void;
+  /** VoiceOver's hint on that button. */
+  titleHint?: string;
+  /** For the default subtitle. */
+  conversationId?: string;
+};
 
 /** The thread's header options with an opaque bar in `background` (the thread's own background). */
 export function chatThreadStackOptions(props: ChatThreadStackOptionsProps, background: ColorValue): Record<string, unknown> {
+  const { avatar, subtitle, onPressTitle, titleHint, conversationId, ...header } = props;
+  // A title of its own only when asked for: otherwise the bar's plain title, as before.
+  const custom = avatar !== undefined || subtitle !== undefined || onPressTitle !== undefined || conversationId !== undefined;
+  const title = header.headerTitle ?? "Conversation";
   return getThreadPageStackOptions({
-    ...props,
+    ...header,
     // Large titles collapse into the content scroll view, which is the flipped list here.
     large: false,
-    headerOptions: { headerTransparent: false, headerStyle: { backgroundColor: background }, ...props.headerOptions },
+    headerOptions: {
+      headerTransparent: false,
+      headerStyle: { backgroundColor: background },
+      ...(custom
+        ? {
+            headerTitle: ({ tintColor }: { tintColor?: string }) =>
+              createElement(ChatThreadTitle, { title, subtitle, avatar, onPress: onPressTitle, pressHint: titleHint, conversationId, tintColor }),
+          }
+        : {}),
+      ...props.headerOptions,
+    },
   });
 }
 
