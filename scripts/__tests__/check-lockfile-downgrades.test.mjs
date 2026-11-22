@@ -307,6 +307,13 @@ describe("check-lockfile-downgrades", () => {
     expect(failing(workspace({ "apps/starter": { bar: "1.2.0" } }), workspace({ "apps/starter": { bar: "1.1.5-beta.1" } }), { "apps/starter": { bar: "^1.2.0" } }, { "apps/starter": { bar: "~1.1.0" } })).toEqual([
       "bar: replaces 1.2.0 with 1.1.5-beta.1, an older release, for apps/starter",
     ]);
+    // One importer's deliberate pin doesn't hide an even older copy another importer adds.
+    expect(
+      lockfileDowngrades(workspace({ "apps/starter": { bar: "1.2.0" }, "apps/web": { zod: "4.2.0" } }), workspace({ "apps/starter": { bar: "1.1.0" }, "apps/web": { zod: "4.2.0", bar: "1.0.0" } }), {
+        before: pins({ "apps/starter": { bar: "1.2.0" } }),
+        after: pins({ "apps/starter": { bar: "1.1.0" } }),
+      }),
+    ).toEqual({ downgrades: [], copies: ["bar: adds 1.0.0, older than 1.2.0 on the base branch"] });
     // Only an override changed (the lockfile's specifier moves, package.json doesn't).
     expect(
       lockfileDowngrades(workspace({ "apps/starter": { react: "19.3.0" } }, {}, { react: "19.3.0" }), workspace({ "apps/starter": { react: "19.2.0" } }, {}, { react: "19.2.0" }), {
@@ -355,5 +362,8 @@ describe("check-lockfile-downgrades", () => {
     expect(specifierTakes("^1.1.0-beta.1", "1.1.0-beta.2")).toBe(true);
     expect(specifierTakes("^1.1.0-beta.1", "1.2.0-beta.0")).toBe(false);
     expect(specifierTakes("^1.1.0-beta.1", "1.2.0")).toBe(true);
+    expect(specifierTakes("^0.0.3-rc.1", "0.0.3")).toBe(true);
+    expect(specifierTakes("^0.0.3-rc.1", "0.0.3-rc.2")).toBe(true);
+    expect(specifierTakes("^0.0.3-rc.1", "0.0.4")).toBe(false);
   });
 });

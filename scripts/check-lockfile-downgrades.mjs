@@ -207,8 +207,9 @@ export function specifierTakes(spec, v) {
   // As semver: a range takes a prerelease only when it names one on the same x.y.z.
   if (pv.pre.length && !(pw.pre.length && x.join(".") === y.join("."))) return false;
   if (op === "~") return x[0] === y[0] && x[1] === y[1];
-  // `^0.0.3` takes only 0.0.3 (sameRange never takes a 0.0.x).
-  return y[0] === 0 && y[1] === 0 ? compare(v, want) === 0 : sameRange(v, want);
+  // `^0.0.3` takes only 0.0.3 (and `^0.0.3-rc.1` its prereleases up to 0.0.3); sameRange never
+  // takes a 0.0.x.
+  return y[0] === 0 && y[1] === 0 ? x.join(".") === y.join(".") : sameRange(v, want);
 }
 
 /**
@@ -220,8 +221,11 @@ export function specifierTakes(spec, v) {
 export function lockfileDowngrades(base, head, pins = {}) {
   /** `name@version` moved back → the older version and the dependents it moved for. */
   const moved = new Map();
-  /** `name@version` moved back by a deliberate pin: not a downgrade, and not a copy to dedupe. */
-  const lowered = new Set();
+  /**
+   * `name@version` moved back by a deliberate pin → the versions that pin chose: not a downgrade,
+   * and those versions aren't copies to dedupe (any other older copy still is).
+   */
+  const lowered = new Map();
   const after = lockedEdges(head);
   const aliased = [importerAliases(base), importerAliases(head)];
   /**
@@ -254,7 +258,9 @@ export function lockfileDowngrades(base, head, pins = {}) {
         // Nothing in its range: the dependent moved to a new major, or dropped this copy.
         if (!kept.length || kept.some((v) => compare(v, h) >= 0)) continue;
         if (pinLowered(dependent, name, h, kept)) {
-          lowered.add(`${name}@${h}`);
+          const key = `${name}@${h}`;
+          if (!lowered.has(key)) lowered.set(key, new Set());
+          for (const v of kept) lowered.get(key).add(v);
           continue;
         }
         const key = `${name}@${h}`;
@@ -274,7 +280,7 @@ export function lockfileDowngrades(base, head, pins = {}) {
       const compatible = range(v, had);
       const newer = newest(
         compatible.filter(
-          (h) => compare(h, v) > 0 && !moved.has(`${name}@${h}`) && !lowered.has(`${name}@${h}`),
+          (h) => compare(h, v) > 0 && !moved.has(`${name}@${h}`) && !lowered.get(`${name}@${h}`)?.has(v),
         ),
       );
       if (!newer) continue;
