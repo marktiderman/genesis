@@ -1,0 +1,22 @@
+packages/ui-native/src/layouts/inbox-page.tsx
+  s_22dadcff902f4f::t_0cee38e51e07af 33,147-149,156-186,242,246,258,300-306,402
+packages/ui-native/src/layouts/__tests__/inbox-page-memo.test.tsx
+  s_22dadcff902f4f::t_a0702d427c7ffe 5,20,27
+  s_22dadcff902f4f::t_d8a16e17ab3ba0 1-4,6-19,21-26,28-36
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4adc4a8829ff2b92af33554a1508bdc1431274ed",
+  "prompts": {},
+  "sessions": {
+    "s_22dadcff902f4f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e30c0aa7-4664-443f-9187-dce5753baa7d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
