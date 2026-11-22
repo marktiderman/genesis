@@ -399,6 +399,7 @@ export function createChatClient(supabase: ChatSupabase, options: ChatClientOpti
         userId: String(r.user_id),
         role: r.role as ChatRole,
         lastReadSeq: Number(r.last_read_seq ?? 0),
+        lastReadAt: r.last_read_at ? String(r.last_read_at) : null,
         joinedAt: String(r.joined_at),
       }));
     },
@@ -737,6 +738,11 @@ export function createChatClient(supabase: ChatSupabase, options: ChatClientOpti
           handlers.onSignal({ type: "reaction", conversationId, messageId: String(payload?.message_id) }),
         )
         .on("broadcast", { event: "members" }, () => handlers.onSignal({ type: "members", conversationId }))
+        .on("broadcast", { event: "read" }, ({ payload }) => {
+          if (payload?.user_id && payload.user_id !== me) {
+            handlers.onSignal({ type: "read", conversationId, userId: String(payload.user_id), seq: Number(payload.seq ?? 0), at: payload.at ? String(payload.at) : null });
+          }
+        })
         .on("broadcast", { event: "conversation" }, () => handlers.onSignal({ type: "conversation", conversationId }))
         .on("broadcast", { event: "activity" }, ({ payload }) => {
           if (payload?.userId && payload.userId !== me) handlers.onActivity?.({ userId: payload.userId, activity: payload.activity, at: Date.now() });

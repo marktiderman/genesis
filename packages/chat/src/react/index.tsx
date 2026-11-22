@@ -26,6 +26,7 @@ import type {
   ChatAttachment,
   ChatAvailability,
   ChatLinkPreview,
+  ChatMember,
   ChatMessage,
   ChatSearchHit,
   ChatSignal,
@@ -418,7 +419,12 @@ export function useConversation(conversationId: string | null | undefined, opts:
       onSignal: (s) => {
         if (s.type === "message") void fetchOne(s.id);
         else if (s.type === "reaction") void fetchOne(s.messageId);
-        else if (s.type === "members") {
+        else if (s.type === "read") {
+          // Read receipts: the member's place moves forward in the cache, with nothing fetched.
+          queryClient.setQueryData<ChatMember[]>(chatKeys.members(id), (prev) =>
+            prev?.map((m) => (m.userId === s.userId && s.seq >= m.lastReadSeq ? { ...m, lastReadSeq: s.seq, lastReadAt: s.at ?? m.lastReadAt ?? null } : m)),
+          );
+        } else if (s.type === "members") {
           void queryClient.invalidateQueries({ queryKey: chatKeys.members(id) });
           void queryClient.invalidateQueries({ queryKey: chatKeys.role(id) });
         } else if (s.type === "conversation") {

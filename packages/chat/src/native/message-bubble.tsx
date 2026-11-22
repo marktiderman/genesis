@@ -72,6 +72,10 @@ export interface MessageBubbleProps {
   attachmentSlot?: ChatAttachmentSlot | null;
   /** How long an app card's action may run before it reads as failed; 30 s by default, 0 for never. */
   cardActionTimeoutMs?: number;
+  /** Its status under the bubble, on the last message you sent: "Delivered", "Read 9:41" (`receiptText`). */
+  receipt?: string | null;
+  /** Makes the status a button ("Read by 2" opens who has read it). */
+  onReceiptPress?: () => void;
   testID: string;
 }
 
@@ -192,7 +196,8 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
   const reactions = message ? summarizeReactions(message, me) : [];
   const time = formatClock(createdAt);
   const moderation = moderationNote(message, { mine, observer: Boolean(props.observer) });
-  const statusText = failed ? copy.notSent : sending ? copy.sending : null;
+  const receipt = failed ? null : (props.receipt ?? null);
+  const statusText = failed ? copy.notSent : receipt ? receipt : sending ? copy.sending : null;
   const label = [
     senderName,
     message?.deletedAt ? copy.deleted : displayBody(body),
@@ -409,12 +414,43 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
             </>
           ) : (
             <NativeText preset="caption" style={{ color: colors.tertiaryLabel }}>
-              {[time, message?.editedAt ? copy.edited : null, sending ? copy.sending : null].filter(Boolean).join(" · ")}
+              {[time, message?.editedAt ? copy.edited : null, sending && !receipt ? copy.sending : null].filter(Boolean).join(" · ")}
             </NativeText>
           )}
         </View>
       ) : null}
+      {receipt ? <ReceiptLine text={receipt} onPress={props.onReceiptPress} hint={copy.receiptReadersHint} testID={`${testID}-receipt`} /> : null}
     </View>
+  );
+}
+
+/** iMessage's status line: small, bold, under the bubble on your side. Read with the bubble unless it is a button. */
+function ReceiptLine({ text, onPress, hint, testID }: { text: string; onPress?: () => void; hint: string; testID: string }) {
+  const colors = useThemeRoles();
+  const words = (
+    <NativeText preset="caption" style={{ color: colors.secondaryLabel, fontWeight: "600" }}>
+      {text}
+    </NativeText>
+  );
+  if (!onPress) {
+    return (
+      <View testID={testID} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ alignItems: "flex-end", marginTop: 1, marginRight: 12 }}>
+        {words}
+      </View>
+    );
+  }
+  return (
+    <Pressable
+      testID={testID}
+      accessibilityRole="button"
+      accessibilityLabel={text}
+      accessibilityHint={hint}
+      onPress={onPress}
+      hitSlop={8}
+      style={{ alignSelf: "flex-end", minHeight: 24, justifyContent: "center", marginRight: 12 }}
+    >
+      {words}
+    </Pressable>
   );
 }
 

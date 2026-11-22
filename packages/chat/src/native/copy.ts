@@ -123,6 +123,18 @@ export interface ChatNativeCopy extends ChatOrganiseCopy {
   viewerHint: string;
   sending: string;
   notSent: string;
+  /** Message status under the last message you sent (`ChatThreadScreen receipts`). */
+  receiptSending: string;
+  receiptSent: string;
+  receiptDelivered: string;
+  /** Read, when the server has no read time (a database before chat 0006). */
+  receiptRead: string;
+  receiptReadAt: string;
+  receiptReadBy: string;
+  receiptReadByEveryone: string;
+  /** The hint on "Read by N", and the title of the sheet it opens. */
+  receiptReadersHint: string;
+  receiptReadersTitle: string;
   retry: string;
   /** On a message whose file didn't survive a relaunch: pick it again. */
   attachAgain: string;
@@ -264,6 +276,15 @@ export const chatNativeCopy: ChatNativeCopy = {
   viewerHint: "Swipe up or down for the next or previous photo.",
   sending: "Sending",
   notSent: "Not sent",
+  receiptSending: "Sending…",
+  receiptSent: "Sent",
+  receiptDelivered: "Delivered",
+  receiptRead: "Read",
+  receiptReadAt: "Read {time}",
+  receiptReadBy: "Read by {count}",
+  receiptReadByEveryone: "Read by everyone",
+  receiptReadersHint: "Shows who has read it",
+  receiptReadersTitle: "Read by",
   retry: "Retry",
   attachAgain: "Attach again",
   discard: "Delete",

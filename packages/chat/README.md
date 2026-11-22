@@ -11,7 +11,7 @@ replies, threads, reactions, read state, live updates and push.
 | `/web` | Renderers on genesis-ui: inbox, thread, composer (text, photos, voice, video, emoji, scheduled send), media, topics, search, availability, broadcast, and the chat dock. |
 | `/native` | Beta: screens and parts on genesis-ui-native (inbox, thread, search, availability), voice notes, photos and video, and the push block's glue. See "On native" below. |
 | `/server` | `createChatRunner`: works the outbox (push, transcripts, storage cleanup). |
-| `migrations/0001_genesis_chat.sql` … `0005_genesis_chat_attachment_paths.sql` | The schema, copied into your app by `genesis add chat` in order, each with its pgTAP test. 0003 makes `search_messages` return a hit's `thread_root_id`; 0004 puts every conversation in a tenant (see Tenants). |
+| `migrations/0001_genesis_chat.sql` … `0006_genesis_chat_read_receipts.sql` | The schema, copied into your app by `genesis add chat` in order, each with its pgTAP test. 0003 makes `search_messages` return a hit's `thread_root_id`; 0004 puts every conversation in a tenant (see Tenants); 0006 records when each member read (see Message status). |
 
 ## On the web
 
@@ -128,7 +128,7 @@ copy and people) inside `GenesisNativeApp`, then put the screens in your routes:
 | Screen | What it is | Main props |
 |---|---|---|
 | `ChatInboxScreen` | The conversations on `InboxPage`: avatars, unread counts, the last message, pull to refresh, Mark read, Pin and Archive. | `onOpen(conversationId)`, `onStart`, `kind` / `kinds` / `excludeKinds`, `archived`, `pageProps` |
-| `ChatThreadScreen` | One conversation: grouped bubbles, day lines, replies, reactions, the composer (text, photos, voice notes, video, emoji, scheduled send), topics and the away line. | `conversationId`, `threadRootId`, `jumpTo` (open at a search result), `topic` / `showTopics`, `scheduling`, `availability`, `onOpenAttachment`, `focused` (the navigator's `useIsFocused()`), `keyboardVerticalOffset` |
+| `ChatThreadScreen` | One conversation: grouped bubbles, day lines, replies, reactions, the composer (text, photos, voice notes, video, emoji, scheduled send), topics and the away line. | `conversationId`, `threadRootId`, `jumpTo` (open at a search result), `topic` / `showTopics`, `scheduling`, `availability`, `onOpenAttachment`, `focused` (the navigator's `useIsFocused()`), `receipts` (`"show"` or `"hide"`), `keyboardVerticalOffset` |
 | `ChatSearchScreen` | Search across your conversations or in one, with matches highlighted and transcripts marked. | `onOpen(hit)`, `conversationId`, `conversationTitle` |
 | `ChatAvailabilityScreen` | Your away message, its end, working hours and time zone. | `onSaved` |
 
@@ -146,6 +146,32 @@ across the app, and the logic under them (`composerReducer`, `buildThreadRows`, 
 `ChatProvider upload`), and for genesis-native's push block the `messages` category with Reply and
 Mark read (`registerChatNotificationActions`, `handleChatPushResponse`, `chatThreadMatch`, also on
 `/push` alone).
+
+### Message status and typing
+
+Under the last message you sent, `ChatThreadScreen` says where it is, as iMessage does:
+
+| It says | When |
+|---|---|
+| Sending… | It is still in the outbox, not yet posted. |
+| Sent | Posted, but the outbox still holds it (a video's bytes are still going up). |
+| Delivered | The server has it, and nobody else has read that far. |
+| Read 9:41 | A direct conversation: the other member's `lastReadSeq` has reached it. The time is their `lastReadAt` (migration 0006): the time today, else the day. Without 0006, "Read" with no time. |
+| Read by 2 / Read by everyone | A group: how many of the other members (observers aside) have read that far. It is a button that opens a sheet of who. |
+
+A send that failed shows its failure, Retry and Delete instead, as before. `receipts="hide"` leaves
+the status out (an app that doesn't show read state). The logic is `lastSentReceipt` and
+`receiptText`, exported for a screen of your own, and the words are copy (`receiptSending`,
+`receiptDelivered`, `receiptReadAt` and the rest).
+
+Migration 0006 adds `members.last_read_at`, set when a member's read place moves past someone
+else's message (posting your own sets nothing), and sends a `read` hint on the conversation's
+topic, so "Delivered" turns to "Read" while the thread is open. Members already see each other's
+`lastReadSeq`; there is no setting yet to stop sending read receipts.
+
+Someone typing shows as a bubble of three dots at the bottom of the thread (`ChatTypingBubble`),
+with their avatar beside it in a group, read out as "Sam is typing…"; someone recording a voice
+note or video keeps the words.
 
 Voice notes show their transcript under the player once the server has made one ("Transcribing…"
 until then), folded to three lines with "Show more"; the bubble reads the whole transcript to
@@ -338,7 +364,7 @@ reaches nothing. The pgTAP test beside the migration proves each rule.
 
 ## Live updates
 
-New and changed messages, reactions and memberships are broadcast as hints (ids only) to private
+New and changed messages, reactions, memberships and read places (0006) are broadcast as hints (ids and read places only) to private
 Realtime topics, `genesis-chat:conv:<id>` and `genesis-chat:user:<id>`; clients fetch through row
 level security, and fetch what they missed every time a channel joins (`onJoin`), the first time included. Typing and recording are broadcast
 by clients and never stored.

@@ -6,8 +6,9 @@
  * the newest message, following new ones while you are at the bottom, going
  * to the bottom when you send, and keeping its place while earlier ones load
  * at the top; day separators, the "New messages" line,
- * grouped bubbles with names and avatars in groups, who is typing or
- * recording, retry and delete on a send that failed, the long-press sheet and
+ * grouped bubbles with names and avatars in groups, the status of the last
+ * message you sent ("Delivered", "Read 9:41", "Read by 2", with who read it),
+ * who is typing (iMessage's bubble of dots) or recording, retry and delete on a send that failed, the long-press sheet and
  * swipe to reply, a message's photos in the full-screen viewer, and the composer above
  * the keyboard (or, when your role couldn't be read, Retry). Render it as the screen's only content, under the
  * navigator's header with `useChatThreadStackOptions` (an opaque bar).
@@ -23,7 +24,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import { KeyboardAvoidingView, Platform, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { NativeEmptyState, NativeText, NativeThreadList, useGenesisModules, useToast, type NativeThreadListHandle, type ThreadRowInfo } from "@marktiderman/genesis-ui-native/components";
+import { NativeAvatar, NativeEmptyState, NativeListItem, NativeSheet, NativeText, NativeThreadList, useGenesisModules, useToast, type NativeThreadListHandle, type ThreadRowInfo } from "@marktiderman/genesis-ui-native/components";
 import { useReducedMotion, useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
 import { activityLine } from "../core/thread";
 import type { ChatMessage, PendingFile } from "../core/types";
@@ -42,7 +43,9 @@ import type { JumpTarget } from "./use-jump";
 import type { MessageActionId } from "./actions";
 import { ChatComposer } from "./composer";
 import { composerDisabledReason, filesFromAssets, replyTargetFor } from "./composer-state";
-import { ChatPeopleScope, useChatNative } from "./context";
+import { ChatPeopleScope, initials, useChatNative } from "./context";
+import { lastSentReceipt, receiptText, type ChatReceiptsMode } from "./receipts";
+import { ChatTypingBubble } from "./typing-bubble";
 import { useChatComposer } from "./use-composer";
 import { ChatAccessError } from "./access-error";
 import { attachmentPaths } from "./media";
@@ -92,6 +95,12 @@ export interface ChatThreadScreenProps {
    * mounted. Default true.
    */
   focused?: boolean;
+  /**
+   * Message status under the last message you sent: "Sending…", "Sent", "Delivered", then "Read
+   * 9:41" in a direct conversation or "Read by 2" (a button: who has read it) in a group. "hide"
+   * leaves it out. Default "show".
+   */
+  receipts?: ChatReceiptsMode;
   testID?: string;
 }
 
@@ -133,9 +142,9 @@ export function nearBottom(m: { contentOffset: { y: number }; contentSize: { hei
 }
 
 export function ChatThreadScreen(props: ChatThreadScreenProps) {
-  const { conversationId, threadRootId = null, keyboardVerticalOffset, onOpenAttachment, jumpTo, topic: topicProp, showTopics = false, scheduling = true, availability = true, focused = true, testID = "chat-thread" } = props;
+  const { conversationId, threadRootId = null, keyboardVerticalOffset, onOpenAttachment, jumpTo, topic: topicProp, showTopics = false, scheduling = true, availability = true, focused = true, receipts = "show", testID = "chat-thread" } = props;
   const chat = useChat();
-  const { userId, videoUpload, attachmentKinds, outbox } = chat;
+  const { userId, videoUpload, attachmentKinds, outbox, queue } = chat;
   const attachmentSlot = props.slots?.attachment;
   const cardActionTimeoutMs = props.cardActionTimeoutMs;
   // Off unless the app turns it on: an og:image fetched from the phone tells its site who reads it.
@@ -186,6 +195,18 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
     () => [...conv.members.map((m) => m.userId), ...conv.messages.map((m) => m.senderId)],
     [conv.members, conv.messages],
   );
+
+  // The status of the last message you sent, and who has read it in a group.
+  const queued = useMemo(() => new Set(queue.map((q) => q.clientId)), [queue]);
+  const lastReceipt = useMemo(
+    () => lastSentReceipt(conv.items, { me: userId, members: conv.members, group, queued, receipts }),
+    [conv.items, userId, conv.members, group, queued, receipts],
+  );
+  const receiptLabel = lastReceipt ? receiptText(lastReceipt.receipt, copy) : null;
+  const receiptKey = lastReceipt?.key ?? null;
+  const readers = lastReceipt?.receipt.state === "read-by" ? lastReceipt.receipt.readers : null;
+  const [readersOpen, setReadersOpen] = useState(false);
+  const openReaders = useCallback(() => setReadersOpen(true), []);
 
   const rows = useMemo(() => buildThreadRows(conv.items, { me: userId, firstUnreadId: conv.firstUnreadId, group }), [conv.items, userId, conv.firstUnreadId, group]);
   const paths = useMemo(() => conv.items.flatMap((i) => (i.type === "message" ? attachmentPaths(i.message.attachments) : [])), [conv.items]);
@@ -364,11 +385,13 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
           onOpenAttachment={onOpenAttachment}
           attachmentSlot={attachmentSlot}
           cardActionTimeoutMs={cardActionTimeoutMs}
+          receipt={row.key === receiptKey ? receiptLabel : null}
+          onReceiptPress={row.key === receiptKey && readers ? openReaders : undefined}
           testID={`${testID}-message-${m?.id ?? row.key}`}
         />
       );
     },
-    [testID, copy.newMessages, userId, urls, byId, group, reducedMotion, onLongPress, allowed, reply, onSwipeReply, onRetry, onDiscard, react, onOpenImage, picker, reattachable, onReattach, previews, linkPreviewImages, attachmentKinds, onOpenAttachment, attachmentSlot, cardActionTimeoutMs, observer],
+    [receiptKey, receiptLabel, readers, openReaders, testID, copy.newMessages, userId, urls, byId, group, reducedMotion, onLongPress, allowed, reply, onSwipeReply, onRetry, onDiscard, react, onOpenImage, picker, reattachable, onReattach, previews, linkPreviewImages, attachmentKinds, onOpenAttachment, attachmentSlot, cardActionTimeoutMs, observer],
   );
 
   // ---- Video messages ----
@@ -403,6 +426,14 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
   );
 
   const activity = activityLine(conv.activity, (id) => nameOf(id));
+  // Typing is iMessage's bubble of dots; recording a voice note or video keeps its words.
+  const typers = conv.activity.filter((a) => a.activity === "typing");
+  const recording = conv.activity.some((a) => a.activity !== "typing");
+  const footer = !activity ? null : recording ? (
+    <ActivityLine text={activity} testID={`${testID}-activity`} />
+  ) : (
+    <ChatTypingBubble label={activity} userId={typers[0]?.userId ?? null} group={group} reducedMotion={reducedMotion} testID={`${testID}-typing`} />
+  );
   // Unknown while access loads: the composer waits quietly instead of saying you can't post. A
   // read that failed (and no role known from before) offers Retry in the composer's place.
   const topics = topicsState.topics;
@@ -455,7 +486,7 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
               onLoadUntil={onLoadUntil}
               jumpAnnouncement={jumpAnnouncement}
               onJumpFailed={onJumpFailed}
-              footer={activity ? <ActivityLine text={activity} testID={`${testID}-activity`} /> : null}
+              footer={footer}
               empty={<NativeEmptyState variant="first-run" title={copy.threadEmptyTitle} body={currentTopic?.closedAt ? copy.topicClosedNotice : copy.threadEmptyBody} testID={`${testID}-empty`} />}
             />
           </View>
@@ -492,6 +523,26 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
           attachmentKinds={attachmentKinds}
           testID={`${testID}-actions`}
         />
+        <NativeSheet open={readersOpen && Boolean(readers?.length)} onOpenChange={setReadersOpen} testID={`${testID}-readers`}>
+          <View style={{ paddingTop: 20, paddingBottom: 8, paddingHorizontal: 16, gap: 8 }}>
+            <NativeText preset="label" accessibilityRole="header" style={{ color: colors.secondaryLabel, paddingHorizontal: 4 }}>
+              {copy.receiptReadersTitle}
+            </NativeText>
+            <View>
+              {(readers ?? []).map((id) => {
+                const p = person(id) ?? people[id];
+                return (
+                  <NativeListItem
+                    key={id}
+                    testID={`${testID}-readers-${id}`}
+                    title={nameOf(id)}
+                    leading={<NativeAvatar size={32} src={p?.avatarUrl ?? null} fallback={initials(p?.name)} alt={p?.name} recyclingKey={id} />}
+                  />
+                );
+              })}
+            </View>
+          </View>
+        </NativeSheet>
         <ChatPhotoViewer photos={viewer?.photos ?? null} initialIndex={viewer?.index} onClose={() => setViewer(null)} testID={`${testID}-viewer`} />
         {canSchedule ? <ChatScheduleSheet open={schedule.open} onOpenChange={schedule.setOpen} onSchedule={(at) => void schedule.scheduleAt(at)} testID={`${testID}-schedule`} /> : null}
         <ChatVideoRecorder
