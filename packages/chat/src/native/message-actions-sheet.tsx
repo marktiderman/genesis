@@ -58,7 +58,7 @@ export function MessageActionsSheet({ message, context, onClose, onReact, onActi
   };
 
   return (
-    <NativeSheet open={message !== null} onOpenChange={(open) => (open ? undefined : onClose())} testID={testID}>
+    <NativeSheet open={message !== null} onOpenChange={(open) => (open ? undefined : onClose())} fitContent testID={testID}>
       {message && picking ? (
         <View style={{ paddingHorizontal: 16 }}>
         <ChatEmojiPicker

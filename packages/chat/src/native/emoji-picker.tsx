@@ -212,7 +212,7 @@ export function ChatEmojiPickerSheet({ open, onClose, onSelect, testID = "chat-e
   const { copy } = useChatNative();
   const colors = useThemeRoles();
   return (
-    <NativeSheet open={open} onOpenChange={(o) => (o ? undefined : onClose())} testID={testID}>
+    <NativeSheet open={open} onOpenChange={(o) => (o ? undefined : onClose())} fitContent testID={testID}>
       <View style={{ gap: 4, paddingHorizontal: 16 }}>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 44 }}>
           <NativeText preset="h4" accessibilityRole="header">
