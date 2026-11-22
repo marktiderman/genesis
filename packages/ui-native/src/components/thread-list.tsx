@@ -25,6 +25,10 @@
  * animating. The reader's touch wins: a drag during a jump ends the list's own
  * scrolling and drops the jump, even one still loading, so nothing snaps back.
  *
+ * `openAt` opens the list at a row instead of the bottom (the first unread, under a "New" line):
+ * once, when the rows first come, with that row at the top. Where it would sit on screen anyway at
+ * the bottom, the list clamps there; no highlight, no announcement (that's `jumpTo`).
+ *
  * A row is gone when, once `onLoadUntil` has settled, no row answers to its
  * id. The list knows only its rows: a row that's drawn (a deleted message's
  * tombstone) is there, and whatever isn't drawn isn't, whatever a cache holds.
@@ -132,6 +136,12 @@ export interface NativeThreadListProps<T> {
   onJumpFailed?: (id: string) => void;
   /** Whether the reader is at the bottom, as it changes (to show a "new messages" pill, say). */
   onAtBottomChange?: (atBottom: boolean) => void;
+  /**
+   * Open at this row (by `jumpId`), at the top of the screen, instead of the bottom: the first
+   * unread, when the "New" line would be above the screen. Once, when the rows first come; ignored
+   * while `jumpTo` is set.
+   */
+  openAt?: string | null;
   /** Above the first row, before the "Load earlier" button: what the thread is about. */
   header?: ReactNode;
   /** Under the last row: who is typing, a "Sending…" line. */
@@ -193,6 +203,7 @@ function NativeThreadListInner<T>(props: NativeThreadListProps<T>, ref: React.Fo
     jumpAnnouncement,
     onJumpFailed,
     onAtBottomChange,
+    openAt,
     footer,
     header,
     empty,
@@ -251,10 +262,11 @@ function NativeThreadListInner<T>(props: NativeThreadListProps<T>, ref: React.Fo
         go(animated);
         placed.current = true;
       });
-      // Once more after a new row has its size (FlashList measures it after the first pass).
-      if (animated) later(() => move === moveId.current && go(true), 180);
+      // FlatList: once more after a new row has its size. FlashList's bottom anchoring follows the
+      // new row itself (autoscrollToBottomThreshold) once the list is at the end.
+      if (animated && mode.followsByHand) later(() => move === moveId.current && go(true), 180);
     },
-    [later, reducedMotion],
+    [later, reducedMotion, mode.followsByHand],
   );
 
   useImperativeHandle(
@@ -331,6 +343,31 @@ function NativeThreadListInner<T>(props: NativeThreadListProps<T>, ref: React.Fo
       latest.current.onJumpFailed?.(id);
     },
   });
+
+  // Opening at a row (the first unread): once, when the rows first come, unless a jump is asked for.
+  const opened = useRef(false);
+  useEffect(() => {
+    if (opened.current || loading || data.length === 0) return;
+    opened.current = true;
+    if (!openAt || jumpTo) return;
+    const at = indexOf(openAt);
+    if (at < 0) return;
+    setAtBottom(false);
+    placed.current = true;
+    const move = ++moveId.current;
+    const go = () => {
+      if (move !== moveId.current) return;
+      const i = indexOf(openAt);
+      if (i < 0) return;
+      settlingUntil.current = Date.now() + SETTLING_MS;
+      listRef.current?.scrollToIndex?.({ index: i, animated: false, viewPosition: 0 });
+    };
+    settlingUntil.current = Date.now() + SETTLING_MS;
+    requestAnimationFrame(go);
+    // Again after FlashList's own start-at-the-bottom placement, which comes after the first frame.
+    later(go, 250);
+    lookForBottom();
+  }, [loading, data.length, openAt, jumpTo, indexOf, setAtBottom, later, lookForBottom]);
 
   const loadEarlier = useCallback(() => {
     if (placed.current && !jumping && hasEarlier && !loadingEarlier) onLoadEarlier?.();
