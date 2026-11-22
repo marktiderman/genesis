@@ -11,8 +11,8 @@
  * One downgrade is deliberate and passes: a workspace package whose own package.json pin for that
  * dependency changed in the same diff (its package.json specifier at the base ref differs from the
  * one at head; the lockfile's specifier, which carries overrides, isn't read) to an exact, `~` or
- * `^` range that no longer admits the old version, as aligning with an Expo SDK does. A downgrade
- * with no such pin change still fails.
+ * `^` range that no longer admits the old version and admits every version now locked in its
+ * place, as aligning with an Expo SDK does. A downgrade with no such pin change still fails.
  *
  * Usage: node scripts/check-lockfile-downgrades.mjs --base origin/main
  * Fix: `pnpm install && pnpm dedupe` on the branch, or restore the base lockfile and reinstall.
@@ -257,13 +257,12 @@ export function lockfileDowngrades(base, head, pins = {}) {
         const kept = range(h, versions);
         // Nothing in its range: the dependent moved to a new major, or dropped this copy.
         if (!kept.length || kept.some((v) => compare(v, h) >= 0)) continue;
+        const key = `${name}@${h}`;
         if (pinLowered(dependent, name, h, kept)) {
-          const key = `${name}@${h}`;
           if (!lowered.has(key)) lowered.set(key, new Set());
           for (const v of kept) lowered.get(key).add(v);
           continue;
         }
-        const key = `${name}@${h}`;
         if (!moved.has(key)) moved.set(key, { name, h, to: new Set(), by: [] });
         moved.get(key).to.add(newest(kept));
         moved.get(key).by.push(dependent);
