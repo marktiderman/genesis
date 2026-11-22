@@ -379,6 +379,11 @@ describe("check-lockfile-downgrades", () => {
     expect(specifierTakes("~8.28.0", "8.28.4")).toBe(true);
     expect(specifierTakes("^4.1.0", "4.2.0")).toBe(true);
     expect(specifierTakes("^0.0.3", "0.0.3")).toBe(true);
+    // `+build` metadata parses on every op and never counts.
+    expect(specifierTakes("1.1.0+sdk.1", "1.1.0")).toBe(true);
+    expect(specifierTakes("^1.1.0+sdk.1", "1.2.0")).toBe(true);
+    expect(specifierTakes("~1.1.0+sdk.1", "1.1.4")).toBe(true);
+    expect(specifierTakes("~1.1.0+sdk.1", "1.2.0")).toBe(false);
     expect(specifierTakes("^0.0.3", "0.0.4")).toBe(false);
     expect(specifierTakes("workspace:^", "1.0.0")).toBeNull();
     // A prerelease only when the pin names one on the same x.y.z, as semver.

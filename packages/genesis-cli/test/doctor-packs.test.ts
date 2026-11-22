@@ -985,6 +985,8 @@ describe("expo-native-deps", () => {
     expect(rangeSubset("0.88.1", "=0.88.1 >=0.88.2")).toBe(false);
     expect(rangeSubset("0.88.1", "<0.88.1 =0.88.1")).toBe(false);
     expect(rangeSubset("0.88.1", "=0.88.1 <0.88.1")).toBe(false);
+    expect(rangeSubset("0.88.1", ">0.88.1 =0.88.1")).toBe(false);
+    expect(rangeSubset("0.88.1", "=0.88.1 >0.88.1")).toBe(false);
     // A `>` that starts a range isn't pnpm's parent>child separator.
     for (const k of ["react-native@>=0.88.0", "react-native@>0.80", "react-native@> 0.80", "a>react-native@>=0.88.0"]) expect(overrideTarget(k)).toEqual({ name: "react-native", spec: k.slice(k.lastIndexOf("react-native@") + 13) });
     expect(overrideTarget("a@>=1>@s/x@>=2")).toEqual({ name: "@s/x", spec: ">=2" });
