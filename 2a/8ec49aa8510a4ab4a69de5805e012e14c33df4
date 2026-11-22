@@ -1,0 +1,24 @@
+scripts/check-lockfile-downgrades.mjs
+  s_7081dae02ae2cb::t_9f24216bccf2e9 11-15
+  s_7081dae02ae2cb::t_a9e31189834af0 209
+  s_7081dae02ae2cb::t_55440b443ee880 144-180
+  s_7081dae02ae2cb::t_8c66bf54e541e1 191-197
+scripts/__tests__/check-lockfile-downgrades.test.mjs
+  s_7081dae02ae2cb::t_45aa82a4f658a9 12,240-291
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2a8ec49aa8510a4ab4a69de5805e012e14c33df4",
+  "prompts": {},
+  "sessions": {
+    "s_7081dae02ae2cb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7a2b62bd-584c-47e8-8b1a-72015db941a7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
