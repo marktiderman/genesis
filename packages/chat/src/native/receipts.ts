@@ -58,6 +58,9 @@ export function lastSentReceipt(items: readonly ThreadItem[], options: ReceiptOp
     }
     const m = item.message;
     if (m.senderId !== me || m.kind === "system" || m.deletedAt) continue;
+    // Seen by only some (observers), or hidden by moderation: the others' read places say nothing
+    // about it, so it carries no status.
+    if (m.visibility === "observers" || m.moderation === "hidden") return null;
     return { key: rowKey(item), receipt: receiptFor(m.seq, m.clientId) };
   }
   return null;

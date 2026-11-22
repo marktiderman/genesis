@@ -153,9 +153,11 @@ export function InboxPage({
   // One menu for the page: its row stays set while the sheet goes, so its words don't vanish first.
   const [menuRow, setMenuRow] = useState<InboxPageSlotMap["row"] | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  // Built again only when the items are: each row's props then stay equal and its memo holds.
+  // Built again only when the items change, or the minute does (so "Yesterday" and the times turn
+  // over at midnight on a re-render): each row's props otherwise stay equal and its memo holds.
+  const minute = Math.floor(now().getTime() / 60_000);
   const rows: InboxPageSlotMap["row"][] = useMemo(() => {
-    const clock = now();
+    const clock = new Date(minute * 60_000);
     return items.map((item, index) => ({
       ...item,
       testID: item.testID ?? `${testID}-row-${item.id}`,
@@ -163,7 +165,7 @@ export function InboxPage({
       isLast: index === items.length - 1,
       timeLabel: item.timestamp ? formatTime(typeof item.timestamp === "string" ? new Date(item.timestamp) : item.timestamp, clock) : null,
     }));
-  }, [items, now, formatTime, testID]);
+  }, [items, minute, formatTime, testID]);
   const openRowMenu = useCallback((row: InboxPageSlotMap["row"]) => {
     setMenuRow(row);
     setMenuOpen(true);

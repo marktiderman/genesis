@@ -165,9 +165,18 @@ the status out (an app that doesn't show read state). The logic is `lastSentRece
 `receiptDelivered`, `receiptReadAt` and the rest).
 
 Migration 0006 adds `members.last_read_at`, set when a member's read place moves past someone
-else's message (posting your own sets nothing), and sends a `read` hint on the conversation's
-topic, so "Delivered" turns to "Read" while the thread is open. Members already see each other's
-`lastReadSeq`; there is no setting yet to stop sending read receipts.
+else's message (posting your own sets nothing; a hidden or deleted message doesn't count), and
+sends a `read` hint on the conversation's topic, so "Delivered" turns to "Read" while the thread
+is open. The hint is only a cue: the thread reads the members again (once for a burst), never the
+hint's own numbers, and only the database sends it (0006 lets clients broadcast nothing but
+typing and presence on a conversation's topic). Conversations of more than 32 members get no hint:
+there, "Read by N" updates when the thread next reads its members (on opening, on reconnecting).
+An observers-only or hidden message shows no status.
+
+Members already see each other's `lastReadSeq`, and with 0006 their `lastReadAt` too: every member
+and observer of a conversation can see when each member last read it. There is no setting yet to
+stop sending read receipts (`receipts="hide"` only hides them on the screen that passes it), so an
+app with a privacy policy should decide before it takes 0006.
 
 Someone typing shows as a bubble of three dots at the bottom of the thread (`ChatTypingBubble`),
 with their avatar beside it in a group, read out as "Sam is typing…"; someone recording a voice
@@ -196,7 +205,10 @@ The thread follows iMessage where the platform lets it:
   (the attach, emoji and scheduled sheets fit theirs too). The + button's menu opens the picker as
   soon as the menu has gone, with no fixed wait.
 - **Where it opens.** At the first unread, with the "New" line at the top, when that line would be
-  above the screen; otherwise at the newest. With FlashList (`GenesisModules.list`) the list is
+  above the screen; otherwise at the newest. An unread further back than the first page opens at
+  the page's oldest unread, and earlier pages load from there. A row the list can't reach (FlatList
+  before it has measured that far) opens at the newest instead. Showing another conversation in
+  the same `ChatThreadScreen` opens it at its own first unread. With FlashList (`GenesisModules.list`) the list is
   anchored at the bottom, so a send scrolls once. Scrolled up, a "↓ 3 new messages" pill comes up
   when others write; it goes to the newest.
 - **Connection.** "Waiting for network…" while the app's NetInfo (`modules.netInfo`) says

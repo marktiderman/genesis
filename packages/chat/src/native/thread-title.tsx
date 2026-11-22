@@ -8,7 +8,7 @@
  * The default subtitle (the away line) needs `ChatProvider` above the navigator, since the bar is
  * drawn by the navigator, not the screen. Pass `subtitle` yourself (or `null` for none) otherwise.
  */
-import { useCallback, useMemo, type ReactNode } from "react";
+import { isValidElement, useCallback, useMemo, type ReactNode } from "react";
 import { Pressable, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { NativeAvatar, NativeText } from "@marktiderman/genesis-ui-native/components";
@@ -42,8 +42,9 @@ export interface ChatThreadTitleProps {
   testID?: string;
 }
 
+/** Any plain object is avatar data (`{}` and `{ id }` included); an element is the app's own. Never an object as a child. */
 function isAvatarData(a: unknown): a is ChatThreadTitleAvatar {
-  return Boolean(a) && typeof a === "object" && !("$$typeof" in (a as object)) && ("src" in (a as object) || "name" in (a as object));
+  return a !== null && typeof a === "object" && !Array.isArray(a) && !isValidElement(a);
 }
 
 export function ChatThreadTitle({ title, subtitle, avatar, onPress, pressHint, conversationId, tintColor, testID = "chat-thread-title" }: ChatThreadTitleProps) {

@@ -84,6 +84,8 @@ export interface MessageBubbleProps {
   receipt?: string | null;
   /** Makes the status a button ("Read by 2" opens who has read it). */
   onReceiptPress?: () => void;
+  /** What is drawn behind the bubble, which the tail is cut from. The theme's grouped background by default (what ChatThreadScreen draws). */
+  backdrop?: string;
   testID: string;
 }
 
@@ -411,7 +413,7 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
             {moderation ? <ModerationMarker note={moderation} mine={mine} testID={`${testID}-moderation`} /> : null}
             {preview ? <ChatLinkPreviewCard preview={preview} mine={mine} images={props.linkPreviewImages} testID={`${testID}-preview`} /> : null}
           </Pressable>
-          {tail ? <BubbleTail mine={mine} color={bubbleColor} backdrop={colors.groupedBackground} opacity={sending ? 0.6 : moderation === "hidden-mine" ? 0.7 : 1} testID={`${testID}-tail`} /> : null}
+          {tail ? <BubbleTail mine={mine} color={bubbleColor} backdrop={props.backdrop ?? (colors.groupedBackground as string)} opacity={sending ? 0.6 : moderation === "hidden-mine" ? 0.7 : 1} testID={`${testID}-tail`} /> : null}
         </Animated.View>
       </View>
   );
@@ -560,7 +562,8 @@ function ReceiptLine({ text, onPress, hint, testID }: { text: string; onPress?: 
       accessibilityHint={hint}
       onPress={onPress}
       hitSlop={8}
-      style={{ alignSelf: "flex-end", minHeight: 24, justifyContent: "center", marginRight: 12 }}
+      // 28 + 8 above and below: a 44 pt target, like the Retry beside a failed send.
+      style={{ alignSelf: "flex-end", minHeight: 28, justifyContent: "center", marginRight: 12 }}
     >
       {words}
     </Pressable>

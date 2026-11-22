@@ -4,10 +4,13 @@
 -- package's migrations depend on where it runs after chat 0005.
 --
 -- 1. `members.last_read_at`: when the member last read someone else's message, that is, when
---    their read place (`last_read_seq`) last moved past a message another person sent. Posting
+--    their read place (`last_read_seq`) last moved past a message another person sent (any kind
+--    but system: a voice note or video is a message with attachments, and counts). Posting
 --    moves your read place past your own message, which sets nothing. Null until it happens,
 --    on rows written before this migration, and for observers. A sender's "Read 9:41" is this.
--- 2. When it moves, the conversation's live topic gets a `read` hint ({conversation_id, user_id,
+-- 2. Whenever a member's read place moves past someone else's message (even twice in one
+--    transaction, when `now()` and so `last_read_at` don't change), the conversation's live topic
+--    gets a `read` hint ({conversation_id, user_id,
 --    seq, at}), so "Delivered" turns to "Read" while the sender has the thread open. Members
 --    already read each other's `last_read_seq` (members_read); the hint carries nothing more,
 --    and clients treat it only as a cue to read the members again, never as the read place.
@@ -29,6 +32,26 @@ alter table genesis_chat.members add column last_read_at timestamptz;
 comment on column genesis_chat.members.last_read_at is
   'When this member''s read place last moved past someone else''s message (read receipts). Genesis Chat.';
 
+-- Whether a read place moving from p_from to p_to passed a message someone else sent that this
+-- member was shown: any kind but system, to everyone, not hidden by moderation, not deleted.
+create function genesis_chat.read_passed(p_conversation_id uuid, p_user_id uuid, p_from bigint, p_to bigint)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select p_to > p_from and exists (
+    select 1 from genesis_chat.messages m
+     where m.conversation_id = p_conversation_id
+       and m.seq > p_from and m.seq <= p_to
+       and m.kind <> 'system' and m.visibility = 'everyone'
+       and m.moderation is distinct from 'hidden' and m.deleted_at is null
+       and m.sender_id is distinct from p_user_id
+  )
+$$;
+revoke execute on function genesis_chat.read_passed(uuid, uuid, bigint, bigint) from public, anon, authenticated;
+
 create function genesis_chat.read_moved()
 returns trigger
 language plpgsql
@@ -36,14 +59,7 @@ security definer
 set search_path = ''
 as $$
 begin
-  if new.role <> 'observer' and new.last_read_seq > old.last_read_seq and exists (
-    select 1 from genesis_chat.messages m
-     where m.conversation_id = new.conversation_id
-       and m.seq > old.last_read_seq and m.seq <= new.last_read_seq
-       and m.kind = 'text' and m.visibility = 'everyone'
-       and m.moderation is distinct from 'hidden' and m.deleted_at is null
-       and m.sender_id is distinct from new.user_id
-  ) then
+  if new.role <> 'observer' and genesis_chat.read_passed(new.conversation_id, new.user_id, old.last_read_seq, new.last_read_seq) then
     new.last_read_at := now();
   end if;
   return new;
@@ -60,7 +76,9 @@ security definer
 set search_path = ''
 as $$
 begin
-  if new.role <> 'observer' and new.last_read_at is distinct from old.last_read_at and (
+  if new.role <> 'observer'
+     and genesis_chat.read_passed(new.conversation_id, new.user_id, old.last_read_seq, new.last_read_seq)
+     and (
     select count(*) from genesis_chat.members m
      where m.conversation_id = new.conversation_id and m.left_at is null
   ) <= 32 then

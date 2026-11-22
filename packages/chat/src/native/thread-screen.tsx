@@ -28,9 +28,9 @@
  * in `accessory`; `active={false}` keeps a thread mounted off screen without marking it read.
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, View } from "react-native";
+import { KeyboardAvoidingView, Platform, Pressable, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { NativeAvatar, NativeButton, NativeEmptyState, NativeIcon, NativeListItem, NativeSheet, NativeText, NativeThreadList, useGenesisModules, useToast, type NativeThreadListHandle, type ThreadRowInfo } from "@marktiderman/genesis-ui-native/components";
+import { NativeAvatar, NativeButton, NativeEmptyState, NativeIcon, NativeListItem, NativeSheet, NativeSheetScrollView, NativeText, NativeThreadList, useGenesisModules, useToast, type NativeThreadListHandle, type ThreadRowInfo } from "@marktiderman/genesis-ui-native/components";
 import { useReducedMotion, useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
 import { activityLine } from "../core/thread";
 import type { ChatMessage, PendingFile } from "../core/types";
@@ -235,6 +235,7 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
   const toast = useToast();
   const colors = useThemeRoles();
   const reducedMotion = useReducedMotion();
+  const { height: windowHeight } = useWindowDimensions();
   const genesis = useGenesisModules();
   const listRef = useRef<NativeThreadListHandle | null>(null);
   // What you send is what you look at next, wherever the list was.
@@ -473,12 +474,13 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
           attachmentSlot={attachmentSlot}
           cardActionTimeoutMs={cardActionTimeoutMs}
           receipt={row.key === receiptKey ? receiptLabel : null}
+          backdrop={colors.groupedBackground as string}
           onReceiptPress={row.key === receiptKey && readers ? openReaders : undefined}
           testID={`${testID}-message-${m?.id ?? row.key}`}
         />
       );
     },
-    [receiptKey, receiptLabel, readers, openReaders, testID, copy.newMessages, userId, urls, byId, group, reducedMotion, onLongPress, allowed, reply, onSwipeReply, onRetry, onDiscard, react, onOpenImage, picker, reattachable, onReattach, previews, linkPreviewImages, attachmentKinds, onOpenAttachment, attachmentSlot, cardActionTimeoutMs, observer],
+    [receiptKey, receiptLabel, readers, openReaders, testID, colors.groupedBackground, copy.newMessages, userId, urls, byId, group, reducedMotion, onLongPress, allowed, reply, onSwipeReply, onRetry, onDiscard, react, onOpenImage, picker, reattachable, onReattach, previews, linkPreviewImages, attachmentKinds, onOpenAttachment, attachmentSlot, cardActionTimeoutMs, observer],
   );
 
   // ---- Video messages ----
@@ -560,6 +562,8 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
           <View style={{ flex: 1 }} {...times.panHandlers}>
             <ChatTimesProvider value={times.value}>
             <NativeThreadList<ThreadRow>
+              // A list per conversation: where it opens (the first unread) is decided once per conversation.
+              key={`${conversationId}:${threadRootId ?? ""}`}
               ref={listRef}
               testID={`${testID}-list`}
               data={rows}
@@ -630,7 +634,8 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
             <NativeText preset="label" accessibilityRole="header" style={{ color: colors.secondaryLabel, paddingHorizontal: 4 }}>
               {copy.receiptReadersTitle}
             </NativeText>
-            <View>
+            {/* A long group's readers scroll inside the sheet (which stops at 90% of the screen). */}
+            <NativeSheetScrollView testID={`${testID}-readers-list`} style={{ maxHeight: Math.round(windowHeight * 0.7) }}>
               {(readers ?? []).map((id) => {
                 const p = person(id) ?? people[id];
                 return (
@@ -642,7 +647,7 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
                   />
                 );
               })}
-            </View>
+            </NativeSheetScrollView>
           </View>
         </NativeSheet>
         <ChatPhotoViewer photos={viewer?.photos ?? null} initialIndex={viewer?.index} onClose={() => setViewer(null)} testID={`${testID}-viewer`} />

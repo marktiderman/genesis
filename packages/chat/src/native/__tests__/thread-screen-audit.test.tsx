@@ -1,14 +1,14 @@
 // @vitest-environment happy-dom
 // @feat:chat
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { forwardRef, useImperativeHandle, type ReactNode } from "react";
 import { Text } from "react-native";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { GenesisModulesProvider, NativeToastProvider } from "@marktiderman/genesis-ui-native/components";
 import type { ChatClient, ConversationHandlers } from "../../core/client";
 import type { ChatMessage } from "../../core/types";
-import { ChatProvider } from "../../react/index";
+import { ChatProvider, useConversation } from "../../react/index";
 import { ChatNativeProvider } from "../context";
 import type { ChatNativeModules, NetInfoLike } from "../modules";
 import { ChatThreadScreen, connectionState, countUnseenBelow } from "../thread-screen";
@@ -175,5 +175,28 @@ describe("a long press on a bubble", () => {
       fireEvent.contextMenu(bubble);
     });
     await waitFor(() => expect(haptics.impactAsync).toHaveBeenCalledWith("m"));
+  });
+});
+
+describe("another conversation in the same screen", () => {
+  it("opens at its own first unread, not the last one's read place", async () => {
+    const OTHER = "44444444-4444-4444-8444-444444444444";
+    const client = fakeClient({
+      members: vi.fn(async (id: string) => [
+        { conversationId: id, userId: ME, role: "member", lastReadSeq: id === CONV ? 1 : 2, joinedAt: "2026-10-01T00:00:00Z" },
+        { conversationId: id, userId: SAM, role: "member", lastReadSeq: 9, joinedAt: "2026-10-01T00:00:00Z" },
+      ]),
+      messages: vi.fn(async (id: string) => ({ messages: [msg(1, SAM), msg(2, SAM), msg(3, SAM)].map((m) => ({ ...m, id: `${id === CONV ? "a" : "b"}${m.seq}`, conversationId: id })), hasEarlier: false })),
+    });
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={qc}>
+        <ChatProvider client={client} userId={ME}>{children}</ChatProvider>
+      </QueryClientProvider>
+    );
+    const { result, rerender } = renderHook(({ id }) => useConversation(id, { markRead: false }), { wrapper, initialProps: { id: CONV } });
+    await waitFor(() => expect(result.current.firstUnreadId).toBe("a2"));
+    rerender({ id: OTHER });
+    await waitFor(() => expect(result.current.firstUnreadId).toBe("b3"));
   });
 });

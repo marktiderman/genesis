@@ -36,4 +36,16 @@ describe("useChatThreadStackOptions' title", () => {
     expect(screen.getByTestId("chat-thread-title").getAttribute("role")).toBe("header");
     expect(screen.queryByTestId("chat-thread-title-subtitle")).toBeNull();
   });
+
+  it("takes {} and an id alone as avatar data (the initials), never as a child, and keeps an element as the app's own", () => {
+    for (const avatar of [{}, { id: "u2" }]) {
+      const opts = chatThreadStackOptions({ headerTitle: "Sam", avatar, subtitle: null }, "#fff");
+      const { unmount } = render(<ChatNativeProvider>{(opts.headerTitle as TitleFn)({})}</ChatNativeProvider>);
+      expect(screen.getByTestId("chat-thread-title-avatar").textContent).toBe("S");
+      unmount();
+    }
+    const own = chatThreadStackOptions({ headerTitle: "Sam", avatar: <span data-testid="own" />, subtitle: null }, "#fff");
+    render(<ChatNativeProvider>{(own.headerTitle as TitleFn)({})}</ChatNativeProvider>);
+    expect(screen.getByTestId("own")).toBeTruthy();
+  });
 });

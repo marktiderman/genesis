@@ -15,8 +15,17 @@ exported as `lastSentReceipt` and `receiptText`, and the words are copy (`receip
   set when a member's read place moves past someone else's message, and a `read` hint on the
   conversation's topic, so "Delivered" turns to "Read" while the thread is open. Without it the
   status still works, and "Read" has no time.
-- `ChatMember.lastReadAt` (optional) and a `read` `ChatSignal`; `useConversation` moves the member's
-  read place in its cache when one comes, with nothing fetched.
+- `ChatMember.lastReadAt` (optional) and a `read` `ChatSignal` (an exhaustive `switch` over
+  `ChatSignal` needs the new case); on one, `useConversation` reads the members again (once for a
+  burst), never the payload's numbers. It reads them again on every channel join too.
+- 0006 also lets clients broadcast only `activity` and presence on a conversation's topic, so only
+  the database sends `read` (or `message`) hints; a hidden or deleted message doesn't count as read,
+  and conversations of more than 32 members get no `read` hint (their read state updates when the
+  members are next read). An observers-only or hidden message of yours shows no status.
+- **Privacy:** with 0006 every member and observer of a conversation can see when each member last
+  read it (`lastReadAt`), as they already see how far. There is no opt-out of sending receipts yet;
+  `receipts="hide"` only hides them on that screen. Decide before upgrading if your app's privacy
+  policy says otherwise.
 - Someone typing now shows as a bubble of three dots at the bottom of the thread
   (`ChatTypingBubble`, with the typer's avatar in a group), not a line of italic text; recording a
   voice note or video keeps its words.
@@ -33,7 +42,7 @@ Native feel (an iOS audit of the thread):
 - The message actions, attach, emoji, scheduled and readers sheets fit their content. The + button
   opens `NativeContextMenu`, which opens the picker once it has gone, instead of an 800 ms wait.
 - `ChatThreadScreen` opens at the first unread when the "New" line would be off screen, shows a
-  "↓ N new messages" pill when scrolled up (copy `newMessagesPill`, `newMessagesPillOne`,
+  "↓ N new messages" pill when scrolled up (`countUnseenBelow`) (copy `newMessagesPill`, `newMessagesPillOne`,
   `newMessagesPillHint`), "Waiting for network…" / "Connecting…" (`waitingForNetwork`,
   `connecting`, `connectionState`, `useOnline`), and an error with Retry when nothing could be read
   (`threadErrorTitle`, `threadErrorBody`).

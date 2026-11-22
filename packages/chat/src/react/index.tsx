@@ -372,6 +372,20 @@ export function useConversation(conversationId: string | null | undefined, opts:
   const hasEarlier = messages.data?.hasEarlier ?? false;
   // Where "New" goes: what you had read when the conversation opened.
   const [readWhenOpened, setReadWhenOpened] = useState<number | null>(null);
+  // Another conversation in the same screen (a split view, no remount) opens at its own read place:
+  // forget the last one's, and read this one's members afresh (a cached copy may be from an earlier visit).
+  const [openedFor, setOpenedFor] = useState(id);
+  if (openedFor !== id) {
+    setOpenedFor(id);
+    setReadWhenOpened(null);
+  }
+  const { refetch: refetchMembers } = members;
+  const firstId = useRef(id);
+  useEffect(() => {
+    if (firstId.current === id) return;
+    firstId.current = id;
+    if (enabled) void refetchMembers();
+  }, [id, enabled, refetchMembers]);
 
   const merge = useCallback(
     (incoming: ChatMessage[], hasEarlierNow?: boolean) =>
@@ -446,7 +460,11 @@ export function useConversation(conversationId: string | null | undefined, opts:
         }
       },
       onActivity: (a) => setActivity((prev) => currentActivity([...prev, a])),
-      onJoin: () => void catchUp().catch(() => undefined),
+      // Every join: what was missed while the channel was down, messages and read places both.
+      onJoin: () => {
+        void catchUp().catch(() => undefined);
+        void queryClient.invalidateQueries({ queryKey: chatKeys.members(id) });
+      },
       onLive: setLive,
     });
     return () => {

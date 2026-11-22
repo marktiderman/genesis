@@ -6,7 +6,7 @@
  * bubble reads as the activity line ("Sam is typing…") to VoiceOver and TalkBack.
  */
 import { useEffect, useRef } from "react";
-import { Animated, View } from "react-native";
+import { AccessibilityInfo, Animated, Platform, View } from "react-native";
 import { NativeAvatar } from "@marktiderman/genesis-ui-native/components";
 import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
 import { initials, useChatNative } from "./context";
@@ -22,12 +22,25 @@ export interface ChatTypingBubbleProps {
 }
 
 const DOT = 8;
+/** The least time between two "is typing" announcements on iOS. */
+const ANNOUNCE_GAP_MS = 4000;
 
 export function ChatTypingBubble({ label, userId, group, reducedMotion, testID }: ChatTypingBubbleProps) {
   const colors = useThemeRoles();
   const { person } = useChatNative();
   const typer = userId ? person(userId) : null;
   const dots = useRef([new Animated.Value(0.4), new Animated.Value(0.4), new Animated.Value(0.4)]).current;
+
+  // iOS has no live regions: VoiceOver hears who is typing when it changes, at most every few seconds.
+  const lastSaid = useRef<{ label: string; at: number } | null>(null);
+  useEffect(() => {
+    if (Platform.OS !== "ios") return;
+    const now = Date.now();
+    const last = lastSaid.current;
+    if (last && (last.label === label || now - last.at < ANNOUNCE_GAP_MS)) return;
+    lastSaid.current = { label, at: now };
+    (AccessibilityInfo as { announceForAccessibility?: (t: string) => void }).announceForAccessibility?.(label);
+  }, [label]);
 
   useEffect(() => {
     if (reducedMotion) {

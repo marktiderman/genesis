@@ -79,7 +79,8 @@ export function TimeRevealRow({ time, testID, children }: { time: string; testID
         importantForAccessibility="no-hide-descendants"
         style={[{ position: "absolute", top: 0, bottom: 0, right: -TIME_REVEAL_WIDTH, width: TIME_REVEAL_WIDTH, alignItems: "center", justifyContent: "center" }, styles.time]}
       >
-        <NativeText preset="caption" style={{ color: colors.tertiaryLabel }}>
+        {/* Shrinks to fit the column at the largest text sizes, rather than clip. */}
+        <NativeText preset="caption" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} style={{ color: colors.tertiaryLabel }}>
           {time}
         </NativeText>
       </Animated.View>

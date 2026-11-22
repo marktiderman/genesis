@@ -33,4 +33,20 @@ describe("InboxPage rows", () => {
     act(() => bump());
     expect(renders).toEqual(before);
   });
+
+  it("turns its time labels over when the clock passes midnight, on the next render", () => {
+    let clock = new Date(2026, 9, 24, 23, 59);
+    const at = [{ id: "a", title: "Sam", timestamp: new Date(2026, 9, 24, 9, 41) }];
+    let bump: () => void = () => undefined;
+    function Screen() {
+      const [n, setN] = useState(0);
+      bump = () => setN((x) => x + 1);
+      return <InboxPage testID="inbox" items={at} now={() => clock} header={<Text>{String(n)}</Text>} />;
+    }
+    render(<Screen />);
+    expect(screen.getByTestId("inbox-row-a-time").textContent).toMatch(/9:41/);
+    clock = new Date(2026, 9, 25, 0, 1);
+    act(() => bump());
+    expect(screen.getByTestId("inbox-row-a-time").textContent).toBe("Yesterday");
+  });
 });

@@ -6,7 +6,7 @@
 -- People: a1 and b2 talk directly.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(15);
+select plan(17);
 
 insert into auth.users (id, aud, role, email, instance_id)
 select ('00000000-0000-4000-8000-00000000c6' || n)::uuid, 'authenticated', 'authenticated', 'genesis-chat-6-' || n || '@example.test', '00000000-0000-0000-0000-000000000000'
@@ -74,6 +74,19 @@ update genesis_chat.members set last_read_seq = last_read_seq + 1 where conversa
 select is(pg_temp.read_at('b2'), null, 'an observer gets no read time');
 
 select has_column('genesis_chat', 'members', 'last_read_at', 'members carry last_read_at');
+
+-- A voice note (a message with attachments and no text) is read like any other.
+reset role;
+update genesis_chat.members set role = 'member', last_read_at = '2000-01-01T00:00:00Z' where conversation_id = pg_temp.v('ab') and user_id = pg_temp.person('b2');
+insert into genesis_chat.messages (conversation_id, seq, sender_id, sender_role, body) values (pg_temp.v('ab'), 0, pg_temp.person('a1'), 'member', '');
+select pg_temp.sign_in('b2');
+select genesis_chat.mark_read(pg_temp.v('ab'));
+select isnt(pg_temp.read_at('b2'), '2000-01-01T00:00:00Z'::timestamptz, 'reading past a message with no text (a voice note) records when');
+
+-- Reading twice in one transaction (now() fixed, so last_read_at unchanged) still sends the hint:
+-- the hint follows the read place, not the time.
+reset role;
+select ok(genesis_chat.read_passed(pg_temp.v('ab'), pg_temp.person('b2'), 0, 1), 'a read place moving past someone else''s message counts, whatever the time');
 
 -- A hidden (moderated) or deleted message isn't read: no read time for it.
 update genesis_chat.members set role = 'member', last_read_at = null where conversation_id = pg_temp.v('ab') and user_id = pg_temp.person('b2');
