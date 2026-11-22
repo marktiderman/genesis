@@ -1,0 +1,21 @@
+packages/ui-native/src/components/__tests__/thread-list-open-at.test.tsx
+  s_22dadcff902f4f::t_8b71c7f546c8f0 1-77
+packages/ui-native/src/components/thread-list.tsx
+  s_22dadcff902f4f::t_b9cf0f37a2ecfb 28-31,139-144,206,265-267,269,347-371
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b60d162367a0fa6adc59d6e077b987e605491473",
+  "prompts": {},
+  "sessions": {
+    "s_22dadcff902f4f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e30c0aa7-4664-443f-9187-dce5753baa7d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
