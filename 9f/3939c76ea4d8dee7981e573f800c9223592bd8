@@ -1,0 +1,38 @@
+packages/chat/src/native/thread-screen.tsx
+  s_22dadcff902f4f::t_63498fb9f7ffad 427-428
+  s_22dadcff902f4f::t_2b03e09749d29e 23-28,30-31,33,64-67,114-128,132-168,207-209,231,344,347,416-421,424-426,429-438,558-561,580-589,591-592,596,628,653,688-744
+  s_22dadcff902f4f::t_3f5f2799326edd 422-423
+  s_22dadcff902f4f::t_562708c7dc91d2 745
+packages/ui-native/src/components/thread-list.tsx
+  s_22dadcff902f4f::t_3f5f2799326edd 141-143,351,411
+packages/chat/src/react/index.tsx
+  s_22dadcff902f4f::t_3f5f2799326edd 595-596
+  s_22dadcff902f4f::t_57ac79c796bb75 406-407,410,442,495-501,607-610
+packages/ui-native/src/components/__tests__/thread-list-open-at.test.tsx
+  s_22dadcff902f4f::t_4cbaa7810e09e9 50-80
+packages/chat/src/native/__tests__/thread-screen-audit.test.tsx
+  s_22dadcff902f4f::t_5aacba902b263b 167-179
+  s_22dadcff902f4f::t_3d779c09041b88 1-166
+packages/chat/src/native/modules.ts
+  s_22dadcff902f4f::t_2b03e09749d29e 257,265-266
+packages/chat/src/core/client.ts
+  s_22dadcff902f4f::t_8b27d042e4e6df 301-302,757
+packages/chat/src/native/copy.ts
+  s_22dadcff902f4f::t_630912d5896da3 27-38,206-212
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9f3939c76ea4d8dee7981e573f800c9223592bd8",
+  "prompts": {},
+  "sessions": {
+    "s_22dadcff902f4f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e30c0aa7-4664-443f-9187-dce5753baa7d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
