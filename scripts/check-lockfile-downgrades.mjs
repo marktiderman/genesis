@@ -202,7 +202,10 @@ export function specifierTakes(spec, v) {
   const [op, want] = [m[1] ?? "=", m[2]];
   if (op === "=") return compare(v, want) === 0;
   if (compare(v, want) < 0) return false;
-  const [x, y] = [parts(v).nums, parts(want).nums];
+  const [pv, pw] = [parts(v), parts(want)];
+  const [x, y] = [pv.nums, pw.nums];
+  // As semver: a range takes a prerelease only when it names one on the same x.y.z.
+  if (pv.pre.length && !(pw.pre.length && x.join(".") === y.join("."))) return false;
   if (op === "~") return x[0] === y[0] && x[1] === y[1];
   // `^0.0.3` takes only 0.0.3 (sameRange never takes a 0.0.x).
   return y[0] === 0 && y[1] === 0 ? compare(v, want) === 0 : sameRange(v, want);

@@ -303,6 +303,10 @@ describe("check-lockfile-downgrades", () => {
       expect(failing(workspace({ "apps/starter": { bar: "1.2.0" } }), workspace({ "apps/starter": { bar: "1.1.0" } }), { "apps/starter": { bar: "1.2.0" } }, { "apps/starter": { bar: now } })).toEqual([
         "bar: replaces 1.2.0 with 1.1.0, an older release, for apps/starter",
       ]);
+    // Nor a prerelease the new pin's range wouldn't take.
+    expect(failing(workspace({ "apps/starter": { bar: "1.2.0" } }), workspace({ "apps/starter": { bar: "1.1.5-beta.1" } }), { "apps/starter": { bar: "^1.2.0" } }, { "apps/starter": { bar: "~1.1.0" } })).toEqual([
+      "bar: replaces 1.2.0 with 1.1.5-beta.1, an older release, for apps/starter",
+    ]);
     // Only an override changed (the lockfile's specifier moves, package.json doesn't).
     expect(
       lockfileDowngrades(workspace({ "apps/starter": { react: "19.3.0" } }, {}, { react: "19.3.0" }), workspace({ "apps/starter": { react: "19.2.0" } }, {}, { react: "19.2.0" }), {
@@ -345,5 +349,11 @@ describe("check-lockfile-downgrades", () => {
     expect(specifierTakes("^0.0.3", "0.0.3")).toBe(true);
     expect(specifierTakes("^0.0.3", "0.0.4")).toBe(false);
     expect(specifierTakes("workspace:^", "1.0.0")).toBeNull();
+    // A prerelease only when the pin names one on the same x.y.z, as semver.
+    expect(specifierTakes("~1.1.0", "1.1.5-beta.1")).toBe(false);
+    expect(specifierTakes("^1.1.0", "1.3.0-rc.0")).toBe(false);
+    expect(specifierTakes("^1.1.0-beta.1", "1.1.0-beta.2")).toBe(true);
+    expect(specifierTakes("^1.1.0-beta.1", "1.2.0-beta.0")).toBe(false);
+    expect(specifierTakes("^1.1.0-beta.1", "1.2.0")).toBe(true);
   });
 });
