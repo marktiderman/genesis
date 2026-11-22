@@ -9,6 +9,7 @@ import {
   lockedEdges,
   lockfileDowngrades,
   lockedVersions,
+  manifestPins,
   specifierTakes,
 } from "../check-lockfile-downgrades.mjs";
 
@@ -238,55 +239,99 @@ describe("check-lockfile-downgrades", () => {
     expect(lockfileDowngrades(base, head)).toEqual(none);
   });
 
-  /** A lockfile with one workspace importer whose dependencies carry their own specifiers. */
-  const pinned = (deps) =>
+  /**
+   * A lockfile from `importer → { key: version }` plus `snapshot → { dependency: version }`. A
+   * version like `foo@1.5.0` is an alias. The lockfile's own specifier is `override` when given
+   * (what pnpm writes under an override), else `^version`.
+   */
+  const workspace = (importers, snapshots = {}, override = {}) =>
     [
       "lockfileVersion: '9.0'",
       "",
       "importers:",
       "",
-      "  apps/starter:",
-      "    dependencies:",
-      ...Object.entries(deps).flatMap(([name, [specifier, version]]) => [
-        `      ${quote(name)}:`,
-        `        specifier: ${specifier}`,
-        `        version: ${version}`,
+      ...Object.entries(importers).flatMap(([dir, deps]) => [
+        `  ${dir}:`,
+        "    dependencies:",
+        ...Object.entries(deps).flatMap(([key, version]) => [
+          `      ${quote(key)}:`,
+          `        specifier: ${override[key] ?? `^${version.replace(/^.*@/, "")}`}`,
+          `        version: ${version}`,
+        ]),
+        "",
       ]),
-      "",
       "packages:",
       "",
-      ...Object.entries(deps).flatMap(([name, [, version]]) => [`  ${quote(`${name}@${version}`)}:`, "    resolution: {integrity: x}", ""]),
+      ...[...Object.values(importers), ...Object.values(snapshots)]
+        .flatMap((deps) => Object.entries(deps).map(([key, v]) => (v.includes("@") ? v : `${key}@${v}`)))
+        .flatMap((k) => [`  ${quote(k)}:`, "    resolution: {integrity: x}", ""]),
       "snapshots:",
       "",
+      ...Object.entries(snapshots).flatMap(([key, deps]) => [
+        `  ${quote(key)}:`,
+        "    dependencies:",
+        ...Object.entries(deps).map(([name, v]) => `      ${quote(name)}: ${v}`),
+        "",
+      ]),
     ].join("\n");
+  /** Each importer's package.json pins, as manifestPins reads them. */
+  const pins = (byImporter) => new Map(Object.entries(byImporter).map(([dir, deps]) => [dir, new Map(Object.entries(deps))]));
 
-  it("passes a downgrade the workspace's own pin made on purpose in the same diff", () => {
-    const base = pinned({ "@sentry/react-native": ["~8.35.0", "8.35.0"], "@shopify/flash-list": ["2.3.3", "2.3.3"] });
-    const head = pinned({ "@sentry/react-native": ["~8.28.0", "8.28.1"], "@shopify/flash-list": ["2.3.2", "2.3.2"] });
-    expect(lockfileDowngrades(base, head).downgrades).toEqual([]);
+  it("passes a downgrade the workspace package.json's own pin made in the same diff, and doesn't ask to dedupe it", () => {
+    const base = workspace({ "apps/starter": { "@sentry/react-native": "8.35.0", "@shopify/flash-list": "2.3.3" }, "apps/web": { "@shopify/flash-list": "2.3.3" } });
+    const head = workspace({ "apps/starter": { "@sentry/react-native": "8.28.1", "@shopify/flash-list": "2.3.2" }, "apps/web": { "@shopify/flash-list": "2.3.3" } });
+    const result = lockfileDowngrades(base, head, {
+      before: pins({ "apps/starter": { "@sentry/react-native": "~8.35.0", "@shopify/flash-list": "2.3.3" } }),
+      after: pins({ "apps/starter": { "@sentry/react-native": "~8.28.0", "@shopify/flash-list": "2.3.2" } }),
+    });
+    expect(result).toEqual(none);
   });
 
-  it("still fails a lockfile-only downgrade, or a changed pin that still admits the old version", () => {
-    const base = pinned({ "@sentry/react-native": ["~8.35.0", "8.35.0"], zod: ["^4.0.0", "4.2.0"] });
-    // Same pin, older resolution: a regenerated lockfile moved it back.
-    expect(lockfileDowngrades(base, pinned({ "@sentry/react-native": ["~8.35.0", "8.35.0"], zod: ["^4.0.0", "4.1.0"] })).downgrades).toEqual([
+  it("still fails every downgrade the pin change doesn't cover", () => {
+    const failing = (base, head, before, after) => lockfileDowngrades(base, head, { before: pins(before), after: pins(after) }).downgrades;
+    // Lockfile only: no pin changed.
+    expect(failing(workspace({ "apps/starter": { zod: "4.2.0" } }), workspace({ "apps/starter": { zod: "4.1.0" } }), { "apps/starter": { zod: "^4.0.0" } }, { "apps/starter": { zod: "^4.0.0" } })).toEqual([
       "zod: replaces 4.2.0 with 4.1.0, an older release, for apps/starter",
     ]);
-    // The pin changed, but ^4.1.0 still admits 4.2.0: not a deliberate lowering.
-    expect(lockfileDowngrades(base, pinned({ "@sentry/react-native": ["~8.35.0", "8.35.0"], zod: ["^4.1.0", "4.1.0"] })).downgrades).toEqual([
-      "zod: replaces 4.2.0 with 4.1.0, an older release, for apps/starter",
+    // Without pins at all (the default): nothing is exempt.
+    expect(lockfileDowngrades(workspace({ "apps/starter": { zod: "4.2.0" } }), workspace({ "apps/starter": { zod: "4.1.0" } })).downgrades).toHaveLength(1);
+    // The pin changed but still admits the old version, or can't be judged.
+    for (const now of ["^4.1.0", ">=4 <4.2"])
+      expect(failing(workspace({ "apps/starter": { zod: "4.2.0" } }), workspace({ "apps/starter": { zod: "4.1.0" } }), { "apps/starter": { zod: "^4.0.0" } }, { "apps/starter": { zod: now } })).toHaveLength(1);
+    // Only an override changed (the lockfile's specifier moves, package.json doesn't).
+    expect(
+      lockfileDowngrades(workspace({ "apps/starter": { react: "19.3.0" } }, {}, { react: "19.3.0" }), workspace({ "apps/starter": { react: "19.2.0" } }, {}, { react: "19.2.0" }), {
+        before: pins({ "apps/starter": { react: "^19.2.5" } }),
+        after: pins({ "apps/starter": { react: "^19.2.5" } }),
+      }).downgrades,
+    ).toEqual(["react: replaces 19.3.0 with 19.2.0, an older release, for apps/starter"]);
+    // A snapshot dependent and a second importer that move back beside an exempted pin.
+    const base = workspace({ "apps/starter": { bar: "1.2.0" }, "apps/web": { bar: "1.2.0" } }, { "baz@1.0.0": { bar: "1.2.0" } });
+    const head = workspace({ "apps/starter": { bar: "1.1.0" }, "apps/web": { bar: "1.1.0" } }, { "baz@1.0.0": { bar: "1.1.0" } });
+    expect(failing(base, head, { "apps/starter": { bar: "1.2.0" }, "apps/web": { bar: "^1.0.0" } }, { "apps/starter": { bar: "1.1.0" }, "apps/web": { bar: "^1.0.0" } })).toEqual([
+      "bar: replaces 1.2.0 with 1.1.0, an older release, for apps/web, baz@1.0.0",
     ]);
-    // A pin this check can't judge (a wider range) never exempts.
-    expect(lockfileDowngrades(base, pinned({ "@sentry/react-native": ["~8.35.0", "8.35.0"], zod: [">=4 <4.2", "4.1.0"] })).downgrades).toEqual([
-      "zod: replaces 4.2.0 with 4.1.0, an older release, for apps/starter",
-    ]);
+    // An alias edge isn't judged by the direct pin of the package it resolves to.
+    expect(
+      failing(
+        workspace({ "apps/starter": { foo: "2.1.0", "foo-v1": "foo@1.5.0" } }),
+        workspace({ "apps/starter": { foo: "2.0.0", "foo-v1": "foo@1.4.0" } }),
+        { "apps/starter": { foo: "2.1.0", "foo-v1": "npm:foo@^1.4.0" } },
+        { "apps/starter": { foo: "2.0.0", "foo-v1": "npm:foo@^1.4.0" } },
+      ),
+    ).toEqual(["foo: replaces 2.1.0 with 2.0.0, an older release, for apps/starter", "foo: replaces 1.5.0 with 1.4.0, an older release, for apps/starter"]);
   });
 
-  it("reads specifiers and judges exact, ~ and ^ pins", () => {
+  it("reads each importer's package.json pins, and judges exact, ~ and ^ pins", () => {
+    const files = { "package.json": '{"devDependencies":{"vitest":"^5.0.0"}}', "apps/starter/package.json": '{"dependencies":{"react-native":"0.88.1"}}' };
+    const read = manifestPins(workspace({ ".": { vitest: "5.1.0" }, "apps/starter": { "react-native": "0.88.1" }, "apps/gone": { x: "1.0.0" } }), (f) => files[f] ?? null);
+    expect(read).toEqual(new Map([[".", new Map([["vitest", "^5.0.0"]])], ["apps/starter", new Map([["react-native", "0.88.1"]])]]));
     expect(specifierTakes("2.3.2", "2.3.3")).toBe(false);
     expect(specifierTakes("~8.28.0", "8.35.0")).toBe(false);
     expect(specifierTakes("~8.28.0", "8.28.4")).toBe(true);
     expect(specifierTakes("^4.1.0", "4.2.0")).toBe(true);
+    expect(specifierTakes("^0.0.3", "0.0.3")).toBe(true);
+    expect(specifierTakes("^0.0.3", "0.0.4")).toBe(false);
     expect(specifierTakes("workspace:^", "1.0.0")).toBeNull();
   });
 });

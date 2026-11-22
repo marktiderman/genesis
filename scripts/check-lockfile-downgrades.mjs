@@ -10,14 +10,15 @@
  *
  * One downgrade is deliberate and passes: a workspace package whose own package.json pin for that
  * dependency changed in the same diff (its specifier differs from the base lockfile's) to an exact,
- * `~` or `^` range that no longer admits the old version, as aligning with an Expo SDK does. A
+ * `~` or `^` range that no longer admits the old version, as aligning with an Expo SDK does (read from
+ * package.json itself, never from an override). A
  * downgrade with no such pin change still fails.
  *
  * Usage: node scripts/check-lockfile-downgrades.mjs --base origin/main
  * Fix: `pnpm install && pnpm dedupe` on the branch, or restore the base lockfile and reinstall.
  */
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
 /** `name → versions` from the `packages:` section of a pnpm 9 lockfile. */
@@ -141,12 +142,11 @@ export function lockedEdges(lockfile) {
   return out;
 }
 
-/** `workspace path → dependency → specifier`, from a pnpm 9 lockfile's `importers`. */
-export function importerSpecifiers(lockfile) {
+/** `workspace path → package names it reaches through an alias` (`foo-v1: foo@1.5.0`), from `importers`. */
+export function importerAliases(lockfile) {
   const out = new Map();
   let section = "";
   let dependent = "";
-  let dependency = "";
   for (const line of lockfile.split(/\r?\n/)) {
     if (/^\S/.test(line)) {
       section = line.replace(/:.*/, "");
@@ -155,11 +155,37 @@ export function importerSpecifiers(lockfile) {
     if (section !== "importers") continue;
     let m;
     if ((m = /^ {2}(\S.*):$/.exec(line))) dependent = unquote(m[1]);
-    else if ((m = /^ {6}(\S.*):$/.exec(line))) dependency = unquote(m[1]);
-    else if ((m = /^ {8}specifier: (.+)$/.exec(line))) {
-      if (!out.has(dependent)) out.set(dependent, new Map());
-      out.get(dependent).set(dependency, unquote(m[1]));
+    else if ((m = /^ {8}version: (.+)$/.exec(line))) {
+      const version = unquote(m[1]).split("(")[0];
+      if (!/^@?[^@\s]+@\d/.test(version)) continue;
+      if (!out.has(dependent)) out.set(dependent, new Set());
+      out.get(dependent).add(splitKey(version)[0]);
     }
+  }
+  return out;
+}
+
+/**
+ * `workspace path → dependency → specifier`, from each importer's own package.json
+ * (dependencies, devDependencies, optionalDependencies), read with `read(path)` (null when it
+ * isn't there). The lockfile's specifiers aren't used: they carry pnpm-workspace.yaml overrides.
+ */
+export function manifestPins(lockfile, read) {
+  const out = new Map();
+  for (const [, dir] of lockfile.split(/^importers:$/m)[1]?.split(/^\S/m)[0]?.matchAll(/^ {2}(\S.*):$/gm) ?? []) {
+    const path = unquote(dir);
+    const text = read(path === "." ? "package.json" : `${path}/package.json`);
+    if (!text) continue;
+    let pkg;
+    try {
+      pkg = JSON.parse(text);
+    } catch {
+      continue;
+    }
+    const pins = new Map();
+    for (const section of ["optionalDependencies", "devDependencies", "dependencies"])
+      for (const [name, spec] of Object.entries(pkg[section] ?? {})) if (typeof spec === "string") pins.set(name, spec);
+    out.set(path, pins);
   }
   return out;
 }
@@ -175,7 +201,9 @@ export function specifierTakes(spec, v) {
   if (op === "=") return compare(v, want) === 0;
   if (compare(v, want) < 0) return false;
   const [x, y] = [parts(v).nums, parts(want).nums];
-  return op === "~" ? x[0] === y[0] && x[1] === y[1] : sameRange(v, want);
+  if (op === "~") return x[0] === y[0] && x[1] === y[1];
+  // `^0.0.3` takes only 0.0.3 (sameRange never takes a 0.0.x).
+  return y[0] === 0 && y[1] === 0 ? compare(v, want) === 0 : sameRange(v, want);
 }
 
 /**
@@ -184,15 +212,22 @@ export function specifierTakes(spec, v) {
  * version older than a compatible base one, that isn't simply the upgrade of a base copy it
  * replaced, and isn't one of those downgrades.
  */
-export function lockfileDowngrades(base, head) {
+export function lockfileDowngrades(base, head, pins = {}) {
   /** `name@version` moved back → the older version and the dependents it moved for. */
   const moved = new Map();
+  /** `name@version` moved back by a deliberate pin: not a downgrade, and not a copy to dedupe. */
+  const lowered = new Set();
   const after = lockedEdges(head);
-  const [pinsBefore, pinsAfter] = [importerSpecifiers(base), importerSpecifiers(head)];
-  /** The workspace's own pin changed in this diff and no longer admits `h`: a deliberate downgrade. */
+  const aliased = [importerAliases(base), importerAliases(head)];
+  /**
+   * The workspace package.json's own pin (never the lockfile's specifier, which carries
+   * pnpm-workspace.yaml overrides) changed in this diff and no longer admits `h`. A name the
+   * importer also reaches through an alias isn't judged by the direct pin.
+   */
   const pinLowered = (dependent, name, h) => {
-    const was = pinsBefore.get(dependent)?.get(name);
-    const now = pinsAfter.get(dependent)?.get(name);
+    if (aliased.some((a) => a.get(dependent)?.has(name))) return false;
+    const was = pins.before?.get(dependent)?.get(name);
+    const now = pins.after?.get(dependent)?.get(name);
     return !!was && !!now && was !== now && specifierTakes(now, h) === false;
   };
   for (const [dependent, deps] of lockedEdges(base)) {
@@ -206,7 +241,10 @@ export function lockfileDowngrades(base, head) {
         const kept = range(h, versions);
         // Nothing in its range: the dependent moved to a new major, or dropped this copy.
         if (!kept.length || kept.some((v) => compare(v, h) >= 0)) continue;
-        if (pinLowered(dependent, name, h)) continue;
+        if (pinLowered(dependent, name, h)) {
+          lowered.add(`${name}@${h}`);
+          continue;
+        }
         const key = `${name}@${h}`;
         if (!moved.has(key)) moved.set(key, { name, h, to: new Set(), by: [] });
         moved.get(key).to.add(newest(kept));
@@ -224,7 +262,7 @@ export function lockfileDowngrades(base, head) {
       const compatible = range(v, had);
       const newer = newest(
         compatible.filter(
-          (h) => compare(h, v) > 0 && !moved.has(`${name}@${h}`),
+          (h) => compare(h, v) > 0 && !moved.has(`${name}@${h}`) && !lowered.has(`${name}@${h}`),
         ),
       );
       if (!newer) continue;
@@ -253,13 +291,23 @@ if (
     console.error("usage: check-lockfile-downgrades.mjs --base <ref>");
     process.exit(2);
   }
-  const { downgrades, copies } = lockfileDowngrades(
-    execFileSync("git", ["show", `${base}:pnpm-lock.yaml`], {
-      encoding: "utf8",
-      maxBuffer: 1 << 28,
-    }),
-    readFileSync("pnpm-lock.yaml", "utf8"),
-  );
+  const baseLock = execFileSync("git", ["show", `${base}:pnpm-lock.yaml`], {
+    encoding: "utf8",
+    maxBuffer: 1 << 28,
+  });
+  const headLock = readFileSync("pnpm-lock.yaml", "utf8");
+  const atBase = (file) => {
+    try {
+      return execFileSync("git", ["show", `${base}:${file}`], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+    } catch {
+      return null;
+    }
+  };
+  const atHead = (file) => (existsSync(file) ? readFileSync(file, "utf8") : null);
+  const { downgrades, copies } = lockfileDowngrades(baseLock, headLock, {
+    before: manifestPins(baseLock, atBase),
+    after: manifestPins(headLock, atHead),
+  });
   if (copies.length) {
     console.warn(
       `pnpm-lock.yaml adds older copies (fine when a dependency pins one; otherwise \`pnpm dedupe\`):\n  ${copies.join("\n  ")}`,
