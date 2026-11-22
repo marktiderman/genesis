@@ -1,5 +1,64 @@
 # @marktiderman/genesis-cli
 
+## 1.33.0
+
+### Minor Changes
+
+- 5bd12c2: New native apps release on EAS Workflows' own trigger (ADR 0026). `deploy-production.yml` runs on
+  every push to main, as Expo documents it: it finds each platform's runtime version, then publishes
+  an update on a matching store build or builds and submits. GitHub Actions takes no part, so a
+  blocked or unpaid Actions account can't stop a release. Apps already on GitHub's trigger keep it
+  until they choose to move (docs/MIGRATION.md).
+
+  - New `release.trigger` in genesis.config.json: `"eas"` or `"github"` (the previous lane:
+    `native-release.yml` on GitHub Actions, `deploy-production.yml` dispatch-only). Only one is ever
+    written. Unset, an app with `native-release.yml` reads as `"github"`, and `genesis upgrade`
+    writes it down; nothing about its releases changes.
+  - `genesis add template release --trigger eas` moves an app in one change: `deploy-production.yml`
+    takes the push and an unedited `native-release.yml` is removed. It first checks the EAS
+    project's GitHub link on Expo's API, and, with a release hook, that `RELEASE_GITHUB_TOKEN` (an
+    EAS secret) is in `pushHook.secrets`. Until both hold, nothing moves and it says what's left.
+  - PR previews run when someone adds the `Preview` label (every pull request is the new
+    `release.previews.everyPullRequest` opt-in), in an EAS environment of their own
+    (`release.previews.easEnvironment`, default `preview-release`) rather than the release's: a
+    preview runs the pull request's code before review. New doctor rule `preview-environment`.
+    An app whose previews still read the release's environment keeps them as they are until that
+    environment exists (checked on Expo's API), and the upgrade prints the setup steps.
+  - deploy-production.yml fits EAS's 16 KiB limit for workflow files: the publishing moved into
+    .eas/scripts/native-release.mjs (`publish`, `runtime-version`), and each platform's runtime
+    version is found in its own job. New doctor rule `eas-workflow-size`.
+  - A failed release says so: a `release_failed` job posts to `RELEASE_FAILURE_WEBHOOK` (an EAS
+    secret) when set, and new `release.failureEmails` adds an Expo email job.
+  - A run started by hand releases only committed code at main's tip. Updates carry the commit
+    subject as their message.
+  - `genesis init --template native` writes no `native-release.yml`.
+  - New doctor rules: `release-lane-live` (an error when `deploy-production.yml` is dispatch-only and
+    nothing starts it, a warning when the files don't match `release.trigger`) and
+    `release-trigger-github` (a warning naming the move). `release-lane-twice` also guards EAS's
+    lane.
+
+- 15bbd1c: `genesis repo protect` puts an app's GitHub repository on Genesis's branch-protection standard: a `default` ruleset on the default branch (no deletion or force push, pull requests with resolved threads, merge or squash only, the required checks) and, for apps that release through staging batches, a `staging-branches` ruleset, plus the merge settings (delete branches on merge, auto-merge on, rebase off). The required checks are read from the app's own workflows (`app / App checks`, the review gate's `Adversarial review`), pinned to GitHub Actions; a path-filtered workflow's check is never required, since it would hold other pull requests forever. `--dry-run` prints the diff. Converging adopts an existing ruleset, keeps what Genesis doesn't name and never loosens a stricter value (approvals, code-owner review, strict checks, fewer merge methods, a bypass mode); a matrix job is never required; `genesis.config.json`'s new `repo` block (`requiredChecks`, `stagingChecks`, `staging`) names the checks exactly. `genesis repo prune-staging` deletes merged staging batches through the staging ruleset's admin bypass (the default branch gets none), with no rule turned off. The doctor's new `repo-protection` rule (warn, network only) reports drift, fixed by `repo.protect`; the setup wizard offers it as the `github.branch-protection` step.
+
+### Patch Changes
+
+- 37c53d8: With `release.trigger` `"github"`, `deploy-production.yml` failed in its first job because EAS
+  Workflows refuses a non-string `env` value: `RELEASE_IOS` and `RELEASE_ANDROID` now take the
+  `ios` and `android` inputs' own text, which the step already compares as text.
+- 4e3144f: Upgrade friction from taking the last release:
+
+  - `genesis upgrade` and `genesis add` run the app's own `features:build` script when it has one
+    that isn't `genesis features build`, so features.json (and the rest) come out exactly as the
+    app's own build and check write them, instead of in another order.
+  - `genesis agents`, the catalog and the doctor leave out a deprecated package (a renamed one's
+    alias, `"deprecated"` in its package.json) that the app's package.json no longer lists, though
+    its folder is still in node_modules after the upgrade.
+  - `migration-drift` no longer reports a copy that differs from its package migration only in SQL
+    comments (`--`, `/* */`, outside strings and dollar-quoted bodies) and whitespace: it makes the
+    same database, so there is nothing for a forward migration to carry. A real SQL change still drifts.
+  - The README's upgrade section says what to do when `npx @marktiderman/genesis-cli@<v>` stops with
+    `EOVERRIDE` in an app (the app's npm override against its own direct dependency): run the app's
+    installed `genesis`, or write the override as `"$zod"`.
+
 ## 1.32.0
 
 ### Minor Changes

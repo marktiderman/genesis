@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 891 components · 5279 other exports · 4476 standalone types across 229 entry points in 33 packages.
+**Totals:** 891 components · 5280 other exports · 4477 standalone types across 229 entry points in 33 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -8565,7 +8565,7 @@ export type { ScaffoldResult };
 
 **Barrel:** [`packages/genesis-cli/src/doctor/index.ts`](../packages/genesis-cli/src/doctor/index.ts)
 
-### Other exports (74)
+### Other exports (75)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -8642,11 +8642,12 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | `validateConfig` | value | — | _(no summary)_ |
 | `validateDeclaration` | value | — | _(no summary)_ |
 | `validateLinks` | value | — | _(no summary)_ |
+| `validateRepo` | value | — | _(no summary)_ |
 | `webRoutes` | value | — | _(no summary)_ |
 | `writeAgentGuide` | value | — | _(no summary)_ |
 | `writeAgentHooks` | value | — | _(no summary)_ |
 
-### Types (25)
+### Types (26)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -8661,6 +8662,7 @@ export type { FixPlanDraft };
 export type { GenesisConfigFile };
 export type { GenesisInstall };
 export type { GenesisLinks };
+export type { GenesisRepo };
 export type { GenesisSupabase };
 export type { PackageDeclaration };
 export type { PackageGuide };

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-21",
+  "generatedAt": "2026-11-22",
   "surfaces": {
     "web": {
       "package": "@marktiderman/genesis-ui",
@@ -24552,12 +24552,12 @@
       "subpath": "@marktiderman/genesis-ui",
       "filePath": "packages/ui/src/components/ui/progress.tsx",
       "stability": "stable",
-      "summary": "",
+      "summary": "Progress — a bar from 0 to 100, announced as a progressbar with its value; named \"N% complete\" unless `aria-label` says more.",
       "primaryComponent": "Progress",
       "components": [
         {
           "name": "Progress",
-          "summary": "",
+          "summary": "Progress — a bar from 0 to 100, announced as a progressbar with its value; named \"N% complete\" unless `aria-label` says more.",
           "props": [
             {
               "name": "value",
