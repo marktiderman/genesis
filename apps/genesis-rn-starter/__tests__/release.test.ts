@@ -250,10 +250,28 @@ describe("EAS workflows", () => {
     expect(start).toMatch(/agentic_ci_stop\(\) \{[\s\S]*simulator:stop/);
   });
 
-  it("the agent may run only agent-device on the session, and the file tools", () => {
+  it("the agent may read only the project, write only its evidence, and run only agent-device", () => {
     const runner = read(".eas/agents/run-agent.sh");
-    expect(runner).toContain("tools='Read,Glob,Grep,Write,Bash(npx --yes eas-cli@27.11.0 simulator:exec npx --yes agent-device@0.21.41 *)'");
+    expect(runner).toContain("tools='Read,Glob,Grep,Edit(./agent-output/evidence/**),Bash(npx --yes eas-cli@27.11.0 simulator:exec npx --yes agent-device@0.21.41 *)'");
+    // Where the job's secrets can still be read: the process environment, /tmp, home, .env files.
+    for (const rule of ["Read(//proc/**)", "Read(//tmp/**)", "Read(~/**)", "Read(./.env*)"]) expect(runner).toContain(rule);
+    expect(runner).toContain('--disallowedTools "$denied"');
+    expect(runner).toContain("--permission-mode dontAsk");
+    // A bare Write or Edit would allow writing anywhere (Write is governed by Edit rules).
+    expect(runner).not.toMatch(/tools='[^']*(?:,|')(?:Write|Edit)(?:,|')/);
     expect(runner).not.toMatch(/dangerously|bypassPermissions/);
+  });
+
+  it("agentic-ci's comment carries only PASS or FAIL, and the evidence is redacted before upload", () => {
+    const { jobs } = workflow("agentic-ci.yml");
+    const run = jobs.check!.steps!.map((s) => s.run ?? "").join("\n");
+    expect(run).toMatch(/redact-evidence\.sh[\s\S]*set-output verdict "\$verdict"/);
+    expect(run).toContain("PASS:*) verdict=PASS ;; *) verdict=FAIL ;;");
+    expect(run).not.toMatch(/set-output verdict "\$\(head/);
+    const upload = jobs.check!.steps!.findIndex((s) => (s as { uses?: string }).uses === "eas/upload_artifact");
+    const check = jobs.check!.steps!.findIndex((s) => (s.run ?? "").includes("redact-evidence.sh"));
+    expect(check).toBeGreaterThanOrEqual(0);
+    expect(upload).toBeGreaterThan(check);
   });
 
   it("e2e runs only by hand", () => {

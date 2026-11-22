@@ -780,14 +780,19 @@ where no flow covers it.
    no Maestro CLI). Their results go to `agent-output/evidence/maestro.md`.
 4. `.eas/agents/run-agent.sh` runs Claude Code on `.eas/agents/check-pr.md`, the pull request's
    title and body, the device's commands and `.eas/agents/app-facts.md`, with no
-   `EXPO_TOKEN`, `EXPO_TOKEN_SIMULATOR` or `GITHUB_TOKEN` and only the file tools and agent-device
-   allowed. It writes `agent-output/evidence/verdict.md` (line 1 `PASS: …` or `FAIL: …`) and
-   screenshots; the evidence folder is uploaded as the run's artifact.
-5. `comment` posts the verdict, the session page (its recording) and the run; `result` fails the
-   run unless the verdict is `PASS`.
+   `EXPO_TOKEN`, `EXPO_TOKEN_SIMULATOR` or `GITHUB_TOKEN`. Its rules allow reading the project,
+   writing only under `agent-output/evidence`, and agent-device on the session; they refuse
+   `/proc`, `/tmp`, the home folder and `.env` files, where the agent's own key could still be
+   read. It writes `agent-output/evidence/verdict.md` (line 1 `PASS: …` or `FAIL: …`) and
+   screenshots. `.eas/agents/redact-evidence.sh` removes the job's secret values from the evidence,
+   which is then uploaded as the run's artifact.
+5. `comment` posts only PASS or FAIL, the session page (its recording) and the run: the agent's
+   own words stay in the artifact, never in the comment. `result` fails the run unless it's PASS.
 
 When it runs: a reviewer adds the label `Agent check` (create it in GitHub) after reading the
-change, or `eas workflow:run agentic-ci.yml --ref <branch> -F title="…" -F body="…"`. Never on every
+change. The label runs the pull request's own code, `.eas/agents` included, with the `development`
+environment's secrets, so add it only to a pull request whose code you trust, never one from a fork
+or an outside contributor; or `eas workflow:run agentic-ci.yml --ref <branch> -F title="…" -F body="…"`. Never on every
 pull request, and never a required check until its verdicts have been read on real runs: a false
 `FAIL` usually means `app-facts.md` is missing something.
 

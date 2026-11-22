@@ -19,6 +19,10 @@
 #
 #   eas workflow:run agentic-ci.yml --ref <branch> -F title="…" -F body="…"
 #
+# The label runs the pull request's own code (its .eas/agents scripts included) with the
+# development environment's secrets: add it only to a pull request whose code you trust, never one
+# from a fork or an outside contributor. Anyone who can push a branch can do the same by hand.
+#
 # Each run is a repack or a build, one session of up to AGENT_MAX_MINUTES, and the agent's tokens.
 #
 # Its jobs read the EAS environment `development`, as e2e.yml does. Put there, as secrets,
@@ -132,7 +136,10 @@ jobs:
           } > agent-output/prompt.md
           env -u EXPO_TOKEN -u EXPO_TOKEN_SIMULATOR -u GITHUB_TOKEN \
             timeout "$(( AGENT_MAX_MINUTES - 5 ))m" bash .eas/agents/run-agent.sh agent-output/prompt.md device || true
-          set-output verdict "$(head -n 1 agent-output/evidence/verdict.md 2> /dev/null || echo 'FAIL: The agent did not write a verdict.')"
+          bash .eas/agents/redact-evidence.sh
+          # Only PASS or FAIL leaves the job as an output: the agent's own words stay in the evidence.
+          case "$(head -n 1 agent-output/evidence/verdict.md 2> /dev/null)" in PASS:*) verdict=PASS ;; *) verdict=FAIL ;; esac
+          set-output verdict "$verdict"
           set-output session_url "$(node -p 'require("/tmp/session.json").deviceRunSessionUrl || ""')"
           set-output build_id "$BUILD_ID"
           set-output commit "$(git rev-parse --short HEAD)"
@@ -154,7 +161,7 @@ jobs:
         <!-- genesis-agentic-ci -->
         ## Agentic CI (iOS)
 
-        **Verdict:** ${{ after.check.outputs.verdict || 'FAIL: The check job did not finish. See the workflow run.' }}
+        **Verdict:** ${{ after.check.outputs.verdict || 'FAIL (the check job did not finish)' }}. The agent's report (verdict.md), screenshots and recording are in the run's artifacts.
 
         **Commit:** ${{ after.check.outputs.commit || 'unknown' }}
 
@@ -167,7 +174,7 @@ jobs:
   result:
     name: Fail unless the verdict is PASS
     after: [check]
-    if: ${{ !startsWith(after.check.outputs.verdict, 'PASS') }}
+    if: ${{ after.check.outputs.verdict != 'PASS' }}
     steps:
       - run: |
           echo "The agent's verdict isn't PASS. See the evidence in this run."
