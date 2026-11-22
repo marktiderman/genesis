@@ -98,12 +98,12 @@ jobs:
     after: [build, repack]
     environment: development
     env:
-      BUILT_ID: ${{ after.build.outputs.build_id || '' }}
-      REPACKED_ID: ${{ after.repack.outputs.build_id || '' }}
-      PR_TITLE: ${{ github.event.pull_request.title || '' }}
-      PR_BODY: ${{ github.event.pull_request.body || '' }}
-      INPUT_TITLE: ${{ inputs.title || '' }}
-      INPUT_BODY: ${{ inputs.body || '' }}
+      BUILT_ID: ${{ after.build.outputs.build_id }}
+      REPACKED_ID: ${{ after.repack.outputs.build_id }}
+      PR_TITLE: ${{ github.event.pull_request.title }}
+      PR_BODY: ${{ github.event.pull_request.body }}
+      INPUT_TITLE: ${{ inputs.title }}
+      INPUT_BODY: ${{ inputs.body }}
       AGENT_MAX_MINUTES: "25"
       AGENT_IDLE_MINUTES: "5"
     outputs:

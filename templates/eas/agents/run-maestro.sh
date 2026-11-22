@@ -7,7 +7,8 @@
 # The flows are the paths listed in .eas/agents/maestro-flows.txt, one per line, from the app's
 # folder (# starts a comment); none listed, nothing runs. agent-device runs a subset of Maestro
 # YAML: a flow using a command it lacks fails with that command's name (`npx agent-device help
-# maestro` lists them). Each result goes to agent-output/evidence/maestro.md, which the agent reads.
+# maestro` lists them). A flow's ${VAR}s come from AD_VAR_<VAR> in the job's environment (plain
+# values only: never a secret). Each result goes to agent-output/evidence/maestro.md, which the agent reads.
 #
 # Genesis template (templates/eas/agents/run-maestro.sh).
 set -uo pipefail
