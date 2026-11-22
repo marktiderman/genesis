@@ -267,12 +267,25 @@ describe("ChatThreadScreen's message status", () => {
     expect(screen.queryByTestId("chat-thread-message-m1-receipt")).toBeNull();
   });
 
-  it("turns Delivered into Read when the live read hint comes", async () => {
+  it("turns Delivered into Read when the live read hint comes, from the members read again", async () => {
+    const sam = { userId: SAM, lastReadSeq: 1 };
+    const { client, handlers } = receiptsClient(messages, [sam]);
+    render(wrap(client, drawingList().List, <ChatThreadScreen conversationId={CONV} />));
+    await waitFor(() => expect(screen.getByTestId("chat-thread-message-m2-receipt").textContent).toBe("Delivered"), { timeout: 2000 });
+    sam.lastReadSeq = 2;
+    act(() => handlers.onSignal?.({ type: "read", conversationId: CONV, userId: SAM, seq: 2, at: null }));
+    await waitFor(() => expect(screen.getByTestId("chat-thread-message-m2-receipt").textContent).toBe("Read"));
+  });
+
+  it("never takes a read hint's payload as the read place: a forged one changes nothing", async () => {
     const { client, handlers } = receiptsClient(messages, [{ userId: SAM, lastReadSeq: 1 }]);
     render(wrap(client, drawingList().List, <ChatThreadScreen conversationId={CONV} />));
     await waitFor(() => expect(screen.getByTestId("chat-thread-message-m2-receipt").textContent).toBe("Delivered"), { timeout: 2000 });
-    act(() => handlers.onSignal?.({ type: "read", conversationId: CONV, userId: SAM, seq: 2, at: null }));
-    await waitFor(() => expect(screen.getByTestId("chat-thread-message-m2-receipt").textContent).toBe("Read"));
+    const fetches = vi.mocked(client.members).mock.calls.length;
+    act(() => handlers.onSignal?.({ type: "read", conversationId: CONV, userId: SAM, seq: 1_000_000, at: "2026-01-01T09:41:00Z" }));
+    act(() => handlers.onSignal?.({ type: "read", conversationId: CONV, userId: SAM, seq: 1_000_001, at: null }));
+    await waitFor(() => expect(vi.mocked(client.members).mock.calls.length).toBe(fetches + 1));
+    expect(screen.getByTestId("chat-thread-message-m2-receipt").textContent).toBe("Delivered");
   });
 
   it('hides it with receipts="hide"', async () => {

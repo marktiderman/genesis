@@ -11,7 +11,7 @@ import type { ChatMessage } from "../../core/types";
 import { ChatProvider } from "../../react/index";
 import { ChatNativeProvider } from "../context";
 import type { ChatNativeModules, NetInfoLike } from "../modules";
-import { ChatThreadScreen, connectionState, newBelowCount } from "../thread-screen";
+import { ChatThreadScreen, connectionState, countUnseenBelow } from "../thread-screen";
 
 vi.mock("react-native", async (original) => ({ ...(await original<object>()), useWindowDimensions: () => ({ width: 390, height: 844, scale: 3, fontScale: 1 }) }));
 
@@ -125,9 +125,9 @@ describe("the thread's connection line", () => {
 describe("the new messages pill", () => {
   it("counts others' messages that came after you scrolled up", () => {
     const ms = [msg(1, SAM), msg(2, ME), msg(3, SAM), msg(4, SAM)];
-    expect(newBelowCount(ms, null, ME)).toBe(0);
-    expect(newBelowCount(ms, 1, ME)).toBe(2);
-    expect(newBelowCount(ms, 4, ME)).toBe(0);
+    expect(countUnseenBelow(ms, null, ME)).toBe(0);
+    expect(countUnseenBelow(ms, 1, ME)).toBe(2);
+    expect(countUnseenBelow(ms, 4, ME)).toBe(0);
   });
 
   it("shows while you're scrolled up and new messages came in, and goes to the newest", async () => {

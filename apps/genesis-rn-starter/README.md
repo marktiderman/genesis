@@ -185,7 +185,7 @@ manifest for the packages installed, export compliance and the fingerprint runti
 - **Chat:** `supabase/migrations/20261025000000_genesis_chat.sql`,
   `20261025000050_genesis_chat_coaching.sql`, `20261025000060_genesis_chat_search_threads.sql`,
   `20261025000080_genesis_chat_tenants.sql`, `20261025000090_genesis_chat_attachment_paths.sql` and
-  `20261025000091_genesis_chat_read_receipts.sql` are genesis-chat's migrations 0001 to 0006 (topics,
+  `20261026001400_genesis_chat_read_receipts.sql` are genesis-chat's migrations 0001 to 0006 (topics,
   scheduled send, availability, broadcast, search, link previews, moderation; every conversation in a
   tenant; tightened attachment paths; read times for message status), copied and drift-tested the same way. The starter is single-tenant:
   `20261025000070_starter_tenancy.sql` puts every login in one tenant

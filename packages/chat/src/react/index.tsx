@@ -333,6 +333,9 @@ export interface UseConversationOptions {
 }
 
 /** One conversation: its messages (with what you are still sending), members, your role, and who is typing. */
+/** How long a `read` hint waits for others before the members are read again. */
+const READ_REFETCH_MS = 300;
+
 export function useConversation(conversationId: string | null | undefined, opts: UseConversationOptions = {}) {
   const { client, userId, outbox, queue } = useChat();
   const queryClient = useQueryClient();
@@ -418,15 +421,20 @@ export function useConversation(conversationId: string | null | undefined, opts:
         if (root) merge([root]);
       }
     };
+    let readRefetch: ReturnType<typeof setTimeout> | null = null;
     channel.current = client.subscribeConversation(id, userId, {
       onSignal: (s) => {
         if (s.type === "message") void fetchOne(s.id);
         else if (s.type === "reaction") void fetchOne(s.messageId);
         else if (s.type === "read") {
-          // Read receipts: the member's place moves forward in the cache, with nothing fetched.
-          queryClient.setQueryData<ChatMember[]>(chatKeys.members(id), (prev) =>
-            prev?.map((m) => (m.userId === s.userId && s.seq >= m.lastReadSeq ? { ...m, lastReadSeq: s.seq, lastReadAt: s.at ?? m.lastReadAt ?? null } : m)),
-          );
+          // Read receipts: a cue to read the members again, never the read place itself (a payload
+          // is only as good as whoever sent it). Coalesced, so a burst of reads is one fetch.
+          if (readRefetch === null) {
+            readRefetch = setTimeout(() => {
+              readRefetch = null;
+              void queryClient.invalidateQueries({ queryKey: chatKeys.members(id) });
+            }, READ_REFETCH_MS);
+          }
         } else if (s.type === "members") {
           void queryClient.invalidateQueries({ queryKey: chatKeys.members(id) });
           void queryClient.invalidateQueries({ queryKey: chatKeys.role(id) });
@@ -442,6 +450,7 @@ export function useConversation(conversationId: string | null | undefined, opts:
       onLive: setLive,
     });
     return () => {
+      if (readRefetch) clearTimeout(readRefetch);
       channel.current?.unsubscribe();
       channel.current = null;
     };

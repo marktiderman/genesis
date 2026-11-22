@@ -6,7 +6,7 @@
 -- People: a1 and b2 talk directly.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(9);
+select plan(15);
 
 insert into auth.users (id, aud, role, email, instance_id)
 select ('00000000-0000-4000-8000-00000000c6' || n)::uuid, 'authenticated', 'authenticated', 'genesis-chat-6-' || n || '@example.test', '00000000-0000-0000-0000-000000000000'
@@ -74,6 +74,45 @@ update genesis_chat.members set last_read_seq = last_read_seq + 1 where conversa
 select is(pg_temp.read_at('b2'), null, 'an observer gets no read time');
 
 select has_column('genesis_chat', 'members', 'last_read_at', 'members carry last_read_at');
+
+-- A hidden (moderated) or deleted message isn't read: no read time for it.
+update genesis_chat.members set role = 'member', last_read_at = null where conversation_id = pg_temp.v('ab') and user_id = pg_temp.person('b2');
+select pg_temp.sign_in('a1');
+select genesis_chat.send_message(pg_temp.v('ab'), gen_random_uuid(), 'hidden one');
+reset role;
+update genesis_chat.messages set moderation = 'hidden'
+ where conversation_id = pg_temp.v('ab') and seq = (select last_seq from genesis_chat.conversations where id = pg_temp.v('ab'));
+select pg_temp.sign_in('b2');
+select genesis_chat.mark_read(pg_temp.v('ab'));
+select is(pg_temp.read_at('b2'), null, 'reading past a hidden message records no read time');
+
+select pg_temp.sign_in('a1');
+select genesis_chat.send_message(pg_temp.v('ab'), gen_random_uuid(), 'deleted one');
+reset role;
+update genesis_chat.messages set deleted_at = now()
+ where conversation_id = pg_temp.v('ab') and seq = (select last_seq from genesis_chat.conversations where id = pg_temp.v('ab'));
+select pg_temp.sign_in('b2');
+select genesis_chat.mark_read(pg_temp.v('ab'));
+select is(pg_temp.read_at('b2'), null, 'reading past a deleted message records no read time');
+
+-- Clients send only client events on a conversation's topic: never a read (or message) hint.
+reset role;
+grant insert on realtime.messages to authenticated;
+grant usage on all sequences in schema realtime to authenticated;
+select pg_temp.sign_in('a1');
+select set_config('realtime.topic', 'genesis-chat:conv:' || pg_temp.v('ab'), true);
+select throws_ok(
+  $$ insert into realtime.messages (topic, extension, event, payload) values (realtime.topic(), 'broadcast', 'read', jsonb_build_object('user_id', pg_temp.person('b2'), 'seq', 1000000)) $$,
+  '42501', null, 'a member can''t broadcast a read hint (a forged receipt)');
+select throws_ok(
+  $$ insert into realtime.messages (topic, extension, event, payload) values (realtime.topic(), 'broadcast', 'message', '{}'::jsonb) $$,
+  '42501', null, 'nor a message hint');
+select lives_ok(
+  $$ insert into realtime.messages (topic, extension, event, payload) values (realtime.topic(), 'broadcast', 'activity', '{"activity":"typing"}'::jsonb) $$,
+  'a member can still say they are typing');
+select lives_ok(
+  $$ insert into realtime.messages (topic, extension, event, payload) values (realtime.topic(), 'presence', 'track', '{}'::jsonb) $$,
+  'and use presence');
 
 select * from finish();
 rollback;

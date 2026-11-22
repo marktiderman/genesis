@@ -159,7 +159,7 @@ export function useOnline(netInfo: NetInfoLike | undefined): boolean | null {
 }
 
 /** How many messages from others came in after `afterSeq` (the newest when you scrolled up). */
-export function newBelowCount(messages: readonly { seq: number; senderId: string | null }[], afterSeq: number | null, me: string): number {
+export function countUnseenBelow(messages: readonly { seq: number; senderId: string | null }[], afterSeq: number | null, me: string): number {
   if (afterSeq === null) return 0;
   let n = 0;
   for (let i = messages.length - 1; i >= 0 && messages[i]!.seq > afterSeq; i--) if (messages[i]!.senderId !== me) n++;
@@ -418,7 +418,7 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
   const latestSeqNow = useRef(0);
   latestSeqNow.current = conv.messages.length ? conv.messages[conv.messages.length - 1]!.seq : 0;
   const onAtBottomChange = useCallback((atBottom: boolean) => setScrolledAwayAt(atBottom ? null : latestSeqNow.current), []);
-  const newBelow = newBelowCount(conv.messages, scrolledAwayAt, userId);
+  const newBelow = countUnseenBelow(conv.messages, scrolledAwayAt, userId);
   // Opens at the first unread, once that is known (the list keeps it at the bottom if it fits).
   const openAt = conv.firstUnreadKnown ? conv.firstUnreadId : undefined;
 
