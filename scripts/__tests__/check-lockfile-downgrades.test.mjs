@@ -9,6 +9,7 @@ import {
   lockedEdges,
   lockfileDowngrades,
   lockedVersions,
+  specifierTakes,
 } from "../check-lockfile-downgrades.mjs";
 
 const quote = (key) => (key.startsWith("@") ? `'${key}'` : key);
@@ -235,5 +236,57 @@ describe("check-lockfile-downgrades", () => {
       ".": { next: "16.0.0-rc.10", react: "19.0.0-beta.11" },
     });
     expect(lockfileDowngrades(base, head)).toEqual(none);
+  });
+
+  /** A lockfile with one workspace importer whose dependencies carry their own specifiers. */
+  const pinned = (deps) =>
+    [
+      "lockfileVersion: '9.0'",
+      "",
+      "importers:",
+      "",
+      "  apps/starter:",
+      "    dependencies:",
+      ...Object.entries(deps).flatMap(([name, [specifier, version]]) => [
+        `      ${quote(name)}:`,
+        `        specifier: ${specifier}`,
+        `        version: ${version}`,
+      ]),
+      "",
+      "packages:",
+      "",
+      ...Object.entries(deps).flatMap(([name, [, version]]) => [`  ${quote(`${name}@${version}`)}:`, "    resolution: {integrity: x}", ""]),
+      "snapshots:",
+      "",
+    ].join("\n");
+
+  it("passes a downgrade the workspace's own pin made on purpose in the same diff", () => {
+    const base = pinned({ "@sentry/react-native": ["~8.35.0", "8.35.0"], "@shopify/flash-list": ["2.3.3", "2.3.3"] });
+    const head = pinned({ "@sentry/react-native": ["~8.28.0", "8.28.1"], "@shopify/flash-list": ["2.3.2", "2.3.2"] });
+    expect(lockfileDowngrades(base, head).downgrades).toEqual([]);
+  });
+
+  it("still fails a lockfile-only downgrade, or a changed pin that still admits the old version", () => {
+    const base = pinned({ "@sentry/react-native": ["~8.35.0", "8.35.0"], zod: ["^4.0.0", "4.2.0"] });
+    // Same pin, older resolution: a regenerated lockfile moved it back.
+    expect(lockfileDowngrades(base, pinned({ "@sentry/react-native": ["~8.35.0", "8.35.0"], zod: ["^4.0.0", "4.1.0"] })).downgrades).toEqual([
+      "zod: replaces 4.2.0 with 4.1.0, an older release, for apps/starter",
+    ]);
+    // The pin changed, but ^4.1.0 still admits 4.2.0: not a deliberate lowering.
+    expect(lockfileDowngrades(base, pinned({ "@sentry/react-native": ["~8.35.0", "8.35.0"], zod: ["^4.1.0", "4.1.0"] })).downgrades).toEqual([
+      "zod: replaces 4.2.0 with 4.1.0, an older release, for apps/starter",
+    ]);
+    // A pin this check can't judge (a wider range) never exempts.
+    expect(lockfileDowngrades(base, pinned({ "@sentry/react-native": ["~8.35.0", "8.35.0"], zod: [">=4 <4.2", "4.1.0"] })).downgrades).toEqual([
+      "zod: replaces 4.2.0 with 4.1.0, an older release, for apps/starter",
+    ]);
+  });
+
+  it("reads specifiers and judges exact, ~ and ^ pins", () => {
+    expect(specifierTakes("2.3.2", "2.3.3")).toBe(false);
+    expect(specifierTakes("~8.28.0", "8.35.0")).toBe(false);
+    expect(specifierTakes("~8.28.0", "8.28.4")).toBe(true);
+    expect(specifierTakes("^4.1.0", "4.2.0")).toBe(true);
+    expect(specifierTakes("workspace:^", "1.0.0")).toBeNull();
   });
 });

@@ -8,6 +8,11 @@
  * major. Both are how a regenerated lockfile moves unrelated packages back: Dependabot's cooldown
  * resolves every package to a release at least a week old, not only the one it bumps.
  *
+ * One downgrade is deliberate and passes: a workspace package whose own package.json pin for that
+ * dependency changed in the same diff (its specifier differs from the base lockfile's) to an exact,
+ * `~` or `^` range that no longer admits the old version, as aligning with an Expo SDK does. A
+ * downgrade with no such pin change still fails.
+ *
  * Usage: node scripts/check-lockfile-downgrades.mjs --base origin/main
  * Fix: `pnpm install && pnpm dedupe` on the branch, or restore the base lockfile and reinstall.
  */
@@ -136,6 +141,43 @@ export function lockedEdges(lockfile) {
   return out;
 }
 
+/** `workspace path → dependency → specifier`, from a pnpm 9 lockfile's `importers`. */
+export function importerSpecifiers(lockfile) {
+  const out = new Map();
+  let section = "";
+  let dependent = "";
+  let dependency = "";
+  for (const line of lockfile.split(/\r?\n/)) {
+    if (/^\S/.test(line)) {
+      section = line.replace(/:.*/, "");
+      continue;
+    }
+    if (section !== "importers") continue;
+    let m;
+    if ((m = /^ {2}(\S.*):$/.exec(line))) dependent = unquote(m[1]);
+    else if ((m = /^ {6}(\S.*):$/.exec(line))) dependency = unquote(m[1]);
+    else if ((m = /^ {8}specifier: (.+)$/.exec(line))) {
+      if (!out.has(dependent)) out.set(dependent, new Map());
+      out.get(dependent).set(dependency, unquote(m[1]));
+    }
+  }
+  return out;
+}
+
+/**
+ * Whether a package.json specifier admits `v`: an exact version, `~` or `^`. Null for anything
+ * else (a wider range, a tag, a protocol), which this check can't judge and never exempts.
+ */
+export function specifierTakes(spec, v) {
+  const m = /^(~|\^|=)?v?(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/.exec(spec.trim());
+  if (!m) return null;
+  const [op, want] = [m[1] ?? "=", m[2]];
+  if (op === "=") return compare(v, want) === 0;
+  if (compare(v, want) < 0) return false;
+  const [x, y] = [parts(v).nums, parts(want).nums];
+  return op === "~" ? x[0] === y[0] && x[1] === y[1] : sameRange(v, want);
+}
+
 /**
  * `downgrades`: a dependent that resolved a dependency to a version on the base branch and now
  * gets only older ones in that version's caret range, so it moved back. `copies`: an added
@@ -146,6 +188,13 @@ export function lockfileDowngrades(base, head) {
   /** `name@version` moved back → the older version and the dependents it moved for. */
   const moved = new Map();
   const after = lockedEdges(head);
+  const [pinsBefore, pinsAfter] = [importerSpecifiers(base), importerSpecifiers(head)];
+  /** The workspace's own pin changed in this diff and no longer admits `h`: a deliberate downgrade. */
+  const pinLowered = (dependent, name, h) => {
+    const was = pinsBefore.get(dependent)?.get(name);
+    const now = pinsAfter.get(dependent)?.get(name);
+    return !!was && !!now && was !== now && specifierTakes(now, h) === false;
+  };
   for (const [dependent, deps] of lockedEdges(base)) {
     const now = after.get(dependent);
     if (!now) continue;
@@ -157,6 +206,7 @@ export function lockfileDowngrades(base, head) {
         const kept = range(h, versions);
         // Nothing in its range: the dependent moved to a new major, or dropped this copy.
         if (!kept.length || kept.some((v) => compare(v, h) >= 0)) continue;
+        if (pinLowered(dependent, name, h)) continue;
         const key = `${name}@${h}`;
         if (!moved.has(key)) moved.set(key, { name, h, to: new Set(), by: [] });
         moved.get(key).to.add(newest(kept));
