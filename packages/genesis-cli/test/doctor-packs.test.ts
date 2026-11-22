@@ -1,7 +1,8 @@
 // @feat:doctor-native
 import { execFileSync } from "node:child_process";
-import { appendFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, it } from "vitest";
 import {
   BUILTIN_RULES,
@@ -15,6 +16,8 @@ import {
   type Finding,
 } from "../src/doctor/index.js";
 import { apiSchemas, argTypes, dynamicGrants } from "../src/doctor/supabase.js";
+import { bundledNativeModules, excluded, overrideTarget } from "../src/doctor/expo-deps.js";
+import { rangeSubset, satisfies } from "../src/doctor/semver.js";
 import { cleanupApps, makeApp } from "./doctor-helpers.js";
 
 afterAll(cleanupApps);
@@ -77,7 +80,7 @@ describe("packs config", () => {
   });
 
   it("pack rule ids are built-in, so rules and allow work and patterns can't take them", async () => {
-    for (const id of ["native-raw-primitive", "native-literal-color", "native-custom-header", "native-screen-layout", "store-readiness", "eas-placeholder", "fingerprint-plugin-files", "release-lane-twice", "release-lane-live", "release-trigger-github", "preview-environment", "eas-workflow-size"]) {
+    for (const id of ["native-raw-primitive", "native-literal-color", "native-custom-header", "native-screen-layout", "store-readiness", "eas-placeholder", "fingerprint-plugin-files", "release-lane-twice", "release-lane-live", "release-trigger-github", "preview-environment", "eas-workflow-size", "expo-native-deps"]) {
       expect(BUILTIN_RULES).toContain(id);
     }
     for (const id of ["migration-grants", "migration-rls", "migration-definer-search-path", "migration-edited", "migration-testing-kit", "migration-view-rls"]) expect(BUILTIN_RULES).toContain(id);
@@ -846,5 +849,153 @@ describe("supabase pack: exposed-schema-created-later", () => {
 
   it("is a built-in rule id", () => {
     expect(BUILTIN_RULES).toContain(RULE);
+  });
+});
+
+describe("expo-native-deps", () => {
+  const SDK = {
+    "react-native": "0.88.1",
+    "expo-modules-core": "~58.1.0",
+    "@shopify/flash-list": "2.3.2",
+    "expo-router": "~58.0.32",
+    "@react-native-community/datetimepicker": "9.2.1",
+    "jest-expo": "~58.0.15",
+  };
+  const installed = (name: string, version: string, at = "node_modules", pkgName = name) => ({ [`${at}/${name}/package.json`]: JSON.stringify({ name: pkgName, version }) });
+  const expoFiles = (at = "node_modules") => ({
+    ...installed("expo", "58.0.26", at),
+    [`${at}/expo/bundledNativeModules.json`]: JSON.stringify(SDK),
+  });
+  const app = (pkg: Record<string, unknown>, files: Record<string, string> = {}) =>
+    nativeApp({ "package.json": JSON.stringify({ name: "x", private: true, ...pkg }), ...expoFiles(), ...files });
+  const deps = { expo: "~58.0.19", "react-native": "0.88.0", "@shopify/flash-list": "2.3.3", "expo-router": "~58.0.26", "@react-native-community/datetimepicker": "9.2.1", zod: "^4.0.0" };
+  const matching = { ...installed("react-native", "0.88.1"), ...installed("@shopify/flash-list", "2.3.2"), ...installed("expo-router", "58.0.32"), ...installed("expo-modules-core", "58.1.0") };
+  const ok = { ...deps, "react-native": "0.88.1", "@shopify/flash-list": "2.3.2" };
+
+  it("reports what expo install --check would: react-native and expo-modules-core as errors, the rest as warnings", async () => {
+    const r = await app({ dependencies: deps, devDependencies: { "jest-expo": "~58.0.12" } }, {
+      ...installed("react-native", "0.88.0"),
+      ...installed("@shopify/flash-list", "2.3.3"),
+      ...installed("expo-router", "58.0.33"),
+      ...installed("@react-native-community/datetimepicker", "9.2.1"),
+      ...installed("jest-expo", "58.0.12"),
+      ...installed("zod", "4.1.0"),
+      // expo's own copy, beside it: the one expo loads.
+      ...installed("expo-modules-core", "58.0.4", "node_modules/expo/node_modules"),
+      ...installed("expo-modules-core", "58.1.0"),
+    });
+    expect(brief(r.findings, "expo-native-deps").sort()).toEqual([
+      "expo-native-deps package.json:0 @shopify/flash-list",
+      "expo-native-deps package.json:0 expo-modules-core",
+      "expo-native-deps package.json:0 jest-expo",
+      "expo-native-deps package.json:0 react-native",
+    ]);
+    const level = (s: string) => r.findings.find((f) => f.rule === "expo-native-deps" && f.subject === s)!.level;
+    expect(["react-native", "expo-modules-core", "@shopify/flash-list", "jest-expo"].map(level)).toEqual(["error", "error", "warn", "warn"]);
+    const rn = r.findings.find((f) => f.subject === "react-native")!;
+    expect(rn.message).toContain("react-native 0.88.0 is installed, but expo 58.0.26 expects 0.88.1");
+    expect(rn.message).toContain("npx expo install --fix");
+    expect(rn.fix?.id).toBe("expo.install-fix");
+    expect(r.findings.find((f) => f.subject === "expo-modules-core")!.message).toContain("comes with expo");
+  });
+
+  it("follows pnpm's isolated store: expo-modules-core is the one beside expo's real folder", async () => {
+    const store = "node_modules/.pnpm/expo@58.0.26/node_modules";
+    const root = makeApp(null, {
+      "package.json": JSON.stringify({ name: "x", private: true, dependencies: ok }),
+      "app.json": READY_APP_JSON,
+      ...expoFiles(store),
+      ...installed("expo-modules-core", "58.0.4", store),
+      ...installed("react-native", "0.88.1"),
+    });
+    symlinkSync(path.join(root, store, "expo"), path.join(root, "node_modules", "expo"), "dir");
+    const r = await runDoctor({ root, config: NATIVE });
+    expect(brief(r.findings, "expo-native-deps")).toEqual(["expo-native-deps package.json:0 expo-modules-core"]);
+  });
+
+  it("names an override that pins the drifted version, at the app or its install root", async () => {
+    const own = await app({ dependencies: deps }, { "pnpm-workspace.yaml": "overrides:\n  react-native: 0.88.0\n  \"zod@<1\": ^1\n", ...matching, ...installed("react-native", "0.88.0") });
+    expect(own.findings.find((f) => f.subject === "react-native")!.message).toContain("the pnpm-workspace.yaml overrides entry that pins it");
+    // A monorepo: the override is the workspace root's, where pnpm applies it.
+    const root = makeApp(null, {
+      "pnpm-workspace.yaml": "packages: [apps/*]\noverrides:\n  react-native: 0.88.0\n",
+      "apps/x/package.json": JSON.stringify({ name: "x", private: true, dependencies: deps }),
+      "apps/x/app.json": READY_APP_JSON,
+      ...expoFiles(),
+      ...matching,
+      ...installed("react-native", "0.88.0"),
+    });
+    const mono = await runDoctor({ root: path.join(root, "apps", "x"), config: NATIVE });
+    expect(mono.findings.find((f) => f.subject === "react-native")!.message).toContain("the ../../pnpm-workspace.yaml overrides entry that pins it");
+    // npm's nested overrides; a range-keyed floor the installed version is outside of isn't a pin.
+    const npm = await app({ dependencies: deps, overrides: { foo: { "react-native": "0.88.0" } } }, { ...matching, ...installed("react-native", "0.88.0") });
+    expect(npm.findings.find((f) => f.subject === "react-native")!.message).toContain("package.json overrides entry");
+    const floor = await app({ dependencies: deps, overrides: { "react-native@<0.80.0": "0.80.0" } }, { ...matching, ...installed("react-native", "0.88.0") });
+    expect(floor.findings.find((f) => f.subject === "react-native")!.message).not.toContain("entry that pins it");
+  });
+
+  it("honours expo.install.exclude as Expo reads it: a name, name@version, name@range", async () => {
+    const files = { ...matching, ...installed("react-native", "0.88.0"), ...installed("@shopify/flash-list", "2.3.3"), ...installed("expo-router", "58.1.0") };
+    const run = (exclude: string[]) => app({ dependencies: deps, expo: { install: { exclude } } }, files).then((r) => brief(r.findings, "expo-native-deps").map((b) => b.split(" ").pop()).sort());
+    expect(await run([])).toEqual(["@shopify/flash-list", "expo-router", "react-native"]);
+    expect(await run(["react-native", "@shopify/flash-list@2.3.2", "expo-router@^58.0.0"])).toEqual([]);
+    // A version or range the SDK no longer suggests is checked again.
+    expect(await run(["react-native@0.88.0", "@shopify/flash-list@2.3.1", "expo-router@~58.0.40"])).toEqual(["@shopify/flash-list", "expo-router", "react-native"]);
+  });
+
+  it("compares prereleases in range and a React Native TV install by major.minor, as @expo/cli does", async () => {
+    const r = await app({ dependencies: ok }, { ...matching, ...installed("expo-modules-core", "58.1.1-canary.0", "node_modules/expo/node_modules"), ...installed("react-native", "0.88.0-0", "node_modules", "react-native-tvos") });
+    expect(brief(r.findings, "expo-native-deps")).toEqual([]);
+    // Outside the range they're still reported: a TV install of another minor, a prerelease past the range.
+    const out = await app({ dependencies: ok }, { ...matching, ...installed("expo-modules-core", "58.2.0-canary.0", "node_modules/expo/node_modules"), ...installed("react-native", "0.87.2-0", "node_modules", "react-native-tvos") });
+    expect(brief(out.findings, "expo-native-deps").sort()).toEqual(["expo-native-deps package.json:0 expo-modules-core", "expo-native-deps package.json:0 react-native"]);
+    expect(levels(out.findings, "expo-native-deps")).toEqual(["error", "error"]);
+  });
+
+  it("is quiet when everything matches, when expo isn't installed, and in an app without expo", async () => {
+    expect(brief((await app({ dependencies: ok }, matching)).findings, "expo-native-deps")).toEqual([]);
+    const notInstalled = await nativeApp({ "package.json": withDeps(deps), ...installed("react-native", "0.88.0") });
+    expect(brief(notInstalled.findings, "expo-native-deps")).toEqual([]);
+    const noExpo = await app({ dependencies: { "react-native": "0.88.0" } }, installed("react-native", "0.88.0"));
+    expect(brief(noExpo.findings, "expo-native-deps")).toEqual([]);
+  });
+
+  it("passes on the starter genesis init copies (its installed Expo SDK's versions)", async () => {
+    const starter = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "apps", "genesis-rn-starter");
+    const sdk = bundledNativeModules(starter);
+    expect(sdk).not.toBeNull();
+    const pkg = JSON.parse(readFileSync(path.join(starter, "package.json"), "utf8")) as { dependencies: Record<string, string> };
+    expect(satisfies(sdk!.expoVersion, pkg.dependencies.expo!)).toBe(true);
+    const r = await runDoctor({ root: starter, config: NATIVE });
+    expect(r.findings.filter((f) => f.rule === "expo-native-deps").map((f) => f.message)).toEqual([]);
+  });
+
+  it("reads the package and range an override or resolution key names; rangeSubset", () => {
+    expect(["react-native", "a>react-native", "react-native@<0.88.1", "**/react-native", "a/b/react-native", "@s/x", "a>@s/x@^1", "**/@s/x"].map((k) => overrideTarget(k).name)).toEqual([
+      "react-native", "react-native", "react-native", "react-native", "react-native", "@s/x", "@s/x", "@s/x",
+    ]);
+    expect(overrideTarget("a>@s/x@^1").spec).toBe("^1");
+    expect(excluded(["@s/x@~1.2.0"], "@s/x", "~1.2.3")).toBe(true);
+    expect(rangeSubset("~58.1.0", "^58.0.0")).toBe(true);
+    expect(rangeSubset("~58.1.0", "~58.0.0")).toBe(false);
+    expect(rangeSubset("1.2.3", ">=1.2.3 <2")).toBe(true);
+    // A `>` that starts a range isn't pnpm's parent>child separator.
+    for (const k of ["react-native@>=0.88.0", "react-native@>0.80", "react-native@> 0.80", "a>react-native@>=0.88.0"]) expect(overrideTarget(k)).toEqual({ name: "react-native", spec: k.slice(k.lastIndexOf("react-native@") + 13) });
+    expect(overrideTarget("a@>=1>@s/x@>=2")).toEqual({ name: "@s/x", spec: ">=2" });
+    expect(["a>vue", "a>xml2js@^1"].map((k) => overrideTarget(k).name)).toEqual(["vue", "xml2js"]);
+    // Prereleases follow node-semver's subset: admitted only where outer names one on the same x.y.z.
+    expect(rangeSubset("1.2.3-beta.0", "^1.0.0")).toBe(false);
+    expect(rangeSubset("~58.1.0-canary.1", "^58.0.0")).toBe(false);
+    expect(rangeSubset("1.2.3-beta.1", ">=1.2.3-beta.0 <2")).toBe(true);
+    expect(excluded(["@s/x@^1.0.0"], "@s/x", "~1.2.3-beta.0")).toBe(false);
+  });
+
+  it("checks the expo-modules-core beside expo even when the app declares a matching copy", async () => {
+    const r = await app({ dependencies: { ...ok, "expo-modules-core": "~58.1.0" } }, { ...matching, ...installed("expo-modules-core", "58.0.4", "node_modules/expo/node_modules") });
+    expect(brief(r.findings, "expo-native-deps")).toEqual(["expo-native-deps package.json:0 expo-modules-core"]);
+    expect(r.findings.find((f) => f.subject === "expo-modules-core")!.message).toContain("expo-modules-core 58.0.4 is installed");
+    // One copy both resolve to is checked once.
+    const once = await app({ dependencies: { ...ok, "expo-modules-core": "~58.0.0" } }, { ...matching, ...installed("expo-modules-core", "58.0.4") });
+    expect(brief(once.findings, "expo-native-deps")).toEqual(["expo-native-deps package.json:0 expo-modules-core"]);
   });
 });
