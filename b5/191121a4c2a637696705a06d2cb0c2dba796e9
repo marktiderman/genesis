@@ -1,0 +1,25 @@
+templates/release/agentic-ci.yml
+  s_f44d352d5f6faa::t_1eb8aff88709e1 101-106
+apps/genesis-rn-starter/.eas/workflows/agentic-ci.yml
+  s_f44d352d5f6faa::t_1eb8aff88709e1 101-106
+apps/genesis-rn-starter/.eas/agents/run-maestro.sh
+  s_f44d352d5f6faa::t_72b59afd0739f7 10-11
+templates/eas/agents/run-maestro.sh
+  s_f44d352d5f6faa::t_72b59afd0739f7 10-11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b5191121a4c2a637696705a06d2cb0c2dba796e9",
+  "prompts": {},
+  "sessions": {
+    "s_f44d352d5f6faa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "fd826f30-f34d-4fe2-8743-e1c4e6b279d5",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
