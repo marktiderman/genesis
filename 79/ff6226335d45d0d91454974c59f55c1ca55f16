@@ -1,0 +1,19 @@
+scripts/check-lockfile-downgrades.mjs
+  s_7081dae02ae2cb::t_ac45e9562769ab 14-15,260
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "79ff6226335d45d0d91454974c59f55c1ca55f16",
+  "prompts": {},
+  "sessions": {
+    "s_7081dae02ae2cb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7a2b62bd-584c-47e8-8b1a-72015db941a7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
