@@ -9,6 +9,8 @@ import {
   lockedEdges,
   lockfileDowngrades,
   lockedVersions,
+  manifestPins,
+  specifierTakes,
 } from "../check-lockfile-downgrades.mjs";
 
 const quote = (key) => (key.startsWith("@") ? `'${key}'` : key);
@@ -235,5 +237,151 @@ describe("check-lockfile-downgrades", () => {
       ".": { next: "16.0.0-rc.10", react: "19.0.0-beta.11" },
     });
     expect(lockfileDowngrades(base, head)).toEqual(none);
+  });
+
+  /**
+   * A lockfile from `importer → { key: version }` plus `snapshot → { dependency: version }`. A
+   * version like `foo@1.5.0` is an alias. The lockfile's own specifier is `override` when given
+   * (what pnpm writes under an override), else `^version`.
+   */
+  const workspace = (importers, snapshots = {}, override = {}) =>
+    [
+      "lockfileVersion: '9.0'",
+      "",
+      "importers:",
+      "",
+      ...Object.entries(importers).flatMap(([dir, deps]) => [
+        `  ${dir}:`,
+        "    dependencies:",
+        ...Object.entries(deps).flatMap(([key, version]) => [
+          `      ${quote(key)}:`,
+          `        specifier: ${override[key] ?? `^${version.replace(/^.*@/, "")}`}`,
+          `        version: ${version}`,
+        ]),
+        "",
+      ]),
+      "packages:",
+      "",
+      ...[...Object.values(importers), ...Object.values(snapshots)]
+        .flatMap((deps) => Object.entries(deps).map(([key, v]) => (v.includes("@") ? v : `${key}@${v}`)))
+        .flatMap((k) => [`  ${quote(k)}:`, "    resolution: {integrity: x}", ""]),
+      "snapshots:",
+      "",
+      ...Object.entries(snapshots).flatMap(([key, deps]) => [
+        `  ${quote(key)}:`,
+        "    dependencies:",
+        ...Object.entries(deps).map(([name, v]) => `      ${quote(name)}: ${v}`),
+        "",
+      ]),
+    ].join("\n");
+  /** Each importer's package.json pins, as manifestPins reads them. */
+  const pins = (byImporter) => new Map(Object.entries(byImporter).map(([dir, deps]) => [dir, new Map(Object.entries(deps))]));
+
+  it("passes a downgrade the workspace package.json's own pin made in the same diff, and doesn't ask to dedupe it", () => {
+    const base = workspace({ "apps/starter": { "@sentry/react-native": "8.35.0", "@shopify/flash-list": "2.3.3" }, "apps/web": { "@shopify/flash-list": "2.3.3" } });
+    const head = workspace({ "apps/starter": { "@sentry/react-native": "8.28.1", "@shopify/flash-list": "2.3.2" }, "apps/web": { "@shopify/flash-list": "2.3.3" } });
+    const result = lockfileDowngrades(base, head, {
+      before: pins({ "apps/starter": { "@sentry/react-native": "~8.35.0", "@shopify/flash-list": "2.3.3" } }),
+      after: pins({ "apps/starter": { "@sentry/react-native": "~8.28.0", "@shopify/flash-list": "2.3.2" } }),
+    });
+    expect(result).toEqual(none);
+  });
+
+  it("still fails every downgrade the pin change doesn't cover", () => {
+    const failing = (base, head, before, after) => lockfileDowngrades(base, head, { before: pins(before), after: pins(after) }).downgrades;
+    // Lockfile only: no pin changed.
+    expect(failing(workspace({ "apps/starter": { zod: "4.2.0" } }), workspace({ "apps/starter": { zod: "4.1.0" } }), { "apps/starter": { zod: "^4.0.0" } }, { "apps/starter": { zod: "^4.0.0" } })).toEqual([
+      "zod: replaces 4.2.0 with 4.1.0, an older release, for apps/starter",
+    ]);
+    // Without pins at all (the default): nothing is exempt.
+    expect(lockfileDowngrades(workspace({ "apps/starter": { zod: "4.2.0" } }), workspace({ "apps/starter": { zod: "4.1.0" } })).downgrades).toHaveLength(1);
+    // The pin changed but still admits the old version, or can't be judged.
+    for (const now of ["^4.1.0", ">=4 <4.2"])
+      expect(failing(workspace({ "apps/starter": { zod: "4.2.0" } }), workspace({ "apps/starter": { zod: "4.1.0" } }), { "apps/starter": { zod: "^4.0.0" } }, { "apps/starter": { zod: now } })).toHaveLength(1);
+    // The pin changed and rejects the old version, but doesn't admit the new one: an override chose it.
+    for (const now of ["2.0.0", "^1.3.0", "1.0.0"])
+      expect(failing(workspace({ "apps/starter": { bar: "1.2.0" } }), workspace({ "apps/starter": { bar: "1.1.0" } }), { "apps/starter": { bar: "1.2.0" } }, { "apps/starter": { bar: now } })).toEqual([
+        "bar: replaces 1.2.0 with 1.1.0, an older release, for apps/starter",
+      ]);
+    // Nor a prerelease the new pin's range wouldn't take.
+    expect(failing(workspace({ "apps/starter": { bar: "1.2.0" } }), workspace({ "apps/starter": { bar: "1.1.5-beta.1" } }), { "apps/starter": { bar: "^1.2.0" } }, { "apps/starter": { bar: "~1.1.0" } })).toEqual([
+      "bar: replaces 1.2.0 with 1.1.5-beta.1, an older release, for apps/starter",
+    ]);
+    // One importer's deliberate pin doesn't hide an even older copy another importer adds.
+    expect(
+      lockfileDowngrades(workspace({ "apps/starter": { bar: "1.2.0" }, "apps/web": { zod: "4.2.0" } }), workspace({ "apps/starter": { bar: "1.1.0" }, "apps/web": { zod: "4.2.0", bar: "1.0.0" } }), {
+        before: pins({ "apps/starter": { bar: "1.2.0" } }),
+        after: pins({ "apps/starter": { bar: "1.1.0" } }),
+      }),
+    ).toEqual({ downgrades: [], copies: ["bar: adds 1.0.0, older than 1.2.0 on the base branch"] });
+    // The version a pin chose is no copy to dedupe while another importer keeps a newer one.
+    expect(
+      lockfileDowngrades(workspace({ "apps/starter": { foo: "1.3.0" }, "apps/web": { foo: "1.4.0" } }), workspace({ "apps/starter": { foo: "1.2.0" }, "apps/web": { foo: "1.4.0" } }), {
+        before: pins({ "apps/starter": { foo: "1.3.0" } }),
+        after: pins({ "apps/starter": { foo: "1.2.0" } }),
+      }),
+    ).toEqual(none);
+    // An exact prerelease pin lowered to a caret range: the range doesn't take the prerelease, so it exempts.
+    expect(
+      lockfileDowngrades(workspace({ "apps/starter": { foo: "1.3.0-beta.1" } }), workspace({ "apps/starter": { foo: "1.2.3" } }), {
+        before: pins({ "apps/starter": { foo: "1.3.0-beta.1" } }),
+        after: pins({ "apps/starter": { foo: "^1.2.3" } }),
+      }),
+    ).toEqual(none);
+    // Only an override changed (the lockfile's specifier moves, package.json doesn't).
+    expect(
+      lockfileDowngrades(workspace({ "apps/starter": { react: "19.3.0" } }, {}, { react: "19.3.0" }), workspace({ "apps/starter": { react: "19.2.0" } }, {}, { react: "19.2.0" }), {
+        before: pins({ "apps/starter": { react: "^19.2.5" } }),
+        after: pins({ "apps/starter": { react: "^19.2.5" } }),
+      }).downgrades,
+    ).toEqual(["react: replaces 19.3.0 with 19.2.0, an older release, for apps/starter"]);
+    // A snapshot dependent and a second importer that move back beside an exempted pin.
+    const base = workspace({ "apps/starter": { bar: "1.2.0" }, "apps/web": { bar: "1.2.0" } }, { "baz@1.0.0": { bar: "1.2.0" } });
+    const head = workspace({ "apps/starter": { bar: "1.1.0" }, "apps/web": { bar: "1.1.0" } }, { "baz@1.0.0": { bar: "1.1.0" } });
+    expect(failing(base, head, { "apps/starter": { bar: "1.2.0" }, "apps/web": { bar: "^1.0.0" } }, { "apps/starter": { bar: "1.1.0" }, "apps/web": { bar: "^1.0.0" } })).toEqual([
+      "bar: replaces 1.2.0 with 1.1.0, an older release, for apps/web, baz@1.0.0",
+    ]);
+    // An alias edge isn't judged by the direct pin of the package it resolves to.
+    expect(
+      failing(
+        workspace({ "apps/starter": { foo: "2.1.0", "foo-v1": "foo@1.5.0" } }),
+        workspace({ "apps/starter": { foo: "2.0.0", "foo-v1": "foo@1.4.0" } }),
+        { "apps/starter": { foo: "2.1.0", "foo-v1": "npm:foo@^1.4.0" } },
+        { "apps/starter": { foo: "2.0.0", "foo-v1": "npm:foo@^1.4.0" } },
+      ),
+    ).toEqual(["foo: replaces 2.1.0 with 2.0.0, an older release, for apps/starter", "foo: replaces 1.5.0 with 1.4.0, an older release, for apps/starter"]);
+  });
+
+  it("reads each importer's package.json pins, and judges exact, ~ and ^ pins", () => {
+    const files = { "package.json": '{"devDependencies":{"vitest":"^5.0.0"}}', "apps/starter/package.json": '{"dependencies":{"react-native":"0.88.1"}}' };
+    const read = manifestPins(workspace({ ".": { vitest: "5.1.0" }, "apps/starter": { "react-native": "0.88.1" }, "apps/gone": { x: "1.0.0" } }), (f) => files[f] ?? null);
+    expect(read).toEqual(new Map([[".", new Map([["vitest", "^5.0.0"]])], ["apps/starter", new Map([["react-native", "0.88.1"]])]]));
+    // A CRLF lockfile reads the same.
+    const crlf = workspace({ ".": { vitest: "5.1.0" }, "apps/starter": { "react-native": "0.88.1" }, "apps/gone": { x: "1.0.0" } }).replace(/\n/g, "\r\n");
+    expect(manifestPins(crlf, (f) => files[f] ?? null)).toEqual(read);
+    expect(lockedVersions(crlf)).toEqual(lockedVersions(crlf.replace(/\r\n/g, "\n")));
+    // A name in two sections with different specs has no one pin, so its downgrade still fails.
+    const lock2 = (v) => workspace({ "apps/starter": { bar: v } });
+    const manifest = (deps) => (f) => (f === "apps/starter/package.json" ? JSON.stringify({ optionalDependencies: { bar: "^1.0.0" }, dependencies: { bar: deps } }) : null);
+    expect(manifestPins(lock2("1.1.0"), manifest("1.1.0")).get("apps/starter").get("bar")).toBeNull();
+    expect(
+      lockfileDowngrades(lock2("1.2.0"), lock2("1.1.0"), { before: manifestPins(lock2("1.2.0"), manifest("^1.0.0")), after: manifestPins(lock2("1.1.0"), manifest("1.1.0")) }).downgrades,
+    ).toEqual(["bar: replaces 1.2.0 with 1.1.0, an older release, for apps/starter"]);
+    expect(specifierTakes("2.3.2", "2.3.3")).toBe(false);
+    expect(specifierTakes("~8.28.0", "8.35.0")).toBe(false);
+    expect(specifierTakes("~8.28.0", "8.28.4")).toBe(true);
+    expect(specifierTakes("^4.1.0", "4.2.0")).toBe(true);
+    expect(specifierTakes("^0.0.3", "0.0.3")).toBe(true);
+    expect(specifierTakes("^0.0.3", "0.0.4")).toBe(false);
+    expect(specifierTakes("workspace:^", "1.0.0")).toBeNull();
+    // A prerelease only when the pin names one on the same x.y.z, as semver.
+    expect(specifierTakes("~1.1.0", "1.1.5-beta.1")).toBe(false);
+    expect(specifierTakes("^1.1.0", "1.3.0-rc.0")).toBe(false);
+    expect(specifierTakes("^1.1.0-beta.1", "1.1.0-beta.2")).toBe(true);
+    expect(specifierTakes("^1.1.0-beta.1", "1.2.0-beta.0")).toBe(false);
+    expect(specifierTakes("^1.1.0-beta.1", "1.2.0")).toBe(true);
+    expect(specifierTakes("^0.0.3-rc.1", "0.0.3")).toBe(true);
+    expect(specifierTakes("^0.0.3-rc.1", "0.0.3-rc.2")).toBe(true);
+    expect(specifierTakes("^0.0.3-rc.1", "0.0.4")).toBe(false);
   });
 });

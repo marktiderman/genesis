@@ -57,6 +57,7 @@ export const BUILTIN_RULES = [
   "release-trigger-github",
   "preview-environment",
   "eas-workflow-size",
+  "expo-native-deps",
   // supabase pack
   "migration-grants",
   "migration-rls",

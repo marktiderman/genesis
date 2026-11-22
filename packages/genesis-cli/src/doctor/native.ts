@@ -14,6 +14,7 @@ import { NATIVE_WRAPPED_PRIMITIVES, wrappedPrimitivesIn } from "../../../../scri
 import { privacyApisFor } from "../expo.js";
 import { EAS_PLACEHOLDERS, findPlaceholders, placeholderKey } from "../eas-placeholders.js";
 import { DoctorConfigError } from "./config.js";
+import { checkExpoNativeDeps } from "./expo-deps.js";
 import { NATIVE_UI_PACKAGE, readPackageExports, type PackageExports } from "./genesis.js";
 import { lineAt } from "./scan.js";
 import { localImports, readSource } from "./source.js";
@@ -58,6 +59,7 @@ export function checkNativePack(ctx: DoctorContext): void {
   checkReleaseLaneLive(ctx);
   checkPreviewEnvironment(ctx);
   checkEasWorkflowSize(ctx);
+  checkExpoNativeDeps(ctx);
 }
 
 const APP_CONFIGS = ["app.json", "app.config.json", "app.config.ts", "app.config.js", "app.config.mjs", "app.config.cjs"];
