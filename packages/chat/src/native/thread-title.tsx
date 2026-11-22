@@ -42,9 +42,14 @@ export interface ChatThreadTitleProps {
   testID?: string;
 }
 
-/** Any plain object is avatar data (`{}` and `{ id }` included); an element is the app's own. Never an object as a child. */
+/**
+ * A plain object is avatar data (`{}` and `{ id }` included). Anything React renders stays the app's
+ * own node: an element, a portal, an array, a Set or any other iterable of nodes.
+ */
 function isAvatarData(a: unknown): a is ChatThreadTitleAvatar {
-  return a !== null && typeof a === "object" && !Array.isArray(a) && !isValidElement(a);
+  if (a === null || typeof a !== "object" || isValidElement(a)) return false;
+  if ("$$typeof" in a) return false;
+  return typeof (a as { [Symbol.iterator]?: unknown })[Symbol.iterator] !== "function";
 }
 
 export function ChatThreadTitle({ title, subtitle, avatar, onPress, pressHint, conversationId, tintColor, testID = "chat-thread-title" }: ChatThreadTitleProps) {

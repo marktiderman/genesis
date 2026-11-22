@@ -62,6 +62,9 @@ export const THREAD_AT_BOTTOM_POINTS = 120;
 /** After the list scrolls itself (to the newest, to a row), how long its own scroll events don't count. */
 const SETTLING_MS = 400;
 
+/** How long after a try to open at a row, with no failure reported, it counts as landed. */
+const OPEN_SETTLED_MS = 300;
+
 /** Whether a scroll position is at (or near) the bottom of its content. */
 export function threadNearBottom(m: ScrollMetrics, slack = THREAD_AT_BOTTOM_POINTS): boolean {
   return m.contentOffset.y + m.layoutMeasurement.height >= m.contentSize.height - slack;
@@ -228,6 +231,8 @@ function NativeThreadListInner<T>(props: NativeThreadListProps<T>, ref: React.Fo
   const placed = useRef(!mode.followsByHand);
   // While the list scrolls itself, its own scroll events don't move "at the bottom".
   const settlingUntil = useRef(0);
+  // Whether the list's own move is to the bottom (it only moves down), so a move up meanwhile is the reader's.
+  const towardBottom = useRef(false);
   // Bumped by each move the list starts and by the reader's touch: a queued try from an older move doesn't run.
   const moveId = useRef(0);
   const timers = useRef(new Set<ReturnType<typeof setTimeout>>());
@@ -257,6 +262,7 @@ function NativeThreadListInner<T>(props: NativeThreadListProps<T>, ref: React.Fo
   const toBottom = useCallback(
     (animated: boolean) => {
       settlingUntil.current = Date.now() + SETTLING_MS;
+      towardBottom.current = true;
       const move = ++moveId.current;
       const go = (a: boolean) => listRef.current?.scrollToEnd?.({ animated: a && !reducedMotion });
       requestAnimationFrame(() => {
@@ -294,10 +300,12 @@ function NativeThreadListInner<T>(props: NativeThreadListProps<T>, ref: React.Fo
         if (at < 0) return;
         // Each try moves the list again: its events don't count until this one settles.
         settlingUntil.current = Date.now() + SETTLING_MS;
+        towardBottom.current = false;
         listRef.current?.scrollToIndex?.({ index: at, animated: !reducedMotion, viewPosition: 0.5 });
       };
       jumpTries.current = { id, tries: 0, viewPosition: 0.5 };
       settlingUntil.current = Date.now() + SETTLING_MS;
+      towardBottom.current = false;
       requestAnimationFrame(scroll);
       // Once more after the first layout: on open, FlashList's start-at-the-bottom placement comes after
       // the first frame and would win, leaving the thread at the bottom.
@@ -349,6 +357,10 @@ function NativeThreadListInner<T>(props: NativeThreadListProps<T>, ref: React.Fo
 
   // Opening at a row (the first unread): once, when the rows first come, unless a jump is asked for.
   const opened = useRef(false);
+  // An opening whose last try reported no failure has landed: drop its retry target.
+  const clearOpened = useCallback((target: { tries: number }, tries: number) => {
+    if (jumpTries.current === target && target.tries === tries) jumpTries.current = null;
+  }, []);
   useEffect(() => {
     if (opened.current || loading || data.length === 0 || openAt === undefined) return;
     opened.current = true;
@@ -358,20 +370,25 @@ function NativeThreadListInner<T>(props: NativeThreadListProps<T>, ref: React.Fo
     setAtBottom(false);
     placed.current = true;
     const move = ++moveId.current;
-    jumpTries.current = { id: openAt, tries: 0, viewPosition: 0, opening: true };
+    const target = { id: openAt, tries: 0, viewPosition: 0, opening: true };
+    jumpTries.current = target;
     const go = () => {
       if (move !== moveId.current) return;
       const i = indexOf(openAt);
       if (i < 0) return;
       settlingUntil.current = Date.now() + SETTLING_MS;
+      towardBottom.current = false;
       listRef.current?.scrollToIndex?.({ index: i, animated: false, viewPosition: 0 });
     };
     settlingUntil.current = Date.now() + SETTLING_MS;
+    towardBottom.current = false;
     requestAnimationFrame(go);
     // Again after FlashList's own start-at-the-bottom placement, which comes after the first frame.
     later(go, 250);
+    // Landed (no failure reported since): the opening is done, and a later failure isn't its to recover.
+    later(() => clearOpened(target, 0), 250 + OPEN_SETTLED_MS);
     lookForBottom();
-  }, [loading, data.length, openAt, jumpTo, indexOf, setAtBottom, later, lookForBottom]);
+  }, [loading, data.length, openAt, jumpTo, indexOf, setAtBottom, later, lookForBottom, clearOpened]);
 
   const loadEarlier = useCallback(() => {
     if (placed.current && !jumping && hasEarlier && !loadingEarlier) onLoadEarlier?.();
@@ -393,6 +410,7 @@ function NativeThreadListInner<T>(props: NativeThreadListProps<T>, ref: React.Fo
   const listItemType = useMemo(() => (getItemType ? (row: unknown) => getItemType(row as T) : undefined), [getItemType]);
   const onScroll = useCallback(
     (e: { nativeEvent: ScrollMetrics }) => {
+      const before = metrics.current?.contentOffset.y;
       metrics.current = { contentOffset: { y: e.nativeEvent.contentOffset.y }, contentSize: { height: e.nativeEvent.contentSize.height }, layoutMeasurement: { height: e.nativeEvent.layoutMeasurement.height } };
       const height = e.nativeEvent.layoutMeasurement.height;
       setViewport((v) => (Math.abs(v - height) < 1 ? v : height));
@@ -400,7 +418,12 @@ function NativeThreadListInner<T>(props: NativeThreadListProps<T>, ref: React.Fo
       // at the bottom, so its first events say "at the bottom": taken, that turned following back on,
       // and FlatList's next layout scrolled to the end, away from the row. After a jump, onLanded
       // looks again once it has settled.
-      if (Date.now() < settlingUntil.current) return;
+      if (Date.now() < settlingUntil.current) {
+        // On its way to the bottom the list only moves down: a move up away from it is the reader
+        // (VoiceOver's scroll, a wheel), and a first unread known later must not move them.
+        if (towardBottom.current && before !== undefined && e.nativeEvent.contentOffset.y < before - 1 && !threadNearBottom(e.nativeEvent)) opened.current = true;
+        return;
+      }
       const near = threadNearBottom(e.nativeEvent);
       // Moved away from where the list opens (the bottom) by the reader, without a drag (VoiceOver's
       // scroll, a wheel): a first unread known later must not move them.
@@ -443,7 +466,12 @@ function NativeThreadListInner<T>(props: NativeThreadListProps<T>, ref: React.Fo
         const at = indexOf(target.id);
         if (at < 0) return;
         settlingUntil.current = Date.now() + SETTLING_MS;
+        towardBottom.current = false;
         listRef.current?.scrollToIndex?.({ index: at, animated: !reducedMotion && !target.opening, viewPosition: target.viewPosition });
+        if (target.opening) {
+          const tries = target.tries;
+          later(() => clearOpened(target, tries), OPEN_SETTLED_MS);
+        }
         lookForBottom();
       }, 250);
     },

@@ -109,6 +109,65 @@ describe("NativeThreadList openAt", () => {
     expect(second.calls.scrollToIndex).not.toHaveBeenCalled();
   });
 
+  it("drops the opening's retry target once it has landed: a later failure isn't the opening's to recover", async () => {
+    vi.useFakeTimers();
+    const { List, calls } = recordingList();
+    render(
+      <GenesisModulesProvider modules={{ list: List as never }}>
+        <NativeThreadList testID="l" data={rows} keyExtractor={(r) => r.id} renderItem={renderRow} openAt="unread" />
+      </GenesisModulesProvider>,
+    );
+    await tick(1000);
+    expect(calls.scrollToIndex).toHaveBeenCalled();
+    calls.scrollToOffset.mockClear();
+    const failed = calls.props.at(-1)!.onScrollToIndexFailed as (i: unknown) => void;
+    for (let i = 0; i < 4; i++) act(() => failed({ index: 2, averageItemLength: 50 }));
+    await tick(2000);
+    expect(calls.scrollToOffset).not.toHaveBeenCalled();
+    expect(calls.scrollToEnd).not.toHaveBeenCalled();
+  });
+
+  it("counts a reader's scroll up while the list is still going to the bottom (VoiceOver, a wheel)", async () => {
+    vi.useFakeTimers();
+    const { List, calls } = recordingList();
+    const ref = createRef<NativeThreadListHandle>();
+    const view = (openAt: string | null | undefined) => (
+      <GenesisModulesProvider modules={{ list: List as never }}>
+        <NativeThreadList ref={ref} testID="l" data={rows} keyExtractor={(r) => r.id} renderItem={renderRow} openAt={openAt} />
+      </GenesisModulesProvider>
+    );
+    const scroll = (y: number) => (calls.props.at(-1)!.onScroll as (e: unknown) => void)({ nativeEvent: { contentOffset: { y }, contentSize: { height: 3000 }, layoutMeasurement: { height: 600 } } });
+    const { rerender } = render(view(undefined));
+    act(() => ref.current!.scrollToEnd({ animated: true }));
+    // The list's own move down, then the reader's move up, both inside the settling window.
+    act(() => scroll(1800));
+    act(() => scroll(2400));
+    act(() => scroll(900));
+    rerender(view("unread"));
+    await tick(300);
+    expect(calls.scrollToIndex).not.toHaveBeenCalled();
+  });
+
+  it("but not the list's own move down to the bottom", async () => {
+    vi.useFakeTimers();
+    const { List, calls } = recordingList();
+    const ref = createRef<NativeThreadListHandle>();
+    const view = (openAt: string | null | undefined) => (
+      <GenesisModulesProvider modules={{ list: List as never }}>
+        <NativeThreadList ref={ref} testID="l" data={rows} keyExtractor={(r) => r.id} renderItem={renderRow} openAt={openAt} />
+      </GenesisModulesProvider>
+    );
+    const scroll = (y: number) => (calls.props.at(-1)!.onScroll as (e: unknown) => void)({ nativeEvent: { contentOffset: { y }, contentSize: { height: 3000 }, layoutMeasurement: { height: 600 } } });
+    const { rerender } = render(view(undefined));
+    act(() => ref.current!.scrollToEnd({ animated: true }));
+    act(() => scroll(900));
+    act(() => scroll(1800));
+    act(() => scroll(2400));
+    rerender(view("unread"));
+    await tick(300);
+    expect(calls.scrollToIndex).toHaveBeenCalled();
+  });
+
   it("retries a row the list hasn't measured (FlatList), then opens at the newest rather than leave the reader at the top", async () => {
     vi.useFakeTimers();
     const { List, calls } = recordingList();

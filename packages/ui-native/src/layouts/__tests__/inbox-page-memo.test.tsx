@@ -36,12 +36,14 @@ describe("InboxPage rows", () => {
 
   it("turns its time labels over when the clock passes midnight, on the next render", () => {
     let clock = new Date(2026, 9, 24, 23, 59);
+    // One function for every render, as an app's clock is: only the minute key can turn the labels over.
+    const nowFn = () => clock;
     const at = [{ id: "a", title: "Sam", timestamp: new Date(2026, 9, 24, 9, 41) }];
     let bump: () => void = () => undefined;
     function Screen() {
       const [n, setN] = useState(0);
       bump = () => setN((x) => x + 1);
-      return <InboxPage testID="inbox" items={at} now={() => clock} header={<Text>{String(n)}</Text>} />;
+      return <InboxPage testID="inbox" items={at} now={nowFn} header={<Text>{String(n)}</Text>} />;
     }
     render(<Screen />);
     expect(screen.getByTestId("inbox-row-a-time").textContent).toMatch(/9:41/);

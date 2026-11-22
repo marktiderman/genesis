@@ -47,5 +47,13 @@ describe("useChatThreadStackOptions' title", () => {
     const own = chatThreadStackOptions({ headerTitle: "Sam", avatar: <span data-testid="own" />, subtitle: null }, "#fff");
     render(<ChatNativeProvider>{(own.headerTitle as TitleFn)({})}</ChatNativeProvider>);
     expect(screen.getByTestId("own")).toBeTruthy();
+    cleanup();
+    // An array or a Set of elements is a node too, never avatar data.
+    for (const avatar of [[<span key="a" data-testid="in-array" />], new Set([<span key="s" data-testid="in-set" />])]) {
+      const opts = chatThreadStackOptions({ headerTitle: "Sam", avatar, subtitle: null }, "#fff");
+      const { unmount } = render(<ChatNativeProvider>{(opts.headerTitle as TitleFn)({})}</ChatNativeProvider>);
+      expect(screen.getByTestId(Array.isArray(avatar) ? "in-array" : "in-set")).toBeTruthy();
+      unmount();
+    }
   });
 });
