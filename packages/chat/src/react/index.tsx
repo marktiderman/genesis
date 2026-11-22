@@ -5,7 +5,7 @@
  * Realtime hints, sending through the outbox, and message actions. Server
  * state is TanStack Query's; the renderers in /web and /native only draw.
  */
-import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ChatClient, ConversationChannel, MessagePage } from "../core/client";
 import {
@@ -631,6 +631,14 @@ export function useMessageActions() {
 }
 
 /**
+ * What the read hooks return while there is nothing yet: one frozen object (and array) for every
+ * caller, so a row's memo holds across renders instead of seeing a fresh `{}` each time.
+ */
+const NO_PEOPLE: Record<string, ChatPerson> = Object.freeze({}) as Record<string, ChatPerson>;
+const NO_URLS: Record<string, string> = Object.freeze({}) as Record<string, string>;
+const NO_PINS: string[] = Object.freeze([]) as unknown as string[];
+
+/**
  * Names and avatars for these people, from the provider's `loadPeople`, fetched as one
  * batch per set of ids and cached. Unknown ids are left out.
  */
@@ -643,7 +651,7 @@ export function usePeople(userIds: (string | null | undefined)[]): Record<string
       queryFn: () => loadPeople!(ids),
       enabled: Boolean(loadPeople) && ids.length > 0,
       staleTime: 5 * 60_000,
-    }).data ?? {}
+    }).data ?? NO_PEOPLE
   );
 }
 
@@ -657,16 +665,25 @@ export function usePerson(userId: string | null | undefined): ChatPerson | null 
 export function usePins(conversationId: string | null | undefined): string[] {
   const { client } = useChat();
   return (
-    useQuery({ queryKey: chatKeys.pins(conversationId ?? ""), queryFn: () => client.pins(conversationId!), enabled: Boolean(conversationId) }).data ?? []
+    useQuery({ queryKey: chatKeys.pins(conversationId ?? ""), queryFn: () => client.pins(conversationId!), enabled: Boolean(conversationId) }).data ?? NO_PINS
   );
 }
 
-/** Signed links for files (cached by the client until shortly before they expire). */
+/**
+ * Signed links for files (cached by the client until shortly before they expire). While a new set
+ * of paths loads (a photo arrives), the links already signed stay: the photos on screen don't blank.
+ */
 export function useFileUrls(paths: (string | null | undefined)[]): Record<string, string> {
   const { client } = useChat();
   const list = useMemo(() => [...new Set(paths.filter((p): p is string => Boolean(p)))], [paths]);
   return (
-    useQuery({ queryKey: chatKeys.files(list), queryFn: () => client.fileUrls(list), enabled: list.length > 0, staleTime: 50 * 60_000 }).data ?? {}
+    useQuery({
+      queryKey: chatKeys.files(list),
+      queryFn: () => client.fileUrls(list),
+      enabled: list.length > 0,
+      staleTime: 50 * 60_000,
+      placeholderData: keepPreviousData,
+    }).data ?? NO_URLS
   );
 }
 
