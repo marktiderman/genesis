@@ -416,12 +416,20 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
   );
   // ---- Where you are: the "↓ N new messages" pill ----
   const [scrolledAwayAt, setScrolledAwayAt] = useState<number | null>(null);
+  // Where you scrolled away is this timeline's: another conversation or thread starts at the bottom.
+  const timeline = `${conversationId}:${threadRootId ?? ""}`;
+  const [awayFor, setAwayFor] = useState(timeline);
+  if (awayFor !== timeline) {
+    setAwayFor(timeline);
+    setScrolledAwayAt(null);
+  }
   const latestSeqNow = useRef(0);
   latestSeqNow.current = conv.messages.length ? conv.messages[conv.messages.length - 1]!.seq : 0;
   const onAtBottomChange = useCallback((atBottom: boolean) => setScrolledAwayAt(atBottom ? null : latestSeqNow.current), []);
   const newBelow = countUnseenBelow(conv.messages, scrolledAwayAt, userId);
   // Opens at the first unread, once that is known (the list keeps it at the bottom if it fits).
-  const openAt = conv.firstUnreadKnown ? conv.firstUnreadId : undefined;
+  // At the "New" line itself (its own row), so it is the first thing you see.
+  const openAt = conv.firstUnreadKnown ? (conv.firstUnreadId ? UNREAD_ROW_ID : null) : undefined;
 
   // ---- Status: offline, reconnecting ----
   const online = useOnline(modules.netInfo);
@@ -761,5 +769,7 @@ function ActivityLine({ text, testID }: { text: string; testID: string }) {
 
 const threadRowKey = (row: ThreadRow) => row.key;
 /** A message row is gone to by the server's id; a day heading, the unread line and a message still sending can't be. */
-const threadRowMessageId = (row: ThreadRow) => (row.type === "message" && row.item.type === "message" ? row.item.message.id : null);
+/** The "New messages" line, as a row the list can open at (no message id looks like it). */
+const UNREAD_ROW_ID = "genesis-chat:unread";
+const threadRowMessageId = (row: ThreadRow) => (row.type === "unread" ? UNREAD_ROW_ID : row.type === "message" && row.item.type === "message" ? row.item.message.id : null);
 const threadRowType = (row: ThreadRow) => (row.type === "message" ? (row.mine ? "mine" : "theirs") : row.type);

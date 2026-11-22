@@ -17,6 +17,7 @@ import {
   NativeIcon,
   NativeListItem,
   NativeSheet,
+  NativeSheetScrollView,
   NativeSkeleton,
   NativeText,
   NativeTimePicker,
@@ -320,7 +321,10 @@ export function ChatScheduledBar({ conversationId, testID = "chat-scheduled-bar"
           <NativeText preset="h4" accessibilityRole="header" style={{ paddingHorizontal: 16, paddingBottom: 4 }}>
             {copy.scheduledTitle}
           </NativeText>
-          <ChatScheduledList conversationId={conversationId} testID={`${testID}-list`} />
+          {/* Scrolls once the list is taller than the sheet (which stops at 90% of the screen). */}
+          <NativeSheetScrollView testID={`${testID}-scroll`}>
+            <ChatScheduledList conversationId={conversationId} testID={`${testID}-list`} />
+          </NativeSheetScrollView>
         </View>
       </NativeSheet>
     </>

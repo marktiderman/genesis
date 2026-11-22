@@ -200,3 +200,49 @@ describe("another conversation in the same screen", () => {
     await waitFor(() => expect(result.current.firstUnreadId).toBe("b3"));
   });
 });
+
+describe("after #888's review", () => {
+  function sharedList() {
+    const seen: Record<string, unknown>[] = [];
+    const scrollToIndex = vi.fn();
+    const List = forwardRef<unknown, Record<string, unknown>>(function List(props, ref) {
+      seen.push(props);
+      useImperativeHandle(ref, () => ({ scrollToIndex, scrollToEnd: vi.fn(), scrollToOffset: vi.fn() }));
+      return null;
+    });
+    return { List, scrollToIndex, last: () => seen.at(-1)! };
+  }
+
+  it("opens at the New messages line itself, not the message after it", async () => {
+    const members = vi.fn(async () => [
+      { conversationId: CONV, userId: ME, role: "member", lastReadSeq: 1, joinedAt: "2026-10-01T00:00:00Z" },
+      { conversationId: CONV, userId: SAM, role: "member", lastReadSeq: 9, joinedAt: "2026-10-01T00:00:00Z" },
+    ]);
+    const messages = vi.fn(async () => ({ messages: [msg(1, SAM), msg(2, SAM), msg(3, SAM)], hasEarlier: false }));
+    const list = sharedList();
+    render(wrap(fakeClient({ members, messages }), <ChatThreadScreen conversationId={CONV} testID="t" />, { list: list.List }));
+    await waitFor(() => expect(list.scrollToIndex).toHaveBeenCalled(), { timeout: 2000 });
+    const data = list.last().data as { type: string }[];
+    const at = list.scrollToIndex.mock.calls[0]![0] as { index: number; viewPosition: number };
+    expect(data[at.index]!.type).toBe("unread");
+    expect(at.viewPosition).toBe(0);
+  });
+
+  it("forgets where you scrolled away when the screen shows another conversation", async () => {
+    const OTHER = "44444444-4444-4444-8444-444444444444";
+    const messages = vi.fn(async (id: string) =>
+      id === CONV ? { messages: [msg(1, SAM)], hasEarlier: false } : { messages: [msg(1, SAM), msg(2, SAM), msg(3, SAM)].map((m) => ({ ...m, id: `o${m.seq}`, conversationId: OTHER })), hasEarlier: false },
+    );
+    const list = sharedList();
+    const client = fakeClient({ messages });
+    const { rerender } = render(wrap(client, <ChatThreadScreen conversationId={CONV} testID="t" />, { list: list.List }));
+    await waitFor(() => expect((list.last().data as unknown[] | undefined)?.length).toBeGreaterThan(0));
+    // Scrolled away in the first conversation, at its seq 1.
+    act(() => (list.last().onScroll as (e: unknown) => void)({ nativeEvent: { contentOffset: { y: 0 }, contentSize: { height: 3000 }, layoutMeasurement: { height: 600 } } }));
+    rerender(wrap(client, <ChatThreadScreen conversationId={OTHER} testID="t" />, { list: list.List }));
+    await waitFor(() => expect((list.last().data as { key: string }[]).some((r) => r.key === "c:c3")).toBe(true));
+    // The other conversation's own messages aren't "new" just because their seq is past 1.
+    expect(screen.queryByTestId("t-new-below")).toBeNull();
+  });
+});
+
