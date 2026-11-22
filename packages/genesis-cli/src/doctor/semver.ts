@@ -165,8 +165,9 @@ export function satisfies(version: string, range: string, options: { includePrer
 }
 
 /**
- * Whether every version `inner` allows is one `outer` allows (node-semver's `subset`), for ranges
- * of one comparator set each; null when either isn't semver or has `||` alternatives.
+ * Whether every version `inner` allows is one `outer` allows (node-semver's `subset`, default
+ * prerelease rules), for ranges of one comparator set each; null when either isn't semver or has
+ * `||` alternatives.
  */
 export function rangeSubset(inner: string, outer: string): boolean | null {
   const a = parseRange(inner);
@@ -190,6 +191,10 @@ export function rangeSubset(inner: string, outer: string): boolean | null {
     }
     return { lo, hi };
   };
+  // As node-semver's subset: a prerelease `inner` names (`1.2.3-beta.0`) is admitted only where
+  // `outer` names a prerelease on the same major.minor.patch.
+  const sameTuple = (p: Version, q: Version) => p.major === q.major && p.minor === q.minor && p.patch === q.patch;
+  if (a[0]!.some((c) => c.pre && !b[0]!.some((d) => d.pre && sameTuple(c.v, d.v)))) return false;
   const x = bounds(a[0]!);
   const y = bounds(b[0]!);
   const loOk = !y.lo || (!!x.lo && (compareVersions(x.lo.v, y.lo.v) > 0 || (compareVersions(x.lo.v, y.lo.v) === 0 && (y.lo.inclusive || !x.lo.inclusive))));

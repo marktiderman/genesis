@@ -21,10 +21,13 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
+/** A lockfile's text with LF line endings, so the `^…$` section patterns match a CRLF checkout too. */
+const lf = (text) => text.replace(/\r\n?/g, "\n");
+
 /** `name → versions` from the `packages:` section of a pnpm 9 lockfile. */
 export function lockedVersions(lockfile) {
   const out = new Map();
-  const section = lockfile.split(/^packages:$/m)[1]?.split(/^\S/m)[0] ?? "";
+  const section = lf(lockfile).split(/^packages:$/m)[1]?.split(/^\S/m)[0] ?? "";
   for (const [, name, version] of section.matchAll(
     /^ {2}'?(@?[^@\s']+)@([^'():\s]+)'?:$/gm,
   )) {
@@ -82,7 +85,7 @@ const splitKey = (key) => {
 /** `name@version → peer dependency names`, from the `packages:` section. */
 function peerNames(lockfile) {
   const out = new Map();
-  const section = lockfile.split(/^packages:$/m)[1]?.split(/^\S/m)[0] ?? "";
+  const section = lf(lockfile).split(/^packages:$/m)[1]?.split(/^\S/m)[0] ?? "";
   let key = "";
   let inPeers = false;
   for (const line of section.split("\n")) {
@@ -172,7 +175,7 @@ export function importerAliases(lockfile) {
  */
 export function manifestPins(lockfile, read) {
   const out = new Map();
-  for (const [, dir] of lockfile.split(/^importers:$/m)[1]?.split(/^\S/m)[0]?.matchAll(/^ {2}(\S.*):$/gm) ?? []) {
+  for (const [, dir] of lf(lockfile).split(/^importers:$/m)[1]?.split(/^\S/m)[0]?.matchAll(/^ {2}(\S.*):$/gm) ?? []) {
     const path = unquote(dir);
     const text = read(path === "." ? "package.json" : `${path}/package.json`);
     if (!text) continue;
@@ -223,7 +226,8 @@ export function lockfileDowngrades(base, head, pins = {}) {
   const moved = new Map();
   /**
    * `name@version` moved back by a deliberate pin → the versions that pin chose: not a downgrade,
-   * and those versions aren't copies to dedupe (any other older copy still is).
+   * and a chosen version is never a copy to dedupe, whatever newer copy another importer keeps (any
+   * other older copy still is).
    */
   const lowered = new Map();
   const after = lockedEdges(head);
@@ -270,16 +274,18 @@ export function lockfileDowngrades(base, head, pins = {}) {
     }
   }
   const before = lockedVersions(base);
+  /** Every `name@version` a deliberate pin chose: never a copy to dedupe, whichever newer copy stays. */
+  const chosen = new Set([...lowered].flatMap(([key, vs]) => [...vs].map((v) => `${key.slice(0, key.lastIndexOf("@"))}@${v}`)));
   const copies = [];
   for (const [name, versions] of lockedVersions(head)) {
     const had = before.get(name);
     if (!had) continue;
     for (const v of versions) {
-      if (had.has(v)) continue;
+      if (had.has(v) || chosen.has(`${name}@${v}`)) continue;
       const compatible = range(v, had);
       const newer = newest(
         compatible.filter(
-          (h) => compare(h, v) > 0 && !moved.has(`${name}@${h}`) && !lowered.get(`${name}@${h}`)?.has(v),
+          (h) => compare(h, v) > 0 && !moved.has(`${name}@${h}`),
         ),
       );
       if (!newer) continue;

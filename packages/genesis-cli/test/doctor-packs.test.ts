@@ -979,5 +979,23 @@ describe("expo-native-deps", () => {
     expect(rangeSubset("~58.1.0", "^58.0.0")).toBe(true);
     expect(rangeSubset("~58.1.0", "~58.0.0")).toBe(false);
     expect(rangeSubset("1.2.3", ">=1.2.3 <2")).toBe(true);
+    // A `>` that starts a range isn't pnpm's parent>child separator.
+    for (const k of ["react-native@>=0.88.0", "react-native@>0.80", "react-native@> 0.80", "a>react-native@>=0.88.0"]) expect(overrideTarget(k)).toEqual({ name: "react-native", spec: k.slice(k.lastIndexOf("react-native@") + 13) });
+    expect(overrideTarget("a@>=1>@s/x@>=2")).toEqual({ name: "@s/x", spec: ">=2" });
+    expect(["a>vue", "a>xml2js@^1"].map((k) => overrideTarget(k).name)).toEqual(["vue", "xml2js"]);
+    // Prereleases follow node-semver's subset: admitted only where outer names one on the same x.y.z.
+    expect(rangeSubset("1.2.3-beta.0", "^1.0.0")).toBe(false);
+    expect(rangeSubset("~58.1.0-canary.1", "^58.0.0")).toBe(false);
+    expect(rangeSubset("1.2.3-beta.1", ">=1.2.3-beta.0 <2")).toBe(true);
+    expect(excluded(["@s/x@^1.0.0"], "@s/x", "~1.2.3-beta.0")).toBe(false);
+  });
+
+  it("checks the expo-modules-core beside expo even when the app declares a matching copy", async () => {
+    const r = await app({ dependencies: { ...ok, "expo-modules-core": "~58.1.0" } }, { ...matching, ...installed("expo-modules-core", "58.0.4", "node_modules/expo/node_modules") });
+    expect(brief(r.findings, "expo-native-deps")).toEqual(["expo-native-deps package.json:0 expo-modules-core"]);
+    expect(r.findings.find((f) => f.subject === "expo-modules-core")!.message).toContain("expo-modules-core 58.0.4 is installed");
+    // One copy both resolve to is checked once.
+    const once = await app({ dependencies: { ...ok, "expo-modules-core": "~58.0.0" } }, { ...matching, ...installed("expo-modules-core", "58.0.4") });
+    expect(brief(once.findings, "expo-native-deps")).toEqual(["expo-native-deps package.json:0 expo-modules-core"]);
   });
 });

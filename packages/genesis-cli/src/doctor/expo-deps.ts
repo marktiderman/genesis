@@ -14,7 +14,7 @@
  *
  * Checked: the app's declared dependencies and devDependencies the SDK names, plus
  * expo-modules-core, which comes with expo (resolved from expo's real folder, as Node does, so
- * pnpm's isolated store is followed). Skipped: an app without expo, one not installed yet, and
+ * pnpm's isolated store is followed), whether or not the app declares a copy of its own. Skipped: an app without expo, one not installed yet, and
  * package.json `expo.install.exclude` entries with Expo's meaning: a name always, `name@version`
  * while the SDK suggests exactly that version, `name@range` while the SDK's range is inside it.
  */
@@ -68,8 +68,9 @@ export function splitSpec(entry: string): { name: string; spec: string | null } 
 
 /** The package an override or resolution key names, and the range it applies to (`a>react-native@<1`, `**\/@s/x`). */
 export function overrideTarget(key: string): { name: string; spec: string | null } {
-  // pnpm's `parent>child`: the child. Yarn's paths (`**/x`, `a/x`, `a/@s/x`): the last package.
-  const segments = key.split(">").pop()!.trim().split("/");
+  // pnpm's `parent>child`: the child. A `>` that starts a range (`x@>=1`, `x@> 1`) isn't a
+  // separator. Yarn's paths (`**/x`, `a/x`, `a/@s/x`): the last package.
+  const segments = key.split(/>(?![=\s\d])/).pop()!.trim().split("/");
   const last = segments.length >= 2 && segments[segments.length - 2]!.startsWith("@") ? segments.slice(-2).join("/") : segments[segments.length - 1]!;
   return splitSpec(last);
 }
@@ -166,17 +167,25 @@ export function checkExpoNativeDeps(ctx: DoctorContext): void {
   if (!sdk) return; // Not installed yet: nothing to compare, and no network to ask.
   const exclude = Array.isArray(manifest.expo?.install?.exclude) ? manifest.expo.install.exclude.filter((e): e is string => typeof e === "string") : [];
 
-  // expo-modules-core comes with expo: the copy expo loads is the one Node finds from expo's real folder.
+  // expo-modules-core comes with expo: the copy expo loads is the one Node finds from expo's real
+  // folder, checked even when the app declares a copy of its own (that one is checked too, when it
+  // is another folder).
   const checks: Array<{ name: string; from: string; declared: boolean }> = Object.keys(declared)
     .filter((name) => name !== "expo" && name in sdk.modules)
     .sort()
     .map((name) => ({ name, from: ctx.root, declared: true }));
-  if (!("expo-modules-core" in declared) && "expo-modules-core" in sdk.modules) checks.push({ name: "expo-modules-core", from: sdk.expoDir, declared: false });
+  if ("expo-modules-core" in sdk.modules) checks.push({ name: "expo-modules-core", from: sdk.expoDir, declared: false });
 
+  const seen = new Set<string>();
   for (const { name, from, declared: own } of checks) {
     const range = sdk.modules[name]!;
     if (excluded(exclude, name, range)) continue;
     const dir = findPackageDir(from, name);
+    if (dir) {
+      const at = real(dir);
+      if (seen.has(at)) continue;
+      seen.add(at);
+    }
     const pkg = dir ? readJson<Manifest>(path.join(dir, "package.json")) : null;
     const installed = pkg?.version;
     if (!pkg || !installed) continue; // A missing install is the install's own error.

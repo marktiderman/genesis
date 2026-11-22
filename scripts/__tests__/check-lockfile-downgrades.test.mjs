@@ -314,6 +314,20 @@ describe("check-lockfile-downgrades", () => {
         after: pins({ "apps/starter": { bar: "1.1.0" } }),
       }),
     ).toEqual({ downgrades: [], copies: ["bar: adds 1.0.0, older than 1.2.0 on the base branch"] });
+    // The version a pin chose is no copy to dedupe while another importer keeps a newer one.
+    expect(
+      lockfileDowngrades(workspace({ "apps/starter": { foo: "1.3.0" }, "apps/web": { foo: "1.4.0" } }), workspace({ "apps/starter": { foo: "1.2.0" }, "apps/web": { foo: "1.4.0" } }), {
+        before: pins({ "apps/starter": { foo: "1.3.0" } }),
+        after: pins({ "apps/starter": { foo: "1.2.0" } }),
+      }),
+    ).toEqual(none);
+    // An exact prerelease pin lowered to a caret range: the range doesn't take the prerelease, so it exempts.
+    expect(
+      lockfileDowngrades(workspace({ "apps/starter": { foo: "1.3.0-beta.1" } }), workspace({ "apps/starter": { foo: "1.2.3" } }), {
+        before: pins({ "apps/starter": { foo: "1.3.0-beta.1" } }),
+        after: pins({ "apps/starter": { foo: "^1.2.3" } }),
+      }),
+    ).toEqual(none);
     // Only an override changed (the lockfile's specifier moves, package.json doesn't).
     expect(
       lockfileDowngrades(workspace({ "apps/starter": { react: "19.3.0" } }, {}, { react: "19.3.0" }), workspace({ "apps/starter": { react: "19.2.0" } }, {}, { react: "19.2.0" }), {
@@ -342,6 +356,10 @@ describe("check-lockfile-downgrades", () => {
     const files = { "package.json": '{"devDependencies":{"vitest":"^5.0.0"}}', "apps/starter/package.json": '{"dependencies":{"react-native":"0.88.1"}}' };
     const read = manifestPins(workspace({ ".": { vitest: "5.1.0" }, "apps/starter": { "react-native": "0.88.1" }, "apps/gone": { x: "1.0.0" } }), (f) => files[f] ?? null);
     expect(read).toEqual(new Map([[".", new Map([["vitest", "^5.0.0"]])], ["apps/starter", new Map([["react-native", "0.88.1"]])]]));
+    // A CRLF lockfile reads the same.
+    const crlf = workspace({ ".": { vitest: "5.1.0" }, "apps/starter": { "react-native": "0.88.1" }, "apps/gone": { x: "1.0.0" } }).replace(/\n/g, "\r\n");
+    expect(manifestPins(crlf, (f) => files[f] ?? null)).toEqual(read);
+    expect(lockedVersions(crlf)).toEqual(lockedVersions(crlf.replace(/\r\n/g, "\n")));
     // A name in two sections with different specs has no one pin, so its downgrade still fails.
     const lock2 = (v) => workspace({ "apps/starter": { bar: v } });
     const manifest = (deps) => (f) => (f === "apps/starter/package.json" ? JSON.stringify({ optionalDependencies: { bar: "^1.0.0" }, dependencies: { bar: deps } }) : null);
