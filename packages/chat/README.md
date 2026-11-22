@@ -128,7 +128,7 @@ copy and people) inside `GenesisNativeApp`, then put the screens in your routes:
 | Screen | What it is | Main props |
 |---|---|---|
 | `ChatInboxScreen` | The conversations on `InboxPage`: avatars, unread counts, the last message, pull to refresh, Mark read, Pin and Archive. | `onOpen(conversationId)`, `onStart`, `kind` / `kinds` / `excludeKinds`, `archived`, `pageProps` |
-| `ChatThreadScreen` | One conversation: grouped bubbles, day lines, replies, reactions, the composer (text, photos, voice notes, video, emoji, scheduled send), topics and the away line. | `conversationId`, `threadRootId`, `jumpTo` (open at a search result), `topic` / `showTopics`, `scheduling`, `availability`, `onOpenAttachment`, `focused` (the navigator's `useIsFocused()`), `receipts` (`"show"` or `"hide"`), `keyboardVerticalOffset` |
+| `ChatThreadScreen` | One conversation: grouped bubbles, day lines, replies, reactions, the composer (text, photos, voice notes, video, emoji, scheduled send), topics and the away line. | `conversationId`, `threadRootId`, `jumpTo` (open at a search result), `topic` / `showTopics`, `scheduling`, `availability`, `onOpenAttachment`, `focused` (the navigator's `useIsFocused()`), `active`, `header`, `accessory`, `videoLimitMs`, `receipts` (`"show"` or `"hide"`), `keyboardVerticalOffset` |
 | `ChatSearchScreen` | Search across your conversations or in one, with matches highlighted and transcripts marked. | `onOpen(hit)`, `conversationId`, `conversationTitle` |
 | `ChatAvailabilityScreen` | Your away message, its end, working hours and time zone. | `onSaved` |
 
@@ -176,6 +176,81 @@ note or video keeps the words.
 Voice notes show their transcript under the player once the server has made one ("Transcribing…"
 until then), folded to three lines with "Show more"; the bubble reads the whole transcript to
 VoiceOver.
+
+### How the thread feels, and what an app adds to it
+
+The thread follows iMessage where the platform lets it:
+
+- **Bubbles.** A run of one sender's messages reads as one shape: the corners where two bubbles
+  meet are tight, and the last (or only) one has a tail on the sender's side (`bubbleCorners`).
+- **Times on demand.** Drag the thread left and every message's time slides in at the trailing
+  edge; let go and it slides back. The last message of a run keeps its time under it. VoiceOver
+  already reads each time in the bubble's label.
+- **Swipe to reply** runs on react-native-gesture-handler when the app passes its
+  `ReanimatedSwipeable` as `GenesisModules.swipeable` (the same module `InboxPage` swipes with),
+  so the drag stays on the UI thread; without it, a PanResponder does it.
+- **Sending.** With `GenesisModules.reanimated` (Reanimated 4), a message you just sent rises in
+  from the composer (`FadeInDown`); not with Reduce Motion, and not a message left in the outbox
+  from an earlier launch. While you hold the mic it follows your finger toward cancel and the lock.
+- **Long press** taps a medium impact and opens the message's actions in a sheet that fits them
+  (the attach, emoji and scheduled sheets fit theirs too). The + button's menu opens the picker as
+  soon as the menu has gone, with no fixed wait.
+- **Where it opens.** At the first unread, with the "New" line at the top, when that line would be
+  above the screen; otherwise at the newest. With FlashList (`GenesisModules.list`) the list is
+  anchored at the bottom, so a send scrolls once. Scrolled up, a "↓ 3 new messages" pill comes up
+  when others write; it goes to the newest.
+- **Connection.** "Waiting for network…" while the app's NetInfo (`modules.netInfo`) says
+  offline, "Connecting…" while the live channel is down; when nothing could be read, an error with
+  Retry in place of "No messages yet".
+
+For a thread of the app's own, without copying the screen:
+
+| Prop | What it does |
+|---|---|
+| `active` | `false` keeps the thread mounted (a tab, a split view's other pane) without marking it read, and pauses what it plays; turning `true` marks it read. Default `true`. |
+| `header` | An app's own strip above the messages (who the client is, a booking). |
+| `accessory` | `(context) => ReactNode`: an app's tools over the composer. `context` has `conversationId`, `composer` (write into the draft with `composer.dispatch({ type: "text", text })`) and `canPost`. |
+| `videoLimitMs` | The longest video message. Default: the role's recording limit. |
+
+`useChatThreadStackOptions` also takes `avatar` (`{ src, name, id }` or an element), `subtitle`
+(left out with `conversationId`, the away line; `null` for none) and `onPressTitle` (the title
+becomes a button, `titleHint` its VoiceOver hint). The default subtitle reads the conversation
+through `ChatProvider`, so mount it above the navigator, or pass `subtitle` yourself. Show the away
+line there and pass `availability={false}` to the screen so it isn't said twice.
+
+```tsx
+import { Stack } from "expo-router";
+import { Text } from "react-native";
+import { ChatThreadScreen, useChatThreadStackOptions, type ChatThreadAccessoryContext } from "@marktiderman/genesis-chat/native";
+
+function QuickReplies({ composer, canPost }: ChatThreadAccessoryContext) {
+  if (!canPost) return null;
+  return <Text onPress={() => composer.dispatch({ type: "text", text: "On my way" })}>On my way</Text>;
+}
+
+export function ThreadRoute({ id, focused, onDetails }: { id: string; focused: boolean; onDetails: () => void }) {
+  const options = useChatThreadStackOptions({ headerTitle: "Sam", conversationId: id, avatar: { name: "Sam", id }, onPressTitle: onDetails });
+  return (
+    <>
+      <Stack.Screen options={options} />
+      <ChatThreadScreen
+        conversationId={id}
+        active={focused}
+        availability={false}
+        header={<Text>Acme · Plan B</Text>}
+        accessory={(context) => <QuickReplies {...context} />}
+        videoLimitMs={60_000}
+      />
+    </>
+  );
+}
+```
+
+For all of it, pass these in the app's Genesis modules (`GenesisNativeApp modules`), at module
+scope: `list: FlashList` (from `@shopify/flash-list` v2), `swipeable: ReanimatedSwipeable` (from
+`react-native-gesture-handler/ReanimatedSwipeable`, with `GestureHandlerRootView` at the root),
+`reanimated` (`import * as Reanimated from "react-native-reanimated"`), `haptics`, and chat's
+`netInfo` in `ChatNativeProvider modules`.
 
 ### Your own attachment kinds on native
 
