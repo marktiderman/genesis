@@ -321,6 +321,13 @@ describe("check-lockfile-downgrades", () => {
         after: pins({ "apps/starter": { foo: "1.2.0" } }),
       }),
     ).toEqual(none);
+    // An exact pin with `+build` metadata parses (the metadata never counts), so it exempts.
+    expect(
+      lockfileDowngrades(workspace({ "apps/starter": { foo: "1.2.0" } }), workspace({ "apps/starter": { foo: "1.1.0" } }), {
+        before: pins({ "apps/starter": { foo: "1.2.0" } }),
+        after: pins({ "apps/starter": { foo: "1.1.0+sdk.1" } }),
+      }),
+    ).toEqual(none);
     // An exact prerelease pin lowered to a caret range: the range doesn't take the prerelease, so it exempts.
     expect(
       lockfileDowngrades(workspace({ "apps/starter": { foo: "1.3.0-beta.1" } }), workspace({ "apps/starter": { foo: "1.2.3" } }), {
@@ -372,6 +379,11 @@ describe("check-lockfile-downgrades", () => {
     expect(specifierTakes("~8.28.0", "8.28.4")).toBe(true);
     expect(specifierTakes("^4.1.0", "4.2.0")).toBe(true);
     expect(specifierTakes("^0.0.3", "0.0.3")).toBe(true);
+    // `+build` metadata parses on every op and never counts.
+    expect(specifierTakes("1.1.0+sdk.1", "1.1.0")).toBe(true);
+    expect(specifierTakes("^1.1.0+sdk.1", "1.2.0")).toBe(true);
+    expect(specifierTakes("~1.1.0+sdk.1", "1.1.4")).toBe(true);
+    expect(specifierTakes("~1.1.0+sdk.1", "1.2.0")).toBe(false);
     expect(specifierTakes("^0.0.3", "0.0.4")).toBe(false);
     expect(specifierTakes("workspace:^", "1.0.0")).toBeNull();
     // A prerelease only when the pin names one on the same x.y.z, as semver.

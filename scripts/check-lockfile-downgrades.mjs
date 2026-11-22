@@ -196,11 +196,12 @@ export function manifestPins(lockfile, read) {
 }
 
 /**
- * Whether a package.json specifier admits `v`: an exact version, `~` or `^`. Null for anything
+ * Whether a package.json specifier admits `v`: an exact version, `~` or `^` (`+build` metadata
+ * allowed, never counted). Null for anything
  * else (a wider range, a tag, a protocol), which this check can't judge and never exempts.
  */
 export function specifierTakes(spec, v) {
-  const m = /^(~|\^|=)?v?(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/.exec(spec.trim());
+  const m = /^(~|\^|=)?v?(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?)$/.exec(spec.trim());
   if (!m) return null;
   const [op, want] = [m[1] ?? "=", m[2]];
   if (op === "=") return compare(v, want) === 0;
