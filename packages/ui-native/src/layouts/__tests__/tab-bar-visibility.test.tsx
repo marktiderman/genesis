@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { GenesisModulesProvider } from "../../native-modules";
 import { NativeTabBar } from "../../components/tab-bar";
 import { ScreenContainer, composeHeaderOptions } from "../screen-container";
-import { TabBarVisibilityProvider, useHideTabBar, useTabBarHidden } from "../tab-bar-visibility";
+import { TabBarVisibilityProvider, createPlaceExit, useHideTabBar, useTabBarHidden } from "../tab-bar-visibility";
 
 afterEach(cleanup);
 
@@ -85,6 +85,20 @@ describe("tab bar visibility per screen", () => {
     expect(hidden()).toBe("true");
   });
 
+  it("ScreenContainer reads focus only when it hides the bar (it also draws sheets, outside any navigator)", () => {
+    const useFocusEffect = vi.fn(() => {
+      throw new Error("Couldn't find a navigation object.");
+    });
+    expect(() =>
+      render(
+        <GenesisModulesProvider modules={{ router: { useFocusEffect } }}>
+          <ScreenContainer><i /></ScreenContainer>
+        </GenesisModulesProvider>,
+      ),
+    ).not.toThrow();
+    expect(useFocusEffect).not.toHaveBeenCalled();
+  });
+
   it("NativeTabBar draws nothing when hidden", () => {
     const items = [{ key: "a", label: "A", icon: null }];
     const view = render(<NativeTabBar items={items} value="a" onChange={vi.fn()} hidden testID="tb" />);
@@ -129,5 +143,25 @@ describe("the native header", () => {
   it("ScreenContainer header without the router module renders nothing extra", () => {
     expect(() => render(<ScreenContainer header={{ headerTitle: "Inbox" }}><i data-testid="body" /></ScreenContainer>)).not.toThrow();
     expect(screen.getByTestId("body")).toBeTruthy();
+  });
+});
+
+describe("leaving a place of its own (createPlaceExit)", () => {
+  it("remembers the last path outside, and falls back when there is none or it isn't accepted", () => {
+    const exit = createPlaceExit((p) => p.startsWith("/messages"));
+    let path = "/today";
+    function Root() {
+      exit.useRememberOutside();
+      return null;
+    }
+    const modules = { router: { usePathname: () => path } };
+    const view = render(<GenesisModulesProvider modules={modules}><Root /></GenesisModulesProvider>);
+    expect(exit.exitPath("/")).toBe("/today");
+    path = "/messages/1";
+    view.rerender(<GenesisModulesProvider modules={{ router: { usePathname: () => path } }}><Root /></GenesisModulesProvider>);
+    expect(exit.exitPath("/")).toBe("/today");
+    expect(exit.exitPath("/admin", (p) => p.startsWith("/admin"))).toBe("/admin");
+    exit.setLastOutside(null);
+    expect(exit.exitPath("/")).toBe("/");
   });
 });

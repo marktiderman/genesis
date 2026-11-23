@@ -96,9 +96,14 @@ export function ConversationScreen() {
 }
 ```
 
-**Row actions** ([ADR 0027](../../docs/adr/0027-row-actions.md)). One list, three ways: behind a
+A place with its own stack that hides the bar throughout (Messages) gets a back button on its
+first screen to wherever the person came from: `createPlaceExit((path) => …)`, its
+`useRememberOutside()` once in the root layout, and `exitPath(fallback)` for the button.
+
+**Row actions** ([ADR 0028](../../docs/adr/0028-row-actions.md)). One list, three ways: behind a
 swipe (`side`, `full`, `icon`, `tone`; `appearance="round"` for iOS 26's round buttons), in the
-long-press menu, and as VoiceOver's actions.
+long-press menu, and as VoiceOver's actions. `preview` puts a peek above the long-press menu;
+`InboxPage` takes `swipeAppearance` and `menuPreview` for the same.
 
 ```tsx
 import { NativeListItem } from "@marktiderman/genesis-ui-native";
@@ -427,7 +432,7 @@ Two generic layouts for conversations (support tickets, direct messages, comment
   hand-built inverted or bottom-started list.
 - **`NativeSwipeRow`** and **`NativeContextMenu`**: a row's actions behind a swipe, and what a long
   press opens (a sheet with Cancel, not the system alert). `InboxPage` uses both. Rows take the
-  same `icon`, `tone`, `full` and `swipe` as any row action (ADR 0027).
+  same `icon`, `tone`, `full` and `swipe` as any row action (ADR 0028).
 - **`NativeComposerBar`**: the composer on its own. It takes `leading`, `trailing` and `above`
   slots, and `modes`.
 

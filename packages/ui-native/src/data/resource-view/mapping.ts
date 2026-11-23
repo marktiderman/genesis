@@ -182,7 +182,7 @@ export function swipeActionsFor<T extends Row>(
   if (editable) add("edit", messages.common.edit, "edit", allowed(view, "update", row, screen, viewer), () => onEdit(row));
   if (options.onAction) {
     for (const action of view.actions()) {
-      // Where the view puts it behind the swipe (ADR 0027): its side and full swipe, or off the swipe.
+      // Where the view puts it behind the swipe (ADR 0028): its side and full swipe, or off the swipe.
       const swipe = action.swipe;
       const place = {
         ...(swipe === false ? { swipe: false } : swipe ? { side: swipe.side, ...(swipe.full ? { full: true } : {}) } : {}),

@@ -6312,7 +6312,7 @@
     {
       "id": "row-actions",
       "name": "Row actions (swipe, long-press menu, VoiceOver)",
-      "summary": "A row's actions offered the iOS way from one list (ADR 0027): behind a swipe (leading and trailing, a full swipe for the first, iOS 26's round style), in the long-press menu (the system context menu through GenesisModules.menu, @expo/ui's MenuView, else NativeContextMenu's sheet) and as accessibility actions, which Maestro can run too. A view's actions say where they swipe (ViewAction swipe, icon, tone); any list passes the same RowSwipeAction list to NativeListItem's actions, NativeRowActions or NativeSwipeRow. The web lists every action in the row's menu.",
+      "summary": "A row's actions offered the iOS way from one list (ADR 0028): behind a swipe (leading and trailing, a full swipe for the first, iOS 26's round style), in the long-press menu (the system context menu through GenesisModules.menu, @expo/ui's MenuView, else NativeContextMenu's sheet) and as accessibility actions, which Maestro can run too. A view's actions say where they swipe (ViewAction swipe, icon, tone); any list passes the same RowSwipeAction list to NativeListItem's actions, NativeRowActions or NativeSwipeRow. The web lists every action in the row's menu.",
       "category": "Design system",
       "status": "building",
       "claimedBy": "claude/ios-standards",
@@ -6361,7 +6361,7 @@
           "packages/core/src/resource-view/types.ts"
         ],
         "docs": [
-          "docs/adr/0027-row-actions.md",
+          "docs/adr/0028-row-actions.md",
           "docs/FRAMEWORK.md"
         ]
       },

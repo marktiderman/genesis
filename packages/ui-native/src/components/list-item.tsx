@@ -9,7 +9,7 @@
  * For platform-default chevrons, pass `showChevron`; the chevron uses
  * the muted-foreground token.
  *
- * `actions` gives the row its actions the iOS way (ADR 0027): behind a swipe (leading and
+ * `actions` gives the row its actions the iOS way (ADR 0028): behind a swipe (leading and
  * trailing, full swipe, iOS 26's round style with `actionsAppearance="round"`), in the long-press
  * menu (the system context menu with `GenesisModules.menu`), and as VoiceOver's actions.
  *

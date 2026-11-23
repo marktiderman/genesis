@@ -1,6 +1,6 @@
 /**
  * NativeRowActions — a row's actions offered the three ways iOS offers them, from one list
- * (ADR 0027): behind a swipe (`NativeSwipeRow`), in the long-press menu, and as the screen
+ * (ADR 0028): behind a swipe (`NativeSwipeRow`), in the long-press menu, and as the screen
  * reader's actions. Wrap any pressable row in it; `NativeListItem`'s `actions` does it for you,
  * and InboxPage and NativeResourceView wire the same pieces themselves.
  *
@@ -24,6 +24,12 @@ export interface NativeRowActionsProps {
   title?: string;
   /** The row: one pressable element, which gets the long press and the accessibility actions. */
   children: ReactNode;
+  /**
+   * A peek of the row above its long-press menu (a conversation's latest messages). The system
+   * menu from `GenesisModules.menu` can't draw one, so with a preview the long press opens
+   * `NativeContextMenu`'s sheet, the peek on top.
+   */
+  preview?: () => ReactNode;
   /** The swipe's look: `"fill"` or iOS 26's `"round"`. */
   appearance?: "fill" | "round";
   testID?: string;
@@ -46,8 +52,9 @@ type RowProps = {
   onAccessibilityAction?: (event: { nativeEvent: { actionName: string } }) => void;
 };
 
-export function NativeRowActions({ actions, title, children, appearance, testID = "row-actions" }: NativeRowActionsProps) {
-  const { menu: Menu } = useGenesisModules();
+export function NativeRowActions({ actions, title, children, appearance, preview, testID = "row-actions" }: NativeRowActionsProps) {
+  const { menu } = useGenesisModules();
+  const Menu = preview ? undefined : menu;
   const [open, setOpen] = useState(false);
   if (actions.length === 0) return <>{children}</>;
 
@@ -88,6 +95,7 @@ export function NativeRowActions({ actions, title, children, appearance, testID 
           open={open}
           onOpenChange={setOpen}
           {...(title ? { title } : {})}
+          {...(preview && open ? { preview: preview() } : {})}
           actions={actions.map((a) => ({ id: a.id, label: a.label, onPress: a.onPress, ...(a.destructive ? { destructive: true } : {}) }))}
           testID={`${testID}-sheet`}
         />

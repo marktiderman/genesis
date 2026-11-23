@@ -91,3 +91,50 @@ export function useHideTabBar(enabled = true) {
 export function useTabBarHidden(): boolean {
   return useContext(TabBarVisibilityContext)?.hidden ?? false;
 }
+
+/** Stand-in for `usePathname` without a router: no path, so nothing is remembered. */
+function useNoPathname(): string | undefined {
+  return undefined;
+}
+
+/** What `createPlaceExit` returns: remember the last path outside, and where Back leaves to. */
+export interface PlaceExit {
+  /** Keeps the last path outside the place. Mount once, above the tabs (the root layout). */
+  useRememberOutside: () => void;
+  /**
+   * Where the place's first screen goes back to: the last path outside it (when `accept` takes
+   * it, e.g. the same zone), else `fallback` (opened straight in from a notification or a link).
+   */
+  exitPath: (fallback: string, accept?: (path: string) => boolean) => string;
+  /** Tests: set the remembered path. */
+  setLastOutside: (path: string | null) => void;
+}
+
+/**
+ * A place of its own inside the tabs, as Messages is on iOS: while it's open the tab bar hides
+ * for its whole stack (`useHideTabBar` on each of its screens), and its first screen has a back
+ * button (and the edge swipe) that returns to where the person came from, in another tab. This
+ * remembers that place: the last path outside `isInside`. Navigation stays the app's:
+ * `router.navigate(exit.exitPath("/"))`. Reads the path through `GenesisModules.router.usePathname`.
+ *
+ *   export const messagesExit = createPlaceExit((path) => /^\/messages(\/|$)/.test(path));
+ */
+export function createPlaceExit(isInside: (path: string) => boolean): PlaceExit {
+  let lastOutside: string | null = null;
+  return {
+    useRememberOutside() {
+      const { router } = useGenesisModules();
+      const usePath = router?.usePathname ?? useNoPathname;
+      const path = usePath();
+      useEffect(() => {
+        if (path && !isInside(path)) lastOutside = path;
+      }, [path]);
+    },
+    exitPath(fallback, accept) {
+      return lastOutside && (!accept || accept(lastOutside)) ? lastOutside : fallback;
+    },
+    setLastOutside(path) {
+      lastOutside = path;
+    },
+  };
+}

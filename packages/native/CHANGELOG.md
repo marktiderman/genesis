@@ -1,5 +1,14 @@
 # @marktiderman/genesis-native
 
+## 0.15.0
+
+### Minor Changes
+
+- 4e3144f: `@marktiderman/genesis-native/observability-settings`: error reporting's settings
+  (`observabilitySettings`, `OBSERVABILITY_SETTING_SPECS`) and the DSN helpers, from an entry that
+  imports no React or React Native, so a web app or a server can put them in its settings catalogue
+  (the synced one included). `/observability` still exports the same names.
+
 ## 0.14.0
 
 ### Minor Changes

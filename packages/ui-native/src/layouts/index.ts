@@ -23,6 +23,8 @@ export {
   TabBarVisibilityProvider,
   useHideTabBar,
   useTabBarHidden,
+  createPlaceExit,
+  type PlaceExit,
   type TabBarVisibilityProviderProps,
 } from "./tab-bar-visibility";
 

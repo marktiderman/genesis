@@ -594,6 +594,8 @@ declare module "lucide-react-native" {
   export const LogOut: ComponentType<IconProps>;
   export const Mail: ComponentType<IconProps>;
   export const MailOpen: ComponentType<IconProps>;
+  export const MessageSquareDot: ComponentType<IconProps>;
+  export const PinOff: ComponentType<IconProps>;
   export const Archive: ComponentType<IconProps>;
   export const BellOff: ComponentType<IconProps>;
   export const Flag: ComponentType<IconProps>;

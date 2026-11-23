@@ -1,4 +1,4 @@
-# ADR 0027: A row's actions, offered the iOS way from one list
+# ADR 0028: A row's actions, offered the iOS way from one list
 
 - Status: proposed
 - Date: 2026-11-23
