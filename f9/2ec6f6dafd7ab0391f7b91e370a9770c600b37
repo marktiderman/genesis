@@ -1,0 +1,26 @@
+packages/ui-native/src/layouts/__tests__/tab-bar-visibility.test.tsx
+  s_f1aa8511899775::t_29df08d35a1929 156,159-162,166-177
+  s_f1aa8511899775::t_49305829e0e74c 178-179
+packages/ui-native/src/components/__tests__/row-actions.test.tsx
+  s_f1aa8511899775::t_29df08d35a1929 311-336
+packages/ui-native/src/layouts/screen-container.tsx
+  s_f1aa8511899775::t_78f59ce945557f 40,116-117,281-284,286,291-295
+docs/adr/0028-row-actions.md
+  s_f1aa8511899775::t_3676d1fe692bbe 64-65
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f92ec6f6dafd7ab0391f7b91e370a9770c600b37",
+  "prompts": {},
+  "sessions": {
+    "s_f1aa8511899775": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "18c56dc7-ac34-4eaf-92bf-016e2c3bbcb7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
