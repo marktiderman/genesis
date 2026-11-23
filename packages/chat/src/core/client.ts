@@ -480,9 +480,15 @@ export function createChatClient(supabase: ChatSupabase, options: ChatClientOpti
       return rpc<number>("mark_read", { p_conversation_id: conversationId, p_seq: seq ?? null });
     },
 
+    /**
+     * Your own settings for a conversation. `markedUnread` (migration 0007) marks it unread for you
+     * only, as Messages' Mark as Unread: it counts as one unread until you read it, and your read
+     * place (what senders see as "Read") never moves back. It's sent only when given, so an app
+     * whose database predates 0007 keeps working.
+     */
     async setMySettings(
       conversationId: string,
-      s: { mutedUntil?: string | null; notify?: "all" | "mentions" | "none"; archived?: boolean; pinned?: boolean },
+      s: { mutedUntil?: string | null; notify?: "all" | "mentions" | "none"; archived?: boolean; pinned?: boolean; markedUnread?: boolean },
     ) {
       await rpc("set_my_settings", {
         p_conversation_id: conversationId,
@@ -491,7 +497,16 @@ export function createChatClient(supabase: ChatSupabase, options: ChatClientOpti
         p_archived: s.archived ?? null,
         p_pinned: s.pinned ?? null,
         p_clear_mute: s.mutedUntil === null,
+        ...(s.markedUnread === undefined ? {} : { p_marked_unread: s.markedUnread }),
       });
+    },
+
+    /**
+     * Delete for me (migration 0007): the conversation leaves your inbox, and its history your
+     * thread, until a new message arrives. Nobody else's inbox, thread or read receipts change.
+     */
+    async deleteConversationForMe(conversationId: string) {
+      await rpc("delete_conversation_for_me", { p_conversation_id: conversationId });
     },
 
     async updateConversation(conversationId: string, s: { title?: string; settings?: Record<string, unknown> }) {
