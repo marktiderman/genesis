@@ -101,7 +101,7 @@ export function ChatInboxScreen({ onOpen, onStart, kind, kinds, excludeKinds, ar
     swipeActions: [
       item.unread > 0
         ? { id: "read", label: copy.markRead, icon: "mail-open", tone: "blue" as const, side: "leading" as const, full: true, onPress: () => void client.markRead(item.conversationId).then(settle, settle) }
-        : { id: "unread", label: copy.markUnread, icon: "mail", tone: "blue" as const, side: "leading" as const, full: true, onPress: () => void client.setMySettings(item.conversationId, { markedUnread: true }).then(settle, settle) },
+        : { id: "unread", label: copy.markUnread, icon: "message-unread", tone: "blue" as const, side: "leading" as const, full: true, onPress: () => void client.setMySettings(item.conversationId, { markedUnread: true }).then(settle, settle) },
       {
         id: "pin",
         label: item.pinned ? copy.unpin : copy.pin,
@@ -148,6 +148,8 @@ export function ChatInboxScreen({ onOpen, onStart, kind, kinds, excludeKinds, ar
       onRefresh={refresh}
       emptyTitle={copy.inboxEmptyTitle}
       emptyBody={copy.inboxEmptyBody}
+      // Messages' round buttons behind the swipe, the row a pill while open.
+      swipeAppearance="round"
       emptyActionLabel={onStart ? copy.startConversation : undefined}
       onEmptyAction={onStart}
       {...pageProps}

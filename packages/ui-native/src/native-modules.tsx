@@ -103,6 +103,17 @@ export interface GenesisReanimatedModule {
   cancelAnimation: (value: { value: unknown }) => void;
   Easing: { inOut: (easing: unknown) => unknown; ease: unknown; out: (easing: unknown) => unknown; cubic: unknown; bezier?: (x1: number, y1: number, x2: number, y2: number) => unknown };
   ReduceMotion?: { System: unknown; Always: unknown; Never: unknown };
+  /**
+   * A layout animation for `entering` (a message rising into the thread as it's sent). Optional:
+   * without it, nothing animates in.
+   */
+  FadeInDown?: GenesisLayoutAnimation;
+}
+
+/** A Reanimated layout animation builder (`FadeInDown`), as far as Genesis chains it. */
+export interface GenesisLayoutAnimation {
+  duration(ms: number): GenesisLayoutAnimation;
+  reduceMotion?(mode: unknown): GenesisLayoutAnimation;
 }
 
 /** `import * as GlassEffect from "expo-glass-effect"`. */
@@ -278,13 +289,17 @@ export interface GenesisSvgModule {
   Path: ComponentType<{ d: string; stroke?: ColorValue; strokeWidth?: number; fill?: ColorValue; fillOpacity?: number; testID?: string }>;
 }
 
-/** The props NativeSwipeRow passes; `ReanimatedSwipeable` takes them, and its ref has `close()`. */
+/** The props NativeSwipeRow (and chat's swipe to reply) pass; `ReanimatedSwipeable` takes them, and its ref has `close()`. */
 export type GenesisSwipeableComponent = ComponentType<{
   ref?: unknown;
   testID?: string;
   friction?: number;
   overshootLeft?: boolean;
   overshootRight?: boolean;
+  /** Points from the left edge past which a release opens the left actions. */
+  leftThreshold?: number;
+  /** How far a drag from the right must go before it counts (a large number: never, so the list's own leftward pan wins). */
+  dragOffsetFromRightEdge?: number;
   onSwipeableWillOpen?: (direction?: "left" | "right") => void;
   /** Called once the row has opened (the finger is up). */
   onSwipeableOpen?: (direction?: "left" | "right") => void;

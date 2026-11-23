@@ -280,6 +280,8 @@ export type {
   GenesisImageComponent,
   GenesisImageProps,
   GenesisReanimatedModule,
+  GenesisLayoutAnimation,
+  GenesisSwipeableComponent,
   GenesisRouterModule,
   GenesisMenuComponent,
   GenesisMenuAction,
