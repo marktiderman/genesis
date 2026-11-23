@@ -20,12 +20,13 @@
  * A count, not a flag: pushing one hiding screen over another focuses the new one before the old
  * one's blur runs, and a flag would show the bar again under the new screen.
  *
- * Focus comes from `GenesisModules.router.useFocusEffect` (expo-router's). Without it the bar
- * hides while the screen is mounted, which is the same for a stack's top screen.
+ * Focus comes from `GenesisModules.router.useFocusEffect` (expo-router's), which the app sets once
+ * at its root. Without it a screen never hides the bar (and warns in development): a tab keeps its
+ * stack mounted, so hiding while mounted would leave the bar hidden after a jump to another tab.
  *
  * @stability Beta
  */
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useGenesisModules } from "../native-modules";
 
 interface TabBarVisibilityControl {
@@ -58,16 +59,35 @@ export function TabBarVisibilityProvider({ children }: TabBarVisibilityProviderP
   return <TabBarVisibilityContext.Provider value={control}>{children(hidden)}</TabBarVisibilityContext.Provider>;
 }
 
-/** Runs `effect` while the screen is mounted: the stand-in for focus without a router. */
-function useMountEffect(effect: () => void | (() => void)) {
-  useEffect(effect, [effect]);
+declare const __DEV__: boolean | undefined;
+const isDev = () => typeof __DEV__ !== "undefined" && !!__DEV__;
+let warnedNoRouter = false;
+
+/** Without a router there is no focus to follow: never hide (the bar would stay hidden after a jump to another tab). */
+function useNoFocus(effect: () => void | (() => void)) {
+  void effect;
+  useEffect(() => {
+    if (isDev() && !warnedNoRouter) {
+      warnedNoRouter = true;
+      // genesis-allow-console: a development-only setup hint, not an error to report
+      console.warn("[genesis-ui-native] useHideTabBar needs GenesisModules.router.useFocusEffect (expo-router's): without it the tab bar stays shown.");
+    }
+  }, []);
 }
 
-/** Runs `effect` while the screen is focused when the app passed `router.useFocusEffect`, else while it's mounted. */
+/** Warns in development when a router hook appears or goes between renders: the module is set once, at the root. */
+function useSameHook(hook: unknown, name: string) {
+  const first = useRef(hook);
+  // genesis-allow-console: a development-only setup hint, not an error to report
+  if (isDev() && first.current !== hook) console.warn(`[genesis-ui-native] GenesisModules.router.${name} changed while mounted: set GenesisModules once, at the app's root.`);
+}
+
+/** Runs `effect` while the screen is focused (`router.useFocusEffect`); without a router, never. */
 function useScreenEffect(effect: () => void | (() => void)) {
   const { router } = useGenesisModules();
   // Set once at the app's root, so the same hook runs on every render.
-  const useFocus = router?.useFocusEffect ?? useMountEffect;
+  const useFocus = router?.useFocusEffect ?? useNoFocus;
+  useSameHook(router?.useFocusEffect, "useFocusEffect");
   useFocus(effect);
 }
 
@@ -125,6 +145,7 @@ export function createPlaceExit(isInside: (path: string) => boolean): PlaceExit 
     useRememberOutside() {
       const { router } = useGenesisModules();
       const usePath = router?.usePathname ?? useNoPathname;
+      useSameHook(router?.usePathname, "usePathname");
       const path = usePath();
       useEffect(() => {
         if (path && !isInside(path)) lastOutside = path;

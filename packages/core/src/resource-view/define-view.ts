@@ -120,7 +120,6 @@ export function plural(word: string): string {
   return many(`${last}s`);
 }
 
-// The view's own operations (`view.can`): an action can't take their names.
 const SWIPE_SIDES: ReadonlySet<string> = new Set(["leading", "trailing"]);
 const ROW_ACTION_TONES: ReadonlySet<string> = new Set(["tint", "blue", "green", "orange", "purple", "yellow", "gray", "red"]);
 
@@ -131,6 +130,7 @@ function resolveSwipe(swipe: ViewActionSwipe): NonNullable<ResolvedViewAction["s
   return Object.freeze({ side: swipe.side, full: swipe.full === true });
 }
 
+// The view's own operations (`view.can`): an action can't take their names.
 const RESERVED_ACTIONS: ReadonlySet<string> = new Set(["create", "update", "delete"]);
 
 const own = <V>(record: Readonly<Record<string, V>> | undefined, key: string): V | undefined =>
@@ -555,6 +555,9 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
       if (!side || !SWIPE_SIDES.has(side.side as string) || (side.full !== undefined && typeof side.full !== "boolean")) {
         problems.push(`${where}.swipe is "leading", "trailing", { side, full } or false`);
       }
+    }
+    if (action.destructive && swipe && typeof swipe === "object" && (swipe as { full?: unknown }).full === true && !action.confirm) {
+      problems.push(`${where} is destructive and runs on a full swipe, so it needs a confirm`);
     }
     if (action.icon !== undefined && (typeof action.icon !== "string" || !action.icon.trim())) problems.push(`${where}.icon isn't an icon name`);
     if (action.tone !== undefined && !ROW_ACTION_TONES.has(action.tone)) problems.push(`${where}.tone is one of ${[...ROW_ACTION_TONES].join(", ")}`);

@@ -36,24 +36,34 @@ as it is.
    Every field is optional, so existing rows keep working.
 2. **A view's actions say where they swipe.** `ViewAction` gains `swipe`
    (`"leading" | "trailing" | { side, full } | false`, `ViewActionSwipe`), `icon` and `tone`;
-   `defineView` validates them and `view.actions()` carries them (`swipe` resolved to
-   `{ side, full }` when set). Unset is trailing, no full swipe. The web ignores `swipe`: its row
-   menu lists every action. NativeResourceView's mapping passes them through; the guards' edit
-   and delete stay trailing and never run on a full swipe.
+   `defineView` validates them (a destructive action on a full swipe must have a `confirm`) and
+   `view.actions()` carries them (`swipe` resolved to `{ side, full }`) only when set. The web
+   ignores `swipe`: its row menu lists every action. Unset, NativeResourceView's own swipe leaves
+   the action in the long-press menu and the screen reader's actions; a screen's own `swipeable`
+   gets it trailing, as before. The guards' Edit and Delete stay trailing and never run on a full
+   swipe.
 3. **ui-native draws them the same everywhere:**
    - `NativeSwipeRow`: icons and tones, `appearance: "fill" | "round"` (iOS 26's round buttons),
-     the full swipe (`fullSwipeRatio`, 0.6 of the row's width, as iOS, the row tracking the finger 1:1), right-to-left aware, and the
-     actions on its child as `accessibilityActions` unless the row already has them.
+     at most three a side (`maxPerSide`), the row tracking the finger 1:1, and the full swipe
+     past 0.6 of the row's width (`fullSwipeRatio`), decided on the drag's furthest point (kept
+     on the UI thread with Reanimated's `useAnimatedReaction` when the app gives it);
+     right-to-left aware; the actions on its child as `accessibilityActions` unless the row
+     already has them; unseen at rest.
    - `NativeRowActions`: swipe + long-press menu + accessibility actions around any pressable
      row. The menu is the system context menu when the app passes `GenesisModules.menu`
      (`MenuView` from `@expo/ui/community/menu`), else `NativeContextMenu`'s sheet.
-   - `NativeListItem`'s `actions` (and `actionsAppearance`) wraps the row in `NativeRowActions`.
+   - `NativeListItem`'s `actions` (and `actionsAppearance`) wraps the row in `NativeRowActions`;
+     a row with actions is pressable, and a disabled row offers none.
+   - `NativeResourceView` list rows swipe by default (NativeSwipeRow; `swipeable={null}` turns it
+     off) and long-press into the system menu; grid cards and `renderCard` rows swipe only with a
+     screen's own `swipeable`.
 4. **The two screen standards ride with it**, since they're the same "follow iOS" rule and the
    same consumer is waiting on all three: `ScreenContainer` `header` (native large title, search
-   and header items through `GenesisModules.router.StackScreen`) and `tabBar="hidden"`
-   (`TabBarVisibilityProvider`, `useHideTabBar`, counted so stacked hiding screens never flash the
-   bar), and two doctor rules that flag a screen drawing its own header or hiding the tab bar by
-   hand.
+   and header items through `GenesisModules.router.StackScreen`, every option set each time so
+   leaving one out resets it) and `tabBar="hidden"` (`TabBarVisibilityProvider`, `useHideTabBar`,
+   counted so stacked hiding screens never flash the bar; without `GenesisModules.router` a
+   screen never hides it, since a tab keeps its stack mounted), and two doctor rules that flag a
+   screen drawing its own header or hiding the tab bar by hand.
 
 ## Glossary
 
@@ -75,8 +85,10 @@ as it is.
 
 ## Consequences
 
-- Additive: every new field is optional, and `view.actions()` adds `swipe`, `icon` and `tone`
-  only when the view sets them.
+- Additive in the contract: every new field is optional, and `view.actions()` adds `swipe`, `icon`
+  and `tone` only when the view sets them. One behaviour changes on upgrade: with
+  `GenesisModules.swipeable` set, NativeResourceView's list rows swipe (Edit, Delete and the
+  actions that set `swipe`); the changeset says so.
 - Apps opt into the system menu with `GenesisModules.menu` and into router-driven chrome with
   `GenesisModules.router = { useFocusEffect, StackScreen: Stack.Screen }` from expo-router.
 - `NavBarSearchBar` is deprecated in favour of `header.search`, for one deprecation window.

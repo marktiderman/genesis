@@ -20,8 +20,14 @@ function Hider({ enabled = true }: { enabled?: boolean }) {
 
 const hidden = () => screen.getByTestId("state").dataset.hidden;
 
-function Tabs({ children }: { children: React.ReactNode }) {
+/** A focus hook that holds while mounted: a screen that is always focused. */
+function useAlwaysFocused(effect: () => void | (() => void)) {
+  useEffect(effect, [effect]);
+}
+
+function Tabs({ children, router = { useFocusEffect: useAlwaysFocused } }: { children: React.ReactNode; router?: { useFocusEffect?: (e: () => void | (() => void)) => void } | null }) {
   return (
+    <GenesisModulesProvider modules={router ? { router } : {}}>
     <TabBarVisibilityProvider>
       {(h) => (
         <>
@@ -31,6 +37,7 @@ function Tabs({ children }: { children: React.ReactNode }) {
         </>
       )}
     </TabBarVisibilityProvider>
+    </GenesisModulesProvider>
   );
 }
 
@@ -63,15 +70,23 @@ describe("tab bar visibility per screen", () => {
       useEffect(() => (focused ? effect() : undefined), [focused, effect]);
     }
     render(
-      <GenesisModulesProvider modules={{ router: { useFocusEffect } }}>
-        <Tabs><Hider /></Tabs>
-      </GenesisModulesProvider>,
+      <Tabs router={{ useFocusEffect }}><Hider /></Tabs>,
     );
     expect(hidden()).toBe("true");
     focus(false);
     expect(hidden()).toBe("false");
     focus(true);
     expect(hidden()).toBe("true");
+  });
+
+  it("never hides without the router's focus hook (a tab keeps its stack mounted), and warns", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    (globalThis as { __DEV__?: boolean }).__DEV__ = true;
+    render(<Tabs router={null}><Hider /></Tabs>);
+    expect(hidden()).toBe("false");
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("needs GenesisModules.router.useFocusEffect"));
+    delete (globalThis as { __DEV__?: boolean }).__DEV__;
+    warn.mockRestore();
   });
 
   it("does nothing when disabled or outside a provider", () => {
@@ -121,6 +136,7 @@ describe("the native header", () => {
   });
 
   it("ScreenContainer header sets the stack's options, a large title by default", () => {
+    const search = { placeholder: "Search" };
     const seen: Record<string, unknown>[] = [];
     const StackScreen = ({ options }: { options?: Record<string, unknown> }) => {
       seen.push(options ?? {});
@@ -128,7 +144,7 @@ describe("the native header", () => {
     };
     const view = render(
       <GenesisModulesProvider modules={{ router: { StackScreen } }}>
-        <ScreenContainer header={{ headerTitle: "Inbox", search: { placeholder: "Search" } }}><i /></ScreenContainer>
+        <ScreenContainer header={{ headerTitle: "Inbox", search }}><i /></ScreenContainer>
       </GenesisModulesProvider>,
     );
     expect(seen.at(-1)).toMatchObject({ title: "Inbox", headerLargeTitle: true, headerSearchBarOptions: { placeholder: "Search" } });
@@ -137,7 +153,8 @@ describe("the native header", () => {
         <ScreenContainer header={{ headerTitle: "Ada", large: false }}><i /></ScreenContainer>
       </GenesisModulesProvider>,
     );
-    expect(seen.at(-1)).toEqual({ title: "Ada" });
+    // Set explicitly, so the large title and the search of the render before are taken away.
+    expect(seen.at(-1)).toEqual({ title: "Ada", headerLargeTitle: false, headerSearchBarOptions: undefined, unstable_headerRightItems: undefined, unstable_headerLeftItems: undefined });
   });
 
   it("ScreenContainer header without the router module renders nothing extra", () => {
@@ -165,3 +182,19 @@ describe("leaving a place of its own (createPlaceExit)", () => {
     expect(exit.exitPath("/")).toBe("/");
   });
 });
+
+describe("ScreenContainer header, set by field", () => {
+  it("doesn't set the options again when an inline header has the same fields", () => {
+    const seen: unknown[] = [];
+    const StackScreen = ({ options }: { options?: Record<string, unknown> }) => {
+      seen.push(options);
+      return null;
+    };
+    const search = { placeholder: "Search" };
+    const modules = { router: { StackScreen } };
+    const view = render(<GenesisModulesProvider modules={modules}><ScreenContainer header={{ headerTitle: "Inbox", search }}><i /></ScreenContainer></GenesisModulesProvider>);
+    view.rerender(<GenesisModulesProvider modules={modules}><ScreenContainer header={{ headerTitle: "Inbox", search }}><i /></ScreenContainer></GenesisModulesProvider>);
+    expect(new Set(seen).size).toBe(1);
+  });
+});
+

@@ -179,10 +179,12 @@ export function swipeActionsFor<T extends Row>(
       onPress: reason ? () => onRefused(label, reason) : run,
     });
   };
-  if (editable) add("edit", messages.common.edit, "edit", allowed(view, "update", row, screen, viewer), () => onEdit(row));
+  // Edit and Delete are always on the trailing swipe (never a full swipe: Delete confirms first).
+  if (editable) add("edit", messages.common.edit, "edit", allowed(view, "update", row, screen, viewer), () => onEdit(row), false, { side: "trailing" });
   if (options.onAction) {
     for (const action of view.actions()) {
       // Where the view puts it behind the swipe (ADR 0028): its side and full swipe, or off the swipe.
+      // Unset leaves `side` unset: NativeResourceView's own swipe keeps it to the menu, a screen's own `swipeable` puts it trailing.
       const swipe = action.swipe;
       const place = {
         ...(swipe === false ? { swipe: false } : swipe ? { side: swipe.side, ...(swipe.full ? { full: true } : {}) } : {}),
@@ -198,6 +200,7 @@ export function swipeActionsFor<T extends Row>(
     allowed(view, "delete", row, screen, viewer),
     () => onDelete(row),
     true,
+    { side: "trailing" },
   );
   return actions;
 }

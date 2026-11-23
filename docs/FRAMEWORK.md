@@ -348,10 +348,12 @@ Apple's Human Interface Guidelines for navigation bars, tab bars and lists.
 2. **The tab bar hides per screen, never by hand.** Top-level screens show it. A drill-down or an
    immersive screen (a conversation, a viewer) may hide it while it's focused:
    `<ScreenContainer tabBar="hidden">` or `useHideTabBar()`, with `TabBarVisibilityProvider` around
-   the tab navigator, as UIKit's `hidesBottomBarWhenPushed`. The stack keeps the back button, the
+   the tab navigator, as UIKit's `hidesBottomBarWhenPushed`. It follows focus through
+   `GenesisModules.router`; without it a screen never hides the bar. The stack keeps the back button, the
    push transition and the edge swipe back, and a deep link opens the screen the same way.
 3. **A row's actions show three ways, from one list** ([ADR 0028](./adr/0028-row-actions.md)):
-   behind a swipe (leading and trailing, a full swipe for the first, iOS 26's round style), in
+   behind a swipe (leading and trailing, at most three a side, a full swipe for the first, iOS
+   26's round style; a destructive one on a full swipe confirms), in
    the long-press menu (the system context menu with `GenesisModules.menu`), and as VoiceOver's
    actions. A view's `actions` say where they swipe (`swipe: "leading"`); any other list passes
    the same `RowSwipeAction` list to `NativeListItem`'s `actions` or `NativeRowActions`. The web

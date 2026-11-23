@@ -120,8 +120,9 @@ export interface NativeResourceViewProps<T extends Row = Row> extends NativeReso
   onRowPress?: (row: T) => void;
   /**
    * Wraps each row that has actions in a swipe gesture. Default `NativeSwipeRow` (which swipes once
-   * the app passes `GenesisModules.swipeable`), placing each action where the view says (ADR 0028);
-   * `null` turns the swipe off.
+   * the app passes `GenesisModules.swipeable`) on list rows: Edit and Delete trailing, and the
+   * view's actions where their `swipe` says (ADR 0028), at most three a side. Grid cards and
+   * `renderCard` rows swipe only with a `swipeable` of the screen's own. `null` turns it off.
    */
   swipeable?: ComponentType<NativeResourceSwipeableProps> | null;
   /** Above the list, under the search (a filter, a call to action). */
@@ -318,9 +319,18 @@ function withSwipe(content: ReactNode, card: NativeResourceCardActions, Swipeabl
   );
 }
 
-/** The default swipe: NativeSwipeRow, without its own accessibility actions (the row has them). */
-function DefaultSwipeable(props: NativeResourceSwipeableProps) {
-  return <NativeSwipeRow {...props} accessibilityActions={false} />;
+/** A screen's own swipe; the default is for list rows only (a card or a tile doesn't swipe). */
+function ownSwipe(Swipeable: ComponentType<NativeResourceSwipeableProps> | undefined) {
+  return Swipeable === DefaultSwipeable ? undefined : Swipeable;
+}
+
+/**
+ * The default swipe: NativeSwipeRow with Edit, Delete and the view's actions that say where they
+ * swipe; an action without `swipe` stays in the long-press menu and the screen reader's actions.
+ * Without its own accessibility actions (the row has them).
+ */
+function DefaultSwipeable({ actions, ...props }: NativeResourceSwipeableProps) {
+  return <NativeSwipeRow {...props} actions={actions.filter((a) => a.side !== undefined)} accessibilityActions={false} />;
 }
 
 /** One row. Memoised: it redraws only when its row or what it reads changes, not per keystroke. */
@@ -390,7 +400,7 @@ type RenderCard<T extends Row> = NonNullable<NativeResourceViewProps<T>["renderC
 /** A row the app draws (`renderCard`), with the screen's wiring and swipe around it. */
 const CustomRow = memo(function CustomRow<T extends Row>(props: RowProps<T> & { index: number; renderCard: RenderCard<T> }) {
   const card = cardFor(props.row, props);
-  return withSwipe(props.renderCard(props.row, props.index, card), card, props.Swipeable, props.Menu);
+  return withSwipe(props.renderCard(props.row, props.index, card), card, ownSwipe(props.Swipeable), props.Menu);
 }) as <T extends Row>(props: RowProps<T> & { index: number; renderCard: RenderCard<T> }) => ReactNode;
 
 /** The space between grid cards and around the grid, in points. */
@@ -424,7 +434,7 @@ function GridCard<T extends Row>(props: RowProps<T>) {
       ) : null}
     </Pressable>
   );
-  return withSwipe(content, card, props.Swipeable, props.Menu);
+  return withSwipe(content, card, ownSwipe(props.Swipeable), props.Menu);
 }
 
 /**
@@ -874,6 +884,8 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
       ) : inbox ? (
         <InboxPage
           testID={`${testID}-inbox`}
+          // `swipeable={null}` turns the inbox rows' swipe off too (the menu and accessibility actions stay).
+          {...(swipeableProp === null ? { slots: { swipeable: null } } : {})}
           items={state.rows.map((row) => {
             const r = view.inboxRow(row as never);
             return {
