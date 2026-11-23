@@ -184,10 +184,11 @@ manifest for the packages installed, export compliance and the fingerprint runti
   in [`@marktiderman/genesis-supabase`](../../packages/supabase/README.md#support-the-support-block).
 - **Chat:** `supabase/migrations/20261025000000_genesis_chat.sql`,
   `20261025000050_genesis_chat_coaching.sql`, `20261025000060_genesis_chat_search_threads.sql`,
-  `20261025000080_genesis_chat_tenants.sql`, `20261025000090_genesis_chat_attachment_paths.sql` and
-  `20261026001400_genesis_chat_read_receipts.sql` are genesis-chat's migrations 0001 to 0006 (topics,
-  scheduled send, availability, broadcast, search, link previews, moderation; every conversation in a
-  tenant; tightened attachment paths; read times for message status), copied and drift-tested the same way. The starter is single-tenant:
+  `20261025000080_genesis_chat_tenants.sql`, `20261025000090_genesis_chat_attachment_paths.sql`,
+  `20261026001400_genesis_chat_read_receipts.sql` and `20261026001500_genesis_chat_unread_and_delete_for_me.sql`
+  are genesis-chat's migrations 0001 to 0007 (topics, scheduled send, availability, broadcast, search,
+  link previews, moderation; every conversation in a tenant; tightened attachment paths; read times
+  for message status; Mark as Unread and Delete for me), copied and drift-tested the same way. The starter is single-tenant:
   `20261025000070_starter_tenancy.sql` puts every login in one tenant
   (`private.genesis_viewer_people`); replace it when you add organizations. Scheduled messages, link previews, moderation and chat pushes are
   worked by genesis-chat's runner (`createChatRunner` from `@marktiderman/genesis-chat/server`),
