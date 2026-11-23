@@ -1,0 +1,24 @@
+packages/ui-native/src/data/resource-view/NativeResourceView.tsx
+  s_f1aa8511899775::t_f3a09e1a8287e7 542-543
+  s_f1aa8511899775::t_945365adb68ba7 41-42,44,121-126,230-231,274,296-297,302-312,314,318-329,343,349,391,399,433,525,664,670
+packages/ui-native/src/data/resource-view/__tests__/native-resource-view.test.tsx
+  s_f1aa8511899775::t_18d7c1170732c1 73,1354-1402
+.changeset/ios-native-standards.md
+  s_f1aa8511899775::t_9d7dfbc81670be 13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9ce080105b8c52533fedcedef51467827730be2f",
+  "prompts": {},
+  "sessions": {
+    "s_f1aa8511899775": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "18c56dc7-ac34-4eaf-92bf-016e2c3bbcb7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
