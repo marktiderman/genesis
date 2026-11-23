@@ -42,7 +42,7 @@ as it is.
    and delete stay trailing and never run on a full swipe.
 3. **ui-native draws them the same everywhere:**
    - `NativeSwipeRow`: icons and tones, `appearance: "fill" | "round"` (iOS 26's round buttons),
-     the full swipe (`fullSwipeRatio`, 0.55 of the row's width), right-to-left aware, and the
+     the full swipe (`fullSwipeRatio`, 0.6 of the row's width, as iOS, the row tracking the finger 1:1), right-to-left aware, and the
      actions on its child as `accessibilityActions` unless the row already has them.
    - `NativeRowActions`: swipe + long-press menu + accessibility actions around any pressable
      row. The menu is the system context menu when the app passes `GenesisModules.menu`

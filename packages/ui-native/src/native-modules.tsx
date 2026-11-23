@@ -300,11 +300,17 @@ export type GenesisSwipeableComponent = ComponentType<{
   leftThreshold?: number;
   /** How far a drag from the right must go before it counts (a large number: never, so the list's own leftward pan wins). */
   dragOffsetFromRightEdge?: number;
+  /** How hard the row drags past its actions (1: with the finger). */
+  overshootFriction?: number;
   onSwipeableWillOpen?: (direction?: "left" | "right") => void;
   /** Called once the row has opened (the finger is up). */
   onSwipeableOpen?: (direction?: "left" | "right") => void;
   /** Called as the row starts to close. */
   onSwipeableWillClose?: (direction?: "left" | "right") => void;
+  /** Called once the row has closed. */
+  onSwipeableClose?: (direction?: "left" | "right") => void;
+  /** Called when a drag to open starts. */
+  onSwipeableOpenStartDrag?: (direction?: "left" | "right") => void;
   /** `translation` is Reanimated's shared value of the row's offset; its `.value` is read on the JS thread. */
   renderLeftActions?: (progress?: unknown, translation?: { value: number }) => ReactNode;
   renderRightActions?: (progress?: unknown, translation?: { value: number }) => ReactNode;

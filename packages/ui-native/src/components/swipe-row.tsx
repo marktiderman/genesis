@@ -40,7 +40,7 @@ export interface NativeSwipeRowProps {
   children?: ReactNode;
   /** `"fill"` (colored blocks, the default) or `"round"` (iOS 26's round icon buttons). */
   appearance?: "fill" | "round";
-  /** How far past the row's width a drag runs the side's `full` action. Default 0.55. */
+  /** How far across the row (a share of its width) a drag runs the side's `full` action when let go. Default 0.6, as iOS. */
   fullSwipeRatio?: number;
   /**
    * Put the actions on the child as `accessibilityActions` (merged into its own, when it's a
@@ -104,7 +104,7 @@ export function NativeSwipeRow({
   actions,
   children,
   appearance = "fill",
-  fullSwipeRatio = 0.55,
+  fullSwipeRatio = 0.6,
   accessibilityActions = true,
   testID = "swipe-row",
 }: NativeSwipeRowProps) {
@@ -115,6 +115,9 @@ export function NativeSwipeRow({
   const offset = useRef<{ value: number } | null>(null);
   const [width, setWidth] = useState(0);
   const [open, setOpen] = useState(false);
+  // The actions stay mounted (the swipe measures them) but unseen until a drag starts: an inset row
+  // doesn't cover the whole width, and they would show in its margins at rest.
+  const [dragging, setDragging] = useState(false);
   const content = accessibilityActions ? withAccessibilityActions(children, actions) : children;
   const { leading, trailing, fullLeading, fullTrailing } = splitSwipeActions(actions);
   if (!Swipeable || leading.length + trailing.length === 0) return <>{content}</>;
@@ -127,7 +130,7 @@ export function NativeSwipeRow({
   const group = (list: readonly RowSwipeAction[]) => (_progress?: unknown, translation?: { value: number }) => {
     if (translation) offset.current = translation;
     return (
-      <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ flexDirection: "row", alignItems: round ? "center" : "stretch", gap: round ? 10 : 0, paddingHorizontal: round ? 10 : 0 }}>
+      <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ opacity: dragging ? 1 : 0, flexDirection: "row", alignItems: round ? "center" : "stretch", gap: round ? 10 : 0, paddingHorizontal: round ? 10 : 0 }}>
         {list.map((action) => {
           const color = rowActionColor(action, colors);
           const icon = action.icon ? <NativeIcon name={action.icon as NativeIconName} size={round ? 20 : 22} color={ON_ROW_ACTION} /> : null;
@@ -160,9 +163,13 @@ export function NativeSwipeRow({
       <Swipeable
         ref={swipe}
         testID={testID}
-        friction={2}
+        // 1:1 with the finger, as iOS rows track it (and so a full swipe can reach the middle).
+        friction={1}
+        // Past its actions a side with a full action keeps tracking the finger, so a long drag reaches
+        // the full-swipe point; a side without one stops at its actions.
         overshootLeft={!!fullLeft}
         overshootRight={!!fullRight}
+        overshootFriction={1}
         onSwipeableWillOpen={() => {
           // Called on release, before the row settles: a drag past the ratio of its width runs the side's full-swipe action.
           const dx = offset.current?.value ?? 0;
@@ -176,6 +183,8 @@ export function NativeSwipeRow({
           }
         }}
         onSwipeableWillClose={() => setOpen(false)}
+        onSwipeableOpenStartDrag={() => setDragging(true)}
+        onSwipeableClose={() => setDragging(false)}
         renderLeftActions={left.length ? group(left) : undefined}
         renderRightActions={right.length ? group(right) : undefined}
       >

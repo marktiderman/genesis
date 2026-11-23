@@ -70,6 +70,7 @@ import {
   type NativeResourceSwipeableProps,
 } from "..";
 import { gridLines } from "../NativeResourceView";
+import { GenesisModulesProvider, type GenesisModules } from "../../../native-modules";
 
 type Brand = {
   id: string;
@@ -1350,3 +1351,56 @@ describe("grid and custom rows", () => {
     expect(grown[2]!.rows.map((r) => r.id)).toEqual(["m4", "m5"]);
   });
 });
+
+describe("row actions by default (ADR 0028)", () => {
+  it("swipes through NativeSwipeRow without a swipeable prop, and null turns it off", async () => {
+    const opened: string[] = [];
+    const Swipeable = (props: { testID?: string; children?: ReactNode }) => {
+      opened.push(props.testID ?? "");
+      return <div data-testid={props.testID}>{props.children}</div>;
+    };
+    const withModules = (p: DataProvider) => {
+      const Inner = wrap(p);
+      return ({ children }: { children: ReactNode }) => (
+        <GenesisModulesProvider modules={{ swipeable: Swipeable as never }}>
+          <Inner>{children}</Inner>
+        </GenesisModulesProvider>
+      );
+    };
+    const view = render(<NativeResourceView view={plainView} />, { wrapper: withModules(provider()) });
+    await screen.findByTestId("native-resource-view-row-b1");
+    expect(screen.getByTestId("native-resource-view-row-b1-swipe")).toBeTruthy();
+    view.unmount();
+    opened.length = 0;
+    render(<NativeResourceView view={plainView} swipeable={null} />, { wrapper: withModules(provider()) });
+    await screen.findByTestId("native-resource-view-row-b1");
+    expect(opened).toEqual([]);
+  });
+
+  it("opens the system menu on long press when the app gives one, and drops the alert", async () => {
+    const seen: string[][] = [];
+    const Menu: NonNullable<GenesisModules["menu"]> = (props) => {
+      seen.push(props.actions.map((a) => a.id));
+      return <div data-testid={props.testID} onClick={() => props.onPressAction?.({ nativeEvent: { event: "delete" } })}>{props.children}</div>;
+    };
+    const Inner = wrap(provider());
+    render(<NativeResourceView view={plainView} swipeable={null} />, {
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <GenesisModulesProvider modules={{ menu: Menu }}>
+          <Inner>{children}</Inner>
+        </GenesisModulesProvider>
+      ),
+    });
+    const laidOut = await screen.findByTestId("native-resource-view-row-b1");
+    expect(seen).toEqual([]);
+    expect(laidOut).toBeTruthy();
+    act(() => void screen.getByTestId("native-resource-view-row-b1-menu-host").dispatchEvent(new CustomEvent("layout", { detail: { width: 390, height: 60 } })));
+    const row = screen.getByTestId("native-resource-view-row-b1");
+    expect(seen[0]).toEqual(["edit", "delete"]);
+    fireEvent.contextMenu(row);
+    expect(alert).not.toHaveBeenCalledWith("Northwind", undefined, expect.anything());
+    fireEvent.click(screen.getByTestId("native-resource-view-row-b1-menu"));
+    expect(alert).toHaveBeenLastCalledWith("Delete", "The default brand stays.");
+  });
+});
+

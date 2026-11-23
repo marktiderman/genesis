@@ -15,7 +15,7 @@ function fakeSwipeable(close: () => void, dx: () => number) {
     useImperativeHandle(ref, () => ({ close }));
     const translation = { get value() { return dx(); } };
     return (
-      <div data-testid={props.testID} data-overshoot-left={String(props.overshootLeft)} data-overshoot-right={String(props.overshootRight)} onClick={() => props.onSwipeableWillOpen?.()} onDoubleClick={() => props.onSwipeableWillClose?.()}>
+      <div data-testid={props.testID} data-overshoot-left={String(props.overshootLeft)} data-overshoot-right={String(props.overshootRight)} data-overshoot-friction={String(props.overshootFriction)} onClick={() => props.onSwipeableWillOpen?.()} onDoubleClick={() => props.onSwipeableWillClose?.()} onMouseDown={() => props.onSwipeableOpenStartDrag?.()} onMouseUp={() => props.onSwipeableClose?.()}>
         <div data-testid="left">{props.renderLeftActions?.(undefined, translation)}</div>
         <div data-testid="right">{props.renderRightActions?.(undefined, translation)}</div>
         {props.children as ReactNode}
@@ -66,7 +66,9 @@ describe("row actions (ADR 0028)", () => {
     expect(row.dataset.overshootLeft).toBe("true");
     expect(screen.queryByTestId("s-action-review")).toBeNull();
     layout(row.parentElement!, 400);
-    dx = 100;
+    // Short of 0.6 of the width it only opens; the row tracks the finger past its actions on a full side.
+    expect(row.dataset.overshootFriction).toBe("1");
+    dx = 220;
     fireEvent.click(row);
     expect(actions[0]!.onPress).not.toHaveBeenCalled();
     dx = 300;
@@ -109,6 +111,9 @@ describe("row actions (ADR 0028)", () => {
         </NativeRowActions>
       </GenesisModulesProvider>,
     );
+    // The row draws as it is until laid out, then sits in the menu at its width.
+    expect(screen.queryByTestId("menu")).toBeNull();
+    layout(screen.getByTestId("row-actions-menu-host"), 390);
     expect(seen.longPress).toBe(true);
     expect(seen.title).toBe("Ada");
     expect(seen.actions).toEqual([
@@ -172,5 +177,22 @@ describe("row actions (ADR 0028)", () => {
     fireEvent.contextMenu(screen.getByTestId("li"));
     expect(await screen.findByTestId("peek")).toBeTruthy();
     expect(screen.getByTestId("ra-sheet-preview")).toBeTruthy();
+  });
+
+  it("keeps the actions unseen until a drag starts, so they never show in an inset row's margins", () => {
+    const Swipeable = fakeSwipeable(vi.fn(), () => 0);
+    render(
+      <GenesisModulesProvider modules={{ swipeable: Swipeable as never }}>
+        <NativeSwipeRow actions={make()} testID="s">
+          <i />
+        </NativeSwipeRow>
+      </GenesisModulesProvider>,
+    );
+    const panel = () => JSON.parse((screen.getByTestId("s-action-pin").parentElement as HTMLElement).dataset.style!);
+    expect(panel().opacity).toBe(0);
+    fireEvent.mouseDown(screen.getByTestId("s"));
+    expect(panel().opacity).toBe(1);
+    fireEvent.mouseUp(screen.getByTestId("s"));
+    expect(panel().opacity).toBe(0);
   });
 });
