@@ -450,7 +450,8 @@ As Messages has them, and only for the person who does them:
 // place, what senders see as "Read", never moves back. `markRead` clears it.
 chat.setMySettings(conversationId, { markedUnread: true }): Promise<void>
 
-// Delete for me: the conversation leaves their inbox, and its history their thread and search,
+// Delete for me: the conversation leaves their inbox, and its history (with its files and link
+// previews) their thread and search,
 // until a new message arrives, which brings it back with only what came after. Nothing is
 // deleted, and nobody else's inbox, thread or read receipts change.
 chat.deleteConversationForMe(conversationId): Promise<void>

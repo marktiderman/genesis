@@ -43,7 +43,9 @@ genesis-chat migration 0007:
      brings it back;
    - a restrictive read policy, `messages_cleared_for_me`, hides messages at or before
      `cleared_seq` from that member, so every read path agrees (thread pages, attachments and
-     reactions through their message, search);
+     reactions through their message). The security-definer paths that read messages themselves
+     get the same guard (`my_cleared_seq`): search, the attachment files' read check
+     (`can_read_object`) and link previews (`link_previews_for`);
    - unread counts start after `greatest(last_read_seq, cleared_seq)`.
 
    Nothing is deleted, and no other member's rows change.

@@ -6,7 +6,7 @@
 -- People: a1 and b2 talk directly; c3 is someone else.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(25);
+select plan(30);
 
 insert into auth.users (id, aud, role, email, instance_id)
 select ('00000000-0000-4000-8000-00000000c7' || n)::uuid, 'authenticated', 'authenticated', 'genesis-chat-7-' || n || '@example.test', '00000000-0000-0000-0000-000000000000'
@@ -69,16 +69,31 @@ select genesis_chat.set_my_settings(pg_temp.v('ab'), p_marked_unread => false);
 select is(pg_temp.unread(), 0, 'and so does unmarking it');
 
 -- ── Delete for me ───────────────────────────────────────────────────────────────
+-- A photo and a link in the history too: their file and preview go with it.
+reset role;
+insert into storage.objects (bucket_id, name, owner_id)
+values ('genesis-chat', pg_temp.v('ab') || '/' || pg_temp.person('a1') || '/photo.jpg', pg_temp.person('a1')::text);
+select genesis_chat.save_link_preview('https://example.com/page', 'ok', 'Example page');
+select pg_temp.sign_in('a1');
+select genesis_chat.send_message(pg_temp.v('ab'), gen_random_uuid(), '',
+  jsonb_build_array(jsonb_build_object('kind', 'image', 'path', pg_temp.v('ab') || '/' || pg_temp.person('a1') || '/photo.jpg')));
+insert into t select 'linked', (genesis_chat.send_message(pg_temp.v('ab'), gen_random_uuid(), 'look at https://example.com/page')).id;
+
 select pg_temp.sign_in('b2');
-select is(pg_temp.visible(), 2, 'b2 reads both messages');
+select is(pg_temp.visible(), 4, 'b2 reads all four messages');
+select ok(genesis_chat.can_read_object(pg_temp.v('ab') || '/' || pg_temp.person('a1') || '/photo.jpg', pg_temp.person('a1')::text, now() - interval '2 days'), 'and the photo');
+select is((select count(*)::int from genesis_chat.link_previews_for(pg_temp.v('linked'))), 1, 'and the link''s preview');
 select lives_ok($$ select genesis_chat.delete_conversation_for_me(pg_temp.v('ab')) $$, 'b2 deletes the conversation for themselves');
 select is(pg_temp.listed(), 0, 'it leaves b2''s inbox');
 select is(pg_temp.visible(), 0, 'and its history leaves b2''s thread');
+select ok(not genesis_chat.can_read_object(pg_temp.v('ab') || '/' || pg_temp.person('a1') || '/photo.jpg', pg_temp.person('a1')::text, now() - interval '2 days'), 'its files can''t be fetched by b2');
+select is((select count(*)::int from genesis_chat.link_previews_for(pg_temp.v('linked'))), 0, 'nor its link previews');
 select is((select count(*)::int from genesis_chat.search_messages('week')), 0, 'search doesn''t find what b2 deleted');
 select is(genesis_chat.unread_total(), 0, 'nor does the badge count it');
 
 select pg_temp.sign_in('a1');
-select is(pg_temp.visible(), 2, 'a1 still reads everything');
+select is(pg_temp.visible(), 4, 'a1 still reads everything');
+select ok(genesis_chat.can_read_object(pg_temp.v('ab') || '/' || pg_temp.person('a1') || '/photo.jpg', pg_temp.person('a1')::text, now() - interval '2 days'), 'and still fetches the photo');
 select is(pg_temp.listed(), 1, 'and still has it in the inbox');
 select genesis_chat.send_message(pg_temp.v('ab'), gen_random_uuid(), 'are you there?');
 
@@ -92,7 +107,7 @@ select throws_ok($$ select genesis_chat.delete_conversation_for_me(pg_temp.v('ab
 select throws_ok($$ select genesis_chat.set_my_settings(pg_temp.v('ab'), p_marked_unread => true) $$, '42501', null, 'or mark it unread');
 
 reset role;
-select is((select count(*)::int from genesis_chat.messages where conversation_id = pg_temp.v('ab')), 3, 'Delete for me deleted nothing: every message is still stored');
+select is((select count(*)::int from genesis_chat.messages where conversation_id = pg_temp.v('ab')), 5, 'Delete for me deleted nothing: every message is still stored');
 select is((select count(*)::int from genesis_chat.messages where conversation_id = pg_temp.v('ab') and deleted_at is not null), 0, 'and none is marked deleted');
 select is((select cleared_seq from genesis_chat.members where conversation_id = pg_temp.v('ab') and user_id = pg_temp.person('a1')), null, 'a1''s own view was never cleared');
 

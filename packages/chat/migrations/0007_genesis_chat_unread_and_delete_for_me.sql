@@ -10,7 +10,7 @@
 -- 2. `members.cleared_seq`: Delete for me. `delete_conversation_for_me` sets it to the
 --    conversation's latest message, which takes the conversation out of that member's inbox and
 --    their history out of their thread: they read only messages after it (a restrictive read
---    policy, so every read path agrees, search included). The next message brings the
+--    policy, so every read path agrees; search, files and link previews too). The next message brings the
 --    conversation back with only what came after. Nobody else's inbox, thread or read receipts
 --    change, and nothing is deleted.
 
@@ -299,6 +299,61 @@ begin
    order by h.created_at desc, h.id
    limit least(greatest(coalesce(p_limit, 30), 1), 100);
 end;
+$$;
+
+-- Where the signed-in person's deleted history ends in a conversation (0: nothing deleted).
+create function genesis_chat.my_cleared_seq(p_conversation_id uuid)
+returns bigint
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select coalesce((select me.cleared_seq from genesis_chat.members me
+                    where me.conversation_id = p_conversation_id and me.user_id = auth.uid()), 0)
+$$;
+
+revoke execute on function genesis_chat.my_cleared_seq(uuid) from public, anon;
+grant execute on function genesis_chat.my_cleared_seq(uuid) to authenticated, service_role;
+
+-- A file (0005's can_read_object): never one from history you deleted for yourself.
+create or replace function genesis_chat.can_read_object(object_name text, object_owner text, uploaded_at timestamptz)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select auth.uid() is not null and (
+    exists (
+      select 1 from genesis_chat.attachments a
+      join genesis_chat.messages m on m.id = a.message_id
+      where ((a.provider = 'storage' and a.path = object_name) or a.poster_path = object_name)
+        and m.deleted_at is null
+        and genesis_chat.can_view(m.conversation_id)
+        and (m.visibility = 'everyone' or genesis_chat.observes(m.conversation_id))
+        and m.seq > genesis_chat.my_cleared_seq(m.conversation_id))
+    or (object_owner = auth.uid()::text and split_part(object_name, '/', 2) = auth.uid()::text
+        and uploaded_at > now() - interval '1 day'))
+$$;
+
+-- A message's link previews (0002's link_previews_for): nothing for history you deleted for yourself.
+create or replace function genesis_chat.link_previews_for(p_message_id uuid)
+returns table (url text, status text, title text, description text, image_url text, site_name text, fetched_at timestamptz)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select p.url, p.status, p.title, p.description, p.image_url, p.site_name, p.fetched_at
+    from genesis_chat.messages m
+    cross join lateral genesis_chat.message_links(m.body) l(u)
+    join genesis_chat.link_previews p on p.url = l.u
+   where m.id = p_message_id and m.deleted_at is null and auth.uid() is not null
+     and genesis_chat.can_view(m.conversation_id)
+     and (m.visibility = 'everyone' or genesis_chat.i_observe(m.conversation_id))
+     and (m.moderation is distinct from 'hidden' or m.sender_id = auth.uid() or genesis_chat.i_observe(m.conversation_id))
+     and m.seq > genesis_chat.my_cleared_seq(m.conversation_id)
 $$;
 
 revoke execute on function
