@@ -1,0 +1,26 @@
+packages/chat/src/native/copy.ts
+  s_42efe440240299::t_65b7afa47592cc 22-30,210-215
+packages/chat/src/native/inbox-screen.tsx
+  s_42efe440240299::t_65b7afa47592cc 11,67-69,98-100,102-104,108-110,113-133,136
+  s_42efe440240299::t_88b740d74319a8 5-8
+packages/chat/src/native/__tests__/inbox-screen-actions.test.tsx
+  s_42efe440240299::t_25443f3cb0f25b 1-103
+.changeset/chat-inbox-row-actions.md
+  s_42efe440240299::t_c73c7e4cf5ae25 1-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8042c103907e6d25c3d05c6da44acbfc3a8080de",
+  "prompts": {},
+  "sessions": {
+    "s_42efe440240299": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f544dd57-0b31-4773-b89e-4661a182129e",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
