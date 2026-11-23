@@ -1,0 +1,71 @@
+packages/core/src/__tests__/resource-view.test.ts
+  s_42efe440240299::t_b748881d796c0e 685-686
+features.ts
+  s_42efe440240299::t_b748881d796c0e 2768,2772,2794,2815
+packages/ui-native/package.json
+  s_42efe440240299::t_b748881d796c0e 301
+packages/ui-native/README.md
+  s_42efe440240299::t_b748881d796c0e 41-42,118-119,128-133
+packages/ui-native/src/components/row-actions.tsx
+  s_42efe440240299::t_b748881d796c0e 58-59,75,78-87
+packages/ui-native/src/data/resource-view/__tests__/native-resource-view.test.tsx
+  s_42efe440240299::t_b748881d796c0e 292,296,1394,1401-1425
+  s_42efe440240299::t_adc5b2c7632810 1426
+packages/ui-native/src/data/resource-view/NativeResourceView.tsx
+  s_42efe440240299::t_b748881d796c0e 123-125,322-333,403,437,887-888
+packages/ui-native/src/native-modules.tsx
+  s_42efe440240299::t_b748881d796c0e 36-38
+  s_42efe440240299::t_09d65b4df1c983 106-107
+packages/core/src/conversation/types.ts
+  s_42efe440240299::t_b748881d796c0e 168-169
+docs/adr/0028-row-actions.md
+  s_42efe440240299::t_b748881d796c0e 39-44,47-51,55-59,62-66,88-91
+packages/ui-native/src/layouts/tab-bar-visibility.tsx
+  s_42efe440240299::t_b748881d796c0e 23-25,29,62-82,85,89-90,148
+packages/ui-native/src/tokens/row-action-tones.ts
+  s_42efe440240299::t_b748881d796c0e 19,21-26
+features.json
+  s_42efe440240299::t_b748881d796c0e 6351,6355,6412,6461
+packages/ui-native/src/layouts/__tests__/thread-page.test.tsx
+  s_42efe440240299::t_b748881d796c0e 227-228
+.changeset/ios-native-standards.md
+  s_42efe440240299::t_b748881d796c0e 15-17
+packages/core/src/resource-view/define-view.ts
+  s_42efe440240299::t_b748881d796c0e 133,559-560
+  s_42efe440240299::t_1410a1487a609e 561
+packages/ui-native/src/components/swipe-row.tsx
+  s_42efe440240299::t_b748881d796c0e 27,32,34,43-44,68,70-71,105-123,129,133,138-140,147,157,159-160,164-165,178,185,196,204-206,209-210,218-221
+packages/ui-native/src/layouts/screen-container.tsx
+  s_42efe440240299::t_b748881d796c0e 116-118,214-215,280-299
+packages/core/src/resource-view/types.ts
+  s_42efe440240299::t_b748881d796c0e 360-365,377-382,396
+  s_42efe440240299::t_56307000814156 359
+packages/ui-native/src/components/__tests__/row-actions.test.tsx
+  s_42efe440240299::t_b748881d796c0e 2,114-115,117,199-249,251
+packages/ui-native/src/layouts/__tests__/tab-bar-visibility.test.tsx
+  s_42efe440240299::t_b748881d796c0e 23-28,30,40,73,82-91,139,147,156-157,185-200
+packages/ui-native/src/components/list-item.tsx
+  s_42efe440240299::t_b748881d796c0e 63-66,90,92,115
+packages/ui-native/src/data/resource-view/mapping.ts
+  s_42efe440240299::t_b748881d796c0e 182-183,187,203
+docs/FRAMEWORK.md
+  s_42efe440240299::t_b748881d796c0e 351-352,355-356
+packages/chat/src/native/__tests__/thread-layout.test.ts
+  s_42efe440240299::t_47a17087464b8d 10,14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b7985fe57999bc1e12923e888350306b5b2a32ca",
+  "prompts": {},
+  "sessions": {
+    "s_42efe440240299": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f544dd57-0b31-4773-b89e-4661a182129e",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
