@@ -45,8 +45,10 @@ as it is.
 3. **ui-native draws them the same everywhere:**
    - `NativeSwipeRow`: icons and tones, `appearance: "fill" | "round"` (iOS 26's round buttons),
      at most three a side (`maxPerSide`), the row tracking the finger 1:1, and the full swipe
-     past 0.6 of the row's width (`fullSwipeRatio`), decided on the drag's furthest point (kept
-     on the UI thread with Reanimated's `useAnimatedReaction` when the app gives it);
+     past 0.6 of the row's width (`fullSwipeRatio`), decided on the row's offset as the release
+     is reported, on the side it's opening (`fullSwipeSide`: backing out or crossing sides
+     doesn't run it; a release right at the threshold can land either side, the report coming a
+     frame after the finger lifts); a side keeps its destructive action under the cap;
      right-to-left aware; the actions on its child as `accessibilityActions` unless the row
      already has them; unseen at rest.
    - `NativeRowActions`: swipe + long-press menu + accessibility actions around any pressable

@@ -320,7 +320,7 @@ export {
 export type { NativeThreadListProps, NativeThreadListHandle, ThreadRowInfo } from "./thread-list";
 export { NativeComposerBar } from "./composer-bar";
 export type { NativeComposerBarProps, ComposerMode, ComposerTone, ComposerSendAction } from "./composer-bar";
-export { NativeSwipeRow, rowActionColor, rowAccessibilityActions, splitSwipeActions } from "./swipe-row";
+export { NativeSwipeRow, fullSwipeSide, rowActionColor, rowAccessibilityActions, splitSwipeActions } from "./swipe-row";
 export type { NativeSwipeRowProps } from "./swipe-row";
 export { NativeRowActions, toMenuAction } from "./row-actions";
 export type { NativeRowActionsProps } from "./row-actions";

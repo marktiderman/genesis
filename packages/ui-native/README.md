@@ -66,14 +66,16 @@ the pieces.
 drill-down, `search` for the system search field and `headerRightItems` for native bar buttons.
 
 ```tsx
+import { useMemo } from "react";
 import { ScreenContainer } from "@marktiderman/genesis-ui-native/layouts";
 
 export function InboxScreen({ onSearch }: { onSearch: (text: string) => void }) {
-  return (
-    <ScreenContainer header={{ headerTitle: "Inbox", search: { placeholder: "Search", onChangeText: (e) => onSearch(e.nativeEvent.text) } }}>
-      {null}
-    </ScreenContainer>
+  // Stable, so the header is set once, not on every render (`header`'s objects are compared by reference).
+  const header = useMemo(
+    () => ({ headerTitle: "Inbox", search: { placeholder: "Search", onChangeText: (e: { nativeEvent: { text: string } }) => onSearch(e.nativeEvent.text) } }),
+    [onSearch],
   );
+  return <ScreenContainer header={header}>{null}</ScreenContainer>;
 }
 ```
 

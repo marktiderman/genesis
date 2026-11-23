@@ -103,8 +103,6 @@ export interface GenesisReanimatedModule {
   cancelAnimation: (value: { value: unknown }) => void;
   Easing: { inOut: (easing: unknown) => unknown; ease: unknown; out: (easing: unknown) => unknown; cubic: unknown; bezier?: (x1: number, y1: number, x2: number, y2: number) => unknown };
   ReduceMotion?: { System: unknown; Always: unknown; Never: unknown };
-  /** Runs `react` on the UI thread whenever `prepare`'s result changes: NativeSwipeRow keeps a drag's furthest point with it. */
-  useAnimatedReaction?: <V>(prepare: () => V, react: (current: V, previous: V | null) => void, deps?: unknown[]) => void;
   /**
    * A layout animation for `entering` (a message rising into the thread as it's sent). Optional:
    * without it, nothing animates in.

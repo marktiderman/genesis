@@ -900,7 +900,8 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
                 press(row);
               },
               // The view's swipe actions (edit, delete, its own), as the list's rows have them.
-              swipeActions: actionsFor(row, handlers),
+              // As list rows: without a swipe of the screen's own, an action that doesn't say where it swipes stays in the menu.
+              swipeActions: swipeableProp ? actionsFor(row, handlers) : actionsFor(row, handlers).map((a) => (a.side === undefined ? { ...a, swipe: false } : a)),
             };
           })}
           header={listHeader}

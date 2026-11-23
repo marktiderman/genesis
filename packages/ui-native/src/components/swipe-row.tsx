@@ -5,8 +5,8 @@
  * one row-action shape (`RowSwipeAction`, ADR 0028), so a view's actions, an inbox row's and an
  * app's own list read the same.
  *
- * - **Full swipe:** the first `full` action on a side runs when the row is dragged past
- *   `fullSwipeRatio` of its width and let go, as Mail's Delete does.
+ * - **Full swipe:** the first `full` action on a side runs when the row is let go past
+ *   `fullSwipeRatio` (0.6) of its width on that side, as Mail's Delete does (`fullSwipeSide`).
  * - **Appearance:** `"fill"` draws each action as a colored block with its icon and label;
  *   `"round"` draws iOS 26's round icon buttons (50pt, 10pt apart) with the label under them,
  *   and while they're open the row itself becomes a pill (systemGray5, inset 6pt), as Messages does.
@@ -24,12 +24,12 @@
  *
  * @stability Beta
  */
-import { cloneElement, isValidElement, useEffect, useRef, useState, type ReactElement, type ReactNode } from "react";
+import { cloneElement, isValidElement, useRef, useState, type ReactElement, type ReactNode } from "react";
 import { I18nManager, Platform, PlatformColor, Pressable, View, type ColorValue } from "react-native";
 import type { RowActionTone, RowSwipeAction } from "@marktiderman/genesis-core/conversation";
 import { useHaptics } from "../hooks/use-haptics";
 import { useThemeRoles } from "../hooks/use-theme-roles";
-import { useGenesisModules, type GenesisReanimatedModule } from "../native-modules";
+import { useGenesisModules } from "../native-modules";
 import type { NativeIconName } from "../icon-names";
 import { ROW_ACTION_TONES, ROW_PILL, onRowActionColor } from "../tokens/row-action-tones";
 import { NativeIcon } from "./icon";
@@ -64,11 +64,19 @@ export function rowActionColor(action: Pick<RowSwipeAction, "tone" | "destructiv
   return Platform.OS === "ios" ? PlatformColor(c.ios) : c.fallback;
 }
 
+/** At most `max` of a side's actions, in order, keeping the destructive ones (Delete stays on the swipe). */
+function capSide(list: readonly RowSwipeAction[], max: number): RowSwipeAction[] {
+  if (list.length <= max) return [...list];
+  const destructive = list.filter((a) => a.destructive).slice(0, max);
+  const others = list.filter((a) => !a.destructive).slice(0, max - destructive.length);
+  return list.filter((a) => destructive.includes(a) || others.includes(a));
+}
+
 /** The actions a swipe shows, by side (an action with `swipe: false` shows on neither), in the row's reading direction. */
 export function splitSwipeActions(actions: readonly RowSwipeAction[], maxPerSide = Infinity) {
   const shown = actions.filter((a) => a.swipe !== false);
-  const leading = shown.filter((a) => a.side === "leading").slice(0, maxPerSide);
-  const trailing = shown.filter((a) => a.side !== "leading").slice(0, maxPerSide);
+  const leading = capSide(shown.filter((a) => a.side === "leading"), maxPerSide);
+  const trailing = capSide(shown.filter((a) => a.side !== "leading"), maxPerSide);
   return { leading, trailing, fullLeading: leading.find((a) => a.full), fullTrailing: trailing.find((a) => a.full) };
 }
 
@@ -102,23 +110,19 @@ function withAccessibilityActions(children: ReactNode, actions: readonly RowSwip
   });
 }
 
-/** Keeps the furthest point of a drag on the UI thread, for the full swipe's check on release. */
-function PeakTracker({ R, translation, onReady }: { R: GenesisReanimatedModule; translation: { value: number }; onReady: (peak: { value: number }) => void }) {
-  const peak = R.useSharedValue(0);
-  useEffect(() => {
-    onReady(peak);
-  }, [peak, onReady]);
-  R.useAnimatedReaction!(
-    () => {
-      "worklet";
-      return translation.value;
-    },
-    (current) => {
-      "worklet";
-      if (Math.abs(current) > Math.abs(peak.value)) peak.value = current;
-    },
-  );
-  return null;
+/**
+ * Whether a release runs a side's full-swipe action. `dx` is the row's offset as the release is
+ * reported (the latest UI-thread value, so the finger's position, not the furthest it went: a drag
+ * that backs out, or crosses to the other side, doesn't run it). `direction` is where the row is
+ * opening (gesture-handler: `"right"` uncovers the left-hand actions); the offset must be on that
+ * side. The report comes a frame or so after the finger lifts, so a release right at the threshold
+ * can land either side of it.
+ */
+export function fullSwipeSide(dx: number, width: number, ratio: number, direction?: "left" | "right"): "left" | "right" | undefined {
+  if (!width || Math.abs(dx) < width * ratio) return undefined;
+  const side = dx > 0 ? "left" : "right";
+  if (direction && (direction === "right" ? "left" : "right") !== side) return undefined;
+  return side;
 }
 
 export function NativeSwipeRow({
@@ -130,14 +134,11 @@ export function NativeSwipeRow({
   accessibilityActions = true,
   testID = "swipe-row",
 }: NativeSwipeRowProps) {
-  const { swipeable: Swipeable, reanimated } = useGenesisModules();
+  const { swipeable: Swipeable } = useGenesisModules();
   const colors = useThemeRoles();
   const play = useHaptics();
   const swipe = useRef<{ close?: () => void } | null>(null);
   const offset = useRef<{ value: number } | null>(null);
-  // The furthest a drag went, kept on the UI thread (PeakTracker): by the time the JS side hears of
-  // the release, the row has already started to spring back.
-  const peak = useRef<{ value: number } | null>(null);
   const [width, setWidth] = useState(0);
   const [open, setOpen] = useState(false);
   // The actions stay mounted (the swipe measures them) but unseen until a drag starts: an inset row
@@ -154,10 +155,7 @@ export function NativeSwipeRow({
   const round = appearance === "round";
   const group = (list: readonly RowSwipeAction[]) => (_progress?: unknown, translation?: { value: number }) => {
     if (translation) offset.current = translation;
-    const track = reanimated?.useAnimatedReaction && translation ? <PeakTracker R={reanimated} translation={translation} onReady={(p) => (peak.current = p)} /> : null;
     return (
-      <>
-      {track}
       <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ opacity: dragging ? 1 : 0, flexDirection: "row", alignItems: round ? "center" : "stretch", gap: round ? 10 : 0, paddingHorizontal: round ? 10 : 0 }}>
         {list.map((action) => {
           const color = rowActionColor(action, colors);
@@ -182,7 +180,6 @@ export function NativeSwipeRow({
           );
         })}
       </View>
-      </>
     );
   };
   // In a right-to-left language, leading is the right edge.
@@ -200,11 +197,10 @@ export function NativeSwipeRow({
         overshootLeft={!!fullLeft}
         overshootRight={!!fullRight}
         overshootFriction={1}
-        onSwipeableWillOpen={() => {
-          // Called on release: a drag that went past the ratio of the row's width runs the side's full-swipe action.
-          const dx = peak.current ? peak.current.value : (offset.current?.value ?? 0);
-          if (peak.current) peak.current.value = 0;
-          const action = width && Math.abs(dx) >= width * fullSwipeRatio ? (dx > 0 ? fullLeft : fullRight) : undefined;
+        onSwipeableWillOpen={(direction) => {
+          // Called on release: a row let go past the ratio of its width, on the side it's opening, runs that side's full action.
+          const side = fullSwipeSide(offset.current?.value ?? 0, width, fullSwipeRatio, direction);
+          const action = side === "left" ? fullLeft : side === "right" ? fullRight : undefined;
           if (action) {
             // A refused action explains itself instead of running: no success tap before it.
             if (!(action as { reason?: string }).reason) play("success");
@@ -215,10 +211,7 @@ export function NativeSwipeRow({
           }
         }}
         onSwipeableWillClose={() => setOpen(false)}
-        onSwipeableOpenStartDrag={() => {
-          if (peak.current) peak.current.value = 0;
-          setDragging(true);
-        }}
+        onSwipeableOpenStartDrag={() => setDragging(true)}
         onSwipeableClose={() => setDragging(false)}
         renderLeftActions={left.length ? group(left) : undefined}
         renderRightActions={right.length ? group(right) : undefined}
