@@ -61,8 +61,8 @@ as it is.
      screen's own `swipeable`.
 4. **The two screen standards ride with it**, since they're the same "follow iOS" rule and the
    same consumer is waiting on all three: `ScreenContainer` `header` (native large title, search
-   and header items through `GenesisModules.router.StackScreen`, every option set each time so
-   leaving one out resets it) and `tabBar="hidden"` (`TabBarVisibilityProvider`, `useHideTabBar`,
+   and header items through `GenesisModules.router.StackScreen`; an option the screen set and
+   later leaves out is reset, one it never set is left to the layout's screenOptions) and `tabBar="hidden"` (`TabBarVisibilityProvider`, `useHideTabBar`,
    counted so stacked hiding screens never flash the bar; without `GenesisModules.router` a
    screen never hides it, since a tab keeps its stack mounted), and two doctor rules that flag a
    screen drawing its own header or hiding the tab bar by hand.

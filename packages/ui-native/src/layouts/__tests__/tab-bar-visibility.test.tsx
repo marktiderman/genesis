@@ -153,14 +153,28 @@ describe("the native header", () => {
         <ScreenContainer header={{ headerTitle: "Ada", large: false }}><i /></ScreenContainer>
       </GenesisModulesProvider>,
     );
-    // Set explicitly, so the large title and the search of the render before are taken away.
+    // What the render before set and this one leaves out is reset: the search goes, the title isn't large.
     const last = seen.at(-1)!;
     expect(last).toMatchObject({ title: "Ada", headerLargeTitle: false });
-    // Every option is a key, so setOptions' merge resets what the render before set.
-    for (const key of ["headerSearchBarOptions", "headerLeft", "headerRight", "headerTransparent", "headerLargeTitleShadowVisible", "unstable_headerRightItems", "unstable_headerLeftItems"]) {
-      expect(key in last, key).toBe(true);
-      expect(last[key], key).toBeUndefined();
+    expect("headerSearchBarOptions" in last && last.headerSearchBarOptions === undefined).toBe(true);
+    // What it never set isn't sent, so the layout's own options stay.
+    for (const key of ["headerLeft", "headerRight", "headerTransparent", "headerLargeTitleShadowVisible", "unstable_headerRightItems", "unstable_headerLeftItems"]) {
+      expect(key in last, key).toBe(false);
     }
+  });
+
+  it("leaves the layout's screenOptions alone: a shared headerRight survives the screen's header", () => {
+    // A stand-in for the stack merging the layout's screenOptions with each Stack.Screen's options.
+    const layout: Record<string, unknown> = { headerRight: "layout's button", headerTransparent: true };
+    let merged: Record<string, unknown> = { ...layout };
+    const StackScreen = ({ options }: { options?: Record<string, unknown> }) => {
+      merged = { ...merged, ...options };
+      return null;
+    };
+    const modules = { router: { StackScreen } };
+    const view = render(<GenesisModulesProvider modules={modules}><ScreenContainer header={{ headerTitle: "Inbox" }}><i /></ScreenContainer></GenesisModulesProvider>);
+    view.rerender(<GenesisModulesProvider modules={modules}><ScreenContainer header={{ headerTitle: "Inbox", large: false }}><i /></ScreenContainer></GenesisModulesProvider>);
+    expect(merged).toMatchObject({ headerRight: "layout's button", headerTransparent: true, title: "Inbox", headerLargeTitle: false });
   });
 
   it("ScreenContainer header without the router module renders nothing extra", () => {

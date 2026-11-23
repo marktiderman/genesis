@@ -37,7 +37,7 @@
  *
  * @stability Beta
  */
-import { useMemo, type ReactNode } from "react";
+import { useMemo, useRef, type ReactNode } from "react";
 import { useGenesisModules } from "../native-modules";
 import { useHideTabBar } from "./tab-bar-visibility";
 import { ScrollView, StatusBar, View, type ViewStyle } from "react-native";
@@ -113,7 +113,8 @@ export interface ScreenContainerProps {
    * to `GenesisModules.router.StackScreen` (expo-router's `Stack.Screen`). `large` defaults to
    * `true` here, a large title that collapses on scroll; pass `large: false` on a drill-down.
    * Without the router module, set `<Stack.Screen options={composeHeaderOptions(…)}>` yourself.
-   * Every option is set each time, so leaving one out resets it (no large title, no search). Keep
+   * An option this screen set and later leaves out is reset (the large title, a search that goes);
+   * one it never set is left to the layout's screenOptions. Keep
    * `search`, the callbacks and `headerOptions` stable (useMemo / useCallback): they're compared by
    * reference.
    */
@@ -277,24 +278,21 @@ export function ScreenContainer({
 }: ScreenContainerProps) {
   const { router } = useGenesisModules();
   const StackScreen = router?.StackScreen;
-  // Each option is set explicitly, the large title and search included, so taking one away (a
-  // drill-down's `large: false`, a search that goes) resets what the layout or a render before set.
+  // The large title is always set (on by default here). Any other option this screen set on an
+  // earlier render and leaves out now is sent as `undefined`, so taking it away resets it (setOptions
+  // merges); an option it never set isn't sent, so the layout's screenOptions (a shared headerRight,
+  // a transparent header) stay.
   const h = header;
+  const setKeys = useRef<string[]>([]);
   const headerOptions = useMemo(
     () => {
       if (!h) return null;
       const large = h.large ?? true;
-      return {
-        headerLargeTitle: large,
-        headerSearchBarOptions: undefined,
-        headerLeft: undefined,
-        headerRight: undefined,
-        headerTransparent: undefined,
-        headerLargeTitleShadowVisible: undefined,
-        unstable_headerRightItems: undefined,
-        unstable_headerLeftItems: undefined,
-        ...composeHeaderOptions({ scrollEdgeBehavior: "match", ...h, large }),
-      };
+      const next: Record<string, unknown> = { ...composeHeaderOptions({ scrollEdgeBehavior: "match", ...h, large }), headerLargeTitle: large };
+      const out: Record<string, unknown> = { ...next };
+      for (const key of setKeys.current) if (!(key in next)) out[key] = undefined;
+      setKeys.current = Object.keys(next);
+      return out;
     },
     // By field, so an inline `header={{…}}` doesn't set the options on every render; keep `search`,
     // the callbacks and `headerOptions` stable (useMemo / useCallback) for the same reason.

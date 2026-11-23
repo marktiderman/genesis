@@ -308,5 +308,31 @@ describe("row actions (ADR 0028)", () => {
       expect((hi + 0.05) / (lo + 0.05), tone).toBeGreaterThanOrEqual(4.5);
     }
   });
+
+  it("with three fill actions on a 393pt row, a re-drag to 270 opens and one to 285 runs the full action", () => {
+    const three = [
+      { id: "a", label: "A", onPress: vi.fn() },
+      { id: "b", label: "B", onPress: vi.fn() },
+      { id: "del", label: "Delete", destructive: true, full: true, onPress: vi.fn() },
+    ];
+    let dx = 0;
+    const Swipeable = fakeSwipeable(vi.fn(), () => dx);
+    render(
+      <GenesisModulesProvider modules={{ swipeable: Swipeable as never }}>
+        <NativeSwipeRow actions={three} testID="s">
+          <i />
+        </NativeSwipeRow>
+      </GenesisModulesProvider>,
+    );
+    layout(screen.getByTestId("s").parentElement!, 393);
+    dx = -240; // opened to its buttons
+    fireEvent.click(screen.getByTestId("s"));
+    dx = -270; // dragged again, short of 240 + 40
+    fireEvent.click(screen.getByTestId("s"));
+    expect(three[2]!.onPress).not.toHaveBeenCalled();
+    dx = -285;
+    fireEvent.click(screen.getByTestId("s"));
+    expect(three[2]!.onPress).toHaveBeenCalledTimes(1);
+  });
 });
 
