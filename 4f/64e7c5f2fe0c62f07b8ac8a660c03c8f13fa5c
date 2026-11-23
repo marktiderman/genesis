@@ -1,0 +1,22 @@
+packages/ui-native/src/layouts/__tests__/tab-bar-visibility.test.tsx
+  s_f1aa8511899775::t_efc239522e52c1 157-160,163,217,219
+  s_f1aa8511899775::t_2e9ad036b45c66 2,220-248
+packages/ui-native/src/layouts/screen-container.tsx
+  s_f1aa8511899775::t_212a74d4e22f2c 40,285-286,288-289,293,300-309
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4f64e7c5f2fe0c62f07b8ac8a660c03c8f13fa5c",
+  "prompts": {},
+  "sessions": {
+    "s_f1aa8511899775": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "18c56dc7-ac34-4eaf-92bf-016e2c3bbcb7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
