@@ -37,7 +37,7 @@
  *
  * @stability Beta
  */
-import { useMemo, useRef, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useGenesisModules } from "../native-modules";
 import { useHideTabBar } from "./tab-bar-visibility";
 import { ScrollView, StatusBar, View, type ViewStyle } from "react-native";
@@ -282,23 +282,31 @@ export function ScreenContainer({
   // earlier render and leaves out now is sent as `undefined`, so taking it away resets it (setOptions
   // merges); an option it never set isn't sent, so the layout's screenOptions (a shared headerRight,
   // a transparent header) stay.
+  // The keys applied on the last committed render live in state, updated after commit, so the
+  // memo stays pure (StrictMode's double render and a discarded concurrent render can't desync it).
   const h = header;
-  const setKeys = useRef<string[]>([]);
-  const headerOptions = useMemo(
+  const [appliedKeys, setAppliedKeys] = useState<readonly string[]>([]);
+  const nextOptions = useMemo(
     () => {
       if (!h) return null;
       const large = h.large ?? true;
-      const next: Record<string, unknown> = { ...composeHeaderOptions({ scrollEdgeBehavior: "match", ...h, large }), headerLargeTitle: large };
-      const out: Record<string, unknown> = { ...next };
-      for (const key of setKeys.current) if (!(key in next)) out[key] = undefined;
-      setKeys.current = Object.keys(next);
-      return out;
+      return { ...composeHeaderOptions({ scrollEdgeBehavior: "match", ...h, large }), headerLargeTitle: large } as Record<string, unknown>;
     },
     // By field, so an inline `header={{…}}` doesn't set the options on every render; keep `search`,
     // the callbacks and `headerOptions` stable (useMemo / useCallback) for the same reason.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [!!h, h?.headerTitle, h?.large, h?.scrollEdgeBehavior, h?.search, h?.headerLeft, h?.headerRight, h?.headerRightItems, h?.headerLeftItems, h?.headerOptions],
   );
+  const headerOptions = useMemo(() => {
+    if (!nextOptions) return null;
+    const out: Record<string, unknown> = { ...nextOptions };
+    for (const key of appliedKeys) if (!(key in nextOptions)) out[key] = undefined;
+    return out;
+  }, [nextOptions, appliedKeys]);
+  useEffect(() => {
+    const keys = nextOptions ? Object.keys(nextOptions) : [];
+    setAppliedKeys((prev) => (prev.length === keys.length && prev.every((k, i) => k === keys[i]) ? prev : keys));
+  }, [nextOptions]);
   const osMode = useThemeMode();
   const resolvedMode = themeMode === "system" ? osMode : themeMode;
   const barStyle = resolveBarStyle(statusBar, resolvedMode);

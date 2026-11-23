@@ -1,5 +1,5 @@
 // @feat:tab-bar-visibility
-import { useEffect, useState } from "react";
+import { StrictMode, useEffect, useState } from "react";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { GenesisModulesProvider } from "../../native-modules";
@@ -154,12 +154,13 @@ describe("the native header", () => {
       </GenesisModulesProvider>,
     );
     // What the render before set and this one leaves out is reset: the search goes, the title isn't large.
-    const last = seen.at(-1)!;
-    expect(last).toMatchObject({ title: "Ada", headerLargeTitle: false });
-    expect("headerSearchBarOptions" in last && last.headerSearchBarOptions === undefined).toBe(true);
+    const merged = Object.assign({}, ...seen) as Record<string, unknown>;
+    expect(merged).toMatchObject({ title: "Ada", headerLargeTitle: false });
+    expect(seen.some((o) => "headerSearchBarOptions" in o && o.headerSearchBarOptions === undefined)).toBe(true);
+    expect(merged.headerSearchBarOptions).toBeUndefined();
     // What it never set isn't sent, so the layout's own options stay.
     for (const key of ["headerLeft", "headerRight", "headerTransparent", "headerLargeTitleShadowVisible", "unstable_headerRightItems", "unstable_headerLeftItems"]) {
-      expect(key in last, key).toBe(false);
+      expect(seen.some((o) => key in o), key).toBe(false);
     }
   });
 
@@ -213,8 +214,38 @@ describe("ScreenContainer header, set by field", () => {
     const search = { placeholder: "Search" };
     const modules = { router: { StackScreen } };
     const view = render(<GenesisModulesProvider modules={modules}><ScreenContainer header={{ headerTitle: "Inbox", search }}><i /></ScreenContainer></GenesisModulesProvider>);
+    const settled = new Set(seen).size;
     view.rerender(<GenesisModulesProvider modules={modules}><ScreenContainer header={{ headerTitle: "Inbox", search }}><i /></ScreenContainer></GenesisModulesProvider>);
-    expect(new Set(seen).size).toBe(1);
+    expect(new Set(seen).size).toBe(settled);
+  });
+});
+
+describe("ScreenContainer header under StrictMode", () => {
+  it("resets a removed search even with StrictMode's double render", () => {
+    let merged: Record<string, unknown> = {};
+    const StackScreen = ({ options }: { options?: Record<string, unknown> }) => {
+      merged = { ...merged, ...options };
+      return null;
+    };
+    const modules = { router: { StackScreen } };
+    const search = { placeholder: "Search" };
+    const view = render(
+      <StrictMode>
+        <GenesisModulesProvider modules={modules}>
+          <ScreenContainer header={{ headerTitle: "Inbox", search }}><i /></ScreenContainer>
+        </GenesisModulesProvider>
+      </StrictMode>,
+    );
+    expect(merged.headerSearchBarOptions).toEqual(search);
+    view.rerender(
+      <StrictMode>
+        <GenesisModulesProvider modules={modules}>
+          <ScreenContainer header={{ headerTitle: "Inbox" }}><i /></ScreenContainer>
+        </GenesisModulesProvider>
+      </StrictMode>,
+    );
+    expect(merged.headerSearchBarOptions).toBeUndefined();
+    expect(merged.title).toBe("Inbox");
   });
 });
 
