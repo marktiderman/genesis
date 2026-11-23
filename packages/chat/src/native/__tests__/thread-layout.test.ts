@@ -7,11 +7,11 @@ describe("chatThreadStackOptions", () => {
   it("keeps the bar opaque, so the inverted list never sits under iOS's see-through bar", () => {
     const opts = chatThreadStackOptions({ headerTitle: "Lin" }, "#f2f2f7");
     expect(opts).toMatchObject({ title: "Lin", headerTransparent: false, headerStyle: { backgroundColor: "#f2f2f7" } });
-    expect(opts.headerLargeTitle).toBeFalsy();
+    expect(opts.headerLargeTitle).toBe(false);
   });
 
   it("never turns on a large title, which would collapse into the flipped list", () => {
-    expect(chatThreadStackOptions({ headerTitle: "Lin", large: true }, "#fff").headerLargeTitle).toBeFalsy();
+    expect(chatThreadStackOptions({ headerTitle: "Lin", large: true }, "#fff").headerLargeTitle).toBe(false);
   });
 
   it("lets the app's own header options win", () => {

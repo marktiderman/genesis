@@ -14,4 +14,4 @@ iOS standards for every native screen (ADR 0028).
 - Swipes track the finger 1:1 and a full swipe runs past 0.6 of the row, as iOS; the actions stay unseen at rest (an inset row's margins never show them).
 - **What changes on upgrade:** with `GenesisModules.swipeable` set, `NativeResourceView` list rows now swipe by default: Edit and Delete trailing, plus view actions that set `swipe`, at most three a side. View actions without `swipe` stay in the long-press menu and VoiceOver's actions (a screen's own `swipeable` still gets them trailing, as before). Grid cards and `renderCard` rows don't swipe unless the screen passes `swipeable`; `swipeable={null}` turns it off.
 - `defineView` refuses a destructive action on a full swipe without a `confirm`. `useHideTabBar` needs `GenesisModules.router.useFocusEffect`; without it the bar stays shown, with a development warning.
-
+- **Also on upgrade:** `composeHeaderOptions` (and the layouts that use it: ThreadPage, chat's thread) now writes `headerLargeTitle: false` when `large` is `false`, where it used to leave the key out, so a navigator's large-title default no longer carries into those screens.
