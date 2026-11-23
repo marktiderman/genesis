@@ -1,0 +1,33 @@
+packages/ui-native/src/components/swipe-row.tsx
+  s_42efe440240299::t_b6813b6db5ad17 8-9,27,32,67-74,78-79,113-125,137,200-203,214
+packages/ui-native/src/data/resource-view/__tests__/native-resource-inbox.test.tsx
+  s_42efe440240299::t_b6813b6db5ad17 10,60-89,91
+packages/ui-native/README.md
+  s_42efe440240299::t_b6813b6db5ad17 69,73-76,78
+packages/ui-native/src/components/__tests__/row-actions.test.tsx
+  s_42efe440240299::t_b6813b6db5ad17 2,8,18,214-224,229,236-237,239-253
+packages/ui-native/src/data/resource-view/NativeResourceView.tsx
+  s_42efe440240299::t_b6813b6db5ad17 903-904
+docs/adr/0028-row-actions.md
+  s_42efe440240299::t_b6813b6db5ad17 48-51
+packages/ui-native/src/components/list-item.tsx
+  s_42efe440240299::t_b6813b6db5ad17 119-120
+packages/ui-native/src/components/index.ts
+  s_42efe440240299::t_b6813b6db5ad17 323
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6478bd69510b7c7041460774de42380b052142dd",
+  "prompts": {},
+  "sessions": {
+    "s_42efe440240299": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f544dd57-0b31-4773-b89e-4661a182129e",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
