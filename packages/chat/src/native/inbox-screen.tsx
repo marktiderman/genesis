@@ -2,11 +2,13 @@
  * @feat:chat
  * Your conversations on genesis-ui-native's InboxPage: each with its avatar,
  * unread count, last message and time; pull to refresh; an empty state that
- * offers to start a conversation; Mark read, Pin and Archive on swipe, long
- * press and as accessibility actions. Under the navigator's large title
- * (`getInboxPageStackOptions`).
+ * offers to start a conversation. Each row has Messages' actions: swipe right for Mark as
+ * Unread (or Read) and Pin, left for Hide Alerts and Delete (for you, after asking); Archive
+ * is in the long-press menu. Every action is also a screen reader action on the row. Under the
+ * navigator's large title (`getInboxPageStackOptions`).
  */
 import { useCallback, useMemo, useState } from "react";
+import { Alert } from "react-native";
 import { NativeAvatar } from "@marktiderman/genesis-ui-native/components";
 import { InboxPage, type InboxItem, type InboxPageProps } from "@marktiderman/genesis-ui-native/layouts";
 import type { ChatInboxItem } from "../core/types";
@@ -62,6 +64,9 @@ export function inboxRow(
   };
 }
 
+/** Hide Alerts from the row: until it's turned back on (a date far enough away to read as always). */
+const FOREVER = "9999-12-31T00:00:00.000Z";
+
 export function ChatInboxScreen({ onOpen, onStart, kind, kinds, excludeKinds, archived, pageProps, testID = "chat-inbox" }: ChatInboxScreenProps) {
   const { client, userId, attachmentKinds } = useChat();
   const queryClient = useQueryClient();
@@ -90,16 +95,45 @@ export function ChatInboxScreen({ onOpen, onStart, kind, kinds, excludeKinds, ar
   const items: InboxItem[] = inbox.items.map((item) => ({
     ...inboxRow(item, { me: userId, copy, person, kinds: attachmentKinds }),
     onPress: () => onOpen(item.conversationId),
+    // Messages' row actions: Unread (or Read) and Pin to the right, Hide Alerts and Delete to the
+    // left, round buttons; Archive in the long-press menu only. Every one is also a screen reader
+    // action on the row (NativeSwipeRow).
     swipeActions: [
-      ...(item.unread > 0 ? [{ id: "read", label: copy.markRead, onPress: () => void client.markRead(item.conversationId).then(settle, settle) }] : []),
+      item.unread > 0
+        ? { id: "read", label: copy.markRead, icon: "mail-open", tone: "blue" as const, side: "leading" as const, full: true, onPress: () => void client.markRead(item.conversationId).then(settle, settle) }
+        : { id: "unread", label: copy.markUnread, icon: "mail", tone: "blue" as const, side: "leading" as const, full: true, onPress: () => void client.setMySettings(item.conversationId, { markedUnread: true }).then(settle, settle) },
       {
         id: "pin",
         label: item.pinned ? copy.unpin : copy.pin,
+        icon: "pin",
+        tone: "orange" as const,
+        side: "leading" as const,
         onPress: () => void client.setMySettings(item.conversationId, { pinned: !item.pinned }).then(settle, settle),
+      },
+      {
+        id: "alerts",
+        label: item.muted ? copy.showAlerts : copy.hideAlerts,
+        icon: item.muted ? "bell" : "bell-off",
+        tone: "purple" as const,
+        side: "trailing" as const,
+        onPress: () => void client.setMySettings(item.conversationId, { mutedUntil: item.muted ? null : FOREVER }).then(settle, settle),
+      },
+      {
+        id: "delete",
+        label: copy.deleteConversation,
+        icon: "trash",
+        destructive: true,
+        side: "trailing" as const,
+        full: true,
+        onPress: () =>
+          Alert.alert(copy.deleteConversationTitle, copy.deleteConversationBody, [
+            { text: copy.cancel, style: "cancel" },
+            { text: copy.deleteConversation, style: "destructive", onPress: () => void client.deleteConversationForMe(item.conversationId).then(settle, settle) },
+          ]),
       },
       ...(item.archived
         ? []
-        : [{ id: "archive", label: copy.archive, onPress: () => void client.setMySettings(item.conversationId, { archived: true }).then(settle, settle) }]),
+        : [{ id: "archive", label: copy.archive, icon: "archive", swipe: false, onPress: () => void client.setMySettings(item.conversationId, { archived: true }).then(settle, settle) }]),
     ],
   }));
 

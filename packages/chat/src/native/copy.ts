@@ -19,6 +19,15 @@ export interface ChatNativeCopy extends ChatOrganiseCopy {
   youPrefix: string;
   mentionedYou: string;
   markRead: string;
+  /** Mark as Unread (migration 0007): only you see it. */
+  markUnread: string;
+  /** Mute from the inbox row, as Messages names it. */
+  hideAlerts: string;
+  showAlerts: string;
+  /** Delete for me (migration 0007), and its confirmation. */
+  deleteConversation: string;
+  deleteConversationTitle: string;
+  deleteConversationBody: string;
   pin: string;
   unpin: string;
   archive: string;
@@ -198,6 +207,12 @@ export const chatNativeCopy: ChatNativeCopy = {
   youPrefix: "You: ",
   mentionedYou: "Mentioned you",
   markRead: "Mark read",
+  markUnread: "Mark as Unread",
+  hideAlerts: "Hide Alerts",
+  showAlerts: "Show Alerts",
+  deleteConversation: "Delete",
+  deleteConversationTitle: "Delete this conversation?",
+  deleteConversationBody: "It leaves your inbox until someone sends a new message. Nobody else's conversation changes.",
   pin: "Pin",
   unpin: "Unpin",
   archive: "Archive",
