@@ -1,0 +1,21 @@
+packages/native/README.md
+  s_22dadcff902f4f::t_38448ecde2c9da 626-629
+.changeset/push-no-boot-step.md
+  s_22dadcff902f4f::t_a4b61185b88b9b 5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "da8e79aa1695ed51689b2ca35e10787069bb34e6",
+  "prompts": {},
+  "sessions": {
+    "s_22dadcff902f4f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e30c0aa7-4664-443f-9187-dce5753baa7d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
