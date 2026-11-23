@@ -1,0 +1,29 @@
+packages/ui-native/src/native-modules.tsx
+  s_42efe440240299::t_3bb1e349491019 106-116,292
+  s_42efe440240299::t_e0841381548a37 299-302
+packages/chat/src/native/inbox-screen.tsx
+  s_42efe440240299::t_c40709f2739a6b 104,151-152
+packages/chat/src/native/__tests__/inbox-screen-actions.test.tsx
+  s_42efe440240299::t_c40709f2739a6b 70
+packages/ui-native/src/components/index.ts
+  s_42efe440240299::t_27492dbf4471d7 283-284
+packages/ui-native/src/layouts/inbox-page.tsx
+  s_42efe440240299::t_3bb1e349491019 33,162-191,195-197,199,255,259,313-319,415
+  s_42efe440240299::t_2238abb884e33f 151-153,192-194,198,271
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d2392d04c27d775fb3158859f5ee71c7f044faa6",
+  "prompts": {},
+  "sessions": {
+    "s_42efe440240299": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f544dd57-0b31-4773-b89e-4661a182129e",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
