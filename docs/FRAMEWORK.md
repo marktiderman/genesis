@@ -350,7 +350,7 @@ Apple's Human Interface Guidelines for navigation bars, tab bars and lists.
    `<ScreenContainer tabBar="hidden">` or `useHideTabBar()`, with `TabBarVisibilityProvider` around
    the tab navigator, as UIKit's `hidesBottomBarWhenPushed`. The stack keeps the back button, the
    push transition and the edge swipe back, and a deep link opens the screen the same way.
-3. **A row's actions show three ways, from one list** ([ADR 0027](./adr/0027-row-actions.md)):
+3. **A row's actions show three ways, from one list** ([ADR 0028](./adr/0028-row-actions.md)):
    behind a swipe (leading and trailing, a full swipe for the first, iOS 26's round style), in
    the long-press menu (the system context menu with `GenesisModules.menu`), and as VoiceOver's
    actions. A view's `actions` say where they swipe (`swipe: "leading"`); any other list passes

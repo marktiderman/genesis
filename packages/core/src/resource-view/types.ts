@@ -365,7 +365,7 @@ export interface ViewGuards<Row extends DataRow> {
  * ```
  */
 /**
- * Where a view action sits behind a row's swipe on the phone (ADR 0027). A side, or the side and
+ * Where a view action sits behind a row's swipe on the phone (ADR 0028). A side, or the side and
  * whether a full swipe runs it; `false` keeps it off the swipe (the long-press menu and the screen
  * reader's actions still offer it). Web lists ignore it: their row menu lists every action.
  */

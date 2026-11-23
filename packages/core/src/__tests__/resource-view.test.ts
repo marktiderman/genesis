@@ -663,7 +663,7 @@ describe("review fixes: actions and pictures", () => {
     expect(() => defineView(brands, { actions: [{ name: "x", label: "X", destructive: "yes" as never }] })).toThrow(/destructive isn't true or false/);
   });
 
-  it("places actions behind the swipe, with an icon and a tone (ADR 0027)", () => {
+  it("places actions behind the swipe, with an icon and a tone (ADR 0028)", () => {
     const view = defineView(brands, {
       actions: [
         { name: "read", label: "Read", swipe: { side: "leading", full: true }, icon: "mail", tone: "blue" },

@@ -377,7 +377,7 @@
           "need": "a row's actions on the phone: swipe (leading, trailing, full swipe), long-press menu and VoiceOver actions",
           "use": "NativeListItem's `actions`, NativeRowActions around your own row, or a view's `actions` with `swipe` (NativeResourceView); NativeSwipeRow for the swipe alone, on GenesisModules.swipeable",
           "import": "@marktiderman/genesis-ui-native/components",
-          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/adr/0027-row-actions.md"
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/adr/0028-row-actions.md"
         },
         {
           "need": "what a long press opens on the phone: a short list of actions",

@@ -2751,7 +2751,7 @@ export const features = defineFeatures({
   },
   "row-actions": {
     name: "Row actions (swipe, long-press menu, VoiceOver)",
-    summary: "A row's actions offered the iOS way from one list (ADR 0027): behind a swipe (leading and trailing, a full swipe for the first, iOS 26's round style), in the long-press menu (the system context menu through GenesisModules.menu, @expo/ui's MenuView, else NativeContextMenu's sheet) and as accessibility actions, which Maestro can run too. A view's actions say where they swipe (ViewAction swipe, icon, tone); any list passes the same RowSwipeAction list to NativeListItem's actions, NativeRowActions or NativeSwipeRow. The web lists every action in the row's menu.",
+    summary: "A row's actions offered the iOS way from one list (ADR 0028): behind a swipe (leading and trailing, a full swipe for the first, iOS 26's round style), in the long-press menu (the system context menu through GenesisModules.menu, @expo/ui's MenuView, else NativeContextMenu's sheet) and as accessibility actions, which Maestro can run too. A view's actions say where they swipe (ViewAction swipe, icon, tone); any list passes the same RowSwipeAction list to NativeListItem's actions, NativeRowActions or NativeSwipeRow. The web lists every action in the row's menu.",
     category: "Design system",
     status: "building",
     claimedBy: "claude/ios-standards",
@@ -2769,7 +2769,7 @@ export const features = defineFeatures({
       "Every row action, swipe: false ones included, is in the long-press menu and in VoiceOver's actions on the row.",
       "NativeListItem with actions swipes, long-presses and reads the same as a NativeResourceView row.",
     ],
-    links: { code: ["packages/ui-native/src/components/swipe-row.tsx", "packages/ui-native/src/components/row-actions.tsx", "packages/ui-native/src/components/list-item.tsx", "packages/core/src/conversation/types.ts", "packages/core/src/resource-view/types.ts"], docs: ["docs/adr/0027-row-actions.md", "docs/FRAMEWORK.md"] },
+    links: { code: ["packages/ui-native/src/components/swipe-row.tsx", "packages/ui-native/src/components/row-actions.tsx", "packages/ui-native/src/components/list-item.tsx", "packages/core/src/conversation/types.ts", "packages/core/src/resource-view/types.ts"], docs: ["docs/adr/0028-row-actions.md", "docs/FRAMEWORK.md"] },
   },
   "native-headers": {
     name: "Native iOS headers on every screen",

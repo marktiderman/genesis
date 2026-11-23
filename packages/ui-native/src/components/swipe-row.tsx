@@ -2,7 +2,7 @@
  * NativeSwipeRow — a row with actions behind a swipe, as Mail and Messages have them: leading
  * actions behind a swipe to the right (Read, Pin), trailing behind a swipe to the left (Archive,
  * Delete). Each action's `side` (trailing by default), `icon`, `tone` and `full` come from the
- * one row-action shape (`RowSwipeAction`, ADR 0027), so a view's actions, an inbox row's and an
+ * one row-action shape (`RowSwipeAction`, ADR 0028), so a view's actions, an inbox row's and an
  * app's own list read the same.
  *
  * - **Full swipe:** the first `full` action on a side runs when the row is dragged past

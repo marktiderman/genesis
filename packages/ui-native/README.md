@@ -96,7 +96,7 @@ export function ConversationScreen() {
 }
 ```
 
-**Row actions** ([ADR 0027](../../docs/adr/0027-row-actions.md)). One list, three ways: behind a
+**Row actions** ([ADR 0028](../../docs/adr/0028-row-actions.md)). One list, three ways: behind a
 swipe (`side`, `full`, `icon`, `tone`; `appearance="round"` for iOS 26's round buttons), in the
 long-press menu, and as VoiceOver's actions.
 
@@ -427,7 +427,7 @@ Two generic layouts for conversations (support tickets, direct messages, comment
   hand-built inverted or bottom-started list.
 - **`NativeSwipeRow`** and **`NativeContextMenu`**: a row's actions behind a swipe, and what a long
   press opens (a sheet with Cancel, not the system alert). `InboxPage` uses both. Rows take the
-  same `icon`, `tone`, `full` and `swipe` as any row action (ADR 0027).
+  same `icon`, `tone`, `full` and `swipe` as any row action (ADR 0028).
 - **`NativeComposerBar`**: the composer on its own. It takes `leading`, `trailing` and `above`
   slots, and `modes`.
 

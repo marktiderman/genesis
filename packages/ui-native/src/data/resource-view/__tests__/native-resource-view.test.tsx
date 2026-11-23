@@ -278,7 +278,7 @@ describe("guards to swipe actions", () => {
     expect(h.onRefused).toHaveBeenCalledWith("Delete", "The default brand stays.");
   });
 
-  it("places the view's own actions where the view says (ADR 0027), with their icon and tone", () => {
+  it("places the view's own actions where the view says (ADR 0028), with their icon and tone", () => {
     const view = defineView(brands, {
       actions: [
         { name: "pin", label: "Pin", swipe: { side: "leading", full: true }, icon: "pin", tone: "orange" },

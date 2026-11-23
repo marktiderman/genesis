@@ -33,7 +33,7 @@ const make = () => [
   { id: "delete", label: "Delete", onPress: vi.fn(), destructive: true, icon: "trash", full: true },
 ];
 
-describe("row actions (ADR 0027)", () => {
+describe("row actions (ADR 0028)", () => {
   it("splits by side, keeps swipe:false off the swipe, and finds each side's full action", () => {
     const { leading, trailing, fullLeading, fullTrailing } = splitSwipeActions(make());
     expect(leading.map((a) => a.id)).toEqual(["read", "pin"]);

@@ -1,6 +1,6 @@
 /**
  * NativeRowActions — a row's actions offered the three ways iOS offers them, from one list
- * (ADR 0027): behind a swipe (`NativeSwipeRow`), in the long-press menu, and as the screen
+ * (ADR 0028): behind a swipe (`NativeSwipeRow`), in the long-press menu, and as the screen
  * reader's actions. Wrap any pressable row in it; `NativeListItem`'s `actions` does it for you,
  * and InboxPage and NativeResourceView wire the same pieces themselves.
  *

@@ -149,7 +149,7 @@ export type RowActionSide = "leading" | "trailing";
 
 /**
  * One of a row's actions, the same everywhere a row offers it: behind a swipe on the phone, in
- * its long-press menu, and as a screen reader's actions (ADR 0027). Any list uses it: InboxPage's
+ * its long-press menu, and as a screen reader's actions (ADR 0028). Any list uses it: InboxPage's
  * rows, NativeResourceView's, `NativeListItem`'s `actions`, `NativeSwipeRow`.
  */
 export interface InboxSwipeAction {
