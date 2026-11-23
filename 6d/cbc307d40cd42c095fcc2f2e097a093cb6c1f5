@@ -1,0 +1,105 @@
+packages/core/src/resource-view/types.ts
+  s_f1aa8511899775::t_286097f4b3a9a9 6
+  s_f1aa8511899775::t_d1b6dff12dc39a 368
+  s_f1aa8511899775::t_9a2990c7105e85 391-392
+  s_f1aa8511899775::t_632aa6c19a42f7 367,369-373,377-382,393-394
+packages/core/src/resource-view/define-view.ts
+  s_f1aa8511899775::t_286097f4b3a9a9 22,124-126,129-130,132-133,552-560,805-806
+  s_f1aa8511899775::t_9a2990c7105e85 127-128,131,804
+packages/core/src/__tests__/resource-view.test.ts
+  s_f1aa8511899775::t_80f27692a23ce1 666-686
+packages/ui-native/src/layouts/screen-container.tsx
+  s_f1aa8511899775::t_8ae4d46e3a6e21 12-20,40-42,105-117,135-148,153-166,192-194,211-213,260-261,263-266,305
+packages/ui-native/src/layouts/nav-bar.tsx
+  s_f1aa8511899775::t_33b2fc7eb55b51 155-158
+packages/ui-native/src/layouts/tab-bar-visibility.tsx
+  s_f1aa8511899775::t_25a1626a826b1b 61-65,69-71
+  s_f1aa8511899775::t_92e89ab0d832f4 1-60,66-68,72-93
+packages/core/src/resource-view/index.ts
+  s_f1aa8511899775::t_06d71e179242b1 52
+packages/ui-native/src/icons/lucide.ts
+  s_f1aa8511899775::t_1e0e38118fc069 13,18,37,50,92,96,118,131
+docs/adr/0027-row-actions.md
+  s_f1aa8511899775::t_759486867647ea 1-83
+packages/ui-native/src/components/index.ts
+  s_f1aa8511899775::t_bd1fd3b1d03bf3 323,325-326
+  s_f1aa8511899775::t_8205eac42db443 285-287
+docs/FRAMEWORK.md
+  s_f1aa8511899775::t_f04b782e3c6774 333-359
+packages/ui-native/src/components/__tests__/row-actions.test.tsx
+  s_f1aa8511899775::t_5590a81f7e8af1 84
+  s_f1aa8511899775::t_be3efb7a92f9dc 1-83,85-143
+packages/ui-native/src/layouts/__tests__/tab-bar-visibility.test.tsx
+  s_f1aa8511899775::t_4bd5daceb5cf82 1-133
+packages/ui-native/src/components/swipe-row.tsx
+  s_f1aa8511899775::t_0e8d706cda985e 33,60,131,144
+  s_f1aa8511899775::t_8b4970ae6a702c 2-6,8-22,26-28,32,34,38,40-48,55-59,61-109,114-118,120-130,132-143,145-154,157-163,166,168-170,172-178
+  s_f1aa8511899775::t_5f9ac3b5f986cb 164-165,167,171
+packages/ui-native/README.md
+  s_f1aa8511899775::t_0fe3f276186704 41-43,59-123,429-430
+packages/ui-native/src/icon-names.ts
+  s_f1aa8511899775::t_1e0e38118fc069 11,15,37,50
+packages/ui-native/src/components/list-item.tsx
+  s_f1aa8511899775::t_74e040c8fd7a3a 12-15,22,24,55-58,63-73,88-90,122,137-138
+features.json
+  s_f1aa8511899775::t_b3347c866d6e28 6312-6469
+packages/ui-native/src/tokens/row-action-tones.ts
+  s_f1aa8511899775::t_0e8d706cda985e 1-20
+packages/ui-native/figma/code-connect.json
+  s_f1aa8511899775::t_4966c68a8a2ef1 110
+  s_f1aa8511899775::t_1c99422c63abb1 109
+packages/ui-native/src/components/tab-bar.tsx
+  s_f1aa8511899775::t_33b2fc7eb55b51 41-42,71,76
+packages/ui-native/src/data/resource-view/mapping.ts
+  s_f1aa8511899775::t_7f4ff4565c8d91 161-169,175,177,185-191
+packages/ui-native/src/__tests__/doctor-rules.test.ts
+  s_f1aa8511899775::t_4e2843a8ec7fd2 88-126
+packages/ui-native/src/components/row-actions.tsx
+  s_f1aa8511899775::t_3e445f709cb1bf 1-97
+packages/ui-native/test-utils/rn-mock.tsx
+  s_f1aa8511899775::t_3ec3b135c169e2 521-522
+AGENTS.md
+  s_f1aa8511899775::t_b3347c866d6e28 155
+packages/ui-native/src/data/resource-view/__tests__/native-resource-view.test.tsx
+  s_f1aa8511899775::t_722bc68d63cbb2 281-298
+.changeset/ios-native-standards.md
+  s_f1aa8511899775::t_0fe3f276186704 1-11
+packages/ui-native/src/data/resource-view/NativeResourceView.tsx
+  s_f1aa8511899775::t_7f4ff4565c8d91 864
+packages/ui-native/src/layouts/index.ts
+  s_f1aa8511899775::t_8ae4d46e3a6e21 19,22-27
+  s_f1aa8511899775::t_11e8c24fcde37a 28
+ui-parity.json
+  s_f1aa8511899775::t_200ec7455a5a2c 7
+packages/ui-native/src/native-modules.tsx
+  s_f1aa8511899775::t_c53f60e6822f56 37-38,201-231,233-236,302-306
+packages/ui-native/package.json
+  s_f1aa8511899775::t_6a8cfa0e93c3b3 275-330,340-351,377-378,380
+packages/ui-native/types/react-native.d.ts
+  s_f1aa8511899775::t_86e482c5ee8b3a 523,596-599
+packages/core/src/conversation/types.ts
+  s_f1aa8511899775::t_d1b6dff12dc39a 152
+  s_f1aa8511899775::t_632aa6c19a42f7 141-151,153-154,162-176,179-180
+  s_f1aa8511899775::t_7f6fb34d0b8b7e 181
+packages/ui-native/src/__tests__/native-modules-lists.test.tsx
+  s_f1aa8511899775::t_3ec3b135c169e2 36
+features.ts
+  s_f1aa8511899775::t_b3347c866d6e28 2762
+  s_f1aa8511899775::t_7f73fa15fa1c7f 2752-2761,2763-2814
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6dcbc307d40cd42c095fcc2f2e097a093cb6c1f5",
+  "prompts": {},
+  "sessions": {
+    "s_f1aa8511899775": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "18c56dc7-ac34-4eaf-92bf-016e2c3bbcb7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
