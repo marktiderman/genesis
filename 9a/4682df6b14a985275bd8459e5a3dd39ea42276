@@ -1,0 +1,96 @@
+packages/ui-native/src/components/swipe-row.tsx
+  s_42efe440240299::t_bdac1664fa2d49 5,11-12,34,117,130,139,142,173-176,178,182-189
+features.ts
+  s_42efe440240299::t_bdac1664fa2d49 2754,2772
+packages/ui-native/src/native-modules.tsx
+  s_42efe440240299::t_bdac1664fa2d49 197-198,289,291-292
+  s_42efe440240299::t_958feabe99695b 281
+packages/genesis-cli/package.json
+  s_42efe440240299::t_bdac1664fa2d49 3
+packages/ui-native/src/components/context-menu.tsx
+  s_42efe440240299::t_bdac1664fa2d49 16,36-37,45,80-84
+.changeset/ios-native-standards.md
+  s_42efe440240299::t_bdac1664fa2d49 6,9-10,12
+packages/ui-native/src/__tests__/native-modules-lists.test.tsx
+  s_42efe440240299::t_bdac1664fa2d49 36
+packages/ui-native/src/data/resource-view/__tests__/native-resource-view.test.tsx
+  s_42efe440240299::t_bdac1664fa2d49 281
+packages/genesis/CHANGELOG.md
+  s_42efe440240299::t_bdac1664fa2d49 3-11
+packages/genesis/package.json
+  s_42efe440240299::t_bdac1664fa2d49 3
+packages/ui-native/src/tokens/row-action-tones.ts
+  s_42efe440240299::t_bdac1664fa2d49 21-23
+apps/sample/app/data/primitives.json
+  s_42efe440240299::t_bdac1664fa2d49 2,24555,24560
+docs/adr/0028-row-actions.md
+  s_42efe440240299::t_bdac1664fa2d49 1-83
+packages/genesis-cli/CHANGELOG.md
+  s_42efe440240299::t_bdac1664fa2d49 3-61
+packages/core/src/conversation/types.ts
+  s_42efe440240299::t_bdac1664fa2d49 152
+packages/ui-native/src/icons/lucide.ts
+  s_42efe440240299::t_bdac1664fa2d49 51,62,134,144
+packages/ui-native/src/components/row-actions.tsx
+  s_42efe440240299::t_bdac1664fa2d49 3,27-32,55-57,98
+packages/ui-native/src/layouts/__tests__/tab-bar-visibility.test.tsx
+  s_42efe440240299::t_bdac1664fa2d49 8,88-101,148-166
+  s_42efe440240299::t_7b63f4b048cbb0 167
+packages/ui-native/src/data/resource-view/mapping.ts
+  s_42efe440240299::t_bdac1664fa2d49 185
+packages/native/package.json
+  s_42efe440240299::t_bdac1664fa2d49 3
+packages/ui-native/src/layouts/inbox-page.tsx
+  s_42efe440240299::t_bdac1664fa2d49 56,95-98,151-155,246-256,259
+  s_42efe440240299::t_958feabe99695b 33,159,163-169,225-230,234,298,394
+packages/core/src/__tests__/resource-view.test.ts
+  s_42efe440240299::t_bdac1664fa2d49 666
+packages/ui-native/src/layouts/index.ts
+  s_42efe440240299::t_bdac1664fa2d49 26-27
+packages/ui-native/package.json
+  s_42efe440240299::t_bdac1664fa2d49 380
+packages/ui-native/types/react-native.d.ts
+  s_42efe440240299::t_bdac1664fa2d49 597-598
+packages/ui-native/src/icon-names.ts
+  s_42efe440240299::t_bdac1664fa2d49 51,61
+features.json
+  s_42efe440240299::t_bdac1664fa2d49 6315,6364
+docs/component-reference.md
+  s_42efe440240299::t_bdac1664fa2d49 7,8568,8645,8650,8665
+docs/FRAMEWORK.md
+  s_42efe440240299::t_bdac1664fa2d49 353
+packages/native/CHANGELOG.md
+  s_42efe440240299::t_bdac1664fa2d49 3-11
+packages/ui-native/src/components/__tests__/row-actions.test.tsx
+  s_42efe440240299::t_bdac1664fa2d49 18,36,141-174
+packages/ui-native/src/layouts/tab-bar-visibility.tsx
+  s_42efe440240299::t_bdac1664fa2d49 94-140
+packages/ui/CHANGELOG.md
+  s_42efe440240299::t_bdac1664fa2d49 3-8
+packages/core/src/resource-view/types.ts
+  s_42efe440240299::t_bdac1664fa2d49 368
+packages/ui-native/README.md
+  s_42efe440240299::t_bdac1664fa2d49 99-103,105-106,435
+packages/ui/package.json
+  s_42efe440240299::t_bdac1664fa2d49 3
+packages/ui-native/src/components/list-item.tsx
+  s_42efe440240299::t_bdac1664fa2d49 12
+packages/ui-native/src/layouts/screen-container.tsx
+  s_42efe440240299::t_bdac1664fa2d49 221-230,315
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9a4682df6b14a985275bd8459e5a3dd39ea42276",
+  "prompts": {},
+  "sessions": {
+    "s_42efe440240299": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f544dd57-0b31-4773-b89e-4661a182129e",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
