@@ -289,11 +289,11 @@ describe("guards to swipe actions", () => {
     });
     const actions = swipeActionsFor(view, ROWS[1]!, { messages, softDelete: false, editable: true, onAction: vi.fn(), ...handlers() });
     expect(actions.map(({ onPress: _p, ...a }) => a)).toEqual([
-      { id: "edit", label: "Edit", icon: "edit" },
+      { id: "edit", label: "Edit", icon: "edit", side: "trailing" },
       { id: "pin", label: "Pin", icon: "pin", side: "leading", full: true, tone: "orange" },
       { id: "review", label: "Review", swipe: false },
       { id: "archive", label: "Archive", icon: "archive", tone: "purple" },
-      { id: "delete", label: "Delete", icon: "trash", destructive: true },
+      { id: "delete", label: "Delete", icon: "trash", destructive: true, side: "trailing" },
     ]);
   });
 
@@ -1391,16 +1391,38 @@ describe("row actions by default (ADR 0028)", () => {
         </GenesisModulesProvider>
       ),
     });
-    const laidOut = await screen.findByTestId("native-resource-view-row-b1");
-    expect(seen).toEqual([]);
-    expect(laidOut).toBeTruthy();
-    act(() => void screen.getByTestId("native-resource-view-row-b1-menu-host").dispatchEvent(new CustomEvent("layout", { detail: { width: 390, height: 60 } })));
-    const row = screen.getByTestId("native-resource-view-row-b1");
+    const row = await screen.findByTestId("native-resource-view-row-b1");
     expect(seen[0]).toEqual(["edit", "delete"]);
     fireEvent.contextMenu(row);
     expect(alert).not.toHaveBeenCalledWith("Northwind", undefined, expect.anything());
     fireEvent.click(screen.getByTestId("native-resource-view-row-b1-menu"));
     expect(alert).toHaveBeenLastCalledWith("Delete", "The default brand stays.");
+  });
+
+  it("puts only Edit, Delete and the actions that say where they swipe on the default swipe, and none on grid cards", async () => {
+    const got: string[][] = [];
+    const Swipeable = (props: { testID?: string; renderRightActions?: () => ReactNode; children?: ReactNode }) => {
+      got.push([props.testID ?? ""]);
+      return <div data-testid={props.testID}>{props.renderRightActions?.()}{props.children}</div>;
+    };
+    const view = defineView(brands, { actions: [{ name: "pin", label: "Pin", swipe: "trailing" }, { name: "note", label: "Note" }] });
+    const Inner = wrap(provider());
+    const withModules = ({ children }: { children: ReactNode }) => (
+      <GenesisModulesProvider modules={{ swipeable: Swipeable as never }}>
+        <Inner>{children}</Inner>
+      </GenesisModulesProvider>
+    );
+    const r = render(<NativeResourceView view={view} onAction={vi.fn()} />, { wrapper: withModules });
+    await screen.findByTestId("native-resource-view-row-b2");
+    expect(screen.getByTestId("native-resource-view-row-b2-swipe-action-pin")).toBeTruthy();
+    expect(screen.queryByTestId("native-resource-view-row-b2-swipe-action-note")).toBeNull();
+    // Still in the screen reader's actions (and the menu).
+    expect(screen.getByTestId("native-resource-view-row-b2").getAttribute("data-a11y-actions")).toContain("note");
+    r.unmount();
+    got.length = 0;
+    render(<NativeResourceView view={view} mode="grid" onAction={vi.fn()} />, { wrapper: withModules });
+    await screen.findByTestId("native-resource-view-row-b2");
+    expect(got).toEqual([]);
   });
 });
 

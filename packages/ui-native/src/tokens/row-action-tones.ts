@@ -16,8 +16,14 @@ export const ROW_ACTION_TONES: Record<Exclude<RowActionTone, "tint" | "red">, { 
   gray: { ios: "systemGray", fallback: "#8E8E93" },
 };
 
-/** Text and icons on a colored action: white, as iOS draws them on every system color. */
+/** Text and icons on a colored action: white, as iOS draws them, except on yellow, where only black reads (WCAG 4.5:1). */
 export const ON_ROW_ACTION = "#FFFFFF";
+export const ON_ROW_ACTION_LIGHT_TONE = "#000000";
+
+/** The text and icon color on an action of this tone. */
+export function onRowActionColor(tone: RowActionTone | undefined): string {
+  return tone === "yellow" ? ON_ROW_ACTION_LIGHT_TONE : ON_ROW_ACTION;
+}
 
 /** The pill a row becomes while its round actions are open (iOS 26 Messages): systemGray5. */
 export const ROW_PILL = { ios: "systemGray5", fallback: "#E5E5EA" } as const;

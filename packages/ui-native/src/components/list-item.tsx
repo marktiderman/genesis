@@ -60,8 +60,10 @@ export interface NativeListItemProps {
   testID?: string;
 }
 
-export function NativeListItem({ actions, actionsAppearance, ...props }: NativeListItemProps) {
-  const row = <ListItemRow {...props} accessible={!!actions?.length} />;
+export function NativeListItem({ actions: given, actionsAppearance, ...props }: NativeListItemProps) {
+  // A disabled row offers no actions; a row with actions is pressable, so its long press reaches the menu.
+  const actions = props.disabled ? undefined : given;
+  const row = <ListItemRow {...props} pressable={!!actions?.length} />;
   if (!actions?.length) return row;
   return (
     <NativeRowActions actions={actions} title={props.title} {...(actionsAppearance ? { appearance: actionsAppearance } : {})} testID={`${props.testID ?? "native-list-item"}-actions`}>
@@ -85,9 +87,9 @@ function ListItemRow({
   accessibilityLabel,
   className,
   testID,
-  accessible,
+  pressable,
   ...rest
-}: Omit<NativeListItemProps, "actions" | "actionsAppearance"> & { accessible?: boolean }) {
+}: Omit<NativeListItemProps, "actions" | "actionsAppearance"> & { pressable?: boolean }) {
   const inner = (
     <>
       {leading ? <View className="mr-3">{leading}</View> : null}
@@ -110,7 +112,7 @@ function ListItemRow({
     </>
   );
 
-  if (onPress) {
+  if (onPress || pressable) {
     return (
       <Pressable
         testID={testID ?? "native-list-item"}
@@ -134,7 +136,6 @@ function ListItemRow({
   return (
     <View
       testID={testID ?? "native-list-item"}
-      {...(accessible ? { accessible: true } : {})}
       {...rest}
       accessibilityLabel={accessibilityLabel ?? (subtitle ? `${title}, ${subtitle}` : title)}
       className={cn(

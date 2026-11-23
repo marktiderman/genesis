@@ -298,7 +298,7 @@
               "NativeLightbox"
             ]
           },
-          "use": "the stack's native header: ScreenContainer's `header` ({ title, large, search, headerRightItems }) or composeHeaderOptions for <Stack.Screen options>",
+          "use": "the stack's native header: ScreenContainer's `header` ({ headerTitle, large, search, headerRightItems }) or composeHeaderOptions for <Stack.Screen options>",
           "import": "@marktiderman/genesis-ui-native/layouts",
           "docs": "https://github.com/marktiderman/genesis/blob/main/docs/FRAMEWORK.md#native-screens-follow-ios",
           "why": "iOS draws the title bar, the back button (with its long-press history and edge swipe), the large title that collapses on scroll and the search field; a screen that hides the header and draws its own recreates them (G5) and loses those behaviours."

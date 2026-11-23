@@ -2765,10 +2765,11 @@ export const features = defineFeatures({
     audience: ["developer", "end user"],
     visibility: "internal",
     acceptance: [
-      "A view action with swipe: \"leading\" shows behind a swipe to the right on the phone, and one with full: true runs when the row is let go past the middle.",
+      "A view action with swipe: \"leading\" shows behind a swipe to the right on the phone, and one with full: true runs when the row is let go past 0.6 of its width; an action without swipe stays in the long-press menu.",
       "Every row action, swipe: false ones included, is in the long-press menu and in VoiceOver's actions on the row.",
       "NativeListItem with actions swipes, long-presses and reads the same as a NativeResourceView row.",
     ],
+    reviewedAt: "2026-11-23",
     links: { code: ["packages/ui-native/src/components/swipe-row.tsx", "packages/ui-native/src/components/row-actions.tsx", "packages/ui-native/src/components/list-item.tsx", "packages/core/src/conversation/types.ts", "packages/core/src/resource-view/types.ts"], docs: ["docs/adr/0028-row-actions.md", "docs/FRAMEWORK.md"] },
   },
   "native-headers": {
@@ -2790,6 +2791,7 @@ export const features = defineFeatures({
       "A screen with ScreenContainer header={{ headerTitle }} gets a large native title that collapses as its list scrolls, with no Stack.Screen of its own.",
       "genesis doctor warns on a new route screen with headerShown: false that isn't sign-in or full-screen media.",
     ],
+    reviewedAt: "2026-11-23",
     links: { code: ["packages/ui-native/src/layouts/screen-container.tsx"], docs: ["docs/FRAMEWORK.md"] },
   },
   "tab-bar-visibility": {
@@ -2810,6 +2812,7 @@ export const features = defineFeatures({
     acceptance: [
       "A conversation pushed from a tab with ScreenContainer tabBar=\"hidden\" shows no tab bar, keeps its back button and edge swipe, and the bar returns on going back.",
     ],
+    reviewedAt: "2026-11-23",
     links: { code: ["packages/ui-native/src/layouts/tab-bar-visibility.tsx"], docs: ["docs/FRAMEWORK.md"] },
   },
   "push": {

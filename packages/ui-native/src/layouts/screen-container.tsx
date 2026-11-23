@@ -113,6 +113,9 @@ export interface ScreenContainerProps {
    * to `GenesisModules.router.StackScreen` (expo-router's `Stack.Screen`). `large` defaults to
    * `true` here, a large title that collapses on scroll; pass `large: false` on a drill-down.
    * Without the router module, set `<Stack.Screen options={composeHeaderOptions(…)}>` yourself.
+   * Every option is set each time, so leaving one out resets it (no large title, no search). Keep
+   * `search`, the callbacks and `headerOptions` stable (useMemo / useCallback): they're compared by
+   * reference.
    */
   header?: ScreenHeaderProps;
 }
@@ -208,6 +211,8 @@ export function composeHeaderOptions(
       opts.headerLargeTitleShadowVisible = true;
     }
   }
+  // An explicit `false` turns off a large title a navigator or an earlier render set (setOptions merges).
+  if (large === false) opts.headerLargeTitle = false;
   if (search) opts.headerSearchBarOptions = search;
   if (headerRightItems) opts.unstable_headerRightItems = headerRightItems;
   if (headerLeftItems) opts.unstable_headerLeftItems = headerLeftItems;
@@ -272,7 +277,26 @@ export function ScreenContainer({
 }: ScreenContainerProps) {
   const { router } = useGenesisModules();
   const StackScreen = router?.StackScreen;
-  const headerOptions = useMemo(() => (header ? composeHeaderOptions({ large: true, scrollEdgeBehavior: "match", ...header }) : null), [header]);
+  // Each option is set explicitly, the large title and search included, so taking one away (a
+  // drill-down's `large: false`, a search that goes) resets what the layout or a render before set.
+  const h = header;
+  const headerOptions = useMemo(
+    () => {
+      if (!h) return null;
+      const large = h.large ?? true;
+      return {
+        headerLargeTitle: large,
+        headerSearchBarOptions: undefined,
+        unstable_headerRightItems: undefined,
+        unstable_headerLeftItems: undefined,
+        ...composeHeaderOptions({ scrollEdgeBehavior: "match", ...h, large }),
+      };
+    },
+    // By field, so an inline `header={{…}}` doesn't set the options on every render; keep `search`,
+    // the callbacks and `headerOptions` stable (useMemo / useCallback) for the same reason.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [!!h, h?.headerTitle, h?.large, h?.scrollEdgeBehavior, h?.search, h?.headerLeft, h?.headerRight, h?.headerRightItems, h?.headerLeftItems, h?.headerOptions],
+  );
   const osMode = useThemeMode();
   const resolvedMode = themeMode === "system" ? osMode : themeMode;
   const barStyle = resolveBarStyle(statusBar, resolvedMode);

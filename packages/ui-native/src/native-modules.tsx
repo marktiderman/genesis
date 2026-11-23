@@ -33,9 +33,9 @@
  * | `datePicker` (@expo/ui)        | NativeDatePicker, NativeTimePicker       | @react-native-community/datetimepicker |
  * | `keyboardAvoidingView` (react-native-keyboard-controller's `KeyboardAvoidingView`) | ThreadPage: the composer follows the keyboard frame by frame (`translate-with-padding`) | React Native `KeyboardAvoidingView` |
  * | `haptics` (expo-haptics) | useHaptics, usePressFeedback, NativeComposerBar (send) | no haptics |
- * | `swipeable` (react-native-gesture-handler's `ReanimatedSwipeable`) | NativeSwipeRow, InboxPage: the swipe to a row's actions | the actions on long press and as accessibility actions |
- * | `router` (expo-router's `useFocusEffect` and `Stack.Screen`) | useHideTabBar, ScreenContainer's `tabBar` and `header`: per-screen tab bar and the native header | the tab bar hides while the screen is mounted; `header` does nothing (set `<Stack.Screen options>` yourself) |
- * | `menu` (`MenuView` from `@expo/ui/community/menu`) | NativeSwipeRow, NativeListItem `actions`: the long press opens the system context menu (UIContextMenu, with the row lifted as its preview) | NativeContextMenu, a sheet of the actions |
+ * | `swipeable` (react-native-gesture-handler's `ReanimatedSwipeable`) | NativeSwipeRow, NativeRowActions, InboxPage, NativeResourceView list rows: the swipe to a row's actions | the actions on long press and as accessibility actions |
+ * | `router` (expo-router's `useFocusEffect` and `Stack.Screen`) | useHideTabBar, ScreenContainer's `tabBar` and `header`: per-screen tab bar and the native header. Set once, at the root | a screen never hides the tab bar (a development warning says why); `header` does nothing (set `<Stack.Screen options>` yourself) |
+ * | `menu` (`MenuView` from `@expo/ui/community/menu`) | NativeRowActions, NativeListItem `actions`, NativeResourceView rows: the long press opens the system context menu (UIContextMenu, with the row lifted as its preview) | NativeContextMenu, a sheet of the actions |
  * | `navigation` (React Navigation's theming: from `expo-router` in an Expo Router app, which bundles its own copy; `@react-navigation/native` otherwise) | GenesisNativeApp: headers and tab bars in the brand's light and dark colors | React Navigation's default (light) theme |
  *
  * The props below are written structurally (no import of the optional
@@ -103,6 +103,8 @@ export interface GenesisReanimatedModule {
   cancelAnimation: (value: { value: unknown }) => void;
   Easing: { inOut: (easing: unknown) => unknown; ease: unknown; out: (easing: unknown) => unknown; cubic: unknown; bezier?: (x1: number, y1: number, x2: number, y2: number) => unknown };
   ReduceMotion?: { System: unknown; Always: unknown; Never: unknown };
+  /** Runs `react` on the UI thread whenever `prepare`'s result changes: NativeSwipeRow keeps a drag's furthest point with it. */
+  useAnimatedReaction?: <V>(prepare: () => V, react: (current: V, previous: V | null) => void, deps?: unknown[]) => void;
 }
 
 /** `import * as GlassEffect from "expo-glass-effect"`. */

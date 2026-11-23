@@ -55,8 +55,8 @@ type RowProps = {
 
 /**
  * A row inside the system context menu (`GenesisModules.menu`). The menu's host sizes itself to
- * its content, which would shrink a row that only stretches: so the row draws as it is until its
- * width is known, then sits in the menu at exactly that width.
+ * its content, which would shrink a row that only stretches: so the row is given its measured
+ * width once laid out (the same tree throughout, so it never remounts).
  */
 export function NativeSystemMenuRow({
   Menu,
@@ -72,22 +72,19 @@ export function NativeSystemMenuRow({
   children: ReactNode;
 }) {
   const [width, setWidth] = useState(0);
+  // One tree from the first render (the row never remounts); the width is filled in once measured.
   return (
     <View testID={`${testID}-host`} onLayout={(e) => setWidth(Math.round(e.nativeEvent.layout.width))} style={{ alignSelf: "stretch" }}>
-      {width ? (
-        <Menu
-          testID={testID}
-          {...(title ? { title } : {})}
-          actions={actions.map(toMenuAction)}
-          shouldOpenOnLongPress
-          style={{ width }}
-          onPressAction={({ nativeEvent }) => actions.find((a) => a.id === nativeEvent.event)?.onPress()}
-        >
-          <View style={{ width }}>{children}</View>
-        </Menu>
-      ) : (
-        children
-      )}
+      <Menu
+        testID={testID}
+        {...(title ? { title } : {})}
+        actions={actions.map(toMenuAction)}
+        shouldOpenOnLongPress
+        style={width ? { width } : { alignSelf: "stretch" }}
+        onPressAction={({ nativeEvent }) => actions.find((a) => a.id === nativeEvent.event)?.onPress()}
+      >
+        <View style={width ? { width } : undefined}>{children}</View>
+      </Menu>
     </View>
   );
 }

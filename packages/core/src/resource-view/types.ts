@@ -357,6 +357,13 @@ export interface ViewGuards<Row extends DataRow> {
 }
 
 /**
+ * Where a view action sits behind a row's swipe on the phone (ADR 0028). A side, or the side and
+ * whether a full swipe runs it; `false` keeps it off the swipe (the long-press menu and the screen
+ * reader's actions still offer it). Web lists ignore it: their row menu lists every action.
+ */
+export type ViewActionSwipe = RowActionSide | { readonly side: RowActionSide; readonly full?: boolean } | false;
+
+/**
  * A named operation on one row, shaped like core's {@link RowAction} (which a provider reports),
  * plus a guard. The guard only narrows: the server still decides whether the action runs.
  *
@@ -364,17 +371,15 @@ export interface ViewGuards<Row extends DataRow> {
  * actions: [{ name: "archive", label: "Archive", confirm: "Archive this brand?", can: (r) => (r.is_default ? "The default brand stays." : true) }]
  * ```
  */
-/**
- * Where a view action sits behind a row's swipe on the phone (ADR 0028). A side, or the side and
- * whether a full swipe runs it; `false` keeps it off the swipe (the long-press menu and the screen
- * reader's actions still offer it). Web lists ignore it: their row menu lists every action.
- */
-export type ViewActionSwipe = RowActionSide | { readonly side: RowActionSide; readonly full?: boolean } | false;
-
 export interface ViewAction<Row extends DataRow = DataRow> extends RowAction {
   /** Drawn as destructive (red, the menu's destructive style). */
   destructive?: boolean;
-  /** Behind which side of a row's swipe, on the phone. Default `trailing`. */
+  /**
+   * Behind which side of a row's swipe, on the phone. Unset, NativeResourceView's own swipe leaves
+   * it in the long-press menu and the screen reader's actions only (a screen that passes its own
+   * `swipeable` gets it on the trailing side, as before). A destructive action that a full swipe
+   * runs must have a `confirm`: one gesture is too easy to make by mistake.
+   */
   swipe?: ViewActionSwipe;
   /** A Genesis icon name (`archive`, `pin`, `mail`), behind the swipe and in the menus. */
   icon?: string;
@@ -388,7 +393,7 @@ export interface ViewAction<Row extends DataRow = DataRow> extends RowAction {
 /** An action as a renderer lists it: the words only. Ask `view.canAction` whether a row allows it. */
 export type ResolvedViewAction = RowAction & {
   readonly destructive?: boolean;
-  /** Where the swipe puts it, when the action says: a side and whether a full swipe runs it, or `false` for off the swipe. Unset is trailing. */
+  /** Where the swipe puts it, when the action says: a side and whether a full swipe runs it, or `false` for off the swipe. */
   readonly swipe?: { readonly side: RowActionSide; readonly full: boolean } | false;
   readonly icon?: string;
   readonly tone?: RowActionTone;

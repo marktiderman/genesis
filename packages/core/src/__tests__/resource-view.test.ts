@@ -682,6 +682,8 @@ describe("review fixes: actions and pictures", () => {
     expect(() => defineView(brands, { actions: [{ name: "x", label: "X", swipe: { side: "leading", full: "yes" } as never }] })).toThrow(/swipe is/);
     expect(() => defineView(brands, { actions: [{ name: "x", label: "X", tone: "pink" as never }] })).toThrow(/tone is one of/);
     expect(() => defineView(brands, { actions: [{ name: "x", label: "X", icon: " " }] })).toThrow(/icon isn't an icon name/);
+    expect(() => defineView(brands, { actions: [{ name: "x", label: "X", destructive: true, swipe: { side: "trailing", full: true } }] })).toThrow(/needs a confirm/);
+    expect(() => defineView(brands, { actions: [{ name: "x", label: "X", destructive: true, confirm: "Delete it?", swipe: { side: "trailing", full: true } }] })).not.toThrow();
   });
 
   it("takes only http(s) and root-relative image sources", () => {

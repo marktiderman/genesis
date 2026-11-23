@@ -38,8 +38,8 @@ import { lucideIcons } from "@marktiderman/genesis-ui-native/icons/lucide";
 | `icons` | `lucide-react-native` 0.475+, through `lucideIcons` from `/icons/lucide` | `NativeIcon` on Android and web, and as the SF Symbol's fallback | an empty space of the icon's size, and a development warning |
 | `datePicker` | `@expo/ui` (`@expo/ui/community/datetime-picker`) | `NativeDatePicker`, `NativeTimePicker`: SwiftUI on iOS, a Jetpack Compose dialog on Android | `@react-native-community/datetimepicker`, else a read-only label |
 | `haptics` | `expo-haptics` (`import * as`) | `useHaptics`, `usePressFeedback`, `NativeButton haptic`, `NativeComposerBar` (a light tap on send) | no haptics |
-| `router` | `expo-router`: `{ useFocusEffect, StackScreen: Stack.Screen }` | `useHideTabBar` and `ScreenContainer tabBar` (per focus), `ScreenContainer header` (sets the native header) | the tab bar hides while the screen is mounted; `header` does nothing |
-| `menu` | `@expo/ui` (`MenuView` from `@expo/ui/community/menu`) | `NativeRowActions`, `NativeListItem actions`: a long press opens the system context menu | `NativeContextMenu`'s sheet |
+| `router` | `expo-router`: `{ useFocusEffect, StackScreen: Stack.Screen }` | `useHideTabBar` and `ScreenContainer tabBar` (per focus), `ScreenContainer header` (sets the native header). Set once, at the root | a screen never hides the tab bar (a development warning says why); `header` does nothing |
+| `menu` | `@expo/ui` (`MenuView` from `@expo/ui/community/menu`) | `NativeRowActions`, `NativeListItem actions`, `NativeResourceView` rows: a long press opens the system context menu | `NativeContextMenu`'s sheet |
 | `swipeable` | `react-native-gesture-handler` (`ReanimatedSwipeable`) | `NativeSwipeRow`, `NativeRowActions`, `InboxPage`, `NativeResourceView` rows | the actions on long press and as accessibility actions |
 
 Glass is drawn only on iOS when both `isLiquidGlassAvailable()` (built with the iOS 26 SDK, running
@@ -115,7 +115,8 @@ export function MessageRow({ onRead, onDelete }: { onRead: () => void; onDelete:
       onPress={() => {}}
       actions={[
         { id: "read", label: "Read", icon: "mail-open", tone: "blue", side: "leading", full: true, onPress: onRead },
-        { id: "delete", label: "Delete", icon: "trash", destructive: true, full: true, onPress: onDelete },
+        // Destructive: not on a full swipe (one gesture is easy to make by mistake), and onDelete confirms.
+        { id: "delete", label: "Delete", icon: "trash", destructive: true, onPress: onDelete },
       ]}
     />
   );
@@ -124,7 +125,12 @@ export function MessageRow({ onRead, onDelete }: { onRead: () => void; onDelete:
 
 A view's own actions take the same placement: `actions: [{ name: "archive", label: "Archive",
 swipe: { side: "trailing", full: true }, icon: "archive", tone: "purple" }]` in `defineView`, and
-`NativeResourceView` swipes them.
+`NativeResourceView`'s list rows swipe them, with Edit and Delete trailing, at most three a side.
+An action without `swipe` stays in the long-press menu and VoiceOver's actions; grid cards and
+`renderCard` rows swipe only with a `swipeable` of the screen's own (`swipeable={null}` turns the
+swipe off). A destructive action on a full swipe must have a `confirm` (`defineView` refuses it
+otherwise). Without `GenesisModules.router`, `useHideTabBar` never hides the bar: a tab keeps its
+stack mounted, and the bar would stay hidden after a jump to another tab.
 
 ## Loading screens: `NativeLoadingState` and `ScreenContainer loading`
 

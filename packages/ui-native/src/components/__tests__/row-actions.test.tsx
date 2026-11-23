@@ -1,5 +1,5 @@
 // @feat:row-actions
-import { forwardRef, useImperativeHandle, type ReactNode } from "react";
+import { forwardRef, useImperativeHandle, useState, type ReactNode } from "react";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { GenesisModulesProvider, type GenesisModules } from "../../native-modules";
@@ -111,9 +111,10 @@ describe("row actions (ADR 0028)", () => {
         </NativeRowActions>
       </GenesisModulesProvider>,
     );
-    // The row draws as it is until laid out, then sits in the menu at its width.
-    expect(screen.queryByTestId("menu")).toBeNull();
+    // In the menu from the first render, so it never remounts; laid out, it gets its width.
+    const before = screen.getByTestId("li");
     layout(screen.getByTestId("row-actions-menu-host"), 390);
+    expect(screen.getByTestId("li")).toBe(before);
     expect(seen.longPress).toBe(true);
     expect(seen.title).toBe("Ada");
     expect(seen.actions).toEqual([
@@ -195,4 +196,56 @@ describe("row actions (ADR 0028)", () => {
     fireEvent.mouseUp(screen.getByTestId("s"));
     expect(panel().opacity).toBe(0);
   });
+
+  it("shows at most three a side; the rest stay in the menu and the screen reader's actions", () => {
+    const many = ["a", "b", "c", "d"].map((id) => ({ id, label: id.toUpperCase(), onPress: vi.fn() }));
+    expect(splitSwipeActions(many, 3).trailing.map((a) => a.id)).toEqual(["a", "b", "c"]);
+    const Swipeable = fakeSwipeable(vi.fn(), () => 0);
+    render(
+      <GenesisModulesProvider modules={{ swipeable: Swipeable as never }}>
+        <NativeSwipeRow actions={many} testID="s">
+          <i />
+        </NativeSwipeRow>
+      </GenesisModulesProvider>,
+    );
+    expect(screen.queryByTestId("s-action-d")).toBeNull();
+  });
+
+  it("decides the full swipe on the drag's furthest point, kept on the UI thread, not where the row springs back to", () => {
+    const actions = make();
+    const reactions: ((v: number) => void)[] = [];
+    const reanimated = {
+      useSharedValue: (v: number) => {
+        const [sv] = useState(() => ({ value: v }));
+        return sv;
+      },
+      useAnimatedReaction: (_prepare: () => number, react: (v: number, p: number | null) => void) => void reactions.push((v) => react(v, null)),
+    } as unknown as NonNullable<GenesisModules["reanimated"]>;
+    let dx = 0;
+    const Swipeable = fakeSwipeable(vi.fn(), () => dx);
+    render(
+      <GenesisModulesProvider modules={{ swipeable: Swipeable as never, reanimated }}>
+        <NativeSwipeRow actions={actions} testID="s">
+          <i />
+        </NativeSwipeRow>
+      </GenesisModulesProvider>,
+    );
+    layout(screen.getByTestId("s").parentElement!, 400);
+    fireEvent.mouseDown(screen.getByTestId("s"));
+    // The finger went to -300; by release the row has sprung back to -160.
+    act(() => reactions.forEach((r) => r(-300)));
+    dx = -160;
+    fireEvent.click(screen.getByTestId("s"));
+    expect(actions[3]!.onPress).toHaveBeenCalledTimes(1);
+  });
+
+  it("makes a NativeListItem with actions pressable, so its long press reaches the menu; a disabled one offers none", () => {
+    const actions = make();
+    const view = render(<NativeListItem title="Ada" actions={actions} testID="li" />);
+    fireEvent.contextMenu(screen.getByTestId("li"));
+    expect(screen.getByTestId("li").dataset.a11yActions).toBe("read,pin,review,delete");
+    view.rerender(<NativeListItem title="Ada" actions={actions} disabled testID="li" />);
+    expect(screen.getByTestId("li").dataset.a11yActions).toBeUndefined();
+  });
 });
+

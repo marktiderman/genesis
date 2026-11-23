@@ -12,3 +12,6 @@ iOS standards for every native screen (ADR 0028).
 - Doctor rules `screens-use-native-header` and `tab-bar-hidden-per-screen`; icons `archive`, `bell-off`, `flag`, `mail-open`, `message-unread`, `pin-off`.
 - `NativeResourceView` swipes by default (`NativeSwipeRow`; `swipeable={null}` turns it off) and, with `GenesisModules.menu`, opens the system context menu on long press instead of the alert.
 - Swipes track the finger 1:1 and a full swipe runs past 0.6 of the row, as iOS; the actions stay unseen at rest (an inset row's margins never show them).
+- **What changes on upgrade:** with `GenesisModules.swipeable` set, `NativeResourceView` list rows now swipe by default: Edit and Delete trailing, plus view actions that set `swipe`, at most three a side. View actions without `swipe` stay in the long-press menu and VoiceOver's actions (a screen's own `swipeable` still gets them trailing, as before). Grid cards and `renderCard` rows don't swipe unless the screen passes `swipeable`; `swipeable={null}` turns it off.
+- `defineView` refuses a destructive action on a full swipe without a `confirm`. `useHideTabBar` needs `GenesisModules.router.useFocusEffect`; without it the bar stays shown, with a development warning.
+

@@ -24,14 +24,14 @@
  *
  * @stability Beta
  */
-import { cloneElement, isValidElement, useRef, useState, type ReactElement, type ReactNode } from "react";
+import { cloneElement, isValidElement, useEffect, useRef, useState, type ReactElement, type ReactNode } from "react";
 import { I18nManager, Platform, PlatformColor, Pressable, View, type ColorValue } from "react-native";
 import type { RowActionTone, RowSwipeAction } from "@marktiderman/genesis-core/conversation";
 import { useHaptics } from "../hooks/use-haptics";
 import { useThemeRoles } from "../hooks/use-theme-roles";
-import { useGenesisModules } from "../native-modules";
+import { useGenesisModules, type GenesisReanimatedModule } from "../native-modules";
 import type { NativeIconName } from "../icon-names";
-import { ON_ROW_ACTION, ROW_ACTION_TONES, ROW_PILL } from "../tokens/row-action-tones";
+import { ROW_ACTION_TONES, ROW_PILL, onRowActionColor } from "../tokens/row-action-tones";
 import { NativeIcon } from "./icon";
 import { NativeText } from "./text";
 
@@ -40,6 +40,8 @@ export interface NativeSwipeRowProps {
   children?: ReactNode;
   /** `"fill"` (colored blocks, the default) or `"round"` (iOS 26's round icon buttons). */
   appearance?: "fill" | "round";
+  /** At most this many actions on a side; the rest stay in the menu and the screen reader's actions. Default 3, as Mail. */
+  maxPerSide?: number;
   /** How far across the row (a share of its width) a drag runs the side's `full` action when let go. Default 0.6, as iOS. */
   fullSwipeRatio?: number;
   /**
@@ -63,10 +65,10 @@ export function rowActionColor(action: Pick<RowSwipeAction, "tone" | "destructiv
 }
 
 /** The actions a swipe shows, by side (an action with `swipe: false` shows on neither), in the row's reading direction. */
-export function splitSwipeActions(actions: readonly RowSwipeAction[]) {
+export function splitSwipeActions(actions: readonly RowSwipeAction[], maxPerSide = Infinity) {
   const shown = actions.filter((a) => a.swipe !== false);
-  const leading = shown.filter((a) => a.side === "leading");
-  const trailing = shown.filter((a) => a.side !== "leading");
+  const leading = shown.filter((a) => a.side === "leading").slice(0, maxPerSide);
+  const trailing = shown.filter((a) => a.side !== "leading").slice(0, maxPerSide);
   return { leading, trailing, fullLeading: leading.find((a) => a.full), fullTrailing: trailing.find((a) => a.full) };
 }
 
@@ -100,26 +102,49 @@ function withAccessibilityActions(children: ReactNode, actions: readonly RowSwip
   });
 }
 
+/** Keeps the furthest point of a drag on the UI thread, for the full swipe's check on release. */
+function PeakTracker({ R, translation, onReady }: { R: GenesisReanimatedModule; translation: { value: number }; onReady: (peak: { value: number }) => void }) {
+  const peak = R.useSharedValue(0);
+  useEffect(() => {
+    onReady(peak);
+  }, [peak, onReady]);
+  R.useAnimatedReaction!(
+    () => {
+      "worklet";
+      return translation.value;
+    },
+    (current) => {
+      "worklet";
+      if (Math.abs(current) > Math.abs(peak.value)) peak.value = current;
+    },
+  );
+  return null;
+}
+
 export function NativeSwipeRow({
   actions,
   children,
   appearance = "fill",
   fullSwipeRatio = 0.6,
+  maxPerSide = 3,
   accessibilityActions = true,
   testID = "swipe-row",
 }: NativeSwipeRowProps) {
-  const { swipeable: Swipeable } = useGenesisModules();
+  const { swipeable: Swipeable, reanimated } = useGenesisModules();
   const colors = useThemeRoles();
   const play = useHaptics();
   const swipe = useRef<{ close?: () => void } | null>(null);
   const offset = useRef<{ value: number } | null>(null);
+  // The furthest a drag went, kept on the UI thread (PeakTracker): by the time the JS side hears of
+  // the release, the row has already started to spring back.
+  const peak = useRef<{ value: number } | null>(null);
   const [width, setWidth] = useState(0);
   const [open, setOpen] = useState(false);
   // The actions stay mounted (the swipe measures them) but unseen until a drag starts: an inset row
   // doesn't cover the whole width, and they would show in its margins at rest.
   const [dragging, setDragging] = useState(false);
   const content = accessibilityActions ? withAccessibilityActions(children, actions) : children;
-  const { leading, trailing, fullLeading, fullTrailing } = splitSwipeActions(actions);
+  const { leading, trailing, fullLeading, fullTrailing } = splitSwipeActions(actions, maxPerSide);
   if (!Swipeable || leading.length + trailing.length === 0) return <>{content}</>;
 
   const run = (action: RowSwipeAction) => {
@@ -129,11 +154,15 @@ export function NativeSwipeRow({
   const round = appearance === "round";
   const group = (list: readonly RowSwipeAction[]) => (_progress?: unknown, translation?: { value: number }) => {
     if (translation) offset.current = translation;
+    const track = reanimated?.useAnimatedReaction && translation ? <PeakTracker R={reanimated} translation={translation} onReady={(p) => (peak.current = p)} /> : null;
     return (
+      <>
+      {track}
       <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ opacity: dragging ? 1 : 0, flexDirection: "row", alignItems: round ? "center" : "stretch", gap: round ? 10 : 0, paddingHorizontal: round ? 10 : 0 }}>
         {list.map((action) => {
           const color = rowActionColor(action, colors);
-          const icon = action.icon ? <NativeIcon name={action.icon as NativeIconName} size={round ? 20 : 22} color={ON_ROW_ACTION} /> : null;
+          const on = onRowActionColor(action.tone);
+          const icon = action.icon ? <NativeIcon name={action.icon as NativeIconName} size={round ? 20 : 22} color={on} /> : null;
           return (
             <Pressable
               key={action.id}
@@ -146,13 +175,14 @@ export function NativeSwipeRow({
               ) : (
                 icon
               )}
-              <NativeText preset="label" style={{ color: round ? colors.label : ON_ROW_ACTION, fontSize: round ? 12 : 14 }} numberOfLines={1}>
+              <NativeText preset="label" style={{ color: round ? colors.label : on, fontSize: round ? 12 : 14 }} numberOfLines={1}>
                 {action.label}
               </NativeText>
             </Pressable>
           );
         })}
       </View>
+      </>
     );
   };
   // In a right-to-left language, leading is the right edge.
@@ -163,7 +193,7 @@ export function NativeSwipeRow({
       <Swipeable
         ref={swipe}
         testID={testID}
-        // 1:1 with the finger, as iOS rows track it (and so a full swipe can reach the middle).
+        // 1:1 with the finger, as iOS rows track it (and so a full swipe can reach 0.6 of the row).
         friction={1}
         // Past its actions a side with a full action keeps tracking the finger, so a long drag reaches
         // the full-swipe point; a side without one stops at its actions.
@@ -171,11 +201,13 @@ export function NativeSwipeRow({
         overshootRight={!!fullRight}
         overshootFriction={1}
         onSwipeableWillOpen={() => {
-          // Called on release, before the row settles: a drag past the ratio of its width runs the side's full-swipe action.
-          const dx = offset.current?.value ?? 0;
+          // Called on release: a drag that went past the ratio of the row's width runs the side's full-swipe action.
+          const dx = peak.current ? peak.current.value : (offset.current?.value ?? 0);
+          if (peak.current) peak.current.value = 0;
           const action = width && Math.abs(dx) >= width * fullSwipeRatio ? (dx > 0 ? fullLeft : fullRight) : undefined;
           if (action) {
-            play("success");
+            // A refused action explains itself instead of running: no success tap before it.
+            if (!(action as { reason?: string }).reason) play("success");
             run(action);
           } else {
             play("medium");
@@ -183,7 +215,10 @@ export function NativeSwipeRow({
           }
         }}
         onSwipeableWillClose={() => setOpen(false)}
-        onSwipeableOpenStartDrag={() => setDragging(true)}
+        onSwipeableOpenStartDrag={() => {
+          if (peak.current) peak.current.value = 0;
+          setDragging(true);
+        }}
         onSwipeableClose={() => setDragging(false)}
         renderLeftActions={left.length ? group(left) : undefined}
         renderRightActions={right.length ? group(right) : undefined}

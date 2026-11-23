@@ -137,7 +137,6 @@ export const DEFAULT_THREAD_LABELS: Readonly<ThreadLabels> = Object.freeze({
   messageGone: "That message isn't available.",
 });
 
-/** An action on an inbox row: a swipe, a long press or context menu, an accessibility action. */
 /**
  * A row action's color behind a swipe, as iOS's system colors (Mail and Messages use them):
  * `tint` is the app's accent, `red` is for destructive (which `destructive` already gives).
@@ -166,7 +165,8 @@ export interface InboxSwipeAction {
   tone?: RowActionTone;
   /**
    * A full swipe runs it, as Mail's Delete and Archive do: the row's first action on its side
-   * with `full` is the one a long drag past the row's middle triggers. Off by default.
+   * with `full` is the one a drag past 0.6 of the row's width triggers when let go. Off by default.
+   * A destructive one should confirm in its `onPress` (or undo): one gesture is easy to make by mistake.
    */
   full?: boolean;
   /**
