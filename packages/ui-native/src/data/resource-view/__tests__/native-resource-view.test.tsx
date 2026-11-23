@@ -278,6 +278,24 @@ describe("guards to swipe actions", () => {
     expect(h.onRefused).toHaveBeenCalledWith("Delete", "The default brand stays.");
   });
 
+  it("places the view's own actions where the view says (ADR 0027), with their icon and tone", () => {
+    const view = defineView(brands, {
+      actions: [
+        { name: "pin", label: "Pin", swipe: { side: "leading", full: true }, icon: "pin", tone: "orange" },
+        { name: "review", label: "Review", swipe: false },
+        { name: "archive", label: "Archive", icon: "archive", tone: "purple" },
+      ],
+    });
+    const actions = swipeActionsFor(view, ROWS[1]!, { messages, softDelete: false, editable: true, onAction: vi.fn(), ...handlers() });
+    expect(actions.map(({ onPress: _p, ...a }) => a)).toEqual([
+      { id: "edit", label: "Edit", icon: "edit" },
+      { id: "pin", label: "Pin", icon: "pin", side: "leading", full: true, tone: "orange" },
+      { id: "review", label: "Review", swipe: false },
+      { id: "archive", label: "Archive", icon: "archive", tone: "purple" },
+      { id: "delete", label: "Delete", icon: "trash", destructive: true },
+    ]);
+  });
+
   it("says Move to Bin when the provider bins deletes", () => {
     const actions = swipeActionsFor(plainView, ROWS[1]!, { messages, softDelete: true, editable: true, ...handlers() });
     expect(actions.find((a) => a.id === "delete")).toMatchObject({ label: "Move to Bin", destructive: true, icon: "trash" });

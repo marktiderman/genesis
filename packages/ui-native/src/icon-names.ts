@@ -8,9 +8,11 @@
  */
 export const SF_SYMBOLS = {
   aperture: "camera.aperture",
+  archive: "archivebox",
   "arrow-left": "arrow.left",
   "arrow-up": "arrow.up",
   bell: "bell",
+  "bell-off": "bell.slash",
   calendar: "calendar",
   camera: "camera",
   "camera-flip": "arrow.triangle.2.circlepath.camera",
@@ -32,6 +34,7 @@ export const SF_SYMBOLS = {
   eye: "eye",
   file: "doc",
   filter: "line.3.horizontal.decrease",
+  flag: "flag",
   "folder-plus": "folder.badge.plus",
   grid: "square.grid.2x2",
   grip: "line.3.horizontal",
@@ -44,6 +47,7 @@ export const SF_SYMBOLS = {
   lock: "lock",
   "log-out": "rectangle.portrait.and.arrow.right",
   mail: "envelope",
+  "mail-open": "envelope.open",
   maximize: "arrow.up.left.and.arrow.down.right",
   menu: "line.3.horizontal",
   message: "bubble.left",

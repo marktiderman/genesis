@@ -16,7 +16,15 @@ export {
   type ScreenHeaderProps,
   type SafeAreaEdge,
   type ScrollEdgeBehavior,
+  type ScreenSearchOptions,
 } from "./screen-container";
+
+export {
+  TabBarVisibilityProvider,
+  useHideTabBar,
+  useTabBarHidden,
+  type TabBarVisibilityProviderProps,
+} from "./tab-bar-visibility";
 
 export {
   NavBarSaveButton,

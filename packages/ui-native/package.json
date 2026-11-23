@@ -272,6 +272,62 @@
           "import": "@marktiderman/genesis-ui-native",
           "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md#inbox-and-thread-inboxpage-and-threadpage",
           "why": "A hand-built inverted or bottom-started list recreates what NativeThreadList already does (G5), usually without holding its place, VoiceOver order or the jump."
+        },
+        {
+          "id": "screens-use-native-header",
+          "need": "a phone screen's title bar, back button or search field",
+          "level": "warn",
+          "platform": "native",
+          "newOnly": true,
+          "files": [
+            "{routes}/**/*.tsx",
+            "{routes}/**/*.jsx"
+          ],
+          "exclude": [
+            "**/_layout.tsx",
+            "**/_layout.jsx",
+            "**/__tests__/**"
+          ],
+          "forbid": {
+            "pattern": "(?:\\bheaderShown\\s*:\\s*false\\b|<NavBarSearchBar\\b|\\bheader\\s*:\\s*\\(\\s*(?:\\w+|\\{[^}]*\\})?\\s*\\)\\s*=>)"
+          },
+          "unless": {
+            "renders": [
+              "AuthScreen",
+              "NativeFullScreenModal",
+              "NativeLightbox"
+            ]
+          },
+          "use": "the stack's native header: ScreenContainer's `header` ({ title, large, search, headerRightItems }) or composeHeaderOptions for <Stack.Screen options>",
+          "import": "@marktiderman/genesis-ui-native/layouts",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/FRAMEWORK.md#native-screens-follow-ios",
+          "why": "iOS draws the title bar, the back button (with its long-press history and edge swipe), the large title that collapses on scroll and the search field; a screen that hides the header and draws its own recreates them (G5) and loses those behaviours."
+        },
+        {
+          "id": "tab-bar-hidden-per-screen",
+          "need": "hiding the tab bar on one screen",
+          "level": "warn",
+          "platform": "native",
+          "newOnly": true,
+          "files": [
+            "**/*.tsx",
+            "**/*.jsx"
+          ],
+          "exclude": [
+            "**/__tests__/**"
+          ],
+          "forbid": {
+            "pattern": "\\btabBarStyle\\s*:\\s*(?:\\{\\s*display\\s*:\\s*[\"']none[\"']|[^,}]*\\?\\s*\\{\\s*display\\s*:\\s*[\"']none[\"'])"
+          },
+          "unless": {
+            "renders": [
+              "TabBarVisibilityProvider"
+            ]
+          },
+          "use": "<ScreenContainer tabBar=\"hidden\"> or useHideTabBar(), with TabBarVisibilityProvider around the tabs",
+          "import": "@marktiderman/genesis-ui-native/layouts",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/FRAMEWORK.md#native-screens-follow-ios",
+          "why": "One switch per screen, counted, so a hiding screen pushed over another never shows the bar under it, and the stack keeps its back button and edge swipe (UIKit's hidesBottomBarWhenPushed)."
         }
       ],
       "primitives": [
@@ -280,6 +336,18 @@
           "use": "ScreenContainer, or a …Page / …Screen layout",
           "import": "@marktiderman/genesis-ui-native/layouts",
           "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md"
+        },
+        {
+          "need": "a phone screen's header: large title, native search, header buttons",
+          "use": "ScreenContainer `header` (with GenesisModules.router.StackScreen), or composeHeaderOptions for <Stack.Screen options>",
+          "import": "@marktiderman/genesis-ui-native/layouts",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/FRAMEWORK.md#native-screens-follow-ios"
+        },
+        {
+          "need": "a screen without the tab bar (a conversation, a full-screen viewer)",
+          "use": "ScreenContainer `tabBar=\"hidden\"` or useHideTabBar(), with TabBarVisibilityProvider around the tabs",
+          "import": "@marktiderman/genesis-ui-native/layouts",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/FRAMEWORK.md#native-screens-follow-ios"
         },
         {
           "need": "a record view on the phone",
@@ -306,10 +374,10 @@
           "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md"
         },
         {
-          "need": "a row's actions behind a swipe on the phone",
-          "use": "NativeSwipeRow, on GenesisModules.swipeable",
+          "need": "a row's actions on the phone: swipe (leading, trailing, full swipe), long-press menu and VoiceOver actions",
+          "use": "NativeListItem's `actions`, NativeRowActions around your own row, or a view's `actions` with `swipe` (NativeResourceView); NativeSwipeRow for the swipe alone, on GenesisModules.swipeable",
           "import": "@marktiderman/genesis-ui-native/components",
-          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md"
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/adr/0027-row-actions.md"
         },
         {
           "need": "what a long press opens on the phone: a short list of actions",

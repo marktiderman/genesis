@@ -38,6 +38,9 @@ import { lucideIcons } from "@marktiderman/genesis-ui-native/icons/lucide";
 | `icons` | `lucide-react-native` 0.475+, through `lucideIcons` from `/icons/lucide` | `NativeIcon` on Android and web, and as the SF Symbol's fallback | an empty space of the icon's size, and a development warning |
 | `datePicker` | `@expo/ui` (`@expo/ui/community/datetime-picker`) | `NativeDatePicker`, `NativeTimePicker`: SwiftUI on iOS, a Jetpack Compose dialog on Android | `@react-native-community/datetimepicker`, else a read-only label |
 | `haptics` | `expo-haptics` (`import * as`) | `useHaptics`, `usePressFeedback`, `NativeButton haptic`, `NativeComposerBar` (a light tap on send) | no haptics |
+| `router` | `expo-router`: `{ useFocusEffect, StackScreen: Stack.Screen }` | `useHideTabBar` and `ScreenContainer tabBar` (per focus), `ScreenContainer header` (sets the native header) | the tab bar hides while the screen is mounted; `header` does nothing |
+| `menu` | `@expo/ui` (`MenuView` from `@expo/ui/community/menu`) | `NativeRowActions`, `NativeListItem actions`: a long press opens the system context menu | `NativeContextMenu`'s sheet |
+| `swipeable` | `react-native-gesture-handler` (`ReanimatedSwipeable`) | `NativeSwipeRow`, `NativeRowActions`, `InboxPage`, `NativeResourceView` rows | the actions on long press and as accessibility actions |
 
 Glass is drawn only on iOS when both `isLiquidGlassAvailable()` (built with the iOS 26 SDK, running
 iOS 26) and `isGlassEffectAPIAvailable()` (the API exists at run time) are true, and Reduce
@@ -52,6 +55,71 @@ when it draws with `@gorhom/bottom-sheet`. If you use that, install `react-nativ
 as a direct dependency of your app (`npx expo install react-native-gesture-handler`) and wrap the
 root in its `GestureHandlerRootView`; don't rely on another package bringing it in. The drawer's
 swipe uses React Native's `PanResponder`.
+
+## Native screens follow iOS: the header, the tab bar, row actions
+
+The rules are in [docs/FRAMEWORK.md](../../docs/FRAMEWORK.md#native-screens-follow-ios); these are
+the pieces.
+
+**The header.** `ScreenContainer`'s `header` sets the stack's native header from inside the screen
+(pass `router.StackScreen`): a large title that collapses on scroll by default, `large: false` for a
+drill-down, `search` for the system search field and `headerRightItems` for native bar buttons.
+
+```tsx
+import { ScreenContainer } from "@marktiderman/genesis-ui-native/layouts";
+
+export function InboxScreen({ onSearch }: { onSearch: (text: string) => void }) {
+  return (
+    <ScreenContainer header={{ headerTitle: "Inbox", search: { placeholder: "Search", onChangeText: (e) => onSearch(e.nativeEvent.text) } }}>
+      {null}
+    </ScreenContainer>
+  );
+}
+```
+
+**The tab bar.** Wrap the tabs once; a screen then hides the bar while it's focused.
+
+```tsx
+import { ScreenContainer, TabBarVisibilityProvider } from "@marktiderman/genesis-ui-native/layouts";
+import { NativeTabBar } from "@marktiderman/genesis-ui-native";
+
+export function Tabs() {
+  return (
+    <TabBarVisibilityProvider>
+      {(hidden) => <NativeTabBar hidden={hidden} items={[]} value="inbox" onChange={() => {}} />}
+    </TabBarVisibilityProvider>
+  );
+}
+
+export function ConversationScreen() {
+  return <ScreenContainer tabBar="hidden" header={{ headerTitle: "Ada", large: false }}>{null}</ScreenContainer>;
+}
+```
+
+**Row actions** ([ADR 0027](../../docs/adr/0027-row-actions.md)). One list, three ways: behind a
+swipe (`side`, `full`, `icon`, `tone`; `appearance="round"` for iOS 26's round buttons), in the
+long-press menu, and as VoiceOver's actions.
+
+```tsx
+import { NativeListItem } from "@marktiderman/genesis-ui-native";
+
+export function MessageRow({ onRead, onDelete }: { onRead: () => void; onDelete: () => void }) {
+  return (
+    <NativeListItem
+      title="Ada"
+      onPress={() => {}}
+      actions={[
+        { id: "read", label: "Read", icon: "mail-open", tone: "blue", side: "leading", full: true, onPress: onRead },
+        { id: "delete", label: "Delete", icon: "trash", destructive: true, full: true, onPress: onDelete },
+      ]}
+    />
+  );
+}
+```
+
+A view's own actions take the same placement: `actions: [{ name: "archive", label: "Archive",
+swipe: { side: "trailing", full: true }, icon: "archive", tone: "purple" }]` in `defineView`, and
+`NativeResourceView` swipes them.
 
 ## Loading screens: `NativeLoadingState` and `ScreenContainer loading`
 
@@ -358,7 +426,8 @@ Two generic layouts for conversations (support tickets, direct messages, comment
   `useThreadJump` is its jump on its own. The doctor's `threads-use-thread-list` rule warns on a
   hand-built inverted or bottom-started list.
 - **`NativeSwipeRow`** and **`NativeContextMenu`**: a row's actions behind a swipe, and what a long
-  press opens (a sheet with Cancel, not the system alert). `InboxPage` uses both.
+  press opens (a sheet with Cancel, not the system alert). `InboxPage` uses both. Rows take the
+  same `icon`, `tone`, `full` and `swipe` as any row action (ADR 0027).
 - **`NativeComposerBar`**: the composer on its own. It takes `leading`, `trailing` and `above`
   slots, and `modes`.
 

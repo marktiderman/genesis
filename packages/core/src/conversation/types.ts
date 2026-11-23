@@ -138,6 +138,20 @@ export const DEFAULT_THREAD_LABELS: Readonly<ThreadLabels> = Object.freeze({
 });
 
 /** An action on an inbox row: a swipe, a long press or context menu, an accessibility action. */
+/**
+ * A row action's color behind a swipe, as iOS's system colors (Mail and Messages use them):
+ * `tint` is the app's accent, `red` is for destructive (which `destructive` already gives).
+ */
+export type RowActionTone = "tint" | "blue" | "green" | "orange" | "purple" | "yellow" | "gray" | "red";
+
+/** Which edge of a row a swipe uncovers an action from: leading is a swipe to the right (in a left-to-right language). */
+export type RowActionSide = "leading" | "trailing";
+
+/**
+ * One of a row's actions, the same everywhere a row offers it: behind a swipe on the phone, in
+ * its long-press menu, and as a screen reader's actions (ADR 0027). Any list uses it: InboxPage's
+ * rows, NativeResourceView's, `NativeListItem`'s `actions`, `NativeSwipeRow`.
+ */
 export interface InboxSwipeAction {
   id: string;
   label: string;
@@ -145,8 +159,25 @@ export interface InboxSwipeAction {
   /** Destructive tone (delete, leave). */
   destructive?: boolean;
   /** Which side of the row a swipe uncovers it from, on the phone. Default `trailing`. */
-  side?: "leading" | "trailing";
+  side?: RowActionSide;
+  /** A Genesis icon name (`trash`, `pin`, `mail`…) shown behind the swipe and in the menu. */
+  icon?: string;
+  /** Its color behind the swipe. Default `red` when destructive, else `tint`. */
+  tone?: RowActionTone;
+  /**
+   * A full swipe runs it, as Mail's Delete and Archive do: the row's first action on its side
+   * with `full` is the one a long drag past the row's middle triggers. Off by default.
+   */
+  full?: boolean;
+  /**
+   * Behind a swipe on the phone. Default `true`; `false` keeps it in the long-press menu and the
+   * screen reader's actions only (an action that needs a second look before it runs).
+   */
+  swipe?: boolean;
 }
+
+/** A row's actions as one shape: the name the list primitives use for `InboxSwipeAction`. */
+export type RowSwipeAction = InboxSwipeAction;
 
 export interface InboxItem {
   /** Stable id for keying. */

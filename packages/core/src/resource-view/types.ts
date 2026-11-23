@@ -3,6 +3,7 @@
 
 import type { GalleryItem } from "../gallery";
 import type { ChipTone } from "../resource/status";
+import type { RowActionSide, RowActionTone } from "../conversation/types";
 import type { DataRow, FieldSchema, ResourceContract, RowAction, RowOf } from "../schema/types";
 import type { Viewer } from "../viewer";
 import type { FilterParam } from "../provider/types";
@@ -363,9 +364,22 @@ export interface ViewGuards<Row extends DataRow> {
  * actions: [{ name: "archive", label: "Archive", confirm: "Archive this brand?", can: (r) => (r.is_default ? "The default brand stays." : true) }]
  * ```
  */
+/**
+ * Where a view action sits behind a row's swipe on the phone (ADR 0027). A side, or the side and
+ * whether a full swipe runs it; `false` keeps it off the swipe (the long-press menu and the screen
+ * reader's actions still offer it). Web lists ignore it: their row menu lists every action.
+ */
+export type ViewActionSwipe = RowActionSide | { readonly side: RowActionSide; readonly full?: boolean } | false;
+
 export interface ViewAction<Row extends DataRow = DataRow> extends RowAction {
   /** Drawn as destructive (red, the menu's destructive style). */
   destructive?: boolean;
+  /** Behind which side of a row's swipe, on the phone. Default `trailing`. */
+  swipe?: ViewActionSwipe;
+  /** A Genesis icon name (`archive`, `pin`, `mail`), behind the swipe and in the menus. */
+  icon?: string;
+  /** Its color behind the swipe (iOS's system colors). Default `red` when destructive, else the tint. */
+  tone?: RowActionTone;
   can?: (row: Row, viewer: Viewer) => Allowed;
   /** Also offer it on many selected rows (ADR 0017): `true`, or how it runs on them. */
   bulk?: boolean | ViewBulkAction<Row>;
@@ -374,6 +388,10 @@ export interface ViewAction<Row extends DataRow = DataRow> extends RowAction {
 /** An action as a renderer lists it: the words only. Ask `view.canAction` whether a row allows it. */
 export type ResolvedViewAction = RowAction & {
   readonly destructive?: boolean;
+  /** Where the swipe puts it, when the action says: a side and whether a full swipe runs it, or `false` for off the swipe. Unset is trailing. */
+  readonly swipe?: { readonly side: RowActionSide; readonly full: boolean } | false;
+  readonly icon?: string;
+  readonly tone?: RowActionTone;
   /** Set when the action runs on many rows: its bar label, confirmation and whether it takes every matching row. */
   readonly bulk?: { readonly label: string; readonly confirm?: string; readonly matching: boolean; readonly batch: boolean };
 };

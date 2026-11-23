@@ -330,6 +330,33 @@ instance `create*`, a pure result `to*` or `resolve*`. Factory suffixes follow t
 `…Sink`. The check (`pnpm check:export-prefixes`, CI on pull requests) reads only exports a pull
 request adds, so nothing existing is renamed; an old name moves only through a deprecated alias.
 
+## Native screens follow iOS
+
+Every Genesis native app gets these by default, and `genesis doctor` holds new screens to them
+(ui-native's rules `screens-use-native-header` and `tab-bar-hidden-per-screen`). They follow
+Apple's Human Interface Guidelines for navigation bars, tab bars and lists.
+
+1. **The header is the stack's own.** A screen never hides the header to draw a title bar, a back
+   button or a search field of its own. `ScreenContainer`'s `header` sets the native header from
+   inside the screen (through `GenesisModules.router.StackScreen`, expo-router's `Stack.Screen`):
+   a large title that collapses on scroll on a top-level screen, a standard one (`large: false`)
+   on a drill-down, header buttons as native items (`headerRightItems`, react-native-screens'
+   `unstable_headerRightItems`) and search as the system field (`search`, its
+   `headerSearchBarOptions`, with iOS 26's `placement: "integrated"`). `composeHeaderOptions`
+   gives the same options for a `<Stack.Screen options>` of your own. Full-screen media
+   (`NativeLightbox`, `NativeFullScreenModal`) and sign-in (`AuthScreen`) are the exceptions.
+2. **The tab bar hides per screen, never by hand.** Top-level screens show it. A drill-down or an
+   immersive screen (a conversation, a viewer) may hide it while it's focused:
+   `<ScreenContainer tabBar="hidden">` or `useHideTabBar()`, with `TabBarVisibilityProvider` around
+   the tab navigator, as UIKit's `hidesBottomBarWhenPushed`. The stack keeps the back button, the
+   push transition and the edge swipe back, and a deep link opens the screen the same way.
+3. **A row's actions show three ways, from one list** ([ADR 0027](./adr/0027-row-actions.md)):
+   behind a swipe (leading and trailing, a full swipe for the first, iOS 26's round style), in
+   the long-press menu (the system context menu with `GenesisModules.menu`), and as VoiceOver's
+   actions. A view's `actions` say where they swipe (`swipe: "leading"`); any other list passes
+   the same `RowSwipeAction` list to `NativeListItem`'s `actions` or `NativeRowActions`. The web
+   lists every action in the row's menu.
+
 ---
 
 ## What is explicitly OUT
