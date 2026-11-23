@@ -10,3 +10,4 @@ iOS standards for every native screen (ADR 0028).
 - **Tab bar per screen:** `TabBarVisibilityProvider`, `useHideTabBar`, `useTabBarHidden`, `ScreenContainer tabBar="hidden"` and `NativeTabBar hidden`, as UIKit's `hidesBottomBarWhenPushed`; `createPlaceExit` remembers where a place that hides the bar for its whole stack (Messages) goes back to.
 - **Native header:** `ScreenContainer header` sets the stack's native header through `GenesisModules.router.StackScreen`; `composeHeaderOptions` takes `search` (`headerSearchBarOptions`) and `headerRightItems` / `headerLeftItems`. `NavBarSearchBar` is deprecated.
 - Doctor rules `screens-use-native-header` and `tab-bar-hidden-per-screen`; icons `archive`, `bell-off`, `flag`, `mail-open`, `message-unread`, `pin-off`.
+- `NativeResourceView` swipes by default (`NativeSwipeRow`; `swipeable={null}` turns it off) and, with `GenesisModules.menu`, opens the system context menu on long press instead of the alert.
