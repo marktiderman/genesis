@@ -1,0 +1,26 @@
+packages/chat/migrations/tests/0007_genesis_chat_unread_and_delete_for_me.test.sql
+  s_42efe440240299::t_5d0ee7b06e3601 9,72-81,83-85,89-90,95-96,110
+packages/chat/migrations/0007_genesis_chat_unread_and_delete_for_me.sql
+  s_42efe440240299::t_5d0ee7b06e3601 13,304-357
+  s_42efe440240299::t_2942b66d57811e 358
+docs/adr/0027-chat-mark-unread-and-delete-for-me.md
+  s_42efe440240299::t_eae62f59329638 46-48
+packages/chat/README.md
+  s_42efe440240299::t_37c4b8e80ac05d 453-454
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "09fd424be45a7319d46bfc7a0cdee25e8a6fab0d",
+  "prompts": {},
+  "sessions": {
+    "s_42efe440240299": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f544dd57-0b31-4773-b89e-4661a182129e",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
