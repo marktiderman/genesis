@@ -52,6 +52,9 @@ export interface NativeSwipeRowProps {
   testID?: string;
 }
 
+/** How far past a side's open actions a full swipe must go, in points. */
+export const FULL_SWIPE_CLEARANCE = 40;
+
 /** A button's width behind the row: room for a short label. */
 const ACTION_WIDTH = 80;
 
@@ -115,12 +118,20 @@ function withAccessibilityActions(children: ReactNode, actions: readonly RowSwip
  * reported (the latest UI-thread value, so the finger's position, not the furthest it went: a drag
  * that backs out, or crosses to the other side, doesn't run it). `direction` is where the row is
  * opening (gesture-handler: `"right"` uncovers the left-hand actions); the offset must be on that
- * side. The report comes a frame or so after the finger lifts, so a release right at the threshold
+ * side, and further than the side's open actions (`open`, their width) by `FULL_SWIPE_CLEARANCE`. The report comes a frame or so after the finger lifts, so a release right at the threshold
  * can land either side of it.
  */
-export function fullSwipeSide(dx: number, width: number, ratio: number, direction?: "left" | "right"): "left" | "right" | undefined {
-  if (!width || Math.abs(dx) < width * ratio) return undefined;
+export function fullSwipeSide(
+  dx: number,
+  width: number,
+  ratio: number,
+  direction?: "left" | "right",
+  open: { left: number; right: number } = { left: 0, right: 0 },
+): "left" | "right" | undefined {
   const side = dx > 0 ? "left" : "right";
+  // Past the ratio and clear of the side's open actions, so a row springing open to its buttons
+  // (wider than the ratio on a narrow phone) never counts as a full swipe.
+  if (!width || Math.abs(dx) < Math.max(width * ratio, open[side] + FULL_SWIPE_CLEARANCE)) return undefined;
   if (direction && (direction === "right" ? "left" : "right") !== side) return undefined;
   return side;
 }
@@ -153,6 +164,8 @@ export function NativeSwipeRow({
     action.onPress();
   };
   const round = appearance === "round";
+  // The width a side's actions open to: fill buttons side by side, or round ones with their gaps.
+  const openWidth = (n: number) => (n === 0 ? 0 : round ? n * 56 + (n + 1) * 10 : n * ACTION_WIDTH);
   const group = (list: readonly RowSwipeAction[]) => (_progress?: unknown, translation?: { value: number }) => {
     if (translation) offset.current = translation;
     return (
@@ -199,7 +212,7 @@ export function NativeSwipeRow({
         overshootFriction={1}
         onSwipeableWillOpen={(direction) => {
           // Called on release: a row let go past the ratio of its width, on the side it's opening, runs that side's full action.
-          const side = fullSwipeSide(offset.current?.value ?? 0, width, fullSwipeRatio, direction);
+          const side = fullSwipeSide(offset.current?.value ?? 0, width, fullSwipeRatio, direction, { left: openWidth(left.length), right: openWidth(right.length) });
           const action = side === "left" ? fullLeft : side === "right" ? fullRight : undefined;
           if (action) {
             // A refused action explains itself instead of running: no success tap before it.

@@ -287,6 +287,10 @@ export function ScreenContainer({
       return {
         headerLargeTitle: large,
         headerSearchBarOptions: undefined,
+        headerLeft: undefined,
+        headerRight: undefined,
+        headerTransparent: undefined,
+        headerLargeTitleShadowVisible: undefined,
         unstable_headerRightItems: undefined,
         unstable_headerLeftItems: undefined,
         ...composeHeaderOptions({ scrollEdgeBehavior: "match", ...h, large }),

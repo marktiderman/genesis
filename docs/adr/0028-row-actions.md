@@ -47,7 +47,7 @@ as it is.
      at most three a side (`maxPerSide`), the row tracking the finger 1:1, and the full swipe
      past 0.6 of the row's width (`fullSwipeRatio`), decided on the row's offset as the release
      is reported, on the side it's opening (`fullSwipeSide`: backing out or crossing sides
-     doesn't run it; a release right at the threshold can land either side, the report coming a
+     doesn't run it, and it must clear the side's open actions by 40pt, so a row springing open to its buttons never counts; a release right at the threshold can land either side, the report coming a
      frame after the finger lifts); a side keeps its destructive action under the cap;
      right-to-left aware; the actions on its child as `accessibilityActions` unless the row
      already has them; unseen at rest.

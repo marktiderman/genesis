@@ -6,6 +6,7 @@ import { GenesisModulesProvider, type GenesisModules } from "../../native-module
 import { NativeListItem } from "../list-item";
 import { NativeRowActions, toMenuAction } from "../row-actions";
 import { NativeSwipeRow, fullSwipeSide, rowActionColor, splitSwipeActions } from "../swipe-row";
+import { ROW_ACTION_TONES, onRowActionColor } from "../../tokens/row-action-tones";
 
 afterEach(cleanup);
 
@@ -260,6 +261,25 @@ describe("row actions (ADR 0028)", () => {
     expect(screen.getByTestId("li").dataset.a11yActions).toBe("read,pin,review,delete");
     view.rerender(<NativeListItem title="Ada" actions={actions} disabled testID="li" />);
     expect(screen.getByTestId("li").dataset.a11yActions).toBeUndefined();
+  });
+
+  it("never counts a row springing open to its buttons as a full swipe, even when they're wider than the ratio", () => {
+    // A 320pt phone with three 80pt actions opens to 240, past 0.6 (192): the full swipe needs 240 + 40.
+    expect(fullSwipeSide(-240, 320, 0.6, "left", { left: 0, right: 240 })).toBeUndefined();
+    expect(fullSwipeSide(-279, 320, 0.6, "left", { left: 0, right: 240 })).toBeUndefined();
+    expect(fullSwipeSide(-280, 320, 0.6, "left", { left: 0, right: 240 })).toBe("right");
+  });
+
+  it("draws white on fallback tones at 4.5:1 or more, and black on yellow", () => {
+    const lum = (hex: string) => {
+      const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+      return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
+    };
+    for (const [tone, { fallback }] of Object.entries(ROW_ACTION_TONES)) {
+      const on = onRowActionColor(tone as never);
+      const [hi, lo] = [lum(fallback), lum(on)].sort((a, b) => b - a) as [number, number];
+      expect((hi + 0.05) / (lo + 0.05), tone).toBeGreaterThanOrEqual(4.5);
+    }
   });
 });
 
