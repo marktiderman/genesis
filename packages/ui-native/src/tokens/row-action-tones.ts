@@ -6,14 +6,19 @@
  */
 import type { RowActionTone } from "@marktiderman/genesis-core/conversation";
 
-/** Each tone's iOS system color name, and its fallback where there is no `PlatformColor`. */
+/**
+ * Each tone's iOS system color name, and its fallback where there is no `PlatformColor`. iOS keeps
+ * its system colors, as Mail and Messages draw them; the fallbacks are darker shades that carry
+ * white text at 4.5:1 or more (WCAG AA).
+ */
 export const ROW_ACTION_TONES: Record<Exclude<RowActionTone, "tint" | "red">, { ios: string; fallback: string }> = {
-  blue: { ios: "systemBlue", fallback: "#007AFF" },
-  green: { ios: "systemGreen", fallback: "#34C759" },
-  orange: { ios: "systemOrange", fallback: "#FF9500" },
-  purple: { ios: "systemPurple", fallback: "#AF52DE" },
+  blue: { ios: "systemBlue", fallback: "#0062CC" },
+  green: { ios: "systemGreen", fallback: "#1E7B34" },
+  orange: { ios: "systemOrange", fallback: "#B45400" },
+  purple: { ios: "systemPurple", fallback: "#8A3FB8" },
+  // Yellow carries black text (onRowActionColor): 13.9:1.
   yellow: { ios: "systemYellow", fallback: "#FFCC00" },
-  gray: { ios: "systemGray", fallback: "#8E8E93" },
+  gray: { ios: "systemGray", fallback: "#636366" },
 };
 
 /** Text and icons on a colored action: white, as iOS draws them, except on yellow, where only black reads (WCAG 4.5:1). */

@@ -50,8 +50,10 @@ meaning.
 `NativeIcon` takes a semantic name (`"settings"`, `"bell"`, `"trash"`: `NATIVE_ICON_NAMES`), never a
 library's own. It is decorative (hidden from screen readers) unless you give it a `label`.
 
-**Gesture handler.** No component here needs `react-native-gesture-handler` except `NativeSheet`
-when it draws with `@gorhom/bottom-sheet`. If you use that, install `react-native-gesture-handler`
+**Gesture handler.** Two things here need `react-native-gesture-handler`: `NativeSheet` when it
+draws with `@gorhom/bottom-sheet`, and swipe actions (`GenesisModules.swipeable`, its
+`ReanimatedSwipeable`: NativeSwipeRow, NativeRowActions, InboxPage and NativeResourceView rows).
+If you use either, install `react-native-gesture-handler`
 as a direct dependency of your app (`npx expo install react-native-gesture-handler`) and wrap the
 root in its `GestureHandlerRootView`; don't rely on another package bringing it in. The drawer's
 swipe uses React Native's `PanResponder`.

@@ -154,7 +154,13 @@ describe("the native header", () => {
       </GenesisModulesProvider>,
     );
     // Set explicitly, so the large title and the search of the render before are taken away.
-    expect(seen.at(-1)).toEqual({ title: "Ada", headerLargeTitle: false, headerSearchBarOptions: undefined, unstable_headerRightItems: undefined, unstable_headerLeftItems: undefined });
+    const last = seen.at(-1)!;
+    expect(last).toMatchObject({ title: "Ada", headerLargeTitle: false });
+    // Every option is a key, so setOptions' merge resets what the render before set.
+    for (const key of ["headerSearchBarOptions", "headerLeft", "headerRight", "headerTransparent", "headerLargeTitleShadowVisible", "unstable_headerRightItems", "unstable_headerLeftItems"]) {
+      expect(key in last, key).toBe(true);
+      expect(last[key], key).toBeUndefined();
+    }
   });
 
   it("ScreenContainer header without the router module renders nothing extra", () => {
