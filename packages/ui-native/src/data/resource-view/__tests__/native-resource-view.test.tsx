@@ -1391,7 +1391,11 @@ describe("row actions by default (ADR 0028)", () => {
         </GenesisModulesProvider>
       ),
     });
-    const row = await screen.findByTestId("native-resource-view-row-b1");
+    const laidOut = await screen.findByTestId("native-resource-view-row-b1");
+    expect(seen).toEqual([]);
+    expect(laidOut).toBeTruthy();
+    act(() => void screen.getByTestId("native-resource-view-row-b1-menu-host").dispatchEvent(new CustomEvent("layout", { detail: { width: 390, height: 60 } })));
+    const row = screen.getByTestId("native-resource-view-row-b1");
     expect(seen[0]).toEqual(["edit", "delete"]);
     fireEvent.contextMenu(row);
     expect(alert).not.toHaveBeenCalledWith("Northwind", undefined, expect.anything());

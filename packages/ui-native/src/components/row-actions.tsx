@@ -14,7 +14,8 @@
 import { cloneElement, isValidElement, useState, type ReactElement, type ReactNode } from "react";
 import type { RowSwipeAction } from "@marktiderman/genesis-core/conversation";
 import { SF_SYMBOLS, type NativeIconName } from "../icon-names";
-import { useGenesisModules, type GenesisMenuAction } from "../native-modules";
+import { View } from "react-native";
+import { useGenesisModules, type GenesisMenuAction, type GenesisMenuComponent } from "../native-modules";
 import { NativeContextMenu } from "./context-menu";
 import { NativeSwipeRow, rowAccessibilityActions } from "./swipe-row";
 
@@ -52,6 +53,45 @@ type RowProps = {
   onAccessibilityAction?: (event: { nativeEvent: { actionName: string } }) => void;
 };
 
+/**
+ * A row inside the system context menu (`GenesisModules.menu`). The menu's host sizes itself to
+ * its content, which would shrink a row that only stretches: so the row draws as it is until its
+ * width is known, then sits in the menu at exactly that width.
+ */
+export function NativeSystemMenuRow({
+  Menu,
+  actions,
+  title,
+  testID,
+  children,
+}: {
+  Menu: GenesisMenuComponent;
+  actions: readonly RowSwipeAction[];
+  title?: string;
+  testID: string;
+  children: ReactNode;
+}) {
+  const [width, setWidth] = useState(0);
+  return (
+    <View testID={`${testID}-host`} onLayout={(e) => setWidth(Math.round(e.nativeEvent.layout.width))} style={{ alignSelf: "stretch" }}>
+      {width ? (
+        <Menu
+          testID={testID}
+          {...(title ? { title } : {})}
+          actions={actions.map(toMenuAction)}
+          shouldOpenOnLongPress
+          style={{ width }}
+          onPressAction={({ nativeEvent }) => actions.find((a) => a.id === nativeEvent.event)?.onPress()}
+        >
+          <View style={{ width }}>{children}</View>
+        </Menu>
+      ) : (
+        children
+      )}
+    </View>
+  );
+}
+
 export function NativeRowActions({ actions, title, children, appearance, preview, testID = "row-actions" }: NativeRowActionsProps) {
   const { menu } = useGenesisModules();
   const Menu = preview ? undefined : menu;
@@ -74,15 +114,9 @@ export function NativeRowActions({ actions, title, children, appearance, preview
   }
   if (Menu) {
     row = (
-      <Menu
-        testID={`${testID}-menu`}
-        {...(title ? { title } : {})}
-        actions={actions.map(toMenuAction)}
-        shouldOpenOnLongPress
-        onPressAction={({ nativeEvent }) => actions.find((a) => a.id === nativeEvent.event)?.onPress()}
-      >
+      <NativeSystemMenuRow Menu={Menu} actions={actions} {...(title ? { title } : {})} testID={`${testID}-menu`}>
         {row}
-      </Menu>
+      </NativeSystemMenuRow>
     );
   }
   return (

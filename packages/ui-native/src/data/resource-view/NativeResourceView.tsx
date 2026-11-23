@@ -39,7 +39,7 @@ import { NativeSearchBar } from "../../components/search-bar";
 import { NativeSectionListHeader } from "../../components/section-list";
 import { NativeSheet } from "../../components/sheet";
 import { NativeSwipeRow } from "../../components/swipe-row";
-import { toMenuAction } from "../../components/row-actions";
+import { NativeSystemMenuRow } from "../../components/row-actions";
 import { NativeText } from "../../components/text";
 import { useGenesisModules, type GenesisMenuComponent } from "../../native-modules";
 import { useThemeRoles } from "../../hooks/use-theme-roles";
@@ -303,15 +303,9 @@ function cardFor<T extends Row>(
 function withSwipe(content: ReactNode, card: NativeResourceCardActions, Swipeable: ComponentType<NativeResourceSwipeableProps> | undefined, Menu?: GenesisMenuComponent) {
   if (!card.actions.length) return content;
   const menu = Menu ? (
-    <Menu
-      testID={`${card.pressableProps.testID}-menu`}
-      title={card.item.title}
-      actions={card.actions.map(toMenuAction)}
-      shouldOpenOnLongPress
-      onPressAction={({ nativeEvent }) => card.actions.find((a) => a.id === nativeEvent.event)?.onPress()}
-    >
+    <NativeSystemMenuRow Menu={Menu} actions={card.actions} title={card.item.title} testID={`${card.pressableProps.testID}-menu`}>
       {content}
-    </Menu>
+    </NativeSystemMenuRow>
   ) : (
     content
   );

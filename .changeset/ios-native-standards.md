@@ -11,3 +11,4 @@ iOS standards for every native screen (ADR 0028).
 - **Native header:** `ScreenContainer header` sets the stack's native header through `GenesisModules.router.StackScreen`; `composeHeaderOptions` takes `search` (`headerSearchBarOptions`) and `headerRightItems` / `headerLeftItems`. `NavBarSearchBar` is deprecated.
 - Doctor rules `screens-use-native-header` and `tab-bar-hidden-per-screen`; icons `archive`, `bell-off`, `flag`, `mail-open`, `message-unread`, `pin-off`.
 - `NativeResourceView` swipes by default (`NativeSwipeRow`; `swipeable={null}` turns it off) and, with `GenesisModules.menu`, opens the system context menu on long press instead of the alert.
+- Swipes track the finger 1:1 and a full swipe runs past 0.6 of the row, as iOS; the actions stay unseen at rest (an inset row's margins never show them).
