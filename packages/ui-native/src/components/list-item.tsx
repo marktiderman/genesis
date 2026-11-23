@@ -116,7 +116,8 @@ function ListItemRow({
     return (
       <Pressable
         testID={testID ?? "native-list-item"}
-        accessibilityRole={accessibilityRole}
+        // A row that only carries actions isn't a button: no role, and VoiceOver offers its actions.
+        accessibilityRole={onPress ? accessibilityRole : "none"}
         accessibilityLabel={accessibilityLabel ?? (subtitle ? `${title}, ${subtitle}` : title)}
         accessibilityState={{ disabled, ...accessibilityState }}
         disabled={disabled}

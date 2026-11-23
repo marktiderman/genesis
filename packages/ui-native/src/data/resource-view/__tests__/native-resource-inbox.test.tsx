@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 import { defineResource, GenesisProvider, type DataProvider } from "@marktiderman/genesis-core";
 import { defineView } from "@marktiderman/genesis-core/resource-view";
 import { NativeResourceView } from "..";
+import { GenesisModulesProvider } from "../../../native-modules";
 
 type Ticket = { id: string; subject: string; body: string; unread: boolean };
 
@@ -56,4 +57,35 @@ describe("NativeResourceView inbox", () => {
     fireEvent.click(screen.getByText("Invoice copy"));
     expect(onRowPress).toHaveBeenCalledWith(expect.objectContaining({ id: "t2" }));
   });
+
+  it("swipes only the view's placed actions, as list rows do; the rest stay in the menu", async () => {
+    const placed = defineView(tickets, { inbox: { preview: "body", unread: "unread" }, actions: [{ name: "pin", label: "Pin", swipe: "leading" }, { name: "note", label: "Note" }] });
+    const p = {
+      getList: vi.fn(async () => ({ data: ROWS, total: ROWS.length })),
+      getOne: vi.fn(),
+      getMany: vi.fn(async () => ({ data: [] })),
+      create: vi.fn(),
+      update: vi.fn(),
+      deleteOne: vi.fn(),
+    } as unknown as DataProvider;
+    const Swipeable = (props: { testID?: string; renderLeftActions?: () => ReactNode; renderRightActions?: () => ReactNode; children?: ReactNode }) => (
+      <div data-testid={props.testID}>
+        {props.renderLeftActions?.()}
+        {props.renderRightActions?.()}
+        {props.children}
+      </div>
+    );
+    const Inner = wrap(p);
+    render(<NativeResourceView view={placed} type="inbox" onAction={vi.fn()} can={() => false} />, {
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <GenesisModulesProvider modules={{ swipeable: Swipeable as never }}>
+          <Inner>{children}</Inner>
+        </GenesisModulesProvider>
+      ),
+    });
+    expect(await screen.findByText("Can't sign in")).toBeTruthy();
+    expect(screen.getAllByTestId(/-swipe-action-pin$/).length).toBeGreaterThan(0);
+    expect(screen.queryAllByTestId(/-swipe-action-note$/)).toHaveLength(0);
+  });
 });
+

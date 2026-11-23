@@ -1,11 +1,11 @@
 // @feat:row-actions
-import { forwardRef, useImperativeHandle, useState, type ReactNode } from "react";
+import { forwardRef, useImperativeHandle, type ReactNode } from "react";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { GenesisModulesProvider, type GenesisModules } from "../../native-modules";
 import { NativeListItem } from "../list-item";
 import { NativeRowActions, toMenuAction } from "../row-actions";
-import { NativeSwipeRow, rowActionColor, splitSwipeActions } from "../swipe-row";
+import { NativeSwipeRow, fullSwipeSide, rowActionColor, splitSwipeActions } from "../swipe-row";
 
 afterEach(cleanup);
 
@@ -15,7 +15,7 @@ function fakeSwipeable(close: () => void, dx: () => number) {
     useImperativeHandle(ref, () => ({ close }));
     const translation = { get value() { return dx(); } };
     return (
-      <div data-testid={props.testID} data-overshoot-left={String(props.overshootLeft)} data-overshoot-right={String(props.overshootRight)} data-overshoot-friction={String(props.overshootFriction)} onClick={() => props.onSwipeableWillOpen?.()} onDoubleClick={() => props.onSwipeableWillClose?.()} onMouseDown={() => props.onSwipeableOpenStartDrag?.()} onMouseUp={() => props.onSwipeableClose?.()}>
+      <div data-testid={props.testID} data-overshoot-left={String(props.overshootLeft)} data-overshoot-right={String(props.overshootRight)} data-overshoot-friction={String(props.overshootFriction)} onClick={() => props.onSwipeableWillOpen?.(dx() > 0 ? "right" : "left")} onDoubleClick={() => props.onSwipeableWillClose?.()} onMouseDown={() => props.onSwipeableOpenStartDrag?.()} onMouseUp={() => props.onSwipeableClose?.()}>
         <div data-testid="left">{props.renderLeftActions?.(undefined, translation)}</div>
         <div data-testid="right">{props.renderRightActions?.(undefined, translation)}</div>
         {props.children as ReactNode}
@@ -211,32 +211,46 @@ describe("row actions (ADR 0028)", () => {
     expect(screen.queryByTestId("s-action-d")).toBeNull();
   });
 
-  it("decides the full swipe on the drag's furthest point, kept on the UI thread, not where the row springs back to", () => {
+  it("decides the full swipe where the finger lets go, on the side the row opens: backing out or crossing sides doesn't run it", () => {
+    expect(fullSwipeSide(-300, 400, 0.6, "left")).toBe("right");
+    expect(fullSwipeSide(300, 400, 0.6, "right")).toBe("left");
+    // Dragged past 0.6, then backed out to -100 before letting go.
+    expect(fullSwipeSide(-100, 400, 0.6, "left")).toBeUndefined();
+    // Dragged right to +300, then across to -100: the trailing side opens, nothing runs.
+    expect(fullSwipeSide(-100, 400, 0.6, "left")).toBeUndefined();
+    // The offset and the opening side disagree: nothing runs.
+    expect(fullSwipeSide(300, 400, 0.6, "left")).toBeUndefined();
+    expect(fullSwipeSide(300, 0, 0.6, "right")).toBeUndefined();
+
     const actions = make();
-    const reactions: ((v: number) => void)[] = [];
-    const reanimated = {
-      useSharedValue: (v: number) => {
-        const [sv] = useState(() => ({ value: v }));
-        return sv;
-      },
-      useAnimatedReaction: (_prepare: () => number, react: (v: number, p: number | null) => void) => void reactions.push((v) => react(v, null)),
-    } as unknown as NonNullable<GenesisModules["reanimated"]>;
     let dx = 0;
     const Swipeable = fakeSwipeable(vi.fn(), () => dx);
     render(
-      <GenesisModulesProvider modules={{ swipeable: Swipeable as never, reanimated }}>
+      <GenesisModulesProvider modules={{ swipeable: Swipeable as never }}>
         <NativeSwipeRow actions={actions} testID="s">
           <i />
         </NativeSwipeRow>
       </GenesisModulesProvider>,
     );
     layout(screen.getByTestId("s").parentElement!, 400);
-    fireEvent.mouseDown(screen.getByTestId("s"));
-    // The finger went to -300; by release the row has sprung back to -160.
-    act(() => reactions.forEach((r) => r(-300)));
-    dx = -160;
+    // Back out: released at -100 after passing the threshold.
+    dx = -100;
     fireEvent.click(screen.getByTestId("s"));
-    expect(actions[3]!.onPress).toHaveBeenCalledTimes(1);
+    // Cross sides: released at -100 after +300.
+    fireEvent.click(screen.getByTestId("s"));
+    expect(actions[0]!.onPress).not.toHaveBeenCalled();
+    expect(actions[3]!.onPress).not.toHaveBeenCalled();
+  });
+
+  it("keeps a side's destructive action when it caps the side", () => {
+    const list = ["a", "b", "c"].map((id) => ({ id, label: id, onPress: vi.fn() }));
+    const del = { id: "delete", label: "Delete", destructive: true, onPress: vi.fn() };
+    expect(splitSwipeActions([...list, del], 3).trailing.map((a) => a.id)).toEqual(["a", "b", "delete"]);
+  });
+
+  it("gives a row with actions but no onPress no button role", () => {
+    render(<NativeListItem title="Ada" actions={make()} testID="li" />);
+    expect(screen.getByTestId("li").getAttribute("role")).toBe("none");
   });
 
   it("makes a NativeListItem with actions pressable, so its long press reaches the menu; a disabled one offers none", () => {
