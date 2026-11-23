@@ -1,0 +1,25 @@
+apps/genesis-rn-starter/README.md
+  s_42efe440240299::t_afdd6a0a712b70 187-191
+apps/genesis-rn-starter/supabase/migrations/20261026001500_genesis_chat_unread_and_delete_for_me.sql
+  s_42efe440240299::t_afdd6a0a712b70 1-367
+apps/genesis-rn-starter/__tests__/starter.test.ts
+  s_42efe440240299::t_afdd6a0a712b70 458-468
+apps/genesis-rn-starter/supabase/tests/database/genesis_chat_unread_and_delete_for_me.test.sql
+  s_42efe440240299::t_afdd6a0a712b70 1-120
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "78344c53b37af9b32ad03d1115174174402e6889",
+  "prompts": {},
+  "sessions": {
+    "s_42efe440240299": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f544dd57-0b31-4773-b89e-4661a182129e",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
