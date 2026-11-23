@@ -1,0 +1,36 @@
+packages/ui-native/src/data/resource-view/__tests__/native-resource-inbox.test.tsx
+  s_f1aa8511899775::t_2f763de8da4cc6 10,60-89,91
+docs/adr/0028-row-actions.md
+  s_f1aa8511899775::t_1b98e2469410d6 48-51
+packages/ui-native/src/components/index.ts
+  s_f1aa8511899775::t_1b98e2469410d6 321
+packages/ui-native/src/components/list-item.tsx
+  s_f1aa8511899775::t_52f3db7abf4dfa 119-120
+packages/ui-native/src/data/resource-view/NativeResourceView.tsx
+  s_f1aa8511899775::t_1b98e2469410d6 903-904
+packages/ui-native/src/components/swipe-row.tsx
+  s_f1aa8511899775::t_fccf3e145b7fdf 8-9,27,32,67-74,78-79,113-125,137,200-203,214
+packages/ui-native/README.md
+  s_f1aa8511899775::t_1b98e2469410d6 69,73-76,78
+packages/chat/src/native/__tests__/thread-layout.test.ts
+  s_f1aa8511899775::t_6d869799051f75 10,14
+packages/ui-native/src/components/__tests__/row-actions.test.tsx
+  s_f1aa8511899775::t_3967d5e63bc2f9 2,8,18,214-224,229,236-237,239-252
+  s_f1aa8511899775::t_52f3db7abf4dfa 253
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d9de8f619c202c318f6e714db4faea780a627b9f",
+  "prompts": {},
+  "sessions": {
+    "s_f1aa8511899775": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "18c56dc7-ac34-4eaf-92bf-016e2c3bbcb7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
