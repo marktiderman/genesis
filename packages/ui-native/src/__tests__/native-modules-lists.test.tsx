@@ -33,7 +33,7 @@ vi.mock("lucide-react-native", () => {
     "Download", "Smile", "Maximize2", "Square", "SwitchCamera", "Video", "Volume2", "VolumeX",
     "Aperture", "Clapperboard", "FolderPlus", "Maximize", "Radio", "Settings2",
     "ArrowUpDown", "Eye", "GripVertical", "LayoutGrid", "Link", "List", "Redo2", "Table", "Undo2", "Upload",
-    "Archive", "BellOff", "Flag", "MailOpen",
+    "Archive", "BellOff", "Flag", "MailOpen", "MessageSquareDot", "PinOff",
   ];
   return Object.fromEntries(names.map((n) => [n, icon(n)]));
 });

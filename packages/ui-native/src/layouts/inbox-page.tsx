@@ -53,7 +53,7 @@ export { formatInboxTime } from "@marktiderman/genesis-core/conversation";
 /** The parts `slots` and `slotProps` reach, with the props each receives. */
 export type InboxPageSlotMap = {
   row: InboxItem & { testID: string; isFirst: boolean; isLast: boolean; timeLabel: string | null };
-  swipeable: { actions: InboxSwipeAction[]; testID: string; children?: ReactNode };
+  swipeable: { actions: InboxSwipeAction[]; testID: string; appearance?: "fill" | "round"; children?: ReactNode };
   header: { testID: string };
   footer: { loadingMore: boolean; testID: string };
   empty: { title: string; body: string; actionLabel?: string; onAction?: () => void; testID: string };
@@ -92,6 +92,10 @@ export interface InboxPageProps extends ScreenHeaderProps {
   formatTime?: (date: Date, now: Date) => string;
   /** The clock, for tests. */
   now?: () => Date;
+  /** How a row's swipe draws its actions: `"fill"` (default) or iOS 26's `"round"`, as Messages has them (ADR 0028). */
+  swipeAppearance?: "fill" | "round";
+  /** A peek of the row above its long-press menu (Messages shows the latest messages). */
+  menuPreview?: (row: InboxPageSlotMap["row"]) => ReactNode;
   slots?: Slots<InboxPageSlotMap>;
   slotProps?: SlotPropsFor<InboxPageSlotMap>;
   /** testID on the root. Default `"inbox-page"`. */
@@ -147,6 +151,8 @@ export function InboxPage({
   now = () => new Date(),
   slots = {},
   slotProps = {},
+  swipeAppearance,
+  menuPreview,
   testID = "inbox-page",
 }: InboxPageProps) {
   const colors = useThemeRoles();
@@ -243,14 +249,14 @@ export function InboxPage({
           return (
             <Fragment>
               {actions.length && slots.swipeable !== null
-                ? renderSlot(NativeSwipeRow, slots.swipeable, { actions, testID: `${row.testID}-swipe`, children: content }, slotProps.swipeable)
+                ? renderSlot(NativeSwipeRow, slots.swipeable, { actions, testID: `${row.testID}-swipe`, ...(swipeAppearance ? { appearance: swipeAppearance } : {}), children: content }, slotProps.swipeable)
                 : content}
             </Fragment>
           );
         }}
       />
       </OpenRowMenu.Provider>
-      {menuRow ? <NativeContextMenu open={menuOpen} onOpenChange={setMenuOpen} title={menuRow.title} actions={menuRow.swipeActions ?? []} testID={`${testID}-menu`} /> : null}
+      {menuRow ? <NativeContextMenu open={menuOpen} onOpenChange={setMenuOpen} title={menuRow.title} {...(menuPreview ? { preview: menuPreview(menuRow) } : {})} actions={menuRow.swipeActions ?? []} testID={`${testID}-menu`} /> : null}
     </SafeAreaView>
   );
 }

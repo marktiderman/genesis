@@ -194,6 +194,8 @@ export type KeyboardAvoidingLike = ComponentType<{
 export interface GenesisRouterModule {
   /** Runs an effect while the screen is focused (its cleanup on blur): `useFocusEffect(useCallback(…))`. */
   useFocusEffect?: (effect: () => void | (() => void)) => void;
+  /** `usePathname`: the current path, for `createPlaceExit`'s memory of where the person came from. */
+  usePathname?: () => string;
   /** `Stack.Screen`: sets the current screen's native header options from inside the screen. */
   StackScreen?: ComponentType<{ options?: Record<string, unknown> }>;
 }
@@ -284,8 +286,10 @@ export type GenesisSwipeableComponent = ComponentType<{
   overshootLeft?: boolean;
   overshootRight?: boolean;
   onSwipeableWillOpen?: (direction?: "left" | "right") => void;
-  /** Called once the row has opened (the finger is up): a full swipe runs its action here. */
+  /** Called once the row has opened (the finger is up). */
   onSwipeableOpen?: (direction?: "left" | "right") => void;
+  /** Called as the row starts to close. */
+  onSwipeableWillClose?: (direction?: "left" | "right") => void;
   /** `translation` is Reanimated's shared value of the row's offset; its `.value` is read on the JS thread. */
   renderLeftActions?: (progress?: unknown, translation?: { value: number }) => ReactNode;
   renderRightActions?: (progress?: unknown, translation?: { value: number }) => ReactNode;

@@ -18,3 +18,6 @@ export const ROW_ACTION_TONES: Record<Exclude<RowActionTone, "tint" | "red">, { 
 
 /** Text and icons on a colored action: white, as iOS draws them on every system color. */
 export const ON_ROW_ACTION = "#FFFFFF";
+
+/** The pill a row becomes while its round actions are open (iOS 26 Messages): systemGray5. */
+export const ROW_PILL = { ios: "systemGray5", fallback: "#E5E5EA" } as const;

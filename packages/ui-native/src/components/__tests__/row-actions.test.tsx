@@ -15,7 +15,7 @@ function fakeSwipeable(close: () => void, dx: () => number) {
     useImperativeHandle(ref, () => ({ close }));
     const translation = { get value() { return dx(); } };
     return (
-      <div data-testid={props.testID} data-overshoot-left={String(props.overshootLeft)} data-overshoot-right={String(props.overshootRight)} onClick={() => props.onSwipeableWillOpen?.()}>
+      <div data-testid={props.testID} data-overshoot-left={String(props.overshootLeft)} data-overshoot-right={String(props.overshootRight)} onClick={() => props.onSwipeableWillOpen?.()} onDoubleClick={() => props.onSwipeableWillClose?.()}>
         <div data-testid="left">{props.renderLeftActions?.(undefined, translation)}</div>
         <div data-testid="right">{props.renderRightActions?.(undefined, translation)}</div>
         {props.children as ReactNode}
@@ -138,6 +138,39 @@ describe("row actions (ADR 0028)", () => {
       </GenesisModulesProvider>,
     );
     const button = screen.getByTestId("s-action-pin");
-    expect(JSON.parse(button.dataset.style!)).toMatchObject({ backgroundColor: "transparent", width: 64 });
+    expect(JSON.parse(button.dataset.style!)).toMatchObject({ backgroundColor: "transparent", width: 56 });
+  });
+
+  it("turns the row into a pill while its round actions are open, without remounting it", () => {
+    const Swipeable = fakeSwipeable(vi.fn(), () => 10);
+    render(
+      <GenesisModulesProvider modules={{ swipeable: Swipeable as never }}>
+        <NativeSwipeRow actions={make()} appearance="round" testID="s">
+          <i data-testid="row" />
+        </NativeSwipeRow>
+      </GenesisModulesProvider>,
+    );
+    const row = screen.getByTestId("row");
+    expect(screen.getByTestId("s-pill").dataset.style).toBeUndefined();
+    fireEvent.click(screen.getByTestId("s"));
+    expect(JSON.parse(screen.getByTestId("s-pill").dataset.style!)).toMatchObject({ borderRadius: 26, marginHorizontal: 6 });
+    expect(screen.getByTestId("row")).toBe(row);
+    fireEvent.doubleClick(screen.getByTestId("s"));
+    expect(screen.getByTestId("s-pill").dataset.style).toBeUndefined();
+  });
+
+  it("with a preview, the long press opens the sheet with the peek on top, even with the system menu", async () => {
+    const Menu: NonNullable<GenesisModules["menu"]> = () => <div data-testid="menu" />;
+    render(
+      <GenesisModulesProvider modules={{ menu: Menu }}>
+        <NativeRowActions actions={make()} title="Ada" preview={() => <i data-testid="peek" />} testID="ra">
+          <NativeListItem title="Ada" onPress={vi.fn()} testID="li" />
+        </NativeRowActions>
+      </GenesisModulesProvider>,
+    );
+    expect(screen.queryByTestId("menu")).toBeNull();
+    fireEvent.contextMenu(screen.getByTestId("li"));
+    expect(await screen.findByTestId("peek")).toBeTruthy();
+    expect(screen.getByTestId("ra-sheet-preview")).toBeTruthy();
   });
 });

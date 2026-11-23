@@ -218,6 +218,16 @@ export function composeHeaderOptions(
   return opts;
 }
 
+/**
+ * Hides the tab bar while the screen is focused. A component of its own, so only a screen that
+ * asks reads focus: ScreenContainer also draws sheets and screens outside any navigator, where
+ * the router's focus hook has nothing to read.
+ */
+function HideTabBar() {
+  useHideTabBar();
+  return null;
+}
+
 const DEFAULT_EDGES: SafeAreaEdge[] = ["left", "right"];
 
 // A see-through Android status bar. React Native 0.88 dropped both props from StatusBar's types
@@ -260,7 +270,6 @@ export function ScreenContainer({
   tabBar = "visible",
   header,
 }: ScreenContainerProps) {
-  useHideTabBar(tabBar === "hidden");
   const { router } = useGenesisModules();
   const StackScreen = router?.StackScreen;
   const headerOptions = useMemo(() => (header ? composeHeaderOptions({ large: true, scrollEdgeBehavior: "match", ...header }) : null), [header]);
@@ -303,6 +312,7 @@ export function ScreenContainer({
       style={style}
     >
       {headerOptions && StackScreen ? <StackScreen options={headerOptions} /> : null}
+      {tabBar === "hidden" ? <HideTabBar /> : null}
       {statusBar !== "hidden" ? (
         <StatusBar
           barStyle={

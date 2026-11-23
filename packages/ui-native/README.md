@@ -96,9 +96,14 @@ export function ConversationScreen() {
 }
 ```
 
+A place with its own stack that hides the bar throughout (Messages) gets a back button on its
+first screen to wherever the person came from: `createPlaceExit((path) => …)`, its
+`useRememberOutside()` once in the root layout, and `exitPath(fallback)` for the button.
+
 **Row actions** ([ADR 0028](../../docs/adr/0028-row-actions.md)). One list, three ways: behind a
 swipe (`side`, `full`, `icon`, `tone`; `appearance="round"` for iOS 26's round buttons), in the
-long-press menu, and as VoiceOver's actions.
+long-press menu, and as VoiceOver's actions. `preview` puts a peek above the long-press menu;
+`InboxPage` takes `swipeAppearance` and `menuPreview` for the same.
 
 ```tsx
 import { NativeListItem } from "@marktiderman/genesis-ui-native";

@@ -8,7 +8,8 @@
  * - **Full swipe:** the first `full` action on a side runs when the row is dragged past
  *   `fullSwipeRatio` of its width and let go, as Mail's Delete does.
  * - **Appearance:** `"fill"` draws each action as a colored block with its icon and label;
- *   `"round"` draws iOS 26's round icon buttons with the label under them.
+ *   `"round"` draws iOS 26's round icon buttons (50pt, 10pt apart) with the label under them,
+ *   and while they're open the row itself becomes a pill (systemGray5, inset 6pt), as Messages does.
  * - **Screen readers:** the buttons behind the row are hidden from VoiceOver (a screen reader
  *   doesn't swipe); the same actions go on the row as `accessibilityActions` instead (and so
  *   Maestro and XCUITest can run them), unless `accessibilityActions={false}` says the row
@@ -30,7 +31,7 @@ import { useHaptics } from "../hooks/use-haptics";
 import { useThemeRoles } from "../hooks/use-theme-roles";
 import { useGenesisModules } from "../native-modules";
 import type { NativeIconName } from "../icon-names";
-import { ON_ROW_ACTION, ROW_ACTION_TONES } from "../tokens/row-action-tones";
+import { ON_ROW_ACTION, ROW_ACTION_TONES, ROW_PILL } from "../tokens/row-action-tones";
 import { NativeIcon } from "./icon";
 import { NativeText } from "./text";
 
@@ -113,6 +114,7 @@ export function NativeSwipeRow({
   const swipe = useRef<{ close?: () => void } | null>(null);
   const offset = useRef<{ value: number } | null>(null);
   const [width, setWidth] = useState(0);
+  const [open, setOpen] = useState(false);
   const content = accessibilityActions ? withAccessibilityActions(children, actions) : children;
   const { leading, trailing, fullLeading, fullTrailing } = splitSwipeActions(actions);
   if (!Swipeable || leading.length + trailing.length === 0) return <>{content}</>;
@@ -125,7 +127,7 @@ export function NativeSwipeRow({
   const group = (list: readonly RowSwipeAction[]) => (_progress?: unknown, translation?: { value: number }) => {
     if (translation) offset.current = translation;
     return (
-      <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ flexDirection: "row", alignItems: "stretch", gap: round ? 8 : 0, paddingHorizontal: round ? 8 : 0 }}>
+      <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ flexDirection: "row", alignItems: round ? "center" : "stretch", gap: round ? 10 : 0, paddingHorizontal: round ? 10 : 0 }}>
         {list.map((action) => {
           const color = rowActionColor(action, colors);
           const icon = action.icon ? <NativeIcon name={action.icon as NativeIconName} size={round ? 20 : 22} color={ON_ROW_ACTION} /> : null;
@@ -134,10 +136,10 @@ export function NativeSwipeRow({
               key={action.id}
               testID={`${testID}-action-${action.id}`}
               onPress={() => run(action)}
-              style={{ width: round ? 64 : ACTION_WIDTH, alignItems: "center", justifyContent: "center", gap: 4, backgroundColor: round ? "transparent" : color }}
+              style={{ width: round ? 56 : ACTION_WIDTH, alignItems: "center", justifyContent: "center", gap: 4, backgroundColor: round ? "transparent" : color }}
             >
               {round ? (
-                <View style={{ width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center", backgroundColor: color }}>{icon}</View>
+                <View style={{ width: 50, height: 50, borderRadius: 25, alignItems: "center", justifyContent: "center", backgroundColor: color }}>{icon}</View>
               ) : (
                 icon
               )}
@@ -168,12 +170,23 @@ export function NativeSwipeRow({
           if (action) {
             play("success");
             run(action);
-          } else play("medium");
+          } else {
+            play("medium");
+            setOpen(true);
+          }
         }}
+        onSwipeableWillClose={() => setOpen(false)}
         renderLeftActions={left.length ? group(left) : undefined}
         renderRightActions={right.length ? group(right) : undefined}
       >
-        {content}
+        {round ? (
+          // Always the same wrapper, so opening never remounts the row; only its style changes.
+          <View testID={`${testID}-pill`} style={open ? { marginHorizontal: 6, borderRadius: 26, overflow: "hidden", backgroundColor: Platform.OS === "ios" ? PlatformColor(ROW_PILL.ios) : ROW_PILL.fallback } : undefined}>
+            {content}
+          </View>
+        ) : (
+          content
+        )}
       </Swipeable>
     </View>
   );
