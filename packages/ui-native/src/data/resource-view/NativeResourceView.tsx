@@ -884,8 +884,12 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
       ) : inbox ? (
         <InboxPage
           testID={`${testID}-inbox`}
-          // `swipeable={null}` turns the inbox rows' swipe off too (the menu and accessibility actions stay).
-          {...(swipeableProp === null ? { slots: { swipeable: null } } : {})}
+          // The screen's own `swipeable` wraps inbox rows too, and `null` turns their swipe off (the menu and accessibility actions stay).
+          {...(swipeableProp === null
+            ? { slots: { swipeable: null } }
+            : swipeableProp
+              ? { slots: { swipeable: swipeableProp as unknown as ComponentType<InboxPageSlotMap["swipeable"]> } }
+              : {})}
           items={state.rows.map((row) => {
             const r = view.inboxRow(row as never);
             return {

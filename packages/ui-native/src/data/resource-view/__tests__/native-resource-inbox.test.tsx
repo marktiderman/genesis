@@ -87,5 +87,26 @@ describe("NativeResourceView inbox", () => {
     expect(screen.getAllByTestId(/-swipe-action-pin$/).length).toBeGreaterThan(0);
     expect(screen.queryAllByTestId(/-swipe-action-note$/)).toHaveLength(0);
   });
+
+  it("wraps inbox rows in the screen's own swipeable, with every action", async () => {
+    const placed = defineView(tickets, { inbox: { preview: "body", unread: "unread" }, actions: [{ name: "note", label: "Note" }] });
+    const p = {
+      getList: vi.fn(async () => ({ data: ROWS, total: ROWS.length })),
+      getOne: vi.fn(),
+      getMany: vi.fn(async () => ({ data: [] })),
+      create: vi.fn(),
+      update: vi.fn(),
+      deleteOne: vi.fn(),
+    } as unknown as DataProvider;
+    const got: string[][] = [];
+    const Own = ({ actions, testID, children }: { actions: { id: string }[]; testID: string; children?: ReactNode }) => {
+      got.push(actions.map((a) => a.id));
+      return <div data-testid={`own-${testID}`}>{children}</div>;
+    };
+    render(<NativeResourceView view={placed} type="inbox" onAction={vi.fn()} can={() => false} swipeable={Own as never} />, { wrapper: wrap(p) });
+    expect(await screen.findByText("Can't sign in")).toBeTruthy();
+    expect(screen.getAllByTestId(/^own-/).length).toBeGreaterThan(0);
+    expect(got.flat()).toContain("note");
+  });
 });
 
