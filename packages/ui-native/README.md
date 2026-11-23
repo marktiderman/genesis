@@ -187,8 +187,9 @@ refresh (`refreshControl`, or built in).
 
 `NativeResourceView` draws a view as cards with `mode="grid"` (`numColumns`, default 2), and an
 app's own row or card with `renderCard(row, index, card)`; spread `card.pressableProps` on its
-Pressable for the built-in press, long press and accessibility. Sections, paging, refresh, the
-empty state and swipe actions stay. See docs/RESOURCE-VIEW.md, "Cards and custom rows".
+Pressable for the built-in press, long press and accessibility. Sections, paging, refresh and the
+empty state stay; grid cards and `renderCard` rows swipe only when the screen passes its own
+`swipeable` (the default swipe is for list rows). See docs/RESOURCE-VIEW.md, "Cards and custom rows".
 
 ## Keyboard toolbar
 

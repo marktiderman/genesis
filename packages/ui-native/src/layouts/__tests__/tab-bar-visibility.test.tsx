@@ -220,6 +220,19 @@ describe("ScreenContainer header, set by field", () => {
   });
 });
 
+describe("ScreenContainer header, headerOptions", () => {
+  it("lets headerOptions win over large, as everywhere else", () => {
+    const seen: Record<string, unknown>[] = [];
+    const StackScreen = ({ options }: { options?: Record<string, unknown> }) => {
+      seen.push(options ?? {});
+      return null;
+    };
+    const headerOptions = { headerLargeTitle: true };
+    render(<GenesisModulesProvider modules={{ router: { StackScreen } }}><ScreenContainer header={{ headerTitle: "Inbox", large: false, headerOptions }}><i /></ScreenContainer></GenesisModulesProvider>);
+    expect(seen.at(-1)!.headerLargeTitle).toBe(true);
+  });
+});
+
 describe("ScreenContainer header under StrictMode", () => {
   it("resets a removed search even with StrictMode's double render", () => {
     let merged: Record<string, unknown> = {};

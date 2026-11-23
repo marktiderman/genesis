@@ -290,7 +290,9 @@ export function ScreenContainer({
     () => {
       if (!h) return null;
       const large = h.large ?? true;
-      return { ...composeHeaderOptions({ scrollEdgeBehavior: "match", ...h, large }), headerLargeTitle: large } as Record<string, unknown>;
+      // `large` (default true) always yields a headerLargeTitle from composeHeaderOptions, and its
+      // `headerOptions` passthrough still wins over it.
+      return composeHeaderOptions({ scrollEdgeBehavior: "match", ...h, large });
     },
     // By field, so an inline `header={{…}}` doesn't set the options on every render; keep `search`,
     // the callbacks and `headerOptions` stable (useMemo / useCallback) for the same reason.
