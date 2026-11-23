@@ -73,6 +73,7 @@ ui-parity.json
   s_f1aa8511899775::t_200ec7455a5a2c 7
 packages/ui-native/src/native-modules.tsx
   s_f1aa8511899775::t_c53f60e6822f56 37-38,190-220,222-225,287-291
+  s_f1aa8511899775::t_5bd562ec502f0d 286
 packages/ui-native/package.json
   s_f1aa8511899775::t_6a8cfa0e93c3b3 275-330,340-351,377-378,380
 packages/ui-native/types/react-native.d.ts
