@@ -261,6 +261,10 @@
           {
             "file": "migrations/0006_genesis_chat_read_receipts.sql",
             "test": "migrations/tests/0006_genesis_chat_read_receipts.test.sql"
+          },
+          {
+            "file": "migrations/0007_genesis_chat_unread_and_delete_for_me.sql",
+            "test": "migrations/tests/0007_genesis_chat_unread_and_delete_for_me.test.sql"
           }
         ],
         "install": [

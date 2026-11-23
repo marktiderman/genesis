@@ -64,6 +64,10 @@ interface Conv {
   canPost: boolean;
   muted: boolean;
   pinned: boolean;
+  /** Mark as Unread (migration 0007). */
+  markedUnread?: boolean;
+  /** Delete for me (0007): only messages after this seq are shown, and the inbox leaves it out until one arrives. */
+  clearedSeq?: number;
   messages: ChatMessage[];
   pins: string[];
   topics: ChatTopic[];
@@ -256,7 +260,7 @@ export function createMemoryChatClient(options: MemoryChatOptions): MemoryChatCl
       memberCount: c.members.length,
       lastSeq: c.conversation.lastSeq,
       lastReadSeq: lastRead,
-      unread: Math.min(99, unreadList.length),
+      unread: Math.min(99, Math.max(unreadList.filter((m) => m.seq > (c.clearedSeq ?? 0)).length, c.markedUnread ? 1 : 0)),
       mentioned: unreadList.some((m) => m.mentions.includes(me)),
       muted: c.muted,
       pinned: c.pinned,
@@ -286,7 +290,7 @@ export function createMemoryChatClient(options: MemoryChatOptions): MemoryChatCl
       await wait();
       if (opts.archived) return [];
       return [...convs.values()]
-        .filter((c) => keepKind(c.conversation.kind, opts))
+        .filter((c) => keepKind(c.conversation.kind, opts) && (c.clearedSeq === undefined || c.conversation.lastSeq > c.clearedSeq))
         .map(inboxItem)
         .sort((a, b) => Number(b.pinned) - Number(a.pinned) || (b.lastMessageAt ?? "").localeCompare(a.lastMessageAt ?? ""));
     },
@@ -426,12 +430,20 @@ export function createMemoryChatClient(options: MemoryChatOptions): MemoryChatCl
       const c = get(conversationId);
       const mine = c.members.find((x) => x.userId === me);
       if (mine) mine.lastReadSeq = Math.max(mine.lastReadSeq, seq ?? c.conversation.lastSeq);
+      c.markedUnread = false;
       return mine?.lastReadSeq ?? 0;
     },
-    async setMySettings(conversationId: string, s: { mutedUntil?: string | null; archived?: boolean; pinned?: boolean }) {
+    async setMySettings(conversationId: string, s: { mutedUntil?: string | null; archived?: boolean; pinned?: boolean; markedUnread?: boolean }) {
       const c = get(conversationId);
       if (s.mutedUntil !== undefined) c.muted = s.mutedUntil !== null;
       if (s.pinned !== undefined) c.pinned = s.pinned;
+      if (s.markedUnread !== undefined) c.markedUnread = s.markedUnread;
+    },
+    async deleteConversationForMe(conversationId: string) {
+      const c = get(conversationId);
+      c.clearedSeq = c.conversation.lastSeq;
+      c.markedUnread = false;
+      c.pinned = false;
     },
     async updateConversation(conversationId: string, s: { title?: string; settings?: Record<string, unknown> }) {
       const c = get(conversationId);
