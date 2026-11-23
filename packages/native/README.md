@@ -619,9 +619,11 @@ lock, a fact of the binary: with it false the block mounts nothing and listens t
 declaration (`id: "push"`). Build it once and put it in `blocks`; taking it
 out turns it off. It contributes a Settings row (`useBlockSettings`: title
 "Notifications", section `notifications`, href `/settings/notifications`, the
-permission as its subtitle; `settingsRow` changes or drops it) and a boot step
-that reads the permission behind the splash (a second at most; it never fails
-the boot), and names its migration. It runs on migration
+permission as its subtitle; `settingsRow` changes or drops it) and names its
+migration. It has no boot step: it reads the permission once the app is up,
+never behind the splash. On iOS that read waits for the notification service on
+Expo's shared native queue, which can take 25–30 s after the phone starts, and
+the session's Keychain read would wait behind it. It runs on migration
 0005 and the `genesis-push-send` function of
 [`@marktiderman/genesis-supabase`](../supabase/README.md#push-the-push-block),
 or on [`@marktiderman/genesis-notifications`](../notifications/README.md), which

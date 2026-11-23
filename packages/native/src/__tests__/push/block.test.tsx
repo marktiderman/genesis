@@ -243,10 +243,32 @@ describe("the push block: as a block", () => {
     const { push } = setup({ notifications: n.module }, { children: <Settings /> });
     await act(settle);
     expect(push.id).toBe("push");
-    expect(push.bootSteps.map((s) => s.id)).toEqual(["genesis:push"]);
+    expect(push.bootSteps).toEqual([]);
     expect(screen.getByTestId("genesis-push-settings").textContent).toBe("Notifications: Off in Settings");
     fireEvent.click(screen.getByTestId("genesis-push-settings"));
     expect(navigate).toHaveBeenCalledWith("/settings/notifications");
+  });
+
+  it("reads the permission only after the session is restored, never behind the splash", async () => {
+    // On iOS that read waits for the notification service on Expo's one shared native queue (25–30 s
+    // on the first request after the phone starts), and the session's Keychain read queues behind it:
+    // read during the boot, it timed genesis:session out into the fatal screen.
+    const n = fakeNotifications();
+    const { supabase } = setup({ notifications: n.module });
+    await act(settle);
+    expect(screen.getByTestId("screens")).toBeTruthy();
+    const getSession = supabase.client.auth.getSession as unknown as ReturnType<typeof vi.fn>;
+    expect(getSession).toHaveBeenCalled();
+    expect(n.module.getPermissionsAsync).toHaveBeenCalled();
+    expect(n.module.getPermissionsAsync.mock.invocationCallOrder[0]).toBeGreaterThan(getSession.mock.invocationCallOrder[0]!);
+  });
+
+  it("boots even when the permission read never answers", async () => {
+    const n = fakeNotifications();
+    n.module.getPermissionsAsync.mockImplementation(() => new Promise(() => {}));
+    setup({ notifications: n.module });
+    await act(settle);
+    expect(screen.getByTestId("screens")).toBeTruthy();
   });
 
   it("drops the row with settingsRow: false", () => {

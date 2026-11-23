@@ -5,8 +5,9 @@
  *
  * It is a `defineBlock` declaration (`id: "push"`): it contributes a Settings
  * row for the notification settings (`useBlockSettings`, href
- * `/settings/notifications`), a boot step that reads the permission behind
- * the splash (bounded, never fails), and names migration 0005.
+ * `/settings/notifications`) and names migration 0005. It has no boot step:
+ * the permission is first read once the app is up (`PushRoot`), never behind
+ * the splash (see `bootSteps`).
  *
  *   PushRoot
  *   ├ follows the session: registers this device's token on sign-in (only
@@ -27,7 +28,6 @@ import { defineBlock } from "@marktiderman/genesis-config/blocks";
 import { useSession } from "../auth";
 import type { NativeBlock, NativeBlockRootProps } from "../blocks";
 import type { BootStep } from "../boot";
-import { delay } from "../updates/store";
 import type { LinkHold } from "../held-link";
 import type { LinkOptions } from "../links";
 import type { NotificationPreferences, PushBackend } from "./backend";
@@ -174,7 +174,13 @@ export interface PushBlock extends NativeBlock<typeof PUSH_BLOCK_ID> {
   ensureChannels(): Promise<void>;
   /** Start the foreground handler and the listeners; returns the stop. `PushRoot` calls it. */
   start(): () => void;
-  /** Reads the permission behind the splash, at most a second; never fails the boot. */
+  /**
+   * None. Reading the permission behind the splash held the boot: on iOS, expo-notifications'
+   * permission read waits for the notification service on Expo's one shared native queue, and that
+   * service can take 25–30 s to answer its first request after the phone starts. Every Expo call
+   * behind it waited too, the session's Keychain read included, so `genesis:session` timed out and
+   * the app opened on its fatal screen. `PushRoot` reads it once the app is up instead.
+   */
   readonly bootSteps: readonly BootStep[];
   readonly Root: ComponentType<NativeBlockRootProps>;
 }
@@ -323,16 +329,11 @@ export function createPush(options: PushOptions): PushBlock {
       },
     },
   });
-  const bootStep: BootStep = {
-    id: "genesis:push",
-    // Bounded and never rejects (refresh reports its own errors), so it can't fail or hold the boot.
-    run: () => Promise.race([permission.refresh(), delay(1000)]).then(() => undefined),
-    timeoutMs: 3000,
-  };
-
   const block: PushBlock = {
     ...declaration,
-    bootSteps: [bootStep],
+    // No boot step: see PushBlock.bootSteps. PushRoot renders after the boot, and its start() and
+    // setUser() read the permission then.
+    bootSteps: [],
     options,
     permission,
     registration,
