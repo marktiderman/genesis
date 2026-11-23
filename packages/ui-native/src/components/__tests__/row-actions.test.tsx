@@ -268,6 +268,33 @@ describe("row actions (ADR 0028)", () => {
     expect(fullSwipeSide(-240, 320, 0.6, "left", { left: 0, right: 240 })).toBeUndefined();
     expect(fullSwipeSide(-279, 320, 0.6, "left", { left: 0, right: 240 })).toBeUndefined();
     expect(fullSwipeSide(-280, 320, 0.6, "left", { left: 0, right: 240 })).toBe("right");
+    // Three fill actions (240pt) on a 393pt phone: 0.6 is 235.8, inside the buttons; the threshold is 280.
+    expect(fullSwipeSide(-240, 393, 0.6, "left", { left: 0, right: 240 })).toBeUndefined();
+    expect(fullSwipeSide(-279, 393, 0.6, "left", { left: 0, right: 240 })).toBeUndefined();
+    expect(fullSwipeSide(-281, 393, 0.6, "left", { left: 0, right: 240 })).toBe("right");
+  });
+
+  it("doesn't fire when a row already open is nudged further and let go short of clearing its actions", () => {
+    const actions = make();
+    let dx = 0;
+    const Swipeable = fakeSwipeable(vi.fn(), () => dx);
+    render(
+      <GenesisModulesProvider modules={{ swipeable: Swipeable as never }}>
+        <NativeSwipeRow actions={actions} testID="s">
+          <i />
+        </NativeSwipeRow>
+      </GenesisModulesProvider>,
+    );
+    // Trailing: Delete only (Review is off the swipe), 80pt open; a 393pt row's threshold is 235.8.
+    layout(screen.getByTestId("s").parentElement!, 393);
+    dx = -80; // opened
+    fireEvent.click(screen.getByTestId("s"));
+    dx = -200; // dragged again from open, let go short of the threshold
+    fireEvent.click(screen.getByTestId("s"));
+    expect(actions[3]!.onPress).not.toHaveBeenCalled();
+    dx = -240; // clearly past
+    fireEvent.click(screen.getByTestId("s"));
+    expect(actions[3]!.onPress).toHaveBeenCalledTimes(1);
   });
 
   it("draws white on fallback tones at 4.5:1 or more, and black on yellow", () => {
