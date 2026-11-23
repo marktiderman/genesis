@@ -623,7 +623,10 @@ permission as its subtitle; `settingsRow` changes or drops it) and names its
 migration. It has no boot step: it reads the permission once the app is up,
 never behind the splash. On iOS that read waits for the notification service on
 Expo's shared native queue, which can take 25–30 s after the phone starts, and
-the session's Keychain read would wait behind it. It runs on migration
+the session's Keychain read would wait behind it. That first read still holds
+the queue once the app is up, so for those seconds any other Expo call (signing
+in, which writes the session to the Keychain, or opening the image picker)
+waits for it before it starts; it no longer fails the boot. It runs on migration
 0005 and the `genesis-push-send` function of
 [`@marktiderman/genesis-supabase`](../supabase/README.md#push-the-push-block),
 or on [`@marktiderman/genesis-notifications`](../notifications/README.md), which
