@@ -158,14 +158,23 @@ export function swipeActionsFor<T extends Row>(
 ): NativeResourceSwipeAction[] {
   const { messages, softDelete, editable, screen, viewer, onEdit, onDelete, onRefused } = options;
   const actions: NativeResourceSwipeAction[] = [];
-  const add = (id: string, label: string, icon: string, right: Allowed | false, run: () => void, destructive = false) => {
+  const add = (
+    id: string,
+    label: string,
+    icon: string | undefined,
+    right: Allowed | false,
+    run: () => void,
+    destructive = false,
+    place: Pick<NativeResourceSwipeAction, "side" | "full" | "swipe" | "tone"> = {},
+  ) => {
     if (right === false) return;
     const reason = right === true ? undefined : right;
     actions.push({
       id,
       label,
-      icon,
+      ...(icon ? { icon } : {}),
       ...(destructive ? { destructive } : {}),
+      ...place,
       ...(reason ? { reason } : {}),
       onPress: reason ? () => onRefused(label, reason) : run,
     });
@@ -173,7 +182,13 @@ export function swipeActionsFor<T extends Row>(
   if (editable) add("edit", messages.common.edit, "edit", allowed(view, "update", row, screen, viewer), () => onEdit(row));
   if (options.onAction) {
     for (const action of view.actions()) {
-      add(action.name, action.label, "bolt", view.canAction(action.name, row as T & DataRow, viewer), () => options.onAction!(action.name, row), !!action.destructive);
+      // Where the view puts it behind the swipe (ADR 0027): its side and full swipe, or off the swipe.
+      const swipe = action.swipe;
+      const place = {
+        ...(swipe === false ? { swipe: false } : swipe ? { side: swipe.side, ...(swipe.full ? { full: true } : {}) } : {}),
+        ...(action.tone ? { tone: action.tone } : {}),
+      };
+      add(action.name, action.label, action.icon, view.canAction(action.name, row as T & DataRow, viewer), () => options.onAction!(action.name, row), !!action.destructive, place);
     }
   }
   add(

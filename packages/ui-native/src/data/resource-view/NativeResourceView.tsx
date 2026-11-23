@@ -861,7 +861,7 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
                 press(row);
               },
               // The view's swipe actions (edit, delete, its own), as the list's rows have them.
-              swipeActions: actionsFor(row, handlers).map((a) => ({ id: a.id, label: a.label, onPress: a.onPress, ...(a.destructive ? { destructive: true } : {}) })),
+              swipeActions: actionsFor(row, handlers),
             };
           })}
           header={listHeader}

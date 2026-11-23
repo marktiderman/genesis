@@ -152,6 +152,10 @@ export interface NavBarSearchBarProps {
  * Inline search input meant to occupy the title slot on a search results
  * screen. For a sticky search-below-the-header pattern, prefer the
  * standalone <NativeSearchBar> primitive.
+ *
+ * @deprecated Draws its own search field in the header. Use the system one: `header={{ search }}`
+ * on ScreenContainer (or `composeHeaderOptions({ search })`), react-native-screens'
+ * `headerSearchBarOptions`. Kept for one deprecation window.
  */
 export function NavBarSearchBar({
   value,

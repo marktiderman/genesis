@@ -19,6 +19,7 @@ import type {
   ResolvedColumn,
   ResolvedFormField,
   ResolvedViewAction,
+  ViewActionSwipe,
   ResourceView,
   RowOf,
   RowSummary,
@@ -120,6 +121,16 @@ export function plural(word: string): string {
 }
 
 // The view's own operations (`view.can`): an action can't take their names.
+const SWIPE_SIDES: ReadonlySet<string> = new Set(["leading", "trailing"]);
+const ROW_ACTION_TONES: ReadonlySet<string> = new Set(["tint", "blue", "green", "orange", "purple", "yellow", "gray", "red"]);
+
+/** A view action's place behind the swipe, as it declared it: a side and whether a full swipe runs it. */
+function resolveSwipe(swipe: ViewActionSwipe): NonNullable<ResolvedViewAction["swipe"]> {
+  if (swipe === false) return false;
+  if (swipe === "leading" || swipe === "trailing") return Object.freeze({ side: swipe, full: false });
+  return Object.freeze({ side: swipe.side, full: swipe.full === true });
+}
+
 const RESERVED_ACTIONS: ReadonlySet<string> = new Set(["create", "update", "delete"]);
 
 const own = <V>(record: Readonly<Record<string, V>> | undefined, key: string): V | undefined =>
@@ -538,6 +549,15 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
     }
     if (action.can !== undefined && typeof action.can !== "function") problems.push(`${where}.can isn't a function`);
     if (action.destructive !== undefined && typeof action.destructive !== "boolean") problems.push(`${where}.destructive isn't true or false`);
+    const swipe = (action as { swipe?: unknown }).swipe;
+    if (swipe !== undefined && swipe !== false && !SWIPE_SIDES.has(swipe as string)) {
+      const side = swipe && typeof swipe === "object" && !Array.isArray(swipe) ? (swipe as { side?: unknown; full?: unknown }) : null;
+      if (!side || !SWIPE_SIDES.has(side.side as string) || (side.full !== undefined && typeof side.full !== "boolean")) {
+        problems.push(`${where}.swipe is "leading", "trailing", { side, full } or false`);
+      }
+    }
+    if (action.icon !== undefined && (typeof action.icon !== "string" || !action.icon.trim())) problems.push(`${where}.icon isn't an icon name`);
+    if (action.tone !== undefined && !ROW_ACTION_TONES.has(action.tone)) problems.push(`${where}.tone is one of ${[...ROW_ACTION_TONES].join(", ")}`);
     const bulk = (action as { bulk?: unknown }).bulk;
     if (bulk !== undefined && typeof bulk !== "boolean") {
       if (!bulk || typeof bulk !== "object" || Array.isArray(bulk)) problems.push(`${where}.bulk is true or { label, confirm, run, matching }`);
@@ -781,6 +801,9 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
         ...(a.confirm !== undefined ? { confirm: a.confirm } : {}),
         ...(a.description !== undefined ? { description: a.description } : {}),
         ...(a.destructive ? { destructive: true } : {}),
+        ...(a.swipe !== undefined ? { swipe: resolveSwipe(a.swipe) } : {}),
+        ...(a.icon !== undefined ? { icon: a.icon } : {}),
+        ...(a.tone !== undefined ? { tone: a.tone } : {}),
         ...(a.bulk
           ? {
               bulk: Object.freeze({

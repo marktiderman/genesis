@@ -49,6 +49,7 @@ export type {
   ResolvedColumn,
   ResolvedFormField,
   ResolvedViewAction,
+  ViewActionSwipe,
   ResourceView,
   RowImage,
   RowOf,
