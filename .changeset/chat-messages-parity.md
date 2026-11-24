@@ -1,7 +1,7 @@
 ---
 "@marktiderman/genesis-chat": minor
 "@marktiderman/genesis-design-system": minor
-"@marktiderman/genesis-ui-native": patch
+"@marktiderman/genesis-ui-native": minor
 ---
 
 genesis-chat's native screens draw the platform's Messages pattern (iOS 26) by default, with Messages' colors in their own layer (ADR 0029). Apps must install genesis-design-system.
