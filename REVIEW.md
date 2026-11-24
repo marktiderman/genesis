@@ -1,14 +1,12 @@
 # Review instructions
 
-Claude Code Review (Claude Ship) reads this file from `main` for every PR, staging batches
-included: a non-default base counts only with a ruleset that restricts updates or requires an
-approval, and the staging rulesets here do neither. So a change here takes effect once released.
-The `@AGENTS.md` include below is expanded because `main` is protected; without that protection
-Code Review would leave it as plain text.
-The repo's rules are in AGENTS.md, included below; a change that breaks one of them is a finding. Cite the principle IDs
+Claude Code Review (Claude Ship) reads this root file from `main` for every PR, staging batches
+included. Neither branch counts as protected for Code Review here: `main`'s ruleset requires no
+approval and doesn't restrict updates, and the staging rulesets only require checks. So a change
+here takes effect once released, and `@file` includes would not be expanded: the rules that
+matter are written out below. AGENTS.md (through CLAUDE.md) is project context for the review;
+a change that breaks one of its rules is a finding. Cite the principle IDs
 (G1–G6, `docs/FRAMEWORK.md`) where one applies.
-
-@AGENTS.md
 
 ## What Important means here
 
