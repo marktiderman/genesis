@@ -138,8 +138,9 @@ base), so a PR can't change its own gate, and a gate change takes effect only on
   (https://code.claude.com/docs/en/code-review-pull-requests#respond-to-findings). The staging
   rulesets require only checks, so threads don't block a merge into a batch.
 - Code Review follows `REVIEW.md`. PR Steward follows `.claude/skills/steward/SKILL.md` and starts
-  when someone comments `@claude steward`, if the maintainer sets it to start only on request
-  (https://code.claude.com/docs/en/pr-steward-pull-requests); `@claude stop` stops it.
+  when someone comments `@claude steward`, if the maintainer sets it to start only on request and keeps their own PR Steward setting off
+  "Act on its own", which overrides the repository's and would start it on every PR the account
+  opens (https://code.claude.com/docs/en/pr-steward-pull-requests); `@claude stop` stops it.
   `.claude/approvals.yml` stays in observe mode, where Claude only comments and the check normally
   doesn't block, until the maintainer says otherwise.
 - One watcher per PR: Auto-fix can't start on a PR that PR Steward watches, a local `/steward`
