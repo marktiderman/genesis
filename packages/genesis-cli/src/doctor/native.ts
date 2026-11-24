@@ -322,7 +322,10 @@ export function checkReleaseLaneLive(ctx: DoctorContext): void {
   const ownStarter = nativeLive
     ? undefined
     : githubReleaseWorkflows(ctx.root, release.appFolder).find((rel) =>
-        stepRuns(readFileSync(path.join(repo, rel), "utf8")).some((run) => RELEASE_COMMAND.test(run) && (!/workflow:run/.test(run) || run.includes(lane))),
+        stepRuns(readFileSync(path.join(repo, rel), "utf8"))
+          // Each command of a step on its own: `eas update … && eas workflow:run preview.yml` still publishes.
+          .flatMap((run) => run.split(/\n|&&|\|\||;/))
+          .some((cmd) => RELEASE_COMMAND.test(cmd) && (!/workflow:run/.test(cmd) || cmd.includes(lane))),
       );
   const githubLive = nativeLive || ownStarter !== undefined;
   const starterFile = ownStarter ? path.join(repo, ownStarter) : nativeFile;
