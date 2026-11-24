@@ -4,7 +4,9 @@ Claude Code Review (Claude Ship) reads this root file from `main` for every PR, 
 included. Neither branch counts as protected for Code Review here: `main`'s ruleset requires no
 approval and doesn't restrict updates, and the staging rulesets only require checks. So a change
 here takes effect once released, and `@file` includes would not be expanded: the rules that
-matter are written out below. AGENTS.md (through CLAUDE.md) is project context for the review;
+matter are written out below. Code Review honors lowered severities and the "Do not report"
+list only when the default branch is protected, so until `main` qualifies they are guidance,
+not guarantees: expect some Nits there. AGENTS.md (through CLAUDE.md) is project context for the review;
 a change that breaks one of its rules is a finding. Cite the principle IDs
 (G1–G6, `docs/FRAMEWORK.md`) where one applies.
 
