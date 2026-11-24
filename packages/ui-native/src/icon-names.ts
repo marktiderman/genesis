@@ -90,3 +90,11 @@ export type NativeIconName = keyof typeof SF_SYMBOLS;
 
 /** Every semantic icon name. */
 export const NATIVE_ICON_NAMES = Object.keys(SF_SYMBOLS) as NativeIconName[];
+
+/**
+ * Whether `name` is a Genesis icon name: how a component checks an icon given as a string (a row
+ * action's `icon`, which platform-neutral core keeps as a string) before drawing it, instead of a cast.
+ */
+export function isNativeIconName(name: string): name is NativeIconName {
+  return Object.prototype.hasOwnProperty.call(SF_SYMBOLS, name);
+}

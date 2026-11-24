@@ -78,6 +78,7 @@ export type {
 } from "./types";
 export { NO_VIEWER } from "../viewer";
 export type { GenesisViewerRoles } from "../viewer";
+export type { RowActionAccent, RowActionSide, RowActionSwipe, RowActionTone } from "../row-actions";
 export { defineRecordView, isRecordView, defineWorkspace, isWorkspace, sameFormValue } from "./record-view";
 export type {
   ResolvedReadinessItem,

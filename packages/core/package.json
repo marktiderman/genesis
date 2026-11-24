@@ -96,6 +96,10 @@
       "types": "./dist/conversation/index.d.ts",
       "import": "./dist/conversation/index.js"
     },
+    "./row-actions": {
+      "types": "./dist/row-actions/index.d.ts",
+      "import": "./dist/row-actions/index.js"
+    },
     "./urls": {
       "types": "./dist/urls.d.ts",
       "import": "./dist/urls.js"

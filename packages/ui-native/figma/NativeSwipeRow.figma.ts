@@ -2,7 +2,7 @@
 // source=packages/ui-native/src/components/swipe-row.tsx
 // component=NativeSwipeRow
 // The `open` variant only shows which side a swipe uncovers; it has no prop. The two labels
-// become the actions' labels: the leading one `side: "leading"`, the trailing one destructive.
+// become the actions' labels: the leading one `swipe: { side: "leading" }`, the trailing one destructive.
 import figma from 'figma'
 const instance = figma.selectedInstance
 
@@ -15,7 +15,7 @@ if (rowSwap && rowSwap.type === 'INSTANCE') row = rowSwap.executeTemplate().exam
 export default {
   example: figma.code`<NativeSwipeRow
   actions={[
-    { id: "leading", label: "${leadingLabel}", side: "leading", onPress: onLeading },
+    { id: "leading", label: "${leadingLabel}", swipe: { side: "leading" }, onPress: onLeading },
     { id: "trailing", label: "${trailingLabel}", destructive: true, onPress: onTrailing },
   ]}
 >

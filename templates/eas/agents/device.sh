@@ -39,9 +39,13 @@ refuse() {
   exit 2
 }
 
-: "${AGENTIC_CI_APP_ID:?AGENTIC_CI_APP_ID is not set: start-session.sh sets it.}"
-: "${AGENTIC_CI_PLATFORM:?AGENTIC_CI_PLATFORM is not set: start-session.sh sets it.}"
-: "${AGENTIC_CI_PROJECT:?AGENTIC_CI_PROJECT is not set: start-session.sh sets it.}"
+# What to drive comes from the read-only file start-session.sh wrote, never from the environment.
+target_file=/tmp/agentic-ci-session/target
+[ -f "$target_file" ] || refuse "no session: start-session.sh writes $target_file"
+{ IFS= read -r AGENTIC_CI_APP_ID; IFS= read -r AGENTIC_CI_PLATFORM; IFS= read -r AGENTIC_CI_PROJECT; } < "$target_file"
+[[ "$AGENTIC_CI_APP_ID" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,150}$ ]] || refuse "the session's app ID isn't an app ID"
+[[ "$AGENTIC_CI_PLATFORM" =~ ^(ios|android)$ ]] || refuse "the session's platform isn't ios or android"
+[[ "$AGENTIC_CI_PROJECT" == /* ]] && [ -d "$AGENTIC_CI_PROJECT" ] || refuse "the session's project folder doesn't exist"
 
 [ "$#" -ge 1 ] || refuse "no command"
 for arg in "$@"; do

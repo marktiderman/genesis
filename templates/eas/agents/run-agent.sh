@@ -11,6 +11,7 @@
 # - Reading: the project's files only (Read(./**); Glob and Grep search the project), never a .env
 #   file, /proc, /tmp (the session file and the tools) or the home folder.
 # - Writing: only under agent-output/evidence (Edit rules also govern Write).
+# - Settings: only these rules. The project's .claude settings, hooks and .mcp.json are not loaded.
 # The agent's own key (CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY, from the job's EAS
 # environment) stays in its environment, which is why the shell is limited to device.sh, and
 # device.sh refuses an argument holding it. The job unsets EXPO_TOKEN, EXPO_TOKEN_SIMULATOR and
@@ -23,7 +24,7 @@ set -euo pipefail
 case "${2:-}" in
   device)
     tools='Read(./**),Edit(./agent-output/evidence/**),Bash(bash /tmp/agentic-ci-tools/device.sh *)'
-    denied='Read(//proc/**),Read(//tmp/**),Read(//private/**),Read(//dev/**),Read(//etc/**),Read(~/**),Read(./.env*),Read(./**/.env*),Bash(*$*),Bash(*`*),Bash(*>*),Bash(*<*),Bash(*|*),Bash(*;*),Bash(*&*),Bash(* /proc/*)'
+    denied='Read(//proc/**),Read(//tmp/**),Read(//private/**),Read(//dev/**),Read(//etc/**),Read(~/**),Read(./.env*),Read(./**/.env*),Bash(*$*),Bash(*`*),Bash(*>*),Bash(*<*),Bash(*|*),Bash(*;*),Bash(*&*),Bash(*=*bash*),Bash(* /proc/*)'
     ;;
   *)
     echo "Unknown mode \"${2:-}\". Use device." >&2
@@ -34,7 +35,11 @@ esac
 mkdir -p agent-output/evidence
 model=()
 [ -n "${AGENT_MODEL:-}" ] && model=(--model "$AGENT_MODEL")
+# --setting-sources user and --strict-mcp-config: the project's own .claude/settings.json,
+# settings.local.json and .mcp.json (an app's allow rules, hooks and MCP servers for its
+# developers) never reach the agent, so only the rules above apply.
 npx --yes @anthropic-ai/claude-code@2.1.330 -p "Do the task that standard input describes." \
+  --setting-sources user --strict-mcp-config \
   ${model[@]+"${model[@]}"} --allowedTools "$tools" --disallowedTools "$denied" --permission-mode dontAsk --max-turns 80 \
   --output-format stream-json --verbose < "$1" > agent-output/evidence/agent-log.jsonl || {
   tail -n 1 agent-output/evidence/agent-log.jsonl >&2

@@ -2,6 +2,7 @@
 // genesis-sites' defineSection). Everything a renderer needs is resolved here, so web, native and
 // the extension draw the same labels, columns and form.
 
+import { ROW_ACTION_ACCENTS, ROW_ACTION_TONES } from "../row-actions";
 import { NO_VIEWER, type Viewer } from "../viewer";
 import { encodeRecordKey, keyFields } from "../schema/keys";
 import type { GalleryItem } from "../gallery";
@@ -121,8 +122,6 @@ export function plural(word: string): string {
 }
 
 const SWIPE_SIDES: ReadonlySet<string> = new Set(["leading", "trailing"]);
-const ROW_ACTION_TONES: ReadonlySet<string> = new Set(["tint", "blue", "green", "orange", "purple", "yellow", "gray", "red"]);
-
 /** A view action's place behind the swipe, as it declared it: a side and whether a full swipe runs it. */
 function resolveSwipe(swipe: ViewActionSwipe): NonNullable<ResolvedViewAction["swipe"]> {
   if (swipe === false) return false;
@@ -560,7 +559,8 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
       problems.push(`${where} is destructive and runs on a full swipe, so it needs a confirm`);
     }
     if (action.icon !== undefined && (typeof action.icon !== "string" || !action.icon.trim())) problems.push(`${where}.icon isn't an icon name`);
-    if (action.tone !== undefined && !ROW_ACTION_TONES.has(action.tone)) problems.push(`${where}.tone is one of ${[...ROW_ACTION_TONES].join(", ")}`);
+    if (action.tone !== undefined && !ROW_ACTION_TONES.includes(action.tone)) problems.push(`${where}.tone is one of ${ROW_ACTION_TONES.join(", ")}`);
+    if (action.accent !== undefined && !ROW_ACTION_ACCENTS.includes(action.accent)) problems.push(`${where}.accent is one of ${ROW_ACTION_ACCENTS.join(", ")}`);
     const bulk = (action as { bulk?: unknown }).bulk;
     if (bulk !== undefined && typeof bulk !== "boolean") {
       if (!bulk || typeof bulk !== "object" || Array.isArray(bulk)) problems.push(`${where}.bulk is true or { label, confirm, run, matching }`);
@@ -807,6 +807,7 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
         ...(a.swipe !== undefined ? { swipe: resolveSwipe(a.swipe) } : {}),
         ...(a.icon !== undefined ? { icon: a.icon } : {}),
         ...(a.tone !== undefined ? { tone: a.tone } : {}),
+        ...(a.accent !== undefined ? { accent: a.accent } : {}),
         ...(a.bulk
           ? {
               bulk: Object.freeze({

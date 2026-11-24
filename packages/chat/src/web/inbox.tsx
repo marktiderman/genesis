@@ -3,19 +3,48 @@
  * The inbox: your conversations, newest first, each a button with an avatar,
  * the title (the other person's name in a two-person conversation), a one-line
  * preview, the time, an unread count, an @ when you were mentioned, and muted
- * and pinned marks. Arrow keys, j and k, Home and End move between rows.
+ * and pinned marks. Arrow keys, j and k, Home and End move between rows. Each row's actions
+ * (Mark as Unread or Read, Pin, Hide Alerts, Delete for me after asking, Archive) are in its More
+ * menu: the same set the phone's swipe offers (`inboxRowActions`), reshaped with `rowActions`.
  *
  * On genesis-ui's `InboxPage`, which owns the list, its keyboard and its loading, empty and error
  * states. This screen keeps its data wiring (the chat client, realtime, read state) and draws chat's
  * row in the `row` slot.
  */
-import { useMemo, type ComponentProps } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type ReactElement } from "react";
 import { AtSign, BellOff, MessageSquare, Pin } from "lucide-react";
-import { Badge, Button, EmptyState, InboxPage, UserAvatar, cn, type InboxPageSlotMap } from "@marktiderman/genesis-ui";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  Badge,
+  Button,
+  EmptyState,
+  InboxPage,
+  InboxRowMenu,
+  UserAvatar,
+  cn,
+  type InboxPageSlotMap,
+} from "@marktiderman/genesis-ui";
+import type { RowSwipeAction } from "@marktiderman/genesis-core/row-actions";
 import type { InboxItem } from "@marktiderman/genesis-core/conversation";
 import { renderSlot, type SlotOverride } from "@marktiderman/genesis-core/slots";
 import type { ChatInboxItem } from "../core/types";
-import { useChat, useInbox, type ChatAttachmentKind } from "../react/index";
+import {
+  defaultInboxActionLabels,
+  inboxRowActions,
+  useChat,
+  useInbox,
+  useInboxActions,
+  type ChatAttachmentKind,
+  type ChatConfirm,
+  type ChatInboxActionLabels,
+} from "../react/index";
 import { attachmentPreview } from "../react/previews";
 import { relativeTime, type ResolveUser } from "./format";
 
@@ -36,6 +65,15 @@ export interface ChatInboxProps {
   archived?: boolean;
   /** A conversation's title when it has none and isn't two-person. */
   fallbackTitle?: (item: ChatInboxItem) => string;
+  /**
+   * Each row's actions in its More menu: receives the conversation and the default set
+   * (`inboxRowActions`) and returns the row's; `() => []` turns them off.
+   */
+  rowActions?: (item: ChatInboxItem, defaults: RowSwipeAction[]) => RowSwipeAction[];
+  /** The actions' and the delete confirmation's words. Default English. */
+  actionLabels?: Partial<ChatInboxActionLabels>;
+  /** A failed action: say so (a toast). Default: nothing. */
+  onActionError?: (error: unknown) => void;
   /** Replace or eject (`null`) the empty state. */
   slots?: { empty?: SlotOverride<ChatInboxEmptyProps> };
   "aria-label"?: string;
@@ -61,9 +99,69 @@ export function inboxTitle(item: ChatInboxItem, resolveUser: ResolveUser, fallba
 
 const formatTime = (date: Date) => relativeTime(date.toISOString());
 
-export function ChatInbox({ resolveUser, onSelect, selectedId, kind, archived = false, fallbackTitle, slots, className, ...rest }: ChatInboxProps) {
+/** A confirmation the dialog is showing, and how to answer it. */
+interface PendingConfirm {
+  title: string;
+  body: string;
+  label: string;
+  answer: (ok: boolean) => void;
+}
+
+/** A `ChatConfirm` drawn as genesis-ui's AlertDialog: the confirm to pass, and the dialog to render. */
+export function useConfirmDialog(cancelLabel = "Cancel"): { confirm: ChatConfirm; dialog: ReactElement } {
+  const [pending, setPending] = useState<PendingConfirm | null>(null);
+  const current = useRef<PendingConfirm | null>(null);
+  const confirm = useCallback<ChatConfirm>(
+    (title, body, label) =>
+      new Promise<boolean>((resolve) => {
+        // A second ask answers the first one no.
+        current.current?.answer(false);
+        const next: PendingConfirm = { title, body, label, answer: resolve };
+        current.current = next;
+        setPending(next);
+      }),
+    [],
+  );
+  // Unmounted with a question open (the inbox closed under it): answer it no, so the caller's await settles.
+  useEffect(
+    () => () => {
+      const p = current.current;
+      current.current = null;
+      p?.answer(false);
+    },
+    [],
+  );
+  const answer = (ok: boolean) => {
+    const p = current.current;
+    current.current = null;
+    setPending(null);
+    p?.answer(ok);
+  };
+  const dialog = (
+    <AlertDialog open={pending !== null} onOpenChange={(o) => !o && answer(false)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{pending?.title}</AlertDialogTitle>
+          <AlertDialogDescription>{pending?.body}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>{cancelLabel}</AlertDialogCancel>
+          <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => answer(true)} data-testid="genesis-chat-inbox-confirm">
+            {pending?.label}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+  return { confirm, dialog };
+}
+
+export function ChatInbox({ resolveUser, onSelect, selectedId, kind, archived = false, fallbackTitle, rowActions, actionLabels, onActionError, slots, className, ...rest }: ChatInboxProps) {
   const { userId: me, attachmentKinds } = useChat();
   const { items, isLoading, error, refetch } = useInbox({ kind, archived });
+  const act = useInboxActions();
+  const labels = useMemo(() => ({ ...defaultInboxActionLabels, ...actionLabels }), [actionLabels]);
+  const { confirm, dialog } = useConfirmDialog(labels.cancel);
   const rows = useMemo<ChatInboxRow[]>(
     () =>
       items.map((item) => {
@@ -75,6 +173,7 @@ export function ChatInbox({ resolveUser, onSelect, selectedId, kind, archived = 
           else if (!item.otherUserId && item.memberCount > 2) preview = `${resolveUser(last.senderId).name}: ${preview}`;
         }
         const timestamp = item.lastMessageAt ?? last?.createdAt;
+        const defaults = inboxRowActions(item, act, labels, { confirm, ...(onActionError ? { onError: onActionError } : {}) });
         return {
           id: item.conversationId,
           title,
@@ -83,9 +182,10 @@ export function ChatInbox({ resolveUser, onSelect, selectedId, kind, archived = 
           ...(timestamp ? { timestamp } : {}),
           chat: item,
           avatarUrl: item.otherUserId ? resolveUser(item.otherUserId).avatarUrl : undefined,
+          swipeActions: rowActions ? rowActions(item, defaults) : defaults,
         };
       }),
-    [items, me, resolveUser, fallbackTitle, attachmentKinds],
+    [items, me, resolveUser, fallbackTitle, attachmentKinds, act, labels, confirm, onActionError, rowActions],
   );
   const label = rest["aria-label"] ?? "Conversations";
 
@@ -104,6 +204,7 @@ export function ChatInbox({ resolveUser, onSelect, selectedId, kind, archived = 
         slots={INBOX_SLOTS}
         slotProps={{ empty: { override: slots?.empty, archived, onRetry: () => void refetch(), failed: Boolean(error) } as Partial<InboxPageSlotMap["empty"]> }}
       />
+      {dialog}
     </nav>
   );
 }
@@ -134,7 +235,7 @@ function InboxEmpty({ override, archived, onRetry, failed }: InboxPageSlotMap["e
 }
 
 function InboxRow(row: InboxPageSlotMap["row"] & ChatInboxRow) {
-  const { chat: item, title, preview, timeLabel, selected, onPress, rowProps, testID, avatarUrl } = row;
+  const { chat: item, title, preview, timeLabel, selected, onPress, rowProps, testID, avatarUrl, swipeActions, moreLabel } = row;
   const unread = item.unread > 0;
   const count = item.unread >= 99 ? "99+" : String(item.unread);
   const label = [
@@ -150,6 +251,8 @@ function InboxRow(row: InboxPageSlotMap["row"] & ChatInboxRow) {
     .join(", ");
 
   return (
+    // The wrapper takes the selected highlight from data-selected, so `.bg-accent` stays the selected button's own (conformance names it by that class).
+    <div data-selected={selected ? "true" : undefined} className="group relative flex items-stretch data-[selected=true]:bg-accent">
     <button
       type="button"
       {...rowProps}
@@ -185,6 +288,8 @@ function InboxRow(row: InboxPageSlotMap["row"] & ChatInboxRow) {
         </span>
       </span>
     </button>
+    <InboxRowMenu actions={swipeActions ?? []} label={`${moreLabel}: ${title}`} testID={testID} />
+    </div>
   );
 }
 

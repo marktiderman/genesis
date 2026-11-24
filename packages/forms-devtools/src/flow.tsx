@@ -351,7 +351,7 @@ export function FlowMapPanel({ engine, height = 600, className }: { engine: Form
 
   const current = graph.nodes.find((n) => n.status === "current");
   return (
-    <div className={cn("space-y-2", className)} data-testid="devtools-flow">
+    <div className={cn("genesis-flow-map space-y-2", className)} data-testid="devtools-flow">
       <p className="text-sm text-muted-foreground">
         Solid arrows go to the next block, dashed arrows are jumps. {current ? `Now at ${current.label}.` : ""}
       </p>

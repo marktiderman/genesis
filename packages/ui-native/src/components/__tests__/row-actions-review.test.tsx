@@ -9,12 +9,12 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { Pressable } from "react-native";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { GenesisThemeProvider, brandRoleVariables, genesisBrand, type CanonicalBrand } from "@marktiderman/genesis-design-system";
-import { tripletToHsl } from "../../tokens/brand-primary";
+import { tripletToHsl } from "../../hooks/use-theme-roles";
 import { GenesisModulesProvider } from "../../native-modules";
 import { InboxPage, type InboxPageSlotMap } from "../../layouts/inbox-page";
 import { NativeRowActions } from "../row-actions";
 import { NativeSwipeRow, fullSwipeSide } from "../swipe-row";
-import { ON_ROW_ACTION, ON_ROW_ACTION_LIGHT_TONE, onRowActionColor, readableOn } from "../../tokens/row-action-tones";
+import { ON_ROW_ACTION, ON_ROW_ACTION_LIGHT_TONE, onRowActionColor, readableOn, rowActionSwatch } from "../../tokens/row-action-tones";
 import uiNativePackage from "../../../package.json";
 
 afterEach(() => {
@@ -103,8 +103,8 @@ describe("row actions: second review", () => {
   it("runs a full swipe on both sides with the modern naming; a fling across to the other side runs nothing", () => {
     for (const [dx, id] of [[300, "read"], [-300, "delete"]] as const) {
       const actions = [
-        { id: "read", label: "Read", side: "leading" as const, full: true, onPress: vi.fn() },
-        { id: "delete", label: "Delete", destructive: true, confirms: true, full: true, onPress: vi.fn() },
+        { id: "read", label: "Read", swipe: { side: "leading" as const, full: true }, onPress: vi.fn() },
+        { id: "delete", label: "Delete", destructive: true, confirms: true, swipe: { side: "trailing" as const, full: true }, onPress: vi.fn() },
       ];
       const Swipeable = fakeSwipeable(() => dx);
       const view = render(
@@ -128,7 +128,7 @@ describe("row actions: second review", () => {
     const Swipeable = fakeSwipeable(() => 300, "legacy");
     render(
       <GenesisModulesProvider modules={{ swipeable: Swipeable as never }}>
-        <NativeSwipeRow actions={[{ id: "read", label: "Read", side: "leading", full: true, onPress: read }]} testID="s">
+        <NativeSwipeRow actions={[{ id: "read", label: "Read", swipe: { side: "leading", full: true }, onPress: read }]} testID="s">
           <i />
         </NativeSwipeRow>
       </GenesisModulesProvider>,
@@ -145,9 +145,9 @@ describe("row actions: second review", () => {
     expect(readableOn({ semantic: ["systemRed"] })).toBeUndefined();
     // A light brand tint gets black, not white.
     expect(onRowActionColor("tint", "#FDE68A", "#ffffff")).toBe(ON_ROW_ACTION_LIGHT_TONE);
-    expect(onRowActionColor(undefined, "#FDE68A")).toBe(ON_ROW_ACTION_LIGHT_TONE);
+    expect(onRowActionColor(rowActionSwatch({}), "#FDE68A")).toBe(ON_ROW_ACTION_LIGHT_TONE);
     // A PlatformColor (iOS's systemRed, a dynamic tint) takes the theme's foreground the caller passes.
-    expect(onRowActionColor("red", { semantic: ["systemRed"] }, "#fafafa")).toBe("#fafafa");
+    expect(onRowActionColor("danger", { semantic: ["systemRed"] }, "#fafafa")).toBe("#fafafa");
     expect(onRowActionColor("tint", { semantic: ["tint"] }, "#09090b")).toBe("#09090b");
     // System tones keep iOS's look.
     expect(onRowActionColor("green", "#ffffff")).toBe(ON_ROW_ACTION);
@@ -158,7 +158,7 @@ describe("row actions: second review", () => {
     const Swipeable = fakeSwipeable(() => 0);
     render(
       <GenesisModulesProvider modules={{ swipeable: Swipeable as never }}>
-        <NativeSwipeRow actions={[{ id: "ok", label: "OK", tone: "yellow", onPress: vi.fn() }, { id: "go", label: "Go", tone: "green", onPress: vi.fn() }]} testID="s">
+        <NativeSwipeRow actions={[{ id: "ok", label: "OK", accent: "yellow", onPress: vi.fn() }, { id: "go", label: "Go", tone: "success", onPress: vi.fn() }]} testID="s">
           <i />
         </NativeSwipeRow>
       </GenesisModulesProvider>,
@@ -204,7 +204,7 @@ describe("row actions: second review", () => {
     const Swipeable = fakeSwipeable(() => 0);
     const row = (confirms: boolean, id: string) => (
       <GenesisModulesProvider modules={{ swipeable: Swipeable as never }}>
-        <NativeSwipeRow actions={[{ id, label: "Delete", destructive: true, full: true, ...(confirms ? { confirms: true } : {}), onPress: vi.fn() }]} testID={id}>
+        <NativeSwipeRow actions={[{ id, label: "Delete", destructive: true, swipe: { side: "trailing", full: true }, ...(confirms ? { confirms: true } : {}), onPress: vi.fn() }]} testID={id}>
           <i />
         </NativeSwipeRow>
       </GenesisModulesProvider>
