@@ -1,0 +1,29 @@
+packages/core/src/row-actions/index.ts
+  s_42efe440240299::t_28ccea38b6d775 39,42
+  s_42efe440240299::t_5995dbb1a5bc38 27,37
+packages/ui-native/src/components/__tests__/row-actions.test.tsx
+  s_42efe440240299::t_1d364366a7e14f 166-192
+packages/ui-native/README.md
+  s_42efe440240299::t_a29b0720ee2a1f 111-113
+packages/ui-native/src/tokens/row-action-tones.ts
+  s_42efe440240299::t_28ccea38b6d775 36-37,66
+packages/ui-native/src/components/swipe-row.tsx
+  s_42efe440240299::t_28ccea38b6d775 43-47,220,265-266,275-278
+  s_42efe440240299::t_b85c52e1a6a78c 279
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1d07a4141e64f366822009d0511f648c2e29b1d6",
+  "prompts": {},
+  "sessions": {
+    "s_42efe440240299": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f544dd57-0b31-4773-b89e-4661a182129e",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
