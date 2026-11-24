@@ -108,7 +108,7 @@ function StackedTitle({ title, subtitle, avatar, onPress, pressHint, faceSize = 
             <NativeText numberOfLines={1} style={{ fontSize: pillHeight > 26 ? 15 : 13, fontWeight: "600", color: c.label, flexShrink: 1 }}>
               {title || " "}
             </NativeText>
-            {onPress ? <ChatSymbol icon="chevron-right" sf="chevron.forward" size={9} weight="bold" color={c.secondaryLabel} /> : null}
+            {onPress ? <ChatSymbol icon="chevron-right" sf="chevron.forward" size={9} weight="bold" color={c.secondaryLabel} directional /> : null}
           </View>
         </ChatGlassPanel>
       </View>

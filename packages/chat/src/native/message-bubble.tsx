@@ -92,6 +92,8 @@ export interface MessageBubbleProps {
 }
 
 const SWIPE_REPLY = 56;
+/** Tapbacks shown on the corner before "+N" (which shows the rest). */
+const REACTIONS_SHOWN = 3;
 const SWIPE_MAX = 80;
 
 /** Where a bubble sits in its run of one sender's messages. */
@@ -143,6 +145,7 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
   const colors = useThemeRoles();
   const chat = useChatColors();
   const bubbleRef = useRef<ComponentRef<typeof View> | null>(null);
+  const [allReactions, setAllReactions] = useState(false);
   const { item, mine } = row;
   const message = item.type === "message" ? item.message : null;
   const pending = item.type === "pending" ? item.pending : null;
@@ -431,8 +434,8 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
           {tail ? <BubbleTail mine={mine} color={bubbleColor} backdrop={props.backdrop ?? (chat.roles.pageSolid as string)} opacity={sending ? 0.6 : moderation === "hidden-mine" ? 0.7 : 1} testID={`${testID}-tail`} /> : null}
           {reactions.length ? (
             // Tapbacks on the bubble's top corner, away from the sender's side, as Messages puts them.
-            <View pointerEvents="box-none" style={{ position: "absolute", top: -14, ...(mine ? { left: -12 } : { right: -12 }), flexDirection: "row", gap: 2 }}>
-              {reactions.slice(0, 3).map((r) => (
+            <View pointerEvents="box-none" style={{ position: "absolute", top: -14, ...(mine ? { start: -12 } : { end: -12 }), flexDirection: "row", flexWrap: "wrap", gap: 2 }}>
+              {(allReactions ? reactions : reactions.slice(0, REACTIONS_SHOWN)).map((r) => (
                 <Pressable
                   key={r.emoji}
                   testID={`${testID}-reaction-${r.emoji}`}
@@ -457,10 +460,23 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
                 >
                   <NativeText style={{ fontSize: 15 }}>{r.emoji}</NativeText>
                   {r.count > 1 ? (
-                    <NativeText style={{ fontSize: 11, fontWeight: "700", marginLeft: 2, color: r.mine ? chat.roles.onSent : chat.roles.onReceived }}>{String(r.count)}</NativeText>
+                    <NativeText style={{ fontSize: 11, fontWeight: "700", marginStart: 2, color: r.mine ? chat.roles.onSent : chat.roles.onReceived }}>{String(r.count)}</NativeText>
                   ) : null}
                 </Pressable>
               ))}
+              {!allReactions && reactions.length > REACTIONS_SHOWN ? (
+                // The rest behind "+N": every reaction stays reachable, to see and to toggle.
+                <Pressable
+                  testID={`${testID}-reactions-more`}
+                  accessibilityRole="button"
+                  accessibilityLabel={fill(copy.moreReactionsCount, { count: reactions.length - REACTIONS_SHOWN })}
+                  onPress={() => setAllReactions(true)}
+                  hitSlop={6}
+                  style={{ minWidth: 30, height: 30, paddingHorizontal: 6, borderRadius: 15, alignItems: "center", justifyContent: "center", backgroundColor: chat.roles.received, borderWidth: 2, borderColor: chat.roles.pageSolid }}
+                >
+                  <NativeText style={{ fontSize: 12, fontWeight: "700", color: chat.roles.onReceived }}>{`+${reactions.length - REACTIONS_SHOWN}`}</NativeText>
+                </Pressable>
+              ) : null}
             </View>
           ) : null}
         </Animated.View>

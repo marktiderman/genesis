@@ -10,7 +10,7 @@
  * its row.
  */
 import { dayLabel, startsDay, startsGroup, itemSender, itemTime, type ThreadItem } from "../core/thread";
-import { startsTimeSeparator, timeSeparatorLabel } from "./messages-time";
+import { startsTimeSeparator, timeSeparatorLabel, type TimeSeparatorWords } from "./messages-time";
 
 export type ThreadRow =
   | {
@@ -48,6 +48,8 @@ export interface BuildRowsOptions {
    * day starts or an hour has passed, with the time ("Today 9:41 AM").
    */
   separators?: "day" | "time";
+  /** The separators' words ("Today", "Yesterday", "at {time}"); English by default. */
+  words?: TimeSeparatorWords;
 }
 
 export function rowKey(item: ThreadItem): string {
@@ -56,14 +58,14 @@ export function rowKey(item: ThreadItem): string {
 
 /** Oldest first. */
 export function buildThreadRows(items: ThreadItem[], options: BuildRowsOptions): ThreadRow[] {
-  const { me, firstUnreadId, group, now = new Date(), locale, separators = "day" } = options;
+  const { me, firstUnreadId, group, now = new Date(), locale, separators = "day", words } = options;
   const rows: ThreadRow[] = [];
   for (let i = 0; i < items.length; i++) {
     const item = items[i]!;
     if (separators === "time") {
       const at = itemTime(item);
       if (startsTimeSeparator(i > 0 ? itemTime(items[i - 1]!) : null, at)) {
-        const { day, time } = timeSeparatorLabel(at, now, locale);
+        const { day, time } = timeSeparatorLabel(at, now, locale, words);
         rows.push({ type: "day", key: `d:${rowKey(item)}`, label: `${day} ${time}`, day, time });
       }
     } else if (startsDay(items, i)) rows.push({ type: "day", key: `d:${rowKey(item)}`, label: dayLabel(itemTime(item), now, locale) });

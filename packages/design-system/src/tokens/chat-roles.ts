@@ -1,5 +1,5 @@
 /**
- * Chat's colors, as Apple's Messages draws them: the roles genesis-chat's native screens paint
+ * Chat's colors, as the platform's Messages app draws them: the roles genesis-chat's native screens paint
  * with, so a conversation looks like Messages whatever the tenant's brand. The brand stays on the
  * rest of the app; a brand swap never moves these.
  *
@@ -94,7 +94,10 @@ const SOURCES: Record<ChatRole, Source> = {
   shadow: { light: "#000000", dark: "#000000" },
 };
 
-/** Messages' + list colors: the same in light and dark, as Messages keeps them. */
+/**
+ * Messages' + list colors. Off iOS each is one value in light and dark. On iOS the system ones are
+ * `PlatformColor`s, which iOS adapts to dark mode and Increase Contrast as it does everywhere else.
+ */
 const ACCENTS: Record<ChatAccent, Source> = {
   camera: { light: "#3A3A3C", dark: "#3A3A3C" },
   photos: { ios: "systemOrange", light: "#FF9500", dark: "#FF9500" },

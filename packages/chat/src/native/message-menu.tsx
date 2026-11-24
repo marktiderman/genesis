@@ -6,7 +6,7 @@
  * `messageActionsFor` allows). Delete asks first. A tapback taps the haptic and closes. The
  * `MessageActionsSheet` it replaces stays exported for a screen of an app's own.
  */
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Alert, ScrollView, View } from "react-native";
 import { NativeText, type NativeIconName } from "@marktiderman/genesis-ui-native/components";
 import { summarizeReactions } from "../core/thread";
@@ -49,6 +49,8 @@ export function ChatMessageMenu({ target, context, onClose, onReact, onAction, a
   const c = useChatColors();
   const { copy } = useChatNative();
   const [pickerFor, setPickerFor] = useState<ChatMessage | null>(null);
+  // What runs once the layer has gone: the emoji sheet can't be presented over it while it closes.
+  const afterClose = useRef<(() => void) | null>(null);
   const message = target?.message ?? null;
   const mine = message?.senderId === context.me;
   const mineReactions = new Set(message ? summarizeReactions(message, context.me).filter((r) => r.mine).map((r) => r.emoji) : []);
@@ -106,7 +108,7 @@ export function ChatMessageMenu({ target, context, onClose, onReact, onAction, a
             accessibilityRole="button"
             accessibilityLabel={copy.moreReactions}
             onPress={() => {
-              setPickerFor(message);
+              afterClose.current = () => setPickerFor(message);
               onClose();
             }}
             look={(pressed) => ({ width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center", backgroundColor: pressed ? c.roles.pressed : undefined })}
@@ -129,6 +131,11 @@ export function ChatMessageMenu({ target, context, onClose, onReact, onAction, a
         align={mine ? "trailing" : "leading"}
         above={tapbacks}
         closeLabel={copy.closeMenu}
+        onClosed={() => {
+          const run = afterClose.current;
+          afterClose.current = null;
+          run?.();
+        }}
         preview={
           message ? (
             <View style={{ alignItems: mine ? "flex-end" : "flex-start" }}>

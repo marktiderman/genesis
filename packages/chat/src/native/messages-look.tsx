@@ -13,7 +13,7 @@
  * `NativeFullScreenModal`. Without those modules each piece is the solid, icon-font version.
  */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Animated, Dimensions, Platform, PlatformColor, Pressable, View, type ColorValue, type PressableProps, type ViewStyle } from "react-native";
+import { Animated, Dimensions, I18nManager, Platform, PlatformColor, Pressable, View, type ColorValue, type PressableProps, type ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { resolveChatRoles, type ChatAccent, type ChatRole } from "@marktiderman/genesis-design-system";
 import { NativeFullScreenModal, NativeIcon, NativeImage, NativeText, useGenesisModules, useLiquidGlass, type NativeIconName } from "@marktiderman/genesis-ui-native/components";
@@ -158,11 +158,13 @@ export interface ChatSymbolProps {
   size?: number;
   color: ColorValue;
   weight?: "regular" | "medium" | "semibold" | "bold";
+  /** It points the reading direction's way (a disclosure chevron): flipped right to left. SF's `*.forward` symbols flip themselves. */
+  directional?: boolean;
   testID?: string;
 }
 
 /** An SF Symbol on iOS, Genesis's icon elsewhere. Decorative: label what it sits in. */
-export function ChatSymbol({ icon, sf, size = 17, color, weight = "regular", testID }: ChatSymbolProps) {
+export function ChatSymbol({ icon, sf, size = 17, color, weight = "regular", directional = false, testID }: ChatSymbolProps) {
   const { symbol: Symbol } = useGenesisModules();
   if (Platform.OS === "ios" && Symbol && sf) {
     return (
@@ -171,7 +173,8 @@ export function ChatSymbol({ icon, sf, size = 17, color, weight = "regular", tes
       </View>
     );
   }
-  return <NativeIcon name={icon} size={size} color={color} weight={weight} testID={testID} />;
+  const drawn = <NativeIcon name={icon} size={size} color={color} weight={weight} testID={testID} />;
+  return directional && I18nManager.isRTL ? <View style={{ transform: [{ scaleX: -1 }] }}>{drawn}</View> : drawn;
 }
 
 export interface ChatFaceProps {
@@ -378,6 +381,8 @@ export interface ChatContextOverlayProps {
   items: readonly ChatMenuItem[];
   align?: "leading" | "trailing";
   closeLabel?: string;
+  /** Runs once the layer has gone (a sheet to open next: iOS presents nothing over a closing layer). */
+  onClosed?: () => void;
   testID: string;
 }
 
@@ -388,7 +393,7 @@ const GAP = 10;
  * it and the glass menu opens under it, moving the preview when there isn't room. A choice runs
  * once the layer has closed (iOS presents nothing over a layer that is still going).
  */
-export function ChatContextOverlay({ open, onClose, anchor, preview, previewHeight, above, items, align = "leading", closeLabel = "Close", testID }: ChatContextOverlayProps) {
+export function ChatContextOverlay({ open, onClose, anchor, preview, previewHeight, above, items, align = "leading", closeLabel = "Close", onClosed, testID }: ChatContextOverlayProps) {
   const feel = useChatFeel();
   // Read on each draw (it only draws while open), so a turn of the phone is taken into account.
   const { width: W, height: H } = Dimensions.get("window");
@@ -401,6 +406,8 @@ export function ChatContextOverlay({ open, onClose, anchor, preview, previewHeig
   const [aboveH, setAboveH] = useState(56);
   const [menuH, setMenuH] = useState(items.length * CHAT_METRICS.menuRow + 12);
   const pending = useRef<(() => void) | null>(null);
+  const onClosedNow = useRef(onClosed);
+  onClosedNow.current = onClosed;
 
   useEffect(() => {
     if (open) {
@@ -413,6 +420,7 @@ export function ChatContextOverlay({ open, onClose, anchor, preview, previewHeig
         const run = pending.current;
         pending.current = null;
         run?.();
+        onClosedNow.current?.();
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -492,7 +500,7 @@ export function ChatGlassList({ open, onClose, items, bottom, closeLabel = "Clos
         <Animated.View
           style={{
             position: "absolute",
-            left: 8,
+            start: 8,
             bottom,
             opacity: progress,
             transform: [

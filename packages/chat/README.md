@@ -161,13 +161,15 @@ softened), the composer's glass + circle and "Message" pill with the mic and the
 + list of round colored icons. The header's title is the face over a glass pill with the name;
 `ChatDetailsScreen` is what it opens.
 
-Colors are the design system's chat roles (`resolveChatRoles`, read through `useChatColors`): iOS
+Colors are the design system's chat roles (`resolveChatRoles`, read through `useChatColors`;
+genesis-design-system is a required peer): iOS
 system colors on iOS, their light and dark values elsewhere, never the brand's. Glass is
 genesis-ui-native's (`GenesisModules.glass`; solid under Reduce Transparency or without it), symbols
 `GenesisModules.symbol` with Genesis's icons as the fallback, haptics `GenesisModules.haptics` and
 motion Genesis's tokens (still under Reduce Motion).
 
-The inbox sets its own header through `GenesisModules.router.StackScreen`: a large title that
+The inbox is genesis-ui-native's `InboxPage` in its plain variant, chat's row in its `row`
+slot; `pageProps` reaches it (paging with `onEndReached`, `formatTime`, its own slots). It sets its own header through `GenesisModules.router.StackScreen`: a large title that
 collapses with the list (the list is the screen's scroll view), Back on the left with `onBack`, and
 on the right the filter menu and Compose as native header items. It hides the tab bar while it
 shows (`useHideTabBar`, which needs the tabs layout's `TabBarVisibilityProvider`).
@@ -221,7 +223,7 @@ export function ThreadRoute({ id, insert }: { id: string; insert: () => void }) 
 The pieces are exported for a screen of an app's own: `ChatFace`, `ChatGlassPanel`,
 `ChatGlassCircle`, `ChatGlassMenu`, `ChatContextOverlay`, `ChatSymbol`, `ChatBubbleShape`,
 `ChatMessageMenu`, `ChatConversationPreview`, `CHAT_METRICS` and `CHAT_TYPE`, with the times
-(`timeSeparatorLabel`, `inboxTimeLabel`) and the inbox's rules (`defaultInboxFilters`,
+(`timeSeparatorLabel`) and the inbox's rules (`defaultInboxFilters`,
 `applyInboxFilter`, `pinnedConversations`, `matchesInboxSearch`, `isSelfConversation`).
 `MessageActionsSheet` stays exported; the thread no longer opens it.
 

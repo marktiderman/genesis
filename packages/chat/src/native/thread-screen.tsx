@@ -304,7 +304,7 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
   const [readersOpen, setReadersOpen] = useState(false);
   const openReaders = useCallback(() => setReadersOpen(true), []);
 
-  const rows = useMemo(() => buildThreadRows(conv.items, { me: userId, firstUnreadId: conv.firstUnreadId, group, separators: "time" }), [conv.items, userId, conv.firstUnreadId, group]);
+  const rows = useMemo(() => buildThreadRows(conv.items, { me: userId, firstUnreadId: conv.firstUnreadId, group, separators: "time", words: copy }), [conv.items, userId, conv.firstUnreadId, group, copy]);
   const paths = useMemo(() => conv.items.flatMap((i) => (i.type === "message" ? attachmentPaths(i.message.attachments) : [])), [conv.items]);
   const urls = useFileUrls(paths);
   // Out of sight (another tab, a screen pushed over it): what this thread is playing pauses.

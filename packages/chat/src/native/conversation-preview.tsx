@@ -88,7 +88,7 @@ export function ChatConversationPreview({ conversationId, title, testID }: ChatC
   const conv = useConversation(conversationId, { markRead: false });
   const messages = useMemo(() => conv.messages.filter((m) => m.kind !== "system").slice(-12), [conv.messages]);
   const positions = useMemo(() => runPositions(messages), [messages]);
-  const first = messages[0] ? timeSeparatorLabel(messages[0].createdAt) : null;
+  const first = messages[0] ? timeSeparatorLabel(messages[0].createdAt, undefined, undefined, copy) : null;
   return (
     <View testID={testID} accessible accessibilityLabel={title} style={{ flex: 1, borderRadius: 30, overflow: "hidden", backgroundColor: c.roles.page }}>
       <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: "flex-end", padding: 12, paddingBottom: 16 }} scrollEnabled={false}>

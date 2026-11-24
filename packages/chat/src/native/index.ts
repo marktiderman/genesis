@@ -72,7 +72,7 @@ export {
   type ChatRect,
   type ChatContextOverlayProps,
 } from "./messages-look";
-export { chatClock, timeSeparatorLabel, startsTimeSeparator, inboxTimeLabel, TIME_SEPARATOR_GAP_MS } from "./messages-time";
+export { chatClock, timeSeparatorLabel, startsTimeSeparator, TIME_SEPARATOR_GAP_MS, type TimeSeparatorWords } from "./messages-time";
 export { ChatBubbleShape, ChatBubbleTail, ChatConversationPreview, runPositions, type ChatBubbleShapeProps, type ChatConversationPreviewProps } from "./conversation-preview";
 export { ChatMessageMenu, TAPBACKS, type ChatMessageMenuProps } from "./message-menu";
 export {

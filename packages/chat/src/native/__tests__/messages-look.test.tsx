@@ -5,7 +5,7 @@
 // slots an app replaces a part through.
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { PlatformColor } from "react-native";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { resolveChatRoles } from "@marktiderman/genesis-design-system";
@@ -18,8 +18,9 @@ import { ChatNativeProvider } from "../context";
 import { ChatDetailsScreen, isSelfMembers } from "../details-screen";
 import { applyInboxFilter, ChatInboxScreen, defaultInboxFilters, inboxHeaderItems, isGroupConversation, isSelfConversation, matchesInboxSearch, pinnedConversations } from "../inbox-screen";
 import { ChatMessageMenu, TAPBACKS } from "../message-menu";
+import { MessageBubble } from "../message-bubble";
 import { chatColors } from "../messages-look";
-import { inboxTimeLabel, startsTimeSeparator, timeSeparatorLabel } from "../messages-time";
+import { startsTimeSeparator, timeSeparatorLabel } from "../messages-time";
 import { buildThreadRows } from "../rows";
 import type { ThreadItem } from "../../core/thread";
 
@@ -118,8 +119,11 @@ describe("times", () => {
     expect(timeSeparatorLabel("2026-11-24T09:41:00", new Date("2026-11-24T12:00:00")).day).toBe("Today");
     expect(timeSeparatorLabel("2026-11-23T09:41:00", new Date("2026-11-24T12:00:00")).day).toBe("Yesterday");
     expect(timeSeparatorLabel("2026-10-01T09:41:00", new Date("2026-11-24T12:00:00")).time).toMatch(/^at /);
-    expect(inboxTimeLabel("2026-11-23T09:41:00", new Date("2026-11-24T12:00:00"))).toBe("Yesterday");
-    expect(inboxTimeLabel(null)).toBeNull();
+    // The words are the copy's.
+    const words = { today: "Hoy", yesterday: "Ayer", atTime: "a las {time}" };
+    expect(timeSeparatorLabel("2026-11-24T09:41:00", new Date("2026-11-24T12:00:00"), undefined, words).day).toBe("Hoy");
+    expect(timeSeparatorLabel("2026-11-23T09:41:00", new Date("2026-11-24T12:00:00"), undefined, words).day).toBe("Ayer");
+    expect(timeSeparatorLabel("2026-10-01T09:41:00", new Date("2026-11-24T12:00:00"), undefined, words).time).toMatch(/^a las /);
   });
 
   it("are rows the thread draws with `separators: \"time\"`", () => {
@@ -160,6 +164,53 @@ describe("the long press on a bubble", () => {
     fireEvent.click(screen.getByTestId("menu-react-❤️"));
     expect(onReact).toHaveBeenCalledWith(message, "❤️", true);
     expect(onClose).toHaveBeenCalled();
+  });
+});
+
+describe("More reactions", () => {
+  it("opens the emoji sheet only once the long-press layer has closed", async () => {
+    const message = msg(1, SAM, new Date().toISOString());
+    function Harness() {
+      const [target, setTarget] = useState<{ message: ChatMessage; rect: null } | null>({ message, rect: null });
+      return (
+        <ChatMessageMenu
+          target={target}
+          context={{ me: ME, role: "member", canPost: true, pinned: false, canPin: true, canCopy: true }}
+          onClose={() => setTarget(null)}
+          onReact={vi.fn()}
+          onAction={vi.fn()}
+          testID="menu"
+        />
+      );
+    }
+    render(
+      <ChatNativeProvider>
+        <Harness />
+      </ChatNativeProvider>,
+    );
+    expect(screen.queryByTestId("menu-emoji")).toBeNull();
+    await act(async () => fireEvent.click(screen.getByTestId("menu-react-more")));
+    await waitFor(() => expect(screen.queryByTestId("menu-layer")).toBeNull());
+    await waitFor(() => expect(screen.getByTestId("menu-emoji")).toBeTruthy());
+  });
+});
+
+describe("a bubble's tapbacks", () => {
+  it("show three on the corner and the rest behind +N, which shows them all", () => {
+    const reactions = ["❤️", "👍", "😂", "🎉", "🙏"].map((emoji, i) => ({ emoji, userId: `u${i}`, createdAt: new Date().toISOString() }));
+    const message = msg(1, SAM, new Date().toISOString(), { reactions } as Partial<ChatMessage>);
+    const row = { type: "message" as const, key: "c:c1", item: { type: "message" as const, message }, mine: false, senderId: SAM, groupStart: true, groupEnd: true, showName: false, showAvatar: false };
+    render(
+      <ChatNativeProvider>
+        <MessageBubble row={row} me={ME} urls={{}} group={false} reducedMotion onToggleReaction={vi.fn()} testID="b" />
+      </ChatNativeProvider>,
+    );
+    expect(screen.queryByTestId("b-reaction-🎉")).toBeNull();
+    const more = screen.getByTestId("b-reactions-more");
+    expect(more.getAttribute("aria-label")).toBe("2 more reactions");
+    fireEvent.click(more);
+    expect(screen.getByTestId("b-reaction-🎉")).toBeTruthy();
+    expect(screen.getByTestId("b-reaction-🙏")).toBeTruthy();
   });
 });
 
@@ -207,7 +258,7 @@ describe("ChatInboxScreen", () => {
   });
 
   it("takes a slot for a row, given the row's data", async () => {
-    const Row = ({ row, testID }: { row: { title: string }; testID: string }) => <span data-testid={testID}>{`own ${row.title}`}</span>;
+    const Row = ({ title, testID }: { title: string; testID: string }) => <span data-testid={testID}>{`own ${title}`}</span>;
     render(wrap(fakeClient(), <ChatInboxScreen onOpen={vi.fn()} slots={{ row: Row }} nativeHeader={false} search={false} testID="inbox" />));
     await waitFor(() => expect(screen.getByTestId(`inbox-row-${C}`).textContent).toBe("own Sam Lee"));
     expect(screen.queryByTestId("inbox-search-input")).toBeNull();

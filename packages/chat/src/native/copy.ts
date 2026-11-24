@@ -228,6 +228,12 @@ export interface ChatNativeCopy extends ChatOrganiseCopy, ChatInboxActionLabels 
   member: string;
   settingsFailed: string;
   jumpToNewest: string;
+  /** The thread's time separators: "**Today** 9:41 AM", "**Yesterday** …", "**Mon, Nov 3** at 9:41 AM". */
+  today: string;
+  yesterday: string;
+  atTime: string;
+  /** The "+N" chip after the first three tapbacks on a bubble. */
+  moreReactionsCount: string;
 }
 
 export const chatNativeCopy: ChatNativeCopy = {
@@ -417,6 +423,10 @@ export const chatNativeCopy: ChatNativeCopy = {
   member: "Member",
   settingsFailed: "Couldn't save that",
   jumpToNewest: "Go to the newest message",
+  today: "Today",
+  yesterday: "Yesterday",
+  atTime: "at {time}",
+  moreReactionsCount: "{count} more reactions",
 };
 
 export type ChatNativeCopyOverrides = Partial<ChatNativeCopy>;
