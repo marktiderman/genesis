@@ -28,7 +28,11 @@ import { nativeThemeDark, nativeThemeLight } from "@marktiderman/genesis-design-
 import { readableOn } from "../tokens/contrast";
 import { useThemeMode } from "./use-theme-mode";
 
-export type ThemeRoleColors = Record<ThemeRole, ColorValue> & {
+/** The roles as released in 3.16.0. */
+export type ThemeRoleColors = Record<ThemeRole, ColorValue>;
+
+/** What `useThemeRoles` returns: the roles, plus the app's primary and the text on it. */
+export type ThemeRoleColorsWithPrimary = ThemeRoleColors & {
   /** The app's primary: the brand's native primary under a GenesisThemeProvider, else the tint. */
   primary: ColorValue;
   /** The text and icons on `primary`. */
@@ -56,7 +60,7 @@ function brandPrimary(brand: CanonicalBrand, mode: "light" | "dark"): { primary:
   return primary && onPrimary ? { primary, onPrimary } : undefined;
 }
 
-export function useThemeRoles(options: UseThemeRolesOptions = {}): ThemeRoleColors {
+export function useThemeRoles(options: UseThemeRolesOptions = {}): ThemeRoleColorsWithPrimary {
   const scheme = useThemeMode();
   const { tint, materialYou = false } = options;
   const androidDynamic = materialYou && Platform.OS === "android" && Number(Platform.Version) >= 31;

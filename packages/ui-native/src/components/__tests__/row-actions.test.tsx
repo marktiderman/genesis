@@ -177,8 +177,27 @@ describe("row actions (ADR 0028)", () => {
     fireEvent.click(screen.getByTestId("s"));
     expect(JSON.parse(screen.getByTestId("s-pill").dataset.style!)).toMatchObject({ borderRadius: 26, marginHorizontal: 6 });
     expect(screen.getByTestId("row")).toBe(row);
+    // Starting back keeps the pill (the row is still sliding home); it goes once the row is home.
     fireEvent.doubleClick(screen.getByTestId("s"));
+    expect(screen.getByTestId("s-pill").dataset.style).toBeDefined();
+    fireEvent.mouseUp(screen.getByTestId("s"));
     expect(screen.getByTestId("s-pill").dataset.style).toBeUndefined();
+  });
+
+  it("a full swipe runs its action without turning the row into a pill", () => {
+    const Swipeable = fakeSwipeable(vi.fn(), () => 1000);
+    const onFull = vi.fn();
+    render(
+      <GenesisModulesProvider modules={{ swipeable: Swipeable as never }}>
+        <NativeSwipeRow actions={[{ id: "read", label: "Read", swipe: { side: "leading", full: true }, onPress: onFull }]} appearance="round" testID="f">
+          <i data-testid="row" />
+        </NativeSwipeRow>
+      </GenesisModulesProvider>,
+    );
+    layout(screen.getByTestId("f").parentElement!, 400);
+    fireEvent.click(screen.getByTestId("f"));
+    expect(onFull).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("f-pill").dataset.style).toBeUndefined();
   });
 
   it("with a preview, the long press opens the sheet with the peek on top, even with the system menu", async () => {

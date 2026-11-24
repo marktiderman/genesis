@@ -224,7 +224,7 @@ export function NativeSwipeRow({
   const swipe = useRef<{ close?: () => void } | null>(null);
   const offset = useRef<{ value: number } | null>(null);
   const [width, setWidth] = useState(0);
-  // The row off its resting place: from a drag starting (or a ref opening it) until it starts back.
+  // The row off its resting place: from a drag starting (or a ref opening it) until it is back home.
   // It makes the open row a pill (round) and, without Reanimated, shows the buttons, which stay
   // mounted (the swipe measures them) but unseen at rest, so they never show in an inset row's margins.
   const [open, setOpen] = useState(false);
@@ -298,12 +298,13 @@ export function NativeSwipeRow({
             run(action);
           } else {
             play("medium");
+            // A full swipe runs its action and springs back: no pill while it does.
+            setOpen(true);
           }
-          setOpen(true);
         }}
         onSwipeableOpenStartDrag={() => setOpen(true)}
         onSwipeableOpen={() => setOpen(true)}
-        onSwipeableWillClose={() => setOpen(false)}
+        // Cleared once the row is home, not as it starts back: the buttons stay seen while it slides.
         onSwipeableClose={() => setOpen(false)}
         renderLeftActions={left.length ? group(left) : undefined}
         renderRightActions={right.length ? group(right) : undefined}

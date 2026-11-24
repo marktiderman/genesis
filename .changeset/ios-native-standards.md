@@ -27,7 +27,7 @@ iOS standards for every native screen (ADR 0028).
   - runs a side's `full` action on a full swipe: past 0.6 of the row, and 40pt clear of its open actions;
   - puts the actions on the row for VoiceOver;
   - keeps the buttons unseen at rest: the row's translation shows them with `GenesisModules.reanimated`, else one open state;
-  - warns in development when a destructive full action doesn't `confirm`.
+  - warns in development when a destructive full action doesn't set `confirms`.
 
   The swipe tracks the finger 1:1, and a swipe action runs before the row closes.
 - **`useThemeRoles` adds `primary` and `onPrimary`:** the app's own `bg-primary` and `text-primary-foreground` on the phone. Under a `GenesisThemeProvider` they are `brandRoleVariables(brand, { platform: "native" })` for the resolved mode (native overrides, dark colors, the contrast-checked foreground). Otherwise they are the tint, with black or white by contrast.

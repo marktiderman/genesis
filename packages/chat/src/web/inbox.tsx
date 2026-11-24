@@ -151,8 +151,8 @@ export function ChatInbox({ resolveUser, onSelect, selectedId, kind, archived = 
   const { userId: me, attachmentKinds } = useChat();
   const { items, isLoading, error, refetch } = useInbox({ kind, archived });
   const act = useInboxActions();
-  const { confirm, dialog } = useConfirmDialog();
   const labels = useMemo(() => ({ ...defaultInboxActionLabels, ...actionLabels }), [actionLabels]);
+  const { confirm, dialog } = useConfirmDialog(labels.cancel);
   const rows = useMemo<ChatInboxRow[]>(
     () =>
       items.map((item) => {

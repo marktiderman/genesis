@@ -13,7 +13,7 @@ The inbox's row actions, Messages' set, on the phone and the web (G1-315). Needs
   - `rowActions(item, defaults)` reshapes them, and `alertConfirm(cancelLabel)` is the Alert-based confirm.
 - **Web, `ChatInbox`:** each row's More menu offers the same actions (genesis-ui's `InboxRowMenu`), and Delete asks in an AlertDialog. It takes `rowActions`, `actionLabels` and `onActionError`. `useConfirmDialog()` gives the dialog-based confirm.
 - **`/react`:**
-  - `inboxRowActions(item, actions, labels, { confirm, onError })` builds the set, next to `inboxRow`.
+  - `inboxRowActions(item, actions, labels, { confirm, onError })` builds the set (in `/react`; `inboxRow` is in `/native`).
   - `ChatInboxActionLabels` holds the words, and `defaultInboxActionLabels` the English. The native copy includes them.
   - `ChatConfirm` is `(title, body, label) => Promise<boolean>`.
   - `useInboxActions()` runs them from the row: `toggleUnread(item)`, `togglePinned(item)`, `toggleMuted(item, until?)` (until it's turned back on by default), `setArchived(item, archived)`, and `deleteForMe(item)`, which deletes up to `item.lastSeq`.

@@ -24,6 +24,8 @@ export interface ChatInboxActionLabels {
   deleteConversation: string;
   deleteConversationTitle: string;
   deleteConversationBody: string;
+  /** The confirmation's Cancel. */
+  cancel: string;
 }
 
 /** The English words, which the native copy starts from too. */
@@ -39,6 +41,7 @@ export const defaultInboxActionLabels: ChatInboxActionLabels = Object.freeze({
   deleteConversationTitle: "Delete this conversation?",
   deleteConversationBody:
     "Its messages are removed for you and it leaves your inbox. Everyone else still sees them. A new message brings it back, with only what comes after.",
+  cancel: "Cancel",
 });
 
 /** Asks before a destructive action: resolves `true` to go ahead. Native passes an Alert, web a dialog. */
