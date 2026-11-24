@@ -1,0 +1,503 @@
+apps/native-workbench/src/app/(app)/notifications/index.tsx
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-30
+apps/native-workbench/.maestro/README.md
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-39
+apps/native-workbench/supabase/migrations/20261024000600_genesis_support.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-846
+apps/native-workbench/supabase/migrations/20261024000200_genesis_apple_token_revocation.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-205
+apps/native-workbench/.eas/scripts/native-release.mjs
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-830
+apps/native-workbench/supabase/tests/database/genesis_chat_unread_and_delete_for_me.test.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-178
+apps/native-workbench/__tests__/chat-outboxes.test.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-64
+apps/native-workbench/vitest.config.mts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-7
+apps/genesis-rn-starter/__tests__/release.test.ts
+  s_f1aa8511899775::t_50418496994b1a 61
+packages/genesis-cli/test/init-native.test.ts
+  s_f1aa8511899775::t_c8ae7d322d73ac 2,6-7,70-99
+  s_f1aa8511899775::t_878f2a33708b03 100
+apps/native-workbench/.maestro/workbench/header.yaml
+  s_f1aa8511899775::t_962c574199fdbc 1-31
+packages/genesis-cli/test/doctor-packs.test.ts
+  s_f1aa8511899775::t_261b37163583b2 362-363,370-372
+  s_f1aa8511899775::t_a628c15d84c3e6 364-369
+apps/native-workbench/supabase/tests/database/genesis_chat_tenants.test.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-259
+apps/genesis-rn-starter/src/app/(app)/_layout.tsx
+  s_f1aa8511899775::t_5cc2dd27fb8924 5,16-17,24-71,74-78
+apps/native-workbench/src/app/(app)/workbench/_layout.tsx
+  s_f1aa8511899775::t_46fbf0ae1c04ce 1-6
+apps/native-workbench/.github/workflows/database.yml
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-21
+apps/native-workbench/src/lib/define-starter.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-177
+apps/native-workbench/supabase/functions/genesis-push-send/index.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-54
+apps/native-workbench/src/lib/observability.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-54
+apps/native-workbench/__tests__/components/reports.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-10
+apps/native-workbench/supabase/migrations/20261026000500_genesis_support_diagnostics_fixes.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-38
+features.json
+  s_f1aa8511899775::t_e358223f0815c8 5358-5410
+  s_f1aa8511899775::t_815e7d20ceb3cd 5357
+.changeset/native-workbench.md
+  s_f1aa8511899775::t_096123c05ff09b 8-9
+  s_f1aa8511899775::t_7adeb49f2f0308 1-7,10
+apps/native-workbench/src/workbench/screens/tab-bar.tsx
+  s_f1aa8511899775::t_9ae2b72aef971e 1-29
+apps/native-workbench/.eas/agents/start-session.sh
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-91
+apps/native-workbench/supabase/migrations/20261026000800_genesis_settings_integer.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-101
+apps/native-workbench/.eas/agents/device.sh
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-143
+apps/native-workbench/src/app/(app)/workbench/[id].tsx
+  s_f1aa8511899775::t_46fbf0ae1c04ce 1-19
+apps/native-workbench/__tests__/components/messages.test.tsx
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-33
+apps/native-workbench/src/lib/app.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-63
+apps/native-workbench/supabase/migrations/20261024000100_genesis_app_release_policy.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-82
+apps/native-workbench/__tests__/inline-copy.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-59
+apps/native-workbench/src/lib/check-in-photos.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-66
+apps/native-workbench/index.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-14
+apps/native-workbench/metro.config.js
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-46
+apps/native-workbench/src/lib/chat-video.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-57
+apps/native-workbench/src/app/(app)/settings/availability.tsx
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-16
+apps/native-workbench/src/lib/errors.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-35
+apps/native-workbench/src/lib/health.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-14
+apps/native-workbench/src/lib/native-modules.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-8,13-19,23-42,49
+  s_f1aa8511899775::t_15263e40ee4d15 9-12,20-22,43-48
+apps/native-workbench/src/lib/links.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-43
+apps/native-workbench/src/copy.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-133
+apps/native-workbench/src/lib/preview-path.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-14
+apps/native-workbench/supabase/functions/genesis-apple-revoke/index.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-55
+apps/native-workbench/supabase/functions/genesis-push-send/expo.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-117
+apps/native-workbench/supabase/migrations/20261026001500_genesis_chat_unread_and_delete_for_me.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-455
+packages/genesis-cli/src/blocks/init-native.ts
+  s_f1aa8511899775::t_6eafadca61e76b 65-71,190-202,204-216,294-296
+  s_f1aa8511899775::t_d7fbefe9419b50 203
+  s_f1aa8511899775::t_157b088b190c17 23-26,85-86,242-244,259,278-281,297-305
+  s_f1aa8511899775::t_b215b7c90e4276 412
+  s_f1aa8511899775::t_507d69b9439e90 217-218
+apps/native-workbench/supabase/migrations/20261025000050_genesis_chat_coaching.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-934
+apps/native-workbench/__tests__/components/sign-in.test.tsx
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-90
+apps/native-workbench/src/lib/account.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-42
+apps/native-workbench/src/lib/auth.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-80
+apps/native-workbench/supabase/migrations/20261025000060_genesis_chat_search_threads.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-85
+apps/native-workbench/supabase/tests/database/genesis_support_findings.test.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-229
+apps/native-workbench/__tests__/components/css-stub.js
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-2
+apps/native-workbench/supabase/migrations/20261026000400_genesis_support_diagnostics_access.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-75
+apps/native-workbench/__tests__/components/root-layout.test.tsx
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-55
+apps/native-workbench/__tests__/components/setup.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-98
+apps/native-workbench/supabase/migrations/20261025000080_genesis_chat_tenants.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-716
+apps/native-workbench/src/lib/devtools-overlay.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-35
+apps/native-workbench/supabase/tests/database/genesis_app_release_policy.test.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-148
+apps/genesis-rn-starter/src/app/_layout.tsx
+  s_f1aa8511899775::t_5cc2dd27fb8924 4,18-22
+apps/native-workbench/src/app/(app)/settings/support/[...route].tsx
+  s_f1aa8511899775::t_fe0b0db1e3feec 1
+apps/genesis-rn-starter/.maestro/prove-ios.mjs
+  s_f1aa8511899775::t_d1926cd67cc5a2 1-34,36-77,82-257
+  s_f1aa8511899775::t_729f70b9ca7007 35,78-81
+scripts/check-workbench-coverage.mjs
+  s_f1aa8511899775::t_bc5907eccb2662 1-88
+apps/native-workbench/.maestro/flows/settings-version.yaml
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-28
+apps/native-workbench/.maestro/flows/launch.yaml
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-17
+apps/native-workbench/supabase/migrations/20261026001100_genesis_settings_tenant_person.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-779
+apps/native-workbench/.maestro/subflows/open-workbench.yaml
+  s_f1aa8511899775::t_962c574199fdbc 1-13
+apps/native-workbench/src/workbench/screens/header.tsx
+  s_f1aa8511899775::t_9ae2b72aef971e 1-62
+apps/native-workbench/supabase/migrations/20261024000700_genesis_support_findings.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-339
+apps/native-workbench/.eas/scripts/rollout-health.mjs
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-85
+apps/native-workbench/.github/workflows/claude-review.yml
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-27
+apps/native-workbench/supabase/tests/database/genesis_support_diagnostics.test.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-171
+apps/native-workbench/supabase/tests/database/genesis_support_tickets.test.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-327
+apps/native-workbench/supabase/tests/database/genesis_chat_coaching.test.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-277
+apps/native-workbench/.maestro/subflows/sign-in.yaml
+  s_f1aa8511899775::t_95891ecb61a29c 12-13,17
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-11,14-16,18-23
+apps/genesis-rn-starter/.gitignore
+  s_f1aa8511899775::t_50418496994b1a 22-23
+apps/native-workbench/.maestro/workbench/row-actions-items.yaml
+  s_f1aa8511899775::t_962c574199fdbc 1-27
+package.json
+  s_f1aa8511899775::t_b31d507ac93eb4 15,41
+apps/native-workbench/__tests__/components/session-storage.test.tsx
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-81
+apps/native-workbench/src/app/(app)/(home)/index.tsx
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-34
+apps/native-workbench/src/lib/updates.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-63
+apps/native-workbench/.github/workflows/pr-preview-teardown.yml
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-144
+apps/native-workbench/.fingerprintignore
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-7
+apps/native-workbench/src/lib/google-signin.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-23
+apps/native-workbench/__tests__/components/resolver.js
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-24
+apps/native-workbench/.maestro/workbench/row-actions-list.yaml
+  s_f1aa8511899775::t_962c574199fdbc 1-24
+  s_f1aa8511899775::t_61a796734aa946 25-30
+apps/native-workbench/src/app/(app)/(home)/_layout.tsx
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-9
+apps/native-workbench/supabase/migrations/20261026000600_genesis_support_notifications.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-422
+apps/native-workbench/.eas/agents/run-agent.sh
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-47
+apps/native-workbench/supabase/migrations/20261026000300_genesis_support_settings.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-204
+templates/maestro/subflows/sign-in.yaml
+  s_f1aa8511899775::t_95891ecb61a29c 12-13,17
+apps/native-workbench/.env.example
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-14
+apps/native-workbench/__tests__/components/settings.test.tsx
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-168
+apps/native-workbench/__tests__/components/support.test.tsx
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-117
+apps/native-workbench/jest.config.js
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-40
+apps/native-workbench/src/forms/check-in.json
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-309
+apps/native-workbench/supabase/functions/genesis-push-send/handler.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-462
+apps/native-workbench/src/lib/link-hosts.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-12
+packages/genesis-cli/src/doctor/native.ts
+  s_f1aa8511899775::t_261b37163583b2 25,294-295,316-322
+apps/native-workbench/.eas/agents/run-maestro.sh
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-39
+apps/native-workbench/src/app/(app)/settings/index.tsx
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-126
+apps/native-workbench/supabase/migrations/20261024000000_genesis_account_deletion.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-133
+apps/native-workbench/supabase/migrations/20261025000000_genesis_chat.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-1836
+apps/native-workbench/src/workbench/screens/place-exit.tsx
+  s_f1aa8511899775::t_9ae2b72aef971e 1-31
+features.ts
+  s_f1aa8511899775::t_e358223f0815c8 2354-2375
+apps/native-workbench/supabase/migrations/20261026000000_chat_people.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-57
+apps/native-workbench/src/app/(app)/notifications/_layout.tsx
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-9
+apps/native-workbench/.eas/workflows/rollout.yml
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-122
+apps/native-workbench/src/app/(app)/settings/_layout.tsx
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-9
+apps/native-workbench/fingerprint.config.js
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-53
+apps/native-workbench/supabase/tests/database/genesis_chat.test.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-262
+apps/native-workbench/__tests__/components/gestures.test.tsx
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-64
+apps/native-workbench/src/app/(app)/settings/notifications.tsx
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-19
+apps/native-workbench/src/app/_layout.tsx
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-3,5-17,23-27
+  s_f1aa8511899775::t_15263e40ee4d15 4,18-22
+apps/native-workbench/.maestro/config.yaml
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-5
+apps/native-workbench/src/lib/settings.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-95
+apps/native-workbench/starter.config.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-38
+templates/maestro/prove-ios.mjs
+  s_f1aa8511899775::t_bc7ab9293e0962 1-34,36-77,82-257
+  s_f1aa8511899775::t_729f70b9ca7007 35,78-81
+apps/native-workbench/global.css
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-3
+apps/native-workbench/.maestro/prove-ios.mjs
+  s_f1aa8511899775::t_729f70b9ca7007 35,78-81
+  s_f1aa8511899775::t_d1926cd67cc5a2 1-34,36-77,82-257
+apps/native-workbench/genesis.lock.json
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-311
+apps/native-workbench/src/app/(app)/messages/search.tsx
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-39
+AGENTS.md
+  s_f1aa8511899775::t_e358223f0815c8 191
+  s_f1aa8511899775::t_b556fec35b8177 3-5,10
+apps/native-workbench/.gitignore
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-21
+  s_f1aa8511899775::t_50418496994b1a 22-23
+apps/native-workbench/tailwind.config.mjs
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-17
+apps/native-workbench/package.json
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-16,20-110
+  s_f1aa8511899775::t_50418496994b1a 17
+  s_f1aa8511899775::t_ca2c41fbcfecae 18-19
+apps/native-workbench/src/app/(app)/messages/index.tsx
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-38
+apps/native-workbench/supabase/migrations/20261026000900_genesis_platform_admins.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-134
+apps/native-workbench/__tests__/entry.test.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-28
+apps/native-workbench/.eas/workflows/pr-preview.yml
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-253
+apps/native-workbench/src/app/(app)/(home)/check-in.tsx
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-7
+apps/native-workbench/supabase/migrations/20261026001300_genesis_settings_pattern.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-92
+apps/native-workbench/.github/workflows/genesis-upgrade.yml
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-23
+apps/native-workbench/supabase/migrations/20261024000400_genesis_push.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-524
+apps/native-workbench/src/app/(app)/messages/check-in.tsx
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-9
+.changeset/release-lane-own-starter.md
+  s_f1aa8511899775::t_b72e822359dab4 1-5
+apps/native-workbench/supabase/migrations/20261026000200_genesis_support_hook_defaults.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-100
+apps/native-workbench/.eas/workflows/agentic-ci.yml
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-212
+apps/native-workbench/supabase/migrations/20261025000100_genesis_notifications.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-2057
+apps/native-workbench/.eas/workflows/deploy-production.yml
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-273
+apps/native-workbench/src/app/(app)/messages/[id].tsx
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-63
+apps/native-workbench/src/app/+native-intent.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-15
+apps/native-workbench/supabase/migrations/20261024000750_support_default_tenant.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-18
+apps/native-workbench/__tests__/components/links.test.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-25
+apps/genesis-rn-starter/package.json
+  s_f1aa8511899775::t_50418496994b1a 17-18
+apps/native-workbench/.maestro/flows/sign-in-screen.yaml
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-17
+apps/native-workbench/.eas/agents/redact-evidence.sh
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-45
+apps/native-workbench/supabase/migrations/20261024000800_genesis_support_tickets.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-800
+apps/native-workbench/supabase/tests/database/genesis_account_deletion.test.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-138
+apps/native-workbench/supabase/tests/database/genesis_chat_search_threads.test.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-58
+apps/native-workbench/supabase/tests/database/genesis_notifications.test.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-475
+apps/native-workbench/workbench-coverage.json
+  s_f1aa8511899775::t_8f1647651e1beb 1-187
+apps/native-workbench/supabase/tests/database/chat_people.test.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-112
+apps/native-workbench/src/lib/env.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-37
+apps/native-workbench/supabase/migrations/20261026000100_genesis_support_default_hooks.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-44
+apps/native-workbench/supabase/functions/genesis-apple-revoke/apple.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-242
+apps/native-workbench/src/app/(app)/workbench/index.tsx
+  s_f1aa8511899775::t_46fbf0ae1c04ce 1-30
+apps/native-workbench/__tests__/components/tabs-feature-off.test.tsx
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-19
+apps/native-workbench/babel.config.js
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-9
+apps/native-workbench/supabase/config.toml
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-7,9,28-50
+  s_f1aa8511899775::t_051c9aa77dd844 8
+  s_f1aa8511899775::t_3559643a44689d 10-19,21-27
+  s_f1aa8511899775::t_f40c78d31ba0cb 20
+apps/native-workbench/supabase/tests/database/genesis_apple_token_revocation.test.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-230
+apps/native-workbench/src/workbench/registry.ts
+  s_f1aa8511899775::t_1ee0697d2f4c42 1-39
+apps/native-workbench/__tests__/starter.test.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-608
+apps/native-workbench/eslint.config.js
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-12
+apps/native-workbench/supabase/migrations/20261025000096_genesis_support_diagnostics.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-201
+apps/native-workbench/supabase/migrations/20261026001000_genesis_support_staff_admin_list.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-49
+apps/native-workbench/supabase/tests/database/genesis_support_ticket_fixes.test.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-121
+apps/native-workbench/supabase/tests/database/starter_tenancy.test.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-19
+apps/native-workbench/.eas/workflows/e2e.yml
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-91
+apps/native-workbench/.maestro/flows/deep-link.yaml
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-22
+apps/native-workbench/__tests__/components/tabs.test.tsx
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-43
+apps/native-workbench/tsconfig.json
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-14
+apps/native-workbench/src/workbench/sample-data.ts
+  s_f1aa8511899775::t_1ee0697d2f4c42 1-47
+apps/native-workbench/src/workbench/screens/row-actions.tsx
+  s_f1aa8511899775::t_9ae2b72aef971e 1-43,46-47,49-110
+  s_f1aa8511899775::t_48636acaa5c082 44-45,48
+packages/genesis-cli/src/cli.ts
+  s_f1aa8511899775::t_6eafadca61e76b 143
+  s_f1aa8511899775::t_4b8ae8c03bc13c 69,97
+apps/native-workbench/supabase/functions/genesis-apple-revoke/handler.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-227
+apps/native-workbench/src/lib/check-in-screen.tsx
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-43
+apps/native-workbench/supabase/tests/database/genesis_chat_read_receipts.test.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-131
+apps/native-workbench/__tests__/app-config.test.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-78
+apps/native-workbench/eas.json
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-47
+apps/native-workbench/src/lib/chat.tsx
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-319
+apps/native-workbench/nativewind-env.d.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1
+apps/native-workbench/__tests__/components/tabs.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-12
+apps/native-workbench/app.config.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-67
+apps/native-workbench/src/app/(app)/messages/_layout.tsx
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-14
+apps/native-workbench/supabase/tests/database/genesis_chat_attachment_paths.test.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-111
+apps/native-workbench/.eas/agents/check-pr.md
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-13
+apps/native-workbench/src/lib/supabase.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-65
+apps/native-workbench/supabase/migrations/20261025000070_starter_tenancy.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-26
+apps/native-workbench/.eas/agents/app-facts.md
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-3
+apps/genesis-rn-starter/.maestro/subflows/sign-in.yaml
+  s_f1aa8511899775::t_95891ecb61a29c 12-13,17
+apps/native-workbench/__tests__/check-in-photos.test.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-59
+apps/native-workbench/src/lib/devtools.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-23
+apps/native-workbench/src/lib/chat-outboxes.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-50
+apps/native-workbench/supabase/migrations/20261026001200_genesis_support_settings_resolver.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-159
+apps/native-workbench/.maestro/workbench/tab-bar.yaml
+  s_f1aa8511899775::t_962c574199fdbc 1-23
+apps/native-workbench/__tests__/preview-path.test.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-17
+apps/native-workbench/src/app/(app)/_layout.tsx
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-4,7-16,19-22,25-26,79-80,86-92
+  s_f1aa8511899775::t_15263e40ee4d15 5,17-18,27-62,68-78,81-85
+  s_f1aa8511899775::t_46fbf0ae1c04ce 6,23-24,63-67
+apps/native-workbench/genesis.config.json
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-26
+apps/native-workbench/src/lib/notifications.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-33
+apps/native-workbench/supabase/migrations/20261025000090_genesis_chat_attachment_paths.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-80
+apps/genesis-rn-starter/src/lib/native-modules.ts
+  s_f1aa8511899775::t_0b06aceff6434a 9-12,20-22,43-48
+apps/native-workbench/src/app/sign-in.tsx
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-69
+apps/native-workbench/src/lib/check-in.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-87
+apps/native-workbench/__tests__/components/fake-supabase.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-185
+apps/native-workbench/__tests__/components/render-app.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-22
+apps/native-workbench/.github/workflows/ci.yml
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-18
+apps/native-workbench/src/app/(app)/settings/support/index.tsx
+  s_f1aa8511899775::t_fe0b0db1e3feec 1
+apps/native-workbench/.eas/agents/maestro-flows.txt
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-4
+apps/native-workbench/src/app/preview.tsx
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-20
+apps/native-workbench/src/lib/offline.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-14
+apps/native-workbench/src/lib/push.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-67
+apps/native-workbench/README.md
+  s_f1aa8511899775::t_7adeb49f2f0308 1-44
+apps/native-workbench/supabase/migrations/20261025000095_genesis_support_ticket_fixes.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-115
+apps/native-workbench/supabase/migrations/20261026000700_genesis_settings.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-470
+apps/native-workbench/src/lib/support.ts
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-85
+apps/native-workbench/supabase/migrations/20261026001400_genesis_chat_read_receipts.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-110
+apps/native-workbench/supabase/tests/database/genesis_support.test.sql
+  s_f1aa8511899775::t_fe0b0db1e3feec 1-564
+apps/native-workbench/supabase/.temp/cli-latest
+  s_c74019eeae3e83::t_0a245803ac0118 1
+pnpm-lock.yaml
+  s_f1aa8511899775::t_e09b273442a330 308-566,16814-16829,16842-16853,16884-16895,18404-18420,18444-18458,18470-18480,18490-18498,18528-18556,18568-18578,18601-18622
+apps/native-workbench/supabase/.branches/_current_branch
+  s_42efe440240299::t_48b72e9e2205ef 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "200f4a53d4c7e9d7b4e8d1b591c6c4dbf5ed7778",
+  "prompts": {},
+  "sessions": {
+    "s_42efe440240299": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f544dd57-0b31-4773-b89e-4661a182129e",
+        "model": "unknown"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_c74019eeae3e83": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b8c727f3-2d7c-4f24-9e88-36063837b957",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_f1aa8511899775": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "18c56dc7-ac34-4eaf-92bf-016e2c3bbcb7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
