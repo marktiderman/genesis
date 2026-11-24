@@ -2,7 +2,7 @@
   "name": "genesis-rn-starter",
   "version": "0.1.0",
   "private": true,
-  "main": "index.ts",
+  "main": "verify/index.ts",
   "scripts": {
     "start": "genesis build-stamp && expo start",
     "ios": "genesis build-stamp && expo run:ios",
