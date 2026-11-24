@@ -129,13 +129,25 @@ base), so a PR can't change its own gate, and a gate change takes effect only on
 - A new commit, a merge of the base included, removes the label, and a review of an older head
   doesn't count, so every push needs a review of the new head. Batch pushes. Claude review (`claude-code-review.yml`, which calls the reusable `claude-review.yml` that apps call too) also re-runs on every push; it is not the adversarial review.
 - The author turns on Auto-fix for every PR it opens.
-- Claude Ship's agents (Code Review, PR Steward, Claude Approvals) help but gate nothing: a
-  `claude[bot]` review never counts here. Code Review follows `REVIEW.md`; PR Steward runs on
-  request (`@claude steward`) and follows `.claude/skills/steward/SKILL.md`; `.claude/approvals.yml`
-  stays in observe mode, where Claude only comments, until the maintainer says otherwise. One
-  watcher per PR: Auto-fix and a local `/ship` watch can't start on a PR PR Steward watches, and
-  starting PR Steward ends a local watch, so the owner keeps Auto-fix and PR Steward runs only when
-  the owner has stopped (`@claude stop` it before the owner resumes). Auto-merge stays off. Once the managed Code Review is on, retire `claude-code-review.yml` (keep
+- Claude Ship's agents (Code Review, PR Steward, Claude Approvals) don't take part in the review
+  gate: a `claude[bot]` review never counts toward it. Code Review's findings are review threads,
+  though, and `main`'s ruleset requires every conversation to be resolved before a merge, so an
+  open Code Review thread on a PR into `main` (the release PR included) blocks the maintainer's
+  merge. Before asking the maintainer to merge, fix each finding (the next review resolves its
+  thread when it judges it fixed) or resolve its thread with a reply that gives the reason
+  (https://code.claude.com/docs/en/code-review-pull-requests#respond-to-findings). The staging
+  rulesets require only checks, so threads don't block a merge into a batch.
+- Code Review follows `REVIEW.md`. PR Steward follows `.claude/skills/steward/SKILL.md` and starts
+  when someone comments `@claude steward`, if the maintainer sets it to start only on request
+  (https://code.claude.com/docs/en/pr-steward-pull-requests); `@claude stop` stops it.
+  `.claude/approvals.yml` stays in observe mode, where Claude only comments and the check normally
+  doesn't block, until the maintainer says otherwise.
+- One watcher per PR: Auto-fix can't start on a PR that PR Steward watches, a local `/steward`
+  watch doesn't start there, and PR Steward labelling a PR ends a local `/ship` or `/steward` watch
+  (https://code.claude.com/docs/en/pr-steward,
+  https://code.claude.com/docs/en/ship-command). So the owner keeps Auto-fix, and PR Steward runs
+  only once the owner has stopped (`@claude stop` it before the owner resumes). Auto-merge stays
+  off. Once the managed Code Review is on, retire `claude-code-review.yml` (keep
   `claude-review.yml`, which apps call).
 - Bot PRs get the same review: triage reviews each "chore: version packages" PR and each Dependabot
   PR like any other. The Release workflow pushes the version PR with Actions' `GITHUB_TOKEN`, which

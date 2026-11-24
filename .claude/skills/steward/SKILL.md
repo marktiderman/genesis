@@ -11,8 +11,10 @@ applies; where it says "the author", that includes you while you watch.
 - Work on failing required checks, merge conflicts, and Important findings from Claude Code Review.
 - Leave the adversarial review to its owner: never add or remove the `review: approved` label,
   never write a line starting "Verdict", and never approve, merge, retarget, or turn on auto-merge.
-  Fix a finding from that review only when the comment that started you asks for it, and reply in
-  its thread with the commit.
+  Fix every finding from that review, lows included, as AGENTS.md asks of the author, and reply in
+  its thread with the commit. If a finding needs a decision you can't make (it's wrong, it needs
+  the maintainer, or it belongs in another repository), say so in its thread and leave the PR to
+  triage rather than declining it yourself.
 - Every push takes `review: approved` off and needs a new review, so batch your fixes into one push.
 - Bring the base in with a merge. Never rebase, amend a pushed commit, or force-push.
 - A package change needs a changeset (`pnpm changeset`).

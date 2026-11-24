@@ -3,8 +3,11 @@
 # Observe mode: the "Claude Approvals" check reports who still has to approve and never blocks.
 # Claude only comments, never approves: the merge gate stays the "Adversarial review" check
 # (review-gate.yml) and the maintainer's merge into main. Turning on `enforce`, or letting Claude approve,
-# is the maintainer's decision. Code Review's result is advisory here, so this policy starts no extra
-# billed reviews.
+# is the maintainer's decision. `claude/code_review` is only under `advisory`, with no `level`, so
+# reviews follow the Code Review settings and this policy asks for none of its own; observe mode is
+# itself billed (https://code.claude.com/docs/en/approvals-setup#what-approvals-costs). Without that
+# `advisory` entry, a policy file on the default branch would stop Code Review's automatic reviews
+# (https://code.claude.com/docs/en/claude-ship#if-you-already-use-code-review).
 #
 # A `humans` seat can be filled by the PR's author, so a filled seat here doesn't mean an
 # independent review. `"!pr/authors"` would not fix that in this repo: every agent, the
