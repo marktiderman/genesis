@@ -2351,6 +2351,31 @@ export const features = defineFeatures({
     reviewedAt: "2026-10-24",
     links: { code: ["templates/maestro", "apps/genesis-rn-starter/.maestro"], docs: ["apps/genesis-rn-starter/.maestro/README.md", "docs/NATIVE-RELEASE.md"] },
   },
+  "agentic-ci": {
+    name: "Agentic CI (Expo Simulators)",
+    summary: "An EAS workflow a native app owns (templates/release/agentic-ci.yml, with .eas/agents from templates/eas/agents; genesis add template agentic-ci), after Expo's Agentic CI: on the Agent check label or by hand, never on every pull request, it repacks a matching iOS simulator build or builds one, starts one named Expo Simulators session with a maximum duration and an idle limit, records the screen, runs the app's Maestro flows there through agent-device, has a coding agent (Claude Code: reading the project, writing its evidence, and a fixed list of agent-device commands through device.sh) test what the pull request's title and body describe, and comments a PASS or FAIL verdict with the session recording, screenshots and log (redacted, and uploaded only when redaction succeeds). The session is always stopped.",
+    category: "Tooling",
+    // Not run in EAS or from a Mac yet. Beta once the workflow has run in EAS against a hosted
+    // test backend and its verdicts have been read.
+    status: "building",
+    claimedBy: "mark",
+    kind: "tool",
+    keywords: ["agentic ci", "expo simulators", "eas simulator", "cloud simulator", "agent-device", "pr check", "ai qa", "e2e"],
+    platforms: { native: "building" },
+    requires: ["eas-workflows", "maestro-smoke"],
+    owner: "mark",
+    apps: ["native"],
+    audience: ["developer"],
+    visibility: "internal",
+    acceptance: [
+      "It starts only on the Agent check label or a manual run, never on every pull request, and no job publishes, submits, or uses the production environment or profile.",
+      "Every session it starts has --max-duration-minutes and --max-idle-time-minutes, and an EXIT trap set before the start stops it; the agent runs without EXPO_TOKEN, EXPO_TOKEN_SIMULATOR or GITHUB_TOKEN, reads only the project, writes only agent-output/evidence, and its only shell command is device.sh, run from a read-only copy outside the project, which refuses any agent-device command or argument outside its list.",
+      "Only redacted evidence is uploaded: redaction writes agent-output/upload, the only folder uploaded, so a failed redaction uploads nothing; stale or committed agent-output is deleted before the run.",
+      "The workflow file stays under EAS's 16 KiB limit (doctor eas-workflow-size), and the starter's copies are byte-identical to the templates.",
+    ],
+    reviewedAt: "2026-11-22",
+    links: { code: ["templates/release/agentic-ci.yml", "templates/eas/agents", "apps/genesis-rn-starter/.eas/agents"], docs: ["docs/NATIVE-RELEASE.md"] },
+  },
   "account": {
     name: "Account",
     summary: "Sign-in (email, phone, Google, Apple), profile and in-app account deletion, on web and native, with the sign-in rules app stores require.",
@@ -2817,7 +2842,7 @@ export const features = defineFeatures({
   },
   "push": {
     name: "Push and notification preferences",
-    summary: "The native push block, a defineBlock block for GenesisNativeApp's blocks (a Settings row for notification settings, a boot step that reads the permission): it registers this device's Expo push token for whoever signs in (once permission is granted) and forgets it on sign-out, account switch and deletion, makes the Android channels (one per category, private on the lock screen), decides what shows while the app is open, routes a tap (the one that launched the app too) through the deep-link normalizer and the held link, and keeps the badge. Permission is asked only through a soft pre-prompt the app offers at a moment of value, never at launch, with a cooldown after Not now. NotificationSettings (on SettingsPage) edits per-category switches, quiet hours with a time zone, and privacy previews; each part is a slot and a hook.",
+    summary: "The native push block, a defineBlock block for GenesisNativeApp's blocks (a Settings row for notification settings; no boot step: the permission is first read once the app is up, never behind the splash): it registers this device's Expo push token for whoever signs in (once permission is granted) and forgets it on sign-out, account switch and deletion, makes the Android channels (one per category, private on the lock screen), decides what shows while the app is open, routes a tap (the one that launched the app too) through the deep-link normalizer and the held link, and keeps the badge. Permission is asked only through a soft pre-prompt the app offers at a moment of value, never at launch, with a cooldown after Not now. NotificationSettings (on SettingsPage) edits per-category switches, quiet hours with a time zone, and privacy previews; each part is a slot and a hook.",
     category: "Engagement",
     // In a pull request; nothing has been delivered through APNs or FCM yet (no credentials in Genesis).
     status: "building",

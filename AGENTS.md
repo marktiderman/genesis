@@ -129,6 +129,41 @@ base), so a PR can't change its own gate, and a gate change takes effect only on
 - A new commit, a merge of the base included, removes the label, and a review of an older head
   doesn't count, so every push needs a review of the new head. Batch pushes. Claude review (`claude-code-review.yml`, which calls the reusable `claude-review.yml` that apps call too) also re-runs on every push; it is not the adversarial review.
 - The author turns on Auto-fix for every PR it opens.
+- Claude Ship's agents (Code Review, PR Steward, Claude Approvals) don't take part in the review
+  gate: a `claude[bot]` review never counts toward it. Code Review's findings are review threads,
+  though, and `main`'s ruleset requires every conversation to be resolved before a merge, so an
+  open Code Review thread on a PR into `main` (the release PR included) blocks the maintainer's
+  merge. Before asking the maintainer to merge, fix each finding (the next review resolves its
+  thread when it judges it fixed) or resolve its thread with a reply that gives the reason
+  (https://code.claude.com/docs/en/code-review-pull-requests#respond-to-findings). The staging
+  rulesets require only checks, so threads don't block a merge into a batch.
+- Code Review follows `REVIEW.md`, and PR Steward follows `.claude/skills/steward/SKILL.md`.
+  `.claude/approvals.yml` stays in observe mode, where Claude only comments and the check
+  normally doesn't block, until the maintainer says otherwise. All three bill the organization's
+  usage credits (observe mode included). Turning them on is the maintainer's call; until then
+  agents don't start them (`@claude review`, `@claude steward`).
+- Which phrase reaches which agent: `@claude review`, `@claude steward` and `@claude stop` reach
+  Claude Ship. The repository's own Claude Code Action (`claude.yml`, which can push) answers only
+  `@claude-action`: its `trigger_phrase` and its job's `if:` both name that phrase, so a Claude
+  Ship command never starts it as a second writer
+  (https://code.claude.com/docs/en/code-review-pull-requests). Apps call `claude-review.yml`,
+  which has no trigger phrase, so they're unaffected.
+- A `@claude steward` comment or the `claude-pr-steward-watching` label starts PR Steward in any
+  mode, and `@claude stop` stops it
+  (https://code.claude.com/docs/en/pr-steward-pull-requests). It waits for one of those instead
+  of starting by itself while:
+  - the repository is set to Manual;
+  - the maintainer's own PR Steward setting isn't "Act on its own", which overrides Manual and
+    starts it on every PR the account opens.
+
+  On a draft PR it starts at all only if "Include my draft PRs" is on.
+- One watcher per PR: Auto-fix can't start on a PR that PR Steward watches, a local `/steward`
+  watch doesn't start there, and PR Steward labelling a PR ends a local `/ship` or `/steward` watch
+  (https://code.claude.com/docs/en/pr-steward,
+  https://code.claude.com/docs/en/ship-command). So the owner keeps Auto-fix, and PR Steward runs
+  only once the owner has stopped (`@claude stop` it before the owner resumes). Auto-merge stays
+  off. Once the managed Code Review is on, retire `claude-code-review.yml` (keep
+  `claude-review.yml`, which apps call).
 - Bot PRs get the same review: triage reviews each "chore: version packages" PR and each Dependabot
   PR like any other. The Release workflow pushes the version PR with Actions' `GITHUB_TOKEN`, which
   starts no run, so after reviewing a new head the reviewer removes and re-adds the label.
@@ -152,7 +187,7 @@ base), so a PR can't change its own gate, and a gate change takes effect only on
 <!-- genesis-features:start -->
 ## Features
 
-Every feature is in `features.ts`: 192 features (25 planned, 106 building, 23 beta, 27 live, 1 deprecated, 10 retired).
+Every feature is in `features.ts`: 193 features (25 planned, 107 building, 23 beta, 27 live, 1 deprecated, 10 retired).
 
 - Before adding UI, routes or flags, run `pnpm features find <term>` to see whether a feature already covers it.
 - New work starts as an entry in `features.ts`; then run `pnpm features build`. `pnpm features check` runs in CI.

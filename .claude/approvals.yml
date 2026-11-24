@@ -1,0 +1,32 @@
+# Claude Approvals (Claude Ship): https://code.claude.com/docs/en/approvals-policy
+#
+# Observe mode: the "Claude Approvals" check reports who still has to approve and never blocks.
+# Claude only comments, never approves: the merge gate stays the "Adversarial review" check
+# (review-gate.yml) and the maintainer's merge into main. Turning on `enforce`, or letting Claude approve,
+# is the maintainer's decision. `claude/code_review` is only under `advisory`, with no `level`, so
+# reviews follow the Code Review settings and this policy asks for none of its own; observe mode is
+# itself billed (https://code.claude.com/docs/en/approvals-setup#what-approvals-costs). Without that
+# `advisory` entry, a policy file on the default branch would stop Code Review's automatic reviews
+# (https://code.claude.com/docs/en/claude-ship#if-you-already-use-code-review).
+#
+# A `humans` seat can be filled by the PR's author, so a filled seat here doesn't mean an
+# independent review. `"!pr/authors"` would not fix that in this repo: every agent, the
+# adversarial reviewer included, acts as the account that opened the PR, so the seat could
+# never fill. review-gate.yml checks the label and the verdict on the head; keeping the reviewer
+# apart from the author is process ("never approve or label your own PR"), not this policy.
+version: 1
+mode: observe
+rules:
+  - purpose: "Every change takes one person's review. Claude comments and never approves."
+    paths: ["**"]
+    nested: inherit
+    verdict:
+      claude: comments
+      seats: [{ count: 1, from: [humans] }]
+    advisory: [claude/code_review]
+  - purpose: "A change to the review rules, the agent instructions or CI takes one person's review."
+    paths: ["**/.claude/**", "REVIEW.md", "AGENTS.md", "CLAUDE.md", ".github/**"]
+    nested: inherit
+    verdict:
+      claude: comments
+      seats: [{ count: 1, from: [humans] }]

@@ -15,3 +15,7 @@ node_modules/
 # genesis build-stamp writes it before every bundle, typecheck and test (package.json), and EAS
 # builds and updates stamp their own: never committed, so a release never ships a stale stamp.
 build-metadata.json
+
+# Agentic CI (.eas/agents): the session file eas simulator:start writes, and the evidence.
+.env.eas-simulator
+agent-output/

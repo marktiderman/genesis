@@ -1,0 +1,4 @@
+# The Maestro flows Agentic CI runs on the cloud device before the agent, one path per line,
+# from the app's folder. agent-device runs a subset of Maestro YAML; list only flows that pass
+# there, and none that sign in until the build points at a test backend with test logins.
+.maestro/flows/launch.yaml

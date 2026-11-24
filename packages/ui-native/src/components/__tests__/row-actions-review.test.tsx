@@ -8,6 +8,8 @@ import { forwardRef, useImperativeHandle, type ReactNode } from "react";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { Pressable } from "react-native";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { GenesisThemeProvider, brandRoleVariables, genesisBrand, type CanonicalBrand } from "@marktiderman/genesis-design-system";
+import { tripletToHsl } from "../../tokens/brand-primary";
 import { GenesisModulesProvider } from "../../native-modules";
 import { InboxPage, type InboxPageSlotMap } from "../../layouts/inbox-page";
 import { NativeRowActions } from "../row-actions";
@@ -230,5 +232,104 @@ describe("row actions: second review", () => {
     );
     fireEvent.click(screen.getByTestId("s-action-delete"));
     expect(order).toEqual(["press", "close"]);
+  });
+
+  // `hsl(h, s%, l%)` → relative luminance, for the contrast the text must reach on the tint.
+  const lum = (hsl: string) => {
+    const [h, sat, l] = /hsl\((-?[\d.]+), ([\d.]+)%, ([\d.]+)%\)/.exec(hsl)!.slice(1).map(Number) as [number, number, number];
+    const a = (sat / 100) * Math.min(l / 100, 1 - l / 100);
+    const f = (n: number) => {
+      const k = (n + h / 30) % 12;
+      return l / 100 - a * Math.max(-1, Math.min(k - 3, Math.min(9 - k, 1)));
+    };
+    const lin = (v: number) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+    return 0.2126 * lin(f(0)) + 0.7152 * lin(f(8)) + 0.0722 * lin(f(4));
+  };
+  const contrast = (x: string, y: string) => {
+    const [hi, lo] = [lum(x), lum(y)].sort((p, q) => q - p) as [number, number];
+    return (hi + 0.05) / (lo + 0.05);
+  };
+
+  const tintRow = (brand: CanonicalBrand | null, mode: "light" | "dark" = "light") => {
+    const Swipeable = fakeSwipeable(() => 0);
+    const swipe = (
+      <GenesisModulesProvider modules={{ swipeable: Swipeable as never }}>
+        <NativeSwipeRow actions={[{ id: "flag", label: "Flag", onPress: vi.fn() }]} testID="s">
+          <i />
+        </NativeSwipeRow>
+      </GenesisModulesProvider>
+    );
+    return brand ? (
+      <GenesisThemeProvider brand={brand} mode={mode}>
+        {swipe}
+      </GenesisThemeProvider>
+    ) : (
+      swipe
+    );
+  };
+  const look = () => ({
+    background: String((style(screen.getByTestId("s-action-flag")) as Record<string, unknown>).backgroundColor),
+    text: String((style(screen.getByText("Flag")) as Record<string, unknown>).color),
+  });
+
+  it("draws a tint action as the app's own bg-primary / text-primary-foreground: the native brand roles for the mode", () => {
+    expect(tripletToHsl("243.4 75.4% 58.6%")).toBe("hsl(243.4, 75.4%, 58.6%)");
+    expect(tripletToHsl("oklch(0.7 0.1 250)")).toBeUndefined();
+    for (const mode of ["light", "dark"] as const) {
+      const view = render(tintRow(genesisBrand, mode));
+      const roles = brandRoleVariables(genesisBrand, { platform: "native" })[mode];
+      expect(look()).toEqual({ background: tripletToHsl(roles["--primary"]), text: tripletToHsl(roles["--primary-foreground"]) });
+      view.unmount();
+    }
+  });
+
+  it("in dark mode takes the brand's dark accent, with text that reads on it (dark text on a light blue)", () => {
+    const brand: CanonicalBrand = { ...genesisBrand, name: "acme-dark", accent: { DEFAULT: "#1d4ed8" }, dark: { ...genesisBrand.dark, accent: { DEFAULT: "#93c5fd" } } };
+    render(tintRow(brand, "dark"));
+    const { background, text } = look();
+    expect(background).toBe(tripletToHsl(brandRoleVariables(brand, { platform: "native" }).dark["--primary"]));
+    expect(lum(background)).toBeGreaterThan(0.4);
+    expect(contrast(background, text)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("uses the brand's native override, never a web color React Native can't paint", () => {
+    const brand: CanonicalBrand = { ...genesisBrand, name: "acme-oklch", accent: { DEFAULT: "oklch(0.62 0.19 260)" }, platformOverrides: { native: { accent: { DEFAULT: "#0f766e" } } } };
+    render(tintRow(brand, "light"));
+    const { background, text } = look();
+    expect(background).not.toContain("oklch");
+    expect(background).toBe(tripletToHsl(brandRoleVariables(brand, { platform: "native" }).light["--primary"]));
+    expect(contrast(background, text)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("puts dark text on a light brand primary", () => {
+    const brand: CanonicalBrand = { ...genesisBrand, name: "acme-light", accent: { DEFAULT: "#FDE68A" } };
+    render(tintRow(brand, "light"));
+    const { background, text } = look();
+    expect(lum(text)).toBeLessThan(0.2);
+    expect(contrast(background, text)).toBeGreaterThanOrEqual(4.5);
+    cleanup();
+    // Without a provider: the theme's tint role, not the brand.
+    render(tintRow(null));
+    expect(look().background).not.toBe(background);
+  });
+
+  it("gives InboxPage and NativeRowActions the brand's native primary too", () => {
+    const brand: CanonicalBrand = { ...genesisBrand, name: "acme-light", accent: { DEFAULT: "#FDE68A" } };
+    const roles = brandRoleVariables(brand, { platform: "native" }).light;
+    const Swipeable = fakeSwipeable(() => 0);
+    render(
+      <GenesisThemeProvider brand={brand} mode="light">
+        <GenesisModulesProvider modules={{ swipeable: Swipeable as never }}>
+          <InboxPage testID="inbox" items={[{ id: "a", title: "Sam", swipeActions: [{ id: "pin", label: "Pin", onPress: vi.fn() }] }]} />
+          <NativeRowActions actions={[{ id: "mark", label: "Mark", onPress: vi.fn() }]} testID="ra">
+            <Pressable testID="row" />
+          </NativeRowActions>
+        </GenesisModulesProvider>
+      </GenesisThemeProvider>,
+    );
+    for (const [id, label] of [["inbox-row-a-swipe-action-pin", "Pin"], ["ra-swipe-action-mark", "Mark"]] as const) {
+      expect((style(screen.getByTestId(id)) as Record<string, unknown>).backgroundColor).toBe(tripletToHsl(roles["--primary"]));
+      expect((style(screen.getByText(label)) as Record<string, unknown>).color).toBe(tripletToHsl(roles["--primary-foreground"]));
+    }
   });
 });
