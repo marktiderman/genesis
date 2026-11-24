@@ -205,13 +205,14 @@ export function ChatInbox({ resolveUser, onSelect, selectedId, kind, archived = 
   // A confirmed action (Delete for me) removes its row only once the call and the inbox's refetch
   // come back, after the dialog has already given focus back to that row. When that row leaves the
   // list and took focus with it, put focus on the list's tab stop. Only that row's leaving counts:
-  // an action that failed or kept the row never pulls focus later.
-  const leaving = useRef<string | null>(null);
+  // an action that failed or kept the row never pulls focus later. Each confirmed row is kept
+  // until it leaves or its action fails, so deletes that overlap are each watched.
+  const leaving = useRef(new Set<string>());
   const confirm = useCallback<ChatConfirm>(
     async (title, body, label) => {
       const asked = askingRow.current;
       const ok = await ask(title, body, label);
-      if (ok && asked) leaving.current = asked;
+      if (ok && asked) leaving.current.add(asked);
       return ok;
     },
     [ask],
@@ -231,7 +232,12 @@ export function ChatInbox({ resolveUser, onSelect, selectedId, kind, archived = 
           askingRow.current = item.conversationId;
           return confirm(title, body, label);
         };
-        const defaults = inboxRowActions(item, act, labels, { confirm: rowConfirm, ...(onActionError ? { onError: onActionError } : {}) });
+        const onError = (error: unknown) => {
+          // A failed action keeps its row: stop watching it.
+          leaving.current.delete(item.conversationId);
+          onActionError?.(error);
+        };
+        const defaults = inboxRowActions(item, act, labels, { confirm: rowConfirm, onError });
         return {
           id: item.conversationId,
           title,
@@ -248,9 +254,15 @@ export function ChatInbox({ resolveUser, onSelect, selectedId, kind, archived = 
     [items, me, resolveUser, fallbackTitle, attachmentKinds, act, labels, confirm, onActionError, rowActions],
   );
   useEffect(() => {
-    const id = leaving.current;
-    if (!id || rows.some((r) => r.id === id)) return;
-    leaving.current = null;
+    if (leaving.current.size === 0) return;
+    const present = new Set(rows.map((r) => r.id));
+    let left = false;
+    for (const id of leaving.current) {
+      if (present.has(id)) continue;
+      leaving.current.delete(id);
+      left = true;
+    }
+    if (!left) return;
     const active = document.activeElement;
     if (active && active !== document.body && active.isConnected) return;
     listTabStop()?.focus();

@@ -300,6 +300,45 @@ describe("ChatInbox (web) row actions", () => {
     await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId("genesis-chat-inbox-row-c2")));
   });
 
+  it("watches overlapping deletes each, and stops watching one whose delete failed", async () => {
+    const B = "00000000-0000-4000-8000-0000000000b2";
+    const client = createMemoryChatClient({
+      me: ME,
+      conversations: ["c1", "c2", "c3"].map((id) => ({ id, title: id, members: [{ userId: ME }, { userId: B }], messages: [] })),
+    });
+    const deleteNow = client.deleteConversationForMe.bind(client);
+    const held: Record<string, () => void> = {};
+    client.deleteConversationForMe = (...args: Parameters<typeof deleteNow>) =>
+      new Promise((resolve, reject) => {
+        const id = String(args[0]);
+        held[id] = () => (id === "c3" ? reject(new Error("offline")) : resolve(deleteNow(...args)));
+      });
+    const onActionError = vi.fn();
+    mount(<ChatInbox resolveUser={resolveUser} onSelect={() => {}} onActionError={onActionError} />, client);
+    for (const id of ["c1", "c3", "c2"]) {
+      await openMenu(`genesis-chat-inbox-row-${id}`);
+      fireEvent.click(await screen.findByTestId(`genesis-chat-inbox-row-${id}-action-delete`));
+      fireEvent.click(await screen.findByTestId("genesis-chat-inbox-confirm"));
+      await waitFor(() => expect(held[id]).toBeDefined());
+    }
+    // c3 fails: its row stays and is no longer watched.
+    await act(async () => held.c3!());
+    await waitFor(() => expect(onActionError).toHaveBeenCalled());
+    // c1 then goes with focus on it: focus moves into the list, though c2 was confirmed after it.
+    screen.getByTestId("genesis-chat-inbox-row-c1").focus();
+    await act(async () => held.c1!());
+    await waitFor(() => expect(screen.queryByTestId("genesis-chat-inbox-row-c1")).toBeNull());
+    await waitFor(() => expect(document.activeElement?.getAttribute("data-inbox-row")).not.toBeNull());
+    // c2 goes while focus is elsewhere: focus stays where it is.
+    const outside = document.createElement("button");
+    document.body.appendChild(outside);
+    outside.focus();
+    await act(async () => held.c2!());
+    await waitFor(() => expect(screen.queryByTestId("genesis-chat-inbox-row-c2")).toBeNull());
+    expect(document.activeElement).toBe(outside);
+    outside.remove();
+  });
+
   it("focuses the list itself once the last conversation is deleted", async () => {
     const client = createMemoryChatClient({ me: ME, conversations: [{ id: "c1", title: "Morning crew", members: [{ userId: ME }, { userId: "00000000-0000-4000-8000-0000000000b2" }], messages: [] }] });
     const deleteNow = client.deleteConversationForMe.bind(client);
