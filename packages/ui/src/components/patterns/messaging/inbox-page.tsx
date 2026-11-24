@@ -352,23 +352,42 @@ function DefaultRow(row: InboxPageSlotMap["row"]) {
         ) : null}
       </button>
       {row.trailing ? <span className="flex shrink-0 items-center pr-2">{row.trailing}</span> : null}
-      {actions.length ? (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label={`${row.moreLabel}: ${row.title}`} data-testid={`${row.testID}-more`} data-inbox-more="" tabIndex={-1} className="my-auto mr-1 shrink-0">
-              <MoreHorizontal className="size-4" aria-hidden />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {actions.map((a) => (
-              <DropdownMenuItem key={a.id} onSelect={a.onPress} className={a.destructive ? "text-destructive focus:text-destructive" : undefined} data-testid={`${row.testID}-action-${a.id}`}>
-                {a.label}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ) : null}
+      <InboxRowMenu actions={actions} label={`${row.moreLabel}: ${row.title}`} testID={row.testID} />
     </div>
+  );
+}
+
+export interface InboxRowMenuProps {
+  /** The row's actions (`InboxSwipeAction`): every one is listed, destructive ones in red. */
+  actions: readonly InboxSwipeAction[];
+  /** The More button's accessible name ("More: Sam"). */
+  label: string;
+  /** The row's testID: the button is `<testID>-more`, each item `<testID>-action-<id>`. */
+  testID: string;
+}
+
+/**
+ * A row's actions as the web offers them: a More button at the row's end opening a menu, the
+ * twin of the phone's swipe and long-press menu. InboxPage's default row draws it; a row of your
+ * own (the `row` slot) draws it the same way. Nothing when there are no actions.
+ */
+export function InboxRowMenu({ actions, label, testID }: InboxRowMenuProps) {
+  if (!actions.length) return null;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" aria-label={label} data-testid={`${testID}-more`} data-inbox-more="" tabIndex={-1} className="my-auto mr-1 shrink-0">
+          <MoreHorizontal className="size-4" aria-hidden />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {actions.map((a) => (
+          <DropdownMenuItem key={a.id} onSelect={a.onPress} className={a.destructive ? "text-destructive focus:text-destructive" : undefined} data-testid={`${testID}-action-${a.id}`}>
+            {a.label}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

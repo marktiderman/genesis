@@ -3,10 +3,14 @@
  * Every word the native chat screens say, in one catalog an app can override
  * (translate, rename "Message" to "Note"). `{name}` and `{count}` are filled in.
  */
+import { defaultInboxActionLabels, type ChatInboxActionLabels } from "../react/inbox-actions";
 import { chatOrganiseCopy, type ChatOrganiseCopy } from "./organise-copy";
 
-/** Topics, scheduled send, availability, broadcast, search and moderation are in `ChatOrganiseCopy`. */
-export interface ChatNativeCopy extends ChatOrganiseCopy {
+/**
+ * Topics, scheduled send, availability, broadcast, search and moderation are in `ChatOrganiseCopy`;
+ * the inbox row actions' words in `ChatInboxActionLabels`, shared with the web inbox.
+ */
+export interface ChatNativeCopy extends ChatOrganiseCopy, ChatInboxActionLabels {
   inboxTitle: string;
   inboxEmptyTitle: string;
   inboxEmptyBody: string;
@@ -18,19 +22,6 @@ export interface ChatNativeCopy extends ChatOrganiseCopy {
   someone: string;
   youPrefix: string;
   mentionedYou: string;
-  markRead: string;
-  /** Mark as Unread (migration 0007): only you see it. */
-  markUnread: string;
-  /** Mute from the inbox row, as Messages names it. */
-  hideAlerts: string;
-  showAlerts: string;
-  /** Delete for me (migration 0007), and its confirmation. */
-  deleteConversation: string;
-  deleteConversationTitle: string;
-  deleteConversationBody: string;
-  pin: string;
-  unpin: string;
-  archive: string;
   threadEmptyTitle: string;
   threadEmptyBody: string;
   /** The conversation or its first page couldn't be read, and there's nothing to show. */
@@ -206,16 +197,7 @@ export const chatNativeCopy: ChatNativeCopy = {
   someone: "Someone",
   youPrefix: "You: ",
   mentionedYou: "Mentioned you",
-  markRead: "Mark read",
-  markUnread: "Mark as Unread",
-  hideAlerts: "Hide Alerts",
-  showAlerts: "Show Alerts",
-  deleteConversation: "Delete",
-  deleteConversationTitle: "Delete this conversation?",
-  deleteConversationBody: "Its messages are removed for you and it leaves your inbox. Everyone else still sees them. A new message brings it back, with only what comes after.",
-  pin: "Pin",
-  unpin: "Unpin",
-  archive: "Archive",
+  ...defaultInboxActionLabels,
   threadEmptyTitle: "No messages yet",
   threadEmptyBody: "Say hello below.",
   threadErrorTitle: "Couldn't load messages",

@@ -98,13 +98,8 @@ export function sectionsFor<T extends Row>(
   return [...groups.values()];
 }
 
-/** A row action: InboxPage's swipe action plus an icon name and, when a guard refuses it, why. */
-export interface NativeResourceSwipeAction extends InboxSwipeAction {
-  /** An icon name from Genesis's set (`edit`, `trash`), mapped per platform. */
-  icon?: string;
-  /** Set when a guard refuses the action: pressing it explains instead of acting. */
-  reason?: string;
-}
+/** A row action (core's `RowSwipeAction`, with its `icon` and refusal `reason`), as NativeResourceView builds it from the view. */
+export type NativeResourceSwipeAction = InboxSwipeAction;
 
 /** A screen's own rule. It only narrows: `false` hides the action, a sentence shows it refused. */
 export type NativeResourceScreenCan<T> = (action: "create" | "update" | "delete", row?: T) => Allowed | boolean;
@@ -165,7 +160,7 @@ export function swipeActionsFor<T extends Row>(
     right: Allowed | false,
     run: () => void,
     destructive = false,
-    place: Pick<NativeResourceSwipeAction, "side" | "full" | "swipe" | "tone" | "confirms"> = {},
+    place: Pick<NativeResourceSwipeAction, "swipe" | "tone" | "accent" | "confirms"> = {},
   ) => {
     if (right === false) return;
     const reason = right === true ? undefined : right;
@@ -180,15 +175,16 @@ export function swipeActionsFor<T extends Row>(
     });
   };
   // Edit and Delete are always on the trailing swipe (never a full swipe: Delete confirms first).
-  if (editable) add("edit", messages.common.edit, "edit", allowed(view, "update", row, screen, viewer), () => onEdit(row), false, { side: "trailing" });
+  if (editable) add("edit", messages.common.edit, "edit", allowed(view, "update", row, screen, viewer), () => onEdit(row), false, { swipe: { side: "trailing" } });
   if (options.onAction) {
     for (const action of view.actions()) {
       // Where the view puts it behind the swipe (ADR 0028): its side and full swipe, or off the swipe.
-      // Unset leaves `side` unset: NativeResourceView's own swipe keeps it to the menu, a screen's own `swipeable` puts it trailing.
+      // Unset leaves `swipe` unset: NativeResourceView's own swipe keeps it to the menu, a screen's own `swipeable` puts it trailing.
       const swipe = action.swipe;
       const place = {
-        ...(swipe === false ? { swipe: false } : swipe ? { side: swipe.side, ...(swipe.full ? { full: true } : {}) } : {}),
+        ...(swipe === false ? { swipe: false as const } : swipe ? { swipe: { side: swipe.side, ...(swipe.full ? { full: true } : {}) } } : {}),
         ...(action.tone ? { tone: action.tone } : {}),
+        ...(action.accent ? { accent: action.accent } : {}),
         // NativeResourceView asks the action's `confirm` before it runs (a full swipe included).
         ...(action.confirm ? { confirms: true } : {}),
       };
@@ -202,7 +198,7 @@ export function swipeActionsFor<T extends Row>(
     allowed(view, "delete", row, screen, viewer),
     () => onDelete(row),
     true,
-    { side: "trailing" },
+    { swipe: { side: "trailing" } },
   );
   return actions;
 }

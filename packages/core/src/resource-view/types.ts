@@ -3,7 +3,7 @@
 
 import type { GalleryItem } from "../gallery";
 import type { ChipTone } from "../resource/status";
-import type { RowActionSide, RowActionTone } from "../conversation/types";
+import type { RowActionAccent, RowActionSide, RowActionSwipe, RowActionTone } from "../row-actions";
 import type { DataRow, FieldSchema, ResourceContract, RowAction, RowOf } from "../schema/types";
 import type { Viewer } from "../viewer";
 import type { FilterParam } from "../provider/types";
@@ -357,11 +357,13 @@ export interface ViewGuards<Row extends DataRow> {
 }
 
 /**
- * Where a view action sits behind a row's swipe on the phone (ADR 0028). A side, or the side and
- * whether a full swipe runs it; `false` keeps it off the swipe (the long-press menu and the screen
- * reader's actions still offer it). Web lists ignore it: their row menu lists every action.
+ * Where a view action sits behind a row's swipe on the phone (ADR 0028): the row actions'
+ * `{ side, full? }` or `false` (off the swipe: the long-press menu and the screen reader's actions
+ * still offer it), or a bare side as shorthand for `{ side }`. Only `defineView` takes the
+ * shorthand; the resolved action always carries `{ side, full }`. Web lists ignore it: their row
+ * menu lists every action.
  */
-export type ViewActionSwipe = RowActionSide | { readonly side: RowActionSide; readonly full?: boolean } | false;
+export type ViewActionSwipe = RowActionSide | RowActionSwipe | false;
 
 /**
  * A named operation on one row, shaped like core's {@link RowAction} (which a provider reports),
@@ -381,10 +383,12 @@ export interface ViewAction<Row extends DataRow = DataRow> extends RowAction {
    * runs must have a `confirm`: one gesture is too easy to make by mistake.
    */
   swipe?: ViewActionSwipe;
-  /** A Genesis icon name (`archive`, `pin`, `mail`), behind the swipe and in the menus. */
+  /** A Genesis icon name (`archive`, `pin`, `mail`), behind the swipe and in the menus (a string: see `RowSwipeAction.icon`). */
   icon?: string;
-  /** Its color behind the swipe (iOS's system colors). Default `red` when destructive, else the tint. */
+  /** What it means, which picks its color behind the swipe. Default `danger` when destructive, else `tint`. */
   tone?: RowActionTone;
+  /** A system color by name, over `tone`, to match a system app's look (`RowActionAccent`). */
+  accent?: RowActionAccent;
   can?: (row: Row, viewer: Viewer) => Allowed;
   /** Also offer it on many selected rows (ADR 0017): `true`, or how it runs on them. */
   bulk?: boolean | ViewBulkAction<Row>;
@@ -397,6 +401,7 @@ export type ResolvedViewAction = RowAction & {
   readonly swipe?: { readonly side: RowActionSide; readonly full: boolean } | false;
   readonly icon?: string;
   readonly tone?: RowActionTone;
+  readonly accent?: RowActionAccent;
   /** Set when the action runs on many rows: its bar label, confirmation and whether it takes every matching row. */
   readonly bulk?: { readonly label: string; readonly confirm?: string; readonly matching: boolean; readonly batch: boolean };
 };

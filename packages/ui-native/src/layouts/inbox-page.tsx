@@ -30,7 +30,7 @@
  *
  * @stability Beta
  */
-import { createContext, Fragment, memo, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { memo, useCallback, useMemo, useState, type ReactNode } from "react";
 import { renderSlot, type SlotPropsFor, type Slots } from "@marktiderman/genesis-core/slots";
 import { Alert, FlatList, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -39,9 +39,9 @@ import { NativeEmptyState } from "../components/empty-state";
 import { NativeText } from "../components/text";
 import { NativeButton } from "../components/button";
 import { NativeBadge } from "../components/badge";
-import { NativeContextMenu } from "../components/context-menu";
 import { NativeRefreshControl } from "../components/refresh-control";
 import { NativeSwipeRow } from "../components/swipe-row";
+import { useRowActions, type RowActionProps, type RowActionsSwipeProps } from "../components/use-row-actions";
 import { NativeLoadingState } from "../components/loading-state";
 import { composeHeaderOptions, type ScreenHeaderProps } from "./screen-container";
 import { formatInboxTime, type InboxItem, type InboxSwipeAction } from "@marktiderman/genesis-core/conversation";
@@ -52,7 +52,11 @@ export { formatInboxTime } from "@marktiderman/genesis-core/conversation";
 
 /** The parts `slots` and `slotProps` reach, with the props each receives. */
 export type InboxPageSlotMap = {
-  row: InboxItem & { testID: string; isFirst: boolean; isLast: boolean; timeLabel: string | null };
+  /**
+   * `actionProps`: the row's screen reader's actions and long press (`useRowActions`), for the
+   * row's pressable. A row of your own spreads them, as the default row does.
+   */
+  row: InboxItem & { testID: string; isFirst: boolean; isLast: boolean; timeLabel: string | null; actionProps?: RowActionProps };
   swipeable: { actions: InboxSwipeAction[]; testID: string; appearance?: "fill" | "round"; /** `false`: the row already has the actions for screen readers (InboxPage puts them on it). */ accessibilityActions?: boolean; children?: ReactNode };
   header: { testID: string };
   footer: { loadingMore: boolean; testID: string };
@@ -114,8 +118,6 @@ export function getInboxPageStackOptions(props: ScreenHeaderProps & { headerTitl
   });
 }
 
-/** Opens the page's one actions menu for a row. */
-const OpenRowMenu = createContext<(row: InboxPageSlotMap["row"]) => void>(() => undefined);
 
 /** The row's leading padding, the unread dot's column, an avatar's default size and its gap to the text. */
 const ROW_PADDING = 16;
@@ -156,9 +158,6 @@ export function InboxPage({
   testID = "inbox-page",
 }: InboxPageProps) {
   const colors = useThemeRoles();
-  // One menu for the page: its row stays set while the sheet goes, so its words don't vanish first.
-  const [menuRow, setMenuRow] = useState<InboxPageSlotMap["row"] | null>(null);
-  const [menuOpen, setMenuOpen] = useState(false);
   // Built again only when the items change, or the minute does (so "Yesterday" and the times turn
   // over at midnight on a re-render): each row's props otherwise stay equal and its memo holds. The
   // default formatter reads only minutes; a formatter of the app's own gets the exact clock, every render.
@@ -175,27 +174,24 @@ export function InboxPage({
       timeLabel: item.timestamp ? formatTime(typeof item.timestamp === "string" ? new Date(item.timestamp) : item.timestamp, clock) : null,
     }));
   }, [items, tick, formatTime, testID]);
-  const openRowMenu = useCallback((row: InboxPageSlotMap["row"]) => {
-    setMenuRow(row);
-    setMenuOpen(true);
-  }, []);
   const rowSlot = slots.row;
   const swipeSlot = slots.swipeable;
   const rowProps = slotProps.row;
   const swipeProps = slotProps.swipeable;
   const renderRow = useCallback(
-    ({ item: row }: { item: InboxPageSlotMap["row"] }) => {
-      const content = renderSlot(DefaultRow, rowSlot, row, rowProps);
-      const actions = row.swipeActions ?? [];
-      return (
-        <Fragment>
-          {actions.length && swipeSlot !== null
-            ? renderSlot(NativeSwipeRow, swipeSlot, { actions, testID: `${row.testID}-swipe`, accessibilityActions: false, ...(swipeAppearance ? { appearance: swipeAppearance } : {}), children: content }, swipeProps)
-            : content}
-        </Fragment>
-      );
-    },
-    [rowSlot, rowProps, swipeSlot, swipeProps, swipeAppearance],
+    ({ item: row }: { item: InboxPageSlotMap["row"] }) => (
+      <InboxRow
+        row={row}
+        rowSlot={rowSlot}
+        rowProps={rowProps}
+        swipeSlot={swipeSlot}
+        swipeProps={swipeProps}
+        swipeAppearance={swipeAppearance}
+        menuPreview={menuPreview}
+        sheetTestID={`${testID}-menu`}
+      />
+    ),
+    [rowSlot, rowProps, swipeSlot, swipeProps, swipeAppearance, menuPreview, testID],
   );
 
   const headerNode = (
@@ -252,7 +248,6 @@ export function InboxPage({
 
   return (
     <SafeAreaView testID={testID} edges={["left", "right", "bottom"]} style={{ flex: 1, backgroundColor: colors.groupedBackground }}>
-      <OpenRowMenu.Provider value={openRowMenu}>
       <FlatList
         testID={`${testID}-list`}
         data={rows}
@@ -270,8 +265,6 @@ export function InboxPage({
         refreshControl={refreshControl}
         renderItem={renderRow}
       />
-      </OpenRowMenu.Provider>
-      {menuRow ? <NativeContextMenu open={menuOpen} onOpenChange={setMenuOpen} title={menuRow.title} {...(menuPreview ? { preview: menuPreview(menuRow) } : {})} actions={menuRow.swipeActions ?? []} testID={`${testID}-menu`} /> : null}
     </SafeAreaView>
   );
 }
@@ -300,8 +293,11 @@ function SectionTitle({ title, testID }: { title: string; testID: string }) {
 }
 
 /**
- * Opens a row's actions as the system alert. `InboxPage` now opens `NativeContextMenu`; `NativeResourceView`
- * still uses this.
+ * Opens a row's actions as the system alert.
+ *
+ * @deprecated Nothing in Genesis uses it: every row opens its actions the same way
+ * (`useRowActions`: the system context menu with `GenesisModules.menu`, else `NativeContextMenu`'s
+ * sheet). Wrap the row in `NativeRowActions`, or open a `NativeContextMenu` yourself.
  */
 export function showInboxActions(title: string, actions: InboxSwipeAction[], cancelLabel = "Cancel"): void {
   Alert.alert(title, undefined, [
@@ -311,6 +307,49 @@ export function showInboxActions(title: string, actions: InboxSwipeAction[], can
 }
 
 const defaultNow = () => new Date();
+const NO_ACTIONS: readonly InboxSwipeAction[] = Object.freeze([]);
+
+/**
+ * One row with its actions built as everywhere else (`useRowActions`): the system menu when the
+ * app has one, else the sheet (`<page testID>-menu`, as it always was), the swipe (the page's
+ * `swipeable` slot, or none with `null`), and the screen reader's actions on the row. Memoised, so
+ * a page re-render with the same items doesn't redraw it.
+ */
+const InboxRow = memo(function InboxRow({
+  row,
+  rowSlot,
+  rowProps,
+  swipeSlot,
+  swipeProps,
+  swipeAppearance,
+  menuPreview,
+  sheetTestID,
+}: {
+  row: InboxPageSlotMap["row"];
+  rowSlot: Slots<InboxPageSlotMap>["row"];
+  rowProps: Partial<InboxPageSlotMap["row"]> | undefined;
+  swipeSlot: Slots<InboxPageSlotMap>["swipeable"];
+  swipeProps: Partial<InboxPageSlotMap["swipeable"]> | undefined;
+  swipeAppearance: "fill" | "round" | undefined;
+  menuPreview: ((row: InboxPageSlotMap["row"]) => ReactNode) | undefined;
+  sheetTestID: string;
+}) {
+  const actions = row.swipeActions ?? NO_ACTIONS;
+  const swipe =
+    swipeSlot === null
+      ? null
+      : (props: RowActionsSwipeProps) => renderSlot(NativeSwipeRow, swipeSlot, { ...props, actions: [...props.actions] }, swipeProps);
+  const { rowProps: actionProps, wrap } = useRowActions(actions, {
+    title: row.title,
+    ...(menuPreview ? { preview: () => menuPreview(row) } : {}),
+    ...(swipeAppearance ? { appearance: swipeAppearance } : {}),
+    swipe,
+    testID: row.testID,
+    sheetTestID,
+  });
+  const withActions = useMemo(() => (actions.length ? { ...row, actionProps } : row), [row, actions.length, actionProps]);
+  return <>{wrap(renderSlot(DefaultRow, rowSlot, withActions, rowProps))}</>;
+});
 const NO_SLOTS: Slots<InboxPageSlotMap> = Object.freeze({});
 const NO_SLOT_PROPS: SlotPropsFor<InboxPageSlotMap> = Object.freeze({});
 const inboxRowKey = (row: InboxPageSlotMap["row"]) => row.id;
@@ -320,8 +359,6 @@ const DefaultRow = memo(function DefaultRow(row: InboxPageSlotMap["row"]) {
   const colors = useThemeRoles();
   const ios = Platform.OS === "ios";
   const [pressed, setPressed] = useState(false);
-  const openMenu = useContext(OpenRowMenu);
-  const actions = row.swipeActions ?? [];
   const radius = iosGroupRadius();
   const unreadLabel = row.unreadCount && row.unreadCount > 0 ? `${row.unreadCount} unread` : row.unread ? "Unread" : null;
   const label = [unreadLabel, row.avatar ? row.avatarLabel : null, row.title, row.timeLabel, row.preview, row.meta].filter(Boolean).join(", ");
@@ -350,10 +387,8 @@ const DefaultRow = memo(function DefaultRow(row: InboxPageSlotMap["row"]) {
         accessibilityRole={row.onPress ? "button" : undefined}
         accessibilityLabel={label}
         accessibilityState={row.selected ? { selected: true } : undefined}
-        accessibilityActions={actions.map((a) => ({ name: a.id, label: a.label }))}
-        onAccessibilityAction={(event) => actions.find((a) => a.id === event.nativeEvent.actionName)?.onPress()}
+        {...row.actionProps}
         onPress={row.onPress}
-        onLongPress={actions.length ? () => openMenu(row) : undefined}
         onPressIn={() => setPressed(true)}
         onPressOut={() => setPressed(false)}
         style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: ROW_PADDING, paddingVertical: 11, minHeight: 60, backgroundColor: (pressed && row.onPress) || row.selected ? colors.fill : undefined }}

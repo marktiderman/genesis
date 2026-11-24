@@ -28,3 +28,22 @@ describe("useThemeRoles", () => {
     }
   });
 });
+
+describe("useThemeRoles primary and onPrimary", () => {
+  it("is the brand's native primary and foreground under a GenesisThemeProvider, else the tint with text that reads on it", async () => {
+    const { GenesisThemeProvider, brandRoleVariables, genesisBrand } = await import("@marktiderman/genesis-design-system");
+    const { tripletToHsl } = await import("../use-theme-roles");
+    const brand = { ...genesisBrand, name: "acme-light", accent: { DEFAULT: "#FDE68A" } };
+    const roles = brandRoleVariables(brand, { platform: "native" }).light;
+    const inside = renderHook(() => useThemeRoles(), { wrapper: ({ children }) => <GenesisThemeProvider brand={brand} mode="light">{children}</GenesisThemeProvider> });
+    expect(inside.result.current.primary).toBe(tripletToHsl(roles["--primary"]));
+    expect(inside.result.current.onPrimary).toBe(tripletToHsl(roles["--primary-foreground"]));
+    // An explicit tint wins over the brand.
+    const tinted = renderHook(() => useThemeRoles({ tint: "#FDE68A" }), { wrapper: ({ children }) => <GenesisThemeProvider brand={brand} mode="light">{children}</GenesisThemeProvider> });
+    expect(tinted.result.current.primary).toBe("#FDE68A");
+    expect(tinted.result.current.onPrimary).toBe("#000000");
+    const outside = renderHook(() => useThemeRoles({ tint: "#123456" }));
+    expect(outside.result.current.primary).toBe("#123456");
+    expect(outside.result.current.onPrimary).toBe("#FFFFFF");
+  });
+});

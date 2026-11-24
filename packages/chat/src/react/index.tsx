@@ -5,7 +5,8 @@
  * Realtime hints, sending through the outbox, and message actions. Server
  * state is TanStack Query's; the renderers in /web and /native only draw.
  */
-import { keepPreviousData, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQueries, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import type { ChatInboxActions } from "./inbox-actions";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ChatClient, ConversationChannel, MessagePage } from "../core/client";
 import {
@@ -40,6 +41,8 @@ import type {
 
 export const chatKeys = {
   all: ["genesis-chat"] as const,
+  /** Every inbox list (each `inbox(opts)` is under it). */
+  inboxAll: () => ["genesis-chat", "inbox"] as const,
   inbox: (opts?: object) => ["genesis-chat", "inbox", opts ?? {}] as const,
   unread: () => ["genesis-chat", "unread"] as const,
   conversation: (id: string) => ["genesis-chat", "conversation", id] as const,
@@ -52,11 +55,29 @@ export const chatKeys = {
   scheduled: (conversationId?: string | null) => ["genesis-chat", "scheduled", conversationId ?? null] as const,
   availability: (conversationId: string) => ["genesis-chat", "conversation", conversationId, "availability"] as const,
   myAvailability: () => ["genesis-chat", "my-availability"] as const,
+  /** Every search's results (each `search(query, id)` is under it). */
+  searchAll: () => ["genesis-chat", "search"] as const,
   search: (query: string, conversationId?: string | null) => ["genesis-chat", "search", conversationId ?? null, query] as const,
   previews: (messageIds: string[]) => ["genesis-chat", "previews", [...messageIds].sort()] as const,
   /** One message's link previews (useLinkPreviews keeps one query per message). */
   preview: (messageId: string) => ["genesis-chat", "preview", messageId] as const,
 };
+
+/** Refreshes every inbox list and the unread badge: after anything that changes a row. */
+function refreshInbox(queryClient: QueryClient): void {
+  void queryClient.invalidateQueries({ queryKey: chatKeys.inboxAll() });
+  void queryClient.invalidateQueries({ queryKey: chatKeys.unread() });
+}
+
+/** Drops what this device holds of a conversation (its thread, pins and every search), so deleted history can't show again. */
+function forgetConversation(queryClient: QueryClient, conversationId: string): void {
+  queryClient.removeQueries({ queryKey: chatKeys.conversation(conversationId) });
+  queryClient.removeQueries({ queryKey: chatKeys.pins(conversationId) });
+  queryClient.removeQueries({ queryKey: chatKeys.searchAll() });
+}
+
+/** Hide Alerts from the row: until it's turned back on (a date far enough away to read as always). */
+const MUTED_FOREVER = "9999-12-31T00:00:00.000Z";
 
 /** How many messages a catch-up asks for at a time, and how many pages before it gives up and jumps to the newest. */
 export const CATCH_UP_PAGE = 200;
@@ -253,7 +274,7 @@ export function ChatProvider({
             (prev) => upsertInto(prev, [message]) ?? prev,
           );
           void queryClient.invalidateQueries({ queryKey: ["genesis-chat", "scheduled"] });
-          void queryClient.invalidateQueries({ queryKey: ["genesis-chat", "inbox"] });
+          refreshInbox(queryClient);
         },
       }),
     // A new person or client is a new outbox.
@@ -269,8 +290,7 @@ export function ChatProvider({
     const target = typeof window !== "undefined" && typeof window.addEventListener === "function" ? window : null;
     target?.addEventListener("online", online);
     const sub = client.subscribeInbox(userId, (signal) => {
-      void queryClient.invalidateQueries({ queryKey: ["genesis-chat", "inbox"] });
-      void queryClient.invalidateQueries({ queryKey: chatKeys.unread() });
+      refreshInbox(queryClient);
       for (const l of listeners.current) l(signal);
     });
     return () => {
@@ -493,8 +513,7 @@ export function useConversation(conversationId: string | null | undefined, opts:
   const markRead = useCallback(async () => {
     if (!enabled || latestSeq === 0) return;
     await client.markRead(id, latestSeq);
-    void queryClient.invalidateQueries({ queryKey: ["genesis-chat", "inbox"] });
-    void queryClient.invalidateQueries({ queryKey: chatKeys.unread() });
+    refreshInbox(queryClient);
   }, [client, enabled, id, latestSeq, queryClient]);
 
   // Your read place is one number for the whole conversation, so only the whole timeline moves
@@ -675,40 +694,34 @@ export function useMessageActions() {
 }
 
 /**
- * Your own actions on a conversation from the inbox (Mark as Unread or Read, Pin, Hide Alerts,
- * Archive, Delete for me), refreshing the inbox and badge afterwards. Each returns the call's
- * promise, so a failure reaches the caller to show. Delete for me also drops the conversation's
- * cached thread, pins and search results, so its deleted history can't show again on this device
- * when a new message brings it back. Pass the inbox row's `lastSeq` as `seq` (what you saw).
+ * Your own actions on one inbox row (Mark as Unread or Read, Pin, Hide Alerts, Archive, Delete for
+ * me), refreshing the inbox and badge afterwards. Each takes the row's item and returns the call's
+ * promise, so a failure reaches the caller to show. Delete for me reads the row's `lastSeq` (what
+ * you saw) and drops the conversation's cached thread, pins and search results, so its deleted
+ * history can't show again on this device when a new message brings it back.
+ * `inboxRowActions(item, actions, labels, { confirm })` turns them into the row's swipe and menu.
  */
-export function useInboxActions() {
+export function useInboxActions(): ChatInboxActions {
   const { client } = useChat();
   const queryClient = useQueryClient();
   return useMemo(() => {
-    const settle = () => {
-      void queryClient.invalidateQueries({ queryKey: [...chatKeys.all, "inbox"] });
-      void queryClient.invalidateQueries({ queryKey: chatKeys.unread() });
-    };
     const run = async <T,>(call: () => Promise<T>): Promise<T> => {
       try {
         return await call();
       } finally {
-        settle();
+        refreshInbox(queryClient);
       }
     };
     return {
-      markRead: (conversationId: string) => run(() => client.markRead(conversationId)),
-      markUnread: (conversationId: string) => run(() => client.setMySettings(conversationId, { markedUnread: true })),
-      setPinned: (conversationId: string, pinned: boolean) => run(() => client.setMySettings(conversationId, { pinned })),
-      /** `null` turns alerts back on. */
-      setMutedUntil: (conversationId: string, mutedUntil: string | null) => run(() => client.setMySettings(conversationId, { mutedUntil })),
-      setArchived: (conversationId: string, archived: boolean) => run(() => client.setMySettings(conversationId, { archived })),
-      deleteForMe: (conversationId: string, seq?: number) =>
+      toggleUnread: (item) =>
+        run<unknown>(() => (item.unread > 0 ? client.markRead(item.conversationId) : client.setMySettings(item.conversationId, { markedUnread: true }))),
+      togglePinned: (item) => run(() => client.setMySettings(item.conversationId, { pinned: !item.pinned })),
+      toggleMuted: (item, until = MUTED_FOREVER) => run(() => client.setMySettings(item.conversationId, { mutedUntil: item.muted ? null : until })),
+      setArchived: (item, archived) => run(() => client.setMySettings(item.conversationId, { archived })),
+      deleteForMe: (item) =>
         run(async () => {
-          await client.deleteConversationForMe(conversationId, seq);
-          queryClient.removeQueries({ queryKey: chatKeys.conversation(conversationId) });
-          queryClient.removeQueries({ queryKey: chatKeys.pins(conversationId) });
-          queryClient.removeQueries({ queryKey: [...chatKeys.all, "search"] });
+          await client.deleteConversationForMe(item.conversationId, item.lastSeq);
+          forgetConversation(queryClient, item.conversationId);
         }),
     };
   }, [client, queryClient]);
@@ -778,7 +791,7 @@ export function useStartConversation() {
   return useCallback(
     async (kind: string, memberIds: string[], opts?: StartConversationOptions) => {
       const id = await client.startConversation(kind, memberIds, opts);
-      void queryClient.invalidateQueries({ queryKey: ["genesis-chat", "inbox"] });
+      refreshInbox(queryClient);
       return id;
     },
     [client, queryClient],
@@ -897,7 +910,7 @@ export function useBroadcast() {
       setSending(true);
       try {
         const ids = await client.broadcast(conversationIds, opts.clientId ?? randomId(), body, { silent: opts.silent });
-        void queryClient.invalidateQueries({ queryKey: ["genesis-chat", "inbox"] });
+        refreshInbox(queryClient);
         return ids;
       } finally {
         setSending(false);
@@ -1004,3 +1017,4 @@ export function useLinkPreviews(messageIds: (string | null | undefined)[]): Reco
 const EMPTY_PREVIEWS: Record<string, ChatLinkPreview[]> = {};
 
 export type { ThreadItem, LocalFile, QueuedMessage };
+export { defaultInboxActionLabels, inboxRowActions, type ChatConfirm, type ChatInboxActionLabels, type ChatInboxActions, type InboxRowActionsOptions } from "./inbox-actions";

@@ -282,18 +282,18 @@ describe("guards to swipe actions", () => {
   it("places the view's own actions where the view says (ADR 0028), with their icon and tone", () => {
     const view = defineView(brands, {
       actions: [
-        { name: "pin", label: "Pin", swipe: { side: "leading", full: true }, icon: "pin", tone: "orange" },
+        { name: "pin", label: "Pin", swipe: { side: "leading", full: true }, icon: "pin", accent: "orange" },
         { name: "review", label: "Review", swipe: false },
-        { name: "archive", label: "Archive", icon: "archive", tone: "purple" },
+        { name: "archive", label: "Archive", icon: "archive", tone: "neutral", confirm: "Archive it?" },
       ],
     });
     const actions = swipeActionsFor(view, ROWS[1]!, { messages, softDelete: false, editable: true, onAction: vi.fn(), ...handlers() });
     expect(actions.map(({ onPress: _p, ...a }) => a)).toEqual([
-      { id: "edit", label: "Edit", icon: "edit", side: "trailing" },
-      { id: "pin", label: "Pin", icon: "pin", side: "leading", full: true, tone: "orange" },
+      { id: "edit", label: "Edit", icon: "edit", swipe: { side: "trailing" } },
+      { id: "pin", label: "Pin", icon: "pin", swipe: { side: "leading", full: true }, accent: "orange" },
       { id: "review", label: "Review", swipe: false },
-      { id: "archive", label: "Archive", icon: "archive", tone: "purple" },
-      { id: "delete", label: "Delete", icon: "trash", destructive: true, side: "trailing" },
+      { id: "archive", label: "Archive", icon: "archive", tone: "neutral", confirms: true },
+      { id: "delete", label: "Delete", icon: "trash", destructive: true, swipe: { side: "trailing" } },
     ]);
   });
 
@@ -1220,8 +1220,12 @@ describe("grid and custom rows", () => {
     expect(screen.queryByTestId("native-resource-view-row-b1-cell")).toBeNull();
     fireEvent.click(custom);
     expect(onRowPress).toHaveBeenCalledWith(expect.objectContaining({ id: "b1" }));
+    // The long press opens the row's sheet, as every Genesis row's does (useRowActions), not an alert.
+    alert.mockClear();
     fireEvent.contextMenu(custom);
-    expect(alert).toHaveBeenLastCalledWith("Northwind", undefined, expect.arrayContaining([expect.objectContaining({ text: "Edit" })]));
+    expect(await screen.findByTestId("native-resource-view-row-b1-sheet-action-edit")).toBeTruthy();
+    expect(screen.getByTestId("native-resource-view-row-b1-sheet-title").textContent).toBe("Northwind");
+    expect(alert).not.toHaveBeenCalled();
     expect(swipes).toContain("native-resource-view-row-b1-swipe:edit,delete");
   });
 

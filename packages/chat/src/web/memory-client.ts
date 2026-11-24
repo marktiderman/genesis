@@ -441,12 +441,14 @@ export function createMemoryChatClient(options: MemoryChatOptions): MemoryChatCl
       return mine?.lastReadSeq ?? 0;
     },
     async setMySettings(conversationId: string, s: { mutedUntil?: string | null; archived?: boolean; pinned?: boolean; markedUnread?: boolean }) {
+      log("setMySettings", conversationId, s);
       const c = get(conversationId);
       if (s.mutedUntil !== undefined) c.muted = s.mutedUntil !== null;
       if (s.pinned !== undefined) c.pinned = s.pinned;
       if (s.markedUnread !== undefined) c.markedUnread = s.markedUnread;
     },
     async deleteConversationForMe(conversationId: string, seq?: number) {
+      log("deleteConversationForMe", conversationId, seq);
       const c = get(conversationId);
       const latest = c.conversation.lastSeq;
       c.clearedSeq = Math.max(c.clearedSeq ?? 0, Math.max(0, Math.min(seq ?? latest, latest)));

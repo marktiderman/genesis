@@ -105,10 +105,21 @@ A place with its own stack that hides the bar throughout (Messages) gets a back 
 first screen to wherever the person came from: `createPlaceExit((path) => …)`, its
 `useRememberOutside()` once in the root layout, and `exitPath(fallback)` for the button.
 
-**Row actions** ([ADR 0028](../../docs/adr/0028-row-actions.md)). One list, three ways: behind a
-swipe (`side`, `full`, `icon`, `tone`; `appearance="round"` for iOS 26's round buttons), in the
-long-press menu, and as VoiceOver's actions. `preview` puts a peek above the long-press menu;
-`InboxPage` takes `swipeAppearance` and `menuPreview` for the same.
+**Row actions** ([ADR 0028](../../docs/adr/0028-row-actions.md)). One list, in core's neutral
+shape (`RowSwipeAction` from `@marktiderman/genesis-core/row-actions`), offered three ways: behind a
+swipe (`swipe: { side, full? } | false`, an `icon`, a `tone` for what it means or an `accent` for a
+system color by name; `appearance="round"` for iOS 26's round buttons), in the long-press menu (the
+system context menu with `GenesisModules.menu`, else a sheet), and as VoiceOver's actions, a
+refused one with its `reason`. `NativeListItem` `actions`, `NativeRowActions`, InboxPage's rows and
+NativeResourceView's rows all build them the same way. `preview` puts a peek above the long-press
+menu; `InboxPage` takes `swipeAppearance` and `menuPreview` for the same, and gives a `row` slot of
+your own `actionProps` to spread on its pressable.
+
+| Tone | iOS | | Accent |
+| --- | --- | --- | --- |
+| `tint` | the app's primary (`useThemeRoles().primary`) | | `blue`, `green`, `orange`, `purple`, `yellow`, `gray`, `red`: that system color |
+| `danger` (the default when `destructive`) | systemRed | | |
+| `success` / `warning` / `info` / `neutral` | systemGreen / systemOrange / systemBlue / systemGray | | |
 
 ```tsx
 import { NativeListItem } from "@marktiderman/genesis-ui-native";
@@ -119,7 +130,7 @@ export function MessageRow({ onRead, onDelete }: { onRead: () => void; onDelete:
       title="Ada"
       onPress={() => {}}
       actions={[
-        { id: "read", label: "Read", icon: "mail-open", tone: "blue", side: "leading", full: true, onPress: onRead },
+        { id: "read", label: "Read", icon: "mail-open", tone: "info", swipe: { side: "leading", full: true }, onPress: onRead },
         // Destructive: not on a full swipe (one gesture is easy to make by mistake), and onDelete confirms.
         { id: "delete", label: "Delete", icon: "trash", destructive: true, onPress: onDelete },
       ]}
@@ -129,7 +140,8 @@ export function MessageRow({ onRead, onDelete }: { onRead: () => void; onDelete:
 ```
 
 A view's own actions take the same placement: `actions: [{ name: "archive", label: "Archive",
-swipe: { side: "trailing", full: true }, icon: "archive", tone: "purple" }]` in `defineView`, and
+swipe: { side: "trailing", full: true }, icon: "archive", accent: "purple", confirm: "Archive it?" }]`
+in `defineView` (a bare side, `swipe: "trailing"`, is shorthand there), and
 `NativeResourceView`'s list rows swipe them, with Edit and Delete trailing, at most three a side.
 An action without `swipe` stays in the long-press menu and VoiceOver's actions; grid cards and
 `renderCard` rows swipe only with a `swipeable` of the screen's own (`swipeable={null}` turns the
@@ -444,7 +456,7 @@ Two generic layouts for conversations (support tickets, direct messages, comment
   hand-built inverted or bottom-started list.
 - **`NativeSwipeRow`** and **`NativeContextMenu`**: a row's actions behind a swipe, and what a long
   press opens (a sheet with Cancel, not the system alert). `InboxPage` uses both. Rows take the
-  same `icon`, `tone`, `full` and `swipe` as any row action (ADR 0028).
+  same `swipe`, `icon`, `tone` and `accent` as any row action (ADR 0028).
 - **`NativeComposerBar`**: the composer on its own. It takes `leading`, `trailing` and `above`
   slots, and `modes`.
 
