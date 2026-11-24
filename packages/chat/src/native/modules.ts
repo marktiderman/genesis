@@ -254,7 +254,7 @@ export interface ChatNativeModules {
   openFile?: (uri: string) => Promise<ChunkFileLike> | ChunkFileLike;
 }
 
-export type HapticEvent = "send" | "record-start" | "record-lock" | "record-cancel" | "select" | "error";
+export type HapticEvent = "send" | "record-start" | "record-lock" | "record-cancel" | "select" | "long-press" | "error";
 
 /** What each of chat's moments plays, in genesis-ui-native's vocabulary. */
 const HAPTIC_KIND: Record<HapticEvent, HapticKind> = {
@@ -262,6 +262,8 @@ const HAPTIC_KIND: Record<HapticEvent, HapticKind> = {
   "record-lock": "light",
   "record-start": "medium",
   select: "select",
+  /** A bubble lifting for its menu: UIKit's context-menu tap. */
+  "long-press": "medium",
   error: "error",
   "record-cancel": "warning",
 };
