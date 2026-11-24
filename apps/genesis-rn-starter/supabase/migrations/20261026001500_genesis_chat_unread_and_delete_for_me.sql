@@ -2,50 +2,99 @@
 --
 -- Builds on 0001–0006 (never edited once released). Needs nothing from your app.
 --
--- 1. `members.marked_unread`: a member can mark a conversation unread, as Messages and Mail do.
---    Only they see it: their inbox counts it as at least one unread, and so do their badges
---    (`unread_total`, `push_targets`), until they read it again (`mark_read` clears it). It never
---    moves their read place back, so a sender's "Read" (0006) stays true. Set with
+-- Both live in `member_state`, a member's private row beside `members`: only that member reads it
+-- (`members` is readable by everyone in the conversation, so it can't hold either).
+--
+-- 1. `marked_unread`: a member can mark a conversation unread, as Messages and Mail do. Only they
+--    see it: their inbox counts it as at least one unread, and so do their badges (`unread_total`,
+--    `push_targets`), until they read it again (`mark_read` clears it). It never moves their read
+--    place back, so a sender's "Read" (0006) stays true. Set with
 --    `set_my_settings(p_marked_unread => …)`.
--- 2. `members.cleared_seq`: Delete for me. `delete_conversation_for_me` sets it to the
---    conversation's latest message, which takes the conversation out of that member's inbox and
---    their history out of their thread: they read only messages after it (a restrictive read
---    policy, so every read path agrees; search, files and link previews too). The next message brings the
---    conversation back with only what came after. Nobody else's inbox, thread or read receipts
---    change, and nothing is deleted.
+-- 2. `cleared_seq`: Delete for me. `delete_conversation_for_me` sets it to the latest message they
+--    saw (`p_seq`, or the conversation's latest), which takes the conversation out of that member's
+--    inbox and their history out of their thread: they read only messages after it (a restrictive
+--    read policy, so every read path agrees; search, files, link previews and pins too). The next
+--    message they can read on the main timeline brings the conversation back with only what came
+--    after; an observers-only note, a thread reply or a hidden message doesn't. Nobody else's inbox,
+--    thread or read receipts change, and nothing is deleted.
+-- Both RPCs send the member's own devices an `inbox` hint, so every open inbox refetches.
 
-alter table genesis_chat.members
-  add column marked_unread boolean not null default false,
-  add column cleared_seq bigint;
+create table genesis_chat.member_state (
+  conversation_id uuid not null,
+  user_id uuid not null,
+  marked_unread boolean not null default false,
+  cleared_seq bigint,
+  primary key (conversation_id, user_id),
+  foreign key (conversation_id, user_id) references genesis_chat.members (conversation_id, user_id) on delete cascade
+);
 
-comment on column genesis_chat.members.marked_unread is
+comment on table genesis_chat.member_state is
+  'A member''s private state in a conversation: Mark as Unread and Delete for me. Only that member reads it; written by set_my_settings, mark_read and delete_conversation_for_me. Genesis Chat.';
+comment on column genesis_chat.member_state.marked_unread is
   'Marked as unread by this member; only they see it, and reading clears it. Genesis Chat.';
-comment on column genesis_chat.members.cleared_seq is
-  'Delete for me: this member sees only messages after this seq, and the conversation leaves their inbox until one arrives. Null: never deleted. Genesis Chat.';
+comment on column genesis_chat.member_state.cleared_seq is
+  'Delete for me: this member sees only messages after this seq, and the conversation leaves their inbox until one they can read arrives. Null: never deleted. Genesis Chat.';
+
+alter table genesis_chat.member_state enable row level security;
+create policy member_state_read on genesis_chat.member_state for select to authenticated
+  using (user_id = auth.uid());
+grant select on genesis_chat.member_state to authenticated;
+grant select, insert, update, delete on genesis_chat.member_state to service_role;
 
 -- The history a member deleted for themselves is gone from what they read. Restrictive, so it
 -- narrows 0001's read policy (and 0002's moderation one) without replacing them.
 create policy messages_cleared_for_me on genesis_chat.messages
   as restrictive for select to authenticated
-  using (seq > coalesce((select me.cleared_seq from genesis_chat.members me
-                          where me.conversation_id = messages.conversation_id and me.user_id = auth.uid()), 0));
+  using (seq > coalesce((select s.cleared_seq from genesis_chat.member_state s
+                          where s.conversation_id = messages.conversation_id and s.user_id = auth.uid()), 0));
 
--- Delete for me: the conversation leaves your inbox, and its history your thread, until a new message.
-create function genesis_chat.delete_conversation_for_me(p_conversation_id uuid)
+-- Whether a member has a message they can read on the main timeline after p_seq: what brings a
+-- conversation they deleted back to their inbox. Not an observers-only note, a thread reply, a
+-- deleted message or one moderation hid (unless they sent it).
+create function genesis_chat.readable_after(p_conversation_id uuid, p_user_id uuid, p_seq bigint)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1 from genesis_chat.messages m
+     where m.conversation_id = p_conversation_id and m.seq > coalesce(p_seq, 0)
+       and m.visibility = 'everyone' and m.thread_root_id is null and m.deleted_at is null
+       and (m.moderation is distinct from 'hidden' or m.sender_id = p_user_id))
+$$;
+
+revoke execute on function genesis_chat.readable_after(uuid, uuid, bigint) from public, anon, authenticated;
+grant execute on function genesis_chat.readable_after(uuid, uuid, bigint) to service_role;
+
+-- Delete for me: the conversation leaves your inbox, and its history your thread, until a new
+-- message. `p_seq` is the latest message you saw (the inbox row you deleted): a message that came
+-- in after it isn't deleted unseen. It never moves back, and it unpins and unarchives the
+-- conversation for you, so a new message brings it back to the inbox, as Messages does.
+create function genesis_chat.delete_conversation_for_me(p_conversation_id uuid, p_seq bigint default null)
 returns void
 language plpgsql
 security definer
 set search_path = ''
 as $$
+declare
+  me uuid := auth.uid();
+  latest bigint;
 begin
-  update genesis_chat.members me
-     set cleared_seq = c.last_seq, marked_unread = false, pinned = false
-    from genesis_chat.conversations c
-   where c.id = me.conversation_id and me.conversation_id = p_conversation_id
-     and me.user_id = auth.uid() and me.left_at is null and me.role <> 'observer';
+  update genesis_chat.members m
+     set pinned = false, archived = false
+   where m.conversation_id = p_conversation_id and m.user_id = me and m.left_at is null and m.role <> 'observer';
   if not found then
     raise exception 'You aren''t in this conversation' using errcode = '42501';
   end if;
+  select c.last_seq into latest from genesis_chat.conversations c where c.id = p_conversation_id;
+  insert into genesis_chat.member_state as s (conversation_id, user_id, cleared_seq, marked_unread)
+  values (p_conversation_id, me, greatest(least(coalesce(p_seq, latest), latest), 0), false)
+  on conflict (conversation_id, user_id) do update
+    set cleared_seq = greatest(coalesce(s.cleared_seq, 0), excluded.cleared_seq), marked_unread = false;
+  perform genesis_chat.broadcast('genesis-chat:user:' || me, 'inbox',
+    jsonb_build_object('conversation_id', p_conversation_id));
 end;
 $$;
 
@@ -73,12 +122,19 @@ begin
      set muted_until = case when p_clear_mute then null else coalesce(p_muted_until, muted_until) end,
          notify = coalesce(p_notify, notify),
          archived = coalesce(p_archived, archived),
-         pinned = coalesce(p_pinned, pinned),
-         marked_unread = coalesce(p_marked_unread, marked_unread)
+         pinned = coalesce(p_pinned, pinned)
    where conversation_id = p_conversation_id and user_id = auth.uid() and left_at is null;
   if not found then
     raise exception 'You aren''t in this conversation' using errcode = '42501';
   end if;
+  if p_marked_unread is not null then
+    insert into genesis_chat.member_state as s (conversation_id, user_id, marked_unread)
+    values (p_conversation_id, auth.uid(), p_marked_unread)
+    on conflict (conversation_id, user_id) do update set marked_unread = excluded.marked_unread;
+  end if;
+  -- Your other devices' inboxes refetch (pinned, archived, muted and marked unread all show there).
+  perform genesis_chat.broadcast('genesis-chat:user:' || auth.uid(), 'inbox',
+    jsonb_build_object('conversation_id', p_conversation_id));
 end;
 $$;
 
@@ -99,10 +155,11 @@ begin
     raise exception 'You aren''t in this conversation' using errcode = '42501';
   end if;
   if genesis_chat.is_member(p_conversation_id) then
-    update genesis_chat.members set last_read_seq = greatest(last_read_seq, least(coalesce(p_seq, latest), latest)),
-                                    marked_unread = false
+    update genesis_chat.members set last_read_seq = greatest(last_read_seq, least(coalesce(p_seq, latest), latest))
      where conversation_id = p_conversation_id and user_id = me
     returning last_read_seq into result;
+    update genesis_chat.member_state set marked_unread = false
+     where conversation_id = p_conversation_id and user_id = me and marked_unread;
   else
     insert into genesis_chat.members as m (conversation_id, user_id, role, last_read_seq)
     values (p_conversation_id, me, 'observer', least(coalesce(p_seq, latest), latest))
@@ -171,24 +228,25 @@ as $$
          (select count(*)::integer from genesis_chat.members o
            where o.conversation_id = c.id and o.left_at is null and o.role <> 'observer'),
          c.last_seq, me.last_read_seq,
-         genesis_chat.member_unread(c.id, me.user_id, me.last_read_seq, me.cleared_seq, me.marked_unread),
+         genesis_chat.member_unread(c.id, me.user_id, me.last_read_seq, ps.cleared_seq, coalesce(ps.marked_unread, false)),
          exists (select 1 from genesis_chat.messages m
-                  where m.conversation_id = c.id and m.seq > greatest(me.last_read_seq, coalesce(me.cleared_seq, 0)) and me.user_id = any (m.mentions)
+                  where m.conversation_id = c.id and m.seq > greatest(me.last_read_seq, coalesce(ps.cleared_seq, 0)) and me.user_id = any (m.mentions)
                     and m.moderation is distinct from 'hidden'),
          coalesce(me.muted_until > now(), false), me.pinned, me.archived, c.last_message_at,
          (select jsonb_build_object('id', m.id, 'seq', m.seq, 'sender_id', m.sender_id, 'kind', m.kind,
                                     'body', left(m.body, 160), 'deleted', m.deleted_at is not null, 'created_at', m.created_at,
                                     'attachment', (select a.kind from genesis_chat.attachments a where a.message_id = m.id order by a.position limit 1))
             from genesis_chat.messages m
-           where m.conversation_id = c.id and m.visibility = 'everyone' and m.thread_root_id is null and m.seq > coalesce(me.cleared_seq, 0)
+           where m.conversation_id = c.id and m.visibility = 'everyone' and m.thread_root_id is null and m.seq > coalesce(ps.cleared_seq, 0)
              and (m.moderation is distinct from 'hidden' or m.sender_id = me.user_id)
            order by m.seq desc limit 1)
     from genesis_chat.members me
     join genesis_chat.conversations c on c.id = me.conversation_id
     join genesis_chat.kinds k on k.kind = c.kind
+    left join genesis_chat.member_state ps on ps.conversation_id = me.conversation_id and ps.user_id = me.user_id
    where me.user_id = auth.uid() and me.left_at is null and me.role <> 'observer'
      and me.archived = coalesce(p_archived, false)
-     and (me.cleared_seq is null or c.last_seq > me.cleared_seq)
+     and (ps.cleared_seq is null or genesis_chat.readable_after(c.id, me.user_id, ps.cleared_seq))
      and (p_kind is null or c.kind = p_kind)
      and (p_kinds is null or c.kind = any (p_kinds))
      and (p_exclude_kinds is null or not (c.kind = any (p_exclude_kinds)))
@@ -205,13 +263,14 @@ stable
 security definer
 set search_path = ''
 as $$
-  select coalesce(sum(genesis_chat.member_unread(c.id, me.user_id, me.last_read_seq, me.cleared_seq, me.marked_unread)), 0)::integer
+  select coalesce(sum(genesis_chat.member_unread(c.id, me.user_id, me.last_read_seq, ps.cleared_seq, coalesce(ps.marked_unread, false))), 0)::integer
     from genesis_chat.members me join genesis_chat.conversations c on c.id = me.conversation_id
+    left join genesis_chat.member_state ps on ps.conversation_id = me.conversation_id and ps.user_id = me.user_id
    where me.user_id = case when auth.role() = 'service_role' then coalesce(p_user_id, auth.uid()) else auth.uid() end
      and me.left_at is null and me.role <> 'observer' and me.archived = false
      and coalesce(me.muted_until <= now(), true)
-     and (me.cleared_seq is null or c.last_seq > me.cleared_seq)
-     and (c.last_seq > greatest(me.last_read_seq, coalesce(me.cleared_seq, 0)) or me.marked_unread)
+     and (ps.cleared_seq is null or genesis_chat.readable_after(c.id, me.user_id, ps.cleared_seq))
+     and (c.last_seq > greatest(me.last_read_seq, coalesce(ps.cleared_seq, 0)) or ps.marked_unread)
      and (p_exclude_kinds is null or not (c.kind = any (p_exclude_kinds)))
 $$;
 
@@ -243,12 +302,13 @@ as $$
                                        when 'file' then 'File' else 'Attachment' end
                       from genesis_chat.attachments a where a.message_id = msg.id order by a.position limit 1) end,
          r.user_id = any (msg.mentions),
-         (select coalesce(sum(genesis_chat.member_unread(c2.id, m2.user_id, m2.last_read_seq, m2.cleared_seq, m2.marked_unread)), 0)::integer
+         (select coalesce(sum(genesis_chat.member_unread(c2.id, m2.user_id, m2.last_read_seq, p2.cleared_seq, coalesce(p2.marked_unread, false))), 0)::integer
             from genesis_chat.members m2 join genesis_chat.conversations c2 on c2.id = m2.conversation_id
+            left join genesis_chat.member_state p2 on p2.conversation_id = m2.conversation_id and p2.user_id = m2.user_id
            where m2.user_id = r.user_id and m2.left_at is null and m2.role <> 'observer' and not m2.archived
              and coalesce(m2.muted_until <= now(), true)
-             and (m2.cleared_seq is null or c2.last_seq > m2.cleared_seq)
-             and (c2.last_seq > greatest(m2.last_read_seq, coalesce(m2.cleared_seq, 0)) or m2.marked_unread)
+             and (p2.cleared_seq is null or genesis_chat.readable_after(c2.id, m2.user_id, p2.cleared_seq))
+             and (c2.last_seq > greatest(m2.last_read_seq, coalesce(p2.cleared_seq, 0)) or p2.marked_unread)
              and (p_badge_exclude_kinds is null or not (c2.kind = any (p_badge_exclude_kinds))))
     from recipients r cross join msg
 $$;
@@ -270,7 +330,8 @@ begin
   q := websearch_to_tsquery('simple', p_query);
   return query
   with mine as (
-    select me.conversation_id, coalesce(me.cleared_seq, 0) as cleared_seq from genesis_chat.members me
+    select me.conversation_id, coalesce(ps.cleared_seq, 0) as cleared_seq from genesis_chat.members me
+      left join genesis_chat.member_state ps on ps.conversation_id = me.conversation_id and ps.user_id = me.user_id
      where me.user_id = auth.uid() and me.left_at is null and me.role <> 'observer'
        and (p_conversation_id is null or me.conversation_id = p_conversation_id)
     union
@@ -309,8 +370,8 @@ stable
 security definer
 set search_path = ''
 as $$
-  select coalesce((select me.cleared_seq from genesis_chat.members me
-                    where me.conversation_id = p_conversation_id and me.user_id = auth.uid()), 0)
+  select coalesce((select s.cleared_seq from genesis_chat.member_state s
+                    where s.conversation_id = p_conversation_id and s.user_id = auth.uid()), 0)
 $$;
 
 revoke execute on function genesis_chat.my_cleared_seq(uuid) from public, anon;
@@ -356,12 +417,33 @@ as $$
      and m.seq > genesis_chat.my_cleared_seq(m.conversation_id)
 $$;
 
+-- A pinned message from history you deleted for yourself isn't one of your pins. Restrictive, so
+-- it narrows 0001's pins_read.
+create function genesis_chat.cleared_for_me(p_message_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (select 1 from genesis_chat.messages m
+                   join genesis_chat.member_state s on s.conversation_id = m.conversation_id and s.user_id = auth.uid()
+                  where m.id = p_message_id and m.seq <= s.cleared_seq)
+$$;
+
+revoke execute on function genesis_chat.cleared_for_me(uuid) from public, anon;
+grant execute on function genesis_chat.cleared_for_me(uuid) to authenticated, service_role;
+
+create policy pins_cleared_for_me on genesis_chat.pins
+  as restrictive for select to authenticated
+  using (not genesis_chat.cleared_for_me(message_id));
+
 revoke execute on function
-  genesis_chat.delete_conversation_for_me(uuid),
+  genesis_chat.delete_conversation_for_me(uuid, bigint),
   genesis_chat.set_my_settings(uuid, timestamptz, text, boolean, boolean, boolean, boolean)
 from public, anon;
 
 grant execute on function
-  genesis_chat.delete_conversation_for_me(uuid),
+  genesis_chat.delete_conversation_for_me(uuid, bigint),
   genesis_chat.set_my_settings(uuid, timestamptz, text, boolean, boolean, boolean, boolean)
 to authenticated, service_role;

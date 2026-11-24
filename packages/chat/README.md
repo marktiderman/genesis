@@ -450,14 +450,18 @@ As Messages has them, and only for the person who does them:
 // place, what senders see as "Read", never moves back. `markRead` clears it.
 chat.setMySettings(conversationId, { markedUnread: true }): Promise<void>
 
-// Delete for me: the conversation leaves their inbox, and its history (with its files and link
-// previews) their thread and search,
-// until a new message arrives, which brings it back with only what came after. Nothing is
-// deleted, and nobody else's inbox, thread or read receipts change.
-chat.deleteConversationForMe(conversationId): Promise<void>
+// Delete for me: the conversation leaves their inbox, and its history (with its files, link
+// previews and pins) their thread and search, until a new message they can read arrives, which
+// brings it back with only what came after. Pass the inbox row's `lastSeq` as `seq` (what they
+// saw), so a message that came in meanwhile isn't deleted unseen. Nothing is deleted, and nobody
+// else's inbox, thread or read receipts change.
+chat.deleteConversationForMe(conversationId, seq?): Promise<void>
 ```
 
-`markedUnread` is sent only when given, so the client keeps working on a database before 0007.
+Both are private to the person: they're kept in `genesis_chat.member_state`, which only they read,
+not on `members`, which everyone in the conversation reads. Both send the person's own devices an
+`inbox` hint. `markedUnread` is sent only when given, so the client keeps working on a database
+before 0007.
 Apply 0007 after 0006 (`genesis migrate`), and copy its pgTAP test beside the others.
 
 ## Access
