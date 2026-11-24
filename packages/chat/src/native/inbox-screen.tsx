@@ -20,12 +20,12 @@
  * `searchField`, `listHeader` and `empty`.
  */
 import { memo, useCallback, useMemo, useRef, useState, type ComponentRef, type ReactNode } from "react";
-import { Alert, FlatList, Platform, RefreshControl, StyleSheet, TextInput, View, useWindowDimensions } from "react-native";
+import { Alert, Platform, StyleSheet, TextInput, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { RowSwipeAction } from "@marktiderman/genesis-core/row-actions";
 import { renderSlot, type SlotPropsFor, type Slots } from "@marktiderman/genesis-core/slots";
 import { NativeEmptyState, NativeLoadingState, NativeRowActions, NativeText, useGenesisModules, type NativeIconName } from "@marktiderman/genesis-ui-native/components";
-import { composeHeaderOptions, useHideTabBar, type InboxItem, type InboxPageProps } from "@marktiderman/genesis-ui-native/layouts";
+import { composeHeaderOptions, InboxPage, useHideTabBar, type InboxItem, type InboxPageProps, type InboxPageSlotMap } from "@marktiderman/genesis-ui-native/layouts";
 import type { ChatInboxItem } from "../core/types";
 import { inboxRowActions, useChat, useInbox, useInboxActions, usePeople, usePerson, type ChatAttachmentKind, type ChatConfirm } from "../react/index";
 import { attachmentPreview } from "./attachment-cards";
@@ -33,7 +33,6 @@ import { fill, type ChatNativeCopy } from "./copy";
 import { useChatNative, type ChatPerson } from "./context";
 import { displayBody } from "./message-bubble";
 import { CHAT_METRICS, CHAT_TYPE, ChatFace, ChatGlassCircle, ChatGlassPanel, ChatSymbol, ChatTap, useChatColors } from "./messages-look";
-import { inboxTimeLabel } from "./messages-time";
 import { ChatConversationPreview } from "./conversation-preview";
 
 // ---- Filters and menu --------------------------------------------------------------------------
@@ -151,13 +150,12 @@ export function inboxHeaderItems(options: {
 
 // ---- Slots -------------------------------------------------------------------------------------
 
-/** A row as the inbox draws it. */
+/** A pinned conversation, as the faces above the rows draw it. */
 export interface ChatInboxRowData {
   id: string;
   item: ChatInboxItem;
   title: string;
   preview?: string;
-  time: string | null;
   unread: boolean;
   muted: boolean;
   pinned: boolean;
@@ -170,16 +168,19 @@ export interface ChatInboxRowData {
 
 /** The parts `slots` and `slotProps` reach. */
 export type ChatInboxSlotMap = {
-  /** One row's content (the actions wrap it). */
-  row: { row: ChatInboxRowData; last: boolean; testID: string };
+  /**
+   * One row (InboxPage's `row` slot): the conversation's `InboxItem` with its `timeLabel`, `isLast`
+   * and `actionProps` (the screen reader's actions and the long press, to spread on the pressable).
+   */
+  row: InboxPageSlotMap["row"];
   /** The pinned faces above the rows. */
   pinned: { rows: ChatInboxRowData[]; testID: string };
   /** The glass search field at the bottom. */
   searchField: { value: string; onChange: (text: string) => void; onSubmit?: (text: string) => void; testID: string };
   /** Above the pins (a search's "Search messages for…"). */
   listHeader: { query: string; onSearchMessages?: (query: string) => void; testID: string };
-  /** What shows when nothing does. */
-  empty: { title: string; body?: string; actionLabel?: string; onAction?: () => void; loading: boolean; testID: string };
+  /** What shows when nothing does (InboxPage's `empty` slot). */
+  empty: InboxPageSlotMap["empty"];
 };
 
 export interface ChatInboxScreenProps {
@@ -229,10 +230,7 @@ export interface ChatInboxScreenProps {
   nativeHeader?: boolean;
   slots?: Slots<ChatInboxSlotMap>;
   slotProps?: SlotPropsFor<ChatInboxSlotMap>;
-  /**
-   * @deprecated The inbox no longer draws InboxPage: its `header` goes over the list, and
-   * `emptyTitle` and `emptyBody` name the empty state. Use `slots` for anything else.
-   */
+  /** Passed to InboxPage, over what the screen sets (paging, `formatTime`, its own slots). */
   pageProps?: Partial<Omit<InboxPageProps, "items">>;
   testID?: string;
 }
@@ -289,7 +287,6 @@ export function ChatInboxScreen(props: ChatInboxScreenProps) {
   const act = useInboxActions();
   const { copy, person: known } = useChatNative();
   const c = useChatColors();
-  const insets = useSafeAreaInsets();
   // The header and the tab bar are set through the app's router module; without it, the app's own.
   const hasRouter = Boolean(useGenesisModules().router?.StackScreen);
   const inbox = useInbox({ kind, kinds, excludeKinds, archived });
@@ -299,6 +296,9 @@ export function ChatInboxScreen(props: ChatInboxScreenProps) {
   const person = useCallback((id: string | null | undefined) => known(id) ?? (id ? people[id] : undefined) ?? (id === userId && meCard ? meCard : undefined), [known, people, userId, meCard]);
   const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState("");
+  // Read when a row is pressed or built, so an inline `onOpen` or `rowActions` doesn't rebuild every row.
+  const latest = useRef({ onOpen, rowActions });
+  latest.current = { onOpen, rowActions };
 
   const filters = useMemo(() => {
     const defaults = defaultInboxFilters(copy);
@@ -306,23 +306,25 @@ export function ChatInboxScreen(props: ChatInboxScreenProps) {
   }, [copy, props.filters]);
   const [ownFilter, setOwnFilter] = useState(filters[0]?.id ?? "all");
   const activeId = props.filter ?? ownFilter;
+  const onFilterChange = props.onFilterChange;
   const setFilter = useCallback(
     (id: string) => {
       setOwnFilter(id);
-      props.onFilterChange?.(id);
+      onFilterChange?.(id);
     },
-    [props.onFilterChange],
+    [onFilterChange],
   );
   const active = filters.find((f) => f.id === activeId) ?? filters[0];
 
+  const { refetch } = inbox;
   const refresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await inbox.refetch();
+      await refetch();
     } finally {
       setRefreshing(false);
     }
-  }, [inbox]);
+  }, [refetch]);
 
   // A row action that fails says so, rather than leaving the row as it was without a word.
   const options = useMemo(
@@ -342,38 +344,51 @@ export function ChatInboxScreen(props: ChatInboxScreenProps) {
   const pinsShown = showPinned && !archived && !searching && active?.id === filters[0]?.id;
   const pinnedIds = useMemo(() => new Set(pinsShown ? pinnedConversations(inbox.items).map((i) => i.conversationId) : []), [pinsShown, inbox.items]);
 
-  const now = new Date();
-  const toRow = (item: ChatInboxItem): ChatInboxRowData => {
-    const row = inboxRow(item, { me: userId, copy, person, kinds: attachmentKinds });
-    const self = isSelfConversation(item);
-    const other = item.otherUserId ? person(item.otherUserId) : undefined;
-    const defaults = inboxRowActions(item, act, copy, options);
-    return {
-      id: item.conversationId,
-      item,
-      title: row.title,
-      preview: row.preview,
-      time: inboxTimeLabel(item.lastMessageAt, now),
-      unread: item.unread > 0,
-      muted: item.muted,
-      pinned: item.pinned,
-      meta: row.meta,
-      face: self ? { name: null, src: meCard?.avatarUrl ?? null } : { name: row.title, src: other?.avatarUrl ?? null },
-      onPress: () => onOpen(item.conversationId),
-      actions: rowActions ? rowActions(item, defaults) : defaults,
+  // Built again only when the conversations, the filter or the people change: InboxPage keeps each
+  // row's props equal (and its memo holding) while the screen re-renders.
+  const { pinnedRows, items } = useMemo(() => {
+    const actionsFor = (item: ChatInboxItem) => {
+      const defaults = inboxRowActions(item, act, copy, options);
+      const own = latest.current.rowActions;
+      return own ? own(item, defaults) : defaults;
     };
-  };
-  const pinnedRows = visible.filter((i) => pinnedIds.has(i.conversationId)).map(toRow);
-  const rows = visible.filter((i) => !pinnedIds.has(i.conversationId)).map(toRow);
+    const open = (id: string) => () => latest.current.onOpen(id);
+    const pins: ChatInboxRowData[] = [];
+    const rows: InboxItem[] = [];
+    for (const item of visible) {
+      const row = inboxRow(item, { me: userId, copy, person, kinds: attachmentKinds });
+      if (pinnedIds.has(item.conversationId)) {
+        const self = isSelfConversation(item);
+        const other = item.otherUserId ? person(item.otherUserId) : undefined;
+        pins.push({
+          id: item.conversationId,
+          item,
+          title: row.title,
+          preview: row.preview,
+          unread: item.unread > 0,
+          muted: item.muted,
+          pinned: item.pinned,
+          meta: row.meta,
+          face: self ? { name: null, src: meCard?.avatarUrl ?? null } : { name: row.title, src: other?.avatarUrl ?? null },
+          onPress: open(item.conversationId),
+          actions: actionsFor(item),
+        });
+      } else {
+        rows.push({ ...row, onPress: open(item.conversationId), swipeActions: actionsFor(item) });
+      }
+    }
+    return { pinnedRows: pins, items: rows };
+  }, [visible, pinnedIds, userId, copy, person, attachmentKinds, act, options, meCard]);
 
   // ---- The header ----
+  const { onOpenArchived, onOpenScheduled, menuItems } = props;
   const menu = useMemo(() => {
     const defaults: ChatInboxMenuItem[] = [
-      ...(props.onOpenArchived ? [{ id: "archived", label: copy.archived, icon: "archive" as const, sf: "archivebox", onPress: props.onOpenArchived }] : []),
-      ...(props.onOpenScheduled ? [{ id: "scheduled", label: copy.scheduledMessages, icon: "calendar" as const, sf: "calendar.badge.clock", onPress: props.onOpenScheduled }] : []),
+      ...(onOpenArchived ? [{ id: "archived", label: copy.archived, icon: "archive" as const, sf: "archivebox", onPress: onOpenArchived }] : []),
+      ...(onOpenScheduled ? [{ id: "scheduled", label: copy.scheduledMessages, icon: "calendar" as const, sf: "calendar.badge.clock", onPress: onOpenScheduled }] : []),
     ];
-    return props.menuItems ? props.menuItems(defaults) : defaults;
-  }, [props.onOpenArchived, props.onOpenScheduled, props.menuItems, copy]);
+    return menuItems ? menuItems(defaults) : defaults;
+  }, [onOpenArchived, onOpenScheduled, menuItems, copy]);
   const onCompose = props.onCompose ?? onStart;
   const title = props.title ?? (archived ? copy.archived : copy.inboxTitle);
 
@@ -386,50 +401,41 @@ export function ChatInboxScreen(props: ChatInboxScreenProps) {
   );
 
   const filteredEmpty = !archived && (searching || active?.id !== filters[0]?.id);
-  const loading = inbox.isLoading;
-  const empty = renderSlot(
-    InboxEmpty,
-    slots.empty,
-    {
-      loading,
-      title: inbox.error
-        ? copy.inboxErrorTitle
-        : searching
-          ? copy.noMatchTitle
-          : filteredEmpty
-            ? (active?.emptyTitle ?? copy.filteredEmptyTitle)
-            : (pageProps?.emptyTitle ?? copy.inboxEmptyTitle),
-      body: searching ? (props.onSearchMessages ? copy.noMatchBody : undefined) : filteredEmpty ? undefined : (pageProps?.emptyBody ?? copy.inboxEmptyBody),
-      actionLabel: !filteredEmpty && onStart ? copy.startConversation : undefined,
-      onAction: !filteredEmpty ? onStart : undefined,
-      testID: inbox.error ? `${testID}-error` : `${testID}-empty`,
-    },
-    slotProps.empty,
-  );
-
-  const rowSlot = slots.row;
-  const rowExtra = slotProps.row;
-  const renderItem = useCallback(
-    ({ item, index }: { item: ChatInboxRowData; index: number }) => <InboxRow row={item} last={index === rows.length - 1} slot={rowSlot} extra={rowExtra} testID={`${testID}-row-${item.id}`} />,
-    [rows.length, rowSlot, rowExtra, testID],
-  );
+  const menuPreview = useCallback((row: InboxPageSlotMap["row"]) => <ChatConversationPreview conversationId={row.id} title={row.title} testID={`${row.testID}-preview`} />, []);
+  const pageSlots: Slots<InboxPageSlotMap> = {
+    row: slots.row === undefined ? ChatInboxRowContent : slots.row,
+    // Every conversation pinned: the pins are the list, and no empty state goes under them.
+    empty: pinnedRows.length ? null : slots.empty === undefined ? InboxEmpty : slots.empty,
+    ...(search ? { footer: SearchFieldFooter } : {}),
+    ...pageProps?.slots,
+  };
+  const pageSlotProps: SlotPropsFor<InboxPageSlotMap> = { ...(slotProps.row ? { row: slotProps.row } : {}), ...(slotProps.empty ? { empty: slotProps.empty } : {}), ...pageProps?.slotProps };
 
   return (
     <>
-      {/* The list is the screen's first view and its scroll view, so the large title collapses with it. */}
-      <FlatList
+      {/* InboxPage's list is the screen's first scroll view, so the large title collapses with it. */}
+      <InboxPage
         testID={testID}
-        data={rows}
-        keyExtractor={rowKey}
-        renderItem={renderItem}
-        style={{ flex: 1, backgroundColor: c.roles.page }}
-        contentInsetAdjustmentBehavior="automatic"
-        keyboardDismissMode="on-drag"
-        keyboardShouldPersistTaps="handled"
-        ListHeaderComponent={listHeader}
-        ListEmptyComponent={pinnedRows.length ? undefined : <>{empty}</>}
-        contentContainerStyle={{ flexGrow: 1, paddingBottom: search ? insets.bottom + 96 : insets.bottom + 16 }}
-        refreshControl={<RefreshControl testID={`${testID}-refresh`} refreshing={refreshing} onRefresh={() => void refresh()} />}
+        variant="plain"
+        background={c.roles.page}
+        items={items}
+        header={listHeader}
+        loading={inbox.isLoading}
+        error={Boolean(inbox.error)}
+        errorTitle={copy.inboxErrorTitle}
+        refreshing={refreshing}
+        onRefresh={refresh}
+        emptyTitle={searching ? copy.noMatchTitle : filteredEmpty ? (active?.emptyTitle ?? copy.filteredEmptyTitle) : copy.inboxEmptyTitle}
+        emptyBody={searching ? (props.onSearchMessages ? copy.noMatchBody : "") : filteredEmpty ? "" : copy.inboxEmptyBody}
+        emptyActionLabel={!filteredEmpty && onStart ? copy.startConversation : undefined}
+        onEmptyAction={!filteredEmpty ? onStart : undefined}
+        swipeAppearance="round"
+        menuPreview={menuPreview}
+        mutedLabel={copy.alertsOff}
+        pinnedLabel={copy.pinnedMark}
+        {...pageProps}
+        slots={pageSlots}
+        slotProps={pageSlotProps}
       />
       {search
         ? renderSlot(
@@ -454,7 +460,15 @@ export function ChatInboxScreen(props: ChatInboxScreenProps) {
   );
 }
 
-const rowKey = (r: ChatInboxRowData) => r.id;
+/** The list's footer under the search field: the paging spinner, then room for the field. */
+function SearchFieldFooter({ loadingMore, testID }: InboxPageSlotMap["footer"]) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View testID={testID} style={{ paddingBottom: insets.bottom + 64 }}>
+      {loadingMore ? <NativeLoadingState fullScreen={false} size="small" testID={`${testID}-loading`} /> : null}
+    </View>
+  );
+}
 
 /** The stack's header for the inbox (large title, Back, the filter menu and Compose), and no tab bar. */
 function InboxChrome({ title, filters, active, onFilter, menu, onCompose, onBack }: { title: string; filters: ChatInboxFilter[]; active: string; onFilter: (id: string) => void; menu: ChatInboxMenuItem[]; onCompose?: () => void; onBack?: () => void }) {
@@ -486,72 +500,70 @@ function InboxChrome({ title, filters, active, onFilter, menu, onCompose, onBack
   return StackScreen ? <StackScreen options={options} /> : null;
 }
 
-/** One row: its content (the `row` slot) inside Genesis's row actions, and the hairline under it. */
-const InboxRow = memo(function InboxRow({ row, last, slot, extra, testID }: { row: ChatInboxRowData; last: boolean; slot: Slots<ChatInboxSlotMap>["row"]; extra: Partial<ChatInboxSlotMap["row"]> | undefined; testID: string }) {
+/**
+ * The default row (InboxPage's `row` slot, `variant="plain"`): the unread dot, the face, the name and
+ * time with a chevron, two lines of the last message, a hairline inset to the text. It spreads
+ * `actionProps`, so the screen reader reaches every row action and a long press opens the menu.
+ */
+export const ChatInboxRowContent = memo(function ChatInboxRowContent(row: ChatInboxSlotMap["row"]) {
   const c = useChatColors();
-  const preview = useCallback(() => <ChatConversationPreview conversationId={row.id} title={row.title} testID={`${testID}-preview`} />, [row.id, row.title, testID]);
+  const { copy } = useChatNative();
+  const unread = Boolean(row.unread || (row.unreadCount ?? 0) > 0);
+  const label = [unread ? copy.unread : null, row.title, row.pinnedLabel, row.mutedLabel, row.timeLabel, row.preview, row.meta].filter(Boolean).join(", ");
   return (
     <View>
-      <NativeRowActions actions={row.actions} title={row.title} preview={preview} appearance="round" testID={`${testID}-actions`}>
-        {renderSlot(ChatInboxRowContent, slot, { row, last, testID }, extra)}
-      </NativeRowActions>
-      {last ? null : <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ marginLeft: CHAT_METRICS.rowText, height: StyleSheet.hairlineWidth, backgroundColor: c.separator }} />}
+      <ChatTap
+        testID={row.testID}
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        {...row.actionProps}
+        onPress={row.onPress}
+        look={(pressed) => ({
+          flexDirection: "row",
+          alignItems: "center",
+          minHeight: CHAT_METRICS.rowMinHeight,
+          paddingVertical: 10,
+          paddingEnd: CHAT_METRICS.margin,
+          // Clear, so the grey pill Genesis draws behind an open swipe shows through.
+          backgroundColor: pressed ? c.roles.pressed : "transparent",
+        })}
+      >
+        <View style={{ width: CHAT_METRICS.rowUnreadColumn, alignItems: "center" }}>
+          {unread ? <View testID={`${row.testID}-unread`} style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: row.muted ? c.secondaryLabel : c.roles.sent }} /> : null}
+        </View>
+        <View testID={`${row.testID}-avatar`} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+          {row.avatar}
+        </View>
+        <View style={{ flex: 1, minWidth: 0, marginStart: 12, alignSelf: "stretch", justifyContent: "center" }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <NativeText numberOfLines={1} style={[CHAT_TYPE.title, { flex: 1, color: c.label }]}>
+              {row.title}
+            </NativeText>
+            {row.muted ? <ChatSymbol icon="bell-off" sf="bell.slash.fill" size={12} color={c.secondaryLabel} testID={`${row.testID}-muted`} /> : null}
+            {row.timeLabel ? (
+              <NativeText testID={`${row.testID}-time`} style={[CHAT_TYPE.meta, { color: c.secondaryLabel }]}>
+                {row.timeLabel}
+              </NativeText>
+            ) : null}
+            <ChatSymbol icon="chevron-right" sf="chevron.forward" size={13} weight="semibold" color={c.tertiaryLabel} directional />
+          </View>
+          {row.preview ? (
+            <NativeText numberOfLines={2} style={[CHAT_TYPE.preview, { color: c.secondaryLabel, marginTop: 1, paddingEnd: 8 }]}>
+              {row.preview}
+            </NativeText>
+          ) : null}
+          {row.meta ? (
+            <NativeText testID={`${row.testID}-meta`} numberOfLines={1} style={{ fontSize: 13, lineHeight: 18, marginTop: 2, color: c.secondaryLabel }}>
+              {row.meta}
+            </NativeText>
+          ) : null}
+        </View>
+      </ChatTap>
+      {row.isLast ? null : <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ marginStart: CHAT_METRICS.rowText, height: StyleSheet.hairlineWidth, backgroundColor: c.separator }} />}
     </View>
   );
 });
 
-/** The default row: the unread dot, the face, the name and time with a chevron, two lines of the last message. */
-export function ChatInboxRowContent({ row, testID }: ChatInboxSlotMap["row"]) {
-  const c = useChatColors();
-  const { copy } = useChatNative();
-  const label = [row.unread ? copy.unread : null, row.title, row.pinned ? copy.pinnedMark : null, row.muted ? copy.alertsOff : null, row.time, row.preview, row.meta].filter(Boolean).join(", ");
-  return (
-    <ChatTap
-      testID={testID}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      onPress={row.onPress}
-      look={(pressed) => ({
-        flexDirection: "row",
-        alignItems: "center",
-        minHeight: CHAT_METRICS.rowMinHeight,
-        paddingVertical: 10,
-        paddingRight: CHAT_METRICS.margin,
-        // Clear, so the grey pill Genesis draws behind an open swipe shows through.
-        backgroundColor: pressed ? c.roles.pressed : "transparent",
-      })}
-    >
-      <View style={{ width: CHAT_METRICS.rowUnreadColumn, alignItems: "center" }}>
-        {row.unread ? <View testID={`${testID}-unread`} style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: row.muted ? c.secondaryLabel : c.roles.sent }} /> : null}
-      </View>
-      <ChatFace name={row.face.name} src={row.face.src} recyclingKey={row.id} testID={`${testID}-avatar`} />
-      <View style={{ flex: 1, minWidth: 0, marginLeft: 12, alignSelf: "stretch", justifyContent: "center" }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-          <NativeText numberOfLines={1} style={[CHAT_TYPE.title, { flex: 1, color: c.label }]}>
-            {row.title}
-          </NativeText>
-          {row.muted ? <ChatSymbol icon="bell-off" sf="bell.slash.fill" size={12} color={c.secondaryLabel} testID={`${testID}-muted`} /> : null}
-          {row.time ? (
-            <NativeText testID={`${testID}-time`} style={[CHAT_TYPE.meta, { color: c.secondaryLabel }]}>
-              {row.time}
-            </NativeText>
-          ) : null}
-          <ChatSymbol icon="chevron-right" sf="chevron.forward" size={13} weight="semibold" color={c.tertiaryLabel} />
-        </View>
-        {row.preview ? (
-          <NativeText numberOfLines={2} style={[CHAT_TYPE.preview, { color: c.secondaryLabel, marginTop: 1, paddingRight: 8 }]}>
-            {row.preview}
-          </NativeText>
-        ) : null}
-        {row.meta ? (
-          <NativeText testID={`${testID}-meta`} numberOfLines={1} style={{ fontSize: 13, lineHeight: 18, marginTop: 2, color: c.secondaryLabel }}>
-            {row.meta}
-          </NativeText>
-        ) : null}
-      </View>
-    </ChatTap>
-  );
-}
 
 /** A pinned face's actions: the same menu and screen reader actions, never a swipe. */
 const menuOnly = (actions: readonly RowSwipeAction[]) => actions.map((a) => ({ ...a, swipe: false as const }));
@@ -582,7 +594,7 @@ export function ChatPinnedFaces({ rows, testID }: ChatInboxSlotMap["pinned"]) {
           >
             <View>
               <ChatFace name={row.face.name} src={row.face.src} size={size} recyclingKey={row.id} />
-              {row.unread ? <View style={{ position: "absolute", left: -2, top: size / 2 - 6, width: 12, height: 12, borderRadius: 6, backgroundColor: c.roles.sent }} /> : null}
+              {row.unread ? <View style={{ position: "absolute", start: -2, top: size / 2 - 6, width: 12, height: 12, borderRadius: 6, backgroundColor: c.roles.sent }} /> : null}
             </View>
             <NativeText numberOfLines={1} style={{ marginTop: 6, fontSize: 12, lineHeight: 16, color: row.unread ? c.label : c.secondaryLabel, fontWeight: row.unread ? "600" : "400", maxWidth: cell - 8 }}>
               {row.title}
@@ -615,13 +627,13 @@ function SearchMessagesRow({ query, onSearchMessages, testID }: ChatInboxSlotMap
   );
 }
 
-function InboxEmpty({ loading, title, body, actionLabel, onAction, testID }: ChatInboxSlotMap["empty"]) {
-  if (loading) return <NativeLoadingState fullScreen={false} testID={testID.replace(/-(empty|error)$/, "-loading")} />;
+/** The empty state (InboxPage's `empty` slot), its button in the chat role `sent`. */
+function InboxEmpty({ title, body, actionLabel, onAction, testID }: ChatInboxSlotMap["empty"]) {
   return (
     <NativeEmptyState
       variant="first-run"
       title={title}
-      body={body}
+      body={body || undefined}
       testID={testID}
       primaryAction={
         actionLabel && onAction ? (

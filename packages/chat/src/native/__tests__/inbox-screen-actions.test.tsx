@@ -3,23 +3,26 @@
 // The inbox row's actions, as Messages has them: Unread (or Read) and Pin to the right, Hide Alerts
 // and Delete to the left, Archive in the menu only. Delete asks first, then deletes for you only.
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ReactNode } from "react";
-import type { RowSwipeAction } from "@marktiderman/genesis-core/row-actions";
+import { createElement } from "react";
+import type { InboxItem } from "@marktiderman/genesis-ui-native/layouts";
 import type { ChatClient } from "../../core/client";
 import { ChatProvider } from "../../react/index";
 import { ChatNativeProvider } from "../context";
 
-// Each row's actions, as the inbox hands them to Genesis's NativeRowActions.
-const seen: { items: { swipeActions: readonly RowSwipeAction[] }[] } = { items: [] };
-vi.mock("@marktiderman/genesis-ui-native/components", async (original) => ({
-  ...(await original<object>()),
-  NativeRowActions: (props: { actions: readonly RowSwipeAction[]; children?: ReactNode }) => {
-    seen.items = [{ swipeActions: props.actions }];
-    return props.children;
-  },
-}));
+// The rows the inbox hands InboxPage, which is drawn as it is (nothing about it is mocked away).
+const seen: { items: InboxItem[] } = { items: [] };
+vi.mock("@marktiderman/genesis-ui-native/layouts", async (original) => {
+  const real = await original<typeof import("@marktiderman/genesis-ui-native/layouts")>();
+  return {
+    ...real,
+    InboxPage: (props: Parameters<typeof real.InboxPage>[0]) => {
+      seen.items = props.items;
+      return createElement(real.InboxPage, props);
+    },
+  };
+});
 const alerts: { title: string; body?: string; buttons: { text: string; onPress?: () => void }[] }[] = [];
 vi.mock("react-native", async (original) => ({
   ...(await original<object>()),
@@ -59,18 +62,20 @@ async function renderWith(item: ReturnType<typeof row>, over: Record<string, unk
   // A thread this device opened before: Delete for me must not leave its history cached.
   qc.setQueryData(["genesis-chat", "conversation", C, "messages", null, null], { pages: [{ messages: [{ id: "old" }] }] });
   qc.setQueryData(["genesis-chat", "pins", C], ["old"]);
-  render(
+  const tree = () => (
     <QueryClientProvider client={qc}>
       <ChatProvider client={client} userId={ME}>
         <ChatNativeProvider>
+          {/* An inline onOpen, as an app writes it: a new function every render. */}
           <ChatInboxScreen onOpen={() => {}} />
         </ChatNativeProvider>
       </ChatProvider>
-    </QueryClientProvider>,
+    </QueryClientProvider>
   );
+  const view = render(tree());
   await waitFor(() => expect(seen.items.length).toBe(1));
   const actions = seen.items[0]!.swipeActions ?? [];
-  return { client, qc, actions, byId: (id: string) => actions.find((a) => a.id === id)! };
+  return { client, qc, actions, byId: (id: string) => actions.find((a) => a.id === id)!, rerender: () => view.rerender(tree()) };
 }
 
 describe("ChatInboxScreen's row actions", () => {
@@ -131,5 +136,24 @@ describe("ChatInboxScreen's row actions", () => {
     expect(byId("alerts")).toMatchObject({ label: "Show Alerts", icon: "bell" });
     byId("alerts").onPress();
     await waitFor(() => expect(client.setMySettings).toHaveBeenCalledWith(C, { mutedUntil: null }));
+  });
+
+  it("puts every action on the drawn row for the screen reader, and a long press opens the menu", async () => {
+    const { client } = await renderWith(row(0));
+    const drawn = screen.getByTestId(`chat-inbox-row-${C}`);
+    expect(drawn.getAttribute("data-a11y-actions")).toBe("unread,pin,alerts,delete,archive");
+    // VoiceOver's Archive runs the action, from the row itself.
+    act(() => void drawn.dispatchEvent(new CustomEvent("accessibilityaction", { detail: "archive" })));
+    await waitFor(() => expect(client.setMySettings).toHaveBeenCalledWith(C, { archived: true }));
+    // A long press opens the row's menu (the sheet, without the system menu module).
+    act(() => void fireEvent.contextMenu(drawn));
+    await waitFor(() => expect(screen.getByTestId("chat-inbox-menu")).toBeTruthy());
+  });
+
+  it("hands InboxPage the same rows while the screen re-renders with the same conversations, so each row's memo holds", async () => {
+    const { rerender } = await renderWith(row(0));
+    const before = seen.items;
+    rerender();
+    expect(seen.items).toBe(before);
   });
 });
