@@ -9,13 +9,19 @@
  * For platform-default chevrons, pass `showChevron`; the chevron uses
  * the muted-foreground token.
  *
+ * `actions` gives the row its actions the iOS way (ADR 0028): behind a swipe (leading and
+ * trailing, full swipe, iOS 26's round style with `actionsAppearance="round"`), in the long-press
+ * menu (the system context menu with `GenesisModules.menu`), and as VoiceOver's actions.
+ *
  * @stability Beta
  */
 import { Platform, Pressable, Text, View } from "react-native";
 import { cn } from "../utils";
 import { useThemeRoles } from "../hooks/use-theme-roles";
 import { useGenesisModules } from "../native-modules";
+import type { RowSwipeAction } from "@marktiderman/genesis-core/conversation";
 import { NativeIcon } from "./icon";
+import { NativeRowActions } from "./row-actions";
 
 export interface NativeListItemProps {
   title: string;
@@ -46,11 +52,27 @@ export interface NativeListItemProps {
   accessibilityLabel?: string;
   /** Merged over the row's own (`disabled`). */
   accessibilityState?: { checked?: boolean; selected?: boolean };
+  /** The row's actions: swipe, long-press menu and screen-reader actions, from one list. */
+  actions?: readonly RowSwipeAction[];
+  /** How the swipe draws them: `"fill"` (default) or iOS 26's `"round"`. */
+  actionsAppearance?: "fill" | "round";
   className?: string;
   testID?: string;
 }
 
-export function NativeListItem({
+export function NativeListItem({ actions: given, actionsAppearance, ...props }: NativeListItemProps) {
+  // A disabled row offers no actions; a row with actions is pressable, so its long press reaches the menu.
+  const actions = props.disabled ? undefined : given;
+  const row = <ListItemRow {...props} pressable={!!actions?.length} />;
+  if (!actions?.length) return row;
+  return (
+    <NativeRowActions actions={actions} title={props.title} {...(actionsAppearance ? { appearance: actionsAppearance } : {})} testID={`${props.testID ?? "native-list-item"}-actions`}>
+      {row}
+    </NativeRowActions>
+  );
+}
+
+function ListItemRow({
   title,
   subtitle,
   leading,
@@ -65,7 +87,9 @@ export function NativeListItem({
   accessibilityLabel,
   className,
   testID,
-}: NativeListItemProps) {
+  pressable,
+  ...rest
+}: Omit<NativeListItemProps, "actions" | "actionsAppearance"> & { pressable?: boolean }) {
   const inner = (
     <>
       {leading ? <View className="mr-3">{leading}</View> : null}
@@ -88,15 +112,17 @@ export function NativeListItem({
     </>
   );
 
-  if (onPress) {
+  if (onPress || pressable) {
     return (
       <Pressable
         testID={testID ?? "native-list-item"}
-        accessibilityRole={accessibilityRole}
+        // A row that only carries actions isn't a button: no role, and VoiceOver offers its actions.
+        accessibilityRole={onPress ? accessibilityRole : "none"}
         accessibilityLabel={accessibilityLabel ?? (subtitle ? `${title}, ${subtitle}` : title)}
         accessibilityState={{ disabled, ...accessibilityState }}
         disabled={disabled}
         onPress={onPress}
+        {...rest}
         className={cn(
           "min-h-[44px] flex-row items-center bg-background px-4 py-3",
           disabled && "opacity-50",
@@ -111,6 +137,7 @@ export function NativeListItem({
   return (
     <View
       testID={testID ?? "native-list-item"}
+      {...rest}
       accessibilityLabel={accessibilityLabel ?? (subtitle ? `${title}, ${subtitle}` : title)}
       className={cn(
         "min-h-[44px] flex-row items-center bg-background px-4 py-3",

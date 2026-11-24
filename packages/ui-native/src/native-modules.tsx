@@ -33,7 +33,9 @@
  * | `datePicker` (@expo/ui)        | NativeDatePicker, NativeTimePicker       | @react-native-community/datetimepicker |
  * | `keyboardAvoidingView` (react-native-keyboard-controller's `KeyboardAvoidingView`) | ThreadPage: the composer follows the keyboard frame by frame (`translate-with-padding`) | React Native `KeyboardAvoidingView` |
  * | `haptics` (expo-haptics) | useHaptics, usePressFeedback, NativeComposerBar (send) | no haptics |
- * | `swipeable` (react-native-gesture-handler's `ReanimatedSwipeable`) | NativeSwipeRow, InboxPage: the swipe to a row's actions | the actions on long press and as accessibility actions |
+ * | `swipeable` (react-native-gesture-handler's `ReanimatedSwipeable`) | NativeSwipeRow, NativeRowActions, InboxPage, NativeResourceView list rows: the swipe to a row's actions | the actions on long press and as accessibility actions |
+ * | `router` (expo-router's `useFocusEffect` and `Stack.Screen`) | useHideTabBar, ScreenContainer's `tabBar` and `header`: per-screen tab bar and the native header. Set once, at the root | a screen never hides the tab bar (a development warning says why); `header` does nothing (set `<Stack.Screen options>` yourself) |
+ * | `menu` (`MenuView` from `@expo/ui/community/menu`) | NativeRowActions, NativeListItem `actions`, NativeResourceView rows: the long press opens the system context menu (UIContextMenu, with the row lifted as its preview) | NativeContextMenu, a sheet of the actions |
  * | `navigation` (React Navigation's theming: from `expo-router` in an Expo Router app, which bundles its own copy; `@react-navigation/native` otherwise) | GenesisNativeApp: headers and tab bars in the brand's light and dark colors | React Navigation's default (light) theme |
  *
  * The props below are written structurally (no import of the optional
@@ -196,7 +198,44 @@ export type KeyboardAvoidingLike = ComponentType<{
   testID?: string;
 }>;
 
+/**
+ * The router pieces per-screen chrome needs. In an Expo Router app pass
+ * `{ useFocusEffect, StackScreen: Stack.Screen }` from `expo-router`.
+ */
+export interface GenesisRouterModule {
+  /** Runs an effect while the screen is focused (its cleanup on blur): `useFocusEffect(useCallback(…))`. */
+  useFocusEffect?: (effect: () => void | (() => void)) => void;
+  /** `usePathname`: the current path, for `createPlaceExit`'s memory of where the person came from. */
+  usePathname?: () => string;
+  /** `Stack.Screen`: sets the current screen's native header options from inside the screen. */
+  StackScreen?: ComponentType<{ options?: Record<string, unknown> }>;
+}
+
+/** One action in the system menu, as `@expo/ui/community/menu`'s MenuView takes it (react-native-menu's shape). */
+export interface GenesisMenuAction {
+  id: string;
+  title: string;
+  /** An SF Symbol name on iOS. */
+  image?: string;
+  attributes?: { destructive?: boolean; disabled?: boolean };
+}
+
+/** `MenuView` from `@expo/ui/community/menu`: a system menu, opened on long press with `shouldOpenOnLongPress`. */
+export type GenesisMenuComponent = ComponentType<{
+  title?: string;
+  actions: GenesisMenuAction[];
+  onPressAction?: (event: { nativeEvent: { event: string } }) => void;
+  shouldOpenOnLongPress?: boolean;
+  style?: unknown;
+  testID?: string;
+  children?: ReactNode;
+}>;
+
 export interface GenesisModules {
+  /** expo-router's `useFocusEffect` and `Stack.Screen`: per-screen tab bar visibility and the native header from ScreenContainer. */
+  router?: GenesisRouterModule;
+  /** `MenuView` from `@expo/ui/community/menu`: a row's long press opens the system context menu. Without it, NativeContextMenu's sheet. */
+  menu?: GenesisMenuComponent;
   list?: GenesisListComponent;
   image?: GenesisImageComponent;
   reanimated?: GenesisReanimatedModule;
@@ -261,9 +300,20 @@ export type GenesisSwipeableComponent = ComponentType<{
   leftThreshold?: number;
   /** How far a drag from the right must go before it counts (a large number: never, so the list's own leftward pan wins). */
   dragOffsetFromRightEdge?: number;
+  /** How hard the row drags past its actions (1: with the finger). */
+  overshootFriction?: number;
   onSwipeableWillOpen?: (direction?: "left" | "right") => void;
-  renderLeftActions?: () => ReactNode;
-  renderRightActions?: () => ReactNode;
+  /** Called once the row has opened (the finger is up). */
+  onSwipeableOpen?: (direction?: "left" | "right") => void;
+  /** Called as the row starts to close. */
+  onSwipeableWillClose?: (direction?: "left" | "right") => void;
+  /** Called once the row has closed. */
+  onSwipeableClose?: (direction?: "left" | "right") => void;
+  /** Called when a drag to open starts. */
+  onSwipeableOpenStartDrag?: (direction?: "left" | "right") => void;
+  /** `translation` is Reanimated's shared value of the row's offset; its `.value` is read on the JS thread. */
+  renderLeftActions?: (progress?: unknown, translation?: { value: number }) => ReactNode;
+  renderRightActions?: (progress?: unknown, translation?: { value: number }) => ReactNode;
   children?: ReactNode;
 }>;
 

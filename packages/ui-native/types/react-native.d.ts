@@ -520,6 +520,7 @@ declare module "react-native" {
   }
 
   export const AccessibilityInfo: AccessibilityInfoModule;
+  export const I18nManager: { isRTL: boolean };
   export const Dimensions: DimensionsModule;
   export const PanResponder: {
     create(config: {
@@ -592,6 +593,12 @@ declare module "lucide-react-native" {
   export const Lock: ComponentType<IconProps>;
   export const LogOut: ComponentType<IconProps>;
   export const Mail: ComponentType<IconProps>;
+  export const MailOpen: ComponentType<IconProps>;
+  export const MessageSquareDot: ComponentType<IconProps>;
+  export const PinOff: ComponentType<IconProps>;
+  export const Archive: ComponentType<IconProps>;
+  export const BellOff: ComponentType<IconProps>;
+  export const Flag: ComponentType<IconProps>;
   export const Pencil: ComponentType<IconProps>;
   export const RefreshCw: ComponentType<IconProps>;
   export const Share: ComponentType<IconProps>;

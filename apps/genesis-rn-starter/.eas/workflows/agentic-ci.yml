@@ -1,0 +1,212 @@
+# Copy to .eas/workflows/agentic-ci.yml.
+#
+# Agentic CI (iOS): a coding agent tests a pull request on an Expo Simulators session and posts a
+# PASS or FAIL verdict with its evidence (Expo's pattern, docs.expo.dev/agentic-workflows/agentic-ci).
+#
+# 1. Fingerprint the native project as the e2e profile builds it. An iOS simulator build with that
+#    fingerprint exists: repack it with this commit's JavaScript. None: build one.
+# 2. check: copy .eas/agents to a read-only folder outside the project (/tmp/agentic-ci-tools),
+#    so nothing the agent writes runs later. Start one named session (start-session.sh) with a
+#    maximum duration and an idle limit, record the screen, run the app's Maestro flows listed in
+#    .eas/agents/maestro-flows.txt (if any) through agent-device, then run the agent on the pull
+#    request's title and body (check-pr.md). Its only shell command is device.sh, a fixed list of
+#    agent-device commands. It writes agent-output/evidence/verdict.md. The session is always
+#    stopped. Then the evidence is redacted into agent-output/upload, which alone is uploaded: if
+#    redaction fails, nothing is (images and video aren't redacted; see redact-evidence.sh).
+# 3. comment: the verdict, the session's page on expo.dev (it opens only for an Expo login that
+#    can view the project) and the run, on the pull request.
+# 4. result: fails the run when the verdict isn't PASS. The verdict can be wrong: a person reads
+#    the evidence before trusting it, and it is never a required check until runs have been read.
+#
+# When it runs: never on every pull request. Someone adds the label `Agent check` to a pull request
+# (create it in GitHub) after reading the change, or starts it by hand:
+#
+#   eas workflow:run agentic-ci.yml --ref <branch> -F title="…" -F body="…"
+#
+# Only adding that label starts a run: another label on the same pull request doesn't (EAS's
+# pull_request_labeled matches the label added). The label runs the pull request's own code (its
+# .eas/agents scripts included) with the development environment's secrets: add it only to a pull
+# request whose code you trust, never one from a fork or an outside contributor. Anyone who can
+# push a branch can do the same by hand.
+#
+# Status: this template follows Expo's Agentic CI page, but Genesis has not run it in EAS yet.
+# Run it by hand on a test branch before you rely on it.
+#
+# Each run is a repack or a build, one session of up to AGENT_MAX_MINUTES, and the agent's tokens.
+#
+# Its jobs read the EAS environment `development`, as e2e.yml does. Put there, as secrets,
+# EXPO_TOKEN_SIMULATOR (a robot user's token, Developer role) and the agent's key
+# (CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY), and nothing production depends on: the pull
+# request's code can read every variable of that environment. The agent runs without
+# EXPO_TOKEN, EXPO_TOKEN_SIMULATOR and GITHUB_TOKEN; it keeps its own key, and its shell is limited
+# to device.sh (run-agent.sh says what it may read and write). The build must point at a
+# test backend with test logins only (never production): put them in .eas/agents/app-facts.md.
+#
+# Genesis template (templates/release/agentic-ci.yml); see docs/NATIVE-RELEASE.md, "Agentic CI".
+name: Agentic CI (iOS)
+
+on:
+  pull_request_labeled:
+    labels: [Agent check]
+  workflow_dispatch:
+    inputs:
+      title:
+        type: string
+        required: true
+        description: What the change is (as a pull request title)
+      body:
+        type: string
+        required: false
+        description: What to test (as a pull request body)
+        default: ""
+
+concurrency:
+  group: ${{ workflow.filename }}-${{ github.ref }}
+  cancel_in_progress: true
+
+jobs:
+  fingerprint:
+    name: Fingerprint
+    type: fingerprint
+    environment: development
+    env:
+      APP_VARIANT: development
+      EXPO_PUBLIC_APP_VARIANT: development
+
+  get_build:
+    name: Find an iOS simulator build with this fingerprint
+    needs: [fingerprint]
+    type: get-build
+    params:
+      platform: ios
+      profile: e2e
+      simulator: true
+      fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
+      wait_for_in_progress: true
+
+  repack:
+    name: Repack the simulator build with this JavaScript
+    needs: [get_build]
+    if: ${{ needs.get_build.outputs.build_id }}
+    type: repack
+    environment: development
+    env:
+      APP_VARIANT: development
+      EXPO_PUBLIC_APP_VARIANT: development
+    params:
+      build_id: ${{ needs.get_build.outputs.build_id }}
+      profile: e2e
+
+  build:
+    name: Build for the iOS simulator (native code changed)
+    needs: [get_build]
+    if: ${{ !needs.get_build.outputs.build_id }}
+    type: build
+    environment: development
+    params:
+      platform: ios
+      profile: e2e
+
+  check:
+    name: Test the change on an Expo Simulators session
+    needs: [get_build]
+    after: [build, repack]
+    environment: development
+    env:
+      BUILT_ID: ${{ after.build.outputs.build_id }}
+      REPACKED_ID: ${{ after.repack.outputs.build_id }}
+      PR_TITLE: ${{ github.event.pull_request.title }}
+      PR_BODY: ${{ github.event.pull_request.body }}
+      INPUT_TITLE: ${{ inputs.title }}
+      INPUT_BODY: ${{ inputs.body }}
+      AGENT_MAX_MINUTES: "25"
+      AGENT_IDLE_MINUTES: "5"
+    outputs:
+      verdict: ${{ steps.check.outputs.verdict }}
+      session_url: ${{ steps.check.outputs.session_url }}
+      build_id: ${{ steps.check.outputs.build_id }}
+      commit: ${{ steps.check.outputs.commit }}
+    steps:
+      - uses: eas/checkout
+      - uses: eas/install_node_modules
+      - id: check
+        name: Start the session, run the flows and the agent, stop the session
+        run: |
+          set -euo pipefail
+          # Nothing from a previous run, or committed by the pull request, counts as evidence.
+          rm -rf agent-output
+          # The scripts run from a read-only copy outside the project: the agent can't change them.
+          tools=/tmp/agentic-ci-tools
+          if [ -e "$tools" ]; then chmod -R u+w "$tools" && rm -rf "$tools"; fi
+          cp -R .eas/agents "$tools"
+          chmod -R a-w "$tools"
+          case "$AGENT_MAX_MINUTES" in '' | *[!0-9]*) echo "AGENT_MAX_MINUTES must be a whole number of minutes." >&2; exit 1 ;; esac
+          if [ "$AGENT_MAX_MINUTES" -lt 10 ] || [ "$AGENT_MAX_MINUTES" -gt 115 ]; then
+            echo "AGENT_MAX_MINUTES must be from 10 to 115." >&2
+            exit 1
+          fi
+          # The agent stops 5 minutes before the session's limit, so the session outlasts it.
+          agent_minutes=$(( AGENT_MAX_MINUTES - 5 ))
+          BUILD_ID="${REPACKED_ID:-$BUILT_ID}"
+          : "${BUILD_ID:?No build to test: the build or repack job didn't finish.}"
+          PR_TITLE="${PR_TITLE:-$INPUT_TITLE}"
+          PR_BODY="${PR_BODY:-${INPUT_BODY:-The pull request has no description.}}"
+          # Starts the session, records, writes agent-output/device.md, and stops it all on exit.
+          source "$tools/start-session.sh" ios "$BUILD_ID" "Agentic CI ${GITHUB_REF_NAME:-run}" agentic-ci
+          bash "$tools/run-maestro.sh" ios || true
+          {
+            cat "$tools/check-pr.md"
+            printf '\n## Pull request\n\n%s\n\n%s\n\n' "$PR_TITLE" "$PR_BODY"
+            cat agent-output/device.md
+          } > agent-output/prompt.md
+          env -u EXPO_TOKEN -u EXPO_TOKEN_SIMULATOR -u GITHUB_TOKEN \
+            timeout "${agent_minutes}m" bash "$tools/run-agent.sh" agent-output/prompt.md device || true
+          # Only PASS or FAIL leaves the job as an output: the agent's own words stay in the evidence.
+          case "$(head -n 1 agent-output/evidence/verdict.md 2> /dev/null)" in PASS:*) verdict=PASS ;; *) verdict=FAIL ;; esac
+          set-output verdict "$verdict"
+          # The session's page on expo.dev, and nothing else, goes in the comment.
+          session_url="$(node -p 'require("/tmp/session.json").deviceRunSessionUrl || ""' 2> /dev/null || true)"
+          case "$session_url" in https://expo.dev/*) ;; *) session_url="" ;; esac
+          set-output session_url "$session_url"
+          set-output build_id "$BUILD_ID"
+          set-output commit "$(git rev-parse --short HEAD)"
+      - name: Redact the evidence into agent-output/upload
+        if: ${{ always() }}
+        run: bash /tmp/agentic-ci-tools/redact-evidence.sh
+      - uses: eas/upload_artifact
+        if: ${{ always() }}
+        with:
+          type: other
+          name: agentic-ci-evidence
+          # Only what redaction wrote: when it failed or never ran, the folder doesn't exist.
+          # In a monorepo, put the app's folder first (apps/mobile/agent-output/…).
+          path: agent-output/upload/**/*
+
+  comment:
+    name: Comment on the pull request
+    after: [check]
+    if: ${{ github.event.pull_request.number }}
+    type: github-comment
+    params:
+      payload: |
+        <!-- genesis-agentic-ci -->
+        ## Agentic CI (iOS)
+
+        **Verdict:** ${{ after.check.outputs.verdict || 'FAIL (the check job did not finish)' }}. The agent's report (verdict.md), screenshots and recording are in the run's artifacts.
+
+        **Commit:** ${{ after.check.outputs.commit || 'unknown' }}
+
+        - [Session recording](${{ after.check.outputs.session_url }}) (an Expo login that can view the project)
+        - [Agent report, screenshots and recording](${{ workflow.url }})
+        - [Try this build in your browser](https://expo.dev/accounts/${{ account.name }}/projects/${{ app.slug }}/simulator-sessions/create?buildId=${{ after.check.outputs.build_id }}) (each click starts a billed session)
+
+        <sub>An agent's verdict: read the evidence before you trust it.</sub>
+
+  result:
+    name: Fail unless the verdict is PASS
+    after: [check]
+    if: ${{ after.check.outputs.verdict != 'PASS' }}
+    steps:
+      - run: |
+          echo "The agent's verdict isn't PASS. See the evidence in this run."
+          exit 1

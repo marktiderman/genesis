@@ -675,6 +675,46 @@ export function useMessageActions() {
 }
 
 /**
+ * Your own actions on a conversation from the inbox (Mark as Unread or Read, Pin, Hide Alerts,
+ * Archive, Delete for me), refreshing the inbox and badge afterwards. Each returns the call's
+ * promise, so a failure reaches the caller to show. Delete for me also drops the conversation's
+ * cached thread, pins and search results, so its deleted history can't show again on this device
+ * when a new message brings it back. Pass the inbox row's `lastSeq` as `seq` (what you saw).
+ */
+export function useInboxActions() {
+  const { client } = useChat();
+  const queryClient = useQueryClient();
+  return useMemo(() => {
+    const settle = () => {
+      void queryClient.invalidateQueries({ queryKey: [...chatKeys.all, "inbox"] });
+      void queryClient.invalidateQueries({ queryKey: chatKeys.unread() });
+    };
+    const run = async <T,>(call: () => Promise<T>): Promise<T> => {
+      try {
+        return await call();
+      } finally {
+        settle();
+      }
+    };
+    return {
+      markRead: (conversationId: string) => run(() => client.markRead(conversationId)),
+      markUnread: (conversationId: string) => run(() => client.setMySettings(conversationId, { markedUnread: true })),
+      setPinned: (conversationId: string, pinned: boolean) => run(() => client.setMySettings(conversationId, { pinned })),
+      /** `null` turns alerts back on. */
+      setMutedUntil: (conversationId: string, mutedUntil: string | null) => run(() => client.setMySettings(conversationId, { mutedUntil })),
+      setArchived: (conversationId: string, archived: boolean) => run(() => client.setMySettings(conversationId, { archived })),
+      deleteForMe: (conversationId: string, seq?: number) =>
+        run(async () => {
+          await client.deleteConversationForMe(conversationId, seq);
+          queryClient.removeQueries({ queryKey: chatKeys.conversation(conversationId) });
+          queryClient.removeQueries({ queryKey: chatKeys.pins(conversationId) });
+          queryClient.removeQueries({ queryKey: [...chatKeys.all, "search"] });
+        }),
+    };
+  }, [client, queryClient]);
+}
+
+/**
  * What the read hooks return while there is nothing yet: one frozen object (and array) for every
  * caller, so a row's memo holds across renders instead of seeing a fresh `{}` each time.
  */

@@ -7,7 +7,7 @@ replies, threads, reactions, read state, live updates and push.
 | Entry | What it is |
 |---|---|
 | `@marktiderman/genesis-chat` | The headless core: types, `createChatClient`, the send outbox, thread logic, media rules. No React. |
-| `/react` | Hooks for web and native: `ChatProvider`, `useInbox`, `useConversation`, `useMessageActions`, and for 0002 `useTopics`, `useScheduled`, `useAvailability`, `useBroadcast`, `useSearch`, `useLinkPreviews`. |
+| `/react` | Hooks for web and native: `ChatProvider`, `useInbox`, `useInboxActions`, `useConversation`, `useMessageActions`, and for 0002 `useTopics`, `useScheduled`, `useAvailability`, `useBroadcast`, `useSearch`, `useLinkPreviews`. |
 | `/web` | Renderers on genesis-ui: inbox, thread, composer (text, photos, voice, video, emoji, scheduled send), media, topics, search, availability, broadcast, and the chat dock. |
 | `/native` | Beta: screens and parts on genesis-ui-native (inbox, thread, search, availability), voice notes, photos and video, and the push block's glue. See "On native" below. |
 | `/server` | `createChatRunner`: works the outbox (push, transcripts, storage cleanup). |
@@ -440,6 +440,34 @@ Apply 0004 after a block's migration that ships a subject resolver (genesis-supp
 `genesis migrate` and `upgrade` order them that way from the block's `runsBefore`.
 Replace your copies of the 0001–0003 pgTAP tests with this release's (they now give their own
 people a tenant). If you use genesis-support's chat, apply its 0004 in the same release.
+
+## Mark as Unread and Delete for me (migration 0007)
+
+As Messages has them, and only for the person who does them:
+
+```ts
+// Mark as Unread: counts as one unread (inbox, badges, push badge) until they read it; their read
+// place, what senders see as "Read", never moves back. `markRead` clears it.
+chat.setMySettings(conversationId, { markedUnread: true }): Promise<void>
+
+// Delete for me: the conversation leaves their inbox, and its history (with its files, link
+// previews and pins) their thread and search, until a new message they can read arrives, which
+// brings it back with only what came after. Pass the inbox row's `lastSeq` as `seq` (what they
+// saw), so a message that came in meanwhile isn't deleted unseen. Nothing is deleted, and nobody
+// else's inbox, thread or read receipts change.
+chat.deleteConversationForMe(conversationId, seq?): Promise<void>
+```
+
+From React, `useInboxActions()` does both (and Pin, Hide Alerts and Archive), refreshes the inbox
+and badge, and on Delete for me drops the conversation's cached thread, pins and search results, so
+the deleted history can't show again on that device when a new message brings it back.
+`ChatInboxScreen` uses it for its row actions, and says so when one fails.
+
+Both are private to the person: they're kept in `genesis_chat.member_state`, which only they read,
+not on `members`, which everyone in the conversation reads. Both send the person's own devices an
+`inbox` hint. `markedUnread` is sent only when given, so the client keeps working on a database
+before 0007.
+Apply 0007 after 0006 (`genesis migrate`), and copy its pgTAP test beside the others.
 
 ## Access
 

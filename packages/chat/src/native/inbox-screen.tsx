@@ -2,17 +2,18 @@
  * @feat:chat
  * Your conversations on genesis-ui-native's InboxPage: each with its avatar,
  * unread count, last message and time; pull to refresh; an empty state that
- * offers to start a conversation; Mark read, Pin and Archive on swipe, long
- * press and as accessibility actions. Under the navigator's large title
- * (`getInboxPageStackOptions`).
+ * offers to start a conversation. Each row has Messages' actions: swipe right for Mark as
+ * Unread (or Read) and Pin, left for Hide Alerts and Delete (for you, after asking); Archive
+ * is in the long-press menu. Every action is also a screen reader action on the row. Under the
+ * navigator's large title (`getInboxPageStackOptions`).
  */
 import { useCallback, useMemo, useState } from "react";
+import { Alert } from "react-native";
 import { NativeAvatar } from "@marktiderman/genesis-ui-native/components";
 import { InboxPage, type InboxItem, type InboxPageProps } from "@marktiderman/genesis-ui-native/layouts";
 import type { ChatInboxItem } from "../core/types";
-import { chatKeys, useChat, useInbox, usePeople, type ChatAttachmentKind } from "../react/index";
+import { useChat, useInbox, useInboxActions, usePeople, type ChatAttachmentKind } from "../react/index";
 import { attachmentPreview } from "./attachment-cards";
-import { useQueryClient } from "@tanstack/react-query";
 import type { ChatNativeCopy } from "./copy";
 import { initials, useChatNative, type ChatPerson } from "./context";
 import { displayBody } from "./message-bubble";
@@ -62,9 +63,12 @@ export function inboxRow(
   };
 }
 
+/** Hide Alerts from the row: until it's turned back on (a date far enough away to read as always). */
+const FOREVER = "9999-12-31T00:00:00.000Z";
+
 export function ChatInboxScreen({ onOpen, onStart, kind, kinds, excludeKinds, archived, pageProps, testID = "chat-inbox" }: ChatInboxScreenProps) {
-  const { client, userId, attachmentKinds } = useChat();
-  const queryClient = useQueryClient();
+  const { userId, attachmentKinds } = useChat();
+  const act = useInboxActions();
   const { copy, person: known } = useChatNative();
   const inbox = useInbox({ kind, kinds, excludeKinds, archived });
   // The other person in each direct conversation, fetched in one batch (ChatProvider loadPeople).
@@ -82,24 +86,59 @@ export function ChatInboxScreen({ onOpen, onStart, kind, kinds, excludeKinds, ar
     }
   }, [inbox]);
 
-  const settle = useCallback(() => {
-    void queryClient.invalidateQueries({ queryKey: ["genesis-chat", "inbox"] });
-    void queryClient.invalidateQueries({ queryKey: chatKeys.unread() });
-  }, [queryClient]);
+  // A row action that fails says so, rather than leaving the row as it was without a word.
+  const run = useCallback(
+    (call: Promise<unknown>) => {
+      call.catch((e: unknown) => Alert.alert(copy.actionFailed, e instanceof Error ? e.message : undefined));
+    },
+    [copy],
+  );
 
   const items: InboxItem[] = inbox.items.map((item) => ({
     ...inboxRow(item, { me: userId, copy, person, kinds: attachmentKinds }),
     onPress: () => onOpen(item.conversationId),
+    // Messages' row actions: Unread (or Read) and Pin to the right, Hide Alerts and Delete to the
+    // left, round buttons; Archive in the long-press menu only. Every one is also a screen reader
+    // action on the row (NativeSwipeRow).
     swipeActions: [
-      ...(item.unread > 0 ? [{ id: "read", label: copy.markRead, onPress: () => void client.markRead(item.conversationId).then(settle, settle) }] : []),
+      item.unread > 0
+        ? { id: "read", label: copy.markRead, icon: "mail-open", tone: "blue" as const, side: "leading" as const, full: true, onPress: () => run(act.markRead(item.conversationId)) }
+        : { id: "unread", label: copy.markUnread, icon: "message-unread", tone: "blue" as const, side: "leading" as const, full: true, onPress: () => run(act.markUnread(item.conversationId)) },
       {
         id: "pin",
         label: item.pinned ? copy.unpin : copy.pin,
-        onPress: () => void client.setMySettings(item.conversationId, { pinned: !item.pinned }).then(settle, settle),
+        icon: "pin",
+        tone: "orange" as const,
+        side: "leading" as const,
+        onPress: () => run(act.setPinned(item.conversationId, !item.pinned)),
+      },
+      {
+        id: "alerts",
+        label: item.muted ? copy.showAlerts : copy.hideAlerts,
+        icon: item.muted ? "bell" : "bell-off",
+        tone: "purple" as const,
+        side: "trailing" as const,
+        onPress: () => run(act.setMutedUntil(item.conversationId, item.muted ? null : FOREVER)),
+      },
+      {
+        id: "delete",
+        label: copy.deleteConversation,
+        icon: "trash",
+        destructive: true,
+        side: "trailing" as const,
+        full: true,
+        // It asks with an Alert before deleting (below), so a full swipe can't delete by mistake.
+        confirms: true,
+        onPress: () =>
+          Alert.alert(copy.deleteConversationTitle, copy.deleteConversationBody, [
+            { text: copy.cancel, style: "cancel" },
+            // Up to the last message this row showed: one that came in since isn't deleted unseen.
+            { text: copy.deleteConversation, style: "destructive", onPress: () => run(act.deleteForMe(item.conversationId, item.lastSeq)) },
+          ]),
       },
       ...(item.archived
         ? []
-        : [{ id: "archive", label: copy.archive, onPress: () => void client.setMySettings(item.conversationId, { archived: true }).then(settle, settle) }]),
+        : [{ id: "archive", label: copy.archive, icon: "archive", swipe: false, onPress: () => run(act.setArchived(item.conversationId, true)) }]),
     ],
   }));
 
@@ -114,6 +153,8 @@ export function ChatInboxScreen({ onOpen, onStart, kind, kinds, excludeKinds, ar
       onRefresh={refresh}
       emptyTitle={copy.inboxEmptyTitle}
       emptyBody={copy.inboxEmptyBody}
+      // Messages' round buttons behind the swipe, the row a pill while open.
+      swipeAppearance="round"
       emptyActionLabel={onStart ? copy.startConversation : undefined}
       onEmptyAction={onStart}
       {...pageProps}
