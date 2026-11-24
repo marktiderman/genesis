@@ -44,7 +44,7 @@ describe("inboxRowActions", () => {
     const by = (id: string) => actions.find((a) => a.id === id)!;
     expect(by("unread")).toMatchObject({ tone: "info", swipe: { side: "leading", full: true }, icon: "message-unread", label: "Mark as Unread" });
     expect(by("pin")).toMatchObject({ accent: "orange", swipe: { side: "leading" } });
-    expect(by("alerts")).toMatchObject({ accent: "purple", swipe: { side: "trailing" }, label: "Hide Alerts" });
+    expect(by("alerts")).toMatchObject({ accent: "indigo", swipe: { side: "trailing" }, label: "Hide Alerts" });
     expect(by("delete")).toMatchObject({ destructive: true, confirms: true, swipe: { side: "trailing", full: true } });
     expect(by("archive")).toMatchObject({ swipe: false });
     // An unread, pinned, muted, archived row offers the other half of each toggle, and no Archive.

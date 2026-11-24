@@ -2,11 +2,13 @@
 "@marktiderman/genesis-chat": minor
 "@marktiderman/genesis-design-system": minor
 "@marktiderman/genesis-ui-native": minor
+"@marktiderman/genesis-core": minor
 ---
 
 genesis-chat's native screens draw the platform's Messages pattern (iOS 26) by default, with Messages' colors in their own layer (ADR 0029). Apps must install genesis-design-system.
 
 - **ui-native, `InboxPage`:** `variant="plain"` draws full-width rows on the page with no inset group, as Messages and Mail list theirs; `background` sets the page. `"grouped"` stays the default, and a `row` slot gets the `variant`.
+- **core and ui-native, row actions:** an `indigo` accent (`RowActionAccent`; systemIndigo on iOS, a fallback that carries white at 4.5:1 elsewhere), and `NativeSwipeRow roundLabels={false}`: round buttons without the labels under them, each still named for VoiceOver. Defaults unchanged.
 - **design-system:** the native barrel (`index.native.ts`) exports the chat roles too, and a test holds both barrels to the same names. Chat roles, additive and namespaced under chat: `resolveChatRoles({ target, scheme, platformColor })`, `CHAT_ROLES`, `CHAT_ACCENTS`. Every role has an iOS system color where Messages uses one and a light and dark value for Android, the web and the rest. Brand tokens don't change.
 - **`ChatInboxScreen`:** on InboxPage's `variant="plain"`: plain rows with faces, the unread dot, two lines of the last message, the time and a chevron; pinned faces above; round row actions with a peek of the conversation; the glass search field at the bottom; the stack's large title with Back (`onBack`), the filter menu and Compose as native header items; no tab bar. New: `filters`, `filter` / `onFilterChange`, `menuItems`, `onOpenArchived`, `onOpenScheduled`, `onSearchMessages`, `onCompose`, `title`, `search`, `pinned`, `nativeHeader`, `slots` and `slotProps` (`row`, `pinned`, `searchField`, `listHeader`, `empty`). `pageProps` still passes through to InboxPage (paging, `formatTime`, its slots).
 - **`ChatThreadScreen`:** bubbles in the chat roles with round corners and a tail, tapbacks on the bubble's corner, "**Today** 9:41 AM" separators (`buildThreadRows(…, { separators: "time" })`), no time under a run (drag left for it), the long press as Messages' layer (`ChatMessageMenu`), a glass jump pill. New: `plusItems`, `slots.bubble`, `slots.composer`, `slots.messageMenu`, `slots.plusList`, `slots.belowHeader`, `slotProps`.
@@ -17,6 +19,9 @@ genesis-chat's native screens draw the platform's Messages pattern (iOS 26) by d
 - **Mentions:** a mention's name is bounded (1 to 80 characters) in `displayBody`, `plainText` and `previewText`, so a hostile body can't make the regular expression backtrack.
 
 ## What changes on upgrade
+
+- The inbox's Hide Alerts is indigo, as in Messages, and its round swipe buttons have no labels under them. A long press on a row (or a pinned face) shows the conversation lifted over a glass menu of the row's actions instead of the action sheet; the screen reader's actions are unchanged.
+- The inbox's and thread's headers take the page color for the scheme as a plain string, so they follow dark mode; the thread's back button is the chevron alone.
 
 Every app on genesis-chat native changes look when it takes this release:
 

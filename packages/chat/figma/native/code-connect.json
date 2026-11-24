@@ -47,7 +47,8 @@
     "ChatDetailsSettings",
     "ChatDetailsMembers",
     "ChatDetailsDanger",
-    "ChatPlusList"
+    "ChatPlusList",
+    "ChatConversationMenu"
   ],
   "composed": [
     "ChatInboxScreen",

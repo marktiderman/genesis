@@ -40,6 +40,8 @@ export {
   ChatInboxRowContent,
   ChatPinnedFaces,
   ChatSearchField,
+  ChatConversationMenu,
+  type ChatConversationMenuProps,
   type ChatInboxScreenProps,
   type ChatInboxFilter,
   type ChatInboxMenuItem,

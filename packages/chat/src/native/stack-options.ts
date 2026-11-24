@@ -55,6 +55,8 @@ export function chatThreadStackOptions(props: ChatThreadStackOptionsProps, backg
       headerTransparent: false,
       headerStyle: { backgroundColor: background },
       headerShadowVisible: false,
+      // The chevron alone, as Messages' back button.
+      headerBackButtonDisplayMode: "minimal",
       ...(custom
         ? {
             headerTitle: ({ tintColor }: { tintColor?: string }) =>
@@ -66,8 +68,11 @@ export function chatThreadStackOptions(props: ChatThreadStackOptionsProps, backg
   });
 }
 
-/** `chatThreadStackOptions` on the chat role `page`, the color `ChatThreadScreen` draws. */
+/**
+ * `chatThreadStackOptions` on the chat role `pageSolid`: the page as a plain string for the scheme,
+ * since the native header takes no PlatformColor for its background. It follows a scheme change.
+ */
 export function useChatThreadStackOptions(props: ChatThreadStackOptionsProps): Record<string, unknown> {
   const c = useChatColors();
-  return chatThreadStackOptions(props, c.roles.page);
+  return chatThreadStackOptions(props, String(c.roles.pageSolid));
 }

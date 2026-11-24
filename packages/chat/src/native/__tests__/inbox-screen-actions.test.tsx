@@ -54,6 +54,17 @@ async function renderWith(item: ReturnType<typeof row>, over: Record<string, unk
     subscribeInbox: vi.fn(() => ({ unsubscribe: vi.fn() })),
     unreadTotal: vi.fn(async () => 0),
     markRead: vi.fn(async () => 3),
+    // What the long press's peek reads (the conversation's latest messages).
+    conversation: vi.fn(async () => ({ id: C, kind: "direct", title: null, settings: {}, status: "open", archivedAt: null })),
+    members: vi.fn(async () => []),
+    kind: vi.fn(async () => ({ kind: "direct", label: "Direct", maxMembers: 2 })),
+    myRole: vi.fn(async () => "member"),
+    canPost: vi.fn(async () => true),
+    messages: vi.fn(async () => ({ messages: [], hasEarlier: false })),
+    message: vi.fn(async () => null),
+    subscribeConversation: vi.fn(() => ({ unsubscribe: vi.fn(), typing: vi.fn(), recording: vi.fn(), send: vi.fn() })),
+    pins: vi.fn(async () => []),
+    fileUrls: vi.fn(async () => ({})),
     setMySettings: vi.fn(async () => {}),
     deleteConversationForMe: vi.fn(async () => {}),
     ...over,
@@ -85,7 +96,7 @@ describe("ChatInboxScreen's row actions", () => {
     expect(actions.map((a) => a.id)).toEqual(["unread", "pin", "alerts", "delete", "archive"]);
     expect(byId("unread")).toMatchObject({ swipe: { side: "leading", full: true }, tone: "info", icon: "message-unread" });
     expect(byId("pin")).toMatchObject({ swipe: { side: "leading" }, accent: "orange" });
-    expect(byId("alerts")).toMatchObject({ swipe: { side: "trailing" }, accent: "purple", icon: "bell-off", label: "Hide Alerts" });
+    expect(byId("alerts")).toMatchObject({ swipe: { side: "trailing" }, accent: "indigo", icon: "bell-off", label: "Hide Alerts" });
     expect(byId("delete")).toMatchObject({ swipe: { side: "trailing", full: true }, destructive: true, confirms: true });
     expect(byId("archive")).toMatchObject({ swipe: false });
   });
@@ -146,9 +157,11 @@ describe("ChatInboxScreen's row actions", () => {
     // VoiceOver's Archive runs the action, from the row itself.
     act(() => void drawn.dispatchEvent(new CustomEvent("accessibilityaction", { detail: "archive" })));
     await waitFor(() => expect(client.setMySettings).toHaveBeenCalledWith(C, { archived: true }));
-    // A long press opens the row's menu (the sheet, without the system menu module).
+    // A long press opens Messages' layer: the conversation over a glass menu of the row's actions.
     act(() => void fireEvent.contextMenu(drawn));
-    await waitFor(() => expect(screen.getByTestId("chat-inbox-menu")).toBeTruthy());
+    await waitFor(() => expect(screen.getByTestId(`chat-inbox-row-${C}-menu`)).toBeTruthy());
+    expect(screen.getByTestId(`chat-inbox-row-${C}-menu-preview`)).toBeTruthy();
+    expect(screen.getAllByRole("menuitem").map((e) => e.getAttribute("data-testid"))).toEqual(["unread", "pin", "alerts", "delete", "archive"].map((id) => `chat-inbox-row-${C}-menu-menu-${id}`));
   });
 
   it("hands InboxPage the same rows while the screen re-renders with the same conversations, so each row's memo holds", async () => {
@@ -172,5 +185,17 @@ describe("ChatInboxScreen's row actions", () => {
     props.current = { rowActions: (_i: unknown, d: { id: string }[]) => d.filter((a) => a.id !== "pin") };
     view.rerender();
     await waitFor(() => expect(seen.items[0]!.swipeActions!.map((a) => a.id)).not.toContain("pin"));
+  });
+
+  it("doesn't open the conversation when the press was the start of a swipe", async () => {
+    const onOpen = vi.fn();
+    await renderWith(row(0), {}, { current: { onOpen } });
+    const drawn = screen.getByTestId(`chat-inbox-row-${C}`);
+    fireEvent.pointerDown(drawn, { clientX: 300 });
+    fireEvent.click(drawn, { clientX: 200 });
+    expect(onOpen).not.toHaveBeenCalled();
+    fireEvent.pointerDown(drawn, { clientX: 300 });
+    fireEvent.click(drawn, { clientX: 302 });
+    expect(onOpen).toHaveBeenCalledWith(C);
   });
 });

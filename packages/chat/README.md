@@ -549,7 +549,7 @@ show again on that device when a new message brings it back.
 
 `inboxRowActions(item, actions, labels, { confirm, onError })` turns them into the row's actions,
 Messages' set: Mark as Unread (or Read) and Pin leading, Hide Alerts and Delete trailing, Archive in
-the menu only; Unread blue, Pin orange, Hide Alerts purple, Delete red. `confirm` is
+the menu only; Unread blue, Pin orange, Hide Alerts indigo, Delete red. `confirm` is
 `(title, body, label) => Promise<boolean>`: `alertConfirm(cancel)` on the phone, `useConfirmDialog()`
 on the web. `ChatInboxScreen` swipes them and `ChatInbox` lists them in each row's More menu; both
 take `rowActions(item, defaults)` to reshape them, and say so when one fails.

@@ -165,7 +165,7 @@ export function ChatDetailsSettings({ item, testID }: ChatDetailsSlotMap["settin
   if (!item) return null;
   return (
     <Card>
-      <DetailsRow title={copy.hideAlerts} testID={`${testID}-mute`} trailing={<NativeSwitch checked={item.muted} onCheckedChange={() => void act.toggleMuted(item).catch(fail)} />} />
+      <DetailsRow title={copy.hideAlerts} testID={`${testID}-mute`} checked={item.muted} onPress={() => void act.toggleMuted(item).catch(fail)} trailing={<NativeSwitch checked={item.muted} onCheckedChange={() => void act.toggleMuted(item).catch(fail)} />} />
     </Card>
   );
 }
@@ -233,14 +233,17 @@ function Divider({ inset = 18 }: { inset?: number }) {
   return <View style={{ height: StyleSheet.hairlineWidth, marginLeft: inset, backgroundColor: c.separator }} />;
 }
 
-function DetailsRow({ title, subtitle, leading, trailing, onPress, tint, testID }: { title: string; subtitle?: string; leading?: ReactNode; trailing?: ReactNode; onPress?: () => void; tint?: unknown; testID?: string }) {
+function DetailsRow({ title, subtitle, leading, trailing, onPress, tint, checked, testID }: { title: string; subtitle?: string; leading?: ReactNode; trailing?: ReactNode; onPress?: () => void; tint?: unknown; checked?: boolean; testID?: string }) {
   const c = useChatColors();
+  // With `checked` the whole row is the switch to the screen reader (the switch drawn in it is hidden from it).
+  const isSwitch = checked !== undefined;
   return (
     <ChatTap
       testID={testID}
       disabled={!onPress}
       onPress={onPress}
-      accessibilityRole={onPress ? "button" : undefined}
+      accessibilityRole={isSwitch ? "switch" : onPress ? "button" : undefined}
+      accessibilityState={isSwitch ? { checked } : undefined}
       accessibilityLabel={[title, subtitle].filter(Boolean).join(", ")}
       look={(pressed) => ({ flexDirection: "row", alignItems: "center", gap: 12, minHeight: 52, paddingHorizontal: 18, paddingVertical: 8, backgroundColor: pressed && onPress ? c.roles.pressed : undefined })}
     >
@@ -249,7 +252,11 @@ function DetailsRow({ title, subtitle, leading, trailing, onPress, tint, testID 
         <NativeText style={{ fontSize: 17, lineHeight: 22, color: (tint as string | undefined) ?? c.label }}>{title}</NativeText>
         {subtitle ? <NativeText style={{ fontSize: 13, lineHeight: 18, color: c.secondaryLabel }}>{subtitle}</NativeText> : null}
       </View>
-      {trailing}
+      {trailing ? (
+        <View accessibilityElementsHidden={isSwitch} importantForAccessibility={isSwitch ? "no-hide-descendants" : "auto"}>
+          {trailing}
+        </View>
+      ) : null}
     </ChatTap>
   );
 }

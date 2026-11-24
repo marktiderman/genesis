@@ -20,6 +20,7 @@ import { applyInboxFilter, ChatInboxScreen, defaultInboxFilters, inboxHeaderItem
 import { ChatMessageMenu, TAPBACKS } from "../message-menu";
 import { MessageBubble } from "../message-bubble";
 import { chatColors } from "../messages-look";
+import { chatThreadStackOptions } from "../stack-options";
 import { startsTimeSeparator, timeSeparatorLabel } from "../messages-time";
 import { buildThreadRows } from "../rows";
 import type { ThreadItem } from "../../core/thread";
@@ -206,6 +207,11 @@ describe("a bubble's tapbacks", () => {
       </ChatNativeProvider>,
     );
     expect(screen.queryByTestId("b-reaction-🎉")).toBeNull();
+    // The row makes room above for the tapbacks (the swipe clips what overflows it), and is opaque,
+    // covering the swipe's reply arrow until the row is dragged.
+    const drawn = JSON.parse(screen.getByTestId("b-row").dataset.style!) as { paddingTop: number; backgroundColor: unknown };
+    expect(drawn.paddingTop).toBeGreaterThan(0);
+    expect(drawn.backgroundColor).toBeTruthy();
     const more = screen.getByTestId("b-reactions-more");
     expect(more.getAttribute("aria-label")).toBe("2 more reactions");
     fireEvent.click(more);
@@ -265,6 +271,25 @@ describe("ChatInboxScreen", () => {
   });
 });
 
+describe("the headers", () => {
+  it("give the native header plain color strings (it takes no PlatformColor) and the thread's back button its chevron alone", () => {
+    const options = chatThreadStackOptions({ headerTitle: "Sam" }, "#000000");
+    expect(options).toMatchObject({ headerBackButtonDisplayMode: "minimal", headerStyle: { backgroundColor: "#000000" } });
+  });
+
+  it("set the inbox's large title and bar in the scheme's plain colors", async () => {
+    const seen: Record<string, unknown>[] = [];
+    const StackScreen = ({ options }: { options?: Record<string, unknown> }) => {
+      if (options) seen.push(options);
+      return null;
+    };
+    render(wrap(fakeClient(), <ChatInboxScreen onOpen={vi.fn()} testID="inbox" />, { router: { StackScreen, useFocusEffect: () => undefined } }));
+    await waitFor(() => expect(seen.length).toBeGreaterThan(0));
+    const o = seen.at(-1) as { headerLargeTitleStyle: { color: unknown }; headerTitleStyle: { color: unknown }; headerStyle: { backgroundColor: unknown }; headerLargeStyle: { backgroundColor: unknown } };
+    for (const v of [o.headerLargeTitleStyle.color, o.headerTitleStyle.color, o.headerStyle.backgroundColor, o.headerLargeStyle.backgroundColor]) expect(typeof v).toBe("string");
+  });
+});
+
 describe("ChatDetailsScreen", () => {
   it("shows the conversation with yourself as Just you, with your own face", async () => {
     expect(isSelfMembers({ kind: "direct" }, [ME], ME)).toBe(true);
@@ -273,6 +298,17 @@ describe("ChatDetailsScreen", () => {
     await waitFor(() => expect(screen.getByText("Just you")).toBeTruthy());
     expect(screen.getByText("Avery Sample")).toBeTruthy();
     expect(screen.getByTestId("details-search").getAttribute("aria-label")).toBe("Search in conversation");
+  });
+
+  it("reads Hide Alerts as one switch, with its state, that toggles from the whole row", async () => {
+    const client = fakeClient();
+    render(wrap(client, <ChatDetailsScreen conversationId={C} nativeHeader={false} testID="details" />));
+    const row = await screen.findByTestId("details-mute");
+    expect(row.getAttribute("role")).toBe("switch");
+    expect(row.getAttribute("aria-checked")).toBe("false");
+    expect(row.getAttribute("aria-disabled")).not.toBe("true");
+    await act(async () => fireEvent.click(row));
+    await waitFor(() => expect(client.setMySettings).toHaveBeenCalledWith(C, expect.objectContaining({ mutedUntil: expect.any(String) })));
   });
 
   it("archives through the inbox's own action, then says so to the app", async () => {

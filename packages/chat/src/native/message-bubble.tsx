@@ -94,6 +94,8 @@ export interface MessageBubbleProps {
 const SWIPE_REPLY = 56;
 /** Tapbacks shown on the corner before "+N" (which shows the rest). */
 const REACTIONS_SHOWN = 3;
+/** How far the tapbacks rise above the bubble's top corner: they overlap only its corner, as Messages draws them. */
+const TAPBACK_RISE = 22;
 const SWIPE_MAX = 80;
 
 /** Where a bubble sits in its run of one sender's messages. */
@@ -354,7 +356,18 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
   };
 
   const bubbleRow = (
-      <View style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: mine ? "flex-end" : "flex-start" }}>
+      <View
+        testID={`${testID}-row`}
+        style={{
+          flexDirection: "row",
+          alignItems: "flex-end",
+          justifyContent: mine ? "flex-end" : "flex-start",
+          // Room above for the tapbacks, inside the swipe's container (which clips what overflows it).
+          paddingTop: reactions.length ? TAPBACK_RISE : 0,
+          // Full width and opaque: it covers the swipe's reply arrow until the row is dragged.
+          backgroundColor: props.highlighted ? chat.roles.pressed : chat.roles.pageSolid,
+        }}
+      >
         {group && !mine ? (
           <View style={{ width: 36, alignItems: "flex-start", zIndex: 1 }}>
             {row.showAvatar ? <ChatFace size={28} name={sender?.name} src={sender?.avatarUrl ?? null} recyclingKey={row.senderId ?? undefined} /> : null}
@@ -434,7 +447,7 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
           {tail ? <BubbleTail mine={mine} color={bubbleColor} backdrop={props.backdrop ?? (chat.roles.pageSolid as string)} opacity={sending ? 0.6 : moderation === "hidden-mine" ? 0.7 : 1} testID={`${testID}-tail`} /> : null}
           {reactions.length ? (
             // Tapbacks on the bubble's top corner, away from the sender's side, as Messages puts them.
-            <View pointerEvents="box-none" style={{ position: "absolute", top: -14, ...(mine ? { start: -12 } : { end: -12 }), flexDirection: "row", flexWrap: "wrap", gap: 2 }}>
+            <View pointerEvents="box-none" style={{ position: "absolute", top: -TAPBACK_RISE, ...(mine ? { start: -12 } : { end: -12 }), flexDirection: "row", flexWrap: "wrap", gap: 2 }}>
               {(allReactions ? reactions : reactions.slice(0, REACTIONS_SHOWN)).map((r) => (
                 <Pressable
                   key={r.emoji}
@@ -511,7 +524,7 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
       entering={entering}
       accessibilityElementsHidden={invisible || undefined}
       importantForAccessibility={invisible ? "no-hide-descendants" : undefined}
-      style={{ paddingTop: (row.groupStart ? 10 : 2) + (reactions.length ? 14 : 0), paddingHorizontal: 4, borderRadius: 12, backgroundColor: props.highlighted ? chat.roles.pressed : undefined, display: invisible ? "none" : undefined }}
+      style={{ paddingTop: row.groupStart ? 10 : 2, paddingHorizontal: 4, borderRadius: 12, backgroundColor: props.highlighted ? chat.roles.pressed : undefined, display: invisible ? "none" : undefined }}
     >
       {row.showName && sender?.name ? (
         <NativeText preset="caption" style={{ marginLeft: group ? 48 : 12, marginBottom: 2, color: colors.secondaryLabel }}>
