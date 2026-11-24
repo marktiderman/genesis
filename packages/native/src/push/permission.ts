@@ -27,8 +27,12 @@ export interface PermissionState {
 }
 
 export interface PermissionStore extends Store<PermissionState> {
-  /** Read the status without asking (no prompt). */
-  refresh(): Promise<PushPermissionStatus>;
+  /**
+   * Read the status without asking (no prompt). A call while a read is pending shares it, unless
+   * `fresh` is set: then it starts a new read (the person may have changed the permission in
+   * Settings since the pending one began), and only the newest read updates the state.
+   */
+  refresh(options?: { fresh?: boolean }): Promise<PushPermissionStatus>;
   /** Show the system prompt (only after a tap); resolves to the new status. */
   request(): Promise<PushPermissionStatus>;
 }
@@ -58,29 +62,37 @@ export function createPermissionStore(options: {
   const store = createStore<PermissionState>({ status: notifications ? "unknown" : "unavailable", requesting: false });
   // One read at a time: callers that ask while a read is pending share it, so a burst of
   // refreshes (PushRoot's start() and setUser() after the boot) puts one call on Expo's queue.
+  // `reading` is assigned before it can settle (a read that throws at once still settles later),
+  // and only the newest read (`generation`) writes the state.
   let reading: Promise<PushPermissionStatus> | null = null;
+  let generation = 0;
   return {
     ...store,
-    refresh() {
+    refresh(refreshOptions) {
       if (!notifications) return Promise.resolve("unavailable");
-      if (reading) return reading;
-      reading = (async () => {
+      if (reading && !refreshOptions?.fresh) return reading;
+      const mine = ++generation;
+      const read = (async (): Promise<PushPermissionStatus> => {
         try {
           const status = statusOf(await notifications.getPermissionsAsync());
-          store.setState({ status });
+          if (mine === generation) store.setState({ status });
           return status;
         } catch (error) {
           report(onError, error, "permission");
           return store.getState().status;
-        } finally {
-          reading = null;
         }
       })();
-      return reading;
+      reading = read;
+      void read.finally(() => {
+        if (reading === read) reading = null;
+      });
+      return read;
     },
     async request() {
       if (!notifications) return "unavailable";
       if (store.getState().requesting) return store.getState().status;
+      // The answer is newer than any read still pending: that read no longer writes the state.
+      generation++;
       store.setState({ requesting: true });
       try {
         await options.beforeRequest?.().catch((error) => report(onError, error, "channels"));

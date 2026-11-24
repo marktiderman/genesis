@@ -43,4 +43,43 @@ describe("the permission store: refresh", () => {
     expect(getPermissionsAsync).toHaveBeenCalledTimes(2);
     expect(onError).toHaveBeenCalledTimes(1);
   });
+  it("settles a read that throws at once, and reads again next time", async () => {
+    const onError = vi.fn();
+    const getPermissionsAsync = vi
+      .fn()
+      .mockImplementationOnce(() => {
+        throw new Error("not ready");
+      })
+      .mockResolvedValueOnce(permission.granted);
+    const store = createPermissionStore({ notifications: { getPermissionsAsync } as unknown as NotificationsModuleLike, onError });
+    await expect(store.refresh()).resolves.toBe("unknown");
+    await expect(store.refresh()).resolves.toBe("granted");
+    expect(getPermissionsAsync).toHaveBeenCalledTimes(2);
+    expect(onError).toHaveBeenCalledTimes(1);
+  });
+
+  it("starts a new read when asked for a fresh one, and only the newest read writes the state", async () => {
+    const n = deferredNotifications();
+    const store = createPermissionStore({ notifications: n.module });
+    const old = store.refresh();
+    const fresh = store.refresh({ fresh: true });
+    expect(n.getPermissionsAsync).toHaveBeenCalledTimes(2);
+    // A plain refresh now joins the fresh read.
+    expect(store.refresh()).toBe(fresh);
+    n.answer(permission.granted);
+    await expect(fresh).resolves.toBe("granted");
+    await old;
+    expect(store.getState().status).toBe("granted");
+  });
+
+  it("lets the system prompt's answer win over a read still pending", async () => {
+    const n = deferredNotifications();
+    const requestPermissionsAsync = vi.fn(async () => permission.granted);
+    const store = createPermissionStore({ notifications: { ...n.module, requestPermissionsAsync } as unknown as NotificationsModuleLike });
+    const pending = store.refresh();
+    await expect(store.request()).resolves.toBe("granted");
+    n.answer(permission.denied);
+    await pending;
+    expect(store.getState().status).toBe("granted");
+  });
 });

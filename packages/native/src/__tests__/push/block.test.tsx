@@ -301,6 +301,29 @@ describe("the push block: coming back to the front", () => {
   });
 });
 
+describe("the push block: coming back to the front, after Settings", () => {
+  it("reads the permission afresh, so a read that began before the change can't skip the registration", async () => {
+    const appState = fakeAppState();
+    const notifications = fakeNotifications({ status: permission.denied });
+    const { b, push } = setup({ appState, notifications: notifications.module });
+    await act(settle);
+    expect(b.calls).toEqual([]);
+    // A read that started while notifications were still off, and hasn't answered yet.
+    let answerOld: (s: typeof permission.denied) => void = () => {};
+    notifications.module.getPermissionsAsync.mockImplementationOnce(() => new Promise((resolve) => (answerOld = resolve)));
+    const old = push.permission.refresh();
+    // The person turns notifications on in Settings and comes back.
+    notifications.setStatus(permission.granted);
+    act(() => appState.emit("active"));
+    await act(settle);
+    expect(b.calls).toEqual(["register ExponentPushToken[device-1] ios 1.2.0"]);
+    // The older read answers last, with the old permission: it doesn't win.
+    answerOld(permission.denied);
+    await act(() => old.then(() => undefined));
+    expect(push.permission.getState().status).toBe("granted");
+  });
+});
+
 describe("the push block: foreground", () => {
   it("shows a push while the app is open, unless a screen hides its kind", async () => {
     const n = fakeNotifications();

@@ -403,7 +403,9 @@ export function createPush(options: PushOptions): PushBlock {
         // Back in front: a forget that failed offline goes now, and this phone's registration is
         // confirmed (it may have failed, or another login may have taken the token since).
         void registration.flush();
-        void permission.refresh().then((status) => {
+        // A fresh read: the person may have just turned notifications on in Settings, and a read
+        // that began before that would answer with the old permission.
+        void permission.refresh({ fresh: true }).then((status) => {
           if (canPush(status) && userId) void registration.sync(userId);
         });
         if (options.clearBadgeOnForeground && userId) void badge.clear();
