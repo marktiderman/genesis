@@ -132,8 +132,10 @@ base), so a PR can't change its own gate, and a gate change takes effect only on
 - Claude Ship's agents (Code Review, PR Steward, Claude Approvals) help but gate nothing: a
   `claude[bot]` review never counts here. Code Review follows `REVIEW.md`; PR Steward runs on
   request (`@claude steward`) and follows `.claude/skills/steward/SKILL.md`; `.claude/approvals.yml`
-  stays in observe mode, where Claude only comments, until the maintainer says otherwise. Auto-merge
-  stays off. Once the managed Code Review is on, retire `claude-code-review.yml` (keep
+  stays in observe mode, where Claude only comments, until the maintainer says otherwise. One
+  watcher per PR: Auto-fix and a local `/ship` watch can't start on a PR PR Steward watches, and
+  starting PR Steward ends a local watch, so the owner keeps Auto-fix and PR Steward runs only when
+  the owner has stopped (`@claude stop` it before the owner resumes). Auto-merge stays off. Once the managed Code Review is on, retire `claude-code-review.yml` (keep
   `claude-review.yml`, which apps call).
 - Bot PRs get the same review: triage reviews each "chore: version packages" PR and each Dependabot
   PR like any other. The Release workflow pushes the version PR with Actions' `GITHUB_TOKEN`, which
