@@ -369,7 +369,11 @@ const InboxRow = memo(function InboxRow({
     testID: merged.testID,
     sheetTestID,
   });
-  const withActions = useMemo(() => (actions.length ? { ...merged, actionProps } : merged), [merged, actions.length, actionProps]);
+  // An actionProps the page gave in slotProps.row wins, as slotProps does everywhere.
+  const withActions = useMemo(
+    () => (actions.length ? { ...merged, actionProps: rowProps?.actionProps ?? actionProps } : merged),
+    [merged, rowProps, actions.length, actionProps],
+  );
   return <>{wrap(renderSlot(DefaultRow, rowSlot, withActions))}</>;
 });
 const NO_SLOTS: Slots<InboxPageSlotMap> = Object.freeze({});

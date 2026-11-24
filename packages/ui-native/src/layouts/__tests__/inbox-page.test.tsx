@@ -150,6 +150,20 @@ describe("InboxPage", () => {
     expect(archive).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps an actionProps the page gave in slotProps.row over the generated one", () => {
+    const onLongPress = vi.fn();
+    render(
+      <InboxPage
+        testID="inbox"
+        now={now}
+        items={[{ id: "x", title: "Thread", swipeActions: [{ id: "archive", label: "Archive", onPress: vi.fn() }] }]}
+        slotProps={{ row: { actionProps: { onLongPress } as never } }}
+      />,
+    );
+    fireEvent.contextMenu(screen.getByTestId("inbox-row-x"));
+    expect(onLongPress).toHaveBeenCalled();
+  });
+
   it("swipes through NativeSwipeRow once the app gave the module", () => {
     const Swipeable = ({ children, testID, renderRightActions }: { children?: ReactNode; testID: string; renderRightActions?: () => ReactNode }) => (
       <div data-testid={testID}>

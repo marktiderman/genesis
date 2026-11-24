@@ -300,6 +300,21 @@ describe("ChatInbox (web) row actions", () => {
     await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId("genesis-chat-inbox-row-c2")));
   });
 
+  it("focuses the list itself once the last conversation is deleted", async () => {
+    const client = createMemoryChatClient({ me: ME, conversations: [{ id: "c1", title: "Morning crew", members: [{ userId: ME }, { userId: "00000000-0000-4000-8000-0000000000b2" }], messages: [] }] });
+    const deleteNow = client.deleteConversationForMe.bind(client);
+    client.deleteConversationForMe = async (...args: Parameters<typeof deleteNow>) => {
+      await new Promise((r) => setTimeout(r, 30));
+      return deleteNow(...args);
+    };
+    mount(<ChatInbox resolveUser={resolveUser} onSelect={() => {}} aria-label="Conversations" />, client);
+    await openMenu("genesis-chat-inbox-row-c1");
+    fireEvent.click(await screen.findByTestId("genesis-chat-inbox-row-c1-action-delete"));
+    fireEvent.click(await screen.findByTestId("genesis-chat-inbox-confirm"));
+    await waitFor(() => expect(screen.queryByTestId("genesis-chat-inbox-row-c1")).toBeNull());
+    await waitFor(() => expect(document.activeElement?.tagName).toBe("NAV"));
+  });
+
   it("gives focus back to the row whose menu asked when the question is cancelled", async () => {
     const B = "00000000-0000-4000-8000-0000000000b2";
     const client = createMemoryChatClient({
