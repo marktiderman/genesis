@@ -385,7 +385,7 @@ function device(...args: string[]) {
       AGENTIC_CI_PROJECT: dir,
       ANTHROPIC_API_KEY: "sk-ant-test-0123456789",
       EXPO_TOKEN: "expo-token-should-not-pass",
-    },
+    } as unknown as NodeJS.ProcessEnv,
   });
   const lines = r.stdout.trim().split("\n");
   const at = lines.indexOf("agent-device@0.21.41");
@@ -403,7 +403,7 @@ function deviceShell(line: string) {
   const script = join(root, ".eas/agents/device.sh");
   const r = spawnSync("bash", ["-c", `bash ${script} ${line}`], {
     encoding: "utf8",
-    env: { PATH: `${join(dir, "bin")}:${process.env.PATH}`, HOME: dir, AGENTIC_CI_APP_ID: "com.example.app", AGENTIC_CI_PLATFORM: "ios", AGENTIC_CI_PROJECT: dir },
+    env: { PATH: `${join(dir, "bin")}:${process.env.PATH}`, HOME: dir, AGENTIC_CI_APP_ID: "com.example.app", AGENTIC_CI_PLATFORM: "ios", AGENTIC_CI_PROJECT: dir } as unknown as NodeJS.ProcessEnv,
   });
   const lines = r.stdout.trim().split("\n");
   return { status: r.status, stderr: r.stderr, device: lines.slice(lines.indexOf("agent-device@0.21.41") + 1) };
@@ -486,7 +486,7 @@ function redact(files: Record<string, string>, extraEnv: Record<string, string> 
   const r = spawnSync("bash", [join(root, ".eas/agents/redact-evidence.sh")], {
     cwd: dir,
     encoding: "utf8",
-    env: { PATH: process.env.PATH, MY_API_KEY: "super-secret-value-123", ...extraEnv },
+    env: { PATH: process.env.PATH, MY_API_KEY: "super-secret-value-123", ...extraEnv } as unknown as NodeJS.ProcessEnv,
   });
   return { r, dir };
 }
