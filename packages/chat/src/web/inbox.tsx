@@ -179,6 +179,8 @@ export function ChatInbox({ resolveUser, onSelect, selectedId, kind, archived = 
           title,
           preview,
           unreadCount: item.unread,
+          muted: item.muted,
+          pinned: item.pinned,
           ...(timestamp ? { timestamp } : {}),
           chat: item,
           avatarUrl: item.otherUserId ? resolveUser(item.otherUserId).avatarUrl : undefined,
@@ -201,6 +203,8 @@ export function ChatInbox({ resolveUser, onSelect, selectedId, kind, archived = 
         label={label}
         loadingLabel="Loading conversations"
         formatTime={formatTime}
+        mutedLabel={labels.alertsOff}
+        pinnedLabel={labels.pinnedMark}
         slots={INBOX_SLOTS}
         slotProps={{ empty: { override: slots?.empty, archived, onRetry: () => void refetch(), failed: Boolean(error) } as Partial<InboxPageSlotMap["empty"]> }}
       />
@@ -235,15 +239,15 @@ function InboxEmpty({ override, archived, onRetry, failed }: InboxPageSlotMap["e
 }
 
 function InboxRow(row: InboxPageSlotMap["row"] & ChatInboxRow) {
-  const { chat: item, title, preview, timeLabel, selected, onPress, rowProps, testID, avatarUrl, swipeActions, moreLabel } = row;
+  const { chat: item, title, preview, timeLabel, selected, onPress, rowProps, testID, avatarUrl, swipeActions, moreLabel, mutedLabel, pinnedLabel } = row;
   const unread = item.unread > 0;
   const count = item.unread >= 99 ? "99+" : String(item.unread);
   const label = [
     title,
     unread ? `${count} unread` : null,
     item.mentioned ? "you were mentioned" : null,
-    item.muted ? "muted" : null,
-    item.pinned ? "pinned" : null,
+    item.pinned ? pinnedLabel : null,
+    item.muted ? mutedLabel : null,
     preview || null,
     timeLabel || null,
   ]
@@ -269,12 +273,12 @@ function InboxRow(row: InboxPageSlotMap["row"] & ChatInboxRow) {
       <span className="flex min-w-0 flex-1 flex-col gap-0.5" aria-hidden>
         <span className="flex items-center gap-2">
           <span className={cn("min-w-0 flex-1 truncate text-sm", unread ? "font-semibold text-foreground" : "font-medium text-foreground")}>{title}</span>
+          {item.pinned ? <Pin data-testid={`${testID}-pinned`} className="size-3.5 shrink-0 text-muted-foreground" /> : null}
+          {item.muted ? <BellOff data-testid={`${testID}-muted`} className="size-3.5 shrink-0 text-muted-foreground" /> : null}
           <span className={cn("shrink-0 text-xs tabular-nums", unread && !item.muted ? "font-medium text-primary-text" : "text-muted-foreground")}>{timeLabel}</span>
         </span>
         <span className="flex items-center gap-1.5">
           <span className={cn("min-w-0 flex-1 truncate text-sm", unread ? "text-foreground" : "text-muted-foreground")}>{preview || " "}</span>
-          {item.pinned ? <Pin className="size-3.5 shrink-0 text-muted-foreground" /> : null}
-          {item.muted ? <BellOff className="size-3.5 shrink-0 text-muted-foreground" /> : null}
           {item.mentioned ? (
             <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
               <AtSign className="size-3" />

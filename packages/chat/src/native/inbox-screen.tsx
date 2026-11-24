@@ -66,6 +66,8 @@ export function inboxRow(
     unread: item.unread > 0,
     unreadCount: item.unread,
     meta: item.mentioned ? ctx.copy.mentionedYou : undefined,
+    muted: item.muted,
+    pinned: item.pinned,
     avatar: <NativeAvatar size={40} src={other?.avatarUrl ?? null} fallback={initials(title)} alt={title} recyclingKey={item.conversationId} />,
   };
 }
@@ -135,6 +137,8 @@ export function ChatInboxScreen({ onOpen, onStart, kind, kinds, excludeKinds, ar
       emptyBody={copy.inboxEmptyBody}
       // Messages' round buttons behind the swipe, the row a pill while open.
       swipeAppearance="round"
+      mutedLabel={copy.alertsOff}
+      pinnedLabel={copy.pinnedMark}
       emptyActionLabel={onStart ? copy.startConversation : undefined}
       onEmptyAction={onStart}
       {...pageProps}

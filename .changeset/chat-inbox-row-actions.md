@@ -21,3 +21,5 @@ The inbox's row actions, Messages' set, on the phone and the web (G1-315). Needs
 - **`chatKeys`:** `inboxAll()` and `searchAll()` are the prefix keys every inbox and search query sits under. Every refresh of the inbox now goes through them.
 - **Peer floors:** genesis-core `>=2.21.0`, genesis-ui `>=3.3.0` and genesis-ui-native `>=3.17.0`, the releases with the row-action shape, `InboxRowMenu` and the swipe.
 - **`createMemoryChatClient`:** Archive is kept (`setMySettings(id, { archived })`, or `archived` on a seed) and reported on the row; `inbox()` leaves archived conversations out, and `inbox({ archived: true })` lists only them, as the hosted client does.
+
+A muted conversation shows a bell-slash and a pinned one a pin, beside the time, on the phone (`ChatInboxScreen`; `inboxRow` passes `muted` and `pinned`) and on the web (`ChatInbox`, whose marks move from the preview line to beside the time). Both read the same words to a screen reader, the new labels `alertsOff` ("Alerts off") and `pinnedMark` ("Pinned"), in `ChatInboxActionLabels` and the native copy; the web's lowercase "muted" and "pinned" are gone.

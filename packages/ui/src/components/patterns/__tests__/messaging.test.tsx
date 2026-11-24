@@ -555,6 +555,38 @@ describe("InboxPage (web)", () => {
   });
 });
 
+describe("InboxPage (web): muted and pinned", () => {
+  it("puts a pin and a bell-slash beside the time, grays the count or dot, and says both after the title", () => {
+    render(
+      <InboxPage
+        testID="i"
+        pinnedLabel="Kept"
+        formatTime={() => "9:41"}
+        items={[
+          { id: "m", title: "Ben", unreadCount: 1, muted: true, pinned: true, timestamp: "2026-10-24T09:41:00Z" },
+          { id: "p", title: "Ada", unreadCount: 2 },
+          { id: "d", title: "Cy", unread: true, muted: true },
+        ]}
+      />,
+    );
+    const trailing = screen.getByTestId("i-row-m-trailing");
+    expect([...trailing.children].map((c) => c.getAttribute("data-testid"))).toEqual(["i-row-m-pinned", "i-row-m-muted", "i-row-m-time"]);
+    expect(screen.getByTestId("i-row-m").textContent).toMatch(/^Ben, 1 unread, Kept, Alerts off9:41/);
+    expect(trailing.querySelectorAll("svg").length).toBe(2);
+    // The time keeps the title's baseline; only the marks are centred, as on the phone.
+    expect(trailing.className).toContain("items-baseline");
+    expect(trailing.className).not.toContain("self-center");
+    expect(screen.getByTestId("i-row-m-pinned").className).toContain("self-center");
+    expect(screen.getByTestId("i-row-m-muted").className).toContain("self-center");
+    trailing.querySelectorAll("svg").forEach((svg) => expect(svg.getAttribute("aria-hidden")).toBe("true"));
+    expect(screen.getByTestId("i-row-m-count").className).toContain("bg-muted");
+    expect(screen.queryByTestId("i-row-p-muted")).toBeNull();
+    expect(screen.queryByTestId("i-row-p-pinned")).toBeNull();
+    expect(screen.getByTestId("i-row-p-count").className).toContain("bg-primary");
+    expect(screen.getByTestId("i-row-d-unread").className).toContain("bg-muted-foreground");
+  });
+});
+
 describe("InboxPage (web): Home and End", () => {
   it("go to the first and last rows", () => {
     const items: InboxItem[] = [{ id: "a", title: "A" }, { id: "b", title: "B" }, { id: "c", title: "C" }];

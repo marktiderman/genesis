@@ -417,7 +417,11 @@ Two generic layouts for conversations (support tickets, direct messages, comment
   VoiceOver / TalkBack custom actions and on long press (a menu); for the swipe gesture itself,
   pass react-native-gesture-handler's `ReanimatedSwipeable` as `GenesisModules.swipeable` (each action's
   `side` picks where it sits), or fill the `swipeable` slot with your own. Slots:
-  `row`, `swipeable`, `header`, `footer`, `empty`.
+  `row`, `swipeable`, `header`, `footer`, `empty`. A row's `muted` draws a bell-slash beside the
+  time and grays its count or dot; `pinned` draws a pin there. Both are read to VoiceOver
+  (`mutedLabel`, default "Alerts off"; `pinnedLabel`, default "Pinned"). The pin is a row mark, as
+  Mail, WhatsApp and Telegram show one, not Messages' pinned tiles above the list; the web
+  `InboxPage` draws both the same way.
 - **`ThreadPage`**: one conversation, built from the two atoms below.
   - **The list:**
     - messages oldest first (mine trailing in the tint, theirs leading on `surface`), and

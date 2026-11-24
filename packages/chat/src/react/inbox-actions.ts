@@ -26,6 +26,10 @@ export interface ChatInboxActionLabels {
   deleteConversationBody: string;
   /** The confirmation's Cancel. */
   cancel: string;
+  /** A muted row's bell-slash, for a screen reader. */
+  alertsOff: string;
+  /** A pinned row's pin, for a screen reader. */
+  pinnedMark: string;
 }
 
 /** The English words, which the native copy starts from too. */
@@ -42,6 +46,8 @@ export const defaultInboxActionLabels: ChatInboxActionLabels = Object.freeze({
   deleteConversationBody:
     "Its messages are removed for you and it leaves your inbox. Everyone else still sees them. A new message brings it back, with only what comes after.",
   cancel: "Cancel",
+  alertsOff: "Alerts off",
+  pinnedMark: "Pinned",
 });
 
 /** Asks before a destructive action: resolves `true` to go ahead. Native passes an Alert, web a dialog. */

@@ -7,7 +7,9 @@ import { GenesisModulesProvider, NativeToastProvider } from "@marktiderman/genes
 import type { ChatClient } from "../../core/client";
 import { ChatProvider } from "../../react/index";
 import { ChatNativeProvider } from "../context";
-import { ChatInboxScreen } from "../inbox-screen";
+import { ChatInboxScreen, inboxRow } from "../inbox-screen";
+import { chatNativeCopy } from "../copy";
+import type { ChatInboxItem } from "../../core/types";
 
 vi.mock("react-native", async (original) => ({ ...(await original<object>()), useWindowDimensions: () => ({ width: 390, height: 844, scale: 3, fontScale: 1 }) }));
 
@@ -44,5 +46,31 @@ describe("ChatInboxScreen", () => {
     );
     await waitFor(() => expect(inbox).toHaveBeenCalled());
     expect(inbox.mock.calls[0]![0]).toMatchObject({ kinds: ["direct", "group"], excludeKinds: ["support"] });
+  });
+
+  it("carries a conversation's muted and pinned onto its row, for the bell-slash and the pin", () => {
+    const item: ChatInboxItem = {
+      conversationId: "c",
+      kind: "direct",
+      title: "Ben",
+      subjectType: null,
+      subjectId: null,
+      status: "open",
+      role: "member",
+      otherUserId: null,
+      memberCount: 2,
+      lastSeq: 1,
+      lastReadSeq: 0,
+      unread: 1,
+      mentioned: false,
+      muted: true,
+      pinned: true,
+      archived: false,
+      lastMessageAt: null,
+      lastMessage: null,
+    };
+    const ctx = { me: ME, copy: chatNativeCopy, person: () => undefined };
+    expect(inboxRow(item, ctx)).toMatchObject({ muted: true, pinned: true });
+    expect(inboxRow({ ...item, muted: false, pinned: false }, ctx)).toMatchObject({ muted: false, pinned: false });
   });
 });
