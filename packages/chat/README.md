@@ -441,6 +441,29 @@ Apply 0004 after a block's migration that ships a subject resolver (genesis-supp
 Replace your copies of the 0001–0003 pgTAP tests with this release's (they now give their own
 people a tenant). If you use genesis-support's chat, apply its 0004 in the same release.
 
+## Mark as Unread and Delete for me (migration 0007)
+
+As Messages has them, and only for the person who does them:
+
+```ts
+// Mark as Unread: counts as one unread (inbox, badges, push badge) until they read it; their read
+// place, what senders see as "Read", never moves back. `markRead` clears it.
+chat.setMySettings(conversationId, { markedUnread: true }): Promise<void>
+
+// Delete for me: the conversation leaves their inbox, and its history (with its files, link
+// previews and pins) their thread and search, until a new message they can read arrives, which
+// brings it back with only what came after. Pass the inbox row's `lastSeq` as `seq` (what they
+// saw), so a message that came in meanwhile isn't deleted unseen. Nothing is deleted, and nobody
+// else's inbox, thread or read receipts change.
+chat.deleteConversationForMe(conversationId, seq?): Promise<void>
+```
+
+Both are private to the person: they're kept in `genesis_chat.member_state`, which only they read,
+not on `members`, which everyone in the conversation reads. Both send the person's own devices an
+`inbox` hint. `markedUnread` is sent only when given, so the client keeps working on a database
+before 0007.
+Apply 0007 after 0006 (`genesis migrate`), and copy its pgTAP test beside the others.
+
 ## Access
 
 Members read a conversation; who posts follows its kind and settings (`{"who_posts": "admins"}`
