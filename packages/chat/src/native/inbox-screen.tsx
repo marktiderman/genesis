@@ -23,7 +23,7 @@ import { memo, useCallback, useMemo, useRef, useState, type ComponentRef, type R
 import { Alert, Dimensions, Platform, StyleSheet, TextInput, View, useWindowDimensions } from "react-native";
 import { rowActionLabel, type RowSwipeAction } from "@marktiderman/genesis-core/row-actions";
 import { renderSlot, type SlotPropsFor, type Slots } from "@marktiderman/genesis-core/slots";
-import { isNativeIconName, NativeEmptyState, NativeLoadingState, NativeSwipeRow, NativeText, useGenesisModules, type NativeIconName } from "@marktiderman/genesis-ui-native/components";
+import { isNativeIconName, NativeEmptyState, NativeLoadingState, NativeRowActions, NativeSwipeRow, NativeText, useGenesisModules, type NativeIconName, type RowActionsMenuProps } from "@marktiderman/genesis-ui-native/components";
 import { composeHeaderOptions, InboxPage, useHideTabBar, type InboxItem, type InboxPageProps, type InboxPageSlotMap } from "@marktiderman/genesis-ui-native/layouts";
 import type { ChatInboxItem } from "../core/types";
 import { inboxRowActions, useChat, useInbox, useInboxActions, usePeople, usePerson, type ChatAttachmentKind, type ChatConfirm } from "../react/index";
@@ -407,6 +407,8 @@ export function ChatInboxScreen(props: ChatInboxScreenProps) {
     // Every conversation pinned: the pins are the list, and no empty state goes under them.
     empty: pinnedRows.length ? null : slots.empty === undefined ? InboxEmpty : slots.empty,
     swipeable: UnlabelledSwipe,
+    // The long press: Messages' layer, the row's peek over a glass menu of its actions.
+    rowMenu: ChatConversationMenu,
     ...(search ? { footer: SearchFieldFooter } : {}),
     ...pageProps?.slots,
   };
@@ -418,7 +420,8 @@ export function ChatInboxScreen(props: ChatInboxScreenProps) {
       <InboxPage
         testID={testID}
         variant="plain"
-        background={c.roles.page}
+        // The same plain color as the bar over it, so the two meet without a seam.
+        background={String(c.roles.pageSolid)}
         items={items}
         loading={inbox.isLoading}
         error={Boolean(inbox.error)}
@@ -516,7 +519,6 @@ export const ChatInboxRowContent = memo(function ChatInboxRowContent(row: ChatIn
   const { copy } = useChatNative();
   const unread = Boolean(row.unread || (row.unreadCount ?? 0) > 0);
   const label = [unread ? copy.unread : null, row.title, row.pinnedLabel, row.mutedLabel, row.timeLabel, row.preview, row.meta].filter(Boolean).join(", ");
-  const menu = useConversationMenu();
   const swipeGuard = useSwipeGuard();
   return (
     <View>
@@ -524,12 +526,11 @@ export const ChatInboxRowContent = memo(function ChatInboxRowContent(row: ChatIn
         testID={row.testID}
         accessibilityRole="button"
         accessibilityLabel={label}
+        // The screen reader's actions and the long press (which opens the `rowMenu`, Messages' layer).
         {...row.actionProps}
-        // The long press is Messages' layer (the conversation lifted, a glass menu of the row's
-        // actions), laid over the generated one; the screen reader's actions stay.
-        onLongPress={row.swipeActions?.length ? menu.open : row.actionProps?.onLongPress}
         onPressIn={swipeGuard.onPressIn}
-        onPress={(e) => swipeGuard.isTap(e) && row.onPress?.()}
+        onPressOut={swipeGuard.onPressOut}
+        onPress={() => swipeGuard.isTap() && row.onPress?.()}
         look={(pressed) => ({
           flexDirection: "row",
           alignItems: "center",
@@ -572,7 +573,6 @@ export const ChatInboxRowContent = memo(function ChatInboxRowContent(row: ChatIn
         </View>
       </ChatTap>
       {row.isLast ? null : <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ marginStart: CHAT_METRICS.rowText, height: StyleSheet.hairlineWidth, backgroundColor: c.separator }} />}
-      {menu.state ? <ChatConversationMenu open={menu.state === "open"} onClose={menu.close} onClosed={menu.closed} conversationId={row.id} title={row.title} actions={row.swipeActions ?? []} testID={`${row.testID}-menu`} /> : null}
     </View>
   );
 });
@@ -588,45 +588,42 @@ function touchX(e: { nativeEvent?: { pageX?: number; clientX?: number } } | unde
   return typeof n.pageX === "number" ? n.pageX : null;
 }
 
-/** Tells a tap from the start of a swipe, by how far the finger moved between press-in and the press. */
+/**
+ * Tells a tap from the start of a swipe, by how far the finger moved between press-in and
+ * press-out (which comes before the press). Each touch starts afresh, and press-out clears where it
+ * began, so a swipe that never became a press leaves nothing behind for the next tap.
+ */
 function useSwipeGuard() {
   const start = useRef<number | null>(null);
+  const swiped = useRef(false);
   return useMemo(
     () => ({
       onPressIn: (e: { nativeEvent?: { pageX?: number; clientX?: number } }) => {
         start.current = touchX(e);
+        swiped.current = false;
       },
-      isTap: (e: { nativeEvent?: { pageX?: number; clientX?: number } }) => {
+      onPressOut: (e: { nativeEvent?: { pageX?: number; clientX?: number } }) => {
         const from = start.current;
-        start.current = null;
         const to = touchX(e);
-        return from == null || to == null || Math.abs(to - from) < TAP_SLOP;
+        start.current = null;
+        swiped.current = from != null && to != null && Math.abs(to - from) >= TAP_SLOP;
+      },
+      isTap: () => {
+        const tap = !swiped.current;
+        swiped.current = false;
+        return tap;
       },
     }),
     [],
   );
 }
 
-/** The long-press layer's state: shown, closing (it fades), or gone. */
-function useConversationMenu() {
-  const [state, setState] = useState<"open" | "closing" | null>(null);
-  return useMemo(() => ({ state, open: () => setState("open"), close: () => setState((s) => (s ? "closing" : s)), closed: () => setState(null) }), [state]);
-}
-
-export interface ChatConversationMenuProps {
-  open: boolean;
-  onClose: () => void;
-  /** After the layer has gone. */
-  onClosed?: () => void;
-  conversationId: string;
-  title: string;
-  /** The row's actions (`inboxRowActions`), as the glass menu's items. */
-  actions: readonly RowSwipeAction[];
-  testID: string;
-}
-
-/** A conversation's long press, as Messages shows it: its latest messages lifted on a card over a softened screen, the row's actions in a glass menu under it. */
-export function ChatConversationMenu({ open, onClose, onClosed, conversationId, title, actions, testID }: ChatConversationMenuProps) {
+/**
+ * A conversation's long press, as Messages shows it (InboxPage's `rowMenu`, the inbox's default):
+ * the row's peek (`preview`, the conversation's latest messages) lifted over a softened screen, and
+ * the row's actions in a glass menu under it. A choice runs once the layer has gone.
+ */
+export function ChatConversationMenu({ open, onClose, actions, preview, testID }: RowActionsMenuProps) {
   const { copy } = useChatNative();
   const { height } = Dimensions.get("window");
   const items: ChatMenuItem[] = actions.map((a) => ({
@@ -640,10 +637,9 @@ export function ChatConversationMenu({ open, onClose, onClosed, conversationId, 
     <ChatContextOverlay
       open={open}
       onClose={onClose}
-      onClosed={onClosed}
       anchor={null}
       previewHeight={Math.round(height * 0.45)}
-      preview={<ChatConversationPreview conversationId={conversationId} title={title} testID={`${testID}-preview`} />}
+      preview={preview?.() ?? null}
       items={items}
       closeLabel={copy.closeMenu}
       testID={testID}
@@ -667,27 +663,22 @@ export function ChatPinnedFaces({ rows, testID }: ChatInboxSlotMap["pinned"]) {
   );
 }
 
-/** One pinned face: a tap opens it, a long press shows the conversation over its actions, and they are the screen reader's actions too. */
+/** A pinned face's actions: the same menu and screen reader actions, never a swipe. */
+const menuOnly = (actions: readonly RowSwipeAction[]) => actions.map((a) => ({ ...a, swipe: false as const }));
+
+/** One pinned face: a tap opens it, a long press shows the conversation over its actions (Messages' layer), and they are the screen reader's actions too. */
 function PinnedFace({ row, cell, size, testID }: { row: ChatInboxRowData; cell: number; size: number; testID: string }) {
   const c = useChatColors();
   const { copy } = useChatNative();
-  const menu = useConversationMenu();
-  const a11y = useMemo(
-    () => ({
-      accessibilityActions: row.actions.map((a) => ({ name: a.id, label: rowActionLabel(a) })),
-      onAccessibilityAction: (e: { nativeEvent: { actionName: string } }) => row.actions.find((a) => a.id === e.nativeEvent.actionName)?.onPress(),
-    }),
-    [row.actions],
-  );
+  const actions = useMemo(() => menuOnly(row.actions), [row.actions]);
+  const preview = useCallback(() => <ChatConversationPreview conversationId={row.id} title={row.title} testID={`${testID}-preview`} />, [row.id, row.title, testID]);
   return (
-    <>
+    <NativeRowActions actions={actions} title={row.title} preview={preview} renderMenu={ChatConversationMenu} testID={`${testID}-actions`}>
       <ChatTap
         testID={testID}
         accessibilityRole="button"
         accessibilityLabel={[fill(copy.pinnedConversation, { name: row.title }), row.unread ? copy.unread : null].filter(Boolean).join(", ")}
-        {...a11y}
         onPress={row.onPress}
-        onLongPress={row.actions.length ? menu.open : undefined}
         look={(pressed) => ({ width: cell, alignItems: "center", paddingVertical: 8, opacity: pressed ? 0.7 : 1 })}
       >
         <View>
@@ -698,8 +689,7 @@ function PinnedFace({ row, cell, size, testID }: { row: ChatInboxRowData; cell: 
           {row.title}
         </NativeText>
       </ChatTap>
-      {menu.state ? <ChatConversationMenu open={menu.state === "open"} onClose={menu.close} onClosed={menu.closed} conversationId={row.id} title={row.title} actions={row.actions} testID={`${testID}-menu`} /> : null}
-    </>
+    </NativeRowActions>
   );
 }
 

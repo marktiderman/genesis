@@ -589,7 +589,7 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
 
   return (
     <ChatPeopleScope userIds={peopleIds}>
-      <SafeAreaView ref={rootRef as never} onLayout={measureTop} testID={testID} edges={["left", "right", "bottom"]} style={{ flex: 1, backgroundColor: look.roles.page }}>
+      <SafeAreaView ref={rootRef as never} onLayout={measureTop} testID={testID} edges={["left", "right", "bottom"]} style={{ flex: 1, backgroundColor: look.roles.pageSolid }}>
         <KeyboardAvoiding style={{ flex: 1 }} {...keyboardProps}>
           {renderSlot(NoPart, props.slots?.belowHeader, { conversationId, testID: `${testID}-below-header` }, props.slotProps?.belowHeader)}
           {showTopicBar ? (

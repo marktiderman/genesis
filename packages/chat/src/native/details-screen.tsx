@@ -95,7 +95,7 @@ export function ChatDetailsScreen({ conversationId, onSearch, onOpenScheduled, o
 
   return (
     <>
-      <ScrollView testID={testID} style={{ flex: 1, backgroundColor: c.roles.page }} contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ paddingBottom: 48 }}>
+      <ScrollView testID={testID} style={{ flex: 1, backgroundColor: c.roles.pageSolid }} contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ paddingBottom: 48 }}>
         {renderSlot(ChatDetailsHero, slots.hero, ctx, slotProps.hero)}
         {renderSlot(ChatDetailsActions, slots.actions, { ...ctx, onSearch, onOpenScheduled }, slotProps.actions)}
         {renderSlot(ChatDetailsSettings, slots.settings, ctx, slotProps.settings)}

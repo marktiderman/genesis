@@ -41,7 +41,9 @@ plain rows, so it gets a `variant` (G2) rather than a second list in genesis-cha
    with no inset group, and `background` for the page. `"grouped"` stays the default.
    `ChatInboxScreen` draws on it, with chat's row in its `row` slot (spreading `actionProps`, so the
    screen reader's actions and the long press reach the row), its `formatTime`, paging, memoised rows
-   and the peek through `menuPreview`.
+   and the peek through `menuPreview`. A row's long press is a menu of the screen's own through
+   ui-native's `renderMenu` / InboxPage's `rowMenu` slot, which chat fills with its glass layer
+   (`ChatConversationMenu`); no sheet is mounted then.
 4. **The stack's own header.** The inbox sets its header through `GenesisModules.router.StackScreen`
    (`composeHeaderOptions`): a large title that collapses with the list, which is the screen's
    first view and scroll view; Back, the filter menu and Compose as native header items; the tab

@@ -364,8 +364,9 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
           justifyContent: mine ? "flex-end" : "flex-start",
           // Room above for the tapbacks, inside the swipe's container (which clips what overflows it).
           paddingTop: reactions.length ? TAPBACK_RISE : 0,
-          // Full width and opaque: it covers the swipe's reply arrow until the row is dragged.
-          backgroundColor: props.highlighted ? chat.roles.pressed : chat.roles.pageSolid,
+          // Full width, in what's behind the thread (its backdrop): it covers the swipe's reply arrow
+          // until the row is dragged.
+          backgroundColor: props.highlighted ? chat.roles.pressed : (props.backdrop ?? chat.roles.pageSolid),
         }}
       >
         {group && !mine ? (

@@ -160,8 +160,14 @@ describe("ChatInboxScreen's row actions", () => {
     // A long press opens Messages' layer: the conversation over a glass menu of the row's actions.
     act(() => void fireEvent.contextMenu(drawn));
     await waitFor(() => expect(screen.getByTestId(`chat-inbox-row-${C}-menu`)).toBeTruthy());
-    expect(screen.getByTestId(`chat-inbox-row-${C}-menu-preview`)).toBeTruthy();
+    expect(screen.getByTestId(`chat-inbox-row-${C}-preview`)).toBeTruthy();
+    // No sheet: the long press is the rowMenu alone.
+    expect(screen.queryByTestId("chat-inbox-menu")).toBeNull();
     expect(screen.getAllByRole("menuitem").map((e) => e.getAttribute("data-testid"))).toEqual(["unread", "pin", "alerts", "delete", "archive"].map((id) => `chat-inbox-row-${C}-menu-menu-${id}`));
+    // VoiceOver's actions survive the long press, and still run.
+    expect(drawn.getAttribute("data-a11y-actions")).toBe("unread,pin,alerts,delete,archive");
+    act(() => void drawn.dispatchEvent(new CustomEvent("accessibilityaction", { detail: "pin" })));
+    await waitFor(() => expect(client.setMySettings).toHaveBeenCalledWith(C, { pinned: true }));
   });
 
   it("hands InboxPage the same rows while the screen re-renders with the same conversations, so each row's memo holds", async () => {
@@ -191,11 +197,18 @@ describe("ChatInboxScreen's row actions", () => {
     const onOpen = vi.fn();
     await renderWith(row(0), {}, { current: { onOpen } });
     const drawn = screen.getByTestId(`chat-inbox-row-${C}`);
+    // Press in, move 100pt sideways, let go: a swipe.
     fireEvent.pointerDown(drawn, { clientX: 300 });
-    fireEvent.click(drawn, { clientX: 200 });
+    fireEvent.pointerUp(drawn, { clientX: 200 });
+    fireEvent.click(drawn);
     expect(onOpen).not.toHaveBeenCalled();
+    // A swipe that never became a press leaves nothing behind: the next tap opens it.
     fireEvent.pointerDown(drawn, { clientX: 300 });
-    fireEvent.click(drawn, { clientX: 302 });
+    fireEvent.pointerUp(drawn, { clientX: 180 });
+    fireEvent.pointerDown(drawn, { clientX: 50 });
+    fireEvent.pointerUp(drawn, { clientX: 52 });
+    fireEvent.click(drawn);
+    expect(onOpen).toHaveBeenCalledTimes(1);
     expect(onOpen).toHaveBeenCalledWith(C);
   });
 });

@@ -212,6 +212,14 @@ describe("a bubble's tapbacks", () => {
     const drawn = JSON.parse(screen.getByTestId("b-row").dataset.style!) as { paddingTop: number; backgroundColor: unknown };
     expect(drawn.paddingTop).toBeGreaterThan(0);
     expect(drawn.backgroundColor).toBeTruthy();
+    cleanup();
+    // On a thread with a backdrop of its own, the row is that color.
+    render(
+      <ChatNativeProvider>
+        <MessageBubble row={row} me={ME} urls={{}} group={false} reducedMotion backdrop="transparent" testID="b" />
+      </ChatNativeProvider>,
+    );
+    expect((JSON.parse(screen.getByTestId("b-row").dataset.style!) as { backgroundColor: unknown }).backgroundColor).toBe("transparent");
     const more = screen.getByTestId("b-reactions-more");
     expect(more.getAttribute("aria-label")).toBe("2 more reactions");
     fireEvent.click(more);
