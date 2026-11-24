@@ -355,15 +355,15 @@ function DefaultRow(row: InboxPageSlotMap["row"]) {
             {row.unreadLabel ? <span className="sr-only">, {row.unreadLabel}</span> : null}
             {row.pinned || row.muted || row.timeLabel ? (
               // The marks and the time sit together at the end, as on the phone.
-              <span data-testid={`${row.testID}-trailing`} className="ml-auto flex shrink-0 items-center gap-1 self-center">
+              <span data-testid={`${row.testID}-trailing`} className="ml-auto flex shrink-0 items-baseline gap-1">
                 {row.pinned ? (
-                  <span data-testid={`${row.testID}-pinned`} className="text-muted-foreground">
+                  <span data-testid={`${row.testID}-pinned`} className="self-center text-muted-foreground">
                     <Pin className="size-3.5" aria-hidden />
                     {row.pinnedLabel ? <span className="sr-only">, {row.pinnedLabel}</span> : null}
                   </span>
                 ) : null}
                 {row.muted ? (
-                  <span data-testid={`${row.testID}-muted`} className="text-muted-foreground">
+                  <span data-testid={`${row.testID}-muted`} className="self-center text-muted-foreground">
                     <BellOff className="size-3.5" aria-hidden />
                     {row.mutedLabel ? <span className="sr-only">, {row.mutedLabel}</span> : null}
                   </span>

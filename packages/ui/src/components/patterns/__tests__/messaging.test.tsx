@@ -573,6 +573,11 @@ describe("InboxPage (web): muted and pinned", () => {
     expect([...trailing.children].map((c) => c.getAttribute("data-testid"))).toEqual(["i-row-m-pinned", "i-row-m-muted", "i-row-m-time"]);
     expect(screen.getByTestId("i-row-m").textContent).toMatch(/^Ben, 1 unread, Kept, Alerts off9:41/);
     expect(trailing.querySelectorAll("svg").length).toBe(2);
+    // The time keeps the title's baseline; only the marks are centred, as on the phone.
+    expect(trailing.className).toContain("items-baseline");
+    expect(trailing.className).not.toContain("self-center");
+    expect(screen.getByTestId("i-row-m-pinned").className).toContain("self-center");
+    expect(screen.getByTestId("i-row-m-muted").className).toContain("self-center");
     trailing.querySelectorAll("svg").forEach((svg) => expect(svg.getAttribute("aria-hidden")).toBe("true"));
     expect(screen.getByTestId("i-row-m-count").className).toContain("bg-muted");
     expect(screen.queryByTestId("i-row-p-muted")).toBeNull();
