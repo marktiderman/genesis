@@ -7,9 +7,9 @@
 # stopped when the step ends, however it ends. The trap is set before the session starts, so a
 # start that creates a session and then fails still stops it. Every session gets a maximum
 # duration (AGENT_MAX_MINUTES, default 25) and an idle limit (AGENT_IDLE_MINUTES, default 5), so
-# one that is never stopped still ends. It exports AGENTIC_CI_APP_ID, AGENTIC_CI_PLATFORM and
-# AGENTIC_CI_PROJECT for device.sh, and writes agent-output/device.md, which the job adds to the
-# prompt.
+# one that is never stopped still ends. It writes the app ID, the platform and the project folder
+# to /tmp/agentic-ci-session/target (read-only) for device.sh, and agent-output/device.md, which
+# the job adds to the prompt.
 #
 # Genesis template (templates/eas/agents/start-session.sh), after Expo's agentic-workflows setup.
 
@@ -36,7 +36,13 @@ agentic_ci_stop() {
   $EAS simulator:stop --non-interactive > /dev/null 2>&1 || true
 }
 
-export AGENTIC_CI_APP_ID="$APP_ID" AGENTIC_CI_PLATFORM="$1" AGENTIC_CI_PROJECT="$PWD"
+# device.sh reads what it drives from a read-only file, never from its environment, so a command
+# line can't point it at another app or folder.
+AGENTIC_CI_TARGET=/tmp/agentic-ci-session/target
+if [ -e /tmp/agentic-ci-session ]; then chmod -R u+w /tmp/agentic-ci-session && rm -rf /tmp/agentic-ci-session; fi
+mkdir -p /tmp/agentic-ci-session
+printf '%s\n%s\n%s\n' "$APP_ID" "$1" "$PWD" > "$AGENTIC_CI_TARGET"
+chmod a-w "$AGENTIC_CI_TARGET" /tmp/agentic-ci-session
 export EXPO_TOKEN="${EXPO_TOKEN_SIMULATOR:-${EXPO_TOKEN:-}}"
 # A session file committed or left over would point simulator:exec and simulator:stop at another
 # session: start from none.

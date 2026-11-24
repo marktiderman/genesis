@@ -304,7 +304,6 @@ export function allTemplates(dir = templatesDir()): string[] {
   return walk(dir);
 }
 
-/** The templates `names` (sets or template paths) stand for, in order, without repeats. */
 /**
  * Template sets an app gets only by naming them (`genesis add template agentic-ci`): never offered
  * as missing, and never part of a broader set such as eas. Agentic CI's runs are billed (a session,
@@ -312,6 +311,7 @@ export function allTemplates(dir = templatesDir()): string[] {
  */
 export const OPT_IN_SETS: readonly string[] = ["agentic-ci"];
 
+/** The templates `names` (sets or template paths) stand for, in order, without repeats. */
 export function resolveTemplateNames(names: readonly string[], dir = templatesDir()): string[] {
   const all = allTemplates(dir);
   const out: string[] = [];

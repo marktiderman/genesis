@@ -1,6 +1,6 @@
 // @feat:eas-workflows @feat:maestro-smoke
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -369,20 +369,33 @@ describe("EAS workflows", () => {
   });
 });
 
+/** The read-only session file start-session.sh writes and device.sh reads (app ID, platform, project). */
+const TARGET_DIR = "/tmp/agentic-ci-session";
+function writeTarget(lines: string[]) {
+  if (existsSync(TARGET_DIR)) {
+    chmodSync(TARGET_DIR, 0o755);
+    rmSync(TARGET_DIR, { recursive: true, force: true });
+  }
+  mkdirSync(TARGET_DIR, { recursive: true });
+  writeFileSync(join(TARGET_DIR, "target"), lines.join("\n") + "\n");
+  chmodSync(join(TARGET_DIR, "target"), 0o444);
+}
+
 /** Runs device.sh with a fake npx that prints the command it would run, one argument per line. */
 function device(...args: string[]) {
   const dir = mkdtempSync(join(tmpdir(), "agentic-ci-"));
   mkdirSync(join(dir, "bin"));
   writeFileSync(join(dir, "bin", "npx"), '#!/usr/bin/env bash\nprintf "%s\\n" "$@"\nenv > "${HOME}/env.txt"\n');
   chmodSync(join(dir, "bin", "npx"), 0o755);
+  writeTarget(["com.example.app", "ios", dir]);
   const r = spawnSync("bash", [join(root, ".eas/agents/device.sh"), ...args], {
     encoding: "utf8",
     env: {
       PATH: `${join(dir, "bin")}:${process.env.PATH}`,
       HOME: dir,
-      AGENTIC_CI_APP_ID: "com.example.app",
-      AGENTIC_CI_PLATFORM: "ios",
-      AGENTIC_CI_PROJECT: dir,
+      // Ignored: device.sh reads the session file, never these.
+      AGENTIC_CI_APP_ID: "com.attacker.app",
+      AGENTIC_CI_PROJECT: "/",
       ANTHROPIC_API_KEY: "sk-ant-test-0123456789",
       EXPO_TOKEN: "expo-token-should-not-pass",
     } as unknown as NodeJS.ProcessEnv,
@@ -401,13 +414,58 @@ function deviceShell(line: string) {
   writeFileSync(join(dir, "bin", "npx"), '#!/usr/bin/env bash\nprintf "%s\\n" "$@"\n');
   chmodSync(join(dir, "bin", "npx"), 0o755);
   const script = join(root, ".eas/agents/device.sh");
+  writeTarget(["com.example.app", "ios", dir]);
   const r = spawnSync("bash", ["-c", `bash ${script} ${line}`], {
     encoding: "utf8",
-    env: { PATH: `${join(dir, "bin")}:${process.env.PATH}`, HOME: dir, AGENTIC_CI_APP_ID: "com.example.app", AGENTIC_CI_PLATFORM: "ios", AGENTIC_CI_PROJECT: dir } as unknown as NodeJS.ProcessEnv,
+    env: { PATH: `${join(dir, "bin")}:${process.env.PATH}`, HOME: dir } as unknown as NodeJS.ProcessEnv,
   });
   const lines = r.stdout.trim().split("\n");
   return { status: r.status, stderr: r.stderr, device: lines.slice(lines.indexOf("agent-device@0.21.41") + 1) };
 }
+
+describe("device.sh reads what it drives from the session file", () => {
+  it("opens the session's app, not one named in its environment", () => {
+    const r = device("open");
+    expect(r.status, r.stderr).toBe(0);
+    expect(r.device).toEqual(["open", "com.example.app", "--platform", "ios"]);
+  });
+  it.each([
+    [["com.example.app; rm -rf /", "ios", "/"], "app ID"],
+    [["https://evil.example", "ios", "/"], "app ID"],
+    [["com.example.app", "web", "/"], "platform"],
+    [["com.example.app", "ios", "relative/dir"], "project folder"],
+  ])("refuses a session file with a bad value (%j)", (lines, what) => {
+    writeTarget(lines);
+    const r = spawnSync("bash", [join(root, ".eas/agents/device.sh"), "snapshot"], { encoding: "utf8", env: { PATH: process.env.PATH } as unknown as NodeJS.ProcessEnv });
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain(what);
+  });
+  it("refuses to run without a session file", () => {
+    if (existsSync(TARGET_DIR)) {
+      chmodSync(TARGET_DIR, 0o755);
+      rmSync(TARGET_DIR, { recursive: true, force: true });
+    }
+    const r = spawnSync("bash", [join(root, ".eas/agents/device.sh"), "snapshot"], { encoding: "utf8", env: { PATH: process.env.PATH } as unknown as NodeJS.ProcessEnv });
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain("no session");
+  });
+  it("start-session.sh writes the session file read-only and no longer exports the target", () => {
+    const start = readFileSync(join(root, ".eas/agents/start-session.sh"), "utf8");
+    expect(start).toContain("/tmp/agentic-ci-session/target");
+    expect(start).toMatch(/chmod a-w "\$AGENTIC_CI_TARGET" \/tmp\/agentic-ci-session/);
+    expect(start).not.toMatch(/export AGENTIC_CI_APP_ID/);
+  });
+});
+
+describe("run-agent.sh loads none of the project's own Claude Code settings", () => {
+  const agent = () => readFileSync(join(root, ".eas/agents/run-agent.sh"), "utf8");
+  it("passes --setting-sources user and --strict-mcp-config", () => {
+    expect(agent()).toMatch(/--setting-sources user --strict-mcp-config/);
+  });
+  it("denies a variable assignment in front of the command", () => {
+    expect(agent()).toContain("Bash(*=*bash*)");
+  });
+});
 
 describe("device.sh, the agent's only shell command", () => {
   it.each([
