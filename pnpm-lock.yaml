@@ -562,7 +562,7 @@ importers:
         version: 4.14.1
       chromatic:
         specifier: ^18.13.2
-        version: 18.14.5
+        version: 18.15.1
       jose:
         specifier: ^6.2.12
         version: 6.2.17
@@ -1821,7 +1821,7 @@ importers:
     dependencies:
       '@marktiderman/genesis-core':
         specifier: ^1.11.0 || ^2.0.0
-        version: 2.17.0(@hookform/resolvers@7.0.6(@standard-schema/spec@1.1.0)(ajv-formats@3.0.1(ajv@8.20.0))(ajv@8.20.0)(react-hook-form@7.92.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7))(@tanstack/react-query@5.107.1(@types/react@19.3.0)(react@19.3.0))(react-hook-form@7.92.0(@types/react@19.3.0)(react@19.3.0))(react@19.3.0)(zod@4.6.7)
+        version: 2.18.0(@hookform/resolvers@7.0.6(@standard-schema/spec@1.1.0)(ajv-formats@3.0.1(ajv@8.20.0))(ajv@8.20.0)(react-hook-form@7.92.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7))(@tanstack/react-query@5.107.1(@types/react@19.3.0)(react@19.3.0))(react-hook-form@7.92.0(@types/react@19.3.0)(react@19.3.0))(react@19.3.0)(zod@4.6.7)
       '@marktiderman/genesis-data-server':
         specifier: workspace:^
         version: link:../data-server
@@ -3880,8 +3880,8 @@ packages:
     resolution: {integrity: sha512-6QEf6yqFbETdwGITKq57aYoPfX/3K8XFNwsAlx0C1M7o8cb79sv1M3w+tWuWvIcSbNqrLF7OD7YpZMVVz335hQ==}
     engines: {node: '>=20.0.0'}
 
-  '@marktiderman/genesis-core@2.17.0':
-    resolution: {integrity: sha512-xMtNJb60RNxNto7ZM388GcaUpRz7tnirW7npBaGWa0I4YIjDd7POwltYVugpGZURHpQ6sxgnnBy9YvXKDosQ3w==}
+  '@marktiderman/genesis-core@2.18.0':
+    resolution: {integrity: sha512-E/XtoPqCv+4ZasQC57ibjEUoofbPNDsuHkBk9QeKKUJfBXSzW+r7SUZrorjNr+1hb7p90Hp0KLQe7G8BiRJLAA==}
     peerDependencies:
       '@hookform/resolvers': ^3.0.0 || ^4.0.0 || ^5.0.0 || ^6.0.0 || ^7.0.0
       '@tanstack/react-query': ^5.0.0
@@ -7369,8 +7369,8 @@ packages:
     resolution: {integrity: sha512-TQMmc3w+5AxjpL8iIiwebF73dRDF4fBIieAqGn9RGCWaEVwQ6Fb2cGe31Yns0RRIzii5goJ1Y7xbMwo1TxMplw==}
     engines: {node: '>= 20.19.0'}
 
-  chromatic@18.14.5:
-    resolution: {integrity: sha512-FKSNgph3UnlQ9adzpENaHzPsxOfaVFdurvudxoEVwXOWGHRZ58l4h5cfXMGXF5GzxmiJ08nK4cqYxjna2Eqe7w==}
+  chromatic@18.15.1:
+    resolution: {integrity: sha512-h8wshAe1nvfBlCVnAoYno264pAF5CCwebpau6DzGUqBTZ6dIeDFl+LDMHkVfYthEDJp37XT9f0EFgh98jEFyfQ==}
     engines: {node: '>=22.0.0'}
     hasBin: true
     peerDependencies:
@@ -13971,7 +13971,7 @@ snapshots:
       tinyglobby: 0.2.17
       yaml: 2.9.1
 
-  '@marktiderman/genesis-core@2.17.0(@hookform/resolvers@7.0.6(@standard-schema/spec@1.1.0)(ajv-formats@3.0.1(ajv@8.20.0))(ajv@8.20.0)(react-hook-form@7.92.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7))(@tanstack/react-query@5.107.1(@types/react@19.3.0)(react@19.3.0))(react-hook-form@7.92.0(@types/react@19.3.0)(react@19.3.0))(react@19.3.0)(zod@4.6.7)':
+  '@marktiderman/genesis-core@2.18.0(@hookform/resolvers@7.0.6(@standard-schema/spec@1.1.0)(ajv-formats@3.0.1(ajv@8.20.0))(ajv@8.20.0)(react-hook-form@7.92.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7))(@tanstack/react-query@5.107.1(@types/react@19.3.0)(react@19.3.0))(react-hook-form@7.92.0(@types/react@19.3.0)(react@19.3.0))(react@19.3.0)(zod@4.6.7)':
     dependencies:
       '@hookform/resolvers': 7.0.6(@standard-schema/spec@1.1.0)(ajv-formats@3.0.1(ajv@8.20.0))(ajv@8.20.0)(react-hook-form@7.92.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7)
       '@tanstack/react-query': 5.107.1(@types/react@19.3.0)(react@19.3.0)
@@ -17474,7 +17474,7 @@ snapshots:
     dependencies:
       readdirp: 5.1.1
 
-  chromatic@18.14.5:
+  chromatic@18.15.1:
     dependencies:
       semver: 7.8.5
 
