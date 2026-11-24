@@ -1,0 +1,126 @@
+apps/native-workbench/.maestro/flows/deep-link.yaml
+  s_f1aa8511899775::t_6cd1891e37585e 1,10-15
+apps/native-workbench/.eas/workflows/pr-preview.yml
+  s_f1aa8511899775::t_a4bcf532987067 89
+apps/native-workbench/src/app/(app)/components/index.tsx
+  s_f1aa8511899775::t_1238a2c389747d 1-5
+apps/native-workbench/src/app/(app)/messages/[id].tsx
+  s_f1aa8511899775::t_1238a2c389747d 1
+apps/native-workbench/eas.json
+  s_f1aa8511899775::t_54ac6052fcc20f 11-16,23-30,34-36,44-48,55
+apps/native-workbench/.eas/workflows/deploy-production.yml
+  s_f1aa8511899775::t_a4bcf532987067 14-27,88
+packages/genesis-cli/src/doctor/native.ts
+  s_f1aa8511899775::t_395fe13828a814 25,294,315-316
+apps/native-workbench/README.md
+  s_f1aa8511899775::t_54ac6052fcc20f 51-74
+  s_f1aa8511899775::t_01996eb11a545c 1,3-5,7-13,15-23,28,30,33-36,43
+apps/native-workbench/src/app/(app)/layouts/index.tsx
+  s_f1aa8511899775::t_1238a2c389747d 1-5
+apps/native-workbench/src/workbench/screens/components.tsx
+  s_f1aa8511899775::t_ce613e6f395391 1-572
+apps/native-workbench/.maestro/workbench/cards.yaml
+  s_f1aa8511899775::t_2ae90eba646822 1-25
+apps/native-workbench/.maestro/workbench/feedback.yaml
+  s_f1aa8511899775::t_2ae90eba646822 1-25
+apps/native-workbench/src/app/(app)/layouts/_layout.tsx
+  s_f1aa8511899775::t_1238a2c389747d 1-9
+apps/native-workbench/package.json
+  s_f1aa8511899775::t_a45582460f62ff 18-19
+apps/native-workbench/src/app/(app)/layouts/[id].tsx
+  s_f1aa8511899775::t_1238a2c389747d 1
+apps/native-workbench/src/workbench/screens/layouts.tsx
+  s_f1aa8511899775::t_aa8c56dbc1ff28 1-233
+apps/native-workbench/src/app/(app)/components/_layout.tsx
+  s_f1aa8511899775::t_1238a2c389747d 1-9
+apps/native-workbench/.maestro/workbench/inbox.yaml
+  s_f1aa8511899775::t_2ae90eba646822 1-25
+apps/native-workbench/src/workbench/screen-route.tsx
+  s_f1aa8511899775::t_1238a2c389747d 1-21
+apps/native-workbench/.maestro/subflows/open-workbench.yaml
+  s_f1aa8511899775::t_5a4cd55c3e1b21 1,10-11
+apps/native-workbench/app.config.ts
+  s_f1aa8511899775::t_53745b304725d6 24-25
+apps/native-workbench/.maestro/workbench/bubbles.yaml
+  s_f1aa8511899775::t_2ae90eba646822 1-25
+apps/native-workbench/src/app/(app)/standards/_layout.tsx
+  s_f1aa8511899775::t_1238a2c389747d 1-9
+apps/native-workbench/src/app/(app)/_layout.tsx
+  s_f1aa8511899775::t_617ebb23cda1d8 6-8,11,13,16-19,21-23,25-27,29-31
+apps/native-workbench/src/workbench/section-index.tsx
+  s_f1aa8511899775::t_1238a2c389747d 1-44
+apps/native-workbench/.maestro/README.md
+  s_f1aa8511899775::t_27414560bf02b9 3-4,6-10,15-16,20
+  s_f1aa8511899775::t_6ca1daf76dde14 19
+apps/native-workbench/__tests__/components/registry.test.tsx
+  s_f1aa8511899775::t_f413bc0c81e4ce 1-25
+apps/native-workbench/.maestro/workbench/controls.yaml
+  s_f1aa8511899775::t_2ae90eba646822 1-25
+apps/native-workbench/src/app/(app)/components/[id].tsx
+  s_f1aa8511899775::t_1238a2c389747d 1
+templates/maestro/prove-ios.mjs
+  s_f1aa8511899775::t_8f0474eed4b7cd 165-166
+  s_f1aa8511899775::t_1d050c8b9db765 174-176
+  s_f1aa8511899775::t_be9760a00e61a3 8,128-131,254-258
+apps/native-workbench/src/workbench/screens/header.tsx
+  s_f1aa8511899775::t_a9dc6fa992a687 19
+apps/native-workbench/src/app/(app)/messages/_layout.tsx
+  s_f1aa8511899775::t_1238a2c389747d 1,3
+apps/native-workbench/genesis.config.json
+  s_f1aa8511899775::t_63814910d87b02 11,26,40-41
+  s_f1aa8511899775::t_53745b304725d6 2,5-10,12-13,18-22,37-39
+apps/native-workbench/.maestro/prove-ios.mjs
+  s_f1aa8511899775::t_be9760a00e61a3 8,128-131,254-258
+  s_f1aa8511899775::t_8f0474eed4b7cd 165-166
+  s_f1aa8511899775::t_1d050c8b9db765 174-176
+apps/native-workbench/genesis.lock.json
+  s_f1aa8511899775::t_a4bcf532987067 102,112
+apps/native-workbench/src/workbench/screens/messages.tsx
+  s_f1aa8511899775::t_46b59ebb626f82 1-265
+apps/native-workbench/.maestro/workbench/detail-page.yaml
+  s_f1aa8511899775::t_2ae90eba646822 1-25
+apps/native-workbench/.maestro/workbench/settings-page.yaml
+  s_f1aa8511899775::t_2ae90eba646822 1-25
+apps/native-workbench/src/app/(app)/standards/index.tsx
+  s_f1aa8511899775::t_1238a2c389747d 1-5
+apps/native-workbench/src/workbench/screens/place-exit.tsx
+  s_f1aa8511899775::t_a9dc6fa992a687 3,10,26
+apps/native-workbench/src/app/(app)/standards/[id].tsx
+  s_f1aa8511899775::t_1238a2c389747d 1
+apps/native-workbench/src/app/index.tsx
+  s_f1aa8511899775::t_1238a2c389747d 1-6
+apps/native-workbench/src/app/(app)/messages/index.tsx
+  s_f1aa8511899775::t_1238a2c389747d 1,3-4
+apps/native-workbench/src/workbench/registry.ts
+  s_f1aa8511899775::t_861546e93a3360 11,13-14,36-50
+  s_f1aa8511899775::t_0a950cc06f4ab7 19,52
+  s_f1aa8511899775::t_a9dc6fa992a687 22
+apps/genesis-rn-starter/.maestro/prove-ios.mjs
+  s_f1aa8511899775::t_8f0474eed4b7cd 165-166
+  s_f1aa8511899775::t_1d050c8b9db765 174-176
+  s_f1aa8511899775::t_be9760a00e61a3 8,128-131,254-258
+apps/native-workbench/.maestro/flows/launch.yaml
+  s_f1aa8511899775::t_5a4cd55c3e1b21 18-20
+apps/native-workbench/__tests__/components/showcase.test.tsx
+  s_f1aa8511899775::t_488d04832dbb07 7-12,15-20
+apps/native-workbench/src/lib/app.ts
+  s_f1aa8511899775::t_f3c392cfe8651d 38-39
+apps/native-workbench/starter.config.ts
+  s_f1aa8511899775::t_a7aaad60875325 17-19,26,34,37-39
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "620aa710a8c17f43cb42ef4e72bd1d80662917f1",
+  "prompts": {},
+  "sessions": {
+    "s_f1aa8511899775": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "18c56dc7-ac34-4eaf-92bf-016e2c3bbcb7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
