@@ -151,7 +151,7 @@ export function parseMentions(body: string): string[] {
 /** A one-line preview: text, or what was attached. */
 export function previewText(body: string, attachment: string | null | undefined, deleted = false): string {
   if (deleted) return "Message deleted";
-  const text = body.replace(/@\[([^\]]+)\]\(user:[0-9a-f-]{36}\)/gi, "@$1").replace(/[*_`#>~]/g, "").trim();
+  const text = body.replace(/@\[([^\]]{1,80})\]\(user:[0-9a-f-]{36}\)/gi, "@$1").replace(/[*_`#>~]/g, "").trim();
   if (text) return text.length > 140 ? `${text.slice(0, 139)}…` : text;
   switch (attachment) {
     case "image":

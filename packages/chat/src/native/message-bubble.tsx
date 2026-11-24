@@ -134,7 +134,7 @@ export function formatClock(iso: string): string {
 
 /** Mentions written `@[Name](user:<id>)` read as `@Name`. */
 export function displayBody(body: string): string {
-  return body.replace(/@\[([^\]]+)\]\(user:[0-9a-f-]{36}\)/gi, "@$1");
+  return body.replace(/@\[([^\]]{1,80})\]\(user:[0-9a-f-]{36}\)/gi, "@$1");
 }
 
 function MessageBubbleImpl(props: MessageBubbleProps) {
