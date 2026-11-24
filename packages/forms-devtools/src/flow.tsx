@@ -366,7 +366,7 @@ export function FlowMapPanel({ engine, height = 600, className }: { engine: Form
           nodesConnectable={false}
           elementsSelectable={false}
           fitView
-          fitViewOptions={{ padding: 0.1 }}
+          fitViewOptions={{ padding: "10%" }}
           minZoom={0.2}
           aria-label="Form flow map"
           style={{ "--xy-attribution-background-color": "transparent" } as CSSProperties}
