@@ -369,6 +369,12 @@ describe("native pack", () => {
     expect(ownMessage).not.toContain("retires");
     const ownGithub = await nativeApp({ ...dispatchOnly, ...ownStarter, "genesis.config.json": JSON.stringify({ release: { trigger: "github" } }) });
     expect(levels(ownGithub.findings, "release-lane-live")).toEqual([]);
+    // One that runs another EAS workflow on a push (a preview) doesn't start the release: still the error.
+    const otherWorkflow = { ".github/workflows/mobile-ota.yml": "on:\n  push:\n    branches: [main]\njobs:\n  ota:\n    steps:\n      - run: npx eas-cli workflow:run .eas/workflows/preview.yml\n" };
+    expect(levels((await nativeApp({ ...dispatchOnly, ...otherWorkflow })).findings, "release-lane-live")).toEqual(["error"]);
+    // One that publishes itself (eas update) ships on a merge: live.
+    const directUpdate = { ".github/workflows/mobile-ota.yml": "on:\n  push:\n    branches: [main]\njobs:\n  ota:\n    steps:\n      - run: npx eas-cli update --channel production\n" };
+    expect(levels((await nativeApp({ ...dispatchOnly, ...directUpdate, "genesis.config.json": JSON.stringify({ release: { trigger: "github" } }) })).findings, "release-lane-live")).toEqual([]);
     // A manual-only one still starts nothing.
     const manualStarter = { ".github/workflows/mobile-ota.yml": "on:\n  workflow_dispatch: {}\njobs:\n  ota:\n    steps:\n      - run: npx eas-cli workflow:run .eas/workflows/deploy-production.yml\n" };
     expect(levels((await nativeApp({ ...dispatchOnly, ...manualStarter })).findings, "release-lane-live")).toEqual(["error"]);

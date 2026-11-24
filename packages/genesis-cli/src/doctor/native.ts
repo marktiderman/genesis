@@ -316,7 +316,14 @@ export function checkReleaseLaneLive(ctx: DoctorContext): void {
   const nativeLive = native !== null && hasPushTrigger(native) && stepRuns(native).some((run) => RELEASE_COMMAND.test(run));
   // The repository's own starter counts too: any GitHub workflow that releases on a push to main
   // (a consumer app's mobile-ota.yml dispatching deploy-production.yml, say) means a merge ships.
-  const ownStarter = nativeLive ? undefined : githubReleaseWorkflows(ctx.root, release.appFolder)[0];
+  // Only one that starts this lane (workflow:run of deploy-production.yml) or publishes itself
+  // (eas update / build): one that runs another EAS workflow (a preview) ships nothing to production.
+  const lane = path.basename(LANE_DISPATCH_TARGET);
+  const ownStarter = nativeLive
+    ? undefined
+    : githubReleaseWorkflows(ctx.root, release.appFolder).find((rel) =>
+        stepRuns(readFileSync(path.join(repo, rel), "utf8")).some((run) => RELEASE_COMMAND.test(run) && (!/workflow:run/.test(run) || run.includes(lane))),
+      );
   const githubLive = nativeLive || ownStarter !== undefined;
   const starterFile = ownStarter ? path.join(repo, ownStarter) : nativeFile;
   const shownNative = release.appFolder ? path.relative(ctx.root, starterFile).split(path.sep).join("/") : (ownStarter ?? NATIVE_RELEASE_PATH);
