@@ -556,23 +556,29 @@ describe("InboxPage (web)", () => {
 });
 
 describe("InboxPage (web): muted and pinned", () => {
-  it("marks a muted row with a bell-slash and a gray count, a pinned one with a pin, and says both", () => {
+  it("puts a pin and a bell-slash beside the time, grays the count or dot, and says both after the title", () => {
     render(
       <InboxPage
         testID="i"
         pinnedLabel="Kept"
+        formatTime={() => "9:41"}
         items={[
-          { id: "m", title: "Ben", unreadCount: 1, muted: true, pinned: true },
+          { id: "m", title: "Ben", unreadCount: 1, muted: true, pinned: true, timestamp: "2026-10-24T09:41:00Z" },
           { id: "p", title: "Ada", unreadCount: 2 },
+          { id: "d", title: "Cy", unread: true, muted: true },
         ]}
       />,
     );
-    expect(screen.getByTestId("i-row-m-muted").textContent).toBe(", Alerts off");
-    expect(screen.getByTestId("i-row-m-pinned").textContent).toBe(", Kept");
+    const trailing = screen.getByTestId("i-row-m-trailing");
+    expect([...trailing.children].map((c) => c.getAttribute("data-testid"))).toEqual(["i-row-m-pinned", "i-row-m-muted", "i-row-m-time"]);
+    expect(screen.getByTestId("i-row-m").textContent).toMatch(/^Ben, 1 unread, Kept, Alerts off9:41/);
+    expect(trailing.querySelectorAll("svg").length).toBe(2);
+    trailing.querySelectorAll("svg").forEach((svg) => expect(svg.getAttribute("aria-hidden")).toBe("true"));
     expect(screen.getByTestId("i-row-m-count").className).toContain("bg-muted");
     expect(screen.queryByTestId("i-row-p-muted")).toBeNull();
     expect(screen.queryByTestId("i-row-p-pinned")).toBeNull();
     expect(screen.getByTestId("i-row-p-count").className).toContain("bg-primary");
+    expect(screen.getByTestId("i-row-d-unread").className).toContain("bg-muted-foreground");
   });
 });
 

@@ -413,7 +413,7 @@ const DefaultRow = memo(function DefaultRow(row: InboxPageSlotMap["row"]) {
         style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: ROW_PADDING, paddingVertical: 11, minHeight: 60, backgroundColor: (pressed && row.onPress) || row.selected ? colors.fill : undefined }}
       >
         <View style={{ width: LEADING_WIDTH, alignItems: "flex-start" }}>
-          {row.leading ?? (row.unreadCount && row.unreadCount > 0 ? null : <UnreadDot unread={!!row.unread} testID={`${row.testID}-unread`} color={colors.tint} />)}
+          {row.leading ?? (row.unreadCount && row.unreadCount > 0 ? null : <UnreadDot unread={!!row.unread} testID={`${row.testID}-unread`} color={row.muted ? colors.secondaryLabel : colors.tint} />)}
         </View>
         {row.avatar ? (
           <View

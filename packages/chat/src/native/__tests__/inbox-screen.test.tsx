@@ -49,7 +49,26 @@ describe("ChatInboxScreen", () => {
   });
 
   it("carries a conversation's muted and pinned onto its row, for the bell-slash and the pin", () => {
-    const item = { conversationId: "c", title: "Ben", otherUserId: null, unread: 1, mentioned: false, muted: true, pinned: true, lastMessage: null, lastMessageAt: null } as unknown as ChatInboxItem;
+    const item: ChatInboxItem = {
+      conversationId: "c",
+      kind: "direct",
+      title: "Ben",
+      subjectType: null,
+      subjectId: null,
+      status: "open",
+      role: "member",
+      otherUserId: null,
+      memberCount: 2,
+      lastSeq: 1,
+      lastReadSeq: 0,
+      unread: 1,
+      mentioned: false,
+      muted: true,
+      pinned: true,
+      archived: false,
+      lastMessageAt: null,
+      lastMessage: null,
+    };
     const ctx = { me: ME, copy: chatNativeCopy, person: () => undefined };
     expect(inboxRow(item, ctx)).toMatchObject({ muted: true, pinned: true });
     expect(inboxRow({ ...item, muted: false, pinned: false }, ctx)).toMatchObject({ muted: false, pinned: false });

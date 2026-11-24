@@ -158,9 +158,12 @@ export interface InboxItem {
   unreadCount?: number;
   /** A short status shown under the preview ("In progress", "12 votes"). */
   meta?: string;
-  /** Its alerts are off: a bell-slash beside the time, and the unread count in gray. */
+  /** Its alerts are off: a bell-slash beside the time, and the unread count or dot in gray. */
   muted?: boolean;
-  /** It is pinned: a pin beside the time. */
+  /**
+   * It is pinned: a pin beside the time. A row mark, as Mail, WhatsApp and Telegram show one, not
+   * Messages' pinned tiles above the list (InboxPage has no tile section).
+   */
   pinned?: boolean;
   /** Replaces the unread dot (an icon). For a picture of who it is, use `avatar`, which keeps the dot. */
   leading?: ReactNode;

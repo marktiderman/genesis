@@ -345,7 +345,7 @@ function DefaultRow(row: InboxPageSlotMap["row"]) {
         className="flex min-h-14 min-w-0 flex-1 items-start gap-3 px-3 py-2.5 text-left hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
       >
         <span className="flex w-2.5 shrink-0 justify-center pt-1.5">
-          {row.leading ?? (unread && !(row.unreadCount && row.unreadCount > 0) ? <span data-testid={`${row.testID}-unread`} className="size-2.5 rounded-full bg-primary" aria-hidden /> : null)}
+          {row.leading ?? (unread && !(row.unreadCount && row.unreadCount > 0) ? <span data-testid={`${row.testID}-unread`} className={cn("size-2.5 rounded-full", row.muted ? "bg-muted-foreground" : "bg-primary")} aria-hidden /> : null)}
         </span>
         {row.avatar ? <span className="shrink-0" aria-hidden>{row.avatar}</span> : null}
         <span className="flex min-w-0 flex-1 flex-col">
@@ -353,19 +353,24 @@ function DefaultRow(row: InboxPageSlotMap["row"]) {
             {row.avatarLabel ? <span className="sr-only">{row.avatarLabel}, </span> : null}
             <span className={cn("truncate", unread ? "font-semibold" : "font-medium")}>{row.title}</span>
             {row.unreadLabel ? <span className="sr-only">, {row.unreadLabel}</span> : null}
-            {row.pinned ? (
-              <span data-testid={`${row.testID}-pinned`} className="shrink-0 self-center text-muted-foreground">
-                <Pin className="size-3.5" aria-hidden />
-                {row.pinnedLabel ? <span className="sr-only">, {row.pinnedLabel}</span> : null}
+            {row.pinned || row.muted || row.timeLabel ? (
+              // The marks and the time sit together at the end, as on the phone.
+              <span data-testid={`${row.testID}-trailing`} className="ml-auto flex shrink-0 items-center gap-1 self-center">
+                {row.pinned ? (
+                  <span data-testid={`${row.testID}-pinned`} className="text-muted-foreground">
+                    <Pin className="size-3.5" aria-hidden />
+                    {row.pinnedLabel ? <span className="sr-only">, {row.pinnedLabel}</span> : null}
+                  </span>
+                ) : null}
+                {row.muted ? (
+                  <span data-testid={`${row.testID}-muted`} className="text-muted-foreground">
+                    <BellOff className="size-3.5" aria-hidden />
+                    {row.mutedLabel ? <span className="sr-only">, {row.mutedLabel}</span> : null}
+                  </span>
+                ) : null}
+                {row.timeLabel ? <span data-testid={`${row.testID}-time`} className="text-xs text-muted-foreground">{row.timeLabel}</span> : null}
               </span>
             ) : null}
-            {row.muted ? (
-              <span data-testid={`${row.testID}-muted`} className="shrink-0 self-center text-muted-foreground">
-                <BellOff className="size-3.5" aria-hidden />
-                {row.mutedLabel ? <span className="sr-only">, {row.mutedLabel}</span> : null}
-              </span>
-            ) : null}
-            {row.timeLabel ? <span className="ml-auto shrink-0 text-xs text-muted-foreground">{row.timeLabel}</span> : null}
           </span>
           {row.preview ? <span className="line-clamp-2 text-sm text-muted-foreground">{row.preview}</span> : null}
           {row.meta ? <span className="mt-0.5 text-xs text-muted-foreground">{row.meta}</span> : null}
