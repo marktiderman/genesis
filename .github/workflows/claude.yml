@@ -1,6 +1,13 @@
-# Claude on demand: mention @claude in a PR or issue comment, a review, or a
-# new issue, and Claude answers, reviews or pushes a fix. Only people with
+# Claude on demand: mention @claude-action in a PR or issue comment, a review,
+# or a new issue, and Claude answers, reviews or pushes a fix. Only people with
 # write access can trigger it (the action checks).
+#
+# Its own phrase, not the default @claude: Claude Ship's commands (@claude review,
+# @claude steward, @claude stop) would otherwise start this action too, a second
+# writer on the PR (https://code.claude.com/docs/en/code-review-pull-requests,
+# "Use Code Review alongside the Claude Code GitHub Action"). Keep `trigger_phrase`
+# below and the `if:` in step. Only this repository runs this file; apps call
+# claude-review.yml, which has no trigger phrase.
 #
 # Needs the Claude GitHub app on the repo and the CLAUDE_CODE_OAUTH_TOKEN
 # secret (`claude setup-token`). To change the model, edit --model below.
@@ -22,10 +29,10 @@ permissions: {}
 jobs:
   claude:
     if: |
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
-      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude-action')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude-action')) ||
+      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude-action')) ||
+      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude-action') || contains(github.event.issue.title, '@claude-action')))
     runs-on: ubuntu-latest
     # ci.yml BILLING CONTRACT rule 3: every job is bounded.
     timeout-minutes: 60
@@ -47,6 +54,7 @@ jobs:
         uses: anthropics/claude-code-action@61a9c274fa7110a66dfafc1bbbced03833eb25fe # v1.0.269
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          trigger_phrase: "@claude-action"
           # Context7 (current library docs) for any library API Claude reads,
           # writes or reviews; keyless, on Context7's free rate limit.
           claude_args: |

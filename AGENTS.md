@@ -137,17 +137,17 @@ base), so a PR can't change its own gate, and a gate change takes effect only on
   thread when it judges it fixed) or resolve its thread with a reply that gives the reason
   (https://code.claude.com/docs/en/code-review-pull-requests#respond-to-findings). The staging
   rulesets require only checks, so threads don't block a merge into a batch.
-- Code Review follows `REVIEW.md`; PR Steward follows `.claude/skills/steward/SKILL.md`.
-  `.claude/approvals.yml` stays in observe mode, where Claude only comments and the check normally
-  doesn't block, until the maintainer says otherwise. All three bill the organization's usage
-  credits (observe mode included). Turning them on is the maintainer's call; until then agents
-  don't start them (`@claude review`, `@claude steward`).
-- Before anyone comments a Claude Ship command, `claude.yml` moves to its own trigger phrase. It
-  runs `claude-code-action`, which can push, on any comment containing `@claude`, so
-  `@claude steward`, `@claude stop` or `@claude review` would also start that action: a second
-  writer on the PR. Set its `trigger_phrase` to `@claude-action` and match it in the job's `if:`
-  (https://code.claude.com/docs/en/code-review-pull-requests). After that, `@claude …` reaches
-  Claude Ship and `@claude-action` reaches the repository's action.
+- Code Review follows `REVIEW.md`, and PR Steward follows `.claude/skills/steward/SKILL.md`.
+  `.claude/approvals.yml` stays in observe mode, where Claude only comments and the check
+  normally doesn't block, until the maintainer says otherwise. All three bill the organization's
+  usage credits (observe mode included). Turning them on is the maintainer's call; until then
+  agents don't start them (`@claude review`, `@claude steward`).
+- Which phrase reaches which agent: `@claude review`, `@claude steward` and `@claude stop` reach
+  Claude Ship. The repository's own Claude Code Action (`claude.yml`, which can push) answers only
+  `@claude-action`: its `trigger_phrase` and its job's `if:` both name that phrase, so a Claude
+  Ship command never starts it as a second writer
+  (https://code.claude.com/docs/en/code-review-pull-requests). Apps call `claude-review.yml`,
+  which has no trigger phrase, so they're unaffected.
 - PR Steward starts when someone comments `@claude steward`, and `@claude stop` stops it
   (https://code.claude.com/docs/en/pr-steward-pull-requests). It starts on request only if:
   - the repository is set to Manual;
