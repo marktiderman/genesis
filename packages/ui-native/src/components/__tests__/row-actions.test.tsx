@@ -1,4 +1,5 @@
 // @feat:row-actions
+import { useState } from "react";
 import { forwardRef, useImperativeHandle, type ReactNode } from "react";
 import { act, cleanup, fireEvent, render, renderHook, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -280,6 +281,25 @@ describe("row actions (ADR 0028)", () => {
     expect(screen.queryByTestId("own-menu")).toBeNull();
     // VoiceOver's actions are unchanged.
     expect(row.getAttribute("data-a11y-actions")).toBe("read,pin,review,delete");
+  });
+
+  it("takes a menu component with hooks as renderMenu, with no hook-order warning", async () => {
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    function HookedMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
+      const [count, setCount] = useState(0);
+      return open ? <button data-testid="hooked-menu" data-count={count} onClick={() => (setCount((n) => n + 1), onClose())} /> : null;
+    }
+    render(
+      <NativeRowActions actions={make()} title="Ada" renderMenu={HookedMenu} testID="ra">
+        <NativeListItem title="Ada" onPress={vi.fn()} testID="li" />
+      </NativeRowActions>,
+    );
+    fireEvent.contextMenu(screen.getByTestId("li"));
+    fireEvent.click(await screen.findByTestId("hooked-menu"));
+    fireEvent.contextMenu(screen.getByTestId("li"));
+    expect((await screen.findByTestId("hooked-menu")).getAttribute("data-count")).toBe("1");
+    expect(errors.mock.calls.some((c) => String(c[0]).includes("order of Hooks") || String(c[0]).includes("Rendered more hooks"))).toBe(false);
+    errors.mockRestore();
   });
 
   it("keeps the actions unseen until a drag starts, so they never show in an inset row's margins", () => {

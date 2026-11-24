@@ -60,7 +60,8 @@ export interface UseRowActionsOptions {
   /**
    * The long-press menu of the screen's own (a glass menu, say), in place of the sheet and the
    * system menu: it gets `RowActionsMenuProps` and is mounted from the first long press. The swipe
-   * and the screen reader's actions don't change.
+   * and the screen reader's actions don't change. It runs inside a component of its own, so a menu
+   * component passed straight in (`renderMenu={MyMenu}`) may use hooks.
    */
   renderMenu?: (props: RowActionsMenuProps) => ReactNode;
   /** The sheet's Cancel. */
@@ -182,7 +183,7 @@ export function useRowActions(actions: readonly RowSwipeAction[], options: UseRo
       <>
         {swiped}
         {sheetShown && renderMenu ? (
-          renderMenu({ open, onClose: () => setOpen(false), actions, ...(title ? { title } : {}), ...(preview ? { preview } : {}), testID: `${testID}-menu` })
+          <RowMenuHost render={renderMenu} menu={{ open, onClose: () => setOpen(false), actions, ...(title ? { title } : {}), ...(preview ? { preview } : {}), testID: `${testID}-menu` }} />
         ) : sheetShown ? (
           <NativeContextMenu
             open={open}
@@ -198,4 +199,12 @@ export function useRowActions(actions: readonly RowSwipeAction[], options: UseRo
     );
   };
   return { rowProps, wrap, openMenu };
+}
+
+/**
+ * Where a `renderMenu` runs: a component of its own, so the hooks of a menu component passed as
+ * `renderMenu` belong to it, not to the row that mounts it on its first long press.
+ */
+function RowMenuHost({ render, menu }: { render: (props: RowActionsMenuProps) => ReactNode; menu: RowActionsMenuProps }) {
+  return <>{render(menu)}</>;
 }
