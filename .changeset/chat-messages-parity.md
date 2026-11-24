@@ -13,7 +13,7 @@ genesis-chat's native screens draw the platform's Messages pattern (iOS 26) by d
 - **`ChatComposer`:** the glass + circle and "Message" pill, the mic inside it, the Send arrow (hold it to schedule); + opens a glass list with round colored icons (Camera, Photos, Audio, Video, Send Later, Paste). New: `plusItems`, `slots.plusList`.
 - **Header and details:** `useChatThreadStackOptions` draws the face over a glass name pill (`titleLayout`, `faceSize`); `ChatDetailsScreen` is new.
 - **Pieces:** `useChatColors`, `ChatFace`, `ChatGlassPanel`, `ChatGlassCircle`, `ChatGlassMenu`, `ChatContextOverlay`, `ChatSymbol`, `ChatBubbleShape`, `ChatConversationPreview`, `CHAT_METRICS`, `CHAT_TYPE`, the times (`timeSeparatorLabel`) and the inbox's rules (`defaultInboxFilters`, `applyInboxFilter`, `pinnedConversations`, `matchesInboxSearch`, `isSelfConversation`); `modules.keyboardStickyView` for the search field.
-- **Peers:** genesis-design-system `>=1.14.0` is now required: apps on genesis-chat native install it (`pnpm add @marktiderman/genesis-design-system`). genesis-ui-native `>=3.17.1`, the release with `InboxPage`'s `variant`.
+- **Peers:** genesis-design-system `>=1.14.0` is now required: apps on genesis-chat native install it (`pnpm add @marktiderman/genesis-design-system`). genesis-ui-native `>=3.18.0`, the release with `InboxPage`'s `variant`.
 - **Mentions:** a mention's name is bounded (1 to 80 characters) in `displayBody`, `plainText` and `previewText`, so a hostile body can't make the regular expression backtrack.
 
 ## What changes on upgrade

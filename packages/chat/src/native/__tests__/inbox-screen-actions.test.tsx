@@ -48,9 +48,9 @@ function row(unread: number, muted = false) {
   };
 }
 
-async function renderWith(item: ReturnType<typeof row>, over: Record<string, unknown> = {}) {
+async function renderWith(item: ReturnType<typeof row>, over: Record<string, unknown> = {}, screen: { current: Record<string, unknown> } = { current: {} }, extra: ReturnType<typeof row>[] = []) {
   const client = {
-    inbox: vi.fn(async () => [item]),
+    inbox: vi.fn(async () => [item, ...extra]),
     subscribeInbox: vi.fn(() => ({ unsubscribe: vi.fn() })),
     unreadTotal: vi.fn(async () => 0),
     markRead: vi.fn(async () => 3),
@@ -67,13 +67,14 @@ async function renderWith(item: ReturnType<typeof row>, over: Record<string, unk
       <ChatProvider client={client} userId={ME}>
         <ChatNativeProvider>
           {/* An inline onOpen, as an app writes it: a new function every render. */}
-          <ChatInboxScreen onOpen={() => {}} />
+          <ChatInboxScreen onOpen={() => {}} {...screen.current} />
         </ChatNativeProvider>
       </ChatProvider>
     </QueryClientProvider>
   );
   const view = render(tree());
   await waitFor(() => expect(seen.items.length).toBe(1));
+  await act(async () => {});
   const actions = seen.items[0]!.swipeActions ?? [];
   return { client, qc, actions, byId: (id: string) => actions.find((a) => a.id === id)!, rerender: () => view.rerender(tree()) };
 }
@@ -155,5 +156,21 @@ describe("ChatInboxScreen's row actions", () => {
     const before = seen.items;
     rerender();
     expect(seen.items).toBe(before);
+  });
+
+  it("keeps its pins and search row when the app gives pageProps.header, with that header among them", async () => {
+    const pinned = { ...row(0), conversationId: "33333333-3333-4333-8333-333333333333", title: "Robin", pinned: true };
+    await renderWith(row(0), {}, { current: { pageProps: { header: createElement("span", { "data-testid": "own-header" }) } } }, [pinned]);
+    expect(screen.getByTestId("own-header")).toBeTruthy();
+    expect(screen.getByTestId("chat-inbox-pins")).toBeTruthy();
+  });
+
+  it("offers a new rowActions' set at once, without waiting for the inbox to change", async () => {
+    const props = { current: { rowActions: (_i: unknown, d: { id: string }[]) => d } as Record<string, unknown> };
+    const view = await renderWith(row(0), {}, props);
+    expect(seen.items[0]!.swipeActions!.map((a) => a.id)).toContain("pin");
+    props.current = { rowActions: (_i: unknown, d: { id: string }[]) => d.filter((a) => a.id !== "pin") };
+    view.rerender();
+    await waitFor(() => expect(seen.items[0]!.swipeActions!.map((a) => a.id)).not.toContain("pin"));
   });
 });

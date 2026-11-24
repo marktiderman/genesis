@@ -296,9 +296,10 @@ export function ChatInboxScreen(props: ChatInboxScreenProps) {
   const person = useCallback((id: string | null | undefined) => known(id) ?? (id ? people[id] : undefined) ?? (id === userId && meCard ? meCard : undefined), [known, people, userId, meCard]);
   const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState("");
-  // Read when a row is pressed or built, so an inline `onOpen` or `rowActions` doesn't rebuild every row.
-  const latest = useRef({ onOpen, rowActions });
-  latest.current = { onOpen, rowActions };
+  // Read when a row is pressed, so an inline `onOpen` doesn't rebuild every row. `rowActions` shapes
+  // what each row offers, so a new one rebuilds them: keep it stable (useCallback) to keep the rows.
+  const latest = useRef({ onOpen });
+  latest.current = { onOpen };
 
   const filters = useMemo(() => {
     const defaults = defaultInboxFilters(copy);
@@ -349,7 +350,7 @@ export function ChatInboxScreen(props: ChatInboxScreenProps) {
   const { pinnedRows, items } = useMemo(() => {
     const actionsFor = (item: ChatInboxItem) => {
       const defaults = inboxRowActions(item, act, copy, options);
-      const own = latest.current.rowActions;
+      const own = rowActions;
       return own ? own(item, defaults) : defaults;
     };
     const open = (id: string) => () => latest.current.onOpen(id);
@@ -378,7 +379,7 @@ export function ChatInboxScreen(props: ChatInboxScreenProps) {
       }
     }
     return { pinnedRows: pins, items: rows };
-  }, [visible, pinnedIds, userId, copy, person, attachmentKinds, act, options, meCard]);
+  }, [visible, pinnedIds, userId, copy, person, attachmentKinds, act, options, meCard, rowActions]);
 
   // ---- The header ----
   const { onOpenArchived, onOpenScheduled, menuItems } = props;
@@ -419,7 +420,6 @@ export function ChatInboxScreen(props: ChatInboxScreenProps) {
         variant="plain"
         background={c.roles.page}
         items={items}
-        header={listHeader}
         loading={inbox.isLoading}
         error={Boolean(inbox.error)}
         errorTitle={copy.inboxErrorTitle}
@@ -434,6 +434,8 @@ export function ChatInboxScreen(props: ChatInboxScreenProps) {
         mutedLabel={copy.alertsOff}
         pinnedLabel={copy.pinnedMark}
         {...pageProps}
+        // After pageProps: the pins and the search row stay, with pageProps.header inside them.
+        header={listHeader}
         slots={pageSlots}
         slotProps={pageSlotProps}
       />
