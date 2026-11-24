@@ -225,7 +225,7 @@ describe("the push block: taps", () => {
 });
 
 describe("the push block: as a block", () => {
-  it("contributes a Notifications row with the permission as its subtitle, and reads the permission behind the splash", async () => {
+  it("contributes a Notifications row with the permission as its subtitle, and adds no boot step (the permission is read after the boot)", async () => {
     const n = fakeNotifications({ status: permission.denied });
     const navigate = vi.fn();
     function Settings() {
@@ -243,10 +243,32 @@ describe("the push block: as a block", () => {
     const { push } = setup({ notifications: n.module }, { children: <Settings /> });
     await act(settle);
     expect(push.id).toBe("push");
-    expect(push.bootSteps.map((s) => s.id)).toEqual(["genesis:push"]);
+    expect(push.bootSteps).toEqual([]);
     expect(screen.getByTestId("genesis-push-settings").textContent).toBe("Notifications: Off in Settings");
     fireEvent.click(screen.getByTestId("genesis-push-settings"));
     expect(navigate).toHaveBeenCalledWith("/settings/notifications");
+  });
+
+  it("reads the permission only after the session is restored, never behind the splash", async () => {
+    // On iOS that read waits for the notification service on Expo's one shared native queue (25–30 s
+    // on the first request after the phone starts), and the session's Keychain read queues behind it:
+    // read during the boot, it timed genesis:session out into the fatal screen.
+    const n = fakeNotifications();
+    const { supabase } = setup({ notifications: n.module });
+    await act(settle);
+    expect(screen.getByTestId("screens")).toBeTruthy();
+    const getSession = supabase.client.auth.getSession as unknown as ReturnType<typeof vi.fn>;
+    expect(getSession).toHaveBeenCalled();
+    expect(n.module.getPermissionsAsync).toHaveBeenCalled();
+    expect(n.module.getPermissionsAsync.mock.invocationCallOrder[0]).toBeGreaterThan(getSession.mock.invocationCallOrder[0]!);
+  });
+
+  it("boots even when the permission read never answers", async () => {
+    const n = fakeNotifications();
+    n.module.getPermissionsAsync.mockImplementation(() => new Promise(() => {}));
+    setup({ notifications: n.module });
+    await act(settle);
+    expect(screen.getByTestId("screens")).toBeTruthy();
   });
 
   it("drops the row with settingsRow: false", () => {
@@ -276,6 +298,29 @@ describe("the push block: coming back to the front", () => {
     act(() => appState.emit("active"));
     await act(settle);
     expect(first.push.registration.getState().status).toBe("registered");
+  });
+});
+
+describe("the push block: coming back to the front, after Settings", () => {
+  it("reads the permission afresh, so a read that began before the change can't skip the registration", async () => {
+    const appState = fakeAppState();
+    const notifications = fakeNotifications({ status: permission.denied });
+    const { b, push } = setup({ appState, notifications: notifications.module });
+    await act(settle);
+    expect(b.calls).toEqual([]);
+    // A read that started while notifications were still off, and hasn't answered yet.
+    let answerOld: (s: typeof permission.denied) => void = () => {};
+    notifications.module.getPermissionsAsync.mockImplementationOnce(() => new Promise((resolve) => (answerOld = resolve)));
+    const old = push.permission.refresh();
+    // The person turns notifications on in Settings and comes back.
+    notifications.setStatus(permission.granted);
+    act(() => appState.emit("active"));
+    await act(settle);
+    expect(b.calls).toEqual(["register ExponentPushToken[device-1] ios 1.2.0"]);
+    // The older read answers last, with the old permission: it doesn't win.
+    answerOld(permission.denied);
+    await act(() => old.then(() => undefined));
+    expect(push.permission.getState().status).toBe("granted");
   });
 });
 
