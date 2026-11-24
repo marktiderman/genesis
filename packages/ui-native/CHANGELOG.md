@@ -1,5 +1,38 @@
 # @marktiderman/genesis-ui-native
 
+## 3.16.0
+
+### Minor Changes
+
+- 0b34247: - `NativeThreadList` takes `openAt`: it opens with that row (the first unread) at the top, once,
+  when the rows and it are known (`undefined` waits, `null` opens at the bottom), and never after
+  the reader has scrolled (a drag, or VoiceOver's or a wheel's scroll away from the bottom). A row
+  FlatList hasn't measured is retried from an estimated offset, then it opens at the bottom. Under FlashList a scroll to the end after a send happens once: the
+  list's bottom anchoring follows the new row, so the second try 180 ms later is gone (FlatList
+  keeps it).
+  - `InboxPage` builds its rows only when its items change, or the minute does (so times and
+    "Yesterday" turn over on the next render), and memoizes the row renderer and `DefaultRow`, so a
+    page re-render no longer redraws every row.
+  - `GenesisModules.reanimated` may carry `FadeInDown` (`GenesisLayoutAnimation`), for an
+    `entering` animation; `GenesisModules.swipeable` takes `leftThreshold` and
+    `dragOffsetFromRightEdge`, and `onSwipeableWillOpen` gets the direction. `GenesisSwipeableComponent`
+    and `GenesisLayoutAnimation` are exported.
+
+### Patch Changes
+
+- 793246d: Fixes from the release review of the native thread:
+
+  - The scheduled messages sheet scrolls (`NativeSheetScrollView`) once its list is taller than the
+    sheet, so the later ones and their Cancel stay reachable.
+  - `ChatThreadScreen` opens at the "New messages" line itself, not the message under it (search
+    results and pinned messages still go to the message). Showing another conversation or thread in
+    the same screen forgets where you had scrolled away, so its messages don't count as new.
+  - `NativeThreadList openAt`: a move to the bottom (a send) drops any opening retry still queued, so
+    it can't pull the list back; if the opening row goes before the list reaches it, the list opens
+    at the newest rows.
+  - `InboxPage` gives a `formatTime` of the app's own the exact clock on every render; only the
+    default formatter is cached by the minute.
+
 ## 3.15.0
 
 ### Minor Changes
