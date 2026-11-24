@@ -1,8 +1,10 @@
 # Review instructions
 
-Claude Code Review (Claude Ship) reads this file from the PR's base branch when that branch is
-protected, and otherwise from the default branch: a copy that is only in a staging batch isn't
-in force yet.
+Claude Code Review (Claude Ship) reads this file from `main` for every PR, staging batches
+included: a non-default base counts only with a ruleset that restricts updates or requires an
+approval, and the staging rulesets here do neither. So a change here takes effect once released.
+The `@AGENTS.md` include below is expanded because `main` is protected; without that protection
+Code Review would leave it as plain text.
 The repo's rules are in AGENTS.md, included below; a change that breaks one of them is a finding. Cite the principle IDs
 (G1–G6, `docs/FRAMEWORK.md`) where one applies.
 
