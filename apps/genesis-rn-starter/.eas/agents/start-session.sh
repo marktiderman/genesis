@@ -63,13 +63,13 @@ Control the device only with this shell command:
 
     bash /tmp/agentic-ci-tools/device.sh <command>
 
-Run each command alone. Do not join commands with ;, &&, or |, and do not use \$ or backticks. The folder agent-output/evidence already exists. If a command is refused, read the reason and use an allowed command. Write files, such as the verdict, with your file tools, not with shell commands. The screen is already being recorded: do not start or stop a recording.
+Run each command alone. Do not join commands with ;, &&, or |, and do not use \$, backticks, > or <. The folder agent-output/evidence already exists. If a command is refused, read the reason and use an allowed command. Write files, such as the verdict, with your file tools, not with shell commands. The screen is already being recorded: do not start or stop a recording.
 
 The commands:
 
 - snapshot -i lists the elements on the screen, with references such as @e2. The references change on each screen, so run snapshot -i again after each action.
 - snapshot without -i also lists the plain text on the screen.
-- press @e2 taps an element. Add --settle to wait for the screen to settle.
+- press @e2 taps an element. Add --settle to wait for the screen to settle. press label="Send" taps the element labeled Send; put several selectors in single quotes: press 'role=button label="Follow"'.
 - longpress @e2 800 presses and holds an element.
 - fill @e4 "text" replaces the text of a field. type "text" types into the focused field.
 - keyboard enter presses the Enter key of the keyboard (also dismiss, delete, tab, space).

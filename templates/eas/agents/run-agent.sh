@@ -6,8 +6,8 @@
 # What `device` mode enforces (Claude Code's permission rules, in dontAsk mode, so whatever no
 # rule allows is denied):
 # - Shell: only `bash /tmp/agentic-ci-tools/device.sh …`, the read-only copy of device.sh, which
-#   runs a fixed list of agent-device commands (see its header). A command with $, a backtick or
-#   $( is denied before it runs.
+#   runs a fixed list of agent-device commands (see its header). A command with $, a backtick, a
+#   redirect (> or <), a pipe, ; or & is denied before it runs.
 # - Reading: the project's files only (Read(./**); Glob and Grep search the project), never a .env
 #   file, /proc, /tmp (the session file and the tools) or the home folder.
 # - Writing: only under agent-output/evidence (Edit rules also govern Write).
@@ -23,7 +23,7 @@ set -euo pipefail
 case "${2:-}" in
   device)
     tools='Read(./**),Edit(./agent-output/evidence/**),Bash(bash /tmp/agentic-ci-tools/device.sh *)'
-    denied='Read(//proc/**),Read(//tmp/**),Read(//private/**),Read(//dev/**),Read(//etc/**),Read(~/**),Read(./.env*),Read(./**/.env*),Bash(*$*),Bash(*`*),Bash(* /proc/*)'
+    denied='Read(//proc/**),Read(//tmp/**),Read(//private/**),Read(//dev/**),Read(//etc/**),Read(~/**),Read(./.env*),Read(./**/.env*),Bash(*$*),Bash(*`*),Bash(*>*),Bash(*<*),Bash(*|*),Bash(*;*),Bash(*&*),Bash(* /proc/*)'
     ;;
   *)
     echo "Unknown mode \"${2:-}\". Use device." >&2

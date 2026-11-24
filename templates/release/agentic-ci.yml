@@ -164,7 +164,10 @@ jobs:
           # Only PASS or FAIL leaves the job as an output: the agent's own words stay in the evidence.
           case "$(head -n 1 agent-output/evidence/verdict.md 2> /dev/null)" in PASS:*) verdict=PASS ;; *) verdict=FAIL ;; esac
           set-output verdict "$verdict"
-          set-output session_url "$(node -p 'require("/tmp/session.json").deviceRunSessionUrl || ""')"
+          # The session's page on expo.dev, and nothing else, goes in the comment.
+          session_url="$(node -p 'require("/tmp/session.json").deviceRunSessionUrl || ""' 2> /dev/null || true)"
+          case "$session_url" in https://expo.dev/*) ;; *) session_url="" ;; esac
+          set-output session_url "$session_url"
           set-output build_id "$BUILD_ID"
           set-output commit "$(git rev-parse --short HEAD)"
       - name: Redact the evidence into agent-output/upload

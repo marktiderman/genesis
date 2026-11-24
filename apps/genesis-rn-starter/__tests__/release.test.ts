@@ -288,7 +288,7 @@ describe("EAS workflows", () => {
     const runner = read(".eas/agents/run-agent.sh");
     expect(runner).toContain("tools='Read(./**),Edit(./agent-output/evidence/**),Bash(bash /tmp/agentic-ci-tools/device.sh *)'");
     // Where the job's secrets can still be read: the process environment, /tmp, home, .env files.
-    for (const rule of ["Read(//proc/**)", "Read(//tmp/**)", "Read(//etc/**)", "Read(~/**)", "Read(./.env*)", "Bash(*$*)"]) expect(runner).toContain(rule);
+    for (const rule of ["Read(//proc/**)", "Read(//tmp/**)", "Read(//etc/**)", "Read(~/**)", "Read(./.env*)", "Bash(*$*)", "Bash(*`*)", "Bash(*>*)", "Bash(*<*)", "Bash(*|*)", "Bash(*;*)", "Bash(*&*)"]) expect(runner).toContain(rule);
     expect(runner).toContain('--disallowedTools "$denied"');
     expect(runner).toContain("--permission-mode dontAsk");
     // A bare Read, Write or Edit would reach anywhere (Write is governed by Edit rules), and a bare
@@ -310,6 +310,10 @@ describe("EAS workflows", () => {
     expect(upload).toBeGreaterThan(redact);
     expect((steps[redact] as { if?: string }).if).toContain("always()");
     expect((steps[upload] as { with?: { path?: string } }).with?.path).toBe("agent-output/upload/**/*");
+    // The comment links only the session's page on expo.dev.
+    expect(run).toContain('case "$session_url" in https://expo.dev/*) ;; *) session_url="" ;; esac');
+    expect(run).toContain('set-output session_url "$session_url"');
+    expect(read(".eas/agents/redact-evidence.sh")).not.toMatch(/readFileSync\("\.env\.eas-simulator"/);
   });
 
   it("every agent script parses", () => {
@@ -390,7 +394,37 @@ function device(...args: string[]) {
   return { status: r.status, stderr: r.stderr, prefix: lines.slice(0, at + 1), device: at >= 0 ? lines.slice(at + 1) : [], stdout: r.stdout, env };
 }
 
+/** Runs `bash device.sh <line>` through a real shell, as the agent's Bash tool does. */
+function deviceShell(line: string) {
+  const dir = mkdtempSync(join(tmpdir(), "agentic-ci-sh-"));
+  mkdirSync(join(dir, "bin"));
+  writeFileSync(join(dir, "bin", "npx"), '#!/usr/bin/env bash\nprintf "%s\\n" "$@"\n');
+  chmodSync(join(dir, "bin", "npx"), 0o755);
+  const script = join(root, ".eas/agents/device.sh");
+  const r = spawnSync("bash", ["-c", `bash ${script} ${line}`], {
+    encoding: "utf8",
+    env: { PATH: `${join(dir, "bin")}:${process.env.PATH}`, HOME: dir, AGENTIC_CI_APP_ID: "com.example.app", AGENTIC_CI_PLATFORM: "ios", AGENTIC_CI_PROJECT: dir },
+  });
+  const lines = r.stdout.trim().split("\n");
+  return { status: r.status, stderr: r.stderr, device: lines.slice(lines.indexOf("agent-device@0.21.41") + 1) };
+}
+
 describe("device.sh, the agent's only shell command", () => {
+  it.each([
+    ['press label="Send"', ["press", 'label="Send"']],
+    ["press label=Send --settle", ["press", 'label="Send"', "--settle"]],
+    ['press label="Send now"', ["press", 'label="Send now"']],
+    [`press 'role=button label="Follow"'`, ["press", 'role=button label="Follow"']],
+    ["press 'role=button label=Follow'", ["press", "role=button label=Follow"]],
+    ['fill id="email" "a@example.com"', ["fill", 'id="email"', "a@example.com"]],
+    ["longpress @e3 800", ["longpress", "@e3", "800"]],
+    ["screenshot 02-sent.png", ["screenshot", "agent-output/evidence/02-sent.png"]],
+  ])("takes `%s` as the agent's shell passes it", (line, expected) => {
+    const r = deviceShell(line);
+    expect(r.status, r.stderr).toBe(0);
+    expect(r.device).toEqual(expected);
+  });
+
   it("runs an allowed command through eas simulator:exec, with none of the job's variables", () => {
     const r = device("press", "@e2", "--settle");
     expect(r.status, r.stderr).toBe(0);

@@ -291,7 +291,7 @@ export const TEMPLATE_SETS: Readonly<Record<string, { summary: string; templates
     summary: "Agentic CI: agentic-ci.yml (EAS), on the Agent check label or by hand, where a coding agent tests a pull request on an Expo Simulators session (and runs the app's Maestro flows there) and comments its verdict, with the scripts and prompt in .eas/agents",
     templates: ["release/agentic-ci.yml", "eas/agents/"],
   },
-  eas: { summary: "eas.json and every EAS workflow and script", templates: ["eas/", "release/"] },
+  eas: { summary: "eas.json and every EAS workflow and script (Agentic CI only with its own set)", templates: ["eas/", "release/"] },
   expo: { summary: "the fingerprint config and .fingerprintignore", templates: ["expo/"] },
   maestro: { summary: "the Maestro smoke flows", templates: ["maestro/"] },
   ci: { summary: "app CI, Claude review and the weekly Genesis upgrade (GitHub)", templates: ["ci/app-ci.yml", "ci/claude-review.yml", "ci/genesis-upgrade.yml"] },
@@ -305,14 +305,23 @@ export function allTemplates(dir = templatesDir()): string[] {
 }
 
 /** The templates `names` (sets or template paths) stand for, in order, without repeats. */
+/**
+ * Template sets an app gets only by naming them (`genesis add template agentic-ci`): never offered
+ * as missing, and never part of a broader set such as eas. Agentic CI's runs are billed (a session,
+ * a repack and an agent's tokens).
+ */
+export const OPT_IN_SETS: readonly string[] = ["agentic-ci"];
+
 export function resolveTemplateNames(names: readonly string[], dir = templatesDir()): string[] {
   const all = allTemplates(dir);
   const out: string[] = [];
   for (const name of names) {
     const set = TEMPLATE_SETS[name];
     const patterns = set ? set.templates : [name.replace(/^templates\//, "")];
+    // A folder pattern of another set (eas's eas/ and release/) never takes an opt-in template.
+    const optIn = (t: string) => OPT_IN_SETS.some((o) => o !== name && TEMPLATE_SETS[o]!.templates.some((q) => (q.endsWith("/") ? t.startsWith(q) : t === q)));
     for (const p of patterns) {
-      const hits = p.endsWith("/") ? all.filter((t) => t.startsWith(p)) : all.filter((t) => t === p);
+      const hits = p.endsWith("/") ? all.filter((t) => t.startsWith(p) && !(set && optIn(t))) : all.filter((t) => t === p);
       if (!hits.length) throw new Error(`"${name}" isn't a template set (${Object.keys(TEMPLATE_SETS).join(", ")}) or a template under templates/ (genesis add template --list)`);
       for (const h of hits) if (!out.includes(h)) out.push(h);
     }
@@ -786,12 +795,17 @@ export function missingTemplateSets(root: string, lock: GenesisLock, dir = templ
     if (["release", "eas", "expo", "maestro"].includes(name)) return native;
     // Previews alone is the release lane's subset: an app offered the lane isn't offered both.
     if (name === "previews") return false;
-    // Agentic CI is opt-in: each run is billed (a session, a repack and an agent's tokens).
-    if (name === "agentic-ci") return false;
+    // Opt-in sets (Agentic CI: each run is billed) are never offered.
+    if (OPT_IN_SETS.includes(name)) return false;
     if (name === "database") return existsSync(path.join(root, "supabase"));
     if (name === "vercel") return !native;
     return true;
   });
+  return wanted.filter((name) => setIsMissing(root, lock, name, dir));
+}
+
+/** Whether the app lacks any of a set's templates (not in the lock, no file of its own there). */
+export function setIsMissing(root: string, lock: GenesisLock, name: string, dir = templatesDir()): boolean {
   const appFolder = (() => {
     try {
       return appFolderOf(root);
@@ -807,11 +821,9 @@ export function missingTemplateSets(root: string, lock: GenesisLock, dir = templ
       return false;
     }
   })();
-  return wanted.filter((name) => {
-    const templates = resolveTemplateNames([name], dir).filter((t) => githubTrigger || t !== NATIVE_RELEASE);
-    return templates.some((t) => {
-      const target = templateTarget(t, readFileSync(path.join(dir, t), "utf8"));
-      return !lock.files[target] && readApp(ownedDir(root, target, appFolder), target) === null;
-    });
+  const templates = resolveTemplateNames([name], dir).filter((t) => githubTrigger || t !== NATIVE_RELEASE);
+  return templates.some((t) => {
+    const target = templateTarget(t, readFileSync(path.join(dir, t), "utf8"));
+    return !lock.files[target] && readApp(ownedDir(root, target, appFolder), target) === null;
   });
 }

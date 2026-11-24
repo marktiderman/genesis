@@ -6,9 +6,9 @@
 #   bash /tmp/agentic-ci-tools/redact-evidence.sh
 #
 # The secrets: every variable of the job whose name has TOKEN, KEY, SECRET or PASSWORD in it
-# (the agent's key, EXPO_TOKEN_SIMULATOR, GITHUB_TOKEN and your own), the session's controller
-# credentials (.env.eas-simulator and /tmp/session.json's remoteConfig), and any value of 8
-# characters or more. Images and video (png, jpg, mp4, mov, webm), the session's own recording on
+# (the agent's key, EXPO_TOKEN_SIMULATOR, GITHUB_TOKEN and your own) and the session's controller
+# credentials (/tmp/session.json's remoteConfig, the values .env.eas-simulator held: simulator:stop
+# empties that file before this runs), each value of 8 characters or more. Images and video (png, jpg, mp4, mov, webm), the session's own recording on
 # expo.dev included, are copied as they are: nothing reads text out of them, so keep secrets off
 # the screen (test logins only).
 #
@@ -28,12 +28,6 @@ const addStrings = (v) => {
   else if (v && typeof v === "object") Object.values(v).forEach(addStrings);
 };
 try { addStrings(JSON.parse(fs.readFileSync("/tmp/session.json", "utf8")).remoteConfig); } catch {}
-try {
-  for (const line of fs.readFileSync(".env.eas-simulator", "utf8").split("\n")) {
-    const m = /^\s*[A-Z0-9_]+\s*=\s*(.*)$/.exec(line);
-    if (m) values.add(m[1].trim().replace(/^([\x27"])(.*)\1$/, "$2"));
-  }
-} catch {}
 const secrets = [...values].filter((v) => v.length >= 8).sort((a, b) => b.length - a.length);
 const from = "agent-output/evidence", to = "agent-output/.upload-tmp";
 const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]));

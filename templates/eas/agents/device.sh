@@ -18,7 +18,10 @@
 #   screenshot <name>.png            saved as agent-output/evidence/<name>.png
 #   open                             opens the app under test again (its ID only, never a URL)
 #
-# A target is @e<number> or a selector such as label="Send" or id="submit". Everything else is
+# A target is @e<number> or a selector such as label="Send" or id="submit": a shell drops those
+# quotes, so label=Send and label="Send now" (the shell passes label=Send now) are taken too, and
+# quoted again for agent-device. Several selectors together go in single quotes:
+# 'role=button label="Follow"'. Everything else is
 # refused: other commands (install, save-script, replay, metro, record, test, logs, network…), any
 # flag not listed, paths, URLs, and any argument with $, a backtick or a line break. An argument
 # that holds the agent's own key is refused too, in case a shell expanded it.
@@ -51,7 +54,15 @@ for arg in "$@"; do
   done
 done
 
-is_target() { [[ "$1" =~ ^@e[0-9]{1,5}$ ]] || [[ "$1" =~ ^(label|id|text|role)=\"[^\"]{1,200}\"( (label|id|text|role)=\"[^\"]{1,200}\")*$ ]]; }
+is_target() { [[ "$1" =~ ^@e[0-9]{1,5}$ ]] || [[ "$1" =~ ^(label|id|text|role)=(\"[^\"]{1,200}\"|[^\ \"]{1,200})( (label|id|text|role)=(\"[^\"]{1,200}\"|[^\ \"]{1,200}))*$ ]] || [[ "$1" =~ ^(label|id|text|role)=[^\"]{1,200}$ ]]; }
+# The target as agent-device takes it: a selector whose shell dropped its quotes gets them back.
+as_target() {
+  if [[ "$1" =~ \ (label|id|text|role)= ]] || ! [[ "$1" =~ ^(label|id|text|role)=([^\"]{1,200})$ ]]; then
+    printf '%s' "$1"
+  else
+    printf '%s="%s"' "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}"
+  fi
+}
 is_ms() { [[ "$1" =~ ^[0-9]{1,5}$ ]]; }
 is_coord() { [[ "$1" =~ ^[0-9]{1,4}$ ]]; }
 is_text() { [ "${#1}" -le 500 ] && [[ "$1" != -* ]]; }
@@ -65,17 +76,17 @@ case "$command" in
     ;;
   press)
     { [ "$#" -ge 1 ] && is_target "$1"; } || refuse "press needs a target (@e2 or label=\"…\")"
-    if [ "$#" -eq 1 ]; then args=(press "$1"); elif [ "$#" -eq 2 ] && [ "$2" = "--settle" ]; then args=(press "$1" --settle); else refuse "press takes a target and --settle only"; fi
+    if [ "$#" -eq 1 ]; then args=(press "$(as_target "$1")"); elif [ "$#" -eq 2 ] && [ "$2" = "--settle" ]; then args=(press "$(as_target "$1")" --settle); else refuse "press takes a target and --settle only"; fi
     ;;
   longpress)
     { [ "$#" -ge 1 ] && [ "$#" -le 2 ] && is_target "$1"; } || refuse "longpress takes a target and a duration in ms"
     if [ "$#" -eq 2 ]; then is_ms "$2" || refuse "longpress's duration is a number of ms"; fi
-    args=(longpress "$@")
+    args=(longpress "$(as_target "$1")" "${@:2}")
     ;;
   fill)
     { [ "$#" -ge 2 ] && [ "$#" -le 3 ] && is_target "$1" && is_text "$2"; } || refuse "fill takes a target and a text"
     if [ "$#" -eq 3 ]; then [ "$3" = "--settle" ] || refuse "fill takes --settle only"; fi
-    args=(fill "$@")
+    args=(fill "$(as_target "$1")" "${@:2}")
     ;;
   type)
     { [ "$#" -eq 1 ] && is_text "$1"; } || refuse "type takes one text"
