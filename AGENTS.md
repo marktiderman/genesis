@@ -137,15 +137,23 @@ base), so a PR can't change its own gate, and a gate change takes effect only on
   thread when it judges it fixed) or resolve its thread with a reply that gives the reason
   (https://code.claude.com/docs/en/code-review-pull-requests#respond-to-findings). The staging
   rulesets require only checks, so threads don't block a merge into a batch.
-- Code Review follows `REVIEW.md`. PR Steward follows `.claude/skills/steward/SKILL.md` and starts
-  when someone comments `@claude steward`, if the maintainer sets it to start only on request and keeps their own PR Steward setting off
-  "Act on its own", which overrides the repository's and would start it on every PR the account
-  opens, and turns on "Include my draft PRs", without which it won't start on a draft PR
-  (https://code.claude.com/docs/en/pr-steward-pull-requests); `@claude stop` stops it.
+- Code Review follows `REVIEW.md`; PR Steward follows `.claude/skills/steward/SKILL.md`.
   `.claude/approvals.yml` stays in observe mode, where Claude only comments and the check normally
-  doesn't block, until the maintainer says otherwise. All three bill the organization's usage credits
-  (observe mode included); turning them on is the maintainer's call, and until then agents don't
-  start them (`@claude review`, `@claude steward`).
+  doesn't block, until the maintainer says otherwise. All three bill the organization's usage
+  credits (observe mode included). Turning them on is the maintainer's call; until then agents
+  don't start them (`@claude review`, `@claude steward`).
+- Before anyone comments a Claude Ship command, `claude.yml` moves to its own trigger phrase. It
+  runs `claude-code-action`, which can push, on any comment containing `@claude`, so
+  `@claude steward`, `@claude stop` or `@claude review` would also start that action: a second
+  writer on the PR. Set its `trigger_phrase` to `@claude-action` and match it in the job's `if:`
+  (https://code.claude.com/docs/en/code-review-pull-requests). After that, `@claude …` reaches
+  Claude Ship and `@claude-action` reaches the repository's action.
+- PR Steward starts when someone comments `@claude steward`, and `@claude stop` stops it
+  (https://code.claude.com/docs/en/pr-steward-pull-requests). It starts on request only if:
+  - the repository is set to Manual;
+  - the maintainer's own PR Steward setting isn't "Act on its own", which overrides Manual and
+    starts it on every PR the account opens;
+  - "Include my draft PRs" is on, for a draft PR.
 - One watcher per PR: Auto-fix can't start on a PR that PR Steward watches, a local `/steward`
   watch doesn't start there, and PR Steward labelling a PR ends a local `/ship` or `/steward` watch
   (https://code.claude.com/docs/en/pr-steward,
