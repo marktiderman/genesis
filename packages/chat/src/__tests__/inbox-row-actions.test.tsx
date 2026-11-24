@@ -275,6 +275,31 @@ describe("ChatInbox (web) row actions", () => {
     await waitFor(() => expect(client.calls.some((c) => c.method === "deleteConversationForMe")).toBe(true));
   });
 
+  it("leaves focus in the list once a confirmed Delete removes the row, however long the call takes", async () => {
+    const B = "00000000-0000-4000-8000-0000000000b2";
+    const client = createMemoryChatClient({
+      me: ME,
+      conversations: [
+        { id: "c1", title: "Morning crew", members: [{ userId: ME }, { userId: B }], messages: [] },
+        { id: "c2", title: "Evening crew", members: [{ userId: ME }, { userId: B }], messages: [] },
+      ],
+    });
+    // The network: the delete answers a moment after the dialog has closed.
+    const deleteNow = client.deleteConversationForMe.bind(client);
+    client.deleteConversationForMe = async (...args: Parameters<typeof deleteNow>) => {
+      await new Promise((r) => setTimeout(r, 30));
+      return deleteNow(...args);
+    };
+    mount(<ChatInbox resolveUser={resolveUser} onSelect={() => {}} />, client);
+    const more = await screen.findByTestId("genesis-chat-inbox-row-c1-more");
+    more.focus();
+    await openMenu("genesis-chat-inbox-row-c1");
+    fireEvent.click(await screen.findByTestId("genesis-chat-inbox-row-c1-action-delete"));
+    fireEvent.click(await screen.findByTestId("genesis-chat-inbox-confirm"));
+    await waitFor(() => expect(screen.queryByTestId("genesis-chat-inbox-row-c1")).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId("genesis-chat-inbox-row-c2")));
+  });
+
   it("takes rowActions to reshape them", async () => {
     const rowActions = vi.fn((_item: ChatInboxItem, defaults: { id: string }[]) => defaults.filter((a) => a.id === "pin"));
     mount(<ChatInbox resolveUser={resolveUser} onSelect={() => {}} rowActions={rowActions as never} />);

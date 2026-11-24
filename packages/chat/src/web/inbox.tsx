@@ -185,8 +185,24 @@ export function ChatInbox({ resolveUser, onSelect, selectedId, kind, archived = 
   const act = useInboxActions();
   const labels = useMemo(() => ({ ...defaultInboxActionLabels, ...actionLabels }), [actionLabels]);
   const navRef = useRef<HTMLElement>(null);
-  // A confirmed delete removes its row: focus goes to the list's tab stop instead.
-  const { confirm, dialog } = useConfirmDialog(labels.cancel, () => navRef.current?.querySelector<HTMLElement>('[data-inbox-row][tabindex="0"]') ?? navRef.current?.querySelector<HTMLElement>("[data-inbox-row]"));
+  const listTabStop = useCallback(
+    () => navRef.current?.querySelector<HTMLElement>('[data-inbox-row][tabindex="0"]') ?? navRef.current?.querySelector<HTMLElement>("[data-inbox-row]") ?? null,
+    [],
+  );
+  const { confirm: ask, dialog } = useConfirmDialog(labels.cancel, listTabStop);
+  // A confirmed action (Delete for me) removes its row only once the call and the inbox's refetch
+  // come back, after the dialog has already handed focus back to that row's More button. Until the
+  // next rows arrive with focus lost, put it on the list's tab stop then; give up after 15 seconds
+  // (the action failed, or left the row in place).
+  const refocusUntil = useRef(0);
+  const confirm = useCallback<ChatConfirm>(
+    async (title, body, label) => {
+      const ok = await ask(title, body, label);
+      if (ok) refocusUntil.current = Date.now() + 15_000;
+      return ok;
+    },
+    [ask],
+  );
   const rows = useMemo<ChatInboxRow[]>(
     () =>
       items.map((item) => {
@@ -214,6 +230,17 @@ export function ChatInbox({ resolveUser, onSelect, selectedId, kind, archived = 
       }),
     [items, me, resolveUser, fallbackTitle, attachmentKinds, act, labels, confirm, onActionError, rowActions],
   );
+  useEffect(() => {
+    if (refocusUntil.current === 0) return;
+    if (Date.now() > refocusUntil.current) {
+      refocusUntil.current = 0;
+      return;
+    }
+    const active = document.activeElement;
+    if (active && active !== document.body && active.isConnected) return;
+    refocusUntil.current = 0;
+    listTabStop()?.focus();
+  }, [rows, listTabStop]);
   const label = rest["aria-label"] ?? "Conversations";
 
   return (
