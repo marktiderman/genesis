@@ -148,9 +148,10 @@ base), so a PR can't change its own gate, and a gate change takes effect only on
   Ship command never starts it as a second writer
   (https://code.claude.com/docs/en/code-review-pull-requests). Apps call `claude-review.yml`,
   which has no trigger phrase, so they're unaffected.
-- PR Steward starts when someone comments `@claude steward`, and `@claude stop` stops it
-  (https://code.claude.com/docs/en/pr-steward-pull-requests). It starts only when asked, never
-  by itself, while:
+- A `@claude steward` comment or the `claude-pr-steward-watching` label starts PR Steward in any
+  mode, and `@claude stop` stops it
+  (https://code.claude.com/docs/en/pr-steward-pull-requests). It waits for one of those instead
+  of starting by itself while:
   - the repository is set to Manual;
   - the maintainer's own PR Steward setting isn't "Act on its own", which overrides Manual and
     starts it on every PR the account opens.
