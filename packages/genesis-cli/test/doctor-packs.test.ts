@@ -364,7 +364,9 @@ describe("native pack", () => {
     // On release.trigger "eas" (the default) it is drift, a warning naming that file; on "github", quiet.
     const ownDrift = await nativeApp({ ...dispatchOnly, ...ownStarter });
     expect(levels(ownDrift.findings, "release-lane-live")).toEqual(["warn"]);
-    expect(ownDrift.findings.find((f) => f.rule === "release-lane-live")!.message).toContain(".github/workflows/mobile-ota.yml");
+    const ownMessage = ownDrift.findings.find((f) => f.rule === "release-lane-live")!.message;
+    expect(ownMessage).toContain("remove .github/workflows/mobile-ota.yml in the same change");
+    expect(ownMessage).not.toContain("retires");
     const ownGithub = await nativeApp({ ...dispatchOnly, ...ownStarter, "genesis.config.json": JSON.stringify({ release: { trigger: "github" } }) });
     expect(levels(ownGithub.findings, "release-lane-live")).toEqual([]);
     // A manual-only one still starts nothing.

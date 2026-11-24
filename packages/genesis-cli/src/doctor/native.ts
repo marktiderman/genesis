@@ -337,7 +337,9 @@ export function checkReleaseLaneLive(ctx: DoctorContext): void {
       level: "warn",
       file: shownNative,
       subject: "release.trigger",
-      message: `genesis.config.json release.trigger is "eas", but releases still start from GitHub Actions (${shownNative}), so a merge ships only while GitHub Actions runs. Run genesis add template release --trigger eas, which gives deploy-production.yml its push trigger and retires ${shownNative} once the EAS project's GitHub link is confirmed; or genesis add template release --trigger github to keep GitHub's (docs/NATIVE-RELEASE.md, "Moving to EAS's trigger")`,
+      message: ownStarter
+        ? `genesis.config.json release.trigger is "eas", but releases still start from GitHub Actions (${shownNative}, the repository's own workflow), so a merge ships only while GitHub Actions runs. Run genesis add template release --trigger eas, which gives deploy-production.yml its push trigger, and remove ${shownNative} in the same change (it isn't Genesis's, so nothing removes it, and kept beside EAS's trigger every release would go out twice); or set release.trigger to "github" to keep it (docs/NATIVE-RELEASE.md, "Moving to EAS's trigger")`
+        : `genesis.config.json release.trigger is "eas", but releases still start from GitHub Actions (${shownNative}), so a merge ships only while GitHub Actions runs. Run genesis add template release --trigger eas, which gives deploy-production.yml its push trigger and retires ${shownNative} once the EAS project's GitHub link is confirmed; or genesis add template release --trigger github to keep GitHub's (docs/NATIVE-RELEASE.md, "Moving to EAS's trigger")`,
     });
   } else if (trigger === "github" && githubLive && !easLive) {
     ctx.report({
