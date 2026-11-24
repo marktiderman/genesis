@@ -1821,7 +1821,7 @@ importers:
     dependencies:
       '@marktiderman/genesis-core':
         specifier: ^1.11.0 || ^2.0.0
-        version: 2.17.0(@hookform/resolvers@7.0.7(@standard-schema/spec@1.1.0)(ajv-formats@3.0.1(ajv@8.20.0))(ajv@8.20.0)(react-hook-form@7.92.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7))(@tanstack/react-query@5.107.2(@types/react@19.3.0)(react@19.3.0))(react-hook-form@7.92.0(@types/react@19.3.0)(react@19.3.0))(react@19.3.0)(zod@4.6.7)
+        version: 2.20.0(@hookform/resolvers@7.0.7(@standard-schema/spec@1.1.0)(ajv-formats@3.0.1(ajv@8.20.0))(ajv@8.20.0)(react-hook-form@7.92.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7))(@tanstack/react-query@5.107.2(@types/react@19.3.0)(react@19.3.0))(react-hook-form@7.92.0(@types/react@19.3.0)(react@19.3.0))(react@19.3.0)(zod@4.6.7)
       '@marktiderman/genesis-data-server':
         specifier: workspace:^
         version: link:../data-server
@@ -3955,8 +3955,8 @@ packages:
     resolution: {integrity: sha512-6QEf6yqFbETdwGITKq57aYoPfX/3K8XFNwsAlx0C1M7o8cb79sv1M3w+tWuWvIcSbNqrLF7OD7YpZMVVz335hQ==}
     engines: {node: '>=20.0.0'}
 
-  '@marktiderman/genesis-core@2.17.0':
-    resolution: {integrity: sha512-xMtNJb60RNxNto7ZM388GcaUpRz7tnirW7npBaGWa0I4YIjDd7POwltYVugpGZURHpQ6sxgnnBy9YvXKDosQ3w==}
+  '@marktiderman/genesis-core@2.20.0':
+    resolution: {integrity: sha512-+PG/l3THGIPoGRSDTiDxUm4UnJeBIjl75IeDBrf/NEvHN0BUPKLbONB+FvDAOr1sja0aEK4/zyGEId+T5a710A==}
     peerDependencies:
       '@hookform/resolvers': ^3.0.0 || ^4.0.0 || ^5.0.0 || ^6.0.0 || ^7.0.0
       '@tanstack/react-query': ^5.0.0
@@ -14083,7 +14083,7 @@ snapshots:
       tinyglobby: 0.2.17
       yaml: 2.9.1
 
-  '@marktiderman/genesis-core@2.17.0(@hookform/resolvers@7.0.7(@standard-schema/spec@1.1.0)(ajv-formats@3.0.1(ajv@8.20.0))(ajv@8.20.0)(react-hook-form@7.92.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7))(@tanstack/react-query@5.107.2(@types/react@19.3.0)(react@19.3.0))(react-hook-form@7.92.0(@types/react@19.3.0)(react@19.3.0))(react@19.3.0)(zod@4.6.7)':
+  '@marktiderman/genesis-core@2.20.0(@hookform/resolvers@7.0.7(@standard-schema/spec@1.1.0)(ajv-formats@3.0.1(ajv@8.20.0))(ajv@8.20.0)(react-hook-form@7.92.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7))(@tanstack/react-query@5.107.2(@types/react@19.3.0)(react@19.3.0))(react-hook-form@7.92.0(@types/react@19.3.0)(react@19.3.0))(react@19.3.0)(zod@4.6.7)':
     dependencies:
       '@hookform/resolvers': 7.0.7(@standard-schema/spec@1.1.0)(ajv-formats@3.0.1(ajv@8.20.0))(ajv@8.20.0)(react-hook-form@7.92.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7)
       '@tanstack/react-query': 5.107.2(@types/react@19.3.0)(react@19.3.0)
