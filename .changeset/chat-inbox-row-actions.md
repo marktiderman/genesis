@@ -23,5 +23,3 @@ The inbox's row actions, Messages' set, on the phone and the web (G1-315). Needs
 - **`createMemoryChatClient`:** Archive is kept (`setMySettings(id, { archived })`, or `archived` on a seed) and reported on the row; `inbox()` leaves archived conversations out, and `inbox({ archived: true })` lists only them, as the hosted client does.
 
 A muted conversation shows a bell-slash and a pinned one a pin, beside the time, on the phone (`ChatInboxScreen`; `inboxRow` passes `muted` and `pinned`) and on the web (`ChatInbox`, whose marks move from the preview line to beside the time). Both read the same words to a screen reader, the new labels `alertsOff` ("Alerts off") and `pinnedMark` ("Pinned"), in `ChatInboxActionLabels` and the native copy; the web's lowercase "muted" and "pinned" are gone.
-
-`useConfirmDialog` gives focus back to the control that asked when its dialog closes. It takes a second argument, `fallbackFocus`, for when that control is gone; `ChatInbox` passes the list's tab stop, so a confirmed Delete leaves focus in the list.
