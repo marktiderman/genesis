@@ -5,7 +5,7 @@
  * Realtime hints, sending through the outbox, and message actions. Server
  * state is TanStack Query's; the renderers in /web and /native only draw.
  */
-import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ChatClient, ConversationChannel, MessagePage } from "../core/client";
 import {
@@ -26,6 +26,7 @@ import type {
   ChatAttachment,
   ChatAvailability,
   ChatLinkPreview,
+  ChatMember,
   ChatMessage,
   ChatSearchHit,
   ChatSignal,
@@ -332,6 +333,9 @@ export interface UseConversationOptions {
 }
 
 /** One conversation: its messages (with what you are still sending), members, your role, and who is typing. */
+/** How long a `read` hint waits for others before the members are read again. */
+const READ_REFETCH_MS = 300;
+
 export function useConversation(conversationId: string | null | undefined, opts: UseConversationOptions = {}) {
   const { client, userId, outbox, queue } = useChat();
   const queryClient = useQueryClient();
@@ -368,6 +372,20 @@ export function useConversation(conversationId: string | null | undefined, opts:
   const hasEarlier = messages.data?.hasEarlier ?? false;
   // Where "New" goes: what you had read when the conversation opened.
   const [readWhenOpened, setReadWhenOpened] = useState<number | null>(null);
+  // Another conversation in the same screen (a split view, no remount) opens at its own read place:
+  // forget the last one's, and read this one's members afresh (a cached copy may be from an earlier visit).
+  const [openedFor, setOpenedFor] = useState(id);
+  if (openedFor !== id) {
+    setOpenedFor(id);
+    setReadWhenOpened(null);
+  }
+  const { refetch: refetchMembers } = members;
+  const firstId = useRef(id);
+  useEffect(() => {
+    if (firstId.current === id) return;
+    firstId.current = id;
+    if (enabled) void refetchMembers();
+  }, [id, enabled, refetchMembers]);
 
   const merge = useCallback(
     (incoming: ChatMessage[], hasEarlierNow?: boolean) =>
@@ -402,8 +420,11 @@ export function useConversation(conversationId: string | null | undefined, opts:
 
   const [activity, setActivity] = useState<ChatActivity[]>([]);
   const channel = useRef<ConversationChannel | null>(null);
+  // Whether the live channel is joined: null until the client first says, false when it dropped.
+  const [live, setLive] = useState<boolean | null>(null);
   useEffect(() => {
     if (!enabled) return;
+    setLive(null);
     const fetchOne = async (messageId: string) => {
       const m = await client.message(messageId);
       if (!m) return;
@@ -414,11 +435,21 @@ export function useConversation(conversationId: string | null | undefined, opts:
         if (root) merge([root]);
       }
     };
+    let readRefetch: ReturnType<typeof setTimeout> | null = null;
     channel.current = client.subscribeConversation(id, userId, {
       onSignal: (s) => {
         if (s.type === "message") void fetchOne(s.id);
         else if (s.type === "reaction") void fetchOne(s.messageId);
-        else if (s.type === "members") {
+        else if (s.type === "read") {
+          // Read receipts: a cue to read the members again, never the read place itself (a payload
+          // is only as good as whoever sent it). Coalesced, so a burst of reads is one fetch.
+          if (readRefetch === null) {
+            readRefetch = setTimeout(() => {
+              readRefetch = null;
+              void queryClient.invalidateQueries({ queryKey: chatKeys.members(id) });
+            }, READ_REFETCH_MS);
+          }
+        } else if (s.type === "members") {
           void queryClient.invalidateQueries({ queryKey: chatKeys.members(id) });
           void queryClient.invalidateQueries({ queryKey: chatKeys.role(id) });
         } else if (s.type === "conversation") {
@@ -429,9 +460,15 @@ export function useConversation(conversationId: string | null | undefined, opts:
         }
       },
       onActivity: (a) => setActivity((prev) => currentActivity([...prev, a])),
-      onJoin: () => void catchUp().catch(() => undefined),
+      // Every join: what was missed while the channel was down, messages and read places both.
+      onJoin: () => {
+        void catchUp().catch(() => undefined);
+        void queryClient.invalidateQueries({ queryKey: chatKeys.members(id) });
+      },
+      onLive: setLive,
     });
     return () => {
+      if (readRefetch) clearTimeout(readRefetch);
       channel.current?.unsubscribe();
       channel.current = null;
     };
@@ -480,6 +517,13 @@ export function useConversation(conversationId: string | null | undefined, opts:
         queryClient.refetchQueries({ queryKey: ["genesis-chat", "kind"] }),
       ]).then(() => undefined),
     [queryClient, id],
+  );
+
+  const { refetch: refetchMessages } = messages;
+  const { refetch: refetchConversationRow } = conversation;
+  const reload = useCallback(
+    () => Promise.all([refetchConversationRow(), refetchMessages()]).then(() => undefined),
+    [refetchConversationRow, refetchMessages],
   );
 
   const loadEarlier = useCallback(async () => {
@@ -575,6 +619,8 @@ export function useConversation(conversationId: string | null | undefined, opts:
     loadUntil,
     /** Where to draw the "New" line, from what you had read when it opened. */
     firstUnreadId: readWhenOpened === null ? null : firstUnreadId(list, readWhenOpened, userId),
+    /** Whether `firstUnreadId` is known yet (your read place as of this opening has been fetched). */
+    firstUnreadKnown: readWhenOpened !== null,
     activity: currentActivity(activity),
     signalTyping,
     signalRecording,
@@ -585,6 +631,10 @@ export function useConversation(conversationId: string | null | undefined, opts:
     retry: outbox.retry,
     discard: outbox.discard,
     refetch: catchUp,
+    /** The conversation and its first page again, after either failed (a Retry on the thread's error row). */
+    reload,
+    /** The live channel: true once joined, false when it dropped (errored, timed out, closed), null until the client says. */
+    live,
   };
 }
 
@@ -625,6 +675,14 @@ export function useMessageActions() {
 }
 
 /**
+ * What the read hooks return while there is nothing yet: one frozen object (and array) for every
+ * caller, so a row's memo holds across renders instead of seeing a fresh `{}` each time.
+ */
+const NO_PEOPLE: Record<string, ChatPerson> = Object.freeze({}) as Record<string, ChatPerson>;
+const NO_URLS: Record<string, string> = Object.freeze({}) as Record<string, string>;
+const NO_PINS: string[] = Object.freeze([]) as unknown as string[];
+
+/**
  * Names and avatars for these people, from the provider's `loadPeople`, fetched as one
  * batch per set of ids and cached. Unknown ids are left out.
  */
@@ -637,7 +695,7 @@ export function usePeople(userIds: (string | null | undefined)[]): Record<string
       queryFn: () => loadPeople!(ids),
       enabled: Boolean(loadPeople) && ids.length > 0,
       staleTime: 5 * 60_000,
-    }).data ?? {}
+    }).data ?? NO_PEOPLE
   );
 }
 
@@ -651,16 +709,25 @@ export function usePerson(userId: string | null | undefined): ChatPerson | null 
 export function usePins(conversationId: string | null | undefined): string[] {
   const { client } = useChat();
   return (
-    useQuery({ queryKey: chatKeys.pins(conversationId ?? ""), queryFn: () => client.pins(conversationId!), enabled: Boolean(conversationId) }).data ?? []
+    useQuery({ queryKey: chatKeys.pins(conversationId ?? ""), queryFn: () => client.pins(conversationId!), enabled: Boolean(conversationId) }).data ?? NO_PINS
   );
 }
 
-/** Signed links for files (cached by the client until shortly before they expire). */
+/**
+ * Signed links for files (cached by the client until shortly before they expire). While a new set
+ * of paths loads (a photo arrives), the links already signed stay: the photos on screen don't blank.
+ */
 export function useFileUrls(paths: (string | null | undefined)[]): Record<string, string> {
   const { client } = useChat();
   const list = useMemo(() => [...new Set(paths.filter((p): p is string => Boolean(p)))], [paths]);
   return (
-    useQuery({ queryKey: chatKeys.files(list), queryFn: () => client.fileUrls(list), enabled: list.length > 0, staleTime: 50 * 60_000 }).data ?? {}
+    useQuery({
+      queryKey: chatKeys.files(list),
+      queryFn: () => client.fileUrls(list),
+      enabled: list.length > 0,
+      staleTime: 50 * 60_000,
+      placeholderData: keepPreviousData,
+    }).data ?? NO_URLS
   );
 }
 
