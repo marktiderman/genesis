@@ -353,21 +353,28 @@ const InboxRow = memo(function InboxRow({
   menuPreview: ((row: InboxPageSlotMap["row"]) => ReactNode) | undefined;
   sheetTestID: string;
 }) {
-  const actions = row.swipeActions ?? NO_ACTIONS;
+  // The page's slotProps.row wins over the item, as everywhere else, so merge it once and build the
+  // swipe, the long press and the screen reader's actions from the same row.
+  const merged = useMemo(() => (rowProps ? { ...row, ...rowProps } : row), [row, rowProps]);
+  const actions = merged.swipeActions ?? NO_ACTIONS;
   const swipe =
     swipeSlot === null
       ? null
       : (props: RowActionsSwipeProps) => renderSlot(NativeSwipeRow, swipeSlot, { ...props, actions: [...props.actions] }, swipeProps);
   const { rowProps: actionProps, wrap } = useRowActions(actions, {
-    title: row.title,
-    ...(menuPreview ? { preview: () => menuPreview(row) } : {}),
+    title: merged.title,
+    ...(menuPreview ? { preview: () => menuPreview(merged) } : {}),
     ...(swipeAppearance ? { appearance: swipeAppearance } : {}),
     swipe,
-    testID: row.testID,
+    testID: merged.testID,
     sheetTestID,
   });
-  const withActions = useMemo(() => (actions.length ? { ...row, actionProps } : row), [row, actions.length, actionProps]);
-  return <>{wrap(renderSlot(DefaultRow, rowSlot, withActions, rowProps))}</>;
+  // An actionProps the page gave in slotProps.row wins, as slotProps does everywhere.
+  const withActions = useMemo(
+    () => (actions.length ? { ...merged, actionProps: rowProps?.actionProps ?? actionProps } : merged),
+    [merged, rowProps, actions.length, actionProps],
+  );
+  return <>{wrap(renderSlot(DefaultRow, rowSlot, withActions))}</>;
 });
 const NO_SLOTS: Slots<InboxPageSlotMap> = Object.freeze({});
 const NO_SLOT_PROPS: SlotPropsFor<InboxPageSlotMap> = Object.freeze({});

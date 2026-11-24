@@ -363,6 +363,8 @@ declare module "react-native" {
   export type OpaqueColorValue = symbol & { __TYPE__: "Color" };
   export type ColorValue = string | OpaqueColorValue;
   export function PlatformColor(...names: string[]): OpaqueColorValue;
+  /** A colour as the native side takes it: an ARGB number for a colour string, an object for a platform colour, null when unrecognised. */
+  export function processColor(color?: number | ColorValue): number | OpaqueColorValue | null | undefined;
 
   export interface AppearanceModule {
     getColorScheme(): ColorSchemeName;
