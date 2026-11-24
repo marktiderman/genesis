@@ -163,6 +163,33 @@ describe("row actions (ADR 0028)", () => {
     expect(JSON.parse(button.dataset.style!)).toMatchObject({ backgroundColor: "transparent", width: 56 });
   });
 
+  it("draws round buttons without the labels under them with roundLabels={false}, each still named for the screen reader", () => {
+    const Swipeable = fakeSwipeable(vi.fn(), () => 0);
+    const { rerender } = render(
+      <GenesisModulesProvider modules={{ swipeable: Swipeable as never }}>
+        <NativeSwipeRow actions={make()} appearance="round" roundLabels={false} testID="s">
+          <i />
+        </NativeSwipeRow>
+      </GenesisModulesProvider>,
+    );
+    expect(screen.queryByTestId("s-action-pin-label")).toBeNull();
+    expect(screen.getByTestId("s-action-pin").getAttribute("aria-label")).toBe("Pin");
+    // The default keeps them.
+    rerender(
+      <GenesisModulesProvider modules={{ swipeable: Swipeable as never }}>
+        <NativeSwipeRow actions={make()} appearance="round" testID="s">
+          <i />
+        </NativeSwipeRow>
+      </GenesisModulesProvider>,
+    );
+    expect(screen.getByTestId("s-action-pin-label").textContent).toBe("Pin");
+  });
+
+  it("draws an indigo accent in systemIndigo", () => {
+    expect(ROW_ACTION_SYSTEM_COLORS.indigo.ios).toBe("systemIndigo");
+    expect(onRowActionColor("indigo")).toBe("#FFFFFF");
+  });
+
   it("turns the row into a pill while its round actions are open, without remounting it", () => {
     const Swipeable = fakeSwipeable(vi.fn(), () => 10);
     render(

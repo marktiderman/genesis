@@ -40,6 +40,11 @@ export interface NativeSwipeRowProps {
   children?: ReactNode;
   /** `"fill"` (colored blocks, the default) or `"round"` (iOS 26's round icon buttons). */
   appearance?: "fill" | "round";
+  /**
+   * Round buttons: the label under each circle. Default `true`; `false` draws the circles alone, as
+   * Messages does, and each button keeps its label as its accessibility label.
+   */
+  roundLabels?: boolean;
   /** At most this many actions on a side; the rest stay in the menu and the screen reader's actions. Default 3, as Mail. */
   maxPerSide?: number;
   /** How far across the row (a share of its width) a drag runs the side's `full` action when let go. Default 0.6, as iOS. */
@@ -212,6 +217,7 @@ export function NativeSwipeRow({
   actions,
   children,
   appearance = "fill",
+  roundLabels = true,
   fullSwipeRatio = 0.6,
   maxPerSide = 3,
   accessibilityActions = true,
@@ -256,6 +262,8 @@ export function NativeSwipeRow({
             <Pressable
               key={action.id}
               testID={`${testID}-action-${action.id}`}
+              accessibilityRole="button"
+              accessibilityLabel={action.label}
               onPress={() => run(action)}
               style={{ width: round ? m.roundSlot : m.fillWidth, alignItems: "center", justifyContent: "center", gap: 4, backgroundColor: round ? "transparent" : background }}
             >
@@ -264,9 +272,11 @@ export function NativeSwipeRow({
               ) : (
                 icon
               )}
-              <NativeText preset="label" style={{ color: round ? colors.label : foreground, fontSize: round ? 12 : 14 }} numberOfLines={1}>
-                {action.label}
-              </NativeText>
+              {round && !roundLabels ? null : (
+                <NativeText testID={`${testID}-action-${action.id}-label`} preset="label" style={{ color: round ? colors.label : foreground, fontSize: round ? 12 : 14 }} numberOfLines={1}>
+                  {action.label}
+                </NativeText>
+              )}
             </Pressable>
           );
         })}

@@ -108,7 +108,9 @@ first screen to wherever the person came from: `createPlaceExit((path) => …)`,
 **Row actions** ([ADR 0028](../../docs/adr/0028-row-actions.md)). One list, in core's neutral
 shape (`RowSwipeAction` from `@marktiderman/genesis-core/row-actions`), offered three ways: behind a
 swipe (`swipe: { side, full? } | false`, an `icon`, a `tone` for what it means or an `accent` for a
-system color by name; `appearance="round"` for iOS 26's round buttons), in the long-press menu (the
+system color by name, `indigo` among them; `appearance="round"` for iOS 26's round buttons, and
+`NativeSwipeRow roundLabels={false}` for the circles without labels under them, as Messages draws
+them, each still named for VoiceOver), in the long-press menu (the
 system context menu with `GenesisModules.menu`, else a sheet), and as VoiceOver's actions, a
 refused one with its `reason`. `NativeListItem` `actions`, `NativeRowActions`, InboxPage's rows and
 NativeResourceView's rows all build them the same way. `preview` puts a peek above the long-press
