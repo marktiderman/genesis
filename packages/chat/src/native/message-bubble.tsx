@@ -13,7 +13,7 @@
  * `attachmentSlot` (see attachment-cards.tsx); a voice note's transcript is
  * part of the bubble's label.
  *
- * Shape: iMessage's. A run of one sender's bubbles is drawn as one: the corners where two meet are
+ * Shape: the Messages one. A run of one sender's bubbles is drawn as one: the corners where two meet are
  * tight, and the last (or only) one has a tail at its bottom corner on the sender's side
  * (`bubbleCorners`). Swipe to reply runs on react-native-gesture-handler (the app's
  * `GenesisModules.swipeable`, `ReanimatedSwipeable`) when given, on the UI thread; without it, a
@@ -535,7 +535,7 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
 }
 
 /**
- * iMessage's tail: a rounded piece of the bubble's color at its bottom corner, its inner curve cut
+ * The Messages tail: a rounded piece of the bubble's color at its bottom corner, its inner curve cut
  * by a piece of the thread's background. Drawn only, never read.
  */
 function BubbleTail({ mine, color, backdrop, opacity, testID }: { mine: boolean; color: unknown; backdrop: unknown; opacity: number; testID: string }) {
@@ -557,7 +557,7 @@ function ReplyHint({ color }: { color: unknown }): ReactNode {
   );
 }
 
-/** iMessage's status line: small, bold, under the bubble on your side. Read with the bubble unless it is a button. */
+/** The Messages status line: small, bold, under the bubble on your side. Read with the bubble unless it is a button. */
 function ReceiptLine({ text, onPress, hint, testID }: { text: string; onPress?: () => void; hint: string; testID: string }) {
   const colors = useThemeRoles();
   const words = (

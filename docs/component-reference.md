@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 893 components · 5291 other exports · 4492 standalone types across 229 entry points in 33 packages.
+**Totals:** 902 components · 5314 other exports · 4524 standalone types across 230 entry points in 33 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -458,7 +458,7 @@ export type { WorkingHours };
 | --- | --- | --- | --- |
 | [`ChatProvider`](../packages/chat/src/react/index.tsx) | `ChatProviderProps` | — | Puts chat in reach of every hook below it. Needs a TanStack QueryClientProvider above it. |
 
-### Other exports (23)
+### Other exports (26)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -468,7 +468,9 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`CATCH_UP_MAX_PAGES`](../packages/chat/src/react/index.tsx) | const | — | _(no summary)_ |
 | [`CATCH_UP_PAGE`](../packages/chat/src/react/index.tsx) | const | — | How many messages a catch-up asks for at a time, and how many pages before it gives up and jumps to the newest. |
 | [`chatKeys`](../packages/chat/src/react/index.tsx) | const | — | _(no summary)_ |
+| [`defaultInboxActionLabels`](../packages/chat/src/react/inbox-actions.ts) | const | — | The English words, which the native copy starts from too. |
 | [`hostedUploadFrom`](../packages/chat/src/react/index.tsx) | function | — | The outbox's `hostedUpload` from a `ChatVideoUpload`: mints the upload (or, resuming, reuses the one minted before), resolves at once with its id, and PUTs the whole file to its URL in the background (XMLHttpRequest where there is one, f... |
+| [`inboxRowActions`](../packages/chat/src/react/inbox-actions.ts) | function | — | One inbox row's actions: Messages' set, in its order and colors. |
 | [`LINK_PREVIEW_CONCURRENCY`](../packages/chat/src/react/index.tsx) | const | — | At most this many link-preview reads at once, per client. |
 | [`useAvailability`](../packages/chat/src/react/index.tsx) | function | — | Availability: yours (`mine`, `setMine`) and, given a conversation, its members' (`members`, `forUser`). Pair with `awayLine` and `isWithinWorkingHours` from the core. |
 | [`useBroadcast`](../packages/chat/src/react/index.tsx) | function | — | Sends one message into many conversations (replies come back privately in each). |
@@ -477,6 +479,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useDebouncedValue`](../packages/chat/src/react/index.tsx) | function | — | The value, once it has stopped changing for `ms`. |
 | [`useFileUrls`](../packages/chat/src/react/index.tsx) | function | — | Signed links for files (cached by the client until shortly before they expire). While a new set of paths loads (a photo arrives), the links already signed stay: the photos on screen don't blank. |
 | [`useInbox`](../packages/chat/src/react/index.tsx) | function | — | Your conversations, live. `kind` narrows to one kind; `archived` shows the archived ones. |
+| [`useInboxActions`](../packages/chat/src/react/index.tsx) | function | — | Your own actions on one inbox row (Mark as Unread or Read, Pin, Hide Alerts, Archive, Delete for me), refreshing the inbox and badge afterwards. Each takes the row's item and returns the call's promise, so a failure reaches the caller to... |
 | [`useLinkPreviews`](../packages/chat/src/react/index.tsx) | function | — | Link previews for these messages, by message id, in link order (only those the server has fetched). Pass the messages whose text has links (`extractLinks(body).length > 0`). One query per message, so a new message asks only for its own, ... |
 | [`useMessageActions`](../packages/chat/src/react/index.tsx) | function | — | Edit, delete, react, pin, save and report, refreshing what they change. |
 | [`usePeople`](../packages/chat/src/react/index.tsx) | function | — | Names and avatars for these people, from the provider's `loadPeople`, fetched as one batch per set of ids and cached. Unknown ids are left out. |
@@ -488,16 +491,20 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useTopics`](../packages/chat/src/react/index.tsx) | function | — | A conversation's topics, live (set_topic's hint refreshes them), and `setTopic` for owners and admins: add one (`setTopic("week-1", { title: "Week 1" })`), close or reopen it. |
 | [`useUnreadTotal`](../packages/chat/src/react/index.tsx) | function | — | How many messages wait for you everywhere (for a badge), live. |
 
-### Types (7)
+### Types (11)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
 export type { ChatAttachmentKind };
 export type { ChatCardContext };
+export type { ChatConfirm };
+export type { ChatInboxActionLabels };
+export type { ChatInboxActions };
 export type { ChatPerson };
 export type { ChatVideoUpload };
 export type { ConversationState };
+export type { InboxRowActionsOptions };
 export type { MessagesData };
 export type { UseConversationOptions };
 ```
@@ -538,7 +545,7 @@ export type { UseConversationOptions };
 | [`MessageRow`](../packages/chat/src/web/bubble.tsx) | `MessageRowProps` | — | _(no summary)_ |
 | [`VoiceNote`](../packages/chat/src/web/voice-note.tsx) | `VoiceNoteProps` | — | _(no summary)_ |
 
-### Other exports (34)
+### Other exports (35)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -572,6 +579,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`toLocalInput`](../packages/chat/src/web/schedule.tsx) | function | — | `YYYY-MM-DDTHH:mm` in local time, for a datetime-local input. |
 | [`uploadVideo`](../packages/chat/src/web/video.tsx) | function | — | Uploads a recording through the app's `videoUpload` (a Mux direct upload: PUT the bytes to the URL it returns) and gives back the attachment to send, pending until Mux's webhook marks it ready. The composer no longer uses it: it sends `v... |
 | [`useChatDock`](../packages/chat/src/web/dock.tsx) | function | — | The dock: open a conversation or a panel in it from anywhere under `ChatDockProvider`. |
+| [`useConfirmDialog`](../packages/chat/src/web/inbox.tsx) | function | — | A `ChatConfirm` drawn as genesis-ui's AlertDialog: the confirm to pass, and the dialog to render. |
 | [`useOptionalChatDock`](../packages/chat/src/web/dock.tsx) | function | — | The dock when there is one, else null: for a button that opens in the dock when the app has one, and navigates when it doesn't. |
 | [`useVideoRecorder`](../packages/chat/src/web/video.tsx) | function | — | _(no summary)_ |
 | [`useVoiceRecorder`](../packages/chat/src/web/use-voice-recorder.ts) | function | — | _(no summary)_ |
@@ -662,13 +670,14 @@ export type { VoiceRecording };
 | [`VoiceNotePlayer`](../packages/chat/src/native/voice-player.tsx) | `VoiceNotePlayerProps` | — | _(no summary)_ |
 | [`VoiceTranscript`](../packages/chat/src/native/media.tsx) | `VoiceTranscriptProps` | — | A voice note's transcript under the player: "Transcribing…" while it is made, then the text, folded to three lines with "Show more" when it is longer. The bubble reads the whole transcript to VoiceOver, so the toggle is for sight only. |
 
-### Other exports (177)
+### Other exports (178)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
 | [`activePlaybackId`](../packages/chat/src/native/voice-player.tsx) | function | — | The playing voice note's id, for tests. |
+| [`alertConfirm`](../packages/chat/src/native/inbox-screen.tsx) | function | — | Asks with the system alert: Cancel, then the destructive action. |
 | [`AT_BOTTOM_POINTS`](../packages/chat/src/native/thread-screen.tsx) | const | — | Points from the bottom that still count as "at the bottom" (FlatList, which follows by hand). |
 | [`attachmentKindOf`](../packages/chat/src/native/attachment-cards.tsx) | function | — | The app's registered kind for this attachment kind (own keys only, never `constructor` and the like). |
 | [`attachmentPaths`](../packages/chat/src/native/media.tsx) | function | — | The paths a set of messages needs signed links for. |
@@ -2281,7 +2290,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`widgetProblems`](../packages/core/src/resource-view/widget.ts) | function | — | Every problem with a widget; empty when it is sound. |
 | [`windowBounds`](../packages/core/src/resource-view/calendar.ts) | function | Beta | A window as filter values for a column: days for a date column, ISO instants of `zone`'s midnights for a timestamp, and wall-clock midnights (no zone) for a timestamp without one. `[from, to)`; `lead` widens the start by days. @stability... |
 
-### Types (103)
+### Types (108)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -2337,6 +2346,10 @@ export type { ResolvedViewAction };
 export type { ResourceTree };
 export type { ResourceView };
 export type { ResourceWorkspace };
+export type { RowActionAccent };
+export type { RowActionSide };
+export type { RowActionSwipe };
+export type { RowActionTone };
 export type { RowGroup };
 export type { RowImage };
 export type { RowOf };
@@ -2354,6 +2367,7 @@ export type { TreeNode };
 export type { TreeOptions };
 export type { TreeResult };
 export type { ViewAction };
+export type { ViewActionSwipe };
 export type { ViewBoard };
 export type { ViewBreakpoint };
 export type { ViewBulkAction };
@@ -2427,6 +2441,37 @@ export type { ThreadLabels };
 export type { ThreadMessage };
 export type { ThreadMessageStatus };
 export type { UseThreadJumpOptions };
+```
+
+---
+
+## @marktiderman/genesis-core/row-actions
+
+**Barrel:** [`packages/core/src/row-actions/index.ts`](../packages/core/src/row-actions/index.ts)
+
+### Other exports (6)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`ROW_ACTION_ACCENTS`](../packages/core/src/row-actions/index.ts) | const | — | Every {@link RowActionAccent}, for validating input. |
+| [`ROW_ACTION_TONES`](../packages/core/src/row-actions/index.ts) | const | — | Every {@link RowActionTone}, for validating input. |
+| [`rowActionLabel`](../packages/core/src/row-actions/index.ts) | function | — | A screen reader's label for it: the label, with the refusal's reason when a guard refused it. |
+| [`rowActionPlaced`](../packages/core/src/row-actions/index.ts) | function | — | Whether the action said where it swipes (`swipe`, or the deprecated `side`). |
+| [`rowActionSwipe`](../packages/core/src/row-actions/index.ts) | function | — | Where an action sits behind the swipe: `swipe`, else the deprecated `side`, else trailing. `false` keeps it off the swipe. |
+| [`rowActionTone`](../packages/core/src/row-actions/index.ts) | function | — | The action's tone: its own, else `danger` when destructive, else `tint`. |
+
+### Types (5)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { RowActionAccent };
+export type { RowActionSide };
+export type { RowActionSwipe };
+export type { RowActionTone };
+export type { RowSwipeAction };
 ```
 
 ---
@@ -6123,7 +6168,7 @@ export type { WriteState };
 
 **Barrel:** [`packages/genesis/src/ui.ts`](../packages/genesis/src/ui.ts)
 
-### Components (71)
+### Components (72)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
@@ -6156,6 +6201,7 @@ export type { WriteState };
 | [`Grid`](../packages/ui/src/components/layout/grid.tsx) | `GridProps` | Beta | Grid — two-dimensional flow for card and tile collections. |
 | [`InboxLayout`](../packages/ui/src/components/patterns/messaging/inbox-layout.tsx) | `InboxLayoutProps` | — | _(no summary)_ |
 | [`InboxPage`](../packages/ui/src/components/patterns/messaging/inbox-page.tsx) | `InboxPageProps` | — | _(no summary)_ |
+| [`InboxRowMenu`](../packages/ui/src/components/patterns/messaging/inbox-page.tsx) | `InboxRowMenuProps` | — | A row's actions as the web offers them: a More button at the row's end opening a menu, the twin of the phone's swipe and long-press menu. InboxPage's default row draws it; a row of your own (the `row` slot) draws it the same way. Nothing... |
 | [`InboxViews`](../packages/ui/src/components/patterns/messaging/inbox-views.tsx) | `InboxViewsProps` | — | _(no summary)_ |
 | [`InlineAlert`](../packages/ui/src/components/ui/inline-alert.tsx) | `InlineAlertProps` | Beta | InlineAlert — a message that sits with what it is about (between form fields, over a list): the twin of genesis-ui-native's NativeInlineAlert, with the same variants (info, success, warning, destructive), dismiss, content and actions. It... |
 | [`InputGroup`](../packages/ui/src/components/ui/input-group.tsx) | `InputGroupProps` | — | _(no summary)_ |
@@ -7157,7 +7203,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 
 **Barrel:** [`packages/genesis/src/native.ts`](../packages/genesis/src/native.ts)
 
-### Components (136)
+### Components (138)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
@@ -7246,6 +7292,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`NativeRefreshControl`](../packages/ui-native/src/components/refresh-control.tsx) | `NativeRefreshControlProps` | — | _(no summary)_ |
 | [`NativeResourceSettingsPage`](../packages/ui-native/src/components/settings-row.tsx) | `NativeResourceSettingsPageProps` | — | _(no summary)_ |
 | [`NativeResponsesToolbar`](../packages/ui-native/src/components/resource.tsx) | `NativeResponsesToolbarProps` | — | _(no summary)_ |
+| [`NativeRowActions`](../packages/ui-native/src/components/row-actions.tsx) | `NativeRowActionsProps` | — | _(no summary)_ |
 | [`NativeSearchBar`](../packages/ui-native/src/components/search-bar.tsx) | `NativeSearchBarProps` | — | _(no summary)_ |
 | [`NativeSectionListHeader`](../packages/ui-native/src/components/section-list.tsx) | `NativeSectionListHeaderProps` | — | _(no summary)_ |
 | [`NativeSegmentedControl`](../packages/ui-native/src/components/segmented-control.tsx) | `NativeSegmentedControlProps` | — | _(no summary)_ |
@@ -7296,9 +7343,10 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`SettingsSubPage`](../packages/ui-native/src/layouts/settings-sub-page.tsx) | `SettingsSubPageProps` | — | _(no summary)_ |
 | [`SocialAuthRow`](../packages/ui-native/src/layouts/auth.tsx) | `SocialAuthRowProps` | — | _(no summary)_ |
 | [`Stack`](../packages/ui-native/src/components/layout/index.ts) | `StackProps` | — | _(no summary)_ |
+| [`TabBarVisibilityProvider`](../packages/ui-native/src/layouts/tab-bar-visibility.tsx) | `TabBarVisibilityProviderProps` | — | Holds whether the tab bar is hidden, for the tab navigator it wraps. |
 | [`ThreadPage`](../packages/ui-native/src/layouts/thread-page.tsx) | `ThreadPageProps` | — | _(no summary)_ |
 
-### Other exports (77)
+### Other exports (81)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -7314,6 +7362,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`cn`](../packages/ui-native/src/utils.ts) | function | — | _(no summary)_ |
 | [`composeHeaderOptions`](../packages/ui-native/src/layouts/screen-container.tsx) | function | — | Compose a `<Stack.Screen options={...}>` object from Layer-3 named props + a direct `headerOptions` passthrough. Layouts call this and pass the result to `<Stack.Screen>` so the host's expo-router stack renders a platform-native large ti... |
 | [`confirmDiscardChanges`](../packages/ui-native/src/layouts/settings-sub-page.tsx) | function | — | Default leave-guard helper. Pops a native Alert with Discard / Keep Editing buttons; calls `proceed()` only if the user opts to discard. |
+| [`createPlaceExit`](../packages/ui-native/src/layouts/tab-bar-visibility.tsx) | function | — | A place of its own inside the tabs, as Messages is on iOS: while it's open the tab bar hides for its whole stack (`useHideTabBar` on each of its screens), and its first screen has a back button (and the edge swipe) that returns to where ... |
 | [`DEFAULT_GALLERY_RATIO`](../packages/core/src/gallery/index.ts) | const | — | Used when an item has no `width`/`height` (or a degenerate one). |
 | [`defaultNativeLightboxLabels`](../packages/ui-native/src/components/lightbox.tsx) | const | — | _(no summary)_ |
 | [`defaultStickyHeaderOffset`](../packages/ui-native/src/layouts/notifications-page.tsx) | function | — | Where a list's section headers stick by default: on iOS, the bottom of the collapsed navigation bar (the safe area's top plus the compact bar), since the list runs under the header; elsewhere 0 (the header sits above the list). |
@@ -7329,6 +7378,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`getThreadPageStackOptions`](../packages/ui-native/src/layouts/thread-page.tsx) | function | — | `<Stack.Screen options>` for a ThreadPage: a standard (not large) title, like Messages. |
 | [`googleProvider`](../packages/ui-native/src/layouts/google-sign-in.tsx) | function | Beta | A `SocialAuthProvider` (id `"google"`) for `AuthScreen`'s `providers`, or `null` when `enabled` is false. |
 | [`iosCompactNavigationBarHeight`](../packages/ui-native/src/layouts/notifications-page.tsx) | function | — | The height of iOS's compact navigation bar, below the status bar: 44 pt up to iOS 18, 54 pt from iOS 26 (measured on an iOS 26 simulator, the collapsed large-title bar of a native stack). |
+| [`isNativeIconName`](../packages/ui-native/src/icon-names.ts) | function | — | Whether `name` is a Genesis icon name: how a component checks an icon given as a string (a row action's `icon`, which platform-neutral core keeps as a string) before drawing it, instead of a cast. |
 | [`JUMP_SETTLE_MS`](../packages/core/src/conversation/use-thread-jump.ts) | const | — | After `loadUntil` resolves, how long the rows have to arrive before the row counts as gone. |
 | [`justifyRows`](../packages/core/src/gallery/index.ts) | function | — | Pack `items` into rows of a target `rowHeight`, then scale each row so its tiles exactly fill `containerWidth` (minus `gap` between tiles). Pure: same input, same rows. |
 | [`KEYBOARD_TOOLBAR_HEIGHT`](../packages/ui-native/src/layouts/keyboard.tsx) | const | — | Height of react-native-keyboard-controller's `KeyboardToolbar`, kept clear above the focused input. Mirrors `KEYBOARD_TOOLBAR_HEIGHT` in the library's `src/components/KeyboardToolbar/constants.ts` (1.22): move them together. |
@@ -7358,7 +7408,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`readReceiptFor`](../packages/core/src/conversation/format.ts) | function | — | The newest of my messages the other side has read, or null. Events and undelivered messages never count. |
 | [`sentBubbleColor`](../packages/ui-native/src/hooks/use-theme-roles.ts) | const | — | The colour of a message you sent, on every thread on the phone. Its text is `text-primary-foreground`. |
 | [`SF_SYMBOLS`](../packages/ui-native/src/icon-names.ts) | const | Beta | The semantic icon names Genesis components ask for, and the SF Symbol each one draws on iOS. Components say "settings" or "bell", never a library's own name; `lucideIcons` (`/icons/lucide`) maps the same names for Android, web and the SF... |
-| [`showInboxActions`](../packages/ui-native/src/layouts/inbox-page.tsx) | function | — | Opens a row's actions as the system alert. `InboxPage` now opens `NativeContextMenu`; `NativeResourceView` still uses this. |
+| [`showInboxActions`](../packages/ui-native/src/layouts/inbox-page.tsx) | function | — | Opens a row's actions as the system alert. |
 | [`spaceScale`](../packages/ui-native/src/components/layout/spacing.ts) | const | — | Layout spacing scale — the single source of truth for gap / padding / margin across the Genesis layout primitives (Stack / Inline / Box / Grid). |
 | [`spacingClass`](../packages/ui-native/src/components/layout/spacing.ts) | function | — | Resolve a semantic spacing token to its NativeWind utility class for a given prefix — e.g. `spacingClass("gap", "md") === "gap-3"` (12px / 4). |
 | [`textVariants`](../packages/ui-native/src/components/text.tsx) | value | — | _(no summary)_ |
@@ -7369,6 +7419,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useGenesisExtension`](../packages/ui-native/src/hooks/use-genesis-extension.ts) | function | — | Read an extension scale by key. Returns `undefined` when the provider isn't mounted OR when the key isn't declared on the brand. The return type follows the consumer's augmented `BrandExtensions[K]`. |
 | [`useGenesisModules`](../packages/ui-native/src/native-modules.tsx) | function | — | The modules given to the nearest `GenesisModulesProvider`; `{}` without one. |
 | [`useHaptics`](../packages/ui-native/src/hooks/use-haptics.ts) | function | — | A function that plays a haptic through the app's `GenesisModules.haptics`. Stable across renders. |
+| [`useHideTabBar`](../packages/ui-native/src/layouts/tab-bar-visibility.tsx) | function | — | Hides the tab bar while this screen is focused, and shows it again when it blurs or unmounts. Pass `false` to keep it (a screen that hides it only in one mode). Outside a `TabBarVisibilityProvider` it does nothing. |
 | [`useKeyboardScroll`](../packages/ui-native/src/layouts/keyboard.tsx) | function | — | The app's keyboard-aware scroll view, or null when none was provided. |
 | [`useKeyboardSticky`](../packages/ui-native/src/layouts/keyboard.tsx) | function | — | The app's keyboard-riding view for a bottom bar, or null when none was provided (or no scroll view to go with it). |
 | [`useKeyboardToolbar`](../packages/ui-native/src/layouts/keyboard.tsx) | function | — | The app's keyboard toolbar, or null when none was provided (or no scroll view to go with it). |
@@ -7377,12 +7428,13 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`usePressFeedback`](../packages/ui-native/src/hooks/use-press-feedback.ts) | function | — | _(no summary)_ |
 | [`useReducedMotion`](../packages/ui-native/src/hooks/use-reduced-motion.ts) | function | — | _(no summary)_ |
 | [`useReduceTransparency`](../packages/ui-native/src/components/glass-surface.tsx) | function | — | True while the user has Reduce Transparency on (iOS), `null` until the first answer. Always false elsewhere, and on a runtime that can't say. |
+| [`useTabBarHidden`](../packages/ui-native/src/layouts/tab-bar-visibility.tsx) | function | — | Whether a screen has hidden the tab bar: for chrome that sits above it (a floating bar, a mini player). |
 | [`useThemeMode`](../packages/ui-native/src/hooks/use-theme-mode.ts) | function | — | _(no summary)_ |
 | [`useThemeRoles`](../packages/ui-native/src/hooks/use-theme-roles.ts) | function | — | _(no summary)_ |
 | [`useThreadJump`](../packages/core/src/conversation/use-thread-jump.ts) | function | — | _(no summary)_ |
 | [`useToast`](../packages/ui-native/src/components/toast.tsx) | function | — | _(no summary)_ |
 
-### Types (111)
+### Types (117)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -7412,10 +7464,13 @@ export type { GenesisImageProps };
 export type { GenesisLayoutAnimation };
 export type { GenesisListComponent };
 export type { GenesisListProps };
+export type { GenesisMenuAction };
+export type { GenesisMenuComponent };
 export type { GenesisModules };
 export type { GenesisNavigationModule };
 export type { GenesisNavigationTheme };
 export type { GenesisReanimatedModule };
+export type { GenesisRouterModule };
 export type { GenesisSvgModule };
 export type { GenesisSwipeableComponent };
 export type { GenesisSymbolComponent };
@@ -7473,10 +7528,12 @@ export type { NativeToastVariant };
 export type { NativeWhatsNewNote };
 export type { NotificationItem };
 export type { NotificationsPageSlotMap };
+export type { PlaceExit };
 export type { PressFeedback };
 export type { PressFeedbackOptions };
 export type { SafeAreaEdge };
 export type { ScreenHeaderProps };
+export type { ScreenSearchOptions };
 export type { ScrollEdgeBehavior };
 export type { SettingsPageDangerousAction };
 export type { SettingsPageRow };
@@ -7488,6 +7545,7 @@ export type { SpacingPrefix };
 export type { TextPreset };
 export type { ThemeMode };
 export type { ThemeRoleColors };
+export type { ThemeRoleColorsWithPrimary };
 export type { ThreadAttachment };
 export type { ThreadComposer };
 export type { ThreadLabels };
@@ -12445,7 +12503,7 @@ Shadcn-based web components. Use in Vite / RR7 / Next surfaces.
 
 **Barrel:** [`packages/ui/src/index.ts`](../packages/ui/src/index.ts)
 
-### Components (71)
+### Components (72)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
@@ -12478,6 +12536,7 @@ Shadcn-based web components. Use in Vite / RR7 / Next surfaces.
 | [`Grid`](../packages/ui/src/components/layout/grid.tsx) | `GridProps` | Beta | Grid — two-dimensional flow for card and tile collections. |
 | [`InboxLayout`](../packages/ui/src/components/patterns/messaging/inbox-layout.tsx) | `InboxLayoutProps` | — | _(no summary)_ |
 | [`InboxPage`](../packages/ui/src/components/patterns/messaging/inbox-page.tsx) | `InboxPageProps` | — | _(no summary)_ |
+| [`InboxRowMenu`](../packages/ui/src/components/patterns/messaging/inbox-page.tsx) | `InboxRowMenuProps` | — | A row's actions as the web offers them: a More button at the row's end opening a menu, the twin of the phone's swipe and long-press menu. InboxPage's default row draws it; a row of your own (the `row` slot) draws it the same way. Nothing... |
 | [`InboxViews`](../packages/ui/src/components/patterns/messaging/inbox-views.tsx) | `InboxViewsProps` | — | _(no summary)_ |
 | [`InlineAlert`](../packages/ui/src/components/ui/inline-alert.tsx) | `InlineAlertProps` | Beta | InlineAlert — a message that sits with what it is about (between form fields, over a list): the twin of genesis-ui-native's NativeInlineAlert, with the same variants (info, success, warning, destructive), dismiss, content and actions. It... |
 | [`InputGroup`](../packages/ui/src/components/ui/input-group.tsx) | `InputGroupProps` | — | _(no summary)_ |
@@ -13119,7 +13178,7 @@ export type { WidgetTileVariant };
 
 **Barrel:** [`packages/ui/src/components/patterns/index.ts`](../packages/ui/src/components/patterns/index.ts)
 
-### Components (20)
+### Components (21)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
@@ -13130,6 +13189,7 @@ export type { WidgetTileVariant };
 | [`GalleryGrid`](../packages/ui/src/components/patterns/gallery-grid.tsx) | `GalleryGridProps` | Beta | GalleryGrid — a wall of images, justified (rows that fill the width, as `justifyRows` packs them) or a plain equal-column grid, optionally grouped under sticky headers. |
 | [`InboxLayout`](../packages/ui/src/components/patterns/messaging/inbox-layout.tsx) | `InboxLayoutProps` | — | _(no summary)_ |
 | [`InboxPage`](../packages/ui/src/components/patterns/messaging/inbox-page.tsx) | `InboxPageProps` | — | _(no summary)_ |
+| [`InboxRowMenu`](../packages/ui/src/components/patterns/messaging/inbox-page.tsx) | `InboxRowMenuProps` | — | A row's actions as the web offers them: a More button at the row's end opening a menu, the twin of the phone's swipe and long-press menu. InboxPage's default row draws it; a row of your own (the `row` slot) draws it the same way. Nothing... |
 | [`InboxViews`](../packages/ui/src/components/patterns/messaging/inbox-views.tsx) | `InboxViewsProps` | — | _(no summary)_ |
 | [`Lightbox`](../packages/ui/src/components/patterns/lightbox.tsx) | `LightboxProps` | Beta | Lightbox — a full-screen image viewer over the page, built on `Dialog`. |
 | [`LiveIndicator`](../packages/ui/src/components/patterns/live-indicator.tsx) | `LiveIndicatorProps` | Beta | LiveIndicator — the "● Live" chip for streams, classes and sessions that are happening now. The dot pulses while live; idle it goes muted and still, offline fainter still, so the state reads at a glance as well as by colour. `detail` car... |
@@ -14424,7 +14484,7 @@ React Native components (NativeWind v4-5). Use in Expo / RN surfaces.
 
 **Barrel:** [`packages/ui-native/src/index.ts`](../packages/ui-native/src/index.ts)
 
-### Components (136)
+### Components (138)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
@@ -14513,6 +14573,7 @@ React Native components (NativeWind v4-5). Use in Expo / RN surfaces.
 | [`NativeRefreshControl`](../packages/ui-native/src/components/refresh-control.tsx) | `NativeRefreshControlProps` | — | _(no summary)_ |
 | [`NativeResourceSettingsPage`](../packages/ui-native/src/components/settings-row.tsx) | `NativeResourceSettingsPageProps` | — | _(no summary)_ |
 | [`NativeResponsesToolbar`](../packages/ui-native/src/components/resource.tsx) | `NativeResponsesToolbarProps` | — | _(no summary)_ |
+| [`NativeRowActions`](../packages/ui-native/src/components/row-actions.tsx) | `NativeRowActionsProps` | — | _(no summary)_ |
 | [`NativeSearchBar`](../packages/ui-native/src/components/search-bar.tsx) | `NativeSearchBarProps` | — | _(no summary)_ |
 | [`NativeSectionListHeader`](../packages/ui-native/src/components/section-list.tsx) | `NativeSectionListHeaderProps` | — | _(no summary)_ |
 | [`NativeSegmentedControl`](../packages/ui-native/src/components/segmented-control.tsx) | `NativeSegmentedControlProps` | — | _(no summary)_ |
@@ -14563,9 +14624,10 @@ React Native components (NativeWind v4-5). Use in Expo / RN surfaces.
 | [`SettingsSubPage`](../packages/ui-native/src/layouts/settings-sub-page.tsx) | `SettingsSubPageProps` | — | _(no summary)_ |
 | [`SocialAuthRow`](../packages/ui-native/src/layouts/auth.tsx) | `SocialAuthRowProps` | — | _(no summary)_ |
 | [`Stack`](../packages/ui-native/src/components/layout/index.ts) | `StackProps` | — | _(no summary)_ |
+| [`TabBarVisibilityProvider`](../packages/ui-native/src/layouts/tab-bar-visibility.tsx) | `TabBarVisibilityProviderProps` | — | Holds whether the tab bar is hidden, for the tab navigator it wraps. |
 | [`ThreadPage`](../packages/ui-native/src/layouts/thread-page.tsx) | `ThreadPageProps` | — | _(no summary)_ |
 
-### Other exports (77)
+### Other exports (81)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -14581,6 +14643,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`cn`](../packages/ui-native/src/utils.ts) | function | — | _(no summary)_ |
 | [`composeHeaderOptions`](../packages/ui-native/src/layouts/screen-container.tsx) | function | — | Compose a `<Stack.Screen options={...}>` object from Layer-3 named props + a direct `headerOptions` passthrough. Layouts call this and pass the result to `<Stack.Screen>` so the host's expo-router stack renders a platform-native large ti... |
 | [`confirmDiscardChanges`](../packages/ui-native/src/layouts/settings-sub-page.tsx) | function | — | Default leave-guard helper. Pops a native Alert with Discard / Keep Editing buttons; calls `proceed()` only if the user opts to discard. |
+| [`createPlaceExit`](../packages/ui-native/src/layouts/tab-bar-visibility.tsx) | function | — | A place of its own inside the tabs, as Messages is on iOS: while it's open the tab bar hides for its whole stack (`useHideTabBar` on each of its screens), and its first screen has a back button (and the edge swipe) that returns to where ... |
 | [`DEFAULT_GALLERY_RATIO`](../packages/core/src/gallery/index.ts) | const | — | Used when an item has no `width`/`height` (or a degenerate one). |
 | [`defaultNativeLightboxLabels`](../packages/ui-native/src/components/lightbox.tsx) | const | — | _(no summary)_ |
 | [`defaultStickyHeaderOffset`](../packages/ui-native/src/layouts/notifications-page.tsx) | function | — | Where a list's section headers stick by default: on iOS, the bottom of the collapsed navigation bar (the safe area's top plus the compact bar), since the list runs under the header; elsewhere 0 (the header sits above the list). |
@@ -14596,6 +14659,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`getThreadPageStackOptions`](../packages/ui-native/src/layouts/thread-page.tsx) | function | — | `<Stack.Screen options>` for a ThreadPage: a standard (not large) title, like Messages. |
 | [`googleProvider`](../packages/ui-native/src/layouts/google-sign-in.tsx) | function | Beta | A `SocialAuthProvider` (id `"google"`) for `AuthScreen`'s `providers`, or `null` when `enabled` is false. |
 | [`iosCompactNavigationBarHeight`](../packages/ui-native/src/layouts/notifications-page.tsx) | function | — | The height of iOS's compact navigation bar, below the status bar: 44 pt up to iOS 18, 54 pt from iOS 26 (measured on an iOS 26 simulator, the collapsed large-title bar of a native stack). |
+| [`isNativeIconName`](../packages/ui-native/src/icon-names.ts) | function | — | Whether `name` is a Genesis icon name: how a component checks an icon given as a string (a row action's `icon`, which platform-neutral core keeps as a string) before drawing it, instead of a cast. |
 | [`JUMP_SETTLE_MS`](../packages/core/src/conversation/use-thread-jump.ts) | const | — | After `loadUntil` resolves, how long the rows have to arrive before the row counts as gone. |
 | [`justifyRows`](../packages/core/src/gallery/index.ts) | function | — | Pack `items` into rows of a target `rowHeight`, then scale each row so its tiles exactly fill `containerWidth` (minus `gap` between tiles). Pure: same input, same rows. |
 | [`KEYBOARD_TOOLBAR_HEIGHT`](../packages/ui-native/src/layouts/keyboard.tsx) | const | — | Height of react-native-keyboard-controller's `KeyboardToolbar`, kept clear above the focused input. Mirrors `KEYBOARD_TOOLBAR_HEIGHT` in the library's `src/components/KeyboardToolbar/constants.ts` (1.22): move them together. |
@@ -14625,7 +14689,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`readReceiptFor`](../packages/core/src/conversation/format.ts) | function | — | The newest of my messages the other side has read, or null. Events and undelivered messages never count. |
 | [`sentBubbleColor`](../packages/ui-native/src/hooks/use-theme-roles.ts) | const | — | The colour of a message you sent, on every thread on the phone. Its text is `text-primary-foreground`. |
 | [`SF_SYMBOLS`](../packages/ui-native/src/icon-names.ts) | const | Beta | The semantic icon names Genesis components ask for, and the SF Symbol each one draws on iOS. Components say "settings" or "bell", never a library's own name; `lucideIcons` (`/icons/lucide`) maps the same names for Android, web and the SF... |
-| [`showInboxActions`](../packages/ui-native/src/layouts/inbox-page.tsx) | function | — | Opens a row's actions as the system alert. `InboxPage` now opens `NativeContextMenu`; `NativeResourceView` still uses this. |
+| [`showInboxActions`](../packages/ui-native/src/layouts/inbox-page.tsx) | function | — | Opens a row's actions as the system alert. |
 | [`spaceScale`](../packages/ui-native/src/components/layout/spacing.ts) | const | — | Layout spacing scale — the single source of truth for gap / padding / margin across the Genesis layout primitives (Stack / Inline / Box / Grid). |
 | [`spacingClass`](../packages/ui-native/src/components/layout/spacing.ts) | function | — | Resolve a semantic spacing token to its NativeWind utility class for a given prefix — e.g. `spacingClass("gap", "md") === "gap-3"` (12px / 4). |
 | [`textVariants`](../packages/ui-native/src/components/text.tsx) | value | — | _(no summary)_ |
@@ -14636,6 +14700,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useGenesisExtension`](../packages/ui-native/src/hooks/use-genesis-extension.ts) | function | — | Read an extension scale by key. Returns `undefined` when the provider isn't mounted OR when the key isn't declared on the brand. The return type follows the consumer's augmented `BrandExtensions[K]`. |
 | [`useGenesisModules`](../packages/ui-native/src/native-modules.tsx) | function | — | The modules given to the nearest `GenesisModulesProvider`; `{}` without one. |
 | [`useHaptics`](../packages/ui-native/src/hooks/use-haptics.ts) | function | — | A function that plays a haptic through the app's `GenesisModules.haptics`. Stable across renders. |
+| [`useHideTabBar`](../packages/ui-native/src/layouts/tab-bar-visibility.tsx) | function | — | Hides the tab bar while this screen is focused, and shows it again when it blurs or unmounts. Pass `false` to keep it (a screen that hides it only in one mode). Outside a `TabBarVisibilityProvider` it does nothing. |
 | [`useKeyboardScroll`](../packages/ui-native/src/layouts/keyboard.tsx) | function | — | The app's keyboard-aware scroll view, or null when none was provided. |
 | [`useKeyboardSticky`](../packages/ui-native/src/layouts/keyboard.tsx) | function | — | The app's keyboard-riding view for a bottom bar, or null when none was provided (or no scroll view to go with it). |
 | [`useKeyboardToolbar`](../packages/ui-native/src/layouts/keyboard.tsx) | function | — | The app's keyboard toolbar, or null when none was provided (or no scroll view to go with it). |
@@ -14644,12 +14709,13 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`usePressFeedback`](../packages/ui-native/src/hooks/use-press-feedback.ts) | function | — | _(no summary)_ |
 | [`useReducedMotion`](../packages/ui-native/src/hooks/use-reduced-motion.ts) | function | — | _(no summary)_ |
 | [`useReduceTransparency`](../packages/ui-native/src/components/glass-surface.tsx) | function | — | True while the user has Reduce Transparency on (iOS), `null` until the first answer. Always false elsewhere, and on a runtime that can't say. |
+| [`useTabBarHidden`](../packages/ui-native/src/layouts/tab-bar-visibility.tsx) | function | — | Whether a screen has hidden the tab bar: for chrome that sits above it (a floating bar, a mini player). |
 | [`useThemeMode`](../packages/ui-native/src/hooks/use-theme-mode.ts) | function | — | _(no summary)_ |
 | [`useThemeRoles`](../packages/ui-native/src/hooks/use-theme-roles.ts) | function | — | _(no summary)_ |
 | [`useThreadJump`](../packages/core/src/conversation/use-thread-jump.ts) | function | — | _(no summary)_ |
 | [`useToast`](../packages/ui-native/src/components/toast.tsx) | function | — | _(no summary)_ |
 
-### Types (111)
+### Types (117)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -14679,10 +14745,13 @@ export type { GenesisImageProps };
 export type { GenesisLayoutAnimation };
 export type { GenesisListComponent };
 export type { GenesisListProps };
+export type { GenesisMenuAction };
+export type { GenesisMenuComponent };
 export type { GenesisModules };
 export type { GenesisNavigationModule };
 export type { GenesisNavigationTheme };
 export type { GenesisReanimatedModule };
+export type { GenesisRouterModule };
 export type { GenesisSvgModule };
 export type { GenesisSwipeableComponent };
 export type { GenesisSymbolComponent };
@@ -14740,10 +14809,12 @@ export type { NativeToastVariant };
 export type { NativeWhatsNewNote };
 export type { NotificationItem };
 export type { NotificationsPageSlotMap };
+export type { PlaceExit };
 export type { PressFeedback };
 export type { PressFeedbackOptions };
 export type { SafeAreaEdge };
 export type { ScreenHeaderProps };
+export type { ScreenSearchOptions };
 export type { ScrollEdgeBehavior };
 export type { SettingsPageDangerousAction };
 export type { SettingsPageRow };
@@ -14755,6 +14826,7 @@ export type { SpacingPrefix };
 export type { TextPreset };
 export type { ThemeMode };
 export type { ThemeRoleColors };
+export type { ThemeRoleColorsWithPrimary };
 export type { ThreadAttachment };
 export type { ThreadComposer };
 export type { ThreadLabels };
@@ -14773,7 +14845,7 @@ export type { UseThreadJumpOptions };
 
 **Barrel:** [`packages/ui-native/src/components/index.ts`](../packages/ui-native/src/components/index.ts)
 
-### Components (117)
+### Components (118)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
@@ -14852,6 +14924,7 @@ export type { UseThreadJumpOptions };
 | [`NativeRefreshControl`](../packages/ui-native/src/components/refresh-control.tsx) | `NativeRefreshControlProps` | — | _(no summary)_ |
 | [`NativeResourceSettingsPage`](../packages/ui-native/src/components/settings-row.tsx) | `NativeResourceSettingsPageProps` | — | _(no summary)_ |
 | [`NativeResponsesToolbar`](../packages/ui-native/src/components/resource.tsx) | `NativeResponsesToolbarProps` | — | _(no summary)_ |
+| [`NativeRowActions`](../packages/ui-native/src/components/row-actions.tsx) | `NativeRowActionsProps` | — | _(no summary)_ |
 | [`NativeSearchBar`](../packages/ui-native/src/components/search-bar.tsx) | `NativeSearchBarProps` | — | _(no summary)_ |
 | [`NativeSectionListHeader`](../packages/ui-native/src/components/section-list.tsx) | `NativeSectionListHeaderProps` | — | _(no summary)_ |
 | [`NativeSegmentedControl`](../packages/ui-native/src/components/segmented-control.tsx) | `NativeSegmentedControlProps` | — | _(no summary)_ |
@@ -14895,7 +14968,7 @@ export type { UseThreadJumpOptions };
 | [`NativeZoomablePhoto`](../packages/ui-native/src/components/lightbox-zoom.tsx) | `NativeZoomablePhotoProps` | — | The page: iOS's zooming scroll view, or Android's pinch and pan. |
 | [`Stack`](../packages/ui-native/src/components/layout/index.ts) | `StackProps` | — | _(no summary)_ |
 
-### Other exports (42)
+### Other exports (43)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -14911,6 +14984,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`FULL_SCREEN_DARK`](../packages/ui-native/src/components/full-screen-modal.tsx) | const | — | The dark tone's backdrop: media reads best on true black in light and dark mode alike. |
 | [`GALLERY_DEFAULTS`](../packages/core/src/gallery/index.ts) | const | Beta | The gallery's defaults, the same on web and native: a target row height and the space between tiles (px on web, points on native), and the columns of `layout="grid"`. |
 | [`galleryItemRatio`](../packages/core/src/gallery/index.ts) | function | — | Width ÷ height of an item, falling back to 4:3. |
+| [`isNativeIconName`](../packages/ui-native/src/icon-names.ts) | function | — | Whether `name` is a Genesis icon name: how a component checks an icon given as a string (a row action's `icon`, which platform-neutral core keeps as a string) before drawing it, instead of a cast. |
 | [`justifyRows`](../packages/core/src/gallery/index.ts) | function | — | Pack `items` into rows of a target `rowHeight`, then scale each row so its tiles exactly fill `containerWidth` (minus `gap` between tiles). Pure: same input, same rows. |
 | [`LIGHTBOX_DISMISS_DISTANCE`](../packages/ui-native/src/components/lightbox-zoom.tsx) | const | — | Points pulled down (or dragged, on Android) that close the viewer on release. |
 | [`LIGHTBOX_DISMISS_VELOCITY`](../packages/ui-native/src/components/lightbox-zoom.tsx) | const | — | Or a quick flick down, in points per millisecond. |
@@ -14944,7 +15018,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useReduceTransparency`](../packages/ui-native/src/components/glass-surface.tsx) | function | — | True while the user has Reduce Transparency on (iOS), `null` until the first answer. Always false elsewhere, and on a runtime that can't say. |
 | [`useToast`](../packages/ui-native/src/components/toast.tsx) | function | — | _(no summary)_ |
 
-### Types (70)
+### Types (73)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -14968,10 +15042,13 @@ export type { GenesisImageProps };
 export type { GenesisLayoutAnimation };
 export type { GenesisListComponent };
 export type { GenesisListProps };
+export type { GenesisMenuAction };
+export type { GenesisMenuComponent };
 export type { GenesisModules };
 export type { GenesisNavigationModule };
 export type { GenesisNavigationTheme };
 export type { GenesisReanimatedModule };
+export type { GenesisRouterModule };
 export type { GenesisSvgModule };
 export type { GenesisSwipeableComponent };
 export type { GenesisSymbolComponent };
@@ -15172,7 +15249,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useThemeRoles`](../packages/ui-native/src/hooks/use-theme-roles.ts) | function | — | _(no summary)_ |
 | [`useThreadJump`](../packages/core/src/conversation/use-thread-jump.ts) | function | — | _(no summary)_ |
 
-### Types (13)
+### Types (14)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -15187,6 +15264,7 @@ export type { PressFeedback };
 export type { PressFeedbackOptions };
 export type { ThemeMode };
 export type { ThemeRoleColors };
+export type { ThemeRoleColorsWithPrimary };
 export type { UseMotionOptions };
 export type { UseThemeRolesOptions };
 export type { UseThreadJumpOptions };
@@ -15198,7 +15276,7 @@ export type { UseThreadJumpOptions };
 
 **Barrel:** [`packages/ui-native/src/layouts/index.ts`](../packages/ui-native/src/layouts/index.ts)
 
-### Components (18)
+### Components (19)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
@@ -15219,9 +15297,10 @@ export type { UseThreadJumpOptions };
 | [`SettingsPage`](../packages/ui-native/src/layouts/settings-page.tsx) | `SettingsPageProps` | — | _(no summary)_ |
 | [`SettingsSubPage`](../packages/ui-native/src/layouts/settings-sub-page.tsx) | `SettingsSubPageProps` | — | _(no summary)_ |
 | [`SocialAuthRow`](../packages/ui-native/src/layouts/auth.tsx) | `SocialAuthRowProps` | — | _(no summary)_ |
+| [`TabBarVisibilityProvider`](../packages/ui-native/src/layouts/tab-bar-visibility.tsx) | `TabBarVisibilityProviderProps` | — | Holds whether the tab bar is hidden, for the tab navigator it wraps. |
 | [`ThreadPage`](../packages/ui-native/src/layouts/thread-page.tsx) | `ThreadPageProps` | — | _(no summary)_ |
 
-### Other exports (20)
+### Other exports (23)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -15230,6 +15309,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`appleProvider`](../packages/ui-native/src/layouts/apple-sign-in.tsx) | function | Beta | A `SocialAuthProvider` (id `"apple"`) that draws Apple's button, for `AuthScreen`'s `providers`. `null` off iOS or without the module. |
 | [`composeHeaderOptions`](../packages/ui-native/src/layouts/screen-container.tsx) | function | — | Compose a `<Stack.Screen options={...}>` object from Layer-3 named props + a direct `headerOptions` passthrough. Layouts call this and pass the result to `<Stack.Screen>` so the host's expo-router stack renders a platform-native large ti... |
 | [`confirmDiscardChanges`](../packages/ui-native/src/layouts/settings-sub-page.tsx) | function | — | Default leave-guard helper. Pops a native Alert with Discard / Keep Editing buttons; calls `proceed()` only if the user opts to discard. |
+| [`createPlaceExit`](../packages/ui-native/src/layouts/tab-bar-visibility.tsx) | function | — | A place of its own inside the tabs, as Messages is on iOS: while it's open the tab bar hides for its whole stack (`useHideTabBar` on each of its screens), and its first screen has a back button (and the edge swipe) that returns to where ... |
 | [`defaultStickyHeaderOffset`](../packages/ui-native/src/layouts/notifications-page.tsx) | function | — | Where a list's section headers stick by default: on iOS, the bottom of the collapsed navigation bar (the safe area's top plus the compact bar), since the list runs under the header; elsewhere 0 (the header sits above the list). |
 | [`ForgotPasswordLink`](../packages/ui-native/src/layouts/auth.tsx) | function | — | _(no summary)_ |
 | [`formatInboxTime`](../packages/core/src/conversation/format.ts) | function | — | The default inbox row time: `9:41`, `Yesterday`, `Monday`, then a short date. |
@@ -15243,12 +15323,14 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`KEYBOARD_TOOLBAR_HEIGHT`](../packages/ui-native/src/layouts/keyboard.tsx) | const | — | Height of react-native-keyboard-controller's `KeyboardToolbar`, kept clear above the focused input. Mirrors `KEYBOARD_TOOLBAR_HEIGHT` in the library's `src/components/KeyboardToolbar/constants.ts` (1.22): move them together. |
 | [`KeyboardScrollProvider`](../packages/ui-native/src/layouts/keyboard.tsx) | function | — | _(no summary)_ |
 | [`readReceiptFor`](../packages/core/src/conversation/format.ts) | function | — | The newest of my messages the other side has read, or null. Events and undelivered messages never count. |
-| [`showInboxActions`](../packages/ui-native/src/layouts/inbox-page.tsx) | function | — | Opens a row's actions as the system alert. `InboxPage` now opens `NativeContextMenu`; `NativeResourceView` still uses this. |
+| [`showInboxActions`](../packages/ui-native/src/layouts/inbox-page.tsx) | function | — | Opens a row's actions as the system alert. |
+| [`useHideTabBar`](../packages/ui-native/src/layouts/tab-bar-visibility.tsx) | function | — | Hides the tab bar while this screen is focused, and shows it again when it blurs or unmounts. Pass `false` to keep it (a screen that hides it only in one mode). Outside a `TabBarVisibilityProvider` it does nothing. |
 | [`useKeyboardScroll`](../packages/ui-native/src/layouts/keyboard.tsx) | function | — | The app's keyboard-aware scroll view, or null when none was provided. |
 | [`useKeyboardSticky`](../packages/ui-native/src/layouts/keyboard.tsx) | function | — | The app's keyboard-riding view for a bottom bar, or null when none was provided (or no scroll view to go with it). |
 | [`useKeyboardToolbar`](../packages/ui-native/src/layouts/keyboard.tsx) | function | — | The app's keyboard toolbar, or null when none was provided (or no scroll view to go with it). |
+| [`useTabBarHidden`](../packages/ui-native/src/layouts/tab-bar-visibility.tsx) | function | — | Whether a screen has hidden the tab bar: for chrome that sits above it (a floating bar, a mini player). |
 
-### Types (28)
+### Types (30)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -15267,8 +15349,10 @@ export type { KeyboardToolbarProps };
 export type { MessageTone };
 export type { NotificationItem };
 export type { NotificationsPageSlotMap };
+export type { PlaceExit };
 export type { SafeAreaEdge };
 export type { ScreenHeaderProps };
+export type { ScreenSearchOptions };
 export type { ScrollEdgeBehavior };
 export type { SettingsPageDangerousAction };
 export type { SettingsPageRow };

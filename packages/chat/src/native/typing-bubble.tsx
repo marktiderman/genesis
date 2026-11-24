@@ -1,6 +1,6 @@
 /**
  * @feat:chat
- * Someone typing, the way iMessage shows it: a bubble of three dots on the other side, at the
+ * Someone typing, the way a phone's Messages app shows it: a bubble of three dots on the other side, at the
  * bottom of the thread, under the newest message. In a group the typer's avatar sits beside it,
  * as it does beside their messages. The dots pulse in turn (held still with Reduce Motion), and the
  * bubble reads as the activity line ("Sam is typing…") to VoiceOver and TalkBack.

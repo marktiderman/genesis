@@ -1,10 +1,38 @@
 # @marktiderman/genesis-chat
 
+## 0.13.0
+
+### Minor Changes
+
+- 8042c10: The inbox's row actions, Messages' set, on the phone and the web (G1-315). Needs migration 0007 (Mark as Unread, Delete for me).
+
+  - **Native, `ChatInboxScreen`:**
+    - Swipe right for Mark as Unread (or Read, full swipe) and Pin.
+    - Swipe left for Hide Alerts and Delete. Delete is a full swipe, asks first, and deletes for you only.
+    - Archive is in the long-press menu (the system menu with `GenesisModules.menu`).
+    - Messages' look: Unread blue (`tone: "info"`), Pin orange and Hide Alerts purple (`accent`), Delete red.
+    - All are screen reader actions too, and one that fails shows an alert (`actionFailed`).
+    - `rowActions(item, defaults)` reshapes them, and `alertConfirm(cancelLabel)` is the Alert-based confirm.
+  - **Web, `ChatInbox`:** each row's More menu offers the same actions (genesis-ui's `InboxRowMenu`), and Delete asks in an AlertDialog. It takes `rowActions`, `actionLabels` and `onActionError`. `useConfirmDialog()` gives the dialog-based confirm; a question still open when it unmounts is answered no.
+  - **`/react`:**
+    - `inboxRowActions(item, actions, labels, { confirm, onError })` builds the set (in `/react`; `inboxRow` is in `/native`).
+    - `ChatInboxActionLabels` holds the words, and `defaultInboxActionLabels` the English. The native copy includes them.
+    - `ChatConfirm` is `(title, body, label) => Promise<boolean>`.
+    - `useInboxActions()` runs them from the row: `toggleUnread(item)`, `togglePinned(item)`, `toggleMuted(item, until?)` (until it's turned back on by default), `setArchived(item, archived)`, and `deleteForMe(item)`, which deletes up to `item.lastSeq`.
+    - Each refreshes the inbox and badge. Delete for me also drops the conversation's cached thread, pins and search results, so deleted history can't reappear on that device. A catch-up, live message or earlier page already being fetched when you delete writes nothing when it lands; loads started afterwards fill the thread as usual.
+  - **`chatKeys`:** `inboxAll()` and `searchAll()` are the prefix keys every inbox and search query sits under. Every refresh of the inbox now goes through them.
+  - **Peer floors:** genesis-core `>=2.21.0`, genesis-ui `>=3.3.0` and genesis-ui-native `>=3.17.0`, the releases with the row-action shape, `InboxRowMenu` and the swipe.
+  - **`createMemoryChatClient`:** Archive is kept (`setMySettings(id, { archived })`, or `archived` on a seed) and reported on the row; `inbox()` leaves archived conversations out, and `inbox({ archived: true })` lists only them, as the hosted client does.
+
+  A muted conversation shows a bell-slash and a pinned one a pin, beside the time, on the phone (`ChatInboxScreen`; `inboxRow` passes `muted` and `pinned`) and on the web (`ChatInbox`, whose marks move from the preview line to beside the time). Both read the same words to a screen reader, the new labels `alertsOff` ("Alerts off") and `pinnedMark` ("Pinned"), in `ChatInboxActionLabels` and the native copy; the web's lowercase "muted" and "pinned" are gone.
+
+- 7631eeb: Mark as Unread and Delete for me, as Messages has them (migration 0007). `setMySettings(id, { markedUnread })` marks a conversation unread for you only: it counts as one unread in the inbox, the badges and the push badge until you read it, and your read place (what senders see as "Read") never moves back. `deleteConversationForMe(id, seq?)` takes it out of your inbox, and its history out of your thread, search and pins, up to the message you saw (`seq`), until a new message you can read brings it back with only what came after; nobody else's view or read receipts change. Both are private to you (a new `member_state` table only you read) and refresh your other devices' inbox. Apply `0007_genesis_chat_unread_and_delete_for_me.sql` after 0006.
+
 ## 0.12.0
 
 ### Minor Changes
 
-- 7c39505: Message status on native, as iMessage shows it. Under the last message you sent, `ChatThreadScreen`
+- 7c39505: Message status on native, as a phone's Messages app shows it. Under the last message you sent, `ChatThreadScreen`
   says "Sending…", "Sent" (posted while a video's bytes still go up), "Delivered", then "Read 9:41"
   in a direct conversation (the other member's `lastReadSeq` has reached it) or "Read by 2" / "Read
   by everyone" in a group, a button that opens a sheet of who has read it. A failed send keeps its
@@ -34,7 +62,7 @@
 
   Native feel (an iOS audit of the thread):
 
-  - Bubbles take iMessage's shape: tight corners where a run's bubbles meet and a tail on the last
+  - Bubbles take the Messages shape: tight corners where a run's bubbles meet and a tail on the last
     one (`bubbleCorners`, `bubblePosition`). Drag the thread left for every message's time
     (`TIME_REVEAL_WIDTH`, `startsTimeReveal`, `timeRevealFor`); the run's last time stays.
   - Swipe to reply runs on `GenesisModules.swipeable` (gesture-handler's `ReanimatedSwipeable`) when
