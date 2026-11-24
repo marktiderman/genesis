@@ -1,0 +1,29 @@
+apps/native-workbench/genesis.lock.json
+  s_f1aa8511899775::t_ee071b91ddb176 148-149
+apps/native-workbench/src/workbench/screens/layouts.tsx
+  s_f1aa8511899775::t_e542630ae2a351 7
+  s_f1aa8511899775::t_f2f1f79623dcf8 23-26,28-29,57-59,70,77,80,90,93-94
+apps/native-workbench/.maestro/workbench/header.yaml
+  s_f1aa8511899775::t_efbb89ff2b6c84 14-18
+apps/native-workbench/.maestro/workbench/row-actions-items.yaml
+  s_f1aa8511899775::t_c3e44a7242075c 24-25
+  s_f1aa8511899775::t_efbb89ff2b6c84 11-12,14-15
+apps/native-workbench/src/workbench/screens/messages.tsx
+  s_f1aa8511899775::t_0b3ea282d5869b 144
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ff8016a7cfadcf23e3d6fa94dcd640c03c2beeaf",
+  "prompts": {},
+  "sessions": {
+    "s_f1aa8511899775": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "18c56dc7-ac34-4eaf-92bf-016e2c3bbcb7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
