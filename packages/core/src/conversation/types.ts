@@ -139,8 +139,9 @@ export const DEFAULT_THREAD_LABELS: Readonly<ThreadLabels> = Object.freeze({
 
 /**
  * A row action's color behind a swipe, as iOS's system colors (Mail and Messages use them):
- * `tint` is the brand's primary on the phone under a `GenesisThemeProvider` (else the theme's
- * tint role), `red` is for destructive (which `destructive` already gives).
+ * `tint` is the app's primary on the phone (the brand's native primary under a
+ * `GenesisThemeProvider`, else the theme's tint role), `red` is for destructive (which
+ * `destructive` already gives).
  */
 export type RowActionTone = "tint" | "blue" | "green" | "orange" | "purple" | "yellow" | "gray" | "red";
 

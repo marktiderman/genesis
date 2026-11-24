@@ -46,12 +46,12 @@ export function readableOn(background: unknown): string | undefined {
  * The text and icon color on an action of this tone.
  *
  * - **System tones** (blue, green, orange, purple, gray): white, as iOS draws them; black on yellow.
- * - **`tint` and `red`** sit on the app's own colors (`background`: the tint, which NativeSwipeRow
- *   takes from the brand's primary under a `GenesisThemeProvider` and otherwise from the theme's
- *   tint role, or the destructive role), so they take what reads on that color: white or black by
- *   contrast when it's a hex color, else `foreground` (the theme's `primaryForeground` or
- *   `destructiveForeground`, which the caller passes), else white (iOS's systemRed, as Mail draws
- *   Delete). NativeSwipeRow uses a brand's declared `accent.foreground` on `tint` before any of these.
+ * - **`tint` and `red`** sit on the app's own colors (`background`: the theme's tint or destructive
+ *   role), so they take what reads on that color: white or black by contrast when it's a hex color,
+ *   else `foreground` (the theme's `primaryForeground` or `destructiveForeground`, which the caller
+ *   passes), else white (iOS's systemRed, as Mail draws Delete). Under a `GenesisThemeProvider`,
+ *   NativeSwipeRow draws `tint` with the brand's native primary and primary-foreground instead
+ *   (`nativeBrandPrimary`).
  */
 export function onRowActionColor(tone: RowActionTone | undefined, background?: unknown, foreground?: string): string {
   if (tone === "yellow") return ON_ROW_ACTION_LIGHT_TONE;

@@ -24,7 +24,7 @@
  *
  * @stability Beta
  */
-import { cloneElement, isValidElement, useRef, useState, type ReactElement, type ReactNode } from "react";
+import { cloneElement, isValidElement, useMemo, useRef, useState, type ReactElement, type ReactNode } from "react";
 import { useOptionalTheme } from "@marktiderman/genesis-design-system";
 import { nativeThemeDark, nativeThemeLight } from "@marktiderman/genesis-design-system/tokens";
 import { I18nManager, Platform, PlatformColor, Pressable, View, type ColorValue } from "react-native";
@@ -35,6 +35,7 @@ import { useThemeMode } from "../hooks/use-theme-mode";
 import { useGenesisModules, type GenesisReanimatedModule } from "../native-modules";
 import type { NativeIconName } from "../icon-names";
 import { ROW_ACTION_TONES, ROW_PILL, onRowActionColor } from "../tokens/row-action-tones";
+import { nativeBrandPrimary } from "../tokens/brand-primary";
 import { NativeIcon } from "./icon";
 import { NativeText } from "./text";
 
@@ -197,10 +198,15 @@ export function NativeSwipeRow({
   testID = "swipe-row",
 }: NativeSwipeRowProps) {
   const { swipeable: Swipeable, reanimated } = useGenesisModules();
-  // The brand's primary, from the nearest GenesisThemeProvider, is the `tint` behind an action (and
-  // its declared foreground the text on it); without a provider, the theme's tint role.
-  const brandAccent = useOptionalTheme()?.tokens.accent;
-  const colors = useThemeRoles(brandAccent?.DEFAULT ? { tint: brandAccent.DEFAULT } : {});
+  // Under a GenesisThemeProvider, a `tint` action is the brand's primary and its text the brand's
+  // primary-foreground, exactly as the app's own bg-primary / text-primary-foreground draw them on
+  // the phone (native overrides, dark colors, the contrast-checked foreground); without a provider,
+  // the theme's tint role.
+  const theme = useOptionalTheme();
+  const themeBrand = theme?.brand;
+  const themeMode = theme?.resolvedMode;
+  const brand = useMemo(() => (themeBrand && themeMode ? nativeBrandPrimary(themeBrand, themeMode) : undefined), [themeBrand, themeMode]);
+  const colors = useThemeRoles(brand ? { tint: brand.primary } : {});
   const tokens = useThemeMode() === "dark" ? nativeThemeDark : nativeThemeLight;
   const play = useHaptics();
   const swipe = useRef<{ close?: () => void } | null>(null);
@@ -236,7 +242,7 @@ export function NativeSwipeRow({
         {list.map((action) => {
           const color = rowActionColor(action, colors);
           const tone = action.tone ?? (action.destructive ? "red" : "tint");
-          const on = tone === "tint" && brandAccent?.foreground ? brandAccent.foreground : onRowActionColor(tone, color, tone === "red" ? tokens.destructiveForeground : tokens.primaryForeground);
+          const on = tone === "tint" && brand ? brand.onPrimary : onRowActionColor(tone, color, tone === "red" ? tokens.destructiveForeground : tokens.primaryForeground);
           const icon = action.icon ? <NativeIcon name={action.icon as NativeIconName} size={round ? 20 : 22} color={on} /> : null;
           return (
             <Pressable
