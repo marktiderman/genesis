@@ -10,6 +10,7 @@ import { SymbolView } from "expo-symbols";
 import { MenuView } from "@expo/ui/community/menu";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { RowSwipeAction } from "@marktiderman/genesis-core/conversation";
+import { GenesisThemeProvider, genesisBrand, type CanonicalBrand } from "@marktiderman/genesis-design-system";
 import { GenesisModulesProvider, type GenesisModules } from "@marktiderman/genesis-ui-native";
 import { NativeRowActions } from "@marktiderman/genesis-ui-native/components";
 import { lucideIcons } from "@marktiderman/genesis-ui-native/icons/lucide";
@@ -53,6 +54,9 @@ function Button({ id, label, onPress }: { id: string; label: string; onPress: ()
 
 // ---- Screen A: rows ----
 
+// A light primary (a pale gold): the text on a tint action must be dark.
+const lightBrand: CanonicalBrand = { ...genesisBrand, name: "verify-light", accent: { DEFAULT: "#FDE68A", light: "#FDE68A", dark: "#FDE68A" } };
+
 function Row({ id, title, actions, appearance }: { id: string; title: string; actions: RowSwipeAction[]; appearance?: "fill" | "round" }) {
   return (
     <NativeRowActions testID={id} title={title} actions={actions} {...(appearance ? { appearance } : {})}>
@@ -81,6 +85,12 @@ function RowsScreen() {
     a("tint2", "Tint", { tone: "tint", icon: "pin", side: "trailing" }, "B"),
     a("menuonly", "Menu only", { icon: "heart", swipe: false }, "B"),
   ];
+  const rowL = [
+    a("ltint", "Tint", { tone: "tint", icon: "check", side: "leading", full: true }, "L"),
+    a("lgreen", "Green", { tone: "green", icon: "star", side: "leading" }, "L"),
+    a("ltint2", "Tint", { tone: "tint", icon: "pin", side: "trailing", full: true }, "L"),
+    a("lred", "Delete", { destructive: true, icon: "trash", side: "trailing", confirms: true }, "L"),
+  ];
   const rowC = [
     a("rgreen", "Green", { tone: "green", icon: "check", side: "leading", full: true }, "C"),
     a("ryellow", "Yellow", { tone: "yellow", icon: "star", side: "leading" }, "C"),
@@ -95,12 +105,19 @@ function RowsScreen() {
   };
   return (
     <ScrollView testID="rows-screen">
-      <Row id="rowA" title="Row A: tint, green | delete, orange, purple" actions={rowA} />
+      <GenesisThemeProvider brand={genesisBrand} mode="light">
+        <Row id="rowA" title="Row A (Genesis brand): tint, green | delete, orange, purple" actions={rowA} />
+      </GenesisThemeProvider>
+      <GenesisThemeProvider brand={lightBrand} mode="light">
+        <Row id="rowL" title="Row L (light #FDE68A brand): tint, green | tint, delete" actions={rowL} />
+      </GenesisThemeProvider>
       <Row id="rowB" title="Row B: yellow, gray | blue, tint (+menu only)" actions={rowB} />
       <Row id="rowC" title="Row C (round): green, yellow | gray, delete" actions={rowC} appearance="round" />
       <View style={{ flexDirection: "row", flexWrap: "wrap", padding: 8 }}>
         <Button id="open-a-left" label="Open A left (ref)" onPress={() => open("rowA", "left")} />
         <Button id="open-a-right" label="Open A right (ref)" onPress={() => open("rowA", "right")} />
+        <Button id="open-l-left" label="Open L left (ref)" onPress={() => open("rowL", "left")} />
+        <Button id="open-l-right" label="Open L right (ref)" onPress={() => open("rowL", "right")} />
         <Button id="open-c-right" label="Open C right (ref)" onPress={() => open("rowC", "right")} />
         <Button id="close-all" label="Close all" onPress={() => swipeRefs.forEach((r) => r.current?.close?.())} />
         <Button id="clear-log" label="Clear log" onPress={() => setLog([])} />
