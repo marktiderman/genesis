@@ -149,11 +149,13 @@ base), so a PR can't change its own gate, and a gate change takes effect only on
   (https://code.claude.com/docs/en/code-review-pull-requests). Apps call `claude-review.yml`,
   which has no trigger phrase, so they're unaffected.
 - PR Steward starts when someone comments `@claude steward`, and `@claude stop` stops it
-  (https://code.claude.com/docs/en/pr-steward-pull-requests). It starts on request only if:
+  (https://code.claude.com/docs/en/pr-steward-pull-requests). It starts only when asked, never
+  by itself, while:
   - the repository is set to Manual;
   - the maintainer's own PR Steward setting isn't "Act on its own", which overrides Manual and
-    starts it on every PR the account opens;
-  - "Include my draft PRs" is on, for a draft PR.
+    starts it on every PR the account opens.
+
+  On a draft PR it starts at all only if "Include my draft PRs" is on.
 - One watcher per PR: Auto-fix can't start on a PR that PR Steward watches, a local `/steward`
   watch doesn't start there, and PR Steward labelling a PR ends a local `/ship` or `/steward` watch
   (https://code.claude.com/docs/en/pr-steward,
