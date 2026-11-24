@@ -205,8 +205,9 @@ export function ChatInbox({ resolveUser, onSelect, selectedId, kind, archived = 
   // A confirmed action (Delete for me) removes its row only once the call and the inbox's refetch
   // come back, after the dialog has already given focus back to that row. When that row leaves the
   // list and took focus with it, put focus on the list's tab stop. Only that row's leaving counts:
-  // an action that failed or kept the row never pulls focus later. Each confirmed row is kept
-  // until it leaves or its action fails, so deletes that overlap are each watched.
+  // an action that failed or kept the row never pulls focus while the row is there. Each confirmed
+  // row is watched until it leaves, so deletes that overlap are each covered; if a row whose delete
+  // failed leaves later another way, focus moves only when it was already lost, which is right.
   const leaving = useRef(new Set<string>());
   const confirm = useCallback<ChatConfirm>(
     async (title, body, label) => {
@@ -232,12 +233,7 @@ export function ChatInbox({ resolveUser, onSelect, selectedId, kind, archived = 
           askingRow.current = item.conversationId;
           return confirm(title, body, label);
         };
-        const onError = (error: unknown) => {
-          // A failed action keeps its row: stop watching it.
-          leaving.current.delete(item.conversationId);
-          onActionError?.(error);
-        };
-        const defaults = inboxRowActions(item, act, labels, { confirm: rowConfirm, onError });
+        const defaults = inboxRowActions(item, act, labels, { confirm: rowConfirm, ...(onActionError ? { onError: onActionError } : {}) });
         return {
           id: item.conversationId,
           title,

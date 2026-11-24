@@ -300,7 +300,7 @@ describe("ChatInbox (web) row actions", () => {
     await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId("genesis-chat-inbox-row-c2")));
   });
 
-  it("watches overlapping deletes each, and stops watching one whose delete failed", async () => {
+  it("watches overlapping deletes each; a failed delete keeps its row and moves no focus", async () => {
     const B = "00000000-0000-4000-8000-0000000000b2";
     const client = createMemoryChatClient({
       me: ME,
@@ -321,9 +321,15 @@ describe("ChatInbox (web) row actions", () => {
       fireEvent.click(await screen.findByTestId("genesis-chat-inbox-confirm"));
       await waitFor(() => expect(held[id]).toBeDefined());
     }
-    // c3 fails: its row stays and is no longer watched.
+    // c3 fails: its row stays, and focus elsewhere is left alone.
+    const elsewhere = document.createElement("button");
+    document.body.appendChild(elsewhere);
+    elsewhere.focus();
     await act(async () => held.c3!());
     await waitFor(() => expect(onActionError).toHaveBeenCalled());
+    expect(screen.getByTestId("genesis-chat-inbox-row-c3")).toBeTruthy();
+    expect(document.activeElement).toBe(elsewhere);
+    elsewhere.remove();
     // c1 then goes with focus on it: focus moves into the list, though c2 was confirmed after it.
     screen.getByTestId("genesis-chat-inbox-row-c1").focus();
     await act(async () => held.c1!());
