@@ -39,6 +39,7 @@ import { NativeEmptyState } from "../components/empty-state";
 import { NativeText } from "../components/text";
 import { NativeButton } from "../components/button";
 import { NativeBadge } from "../components/badge";
+import { NativeIcon } from "../components/icon";
 import { NativeRefreshControl } from "../components/refresh-control";
 import { NativeSwipeRow } from "../components/swipe-row";
 import { useRowActions, type RowActionProps, type RowActionsSwipeProps } from "../components/use-row-actions";
@@ -56,7 +57,17 @@ export type InboxPageSlotMap = {
    * `actionProps`: the row's screen reader's actions and long press (`useRowActions`), for the
    * row's pressable. A row of your own spreads them, as the default row does.
    */
-  row: InboxItem & { testID: string; isFirst: boolean; isLast: boolean; timeLabel: string | null; actionProps?: RowActionProps };
+  row: InboxItem & {
+    testID: string;
+    isFirst: boolean;
+    isLast: boolean;
+    timeLabel: string | null;
+    /** The page's `mutedLabel` on a muted row, else null. */
+    mutedLabel?: string | null;
+    /** The page's `pinnedLabel` on a pinned row, else null. */
+    pinnedLabel?: string | null;
+    actionProps?: RowActionProps;
+  };
   swipeable: { actions: InboxSwipeAction[]; testID: string; appearance?: "fill" | "round"; /** `false`: the row already has the actions for screen readers (InboxPage puts them on it). */ accessibilityActions?: boolean; children?: ReactNode };
   header: { testID: string };
   footer: { loadingMore: boolean; testID: string };
@@ -100,6 +111,10 @@ export interface InboxPageProps extends ScreenHeaderProps {
   swipeAppearance?: "fill" | "round";
   /** A peek of the row above its long-press menu (Messages shows the latest messages). */
   menuPreview?: (row: InboxPageSlotMap["row"]) => ReactNode;
+  /** What a screen reader says for a muted row's bell-slash. Default `"Alerts off"`. */
+  mutedLabel?: string;
+  /** What a screen reader says for a pinned row's pin. Default `"Pinned"`. */
+  pinnedLabel?: string;
   slots?: Slots<InboxPageSlotMap>;
   slotProps?: SlotPropsFor<InboxPageSlotMap>;
   /** testID on the root. Default `"inbox-page"`. */
@@ -155,6 +170,8 @@ export function InboxPage({
   slotProps = NO_SLOT_PROPS,
   swipeAppearance,
   menuPreview,
+  mutedLabel = "Alerts off",
+  pinnedLabel = "Pinned",
   testID = "inbox-page",
 }: InboxPageProps) {
   const colors = useThemeRoles();
@@ -172,8 +189,10 @@ export function InboxPage({
       isFirst: index === 0,
       isLast: index === items.length - 1,
       timeLabel: item.timestamp ? formatTime(typeof item.timestamp === "string" ? new Date(item.timestamp) : item.timestamp, clock) : null,
+      mutedLabel: item.muted ? mutedLabel : null,
+      pinnedLabel: item.pinned ? pinnedLabel : null,
     }));
-  }, [items, tick, formatTime, testID]);
+  }, [items, tick, formatTime, testID, mutedLabel, pinnedLabel]);
   const rowSlot = slots.row;
   const swipeSlot = slots.swipeable;
   const rowProps = slotProps.row;
@@ -361,7 +380,7 @@ const DefaultRow = memo(function DefaultRow(row: InboxPageSlotMap["row"]) {
   const [pressed, setPressed] = useState(false);
   const radius = iosGroupRadius();
   const unreadLabel = row.unreadCount && row.unreadCount > 0 ? `${row.unreadCount} unread` : row.unread ? "Unread" : null;
-  const label = [unreadLabel, row.avatar ? row.avatarLabel : null, row.title, row.timeLabel, row.preview, row.meta].filter(Boolean).join(", ");
+  const label = [unreadLabel, row.avatar ? row.avatarLabel : null, row.title, row.pinnedLabel, row.mutedLabel, row.timeLabel, row.preview, row.meta].filter(Boolean).join(", ");
   // The separator starts at the text: the row's padding, the dot's column, and the avatar when there is one.
   const [avatarWidth, setAvatarWidth] = useState(0);
   const separatorInset = ROW_PADDING + LEADING_WIDTH + (row.avatar ? (avatarWidth || DEFAULT_AVATAR) + AVATAR_GAP : 0);
@@ -415,6 +434,16 @@ const DefaultRow = memo(function DefaultRow(row: InboxPageSlotMap["row"]) {
             >
               {row.title}
             </NativeText>
+            {row.pinned ? (
+              <View testID={`${row.testID}-pinned`} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ marginLeft: 6, alignSelf: "center" }}>
+                <NativeIcon name="pin" size={13} color={colors.secondaryLabel} />
+              </View>
+            ) : null}
+            {row.muted ? (
+              <View testID={`${row.testID}-muted`} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ marginLeft: 6, alignSelf: "center" }}>
+                <NativeIcon name="bell-off" size={13} color={colors.secondaryLabel} />
+              </View>
+            ) : null}
             {row.timeLabel ? (
               <NativeText testID={`${row.testID}-time`} style={{ marginLeft: 8, color: colors.secondaryLabel, fontSize: 15, lineHeight: 20 }}>
                 {row.timeLabel}
@@ -434,7 +463,7 @@ const DefaultRow = memo(function DefaultRow(row: InboxPageSlotMap["row"]) {
         </View>
         {row.unreadCount && row.unreadCount > 0 ? (
           <View style={{ marginLeft: 8 }}>
-            <NativeBadge testID={`${row.testID}-count`}>{String(row.unreadCount)}</NativeBadge>
+            <NativeBadge testID={`${row.testID}-count`} variant={row.muted ? "muted" : "default"}>{String(row.unreadCount)}</NativeBadge>
           </View>
         ) : null}
         {row.trailing ? <View style={{ marginLeft: 8 }}>{row.trailing}</View> : row.onPress ? <Chevron color={colors.tertiaryLabel} /> : null}

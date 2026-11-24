@@ -22,6 +22,10 @@ export interface ChatNativeCopy extends ChatOrganiseCopy, ChatInboxActionLabels 
   someone: string;
   youPrefix: string;
   mentionedYou: string;
+  /** A muted row's bell-slash, for a screen reader. */
+  alertsOff: string;
+  /** A pinned row's pin, for a screen reader. */
+  pinnedMark: string;
   threadEmptyTitle: string;
   threadEmptyBody: string;
   /** The conversation or its first page couldn't be read, and there's nothing to show. */
@@ -197,6 +201,8 @@ export const chatNativeCopy: ChatNativeCopy = {
   someone: "Someone",
   youPrefix: "You: ",
   mentionedYou: "Mentioned you",
+  alertsOff: "Alerts off",
+  pinnedMark: "Pinned",
   ...defaultInboxActionLabels,
   threadEmptyTitle: "No messages yet",
   threadEmptyBody: "Say hello below.",

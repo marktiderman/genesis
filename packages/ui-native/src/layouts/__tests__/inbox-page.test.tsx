@@ -79,6 +79,28 @@ describe("InboxPage", () => {
     expect(styleOf(screen.getByTestId("inbox-row-c-unread")).borderRadius).toBeUndefined();
   });
 
+  it("marks a muted row with a bell-slash and a gray count, and a pinned one with a pin, and says both", () => {
+    render(
+      <InboxPage
+        testID="inbox"
+        now={now}
+        mutedLabel="Hushed"
+        items={[
+          { id: "m", title: "Ben", timestamp: new Date(2026, 9, 24, 9, 0), unreadCount: 1, muted: true, pinned: true },
+          { id: "p", title: "Ada", timestamp: new Date(2026, 9, 24, 8, 0), unreadCount: 2 },
+        ]}
+      />,
+    );
+    expect(screen.getByTestId("inbox-row-m-muted")).toBeTruthy();
+    expect(screen.getByTestId("inbox-row-m-pinned")).toBeTruthy();
+    expect(screen.getByTestId("inbox-row-m").getAttribute("aria-label")).toMatch(/^1 unread, Ben, Pinned, Hushed, /);
+    expect(screen.queryByTestId("inbox-row-p-muted")).toBeNull();
+    expect(screen.queryByTestId("inbox-row-p-pinned")).toBeNull();
+    expect(screen.getByTestId("inbox-row-p").getAttribute("aria-label")).not.toMatch(/Pinned|Hushed/);
+    expect(screen.getByTestId("inbox-row-m-count").className).toContain("bg-muted");
+    expect(screen.getByTestId("inbox-row-p-count").className).toContain("bg-primary");
+  });
+
   it("opens a row on press", () => {
     render(<InboxPage testID="inbox" items={items} now={now} />);
     fireEvent.click(screen.getByTestId("inbox-row-a"));

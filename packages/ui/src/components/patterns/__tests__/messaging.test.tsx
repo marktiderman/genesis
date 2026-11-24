@@ -555,6 +555,27 @@ describe("InboxPage (web)", () => {
   });
 });
 
+describe("InboxPage (web): muted and pinned", () => {
+  it("marks a muted row with a bell-slash and a gray count, a pinned one with a pin, and says both", () => {
+    render(
+      <InboxPage
+        testID="i"
+        pinnedLabel="Kept"
+        items={[
+          { id: "m", title: "Ben", unreadCount: 1, muted: true, pinned: true },
+          { id: "p", title: "Ada", unreadCount: 2 },
+        ]}
+      />,
+    );
+    expect(screen.getByTestId("i-row-m-muted").textContent).toBe(", Alerts off");
+    expect(screen.getByTestId("i-row-m-pinned").textContent).toBe(", Kept");
+    expect(screen.getByTestId("i-row-m-count").className).toContain("bg-muted");
+    expect(screen.queryByTestId("i-row-p-muted")).toBeNull();
+    expect(screen.queryByTestId("i-row-p-pinned")).toBeNull();
+    expect(screen.getByTestId("i-row-p-count").className).toContain("bg-primary");
+  });
+});
+
 describe("InboxPage (web): Home and End", () => {
   it("go to the first and last rows", () => {
     const items: InboxItem[] = [{ id: "a", title: "A" }, { id: "b", title: "B" }, { id: "c", title: "C" }];

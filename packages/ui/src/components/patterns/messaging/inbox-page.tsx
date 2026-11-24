@@ -26,7 +26,7 @@
  * @stability Beta
  */
 import * as React from "react";
-import { MessagesSquare, MoreHorizontal } from "lucide-react";
+import { BellOff, MessagesSquare, MoreHorizontal, Pin } from "lucide-react";
 import { renderSlot, type SlotPropsFor, type Slots } from "@marktiderman/genesis-core/slots";
 import { formatInboxTime, type InboxItem, type InboxSwipeAction } from "@marktiderman/genesis-core/conversation";
 import { rowActionLabel } from "@marktiderman/genesis-core/row-actions";
@@ -56,6 +56,10 @@ export type InboxPageSlotMap = {
     moreLabel: string;
     /** "3 unread", for a screen reader. */
     unreadLabel: string | null;
+    /** The page's `mutedLabel` on a muted row, else null. */
+    mutedLabel?: string | null;
+    /** The page's `pinnedLabel` on a pinned row, else null. */
+    pinnedLabel?: string | null;
     /** With `checked` on the page: whether the row is picked, and how to pick it. */
     checked?: boolean | undefined;
     onCheckedChange?: ((checked: boolean, options: { shiftKey: boolean }) => void) | undefined;
@@ -103,6 +107,10 @@ export interface InboxPageProps {
   moreLabel?: string;
   /** How a row's unread count reads to a screen reader. Default "3 unread" (and "unread" for a dot). */
   unreadLabel?: (count: number | null) => string;
+  /** What a screen reader says for a muted row's bell-slash. Default "Alerts off". */
+  mutedLabel?: string;
+  /** What a screen reader says for a pinned row's pin. Default "Pinned". */
+  pinnedLabel?: string;
   /** Said while the first page loads. Default "Loading". */
   loadingLabel?: string;
   /** Said while the next page loads. Default "Loading more". */
@@ -150,6 +158,8 @@ export function InboxPage({
   label = "Conversations",
   moreLabel = "More",
   unreadLabel = (count) => (count ? `${count} unread` : "unread"),
+  mutedLabel = "Alerts off",
+  pinnedLabel = "Pinned",
   loadingLabel = "Loading",
   loadingMoreLabel = "Loading more",
   sectionTitleLevel = 2,
@@ -279,6 +289,8 @@ export function InboxPage({
                     timeLabel: time,
                     moreLabel,
                     unreadLabel: unread ? unreadLabel(item.unreadCount && item.unreadCount > 0 ? item.unreadCount : null) : null,
+                    mutedLabel: item.muted ? mutedLabel : null,
+                    pinnedLabel: item.pinned ? pinnedLabel : null,
                     rowProps: { "data-inbox-row": "", tabIndex: item.id === stopId ? 0 : -1, onFocus: () => setFocusedId(item.id) },
                     ...(onCheckedChange
                       ? {
@@ -341,13 +353,25 @@ function DefaultRow(row: InboxPageSlotMap["row"]) {
             {row.avatarLabel ? <span className="sr-only">{row.avatarLabel}, </span> : null}
             <span className={cn("truncate", unread ? "font-semibold" : "font-medium")}>{row.title}</span>
             {row.unreadLabel ? <span className="sr-only">, {row.unreadLabel}</span> : null}
+            {row.pinned ? (
+              <span data-testid={`${row.testID}-pinned`} className="shrink-0 self-center text-muted-foreground">
+                <Pin className="size-3.5" aria-hidden />
+                {row.pinnedLabel ? <span className="sr-only">, {row.pinnedLabel}</span> : null}
+              </span>
+            ) : null}
+            {row.muted ? (
+              <span data-testid={`${row.testID}-muted`} className="shrink-0 self-center text-muted-foreground">
+                <BellOff className="size-3.5" aria-hidden />
+                {row.mutedLabel ? <span className="sr-only">, {row.mutedLabel}</span> : null}
+              </span>
+            ) : null}
             {row.timeLabel ? <span className="ml-auto shrink-0 text-xs text-muted-foreground">{row.timeLabel}</span> : null}
           </span>
           {row.preview ? <span className="line-clamp-2 text-sm text-muted-foreground">{row.preview}</span> : null}
           {row.meta ? <span className="mt-0.5 text-xs text-muted-foreground">{row.meta}</span> : null}
         </span>
         {row.unreadCount && row.unreadCount > 0 ? (
-          <span data-testid={`${row.testID}-count`} aria-hidden className="mt-1 min-w-5 shrink-0 rounded-full bg-primary px-1.5 text-center text-xs font-medium leading-5 text-primary-foreground">
+          <span data-testid={`${row.testID}-count`} aria-hidden className={cn("mt-1 min-w-5 shrink-0 rounded-full px-1.5 text-center text-xs font-medium leading-5", row.muted ? "bg-muted text-muted-foreground" : "bg-primary text-primary-foreground")}>
             {row.unreadCount}
           </span>
         ) : null}

@@ -158,6 +158,10 @@ export interface InboxItem {
   unreadCount?: number;
   /** A short status shown under the preview ("In progress", "12 votes"). */
   meta?: string;
+  /** Its alerts are off: a bell-slash beside the time, and the unread count in gray. */
+  muted?: boolean;
+  /** It is pinned: a pin beside the time. */
+  pinned?: boolean;
   /** Replaces the unread dot (an icon). For a picture of who it is, use `avatar`, which keeps the dot. */
   leading?: ReactNode;
   /**
