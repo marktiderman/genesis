@@ -1,6 +1,6 @@
 {
   "name": "@marktiderman/genesis-chat",
-  "version": "0.11.4",
+  "version": "0.12.0",
   "private": false,
   "type": "module",
   "sideEffects": false,
@@ -257,6 +257,10 @@
           {
             "file": "migrations/0005_genesis_chat_attachment_paths.sql",
             "test": "migrations/tests/0005_genesis_chat_attachment_paths.test.sql"
+          },
+          {
+            "file": "migrations/0006_genesis_chat_read_receipts.sql",
+            "test": "migrations/tests/0006_genesis_chat_read_receipts.test.sql"
           }
         ],
         "install": [

@@ -22,6 +22,11 @@ export interface BubbleAttachment {
   kind: string;
   /** What to show now: a signed URL, or the local preview. */
   uri: string | null;
+  /**
+   * What expo-image caches it under: the storage path, which stays the same when the signed URL
+   * is re-signed (a new expiry would otherwise miss the disk cache and download it again).
+   */
+  cacheKey?: string | null;
   name: string | null;
   width: number | null;
   height: number | null;
@@ -45,6 +50,7 @@ export function fromServer(a: ChatAttachment, urls: Record<string, string>): Bub
     key: a.id,
     kind: a.kind,
     uri: (a.path ? urls[a.path] : null) ?? a.url ?? null,
+    cacheKey: a.path && a.provider === "storage" ? a.path : null,
     name: a.name,
     width: a.width,
     height: a.height,
@@ -145,7 +151,7 @@ export function MessageAttachments({ attachments, mine, onOpenImage, testID }: A
                 style={{ borderRadius: 14, overflow: "hidden" }}
               >
                 {a.uri ? (
-                  <NativeImage src={a.uri} width={w} height={h} placeholder={a.thumbhash ? { thumbhash: a.thumbhash } : undefined} recyclingKey={a.key} />
+                  <NativeImage src={a.uri} width={w} height={h} placeholder={a.thumbhash ? { thumbhash: a.thumbhash } : undefined} cacheKey={a.cacheKey ?? undefined} recyclingKey={a.key} />
                 ) : (
                   <View style={{ width: w, height: h, backgroundColor: colors.fill }} />
                 )}

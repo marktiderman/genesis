@@ -137,11 +137,11 @@ jobs:
       PREVIEW_SCHEME: "GENESIS_RELEASE_PREVIEW_SCHEME"
       PR_TITLE: ${{ github.event.pull_request.title }}
 #@if ios
-      IOS_BUILD: ${{ needs.get_release_ios_build.outputs.build_id }}
+      IOS_BUILD: ${{ needs.get_release_ios_build.outputs.build_id || '' }}
       IOS_FINGERPRINT: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
 #@end
 #@if android
-      ANDROID_BUILD: ${{ needs.get_release_android_build.outputs.build_id }}
+      ANDROID_BUILD: ${{ needs.get_release_android_build.outputs.build_id || '' }}
       ANDROID_FINGERPRINT: ${{ needs.fingerprint.outputs.android_fingerprint_hash }}
 #@end
     outputs:
