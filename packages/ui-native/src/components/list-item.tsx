@@ -19,9 +19,9 @@ import { Platform, Pressable, Text, View } from "react-native";
 import { cn } from "../utils";
 import { useThemeRoles } from "../hooks/use-theme-roles";
 import { useGenesisModules } from "../native-modules";
-import type { RowSwipeAction } from "@marktiderman/genesis-core/conversation";
+import type { RowSwipeAction } from "@marktiderman/genesis-core/row-actions";
 import { NativeIcon } from "./icon";
-import { NativeRowActions } from "./row-actions";
+import { useRowActions, type RowActionProps } from "./use-row-actions";
 
 export interface NativeListItemProps {
   title: string;
@@ -60,16 +60,18 @@ export interface NativeListItemProps {
   testID?: string;
 }
 
+const NO_ACTIONS: readonly RowSwipeAction[] = Object.freeze([]);
+
 export function NativeListItem({ actions: given, actionsAppearance, ...props }: NativeListItemProps) {
   // A disabled row offers no actions; a row with actions is pressable, so its long press reaches the menu.
-  const actions = props.disabled ? undefined : given;
-  const row = <ListItemRow {...props} pressable={!!actions?.length} />;
-  if (!actions?.length) return row;
-  return (
-    <NativeRowActions actions={actions} title={props.title} {...(actionsAppearance ? { appearance: actionsAppearance } : {})} testID={`${props.testID ?? "native-list-item"}-actions`}>
-      {row}
-    </NativeRowActions>
-  );
+  const actions = props.disabled ? NO_ACTIONS : (given ?? NO_ACTIONS);
+  const { rowProps, wrap } = useRowActions(actions, {
+    title: props.title,
+    ...(actionsAppearance ? { appearance: actionsAppearance } : {}),
+    testID: `${props.testID ?? "native-list-item"}-actions`,
+  });
+  const row = <ListItemRow {...props} actionProps={rowProps} pressable={actions.length > 0} />;
+  return actions.length ? <>{wrap(row)}</> : row;
 }
 
 function ListItemRow({
@@ -88,8 +90,9 @@ function ListItemRow({
   className,
   testID,
   pressable,
+  actionProps,
   ...rest
-}: Omit<NativeListItemProps, "actions" | "actionsAppearance"> & { pressable?: boolean }) {
+}: Omit<NativeListItemProps, "actions" | "actionsAppearance"> & { pressable?: boolean; actionProps?: RowActionProps }) {
   const inner = (
     <>
       {leading ? <View className="mr-3">{leading}</View> : null}
@@ -122,6 +125,7 @@ function ListItemRow({
         accessibilityState={{ disabled, ...accessibilityState }}
         disabled={disabled}
         onPress={onPress}
+        {...actionProps}
         {...rest}
         className={cn(
           "min-h-[44px] flex-row items-center bg-background px-4 py-3",

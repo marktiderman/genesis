@@ -9,10 +9,11 @@
  */
 import { useCallback, useMemo, useState } from "react";
 import { Alert } from "react-native";
+import type { RowSwipeAction } from "@marktiderman/genesis-core/row-actions";
 import { NativeAvatar } from "@marktiderman/genesis-ui-native/components";
 import { InboxPage, type InboxItem, type InboxPageProps } from "@marktiderman/genesis-ui-native/layouts";
 import type { ChatInboxItem } from "../core/types";
-import { useChat, useInbox, useInboxActions, usePeople, type ChatAttachmentKind } from "../react/index";
+import { inboxRowActions, useChat, useInbox, useInboxActions, usePeople, type ChatAttachmentKind, type ChatConfirm } from "../react/index";
 import { attachmentPreview } from "./attachment-cards";
 import type { ChatNativeCopy } from "./copy";
 import { initials, useChatNative, type ChatPerson } from "./context";
@@ -30,6 +31,12 @@ export interface ChatInboxScreenProps {
   /** Every kind but these (`["support"]` keeps support tickets out of a messages inbox). */
   excludeKinds?: string[];
   archived?: boolean;
+  /**
+   * Each row's actions: receives the conversation and the default set (`inboxRowActions`:
+   * Messages' Unread, Pin, Hide Alerts, Delete for me and Archive) and returns the row's. Add,
+   * drop, reorder or relabel them; the default keeps them as they are.
+   */
+  rowActions?: (item: ChatInboxItem, defaults: RowSwipeAction[]) => RowSwipeAction[];
   /** Passed to InboxPage (a header, a section title, slots). */
   pageProps?: Partial<Omit<InboxPageProps, "items">>;
   testID?: string;
@@ -59,14 +66,24 @@ export function inboxRow(
     unread: item.unread > 0,
     unreadCount: item.unread,
     meta: item.mentioned ? ctx.copy.mentionedYou : undefined,
+    muted: item.muted,
+    pinned: item.pinned,
     avatar: <NativeAvatar size={40} src={other?.avatarUrl ?? null} fallback={initials(title)} alt={title} recyclingKey={item.conversationId} />,
   };
 }
 
-/** Hide Alerts from the row: until it's turned back on (a date far enough away to read as always). */
-const FOREVER = "9999-12-31T00:00:00.000Z";
+/** Asks with the system alert: Cancel, then the destructive action. */
+export function alertConfirm(cancelLabel: string): ChatConfirm {
+  return (title, body, confirmLabel) =>
+    new Promise((resolve) =>
+      Alert.alert(title, body, [
+        { text: cancelLabel, style: "cancel", onPress: () => resolve(false) },
+        { text: confirmLabel, style: "destructive", onPress: () => resolve(true) },
+      ], { cancelable: true, onDismiss: () => resolve(false) }),
+    );
+}
 
-export function ChatInboxScreen({ onOpen, onStart, kind, kinds, excludeKinds, archived, pageProps, testID = "chat-inbox" }: ChatInboxScreenProps) {
+export function ChatInboxScreen({ onOpen, onStart, kind, kinds, excludeKinds, archived, rowActions, pageProps, testID = "chat-inbox" }: ChatInboxScreenProps) {
   const { userId, attachmentKinds } = useChat();
   const act = useInboxActions();
   const { copy, person: known } = useChatNative();
@@ -87,60 +104,25 @@ export function ChatInboxScreen({ onOpen, onStart, kind, kinds, excludeKinds, ar
   }, [inbox]);
 
   // A row action that fails says so, rather than leaving the row as it was without a word.
-  const run = useCallback(
-    (call: Promise<unknown>) => {
-      call.catch((e: unknown) => Alert.alert(copy.actionFailed, e instanceof Error ? e.message : undefined));
-    },
+  const options = useMemo(
+    () => ({
+      confirm: alertConfirm(copy.cancel),
+      onError: (e: unknown) => Alert.alert(copy.actionFailed, e instanceof Error ? e.message : undefined),
+    }),
     [copy],
   );
 
-  const items: InboxItem[] = inbox.items.map((item) => ({
-    ...inboxRow(item, { me: userId, copy, person, kinds: attachmentKinds }),
-    onPress: () => onOpen(item.conversationId),
+  const items: InboxItem[] = inbox.items.map((item) => {
     // Messages' row actions: Unread (or Read) and Pin to the right, Hide Alerts and Delete to the
     // left, round buttons; Archive in the long-press menu only. Every one is also a screen reader
-    // action on the row (NativeSwipeRow).
-    swipeActions: [
-      item.unread > 0
-        ? { id: "read", label: copy.markRead, icon: "mail-open", tone: "blue" as const, side: "leading" as const, full: true, onPress: () => run(act.markRead(item.conversationId)) }
-        : { id: "unread", label: copy.markUnread, icon: "message-unread", tone: "blue" as const, side: "leading" as const, full: true, onPress: () => run(act.markUnread(item.conversationId)) },
-      {
-        id: "pin",
-        label: item.pinned ? copy.unpin : copy.pin,
-        icon: "pin",
-        tone: "orange" as const,
-        side: "leading" as const,
-        onPress: () => run(act.setPinned(item.conversationId, !item.pinned)),
-      },
-      {
-        id: "alerts",
-        label: item.muted ? copy.showAlerts : copy.hideAlerts,
-        icon: item.muted ? "bell" : "bell-off",
-        tone: "purple" as const,
-        side: "trailing" as const,
-        onPress: () => run(act.setMutedUntil(item.conversationId, item.muted ? null : FOREVER)),
-      },
-      {
-        id: "delete",
-        label: copy.deleteConversation,
-        icon: "trash",
-        destructive: true,
-        side: "trailing" as const,
-        full: true,
-        // It asks with an Alert before deleting (below), so a full swipe can't delete by mistake.
-        confirms: true,
-        onPress: () =>
-          Alert.alert(copy.deleteConversationTitle, copy.deleteConversationBody, [
-            { text: copy.cancel, style: "cancel" },
-            // Up to the last message this row showed: one that came in since isn't deleted unseen.
-            { text: copy.deleteConversation, style: "destructive", onPress: () => run(act.deleteForMe(item.conversationId, item.lastSeq)) },
-          ]),
-      },
-      ...(item.archived
-        ? []
-        : [{ id: "archive", label: copy.archive, icon: "archive", swipe: false, onPress: () => run(act.setArchived(item.conversationId, true)) }]),
-    ],
-  }));
+    // action on the row.
+    const defaults = inboxRowActions(item, act, copy, options);
+    return {
+      ...inboxRow(item, { me: userId, copy, person, kinds: attachmentKinds }),
+      onPress: () => onOpen(item.conversationId),
+      swipeActions: rowActions ? rowActions(item, defaults) : defaults,
+    };
+  });
 
   return (
     <InboxPage
@@ -155,6 +137,8 @@ export function ChatInboxScreen({ onOpen, onStart, kind, kinds, excludeKinds, ar
       emptyBody={copy.inboxEmptyBody}
       // Messages' round buttons behind the swipe, the row a pill while open.
       swipeAppearance="round"
+      mutedLabel={copy.alertsOff}
+      pinnedLabel={copy.pinnedMark}
       emptyActionLabel={onStart ? copy.startConversation : undefined}
       onEmptyAction={onStart}
       {...pageProps}

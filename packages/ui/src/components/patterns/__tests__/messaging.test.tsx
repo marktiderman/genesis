@@ -481,6 +481,31 @@ describe("InboxPage (web)", () => {
     expect(screen.getByRole("button", { name: "More: Cy" })).toBeTruthy();
   });
 
+  it("shows a refused action dimmed with its reason, and choosing it runs its onPress, which explains", async () => {
+    const explain = vi.fn();
+    const act2 = vi.fn();
+    const refused: InboxItem[] = [
+      {
+        id: "r",
+        title: "Rae",
+        swipeActions: [
+          { id: "delete", label: "Delete", destructive: true, reason: "Only the owner can delete it.", onPress: explain },
+          { id: "pin", label: "Pin", onPress: act2 },
+        ],
+      },
+    ];
+    render(<InboxPage testID="i" items={refused} now={now} />);
+    fireEvent.pointerDown(screen.getByTestId("i-row-r-more"), new PointerEvent("pointerdown", { bubbles: true, button: 0, ctrlKey: false }));
+    const item = await screen.findByTestId("i-row-r-action-delete");
+    expect(item.getAttribute("aria-label")).toBe("Delete: Only the owner can delete it.");
+    expect(item.hasAttribute("data-refused")).toBe(true);
+    expect(screen.getByTestId("i-row-r-action-delete-reason").textContent).toBe("Only the owner can delete it.");
+    expect(screen.getByTestId("i-row-r-action-pin").hasAttribute("data-refused")).toBe(false);
+    fireEvent.click(item);
+    expect(explain).toHaveBeenCalledTimes(1);
+    expect(act2).not.toHaveBeenCalled();
+  });
+
   it("moves between rows with the arrow keys and j/k, and the tab stop follows", () => {
     render(<InboxPage testID="i" items={items} now={now} />);
     screen.getByTestId("i-row-a").focus();
@@ -527,6 +552,38 @@ describe("InboxPage (web)", () => {
     rerender(<InboxPage testID="i" items={[]} emptyTitle="No reports" emptyActionLabel="Send feedback" onEmptyAction={onAction} />);
     fireEvent.click(screen.getByRole("button", { name: "Send feedback" }));
     expect(onAction).toHaveBeenCalled();
+  });
+});
+
+describe("InboxPage (web): muted and pinned", () => {
+  it("puts a pin and a bell-slash beside the time, grays the count or dot, and says both after the title", () => {
+    render(
+      <InboxPage
+        testID="i"
+        pinnedLabel="Kept"
+        formatTime={() => "9:41"}
+        items={[
+          { id: "m", title: "Ben", unreadCount: 1, muted: true, pinned: true, timestamp: "2026-10-24T09:41:00Z" },
+          { id: "p", title: "Ada", unreadCount: 2 },
+          { id: "d", title: "Cy", unread: true, muted: true },
+        ]}
+      />,
+    );
+    const trailing = screen.getByTestId("i-row-m-trailing");
+    expect([...trailing.children].map((c) => c.getAttribute("data-testid"))).toEqual(["i-row-m-pinned", "i-row-m-muted", "i-row-m-time"]);
+    expect(screen.getByTestId("i-row-m").textContent).toMatch(/^Ben, 1 unread, Kept, Alerts off9:41/);
+    expect(trailing.querySelectorAll("svg").length).toBe(2);
+    // The time keeps the title's baseline; only the marks are centred, as on the phone.
+    expect(trailing.className).toContain("items-baseline");
+    expect(trailing.className).not.toContain("self-center");
+    expect(screen.getByTestId("i-row-m-pinned").className).toContain("self-center");
+    expect(screen.getByTestId("i-row-m-muted").className).toContain("self-center");
+    trailing.querySelectorAll("svg").forEach((svg) => expect(svg.getAttribute("aria-hidden")).toBe("true"));
+    expect(screen.getByTestId("i-row-m-count").className).toContain("bg-muted");
+    expect(screen.queryByTestId("i-row-p-muted")).toBeNull();
+    expect(screen.queryByTestId("i-row-p-pinned")).toBeNull();
+    expect(screen.getByTestId("i-row-p-count").className).toContain("bg-primary");
+    expect(screen.getByTestId("i-row-d-unread").className).toContain("bg-muted-foreground");
   });
 });
 

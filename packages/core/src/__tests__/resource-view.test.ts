@@ -663,24 +663,28 @@ describe("review fixes: actions and pictures", () => {
     expect(() => defineView(brands, { actions: [{ name: "x", label: "X", destructive: "yes" as never }] })).toThrow(/destructive isn't true or false/);
   });
 
-  it("places actions behind the swipe, with an icon and a tone (ADR 0028)", () => {
+  it("places actions behind the swipe, with an icon, a tone and an accent (ADR 0028)", () => {
     const view = defineView(brands, {
       actions: [
-        { name: "read", label: "Read", swipe: { side: "leading", full: true }, icon: "mail", tone: "blue" },
-        { name: "pin", label: "Pin", swipe: "leading", tone: "orange" },
+        { name: "read", label: "Read", swipe: { side: "leading", full: true }, icon: "mail", tone: "info" },
+        { name: "pin", label: "Pin", swipe: "leading", accent: "orange" },
+        { name: "mute", label: "Mute", swipe: { side: "trailing" }, accent: "purple" },
         { name: "review", label: "Review", swipe: false },
         { name: "copy", label: "Copy" },
       ],
     });
     expect(view.actions()).toEqual([
-      { name: "read", label: "Read", swipe: { side: "leading", full: true }, icon: "mail", tone: "blue" },
-      { name: "pin", label: "Pin", swipe: { side: "leading", full: false }, tone: "orange" },
+      { name: "read", label: "Read", swipe: { side: "leading", full: true }, icon: "mail", tone: "info" },
+      { name: "pin", label: "Pin", swipe: { side: "leading", full: false }, accent: "orange" },
+      { name: "mute", label: "Mute", swipe: { side: "trailing", full: false }, accent: "purple" },
       { name: "review", label: "Review", swipe: false },
       { name: "copy", label: "Copy" },
     ]);
     expect(() => defineView(brands, { actions: [{ name: "x", label: "X", swipe: "left" as never }] })).toThrow(/swipe is "leading", "trailing"/);
     expect(() => defineView(brands, { actions: [{ name: "x", label: "X", swipe: { side: "leading", full: "yes" } as never }] })).toThrow(/swipe is/);
-    expect(() => defineView(brands, { actions: [{ name: "x", label: "X", tone: "pink" as never }] })).toThrow(/tone is one of/);
+    // The tones are what an action means; a system color by name is an accent.
+    expect(() => defineView(brands, { actions: [{ name: "x", label: "X", tone: "blue" as never }] })).toThrow(/tone is one of tint, danger, success, warning, info, neutral/);
+    expect(() => defineView(brands, { actions: [{ name: "x", label: "X", accent: "pink" as never }] })).toThrow(/accent is one of/);
     expect(() => defineView(brands, { actions: [{ name: "x", label: "X", icon: " " }] })).toThrow(/icon isn't an icon name/);
     expect(() => defineView(brands, { actions: [{ name: "x", label: "X", destructive: true, swipe: { side: "trailing", full: true } }] })).toThrow(/needs a confirm/);
     expect(() => defineView(brands, { actions: [{ name: "x", label: "X", destructive: true, confirm: "Delete it?", swipe: { side: "trailing", full: true } }] })).not.toThrow();

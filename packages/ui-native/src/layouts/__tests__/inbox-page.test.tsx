@@ -79,6 +79,30 @@ describe("InboxPage", () => {
     expect(styleOf(screen.getByTestId("inbox-row-c-unread")).borderRadius).toBeUndefined();
   });
 
+  it("marks a muted row with a bell-slash and a gray count or dot, and a pinned one with a pin, and says both", () => {
+    const rows: InboxItem[] = [
+      { id: "m", title: "Ben", timestamp: new Date(2026, 9, 24, 9, 0), unreadCount: 1, muted: true, pinned: true },
+      { id: "p", title: "Ada", timestamp: new Date(2026, 9, 24, 8, 0), unreadCount: 2 },
+      { id: "d", title: "Cy", timestamp: new Date(2026, 9, 24, 7, 0), unread: true, muted: true },
+    ];
+    const { rerender } = render(<InboxPage testID="inbox" now={now} mutedLabel="Hushed" pinnedLabel="Kept" items={rows} />);
+    expect(screen.getByTestId("inbox-row-m-muted")).toBeTruthy();
+    expect(screen.getByTestId("inbox-row-m-pinned")).toBeTruthy();
+    expect(screen.getByTestId("inbox-row-m").getAttribute("aria-label")).toMatch(/^1 unread, Ben, Kept, Hushed, /);
+    expect(screen.queryByTestId("inbox-row-p-muted")).toBeNull();
+    expect(screen.queryByTestId("inbox-row-p-pinned")).toBeNull();
+    expect(screen.getByTestId("inbox-row-p").getAttribute("aria-label")).not.toMatch(/Kept|Hushed/);
+    expect(screen.getByTestId("inbox-row-m-count").className).toContain("bg-muted");
+    expect(screen.getByTestId("inbox-row-p-count").className).toContain("bg-primary");
+    // A muted row with only a dot grays it too.
+    const grayDot = styleOf(screen.getByTestId("inbox-row-d-unread")).backgroundColor;
+    // The memoized rows take a changed label from the page.
+    rerender(<InboxPage testID="inbox" now={now} mutedLabel="Quiet" pinnedLabel="Held" items={rows} />);
+    expect(screen.getByTestId("inbox-row-m").getAttribute("aria-label")).toMatch(/^1 unread, Ben, Held, Quiet, /);
+    rerender(<InboxPage testID="inbox" now={now} items={[{ ...rows[2]!, muted: false }]} />);
+    expect(styleOf(screen.getByTestId("inbox-row-d-unread")).backgroundColor).not.toBe(grayDot);
+  });
+
   it("opens a row on press", () => {
     render(<InboxPage testID="inbox" items={items} now={now} />);
     fireEvent.click(screen.getByTestId("inbox-row-a"));

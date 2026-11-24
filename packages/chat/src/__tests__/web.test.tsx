@@ -387,10 +387,13 @@ describe("ChatInbox", () => {
     expect(row.textContent).toContain("Sam");
     expect(row.textContent).toContain("You: See you soon");
     expect(row.getAttribute("aria-current")).toBe("true");
-    expect(row.getAttribute("aria-label")).toMatch(/pinned/);
+    expect(row.getAttribute("aria-label")).toMatch(/Sam, Pinned, /);
+    expect(screen.getByTestId("genesis-chat-inbox-row-d1-pinned")).toBeTruthy();
     const groupRow = screen.getByTestId("genesis-chat-inbox-row-c1");
     expect(groupRow.textContent).toContain("Morning crew");
-    expect(groupRow.getAttribute("aria-label")).toMatch(/2 unread.*muted/);
+    expect(groupRow.getAttribute("aria-label")).toMatch(/2 unread.*Alerts off/);
+    // Beside the time, as on the phone, not on the preview line.
+    expect(screen.getByTestId("genesis-chat-inbox-row-c1-muted").nextElementSibling?.textContent).toMatch(/\d/);
     fireEvent.click(groupRow);
     expect(picked).toEqual(["c1"]);
     row.focus();

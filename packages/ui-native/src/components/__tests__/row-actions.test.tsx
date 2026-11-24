@@ -1,12 +1,12 @@
 // @feat:row-actions
 import { forwardRef, useImperativeHandle, type ReactNode } from "react";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, renderHook, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { GenesisModulesProvider, type GenesisModules } from "../../native-modules";
 import { NativeListItem } from "../list-item";
 import { NativeRowActions, toMenuAction } from "../row-actions";
-import { NativeSwipeRow, fullSwipeSide, rowActionColor, splitSwipeActions } from "../swipe-row";
-import { ROW_ACTION_TONES, onRowActionColor } from "../../tokens/row-action-tones";
+import { NativeSwipeRow, SWIPE_METRICS, fullSwipeSide, openWidth, splitSwipeActions } from "../swipe-row";
+import { ROW_ACTION_SYSTEM_COLORS, onRowActionColor, useRowActionColors } from "../../tokens/row-action-tones";
 
 afterEach(cleanup);
 
@@ -28,10 +28,10 @@ function fakeSwipeable(close: () => void, dx: () => number) {
 const layout = (el: HTMLElement, width: number) => act(() => void el.dispatchEvent(new CustomEvent("layout", { detail: { width, height: 60 } })));
 
 const make = () => [
-  { id: "read", label: "Read", onPress: vi.fn(), side: "leading" as const, icon: "mail-open", tone: "blue" as const, full: true },
-  { id: "pin", label: "Pin", onPress: vi.fn(), side: "leading" as const, icon: "pin", tone: "orange" as const },
-  { id: "review", label: "Review", onPress: vi.fn(), swipe: false },
-  { id: "delete", label: "Delete", onPress: vi.fn(), destructive: true, icon: "trash", full: true },
+  { id: "read", label: "Read", onPress: vi.fn(), swipe: { side: "leading" as const, full: true }, icon: "mail-open", tone: "info" as const },
+  { id: "pin", label: "Pin", onPress: vi.fn(), swipe: { side: "leading" as const }, icon: "pin", accent: "orange" as const },
+  { id: "review", label: "Review", onPress: vi.fn(), swipe: false as const },
+  { id: "delete", label: "Delete", onPress: vi.fn(), destructive: true, confirms: true, icon: "trash", swipe: { side: "trailing" as const, full: true } },
 ];
 
 describe("row actions (ADR 0028)", () => {
@@ -43,12 +43,27 @@ describe("row actions (ADR 0028)", () => {
     expect(fullTrailing?.id).toBe("delete");
   });
 
-  it("colors by tone, red when destructive, the tint otherwise", () => {
-    const roles = { tint: "T", destructive: "D" };
-    expect(rowActionColor({ destructive: true }, roles)).toBe("D");
-    expect(rowActionColor({}, roles)).toBe("T");
-    expect(rowActionColor({ tone: "blue" }, roles)).toBeTruthy();
-    expect(rowActionColor({ tone: "blue" }, roles)).not.toBe("T");
+  it("colors by tone and accent: danger when destructive, the primary otherwise, a system color by name", () => {
+    const { result } = renderHook(() => useRowActionColors());
+    const colorOf = result.current;
+    const destructive = colorOf({ destructive: true }).background;
+    const primary = colorOf({}).background;
+    expect(destructive).not.toEqual(primary);
+    expect(colorOf({ tone: "danger" }).background).toEqual(destructive);
+    expect(colorOf({ accent: "red" }).background).toEqual(destructive);
+    // Messages' look: Unread blue (info), Pin orange, Hide Alerts purple, all apart.
+    const blue = colorOf({ tone: "info" }).background;
+    const orange = colorOf({ accent: "orange" }).background;
+    const purple = colorOf({ accent: "purple" }).background;
+    expect(colorOf({ accent: "blue" }).background).toEqual(blue);
+    expect(colorOf({ tone: "warning" }).background).toEqual(orange);
+    expect(new Set([JSON.stringify(blue), JSON.stringify(orange), JSON.stringify(purple), JSON.stringify(destructive)]).size).toBe(4);
+  });
+
+  it("opens a side to the width its buttons draw at (one set of metrics)", () => {
+    expect(openWidth(0, "fill")).toBe(0);
+    expect(openWidth(3, "fill")).toBe(3 * SWIPE_METRICS.fillWidth);
+    expect(openWidth(2, "round")).toBe(2 * SWIPE_METRICS.roundSlot + 3 * SWIPE_METRICS.roundGap);
   });
 
   it("runs a side's full action when the row is let go past the ratio, and only opens it short of it", () => {
@@ -162,8 +177,34 @@ describe("row actions (ADR 0028)", () => {
     fireEvent.click(screen.getByTestId("s"));
     expect(JSON.parse(screen.getByTestId("s-pill").dataset.style!)).toMatchObject({ borderRadius: 26, marginHorizontal: 6 });
     expect(screen.getByTestId("row")).toBe(row);
+    // Starting back keeps the pill (the row is still sliding home); it goes once the row is home.
     fireEvent.doubleClick(screen.getByTestId("s"));
+    expect(screen.getByTestId("s-pill").dataset.style).toBeDefined();
+    fireEvent.mouseUp(screen.getByTestId("s"));
     expect(screen.getByTestId("s-pill").dataset.style).toBeUndefined();
+  });
+
+  it("a full swipe runs its action once, and the pill from the drag stays until the row is home", () => {
+    const Swipeable = fakeSwipeable(vi.fn(), () => 1000);
+    const onFull = vi.fn();
+    render(
+      <GenesisModulesProvider modules={{ swipeable: Swipeable as never }}>
+        <NativeSwipeRow actions={[{ id: "read", label: "Read", swipe: { side: "leading", full: true }, onPress: onFull }]} appearance="round" testID="f">
+          <i data-testid="row" />
+        </NativeSwipeRow>
+      </GenesisModulesProvider>,
+    );
+    layout(screen.getByTestId("f").parentElement!, 400);
+    // A real swipe starts with the drag, then is let go past the full-swipe point, then springs home.
+    fireEvent.mouseDown(screen.getByTestId("f"));
+    expect(screen.getByTestId("f-pill").dataset.style).toBeDefined();
+    fireEvent.click(screen.getByTestId("f"));
+    expect(onFull).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("f-pill").dataset.style).toBeDefined();
+    fireEvent.doubleClick(screen.getByTestId("f"));
+    expect(screen.getByTestId("f-pill").dataset.style).toBeDefined();
+    fireEvent.mouseUp(screen.getByTestId("f"));
+    expect(screen.getByTestId("f-pill").dataset.style).toBeUndefined();
   });
 
   it("with a preview, the long press opens the sheet with the peek on top, even with the system menu", async () => {
@@ -302,7 +343,7 @@ describe("row actions (ADR 0028)", () => {
       const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
       return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
     };
-    for (const [tone, { fallback }] of Object.entries(ROW_ACTION_TONES)) {
+    for (const [tone, { fallback }] of Object.entries(ROW_ACTION_SYSTEM_COLORS)) {
       const on = onRowActionColor(tone as never);
       const [hi, lo] = [lum(fallback), lum(on)].sort((a, b) => b - a) as [number, number];
       expect((hi + 0.05) / (lo + 0.05), tone).toBeGreaterThanOrEqual(4.5);
@@ -313,7 +354,7 @@ describe("row actions (ADR 0028)", () => {
     const three = [
       { id: "a", label: "A", onPress: vi.fn() },
       { id: "b", label: "B", onPress: vi.fn() },
-      { id: "del", label: "Delete", destructive: true, full: true, onPress: vi.fn() },
+      { id: "del", label: "Delete", destructive: true, confirms: true, swipe: { side: "trailing" as const, full: true }, onPress: vi.fn() },
     ];
     let dx = 0;
     const Swipeable = fakeSwipeable(vi.fn(), () => dx);

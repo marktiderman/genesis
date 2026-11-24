@@ -29,47 +29,76 @@ as it is.
 
 ## Decision
 
-1. **One row-action shape** in `@marktiderman/genesis-core/conversation`: `InboxSwipeAction`
-   (also exported as `RowSwipeAction`) gains `icon` (a Genesis icon name), `tone`
-   (`RowActionTone`: iOS's system colors, `tint` by default and `red` when destructive), `full`
-   (a full swipe runs it) and `swipe` (`false` keeps it in the menu and the screen reader only).
-   Every field is optional, so existing rows keep working.
-2. **A view's actions say where they swipe.** `ViewAction` gains `swipe`
-   (`"leading" | "trailing" | { side, full } | false`, `ViewActionSwipe`), `icon` and `tone`;
-   `defineView` validates them (a destructive action on a full swipe must have a `confirm`) and
-   `view.actions()` carries them (`swipe` resolved to `{ side, full }`) only when set. The web
-   ignores `swipe`: its row menu lists every action. Unset, NativeResourceView's own swipe leaves
-   the action in the long-press menu and the screen reader's actions; a screen's own `swipeable`
-   gets it trailing, as before. The guards' Edit and Delete stay trailing and never run on a full
-   swipe.
-3. **ui-native draws them the same everywhere:**
-   - `NativeSwipeRow`: icons and tones, `appearance: "fill" | "round"` (iOS 26's round buttons),
-     at most three a side (`maxPerSide`), the row tracking the finger 1:1, and the full swipe
-     past 0.6 of the row's width (`fullSwipeRatio`), decided on the row's offset as the release
-     is reported, on the side it's opening (`fullSwipeSide`: backing out or crossing sides
-     doesn't run it, and it must clear the side's open actions by 40pt, so a row springing open to its buttons never counts; a release right at the threshold can land either side, the report coming a
-     frame after the finger lifts); a side keeps its destructive action under the cap;
-     right-to-left aware; the actions on its child as `accessibilityActions` unless the row
-     already has them; unseen at rest, and seen whenever the row is off it (the row's translation
-     with Reanimated, else the swipe's open and close events, so a row opened from code shows them).
+1. **One row-action shape, platform-neutral, in `@marktiderman/genesis-core/row-actions`:**
+   `RowSwipeAction` (the inbox's `InboxSwipeAction` in `/conversation` is the same type). It holds:
+   - one placement field, `swipe: { side, full? } | false` (`RowActionSwipe`; unset is trailing,
+     and `side` stays as the deprecated alias rows have always had);
+   - `icon`, a Genesis icon name. It stays a string because core keeps no platform's icon set;
+     ui-native checks it with `isNativeIconName`;
+   - `tone`, what the action means: `tint`, `danger`, `success`, `warning`, `info` or `neutral`.
+     Each platform draws it in its own colors: iOS's systemRed, Green, Orange, Blue and Gray, the
+     tint the app's primary;
+   - `accent`, a system color by name (`blue`, `green`, `orange`, `purple`, `yellow`, `gray`,
+     `red`), for a row that matches a system app's look where no meaning fits. Messages' Hide
+     Alerts is purple and its Pin orange; neither is a warning;
+   - `confirms` (its own `onPress` asks first or can be undone) and `reason` (a guard's refusal,
+     which screen readers hear).
+
+   `confirm` and `confirms` differ on purpose. A view action runs through the data provider, so the
+   view gives the words and NativeResourceView asks them, then marks the row action `confirms`. A
+   row action's `onPress` is the app's own code, so the app asks and the flag says so.
+   `resource-view` imports the shape from here, not from `conversation`.
+2. **A view's actions say where they swipe.** `ViewAction` gains:
+   - `swipe`: the row shape, or a bare side as shorthand for `defineView` input only (`ViewActionSwipe`);
+   - `icon`, `tone` and `accent`.
+
+   `defineView` validates them: a destructive action on a full swipe must have a `confirm`, and a
+   tone or accent must be one of the sets. `view.actions()` carries them, with `swipe` resolved to
+   `{ side, full }`, only when set. The web ignores `swipe`: its row menu lists every action.
+
+   Unset, NativeResourceView's own swipe leaves the action in the long-press menu and the screen
+   reader's actions; a screen's own `swipeable` gets it on the trailing side, as before. The guards'
+   Edit and Delete stay trailing and never run on a full swipe.
+3. **ui-native builds a row's actions in one place.** `useRowActions(actions, { title, preview,
+   appearance, swipe, testID })` returns the row's props (its screen reader's actions and long
+   press) and `wrap(row)`. `wrap` puts the row in the system context menu (`GenesisModules.menu`,
+   `MenuView` from `@expo/ui/community/menu`), then the swipe, beside the sheet fallback
+   (`NativeContextMenu`). A `preview` peek always uses the sheet.
+
+   NativeRowActions, `NativeListItem`'s `actions`, InboxPage's rows and NativeResourceView's rows
+   and cards all use it, so a row behaves the same everywhere: InboxPage gets the system menu too,
+   and NativeResourceView's long press no longer falls back to an alert. `rowAccessibilityActions`
+   is the one place the screen reader's actions are built, a refused one with its reason.
+   - `NativeSwipeRow`:
+     - draws icons and each action's tone or accent (`useRowActionColors`), in
+       `appearance: "fill" | "round"` (iOS 26's round buttons, the open row a pill);
+     - takes its sizes from one set of `SWIPE_METRICS`, which `openWidth` uses too;
+     - shows at most three actions a side (`maxPerSide`), keeping a side's destructive one under
+       the cap, and tracks the finger 1:1;
+     - runs a full swipe past 0.6 of the row's width (`fullSwipeRatio`), decided on the row's
+       offset as the release is reported, on the side it's opening (`fullSwipeSide`). Backing out
+       or crossing sides doesn't run it, and it must clear the side's open actions by 40pt, so a
+       row springing open to its buttons never counts. A release right at the threshold can land
+       either side, because the report comes a frame after the finger lifts;
+     - is right-to-left aware;
+     - keeps the buttons unseen at rest, and seen whenever the row is off it: the row's
+       translation with Reanimated, else one `open` state.
+
      The side comes from gesture-handler 2.21+'s naming of the open direction (2.20 and earlier
      named it the other way), so the optional peer starts at 2.21.0.
-   - Text and icons: white on the iOS system tones, as iOS draws them (black on yellow), which
-     doesn't reach WCAG AA on every tone. Under a `GenesisThemeProvider`, `tint` and its text are
-     the app's own `bg-primary` / `text-primary-foreground` on the phone
-     (`brandRoleVariables(brand, { platform: "native" })` for the resolved mode: native overrides,
-     dark colors, the contrast-checked foreground); else the theme's tint role, with black or white
-     by contrast on a hex tint, else `primaryForeground`. `red` takes `destructiveForeground`. A destructive `full` action says it asks first or can be undone
-     (`confirms`), or warns in development; NativeResourceView sets it for a view action with a
-     `confirm`.
-   - `NativeRowActions`: swipe + long-press menu + accessibility actions around any pressable
-     row. The menu is the system context menu when the app passes `GenesisModules.menu`
-     (`MenuView` from `@expo/ui/community/menu`), else `NativeContextMenu`'s sheet.
-   - `NativeListItem`'s `actions` (and `actionsAppearance`) wraps the row in `NativeRowActions`;
-     a row with actions is pressable, and a disabled row offers none.
+   - Colors:
+     - text and icons are white on the system colors, as iOS draws them (black on yellow), which
+       doesn't reach WCAG AA on every one; the Android fallbacks do;
+     - `tint` and its text are `useThemeRoles().primary` and `onPrimary`, the app's own `bg-primary`
+       and `text-primary-foreground` on the phone. Under a `GenesisThemeProvider` that is
+       `brandRoleVariables(brand, { platform: "native" })` for the resolved mode: native
+       overrides, dark colors, the contrast-checked foreground;
+     - `danger` takes `destructiveForeground`.
+
+     A destructive `full` action that doesn't say it `confirms` warns in development.
+   - A row with actions in `NativeListItem` is pressable, and a disabled row offers none.
    - `NativeResourceView` list rows swipe by default (NativeSwipeRow; `swipeable={null}` turns it
-     off) and long-press into the system menu; grid cards and `renderCard` rows swipe only with a
-     screen's own `swipeable`.
+     off). Grid cards and `renderCard` rows swipe only with a screen's own `swipeable`.
 4. **The two screen standards ride with it**, since they're the same "follow iOS" rule and the
    same consumer is waiting on all three: `ScreenContainer` `header` (native large title, search
    and header items through `GenesisModules.router.StackScreen`; an option the screen set and

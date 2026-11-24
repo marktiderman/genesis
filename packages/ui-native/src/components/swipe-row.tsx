@@ -1,9 +1,9 @@
 /**
  * NativeSwipeRow — a row with actions behind a swipe, as Mail and Messages have them: leading
  * actions behind a swipe to the right (Read, Pin), trailing behind a swipe to the left (Archive,
- * Delete). Each action's `side` (trailing by default), `icon`, `tone` and `full` come from the
- * one row-action shape (`RowSwipeAction`, ADR 0028), so a view's actions, an inbox row's and an
- * app's own list read the same.
+ * Delete). Each action's `swipe` (`{ side, full }`, trailing by default), `icon`, `tone` and
+ * `accent` come from the one row-action shape (`RowSwipeAction` in `genesis-core/row-actions`,
+ * ADR 0028), so a view's actions, an inbox row's and an app's own list read the same.
  *
  * - **Full swipe:** the first `full` action on a side runs when the row is let go past
  *   `fullSwipeRatio` (0.6) of its width on that side, as Mail's Delete does (`fullSwipeSide`).
@@ -24,18 +24,14 @@
  *
  * @stability Beta
  */
-import { cloneElement, isValidElement, useMemo, useRef, useState, type ReactElement, type ReactNode } from "react";
-import { useOptionalTheme } from "@marktiderman/genesis-design-system";
-import { nativeThemeDark, nativeThemeLight } from "@marktiderman/genesis-design-system/tokens";
-import { I18nManager, Platform, PlatformColor, Pressable, View, type ColorValue } from "react-native";
-import type { RowActionTone, RowSwipeAction } from "@marktiderman/genesis-core/conversation";
+import { cloneElement, isValidElement, useRef, useState, type ReactElement, type ReactNode } from "react";
+import { I18nManager, Platform, PlatformColor, Pressable, View } from "react-native";
+import { rowActionLabel, rowActionSwipe, type RowSwipeAction } from "@marktiderman/genesis-core/row-actions";
 import { useHaptics } from "../hooks/use-haptics";
 import { useThemeRoles } from "../hooks/use-theme-roles";
-import { useThemeMode } from "../hooks/use-theme-mode";
 import { useGenesisModules, type GenesisReanimatedModule } from "../native-modules";
-import type { NativeIconName } from "../icon-names";
-import { ROW_ACTION_TONES, ROW_PILL, onRowActionColor } from "../tokens/row-action-tones";
-import { nativeBrandPrimary } from "../tokens/brand-primary";
+import { isNativeIconName } from "../icon-names";
+import { ROW_PILL, useRowActionColors } from "../tokens/row-action-tones";
 import { NativeIcon } from "./icon";
 import { NativeText } from "./text";
 
@@ -59,16 +55,27 @@ export interface NativeSwipeRowProps {
 /** How far past a side's open actions a full swipe must go, in points. */
 export const FULL_SWIPE_CLEARANCE = 40;
 
-/** A button's width behind the row: room for a short label. */
-const ACTION_WIDTH = 80;
+/**
+ * The swipe's measurements, in points: what a side opens to (`openWidth`) and what the buttons
+ * draw with come from here, so the two never disagree.
+ */
+export const SWIPE_METRICS = {
+  /** A fill button's width: room for a short label. */
+  fillWidth: 80,
+  /** A round button's slot (its circle and label) and the circle inside it (iOS 26's 50pt). */
+  roundSlot: 56,
+  roundCircle: 50,
+  /** The space between round buttons, and at the side's edges. */
+  roundGap: 10,
+  /** The open row as a pill: its inset from the row's edges and its corner radius. */
+  pillInset: 6,
+  pillRadius: 26,
+} as const;
 
-/** The color behind a row action: its tone, red when destructive, else the app's tint. */
-export function rowActionColor(action: Pick<RowSwipeAction, "tone" | "destructive">, roles: { tint: ColorValue; destructive: ColorValue }): ColorValue {
-  const tone = action.tone ?? (action.destructive ? "red" : "tint");
-  if (tone === "tint") return roles.tint;
-  if (tone === "red") return roles.destructive;
-  const c = ROW_ACTION_TONES[tone];
-  return Platform.OS === "ios" ? PlatformColor(c.ios) : c.fallback;
+/** The width a side's `n` actions open to: fill buttons side by side, or round ones with their gaps. */
+export function openWidth(n: number, appearance: "fill" | "round"): number {
+  if (n === 0) return 0;
+  return appearance === "round" ? n * SWIPE_METRICS.roundSlot + (n + 1) * SWIPE_METRICS.roundGap : n * SWIPE_METRICS.fillWidth;
 }
 
 /** At most `max` of a side's actions, in order, keeping the destructive ones (Delete stays on the swipe). */
@@ -79,18 +86,31 @@ function capSide(list: readonly RowSwipeAction[], max: number): RowSwipeAction[]
   return list.filter((a) => destructive.includes(a) || others.includes(a));
 }
 
+/** Whether a full swipe runs it, from its placement. */
+const isFull = (a: RowSwipeAction) => {
+  const place = rowActionSwipe(a);
+  return place !== false && place.full === true;
+};
+
 /** The actions a swipe shows, by side (an action with `swipe: false` shows on neither), in the row's reading direction. */
 export function splitSwipeActions(actions: readonly RowSwipeAction[], maxPerSide = Infinity) {
-  const shown = actions.filter((a) => a.swipe !== false);
-  const leading = capSide(shown.filter((a) => a.side === "leading"), maxPerSide);
-  const trailing = capSide(shown.filter((a) => a.side !== "leading"), maxPerSide);
-  return { leading, trailing, fullLeading: leading.find((a) => a.full), fullTrailing: trailing.find((a) => a.full) };
+  const side = (a: RowSwipeAction) => {
+    const place = rowActionSwipe(a);
+    return place === false ? null : place.side;
+  };
+  const leading = capSide(actions.filter((a) => side(a) === "leading"), maxPerSide);
+  const trailing = capSide(actions.filter((a) => side(a) === "trailing"), maxPerSide);
+  return { leading, trailing, fullLeading: leading.find(isFull), fullTrailing: trailing.find(isFull) };
 }
 
-/** The row's actions as React Native's `accessibilityActions` and the handler that runs them. */
+/**
+ * The row's actions as React Native's `accessibilityActions` and the handler that runs them: the
+ * one place they're built (`useRowActions` and NativeSwipeRow use it). A refused action's label
+ * carries its reason, so a screen reader hears why before pressing it.
+ */
 export function rowAccessibilityActions(actions: readonly RowSwipeAction[]) {
   return {
-    accessibilityActions: actions.map((a) => ({ name: a.id, label: a.label })),
+    accessibilityActions: actions.map((a) => ({ name: a.id, label: rowActionLabel(a) })),
     onAccessibilityAction: (event: { nativeEvent: { actionName: string } }) => actions.find((a) => a.id === event.nativeEvent.actionName)?.onPress(),
   };
 }
@@ -150,7 +170,7 @@ const warnedFull = new Set<string>();
 function warnUnconfirmedFull(actions: readonly RowSwipeAction[]) {
   if (typeof __DEV__ === "undefined" || !__DEV__) return;
   for (const a of actions) {
-    if (!a.full || !a.destructive || a.confirms || warnedFull.has(a.id)) continue;
+    if (!isFull(a) || !a.destructive || a.confirms || warnedFull.has(a.id)) continue;
     warnedFull.add(a.id);
     // genesis-allow-console: a development-only hint about an unconfirmed destructive full swipe, not an error to report
     console.warn(
@@ -164,12 +184,12 @@ type GroupStyle = Record<string, unknown>;
 /**
  * The buttons behind one side, seen only while the row is off its resting place, so they never show
  * in an inset row's margins at rest. With Reanimated the row's own translation drives it on the UI
- * thread (a drag, a ref's `openLeft()`, a spring back); without it, the swipe's open and close events do.
+ * thread (a drag, a ref's `openLeft()`, a spring back); without it, the row's one `open` state does.
  */
-function ActionGroup({ R, translation, visible, style, children }: { R?: GenesisReanimatedModule; translation?: { value: number }; visible: boolean; style: GroupStyle; children: ReactNode }) {
+function ActionGroup({ R, translation, open, style, children }: { R?: GenesisReanimatedModule; translation?: { value: number }; open: boolean; style: GroupStyle; children: ReactNode }) {
   if (R && translation) return <AnimatedActionGroup R={R} translation={translation} style={style}>{children}</AnimatedActionGroup>;
   return (
-    <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ ...style, opacity: visible ? 1 : 0 }}>
+    <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ ...style, opacity: open ? 1 : 0 }}>
       {children}
     </View>
   );
@@ -198,25 +218,16 @@ export function NativeSwipeRow({
   testID = "swipe-row",
 }: NativeSwipeRowProps) {
   const { swipeable: Swipeable, reanimated } = useGenesisModules();
-  // Under a GenesisThemeProvider, a `tint` action is the brand's primary and its text the brand's
-  // primary-foreground, exactly as the app's own bg-primary / text-primary-foreground draw them on
-  // the phone (native overrides, dark colors, the contrast-checked foreground); without a provider,
-  // the theme's tint role.
-  const theme = useOptionalTheme();
-  const themeBrand = theme?.brand;
-  const themeMode = theme?.resolvedMode;
-  const brand = useMemo(() => (themeBrand && themeMode ? nativeBrandPrimary(themeBrand, themeMode) : undefined), [themeBrand, themeMode]);
-  const colors = useThemeRoles(brand ? { tint: brand.primary } : {});
-  const tokens = useThemeMode() === "dark" ? nativeThemeDark : nativeThemeLight;
+  const colors = useThemeRoles();
+  const colorsOf = useRowActionColors();
   const play = useHaptics();
   const swipe = useRef<{ close?: () => void } | null>(null);
   const offset = useRef<{ value: number } | null>(null);
   const [width, setWidth] = useState(0);
+  // The row off its resting place: from a drag starting (or a ref opening it) until it is back home.
+  // It makes the open row a pill (round) and, without Reanimated, shows the buttons, which stay
+  // mounted (the swipe measures them) but unseen at rest, so they never show in an inset row's margins.
   const [open, setOpen] = useState(false);
-  // The actions stay mounted (the swipe measures them) but unseen at rest: an inset row doesn't
-  // cover the whole width, and they would show in its margins. Without Reanimated this is what shows
-  // them: a drag starting, or the row opening by any means (a ref's openLeft, say).
-  const [moving, setMoving] = useState(false);
   const content = accessibilityActions ? withAccessibilityActions(children, actions) : children;
   const { leading, trailing, fullLeading, fullTrailing } = splitSwipeActions(actions, maxPerSide);
   if (!Swipeable || leading.length + trailing.length === 0) return <>{content}</>;
@@ -228,35 +239,32 @@ export function NativeSwipeRow({
     swipe.current?.close?.();
   };
   const round = appearance === "round";
-  // The width a side's actions open to: fill buttons side by side, or round ones with their gaps.
-  const openWidth = (n: number) => (n === 0 ? 0 : round ? n * 56 + (n + 1) * 10 : n * ACTION_WIDTH);
+  const m = SWIPE_METRICS;
   const group = (list: readonly RowSwipeAction[]) => (_progress?: unknown, translation?: { value: number }) => {
     if (translation) offset.current = translation;
     return (
       <ActionGroup
         {...(reanimated ? { R: reanimated } : {})}
         {...(translation ? { translation } : {})}
-        visible={moving}
-        style={{ flexDirection: "row", alignItems: round ? "center" : "stretch", gap: round ? 10 : 0, paddingHorizontal: round ? 10 : 0 }}
+        open={open}
+        style={{ flexDirection: "row", alignItems: round ? "center" : "stretch", gap: round ? m.roundGap : 0, paddingHorizontal: round ? m.roundGap : 0 }}
       >
         {list.map((action) => {
-          const color = rowActionColor(action, colors);
-          const tone = action.tone ?? (action.destructive ? "red" : "tint");
-          const on = tone === "tint" && brand ? brand.onPrimary : onRowActionColor(tone, color, tone === "red" ? tokens.destructiveForeground : tokens.primaryForeground);
-          const icon = action.icon ? <NativeIcon name={action.icon as NativeIconName} size={round ? 20 : 22} color={on} /> : null;
+          const { background, foreground } = colorsOf(action);
+          const icon = action.icon && isNativeIconName(action.icon) ? <NativeIcon name={action.icon} size={round ? 20 : 22} color={foreground} /> : null;
           return (
             <Pressable
               key={action.id}
               testID={`${testID}-action-${action.id}`}
               onPress={() => run(action)}
-              style={{ width: round ? 56 : ACTION_WIDTH, alignItems: "center", justifyContent: "center", gap: 4, backgroundColor: round ? "transparent" : color }}
+              style={{ width: round ? m.roundSlot : m.fillWidth, alignItems: "center", justifyContent: "center", gap: 4, backgroundColor: round ? "transparent" : background }}
             >
               {round ? (
-                <View style={{ width: 50, height: 50, borderRadius: 25, alignItems: "center", justifyContent: "center", backgroundColor: color }}>{icon}</View>
+                <View style={{ width: m.roundCircle, height: m.roundCircle, borderRadius: m.roundCircle / 2, alignItems: "center", justifyContent: "center", backgroundColor: background }}>{icon}</View>
               ) : (
                 icon
               )}
-              <NativeText preset="label" style={{ color: round ? colors.label : on, fontSize: round ? 12 : 14 }} numberOfLines={1}>
+              <NativeText preset="label" style={{ color: round ? colors.label : foreground, fontSize: round ? 12 : 14 }} numberOfLines={1}>
                 {action.label}
               </NativeText>
             </Pressable>
@@ -282,7 +290,7 @@ export function NativeSwipeRow({
         overshootFriction={1}
         onSwipeableWillOpen={(direction) => {
           // Called on release: a row let go past the ratio of its width, on the side it's opening, runs that side's full action.
-          const side = fullSwipeSide(offset.current?.value ?? 0, width, fullSwipeRatio, direction, { left: openWidth(left.length), right: openWidth(right.length) });
+          const side = fullSwipeSide(offset.current?.value ?? 0, width, fullSwipeRatio, direction, { left: openWidth(left.length, appearance), right: openWidth(right.length, appearance) });
           const action = side === "left" ? fullLeft : side === "right" ? fullRight : undefined;
           if (action) {
             // A refused action explains itself instead of running: no success tap before it.
@@ -290,20 +298,20 @@ export function NativeSwipeRow({
             run(action);
           } else {
             play("medium");
+            // A row opening onto its buttons (a drag already set this; a ref's openLeft() didn't).
             setOpen(true);
           }
-          setMoving(true);
         }}
-        onSwipeableWillClose={() => setOpen(false)}
-        onSwipeableOpenStartDrag={() => setMoving(true)}
-        onSwipeableOpen={() => setMoving(true)}
-        onSwipeableClose={() => setMoving(false)}
+        onSwipeableOpenStartDrag={() => setOpen(true)}
+        onSwipeableOpen={() => setOpen(true)}
+        // Cleared once the row is home, not as it starts back: the buttons stay seen while it slides.
+        onSwipeableClose={() => setOpen(false)}
         renderLeftActions={left.length ? group(left) : undefined}
         renderRightActions={right.length ? group(right) : undefined}
       >
         {round ? (
           // Always the same wrapper, so opening never remounts the row; only its style changes.
-          <View testID={`${testID}-pill`} style={open ? { marginHorizontal: 6, borderRadius: 26, overflow: "hidden", backgroundColor: Platform.OS === "ios" ? PlatformColor(ROW_PILL.ios) : ROW_PILL.fallback } : undefined}>
+          <View testID={`${testID}-pill`} style={open && round ? { marginHorizontal: m.pillInset, borderRadius: m.pillRadius, overflow: "hidden", backgroundColor: Platform.OS === "ios" ? PlatformColor(ROW_PILL.ios) : ROW_PILL.fallback } : undefined}>
             {content}
           </View>
         ) : (

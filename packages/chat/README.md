@@ -458,10 +458,27 @@ chat.setMySettings(conversationId, { markedUnread: true }): Promise<void>
 chat.deleteConversationForMe(conversationId, seq?): Promise<void>
 ```
 
-From React, `useInboxActions()` does both (and Pin, Hide Alerts and Archive), refreshes the inbox
-and badge, and on Delete for me drops the conversation's cached thread, pins and search results, so
-the deleted history can't show again on that device when a new message brings it back.
-`ChatInboxScreen` uses it for its row actions, and says so when one fails.
+From React, `useInboxActions()` runs them from an inbox row: `toggleUnread(item)`,
+`togglePinned(item)`, `toggleMuted(item, until?)`, `setArchived(item, archived)` and
+`deleteForMe(item)` (up to the row's `lastSeq`). Each refreshes the inbox and badge, and Delete for
+me drops the conversation's cached thread, pins and search results, so the deleted history can't
+show again on that device when a new message brings it back.
+
+`inboxRowActions(item, actions, labels, { confirm, onError })` turns them into the row's actions,
+Messages' set: Mark as Unread (or Read) and Pin leading, Hide Alerts and Delete trailing, Archive in
+the menu only; Unread blue, Pin orange, Hide Alerts purple, Delete red. `confirm` is
+`(title, body, label) => Promise<boolean>`: `alertConfirm(cancel)` on the phone, `useConfirmDialog()`
+on the web. `ChatInboxScreen` swipes them and `ChatInbox` lists them in each row's More menu; both
+take `rowActions(item, defaults)` to reshape them, and say so when one fails.
+
+```ts
+import { defaultInboxActionLabels, inboxRowActions, type ChatInboxActions } from "@marktiderman/genesis-chat/react";
+import type { ChatInboxItem } from "@marktiderman/genesis-chat";
+
+export function actionsFor(item: ChatInboxItem, actions: ChatInboxActions) {
+  return inboxRowActions(item, actions, defaultInboxActionLabels, { confirm: async () => true });
+}
+```
 
 Both are private to the person: they're kept in `genesis_chat.member_state`, which only they read,
 not on `members`, which everyone in the conversation reads. Both send the person's own devices an

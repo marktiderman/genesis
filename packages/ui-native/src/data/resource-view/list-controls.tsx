@@ -4,7 +4,7 @@
 // `placeEvents`. Only the drawing here is the phone's.
 
 import { useMemo, useState, type ReactNode } from "react";
-import { Pressable, ScrollView, SectionList, View } from "react-native";
+import { Alert, Pressable, ScrollView, SectionList, View } from "react-native";
 import type { DataRow, FilterParam } from "@marktiderman/genesis-core";
 import { dayIn, type Day } from "@marktiderman/genesis-core/dates";
 import { useSegmentCounts, useViewBoard, useViewCalendarRange, type ListStateResult } from "@marktiderman/genesis-core/hooks";
@@ -21,7 +21,6 @@ import { NativeSegmentedControl } from "../../components/segmented-control";
 import { NativeSheet, NativeSheetScrollView } from "../../components/sheet";
 import { NativeText } from "../../components/text";
 import { useThemeRoles } from "../../hooks/use-theme-roles";
-import { showInboxActions } from "../../layouts/inbox-page";
 import { badgeVariant, useDisplayTimeZones, useNativeResourceViewMessages } from "./display";
 import type { AnyResourceView, NativeResourceScreenCan } from "./mapping";
 import { defaultNativeListMessages, fill, type NativeListMessages } from "./messages";
@@ -250,26 +249,25 @@ export function NativeResourceBoard({
     },
   });
   const cancel = useNativeResourceViewMessages().common.cancel;
+  // A card's "Move to" choices: a column picker, not the row's actions, so the system alert.
   const showMoves = (row: Row) => {
     const verdict = board.movable ? board.canMove(row) : words.notAllowed;
     const from = String(row[board.field] ?? "");
-    showInboxActions(
-      board.titleOf(row),
-      board.columns
+    Alert.alert(board.titleOf(row), undefined, [
+      ...board.columns
         .filter((c) => c.value !== from)
         .map((c) => ({
-          id: c.value,
-          label: fill(words.moveTo, { column: c.label }),
+          text: fill(words.moveTo, { column: c.label }),
           onPress: () => {
             if (verdict !== true) {
-              showInboxActions(verdict, [], cancel);
+              Alert.alert(verdict, undefined, [{ text: cancel, style: "cancel" as const }]);
               return;
             }
             void board.move(row, c.value).catch(() => undefined);
           },
         })),
-      cancel,
-    );
+      { text: cancel, style: "cancel" as const },
+    ]);
   };
   return (
     <View style={{ flex: 1 }} testID={`${testID}-board`}>

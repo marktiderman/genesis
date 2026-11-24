@@ -769,6 +769,16 @@ pull request on an Expo Simulators session and comments a verdict with evidence.
 replace the Maestro flows or a person's review; it tests what the pull request says it changes,
 where no flow covers it.
 
+Existing apps get it only with `genesis add template agentic-ci`: `genesis add template eas` and
+`genesis upgrade` never add or offer it. A new native app (`genesis init --template native`, or the
+starter) starts with it, and a run still starts only on the `Agent check` label or by hand. To
+leave it out, delete `.eas/workflows/agentic-ci.yml` and `.eas/agents/`.
+
+The agent runs with `--setting-sources user --strict-mcp-config`, so the app's own
+`.claude/settings.json`, `settings.local.json`, hooks and `.mcp.json` never reach it. `device.sh`
+reads the app ID, platform and project folder from the read-only file `start-session.sh` writes
+(`/tmp/agentic-ci-session/target`), never from its environment.
+
 1. The `e2e` simulator build with this fingerprint is repacked with the pull request's JavaScript,
    or one is built.
 2. `check` deletes any old `agent-output/`, copies `.eas/agents` to a read-only folder outside the

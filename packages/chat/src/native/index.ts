@@ -26,7 +26,7 @@
  *
  * @stability Beta
  */
-export { ChatInboxScreen, inboxRow, type ChatInboxScreenProps } from "./inbox-screen";
+export { ChatInboxScreen, alertConfirm, inboxRow, type ChatInboxScreenProps } from "./inbox-screen";
 export { ChatThreadScreen, threadListMode, nearBottom, AT_BOTTOM_POINTS, connectionState, countUnseenBelow, useOnline, type ChatThreadScreenProps, type ChatThreadScreenSlots, type ChatThreadAccessoryContext, type ChatConnectionState } from "./thread-screen";
 export { ChatThreadTitle, type ChatThreadTitleProps, type ChatThreadTitleAvatar } from "./thread-title";
 export { bubbleCorners, bubblePosition, type BubblePosition } from "./message-bubble";

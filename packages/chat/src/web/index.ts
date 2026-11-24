@@ -10,7 +10,7 @@
  * @stability Beta
  */
 export { ChatPanel, type ChatPanelProps, type ChatPanelNoSelectionProps } from "./panel";
-export { ChatInbox, inboxTitle, type ChatInboxProps, type ChatInboxEmptyProps } from "./inbox";
+export { ChatInbox, inboxTitle, useConfirmDialog, type ChatInboxProps, type ChatInboxEmptyProps } from "./inbox";
 export {
   ChatThread,
   type ChatThreadProps,

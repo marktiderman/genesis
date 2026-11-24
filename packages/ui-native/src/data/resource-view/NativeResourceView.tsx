@@ -24,6 +24,7 @@ import { resourceKeys, useDataProvider, useViewer } from "@marktiderman/genesis-
 import { scopeClock, useCapabilities, useListState, useOne, useOptionalViewerScope } from "@marktiderman/genesis-core/hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import type { GalleryItem } from "@marktiderman/genesis-core/gallery";
+import { rowActionPlaced } from "@marktiderman/genesis-core/row-actions";
 import type { RowPicture, SavedViewStore, ViewGallery } from "@marktiderman/genesis-core/resource-view";
 import { NativeAvatar } from "../../components/avatar";
 import { NativeBadge } from "../../components/badge";
@@ -39,11 +40,11 @@ import { NativeSearchBar } from "../../components/search-bar";
 import { NativeSectionListHeader } from "../../components/section-list";
 import { NativeSheet } from "../../components/sheet";
 import { NativeSwipeRow } from "../../components/swipe-row";
-import { NativeSystemMenuRow } from "../../components/row-actions";
+import { useRowActions, type RowActionsSwipeProps } from "../../components/use-row-actions";
 import { NativeText } from "../../components/text";
-import { useGenesisModules, type GenesisMenuComponent } from "../../native-modules";
+import { useGenesisModules } from "../../native-modules";
 import { useThemeRoles } from "../../hooks/use-theme-roles";
-import { InboxPage, showInboxActions, type InboxPageSlotMap } from "../../layouts/inbox-page";
+import { InboxPage, type InboxPageSlotMap } from "../../layouts/inbox-page";
 import { NativeDetailPanel } from "../NativeDetailPanel";
 import {
   badgeVariant,
@@ -228,8 +229,6 @@ interface RowProps<T extends Row> {
   onPress: (row: T) => void;
   chevron: boolean;
   Swipeable: ComponentType<NativeResourceSwipeableProps> | undefined;
-  /** The system context menu (`GenesisModules.menu`): the long press opens it instead of the alert. */
-  Menu: GenesisMenuComponent | undefined;
   cancelLabel: string;
   surface: string;
   separator: string;
@@ -269,54 +268,50 @@ function RowLeading({ picture, testID }: { picture: RowPicture; testID: string }
   );
 }
 
-/** The press, long press and accessibility of one row or card: shared by every way a row draws. */
-function cardFor<T extends Row>(
+/**
+ * The press, long press, accessibility, menu and swipe of one row or card: shared by every way a
+ * row draws, and built as every Genesis row builds its actions (`useRowActions`): the system
+ * context menu with `GenesisModules.menu`, else the sheet; each refusal's reason read to screen
+ * readers. `wrap` puts the row inside the menu and the swipe (`Swipeable`; none when undefined).
+ */
+function useCard<T extends Row>(
   row: T,
-  { item: itemFor, actions: actionsFor, handlers, onPress, cancelLabel, testID, first, last, Menu }: Pick<RowProps<T>, "item" | "actions" | "handlers" | "onPress" | "cancelLabel" | "testID" | "first" | "last" | "Menu">,
-): NativeResourceCardActions {
+  { item: itemFor, actions: actionsFor, handlers, onPress, cancelLabel, testID, first, last }: Pick<RowProps<T>, "item" | "actions" | "handlers" | "onPress" | "cancelLabel" | "testID" | "first" | "last">,
+  Swipeable: ComponentType<NativeResourceSwipeableProps> | undefined,
+): { card: NativeResourceCardActions; wrap: (content: ReactNode) => ReactNode } {
   const item: NativeResourceRowItem = itemFor(row);
   const actions = actionsFor(row, handlers);
   const chip = item.chips[0];
   const picture = item.picture;
   const open = () => onPress(row);
-  const showActions = () => showInboxActions(item.title, actions, cancelLabel);
+  const rowTestID = `${testID}-row-${item.id}`;
+  const { rowProps, wrap, openMenu } = useRowActions(actions, {
+    title: item.title,
+    cancelLabel,
+    testID: rowTestID,
+    swipe: Swipeable ? (props: RowActionsSwipeProps) => <Swipeable {...props} actions={[...props.actions] as NativeResourceSwipeAction[]} /> : null,
+  });
   return {
-    item,
-    actions,
-    open,
-    showActions,
-    first,
-    last,
-    pressableProps: {
-      testID: `${testID}-row-${item.id}`,
-      accessibilityRole: "button",
-      accessibilityLabel: [picture?.kind === "image" ? picture.alt : null, item.title, item.subtitle, chip?.label].filter(Boolean).join(", "),
-      accessibilityActions: actions.map((a) => ({ name: a.id, label: a.reason ? `${a.label}: ${a.reason}` : a.label })),
-      onAccessibilityAction: (event) => actions.find((a) => a.id === event.nativeEvent.actionName)?.onPress(),
-      onPress: open,
-      // With the system menu, the long press is the menu's own gesture.
-      onLongPress: actions.length && !Menu ? showActions : undefined,
+    card: {
+      item,
+      actions,
+      open,
+      showActions: openMenu,
+      first,
+      last,
+      pressableProps: {
+        testID: rowTestID,
+        accessibilityRole: "button",
+        accessibilityLabel: [picture?.kind === "image" ? picture.alt : null, item.title, item.subtitle, chip?.label].filter(Boolean).join(", "),
+        accessibilityActions: rowProps.accessibilityActions ?? [],
+        onAccessibilityAction: rowProps.onAccessibilityAction ?? (() => undefined),
+        onPress: open,
+        // With the system menu, the long press is the menu's own gesture.
+        onLongPress: rowProps.onLongPress,
+      },
     },
+    wrap,
   };
-}
-
-/** Wraps a row in the system context menu (when the app gave one) and the screen's swipe gesture, when it has actions. */
-function withSwipe(content: ReactNode, card: NativeResourceCardActions, Swipeable: ComponentType<NativeResourceSwipeableProps> | undefined, Menu?: GenesisMenuComponent) {
-  if (!card.actions.length) return content;
-  const menu = Menu ? (
-    <NativeSystemMenuRow Menu={Menu} actions={card.actions} title={card.item.title} testID={`${card.pressableProps.testID}-menu`}>
-      {content}
-    </NativeSystemMenuRow>
-  ) : (
-    content
-  );
-  return Swipeable ? (
-    <Swipeable actions={card.actions} testID={`${card.pressableProps.testID}-swipe`}>
-      {menu}
-    </Swipeable>
-  ) : (
-    menu
-  );
 }
 
 /** A screen's own swipe; the default is for list rows only (a card or a tile doesn't swipe). */
@@ -330,7 +325,7 @@ function ownSwipe(Swipeable: ComponentType<NativeResourceSwipeableProps> | undef
  * Without its own accessibility actions (the row has them).
  */
 function DefaultSwipeable({ actions, ...props }: NativeResourceSwipeableProps) {
-  return <NativeSwipeRow {...props} actions={actions.filter((a) => a.side !== undefined)} accessibilityActions={false} />;
+  return <NativeSwipeRow {...props} actions={actions.filter(rowActionPlaced)} accessibilityActions={false} />;
 }
 
 /** One row. Memoised: it redraws only when its row or what it reads changes, not per keystroke. */
@@ -344,13 +339,12 @@ const ResourceRow = memo(function ResourceRow<T extends Row>({
   onPress,
   chevron,
   Swipeable,
-  Menu,
   cancelLabel,
   surface,
   separator,
   testID,
 }: RowProps<T>) {
-  const card = cardFor(row, { item: itemFor, actions: actionsFor, handlers, onPress, cancelLabel, testID, first, last, Menu });
+  const { card, wrap } = useCard(row, { item: itemFor, actions: actionsFor, handlers, onPress, cancelLabel, testID, first, last }, Swipeable);
   const { item, pressableProps } = card;
   const chip = item.chips[0];
   const picture = item.picture;
@@ -392,15 +386,15 @@ const ResourceRow = memo(function ResourceRow<T extends Row>({
       {!last ? <View style={{ height: 0.5, marginLeft: 16, backgroundColor: separator }} /> : null}
     </View>
   );
-  return withSwipe(content, card, Swipeable, Menu);
+  return <>{wrap(content)}</>;
 }) as <T extends Row>(props: RowProps<T>) => ReactNode;
 
 type RenderCard<T extends Row> = NonNullable<NativeResourceViewProps<T>["renderCard"]>;
 
 /** A row the app draws (`renderCard`), with the screen's wiring and swipe around it. */
 const CustomRow = memo(function CustomRow<T extends Row>(props: RowProps<T> & { index: number; renderCard: RenderCard<T> }) {
-  const card = cardFor(props.row, props);
-  return withSwipe(props.renderCard(props.row, props.index, card), card, ownSwipe(props.Swipeable), props.Menu);
+  const { card, wrap } = useCard(props.row, props, ownSwipe(props.Swipeable));
+  return <>{wrap(props.renderCard(props.row, props.index, card))}</>;
 }) as <T extends Row>(props: RowProps<T> & { index: number; renderCard: RenderCard<T> }) => ReactNode;
 
 /** The space between grid cards and around the grid, in points. */
@@ -408,7 +402,7 @@ const GRID_GAP = 12;
 
 /** The built-in grid card: the row's picture, title, subtitle and chip on the surface. */
 function GridCard<T extends Row>(props: RowProps<T>) {
-  const card = cardFor(props.row, props);
+  const { card, wrap } = useCard(props.row, props, ownSwipe(props.Swipeable));
   const { item, pressableProps } = card;
   const chip = item.chips[0];
   const content = (
@@ -434,7 +428,7 @@ function GridCard<T extends Row>(props: RowProps<T>) {
       ) : null}
     </Pressable>
   );
-  return withSwipe(content, card, ownSwipe(props.Swipeable), props.Menu);
+  return <>{wrap(content)}</>;
 }
 
 /**
@@ -544,7 +538,6 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
     ...options
   } = props;
   const Swipeable = swipeableProp === null ? undefined : (swipeableProp ?? DefaultSwipeable);
-  const { menu: Menu } = useGenesisModules();
   // The list's state (ADR 0017): core's, the same the web's ResourceView holds. The segment and
   // declared filters narrow the read; the type comes from the switcher when it's on.
   const switchTypes = useMemo(() => nativeSwitchableTypes(view as AnyResourceView<Row>), [view]);
@@ -665,13 +658,12 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
       onPress: press,
       chevron,
       Swipeable,
-      Menu,
       cancelLabel: messages.common.cancel,
       surface: colors.surface as string,
       separator: colors.separator as string,
       testID,
     }),
-    [view, itemFor, actionsFor, handlers, press, chevron, Swipeable, Menu, messages, colors.surface, colors.separator, testID],
+    [view, itemFor, actionsFor, handlers, press, chevron, Swipeable, messages, colors.surface, colors.separator, testID],
   );
   const renderItem = useCallback(
     ({ item: row, index, section }: { item: T; index: number; section: NativeResourceSection<T> }) => {
@@ -905,7 +897,7 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
               },
               // The view's swipe actions (edit, delete, its own), as the list's rows have them.
               // As list rows: without a swipe of the screen's own, an action that doesn't say where it swipes stays in the menu.
-              swipeActions: swipeableProp ? actionsFor(row, handlers) : actionsFor(row, handlers).map((a) => (a.side === undefined ? { ...a, swipe: false } : a)),
+              swipeActions: swipeableProp ? actionsFor(row, handlers) : actionsFor(row, handlers).map((a) => (rowActionPlaced(a) ? a : { ...a, swipe: false as const })),
             };
           })}
           header={listHeader}

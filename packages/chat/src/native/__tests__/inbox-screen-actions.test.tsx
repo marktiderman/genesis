@@ -73,10 +73,10 @@ describe("ChatInboxScreen's row actions", () => {
   it("are Messages': Unread and Pin leading, Hide Alerts and Delete trailing, Archive in the menu only", async () => {
     const { actions, byId } = await renderWith(row(0));
     expect(actions.map((a) => a.id)).toEqual(["unread", "pin", "alerts", "delete", "archive"]);
-    expect(byId("unread")).toMatchObject({ side: "leading", tone: "blue", full: true, icon: "message-unread" });
-    expect(byId("pin")).toMatchObject({ side: "leading", tone: "orange" });
-    expect(byId("alerts")).toMatchObject({ side: "trailing", tone: "purple", icon: "bell-off", label: "Hide Alerts" });
-    expect(byId("delete")).toMatchObject({ side: "trailing", destructive: true, full: true, confirms: true });
+    expect(byId("unread")).toMatchObject({ swipe: { side: "leading", full: true }, tone: "info", icon: "message-unread" });
+    expect(byId("pin")).toMatchObject({ swipe: { side: "leading" }, accent: "orange" });
+    expect(byId("alerts")).toMatchObject({ swipe: { side: "trailing" }, accent: "purple", icon: "bell-off", label: "Hide Alerts" });
+    expect(byId("delete")).toMatchObject({ swipe: { side: "trailing", full: true }, destructive: true, confirms: true });
     expect(byId("archive")).toMatchObject({ swipe: false });
   });
 
