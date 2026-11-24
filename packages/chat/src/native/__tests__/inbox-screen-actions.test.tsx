@@ -76,7 +76,7 @@ describe("ChatInboxScreen's row actions", () => {
     expect(byId("unread")).toMatchObject({ side: "leading", tone: "blue", full: true, icon: "message-unread" });
     expect(byId("pin")).toMatchObject({ side: "leading", tone: "orange" });
     expect(byId("alerts")).toMatchObject({ side: "trailing", tone: "purple", icon: "bell-off", label: "Hide Alerts" });
-    expect(byId("delete")).toMatchObject({ side: "trailing", destructive: true, full: true });
+    expect(byId("delete")).toMatchObject({ side: "trailing", destructive: true, full: true, confirms: true });
     expect(byId("archive")).toMatchObject({ swipe: false });
   });
 

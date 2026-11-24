@@ -127,6 +127,8 @@ export function ChatInboxScreen({ onOpen, onStart, kind, kinds, excludeKinds, ar
         destructive: true,
         side: "trailing" as const,
         full: true,
+        // It asks with an Alert before deleting (below), so a full swipe can't delete by mistake.
+        confirms: true,
         onPress: () =>
           Alert.alert(copy.deleteConversationTitle, copy.deleteConversationBody, [
             { text: copy.cancel, style: "cancel" },
