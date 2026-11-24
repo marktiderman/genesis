@@ -225,7 +225,7 @@ describe("the push block: taps", () => {
 });
 
 describe("the push block: as a block", () => {
-  it("contributes a Notifications row with the permission as its subtitle, and reads the permission behind the splash", async () => {
+  it("contributes a Notifications row with the permission as its subtitle, and adds no boot step (the permission is read after the boot)", async () => {
     const n = fakeNotifications({ status: permission.denied });
     const navigate = vi.fn();
     function Settings() {

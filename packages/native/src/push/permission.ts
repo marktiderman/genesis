@@ -56,18 +56,27 @@ export function createPermissionStore(options: {
 }): PermissionStore {
   const { notifications, onError } = options;
   const store = createStore<PermissionState>({ status: notifications ? "unknown" : "unavailable", requesting: false });
+  // One read at a time: callers that ask while a read is pending share it, so a burst of
+  // refreshes (PushRoot's start() and setUser() after the boot) puts one call on Expo's queue.
+  let reading: Promise<PushPermissionStatus> | null = null;
   return {
     ...store,
-    async refresh() {
-      if (!notifications) return "unavailable";
-      try {
-        const status = statusOf(await notifications.getPermissionsAsync());
-        store.setState({ status });
-        return status;
-      } catch (error) {
-        report(onError, error, "permission");
-        return store.getState().status;
-      }
+    refresh() {
+      if (!notifications) return Promise.resolve("unavailable");
+      if (reading) return reading;
+      reading = (async () => {
+        try {
+          const status = statusOf(await notifications.getPermissionsAsync());
+          store.setState({ status });
+          return status;
+        } catch (error) {
+          report(onError, error, "permission");
+          return store.getState().status;
+        } finally {
+          reading = null;
+        }
+      })();
+      return reading;
     },
     async request() {
       if (!notifications) return "unavailable";
