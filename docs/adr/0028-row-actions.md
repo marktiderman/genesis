@@ -55,9 +55,10 @@ as it is.
      The side comes from gesture-handler 2.21+'s naming of the open direction (2.20 and earlier
      named it the other way), so the optional peer starts at 2.21.0.
    - Text and icons: white on the iOS system tones, as iOS draws them (black on yellow), which
-     doesn't reach WCAG AA on every tone; on `tint` and `red`, the color that reads on the app's
-     own color (black or white by contrast on a hex tint, else the theme's `primaryForeground` /
-     `destructiveForeground`). A destructive `full` action says it asks first or can be undone
+     doesn't reach WCAG AA on every tone; `tint` is the brand's primary under a
+     `GenesisThemeProvider` (its `accent`), else the theme's tint role, and on `tint` and `red` the
+     text is the color that reads on it (the brand's `accent.foreground`, else black or white by
+     contrast on a hex color, else the theme's `primaryForeground` / `destructiveForeground`). A destructive `full` action says it asks first or can be undone
      (`confirms`), or warns in development; NativeResourceView sets it for a view action with a
      `confirm`.
    - `NativeRowActions`: swipe + long-press menu + accessibility actions around any pressable
