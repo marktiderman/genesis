@@ -153,13 +153,53 @@ export function parseRange(range: string): Comparator[][] | null {
  * can't judge it). A prerelease satisfies a set only if one of its comparators
  * names the same major.minor.patch with a prerelease.
  */
-export function satisfies(version: string, range: string): boolean | null {
+export function satisfies(version: string, range: string, options: { includePrerelease?: boolean } = {}): boolean | null {
   const v = parseVersion(version);
   const alts = parseRange(range);
   if (!v || !alts) return null;
   return alts.some(
     (set) =>
       set.every((c) => test(c, v)) &&
-      (!v.pre.length || set.some((c) => c.pre && c.v.major === v.major && c.v.minor === v.minor && c.v.patch === v.patch)),
+      (options.includePrerelease || !v.pre.length || set.some((c) => c.pre && c.v.major === v.major && c.v.minor === v.minor && c.v.patch === v.patch)),
   );
+}
+
+/**
+ * Whether every version `inner` allows is one `outer` allows (node-semver's `subset`, default
+ * prerelease rules), for ranges of one comparator set each; null when either isn't semver or has
+ * `||` alternatives.
+ */
+export function rangeSubset(inner: string, outer: string): boolean | null {
+  const a = parseRange(inner);
+  const b = parseRange(outer);
+  if (!a || !b || a.length !== 1 || b.length !== 1) return null;
+  type Bound = { v: Version; inclusive: boolean } | null;
+  const bounds = (set: Comparator[]) => {
+    let lo: Bound = null;
+    let hi: Bound = null;
+    for (const c of set) {
+      if (c.op === "=") {
+        // Intersects like `>=` and `<=` together: it only tightens, so `>=0.88.2 =0.88.1` stays empty in either order.
+        const eq = { v: c.v, inclusive: true };
+        if (!lo || compareVersions(eq.v, lo.v) > 0) lo = eq;
+        if (!hi || compareVersions(eq.v, hi.v) < 0) hi = eq;
+      } else if (c.op === ">=" || c.op === ">") {
+        const next = { v: c.v, inclusive: c.op === ">=" };
+        if (!lo || compareVersions(next.v, lo.v) > 0 || (compareVersions(next.v, lo.v) === 0 && !next.inclusive)) lo = next;
+      } else {
+        const next = { v: c.v, inclusive: c.op === "<=" };
+        if (!hi || compareVersions(next.v, hi.v) < 0 || (compareVersions(next.v, hi.v) === 0 && !next.inclusive)) hi = next;
+      }
+    }
+    return { lo, hi };
+  };
+  // As node-semver's subset: a prerelease `inner` names (`1.2.3-beta.0`) is admitted only where
+  // `outer` names a prerelease on the same major.minor.patch.
+  const sameTuple = (p: Version, q: Version) => p.major === q.major && p.minor === q.minor && p.patch === q.patch;
+  if (a[0]!.some((c) => c.pre && !b[0]!.some((d) => d.pre && sameTuple(c.v, d.v)))) return false;
+  const x = bounds(a[0]!);
+  const y = bounds(b[0]!);
+  const loOk = !y.lo || (!!x.lo && (compareVersions(x.lo.v, y.lo.v) > 0 || (compareVersions(x.lo.v, y.lo.v) === 0 && (y.lo.inclusive || !x.lo.inclusive))));
+  const hiOk = !y.hi || (!!x.hi && (compareVersions(x.hi.v, y.hi.v) < 0 || (compareVersions(x.hi.v, y.hi.v) === 0 && (y.hi.inclusive || !x.hi.inclusive))));
+  return loOk && hiOk;
 }

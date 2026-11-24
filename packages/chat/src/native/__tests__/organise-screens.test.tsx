@@ -143,6 +143,8 @@ describe("ChatThreadScreen scheduled send", () => {
     fireEvent.click(await screen.findByTestId("t-scheduled"));
     expect(screen.getByTestId("t-scheduled").getAttribute("aria-label")).toBe("1 scheduled message");
     const list = await screen.findByTestId("t-scheduled-sheet");
+    // In a scroll view: past the sheet's 90% cap the later ones (and their Cancel) are still reachable.
+    expect(within(screen.getByTestId("t-scheduled-scroll")).getByTestId("t-scheduled-list")).toBeTruthy();
     const cancel = within(list).getByText("Cancel");
     fireEvent.click(cancel.closest("button")!);
     await waitFor(() => expect(called(client, "cancelScheduled")).toHaveLength(1));

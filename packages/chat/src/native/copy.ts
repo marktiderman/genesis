@@ -24,6 +24,18 @@ export interface ChatNativeCopy extends ChatOrganiseCopy {
   archive: string;
   threadEmptyTitle: string;
   threadEmptyBody: string;
+  /** The conversation or its first page couldn't be read, and there's nothing to show. */
+  threadErrorTitle: string;
+  threadErrorBody: string;
+  /** The phone is offline (NetInfo), in the thread's status line. */
+  waitingForNetwork: string;
+  /** Online, but the live channel hasn't joined (yet, or again). */
+  connecting: string;
+  /** The pill over the composer when new messages came in below where you are. */
+  newMessagesPillOne: string;
+  newMessagesPill: string;
+  /** VoiceOver's hint on the pill. */
+  newMessagesPillHint: string;
   loadEarlier: string;
   newMessages: string;
   placeholder: string;
@@ -123,6 +135,18 @@ export interface ChatNativeCopy extends ChatOrganiseCopy {
   viewerHint: string;
   sending: string;
   notSent: string;
+  /** Message status under the last message you sent (`ChatThreadScreen receipts`). */
+  receiptSending: string;
+  receiptSent: string;
+  receiptDelivered: string;
+  /** Read, when the server has no read time (a database before chat 0006). */
+  receiptRead: string;
+  receiptReadAt: string;
+  receiptReadBy: string;
+  receiptReadByEveryone: string;
+  /** The hint on "Read by N", and the title of the sheet it opens. */
+  receiptReadersHint: string;
+  receiptReadersTitle: string;
   retry: string;
   /** On a message whose file didn't survive a relaunch: pick it again. */
   attachAgain: string;
@@ -179,6 +203,13 @@ export const chatNativeCopy: ChatNativeCopy = {
   archive: "Archive",
   threadEmptyTitle: "No messages yet",
   threadEmptyBody: "Say hello below.",
+  threadErrorTitle: "Couldn't load messages",
+  threadErrorBody: "Check your connection, then try again.",
+  waitingForNetwork: "Waiting for network…",
+  connecting: "Connecting…",
+  newMessagesPillOne: "1 new message",
+  newMessagesPill: "{count} new messages",
+  newMessagesPillHint: "Goes to the newest message",
   loadEarlier: "Load earlier messages",
   newMessages: "New messages",
   placeholder: "Message",
@@ -264,6 +295,15 @@ export const chatNativeCopy: ChatNativeCopy = {
   viewerHint: "Swipe up or down for the next or previous photo.",
   sending: "Sending",
   notSent: "Not sent",
+  receiptSending: "Sending…",
+  receiptSent: "Sent",
+  receiptDelivered: "Delivered",
+  receiptRead: "Read",
+  receiptReadAt: "Read {time}",
+  receiptReadBy: "Read by {count}",
+  receiptReadByEveryone: "Read by everyone",
+  receiptReadersHint: "Shows who has read it",
+  receiptReadersTitle: "Read by",
   retry: "Retry",
   attachAgain: "Attach again",
   discard: "Delete",

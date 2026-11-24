@@ -216,3 +216,114 @@ describe("threadListMode", () => {
     expect(nearBottom(at(900))).toBe(false);
   });
 });
+
+/** A list that draws its rows and footer, so the bubbles' status and the typing bubble render. */
+function drawingList() {
+  function List(props: Record<string, unknown>) {
+    const data = (props.data as unknown[] | undefined) ?? [];
+    const renderItem = props.renderItem as (info: { item: unknown; index: number }) => ReactNode;
+    return (
+      <>
+        {data.map((item, index) => (
+          <div key={(item as ThreadRow).key}>{renderItem({ item, index })}</div>
+        ))}
+        {props.ListFooterComponent as ReactNode}
+      </>
+    );
+  }
+  return { List };
+}
+
+const LEE = "44444444-4444-4444-8444-444444444444";
+
+function receiptsClient(messages: ChatMessage[], others: { userId: string; lastReadSeq: number; lastReadAt?: string | null }[], maxMembers: number | null = 2) {
+  const handlers: { onSignal?: (s: unknown) => void; onActivity?: (a: unknown) => void } = {};
+  const client = {
+    ...fakeClient(messages, 99),
+    members: vi.fn(async () => [
+      { conversationId: CONV, userId: ME, role: "member", lastReadSeq: 99, lastReadAt: null, joinedAt: "2026-10-01T00:00:00Z" },
+      ...others.map((o) => ({ conversationId: CONV, role: "member", joinedAt: "2026-10-01T00:00:00Z", lastReadAt: null, ...o })),
+    ]),
+    kind: vi.fn(async () => ({ kind: "direct", label: "Direct", maxMembers })),
+    subscribeConversation: vi.fn((_id: string, _me: string, h: typeof handlers) => {
+      Object.assign(handlers, h);
+      return { unsubscribe: vi.fn(), signal: vi.fn() };
+    }),
+  } as unknown as ChatClient;
+  return { client, handlers };
+}
+
+describe("ChatThreadScreen's message status", () => {
+  const today = new Date();
+  today.setHours(9, 41, 0, 0);
+  const sentAt = new Date(today.getTime() - 60_000).toISOString();
+  const messages = [msg(1, SAM, sentAt), msg(2, ME, sentAt)];
+
+  it("shows Read with the time under the last message you sent once the other person's lastReadSeq reaches it", async () => {
+    const { client } = receiptsClient(messages, [{ userId: SAM, lastReadSeq: 2, lastReadAt: today.toISOString() }]);
+    render(wrap(client, drawingList().List, <ChatThreadScreen conversationId={CONV} />));
+    const receipt = await screen.findByTestId("chat-thread-message-m2-receipt", {}, { timeout: 2000 });
+    expect(receipt.textContent).toBe(`Read ${today.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`);
+    expect(screen.queryByTestId("chat-thread-message-m1-receipt")).toBeNull();
+  });
+
+  it("turns Delivered into Read when the live read hint comes, from the members read again", async () => {
+    const sam = { userId: SAM, lastReadSeq: 1 };
+    const { client, handlers } = receiptsClient(messages, [sam]);
+    render(wrap(client, drawingList().List, <ChatThreadScreen conversationId={CONV} />));
+    await waitFor(() => expect(screen.getByTestId("chat-thread-message-m2-receipt").textContent).toBe("Delivered"), { timeout: 2000 });
+    sam.lastReadSeq = 2;
+    act(() => handlers.onSignal?.({ type: "read", conversationId: CONV, userId: SAM, seq: 2, at: null }));
+    await waitFor(() => expect(screen.getByTestId("chat-thread-message-m2-receipt").textContent).toBe("Read"));
+  });
+
+  it("never takes a read hint's payload as the read place: a forged one changes nothing", async () => {
+    const { client, handlers } = receiptsClient(messages, [{ userId: SAM, lastReadSeq: 1 }]);
+    render(wrap(client, drawingList().List, <ChatThreadScreen conversationId={CONV} />));
+    await waitFor(() => expect(screen.getByTestId("chat-thread-message-m2-receipt").textContent).toBe("Delivered"), { timeout: 2000 });
+    const fetches = vi.mocked(client.members).mock.calls.length;
+    act(() => handlers.onSignal?.({ type: "read", conversationId: CONV, userId: SAM, seq: 1_000_000, at: "2026-01-01T09:41:00Z" }));
+    act(() => handlers.onSignal?.({ type: "read", conversationId: CONV, userId: SAM, seq: 1_000_001, at: null }));
+    await waitFor(() => expect(vi.mocked(client.members).mock.calls.length).toBe(fetches + 1));
+    expect(screen.getByTestId("chat-thread-message-m2-receipt").textContent).toBe("Delivered");
+  });
+
+  it('hides it with receipts="hide"', async () => {
+    const { client } = receiptsClient(messages, [{ userId: SAM, lastReadSeq: 2 }]);
+    render(wrap(client, drawingList().List, <ChatThreadScreen conversationId={CONV} receipts="hide" />));
+    await screen.findByTestId("chat-thread-message-m2", {}, { timeout: 2000 });
+    expect(screen.queryByTestId("chat-thread-message-m2-receipt")).toBeNull();
+  });
+
+  it("in a group, says Read by N, and tapping it lists who", async () => {
+    const { client } = receiptsClient(messages, [{ userId: SAM, lastReadSeq: 2 }, { userId: LEE, lastReadSeq: 1 }], null);
+    render(wrap(client, drawingList().List, <ChatThreadScreen conversationId={CONV} />));
+    await waitFor(() => expect(screen.getByTestId("chat-thread-message-m2-receipt").textContent).toBe("Read by 1"), { timeout: 2000 });
+    fireEvent.click(screen.getByTestId("chat-thread-message-m2-receipt"));
+    expect(await screen.findByTestId(`chat-thread-readers-${SAM}`)).toBeTruthy();
+    expect(screen.queryByTestId(`chat-thread-readers-${LEE}`)).toBeNull();
+  });
+});
+
+describe("ChatThreadScreen's typing", () => {
+  it("draws someone typing as a bubble of dots at the bottom of the thread, read out as the activity line", async () => {
+    const { client, handlers } = receiptsClient([msg(1, SAM, "2026-11-22T09:00:00Z")], [{ userId: SAM, lastReadSeq: 1 }]);
+    render(wrap(client, drawingList().List, <ChatThreadScreen conversationId={CONV} />));
+    await screen.findByTestId("chat-thread-message-m1", {}, { timeout: 2000 });
+    expect(screen.queryByTestId("chat-thread-typing")).toBeNull();
+    act(() => handlers.onActivity?.({ userId: SAM, activity: "typing", at: Date.now() }));
+    const bubble = await screen.findByTestId("chat-thread-typing");
+    expect(bubble.getAttribute("aria-label")).toMatch(/is typing…$/);
+    expect(screen.getByTestId("chat-thread-typing-dot-2")).toBeTruthy();
+    expect(screen.queryByTestId("chat-thread-activity")).toBeNull();
+  });
+
+  it("keeps the words for someone recording a voice note", async () => {
+    const { client, handlers } = receiptsClient([msg(1, SAM, "2026-11-22T09:00:00Z")], [{ userId: SAM, lastReadSeq: 1 }]);
+    render(wrap(client, drawingList().List, <ChatThreadScreen conversationId={CONV} />));
+    await screen.findByTestId("chat-thread-message-m1", {}, { timeout: 2000 });
+    act(() => handlers.onActivity?.({ userId: SAM, activity: "recording-voice", at: Date.now() }));
+    expect((await screen.findByTestId("chat-thread-activity")).textContent).toMatch(/recording a voice message/);
+    expect(screen.queryByTestId("chat-thread-typing")).toBeNull();
+  });
+});
