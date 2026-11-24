@@ -1,0 +1,38 @@
+packages/ui-native/src/layouts/inbox-page.tsx
+  s_42efe440240299::t_55949106785f6e 28
+  s_42efe440240299::t_4b3df04f3329f1 49,81-85,226-227,236-237,243,373-374,384-385,402-403
+packages/ui-native/src/layouts/__tests__/inbox-page.test.tsx
+  s_42efe440240299::t_ad2721be8d3b40 240-251
+packages/ui-native/src/components/__tests__/row-actions.test.tsx
+  s_42efe440240299::t_ad2721be8d3b40 186-187,254-282
+  s_42efe440240299::t_54049be769970b 283-284
+packages/ui-native/src/components/row-actions.tsx
+  s_42efe440240299::t_11254cc2cfc93a 10,17,35-36,46,50
+packages/ui-native/src/data/resource-view/NativeResourceView.tsx
+  s_42efe440240299::t_55949106785f6e 43
+  s_42efe440240299::t_417e1513eef574 129-133,529,886-890
+packages/ui-native/src/components/use-row-actions.tsx
+  s_42efe440240299::t_11254cc2cfc93a 8-9,36-50,60-65,141-142,184-186
+packages/ui-native/src/components/swipe-row.tsx
+  s_42efe440240299::t_7f15ac09f81e32 265-266
+packages/ui-native/src/components/index.ts
+  s_42efe440240299::t_4b3df04f3329f1 327
+packages/ui-native/README.md
+  s_42efe440240299::t_c744c928e0afd0 121-124
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "60c27de1f0b64ba24abab92887911a8615b0d6cb",
+  "prompts": {},
+  "sessions": {
+    "s_42efe440240299": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f544dd57-0b31-4773-b89e-4661a182129e",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
