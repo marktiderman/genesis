@@ -25,6 +25,7 @@
  * @stability Beta
  */
 import { cloneElement, isValidElement, useRef, useState, type ReactElement, type ReactNode } from "react";
+import { useOptionalTheme } from "@marktiderman/genesis-design-system";
 import { nativeThemeDark, nativeThemeLight } from "@marktiderman/genesis-design-system/tokens";
 import { I18nManager, Platform, PlatformColor, Pressable, View, type ColorValue } from "react-native";
 import type { RowActionTone, RowSwipeAction } from "@marktiderman/genesis-core/conversation";
@@ -196,7 +197,10 @@ export function NativeSwipeRow({
   testID = "swipe-row",
 }: NativeSwipeRowProps) {
   const { swipeable: Swipeable, reanimated } = useGenesisModules();
-  const colors = useThemeRoles();
+  // The brand's primary, from the nearest GenesisThemeProvider, is the `tint` behind an action (and
+  // its declared foreground the text on it); without a provider, the theme's tint role.
+  const brandAccent = useOptionalTheme()?.tokens.accent;
+  const colors = useThemeRoles(brandAccent?.DEFAULT ? { tint: brandAccent.DEFAULT } : {});
   const tokens = useThemeMode() === "dark" ? nativeThemeDark : nativeThemeLight;
   const play = useHaptics();
   const swipe = useRef<{ close?: () => void } | null>(null);
@@ -232,7 +236,7 @@ export function NativeSwipeRow({
         {list.map((action) => {
           const color = rowActionColor(action, colors);
           const tone = action.tone ?? (action.destructive ? "red" : "tint");
-          const on = onRowActionColor(tone, color, tone === "red" ? tokens.destructiveForeground : tokens.primaryForeground);
+          const on = tone === "tint" && brandAccent?.foreground ? brandAccent.foreground : onRowActionColor(tone, color, tone === "red" ? tokens.destructiveForeground : tokens.primaryForeground);
           const icon = action.icon ? <NativeIcon name={action.icon as NativeIconName} size={round ? 20 : 22} color={on} /> : null;
           return (
             <Pressable

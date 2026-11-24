@@ -8,6 +8,7 @@ import { forwardRef, useImperativeHandle, type ReactNode } from "react";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { Pressable } from "react-native";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { GenesisThemeProvider, genesisBrand, type CanonicalBrand } from "@marktiderman/genesis-design-system";
 import { GenesisModulesProvider } from "../../native-modules";
 import { InboxPage, type InboxPageSlotMap } from "../../layouts/inbox-page";
 import { NativeRowActions } from "../row-actions";
@@ -230,5 +231,57 @@ describe("row actions: second review", () => {
     );
     fireEvent.click(screen.getByTestId("s-action-delete"));
     expect(order).toEqual(["press", "close"]);
+  });
+
+  it("draws a tint action in the brand's primary, with dark text on a light one, under GenesisThemeProvider", () => {
+    const light: CanonicalBrand = { ...genesisBrand, name: "acme-light", accent: { DEFAULT: "#FDE68A", light: "#FDE68A", dark: "#FDE68A" } };
+    const declared: CanonicalBrand = { ...genesisBrand, name: "acme-declared", accent: { DEFAULT: "#0f766e", light: "#0f766e", dark: "#0f766e", foreground: "#f0fdfa" } };
+    const Swipeable = fakeSwipeable(() => 0);
+    const row = (brand: CanonicalBrand | null) => {
+      const swipe = (
+        <GenesisModulesProvider modules={{ swipeable: Swipeable as never }}>
+          <NativeSwipeRow actions={[{ id: "flag", label: "Flag", onPress: vi.fn() }]} testID="s">
+            <i />
+          </NativeSwipeRow>
+        </GenesisModulesProvider>
+      );
+      return brand ? (
+        <GenesisThemeProvider brand={brand} mode="light">
+          {swipe}
+        </GenesisThemeProvider>
+      ) : (
+        swipe
+      );
+    };
+    const look = () => ({
+      background: (style(screen.getByTestId("s-action-flag")) as Record<string, unknown>).backgroundColor,
+      text: (style(screen.getByText("Flag")) as Record<string, unknown>).color,
+    });
+    const view = render(row(light));
+    expect(look()).toEqual({ background: "#FDE68A", text: ON_ROW_ACTION_LIGHT_TONE });
+    view.rerender(row(declared));
+    expect(look()).toEqual({ background: "#0f766e", text: "#f0fdfa" });
+    // Without a provider: the theme's tint role.
+    view.rerender(row(null));
+    expect(look().background).not.toBe("#FDE68A");
+  });
+
+  it("gives InboxPage and NativeRowActions the brand's primary too", () => {
+    const light: CanonicalBrand = { ...genesisBrand, name: "acme-light", accent: { DEFAULT: "#FDE68A", light: "#FDE68A", dark: "#FDE68A" } };
+    const Swipeable = fakeSwipeable(() => 0);
+    render(
+      <GenesisThemeProvider brand={light} mode="light">
+        <GenesisModulesProvider modules={{ swipeable: Swipeable as never }}>
+          <InboxPage testID="inbox" items={[{ id: "a", title: "Sam", swipeActions: [{ id: "pin", label: "Pin", onPress: vi.fn() }] }]} />
+          <NativeRowActions actions={[{ id: "mark", label: "Mark", onPress: vi.fn() }]} testID="ra">
+            <Pressable testID="row" />
+          </NativeRowActions>
+        </GenesisModulesProvider>
+      </GenesisThemeProvider>,
+    );
+    for (const [id, label] of [["inbox-row-a-swipe-action-pin", "Pin"], ["ra-swipe-action-mark", "Mark"]] as const) {
+      expect((style(screen.getByTestId(id)) as Record<string, unknown>).backgroundColor).toBe("#FDE68A");
+      expect((style(screen.getByText(label)) as Record<string, unknown>).color).toBe(ON_ROW_ACTION_LIGHT_TONE);
+    }
   });
 });
