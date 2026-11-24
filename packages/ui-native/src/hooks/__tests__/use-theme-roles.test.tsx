@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { renderHook } from "@testing-library/react";
 import { Platform } from "react-native";
+import { nativeThemeLight } from "@marktiderman/genesis-design-system/tokens";
 import { useThemeRoles } from "../use-theme-roles";
 
 describe("useThemeRoles", () => {
@@ -67,6 +68,12 @@ describe("readableOn", () => {
 
   it("gives an rgb() or hsl() tint white text when it's dark, not the theme's foreground", () => {
     expect(renderHook(() => useThemeRoles({ tint: "rgb(18, 52, 86)" })).result.current.onPrimary).toBe("#FFFFFF");
+    // A named tint reads too, whatever the scheme's token would be: black on white, white on navy.
+    expect(renderHook(() => useThemeRoles({ tint: "white" })).result.current.onPrimary).toBe("#000000");
+    expect(renderHook(() => useThemeRoles({ tint: "yellow" })).result.current.onPrimary).toBe("#000000");
+    expect(renderHook(() => useThemeRoles({ tint: "navy" })).result.current.onPrimary).toBe("#FFFFFF");
+    // Transparent has nothing to read on: the scheme's token, as before.
+    expect(renderHook(() => useThemeRoles({ tint: "transparent" })).result.current.onPrimary).toBe(nativeThemeLight.primaryForeground);
     expect(renderHook(() => useThemeRoles({ tint: "hsl(48, 96%, 77%)" })).result.current.onPrimary).toBe("#000000");
   });
 });

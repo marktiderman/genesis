@@ -15,7 +15,7 @@
         "@marktiderman/genesis-ui-native",
         "@marktiderman/genesis-ui-native/data"
       ],
-      "count": 117
+      "count": 122
     }
   },
   "primitives": [
@@ -2174,6 +2174,13 @@
               "description": ""
             },
             {
+              "name": "preview",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "A peek of what they act on, above the title (a conversation's latest messages, a photo)."
+            },
+            {
               "name": "testID",
               "type": "string",
               "required": false,
@@ -2188,6 +2195,23 @@
               "description": "Over the actions: what they act on."
             }
           ]
+        }
+      ]
+    },
+    {
+      "slug": "contrast",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/tokens/contrast.ts",
+      "stability": "beta",
+      "summary": "White or black, whichever reads better on `background`, else undefined. It reads hex (`#rgb`,\n`#rrggbb`, with or without alpha), `rgb()`/`rgba()` and `hsl()`/`hsla()` (alpha is ignored:\nthe color as if opaque); a PlatformColor or a named color gives undefined.",
+      "primaryComponent": "readableOn",
+      "components": [
+        {
+          "name": "readableOn",
+          "summary": "White or black, whichever reads better on `background`, else undefined. It reads hex (`#rgb`,\n`#rrggbb`, with or without alpha), `rgb()`/`rgba()` and `hsl()`/`hsla()` (alpha is ignored:\nthe color as if opaque); a PlatformColor or a named color gives undefined.",
+          "props": []
         }
       ]
     },
@@ -3551,9 +3575,14 @@
       "subpath": "@marktiderman/genesis-ui-native",
       "filePath": "packages/ui-native/src/icon-names.ts",
       "stability": "beta",
-      "summary": "The semantic icon names Genesis components ask for, and the SF Symbol each\none draws on iOS. Components say \"settings\" or \"bell\", never a library's\nown name; `lucideIcons` (`/icons/lucide`) maps the same names for Android,\nweb and the SF Symbol fallback.",
-      "primaryComponent": "SF_SYMBOLS",
+      "summary": "Whether `name` is a Genesis icon name: how a component checks an icon given as a string (a row\naction's `icon`, which platform-neutral core keeps as a string) before drawing it, instead of a cast.",
+      "primaryComponent": "isNativeIconName",
       "components": [
+        {
+          "name": "isNativeIconName",
+          "summary": "Whether `name` is a Genesis icon name: how a component checks an icon given as a string (a row\naction's `icon`, which platform-neutral core keeps as a string) before drawing it, instead of a cast.",
+          "props": []
+        },
         {
           "name": "SF_SYMBOLS",
           "summary": "The semantic icon names Genesis components ask for, and the SF Symbol each\none draws on iOS. Components say \"settings\" or \"bell\", never a library's\nown name; `lucideIcons` (`/icons/lucide`) maps the same names for Android,\nweb and the SF Symbol fallback.",
@@ -3690,6 +3719,13 @@
               "description": "Custom node rendered on the left of the nav bar."
             },
             {
+              "name": "headerLeftItems",
+              "type": "(() => readonly unknown[])",
+              "required": false,
+              "defaultValue": null,
+              "description": "Native header items on the left (`unstable_headerLeftItems`)."
+            },
+            {
               "name": "headerOptions",
               "type": "Record<string, unknown>",
               "required": false,
@@ -3702,6 +3738,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Custom node rendered on the right of the nav bar."
+            },
+            {
+              "name": "headerRightItems",
+              "type": "(() => readonly unknown[])",
+              "required": false,
+              "defaultValue": null,
+              "description": "Native header items on the right (react-native-screens' `unstable_headerRightItems`): bar\nbuttons and menus drawn by UIKit, with iOS 26's glass grouping. Prefer them to `headerRight`."
             },
             {
               "name": "headerTitle",
@@ -3723,6 +3766,13 @@
               "required": false,
               "defaultValue": null,
               "description": "iOS scroll-edge behavior. `\"match\"` collapses, `\"transparent\"` always transparent, `\"opaque\"` always opaque."
+            },
+            {
+              "name": "search",
+              "type": "ScreenSearchOptions",
+              "required": false,
+              "defaultValue": null,
+              "description": "Native search in the header (react-native-screens' `headerSearchBarOptions`): the system\nsearch field under the large title, which hides on scroll. On iOS 26 pass\n`placement: \"integrated\"` (or `\"integratedButton\"`) to put it in the toolbar; with a tab bar,\nsearch is usually its own tab (`role: \"search\"` on NativeTabs). Never draw your own."
             }
           ]
         },
@@ -3801,6 +3851,13 @@
               "description": "Custom node rendered on the left of the nav bar."
             },
             {
+              "name": "headerLeftItems",
+              "type": "(() => readonly unknown[])",
+              "required": false,
+              "defaultValue": null,
+              "description": "Native header items on the left (`unstable_headerLeftItems`)."
+            },
+            {
               "name": "headerOptions",
               "type": "Record<string, unknown>",
               "required": false,
@@ -3813,6 +3870,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Custom node rendered on the right of the nav bar."
+            },
+            {
+              "name": "headerRightItems",
+              "type": "(() => readonly unknown[])",
+              "required": false,
+              "defaultValue": null,
+              "description": "Native header items on the right (react-native-screens' `unstable_headerRightItems`): bar\nbuttons and menus drawn by UIKit, with iOS 26's glass grouping. Prefer them to `headerRight`."
             },
             {
               "name": "headerTitle",
@@ -3841,6 +3905,20 @@
               "required": false,
               "defaultValue": "false",
               "description": "A next page is loading: the default footer shows a spinner."
+            },
+            {
+              "name": "menuPreview",
+              "type": "((row: InboxItem & { testID: string; isFirst: boolean; isLast: boolean; timeLabel: string | null; mutedLabel?: string | null; pinnedLabel?: string | null; actionProps?: RowActionProps | undefined; }) => ReactNode) | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": "A peek of the row above its long-press menu (Messages shows the latest messages)."
+            },
+            {
+              "name": "mutedLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Alerts off",
+              "description": "What a screen reader says for a muted row's bell-slash. Default `\"Alerts off\"`."
             },
             {
               "name": "now",
@@ -3878,6 +3956,13 @@
               "description": "Called near the top, to load back a page the list dropped from the front (a list that keeps a\nbounded number of pages). The rows on screen keep their place while it's added above."
             },
             {
+              "name": "pinnedLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Pinned",
+              "description": "What a screen reader says for a pinned row's pin. Default `\"Pinned\"`."
+            },
+            {
               "name": "refreshing",
               "type": "boolean",
               "required": false,
@@ -3890,6 +3975,13 @@
               "required": false,
               "defaultValue": null,
               "description": "iOS scroll-edge behavior. `\"match\"` collapses, `\"transparent\"` always transparent, `\"opaque\"` always opaque."
+            },
+            {
+              "name": "search",
+              "type": "ScreenSearchOptions",
+              "required": false,
+              "defaultValue": null,
+              "description": "Native search in the header (react-native-screens' `headerSearchBarOptions`): the system\nsearch field under the large title, which hides on scroll. On iOS 26 pass\n`placement: \"integrated\"` (or `\"integratedButton\"`) to put it in the toolbar; with a tab bar,\nsearch is usually its own tab (`role: \"search\"` on NativeTabs). Never draw your own."
             },
             {
               "name": "sectionTitle",
@@ -3913,6 +4005,13 @@
               "description": ""
             },
             {
+              "name": "swipeAppearance",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "How a row's swipe draws its actions: `\"fill\"` (default) or iOS 26's `\"round\"`, as Messages has them (ADR 0028)."
+            },
+            {
               "name": "testID",
               "type": "string",
               "required": false,
@@ -3923,12 +4022,12 @@
         },
         {
           "name": "showInboxActions",
-          "summary": "Opens a row's actions as the system alert. `InboxPage` now opens `NativeContextMenu`; `NativeResourceView`\nstill uses this.",
+          "summary": "Opens a row's actions as the system alert.",
           "props": []
         },
         {
           "name": "InboxSwipeAction",
-          "summary": "An action on an inbox row: a swipe, a long press or context menu, an accessibility action.",
+          "summary": "One of a row's actions (ADR 0028): the platform-neutral shape from `genesis-core/row-actions`,\nunder the name the inbox has always used.",
           "props": []
         },
         {
@@ -5279,7 +5378,7 @@
       "subpath": "@marktiderman/genesis-ui-native",
       "filePath": "packages/ui-native/src/components/list-item.tsx",
       "stability": "beta",
-      "summary": "ListItem — recurring row in a list (settings, contacts, results).\n\nSlots: leading (avatar / icon), title, subtitle, trailing\n(chevron / accessory / action). Supports pressable variants with\nautomatic divider rendering between adjacent items via a wrapper\npattern (see <NativeListItemDivider>).\n\nFor platform-default chevrons, pass `showChevron`; the chevron uses\nthe muted-foreground token.",
+      "summary": "ListItem — recurring row in a list (settings, contacts, results).\n\nSlots: leading (avatar / icon), title, subtitle, trailing\n(chevron / accessory / action). Supports pressable variants with\nautomatic divider rendering between adjacent items via a wrapper\npattern (see <NativeListItemDivider>).\n\nFor platform-default chevrons, pass `showChevron`; the chevron uses\nthe muted-foreground token.\n\n`actions` gives the row its actions the iOS way (ADR 0028): behind a swipe (leading and\ntrailing, full swipe, iOS 26's round style with `actionsAppearance=\"round\"`), in the long-press\nmenu (the system context menu with `GenesisModules.menu`), and as VoiceOver's actions.",
       "primaryComponent": "NativeListItem",
       "components": [
         {
@@ -5304,7 +5403,7 @@
               "name": "accessibilityRole",
               "type": "enum",
               "required": false,
-              "defaultValue": "button",
+              "defaultValue": null,
               "description": "What a pressable row is to a screen reader. Default `button`; a row that flips its switch\n(NativeToggleRow) is a `switch`, and one choice of several (NativeWorkspaceSwitcher) a\n`radio`, each with `accessibilityState.checked`."
             },
             {
@@ -5313,6 +5412,20 @@
               "required": false,
               "defaultValue": null,
               "description": "Merged over the row's own (`disabled`)."
+            },
+            {
+              "name": "actions",
+              "type": "readonly RowSwipeAction[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "The row's actions: swipe, long-press menu and screen-reader actions, from one list."
+            },
+            {
+              "name": "actionsAppearance",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "How the swipe draws them: `\"fill\"` (default) or iOS 26's `\"round\"`."
             },
             {
               "name": "className",
@@ -5360,14 +5473,14 @@
               "name": "subtitleLines",
               "type": "number | null",
               "required": false,
-              "defaultValue": "2",
+              "defaultValue": null,
               "description": "How many lines the subtitle shows before it's cut short. Default 2; `null` wraps it whole (a value to read, an id)."
             },
             {
               "name": "subtitleSelectable",
               "type": "boolean",
               "required": false,
-              "defaultValue": "false",
+              "defaultValue": null,
               "description": "The subtitle can be selected and copied (a value: an id, a URL). Default false."
             },
             {
@@ -6662,6 +6775,13 @@
               "description": "Custom node rendered on the left of the nav bar."
             },
             {
+              "name": "headerLeftItems",
+              "type": "(() => readonly unknown[])",
+              "required": false,
+              "defaultValue": null,
+              "description": "Native header items on the left (`unstable_headerLeftItems`)."
+            },
+            {
               "name": "headerOptions",
               "type": "Record<string, unknown>",
               "required": false,
@@ -6674,6 +6794,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Custom node rendered on the right of the nav bar."
+            },
+            {
+              "name": "headerRightItems",
+              "type": "(() => readonly unknown[])",
+              "required": false,
+              "defaultValue": null,
+              "description": "Native header items on the right (react-native-screens' `unstable_headerRightItems`): bar\nbuttons and menus drawn by UIKit, with iOS 26's glass grouping. Prefer them to `headerRight`."
             },
             {
               "name": "large",
@@ -6702,6 +6829,13 @@
               "required": false,
               "defaultValue": null,
               "description": "iOS scroll-edge behavior. `\"match\"` collapses, `\"transparent\"` always transparent, `\"opaque\"` always opaque."
+            },
+            {
+              "name": "search",
+              "type": "ScreenSearchOptions",
+              "required": false,
+              "defaultValue": null,
+              "description": "Native search in the header (react-native-screens' `headerSearchBarOptions`): the system\nsearch field under the large title, which hides on scroll. On iOS 26 pass\n`placement: \"integrated\"` (or `\"integratedButton\"`) to put it in the toolbar; with a tab bar,\nsearch is usually its own tab (`role: \"search\"` on NativeTabs). Never draw your own."
             }
           ]
         },
@@ -6952,6 +7086,13 @@
               "description": "Custom node rendered on the left of the nav bar."
             },
             {
+              "name": "headerLeftItems",
+              "type": "(() => readonly unknown[])",
+              "required": false,
+              "defaultValue": null,
+              "description": "Native header items on the left (`unstable_headerLeftItems`)."
+            },
+            {
               "name": "headerOptions",
               "type": "Record<string, unknown>",
               "required": false,
@@ -6964,6 +7105,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Custom node rendered on the right of the nav bar."
+            },
+            {
+              "name": "headerRightItems",
+              "type": "(() => readonly unknown[])",
+              "required": false,
+              "defaultValue": null,
+              "description": "Native header items on the right (react-native-screens' `unstable_headerRightItems`): bar\nbuttons and menus drawn by UIKit, with iOS 26's glass grouping. Prefer them to `headerRight`."
             },
             {
               "name": "large",
@@ -6992,6 +7140,13 @@
               "required": false,
               "defaultValue": null,
               "description": "iOS scroll-edge behavior. `\"match\"` collapses, `\"transparent\"` always transparent, `\"opaque\"` always opaque."
+            },
+            {
+              "name": "search",
+              "type": "ScreenSearchOptions",
+              "required": false,
+              "defaultValue": null,
+              "description": "Native search in the header (react-native-screens' `headerSearchBarOptions`): the system\nsearch field under the large title, which hides on scroll. On iOS 26 pass\n`placement: \"integrated\"` (or `\"integratedButton\"`) to put it in the toolbar; with a tab bar,\nsearch is usually its own tab (`role: \"search\"` on NativeTabs). Never draw your own."
             }
           ]
         },
@@ -7543,10 +7698,10 @@
             },
             {
               "name": "swipeable",
-              "type": "ComponentType<NativeResourceSwipeableProps>",
+              "type": "ComponentType<NativeResourceSwipeableProps> | null",
               "required": false,
               "defaultValue": null,
-              "description": "Wraps each row that has actions in a swipe gesture (e.g. gesture-handler's ReanimatedSwipeable)."
+              "description": "Wraps each row that has actions in a swipe gesture. Default `NativeSwipeRow` (which swipes once\nthe app passes `GenesisModules.swipeable`) on list rows: Edit and Delete trailing, and the\nview's actions where their `swipe` says (ADR 0028), at most three a side. Grid cards and\n`renderCard` rows swipe only with a `swipeable` of the screen's own. `null` turns it off."
             },
             {
               "name": "switcher",
@@ -7870,6 +8025,13 @@
               "description": "Custom node rendered on the left of the nav bar."
             },
             {
+              "name": "headerLeftItems",
+              "type": "(() => readonly unknown[])",
+              "required": false,
+              "defaultValue": null,
+              "description": "Native header items on the left (`unstable_headerLeftItems`)."
+            },
+            {
               "name": "headerOptions",
               "type": "Record<string, unknown>",
               "required": false,
@@ -7882,6 +8044,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Custom node rendered on the right of the nav bar."
+            },
+            {
+              "name": "headerRightItems",
+              "type": "(() => readonly unknown[])",
+              "required": false,
+              "defaultValue": null,
+              "description": "Native header items on the right (react-native-screens' `unstable_headerRightItems`): bar\nbuttons and menus drawn by UIKit, with iOS 26's glass grouping. Prefer them to `headerRight`."
             },
             {
               "name": "headerTitle",
@@ -7924,6 +8093,13 @@
               "required": false,
               "defaultValue": null,
               "description": "iOS scroll-edge behavior. `\"match\"` collapses, `\"transparent\"` always transparent, `\"opaque\"` always opaque."
+            },
+            {
+              "name": "search",
+              "type": "ScreenSearchOptions",
+              "required": false,
+              "defaultValue": null,
+              "description": "Native search in the header (react-native-screens' `headerSearchBarOptions`): the system\nsearch field under the large title, which hides on scroll. On iOS 26 pass\n`placement: \"integrated\"` (or `\"integratedButton\"`) to put it in the toolbar; with a tab bar,\nsearch is usually its own tab (`role: \"search\"` on NativeTabs). Never draw your own."
             },
             {
               "name": "slotProps",
@@ -9224,13 +9400,264 @@
       ]
     },
     {
+      "slug": "row-action-tones",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/tokens/row-action-tones.ts",
+      "stability": "beta",
+      "summary": "An action's swatch: its `accent` (`red` is `danger`), else its tone's (`danger` when destructive, else `tint`).",
+      "primaryComponent": "rowActionSwatch",
+      "components": [
+        {
+          "name": "rowActionSwatch",
+          "summary": "An action's swatch: its `accent` (`red` is `danger`), else its tone's (`danger` when destructive, else `tint`).",
+          "props": [
+            {
+              "name": "accent",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "A system color by name, over `tone` (see {@link RowActionAccent})."
+            },
+            {
+              "name": "destructive",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Destructive (delete, leave): `danger` unless a `tone` or `accent` says otherwise."
+            },
+            {
+              "name": "tone",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "What it means; its color comes from that. Default `danger` when destructive, else `tint`."
+            }
+          ]
+        },
+        {
+          "name": "onRowActionColor",
+          "summary": "The text and icon color on an action of this swatch.\n\n- **System colors** (blue, green, orange, purple, gray): white, as iOS draws them; black on yellow.\n- **`tint` and `danger`** sit on the app's own colors (`background`), so they take what reads on\n  that color: white or black by contrast when it's a hex color, else `foreground` (the theme's\n  `onPrimary` or `destructiveForeground`, which the caller passes), else white (iOS's systemRed,\n  as Mail draws Delete). `useRowActionColors` passes them.",
+          "props": []
+        },
+        {
+          "name": "useRowActionColors",
+          "summary": "The colors of a row's actions on the phone, for the current theme: `tint` is the app's primary\nand `onPrimary` (useThemeRoles: the brand's native primary under a GenesisThemeProvider),\n`danger` the destructive role and its foreground, a system color its iOS color (with the Android\nfallbacks) and white, or black on yellow.",
+          "props": []
+        },
+        {
+          "name": "readableOn",
+          "summary": "White or black, whichever reads better on `background`, else undefined. It reads hex (`#rgb`,\n`#rrggbb`, with or without alpha), `rgb()`/`rgba()` and `hsl()`/`hsla()` (alpha is ignored:\nthe color as if opaque); a PlatformColor or a named color gives undefined.",
+          "props": []
+        },
+        {
+          "name": "ROW_ACTION_SYSTEM_COLORS",
+          "summary": "Each system color's iOS name, and its fallback where there is no `PlatformColor`. iOS keeps\nits system colors with white on them, as Mail and Messages draw them: that is iOS's own look, and\nnot every pair reaches WCAG AA (white on systemGreen or systemOrange is about 2.2:1). The\nfallbacks are darker shades that carry white at 4.5:1 or more.",
+          "props": []
+        },
+        {
+          "name": "TONE_SWATCHES",
+          "summary": "The system color each semantic tone draws, on iOS as in Mail: success green, warning orange, info blue, neutral gray.",
+          "props": []
+        },
+        {
+          "name": "ON_ROW_ACTION",
+          "summary": "Text and icons on a system color: white, as iOS draws them, except on yellow, where only black reads.",
+          "props": []
+        },
+        {
+          "name": "ROW_PILL",
+          "summary": "The pill a row becomes while its round actions are open (iOS 26 Messages): systemGray5.",
+          "props": []
+        }
+      ]
+    },
+    {
+      "slug": "row-actions",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/components/row-actions.tsx",
+      "stability": "beta",
+      "summary": "NativeRowActions — a row's actions offered the three ways iOS offers them, from one list\n(ADR 0028): behind a swipe (`NativeSwipeRow`), in the long-press menu, and as the screen\nreader's actions. Wrap any pressable row in it. `NativeListItem`'s `actions`, InboxPage's rows\nand NativeResourceView's rows and cards build theirs the same way (`useRowActions`), so a row\nbehaves the same everywhere.\n\nThe long press opens the system context menu (UIContextMenu, the row lifted as its preview)\nwhen the app passes `GenesisModules.menu` (`MenuView` from `@expo/ui/community/menu`), and\n`NativeContextMenu`'s sheet otherwise. Every action shows in the menu, `swipe: false` ones\nincluded; a refused one is still listed, and pressing it explains (its `onPress`).",
+      "primaryComponent": "NativeRowActions",
+      "components": [
+        {
+          "name": "NativeRowActions",
+          "summary": "",
+          "props": [
+            {
+              "name": "actions",
+              "type": "readonly RowSwipeAction[]",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "children",
+              "type": "ReactNode",
+              "required": true,
+              "defaultValue": null,
+              "description": "The row: one pressable element, which gets the long press and the accessibility actions."
+            },
+            {
+              "name": "appearance",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "The swipe's look: `\"fill\"` or iOS 26's `\"round\"`."
+            },
+            {
+              "name": "preview",
+              "type": "(() => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "A peek of the row above its long-press menu (a conversation's latest messages). The system\nmenu from `GenesisModules.menu` can't draw one, so with a preview the long press opens\n`NativeContextMenu`'s sheet, the peek on top."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "row-actions",
+              "description": ""
+            },
+            {
+              "name": "title",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "What the actions act on: the menu's title (the row's title)."
+            }
+          ]
+        },
+        {
+          "name": "NativeSystemMenuRow",
+          "summary": "A row inside the system context menu (`GenesisModules.menu`). The menu's host sizes itself to\nits content, which would shrink a row that only stretches: so the row is given its measured\nwidth once it's known.",
+          "props": [
+            {
+              "name": "actions",
+              "type": "readonly RowSwipeAction[]",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "Menu",
+              "type": "GenesisMenuComponent",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "title",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        },
+        {
+          "name": "toMenuAction",
+          "summary": "A row action as the system menu takes it: its SF Symbol, and destructive in red.",
+          "props": [
+            {
+              "name": "id",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "label",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onPress",
+              "type": "() => void",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "accent",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "A system color by name, over `tone` (see {@link RowActionAccent})."
+            },
+            {
+              "name": "confirms",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Its `onPress` asks first or can be undone, so a full swipe that runs it by mistake loses nothing."
+            },
+            {
+              "name": "destructive",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Destructive (delete, leave): `danger` unless a `tone` or `accent` says otherwise."
+            },
+            {
+              "name": "icon",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "A Genesis icon name (`trash`, `pin`, `mail-open`), shown behind the swipe and in the menu.\nA string here, because core is platform-neutral and each platform keeps its own icon set:\ngenesis-ui-native's `NativeIconName` and `isNativeIconName` check it on the phone (an unknown\nname draws no icon, with a development warning)."
+            },
+            {
+              "name": "reason",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Set when a guard refuses it: pressing it explains instead of acting, and screen readers hear why."
+            },
+            {
+              "name": "side",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "@deprecated Use `swipe: { side }`. Read when `swipe` is unset."
+            },
+            {
+              "name": "swipe",
+              "type": "false | RowActionSwipe",
+              "required": false,
+              "defaultValue": null,
+              "description": "Where it sits behind the swipe on the phone: `{ side, full? }`, or `false` to keep it in the\nlong-press menu and the screen reader's actions only (an action that needs a second look).\nUnset: the trailing side, no full swipe (NativeResourceView keeps a view action that didn't\nsay to its menu)."
+            },
+            {
+              "name": "tone",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "What it means; its color comes from that. Default `danger` when destructive, else `tint`."
+            }
+          ]
+        }
+      ]
+    },
+    {
       "slug": "screen-container",
       "aliases": [],
       "surface": "native",
       "subpath": "@marktiderman/genesis-ui-native",
       "filePath": "packages/ui-native/src/layouts/screen-container.tsx",
       "stability": "beta",
-      "summary": "ScreenContainer — Layer-2 page primitive.\n\nWires the chrome every layout needs without imposing layout structure:\n  - Safe-area edges (configurable via `safeAreaEdges`)\n  - StatusBar style (light / dark / auto)\n  - Scroll vs static body\n  - Tokens-aware background (`bg-background`)\n  - A loading state (`loading`): a centred `NativeLoadingState` in place of the body\n  - Pull to refresh (`onRefresh` + `refreshing`): a theme-tinted `NativeRefreshControl`\n\nHeader customization is delegated: pass `headerLeft`, `headerRight`,\n`large`, `scrollEdgeBehavior`, `safeAreaEdges`, plus any direct\n`headerOptions` passthrough to `<Stack.Screen options={...} />`. We\n**do not** render the navigation header ourselves — Expo Router /\nReact Navigation render the platform-native header. Consumer either:\n\n  (a) Wraps the screen in `<ScreenContainer>` and ALSO declares\n      `<Stack.Screen options={headerOptionsFromProps(props)} />` at the\n      top of the screen (we export a helper `composeHeaderOptions` for\n      this), OR\n  (b) Imports `<NavBarTitle>` / `<NavBarSearchBar>` / `<NavBarSaveButton>`\n      sub-primitives and threads them through `headerLeft` / `headerRight`\n      options manually.\n\nThe Layer-3/4 layouts (SettingsPage, etc.) compose ScreenContainer + a\nhelper that wires Stack.Screen so consumers get the 3-line ergonomics.",
+      "summary": "ScreenContainer — Layer-2 page primitive.\n\nWires the chrome every layout needs without imposing layout structure:\n  - Safe-area edges (configurable via `safeAreaEdges`)\n  - StatusBar style (light / dark / auto)\n  - Scroll vs static body\n  - Tokens-aware background (`bg-background`)\n  - A loading state (`loading`): a centred `NativeLoadingState` in place of the body\n  - Pull to refresh (`onRefresh` + `refreshing`): a theme-tinted `NativeRefreshControl`\n\n  - The native header (`header`): a large title that collapses on scroll, native header\n    items and native search, set from inside the screen through `GenesisModules.router.StackScreen`\n  - Tab bar visibility (`tabBar=\"hidden\"`): UIKit's `hidesBottomBarWhenPushed`, through\n    `useHideTabBar` and the tabs layout's `TabBarVisibilityProvider`\n\nThe rule (docs/FRAMEWORK.md, \"Native screens follow iOS\"): every screen uses the stack's native\nheader, never one it draws. Top-level screens take a large title; a drill-down takes a standard\none (`large: false`) and the stack's own back button.\n\nHeader customization is delegated: pass `headerLeft`, `headerRight`,\n`large`, `scrollEdgeBehavior`, `safeAreaEdges`, plus any direct\n`headerOptions` passthrough to `<Stack.Screen options={...} />`. We\n**do not** render the navigation header ourselves — Expo Router /\nReact Navigation render the platform-native header. Consumer either:\n\n  (a) Wraps the screen in `<ScreenContainer>` and ALSO declares\n      `<Stack.Screen options={headerOptionsFromProps(props)} />` at the\n      top of the screen (we export a helper `composeHeaderOptions` for\n      this), OR\n  (b) Imports `<NavBarTitle>` / `<NavBarSearchBar>` / `<NavBarSaveButton>`\n      sub-primitives and threads them through `headerLeft` / `headerRight`\n      options manually.\n\nThe Layer-3/4 layouts (SettingsPage, etc.) compose ScreenContainer + a\nhelper that wires Stack.Screen so consumers get the 3-line ergonomics.",
       "primaryComponent": "ScreenContainer",
       "components": [
         {
@@ -9245,6 +9672,13 @@
               "description": "Custom node rendered on the left of the nav bar."
             },
             {
+              "name": "headerLeftItems",
+              "type": "(() => readonly unknown[])",
+              "required": false,
+              "defaultValue": null,
+              "description": "Native header items on the left (`unstable_headerLeftItems`)."
+            },
+            {
               "name": "headerOptions",
               "type": "Record<string, unknown>",
               "required": false,
@@ -9257,6 +9691,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Custom node rendered on the right of the nav bar."
+            },
+            {
+              "name": "headerRightItems",
+              "type": "(() => readonly unknown[])",
+              "required": false,
+              "defaultValue": null,
+              "description": "Native header items on the right (react-native-screens' `unstable_headerRightItems`): bar\nbuttons and menus drawn by UIKit, with iOS 26's glass grouping. Prefer them to `headerRight`."
             },
             {
               "name": "headerTitle",
@@ -9278,6 +9719,13 @@
               "required": false,
               "defaultValue": null,
               "description": "iOS scroll-edge behavior. `\"match\"` collapses, `\"transparent\"` always transparent, `\"opaque\"` always opaque."
+            },
+            {
+              "name": "search",
+              "type": "ScreenSearchOptions",
+              "required": false,
+              "defaultValue": null,
+              "description": "Native search in the header (react-native-screens' `headerSearchBarOptions`): the system\nsearch field under the large title, which hides on scroll. On iOS 26 pass\n`placement: \"integrated\"` (or `\"integratedButton\"`) to put it in the toolbar; with a tab bar,\nsearch is usually its own tab (`role: \"search\"` on NativeTabs). Never draw your own."
             }
           ]
         },
@@ -9305,6 +9753,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Override inner content container className (the ScrollView's contentContainerClassName when scroll=true)."
+            },
+            {
+              "name": "header",
+              "type": "ScreenHeaderProps",
+              "required": false,
+              "defaultValue": null,
+              "description": "The screen's native header, set from inside the screen: `composeHeaderOptions` of these, passed\nto `GenesisModules.router.StackScreen` (expo-router's `Stack.Screen`). `large` defaults to\n`true` here, a large title that collapses on scroll; pass `large: false` on a drill-down.\nWithout the router module, set `<Stack.Screen options={composeHeaderOptions(…)}>` yourself.\nAn option this screen set and later leaves out is reset (the large title, a search that goes);\none it never set is left to the layout's screenOptions. Keep\n`search`, the callbacks and `headerOptions` stable (useMemo / useCallback): they're compared by\nreference."
             },
             {
               "name": "keyboardShouldPersistTaps",
@@ -9368,6 +9823,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Style on the root, e.g. a theme-role background color."
+            },
+            {
+              "name": "tabBar",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "visible",
+              "description": "The tab bar while this screen is focused. `\"hidden\"` hides it (a conversation, a full-screen\nviewer, a form pushed over a list), as UIKit's `hidesBottomBarWhenPushed`; the stack's back\nbutton and edge swipe stay. Needs `TabBarVisibilityProvider` around the tabs. Default `\"visible\"`."
             },
             {
               "name": "testID",
@@ -9741,6 +10203,13 @@
               "description": "Custom node rendered on the left of the nav bar."
             },
             {
+              "name": "headerLeftItems",
+              "type": "(() => readonly unknown[])",
+              "required": false,
+              "defaultValue": null,
+              "description": "Native header items on the left (`unstable_headerLeftItems`)."
+            },
+            {
               "name": "headerOptions",
               "type": "Record<string, unknown>",
               "required": false,
@@ -9753,6 +10222,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Custom node rendered on the right of the nav bar."
+            },
+            {
+              "name": "headerRightItems",
+              "type": "(() => readonly unknown[])",
+              "required": false,
+              "defaultValue": null,
+              "description": "Native header items on the right (react-native-screens' `unstable_headerRightItems`): bar\nbuttons and menus drawn by UIKit, with iOS 26's glass grouping. Prefer them to `headerRight`."
             },
             {
               "name": "headerTitle",
@@ -9774,6 +10250,13 @@
               "required": false,
               "defaultValue": null,
               "description": "iOS scroll-edge behavior. `\"match\"` collapses, `\"transparent\"` always transparent, `\"opaque\"` always opaque."
+            },
+            {
+              "name": "search",
+              "type": "ScreenSearchOptions",
+              "required": false,
+              "defaultValue": null,
+              "description": "Native search in the header (react-native-screens' `headerSearchBarOptions`): the system\nsearch field under the large title, which hides on scroll. On iOS 26 pass\n`placement: \"integrated\"` (or `\"integratedButton\"`) to put it in the toolbar; with a tab bar,\nsearch is usually its own tab (`role: \"search\"` on NativeTabs). Never draw your own."
             }
           ]
         },
@@ -9817,6 +10300,13 @@
               "description": "Custom node rendered on the left of the nav bar."
             },
             {
+              "name": "headerLeftItems",
+              "type": "(() => readonly unknown[])",
+              "required": false,
+              "defaultValue": null,
+              "description": "Native header items on the left (`unstable_headerLeftItems`)."
+            },
+            {
               "name": "headerOptions",
               "type": "Record<string, unknown>",
               "required": false,
@@ -9829,6 +10319,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Custom node rendered on the right of the nav bar."
+            },
+            {
+              "name": "headerRightItems",
+              "type": "(() => readonly unknown[])",
+              "required": false,
+              "defaultValue": null,
+              "description": "Native header items on the right (react-native-screens' `unstable_headerRightItems`): bar\nbuttons and menus drawn by UIKit, with iOS 26's glass grouping. Prefer them to `headerRight`."
             },
             {
               "name": "headerTitle",
@@ -9850,6 +10347,13 @@
               "required": false,
               "defaultValue": null,
               "description": "iOS scroll-edge behavior. `\"match\"` collapses, `\"transparent\"` always transparent, `\"opaque\"` always opaque."
+            },
+            {
+              "name": "search",
+              "type": "ScreenSearchOptions",
+              "required": false,
+              "defaultValue": null,
+              "description": "Native search in the header (react-native-screens' `headerSearchBarOptions`): the system\nsearch field under the large title, which hides on scroll. On iOS 26 pass\n`placement: \"integrated\"` (or `\"integratedButton\"`) to put it in the toolbar; with a tab bar,\nsearch is usually its own tab (`role: \"search\"` on NativeTabs). Never draw your own."
             },
             {
               "name": "slotProps",
@@ -10191,6 +10695,13 @@
               "description": "Custom node rendered on the left of the nav bar."
             },
             {
+              "name": "headerLeftItems",
+              "type": "(() => readonly unknown[])",
+              "required": false,
+              "defaultValue": null,
+              "description": "Native header items on the left (`unstable_headerLeftItems`)."
+            },
+            {
               "name": "headerOptions",
               "type": "Record<string, unknown>",
               "required": false,
@@ -10203,6 +10714,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Custom node rendered on the right of the nav bar."
+            },
+            {
+              "name": "headerRightItems",
+              "type": "(() => readonly unknown[])",
+              "required": false,
+              "defaultValue": null,
+              "description": "Native header items on the right (react-native-screens' `unstable_headerRightItems`): bar\nbuttons and menus drawn by UIKit, with iOS 26's glass grouping. Prefer them to `headerRight`."
             },
             {
               "name": "headerTitle",
@@ -10252,6 +10770,13 @@
               "required": false,
               "defaultValue": null,
               "description": "iOS scroll-edge behavior. `\"match\"` collapses, `\"transparent\"` always transparent, `\"opaque\"` always opaque."
+            },
+            {
+              "name": "search",
+              "type": "ScreenSearchOptions",
+              "required": false,
+              "defaultValue": null,
+              "description": "Native search in the header (react-native-screens' `headerSearchBarOptions`): the system\nsearch field under the large title, which hides on scroll. On iOS 26 pass\n`placement: \"integrated\"` (or `\"integratedButton\"`) to put it in the toolbar; with a tab bar,\nsearch is usually its own tab (`role: \"search\"` on NativeTabs). Never draw your own."
             },
             {
               "name": "testID",
@@ -11047,19 +11572,67 @@
       "subpath": "@marktiderman/genesis-ui-native",
       "filePath": "packages/ui-native/src/components/swipe-row.tsx",
       "stability": "beta",
-      "summary": "NativeSwipeRow — a row with actions behind a swipe: Archive to one side,\nDelete to the other (each action's `side`, trailing by default).\n\nThe gesture is the app's `GenesisModules.swipeable` (react-native-gesture-\nhandler's `ReanimatedSwipeable`, an optional peer). Without it, the row draws\nas it is, so an action must always be reachable another way too: `InboxPage`\nputs them in the accessibility actions and on long press. The buttons behind\nthe row are hidden from VoiceOver for that reason (a screen reader doesn't\nswipe), and a swipe that opens taps `medium` through `useHaptics`.",
+      "summary": "NativeSwipeRow — a row with actions behind a swipe, as Mail and Messages have them: leading\nactions behind a swipe to the right (Read, Pin), trailing behind a swipe to the left (Archive,\nDelete). Each action's `swipe` (`{ side, full }`, trailing by default), `icon`, `tone` and\n`accent` come from the one row-action shape (`RowSwipeAction` in `genesis-core/row-actions`,\nADR 0028), so a view's actions, an inbox row's and an app's own list read the same.\n\n- **Full swipe:** the first `full` action on a side runs when the row is let go past\n  `fullSwipeRatio` (0.6) of its width on that side, as Mail's Delete does (`fullSwipeSide`).\n- **Appearance:** `\"fill\"` draws each action as a colored block with its icon and label;\n  `\"round\"` draws iOS 26's round icon buttons (50pt, 10pt apart) with the label under them,\n  and while they're open the row itself becomes a pill (systemGray5, inset 6pt), as Messages does.\n- **Screen readers:** the buttons behind the row are hidden from VoiceOver (a screen reader\n  doesn't swipe); the same actions go on the row as `accessibilityActions` instead (and so\n  Maestro and XCUITest can run them), unless `accessibilityActions={false}` says the row\n  already has them (InboxPage, NativeResourceView).\n- An action with `swipe: false` stays off the swipe (the long-press menu and the screen\n  reader still offer it).\n\nThe gesture is the app's `GenesisModules.swipeable` (react-native-gesture-handler's\n`ReanimatedSwipeable`, an optional peer). Without it the row draws as it is and its actions\nstay reachable as accessibility actions; put them on long press too (`NativeRowActions`, or a\n`NativeListItem`'s `actions`, does both). A swipe that opens taps `medium` through `useHaptics`.",
       "primaryComponent": "NativeSwipeRow",
       "components": [
+        {
+          "name": "openWidth",
+          "summary": "The width a side's `n` actions open to: fill buttons side by side, or round ones with their gaps.",
+          "props": []
+        },
+        {
+          "name": "splitSwipeActions",
+          "summary": "The actions a swipe shows, by side (an action with `swipe: false` shows on neither), in the row's reading direction.",
+          "props": []
+        },
+        {
+          "name": "rowAccessibilityActions",
+          "summary": "The row's actions as React Native's `accessibilityActions` and the handler that runs them: the\none place they're built (`useRowActions` and NativeSwipeRow use it). A refused action's label\ncarries its reason, so a screen reader hears why before pressing it.",
+          "props": []
+        },
+        {
+          "name": "fullSwipeSide",
+          "summary": "Whether a release runs a side's full-swipe action. `dx` is the row's offset as the release is\nreported (the latest UI-thread value, so the finger's position, not the furthest it went: a drag\nthat backs out, or crosses to the other side, doesn't run it). `direction` is where the row is\nopening, as gesture-handler 2.21 and later name it: `\"right\"` when the row moves right and\nuncovers the left-hand actions (2.20 and earlier named it the other way, so the peer range starts\nat 2.21). The offset must be on that side (a release flung across to the other side opens that\nside and runs nothing), and further than the side's open actions (`open`, their width) by\n`FULL_SWIPE_CLEARANCE`. The report comes a frame or so after the finger lifts, so a release right\nat the threshold can land either side of it.",
+          "props": []
+        },
         {
           "name": "NativeSwipeRow",
           "summary": "",
           "props": [
             {
               "name": "actions",
-              "type": "readonly InboxSwipeAction[]",
+              "type": "readonly RowSwipeAction[]",
               "required": true,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "accessibilityActions",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "true",
+              "description": "Put the actions on the child as `accessibilityActions` (merged into its own, when it's a\nsingle element). Default `true`; pass `false` when the row already has them."
+            },
+            {
+              "name": "appearance",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "fill",
+              "description": "`\"fill\"` (colored blocks, the default) or `\"round\"` (iOS 26's round icon buttons)."
+            },
+            {
+              "name": "fullSwipeRatio",
+              "type": "number",
+              "required": false,
+              "defaultValue": "0.6",
+              "description": "How far across the row (a share of its width) a drag runs the side's `full` action when let go. Default 0.6, as iOS."
+            },
+            {
+              "name": "maxPerSide",
+              "type": "number",
+              "required": false,
+              "defaultValue": "3",
+              "description": "At most this many actions on a side; the rest stay in the menu and the screen reader's actions. Default 3, as Mail."
             },
             {
               "name": "testID",
@@ -11069,6 +11642,36 @@
               "description": ""
             }
           ]
+        },
+        {
+          "name": "FULL_SWIPE_CLEARANCE",
+          "summary": "How far past a side's open actions a full swipe must go, in points.",
+          "props": []
+        },
+        {
+          "name": "SWIPE_METRICS",
+          "summary": "The swipe's measurements, in points: what a side opens to (`openWidth`) and what the buttons\ndraw with come from here, so the two never disagree.",
+          "props": []
+        },
+        {
+          "name": "fillWidth",
+          "summary": "A fill button's width: room for a short label.",
+          "props": []
+        },
+        {
+          "name": "roundSlot",
+          "summary": "A round button's slot (its circle and label) and the circle inside it (iOS 26's 50pt).",
+          "props": []
+        },
+        {
+          "name": "roundGap",
+          "summary": "The space between round buttons, and at the side's edges.",
+          "props": []
+        },
+        {
+          "name": "pillInset",
+          "summary": "The open row as a pill: its inset from the row's edges and its corner radius.",
+          "props": []
         }
       ]
     },
@@ -11154,6 +11757,13 @@
               "description": ""
             },
             {
+              "name": "hidden",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "Hides the bar: pass `TabBarVisibilityProvider`'s `hidden`, so a screen with `tabBar=\"hidden\"` takes the full height."
+            },
+            {
               "name": "max",
               "type": "number",
               "required": false,
@@ -11175,6 +11785,46 @@
               "description": ""
             }
           ]
+        }
+      ]
+    },
+    {
+      "slug": "tab-bar-visibility",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/layouts/tab-bar-visibility.tsx",
+      "stability": "beta",
+      "summary": "Holds whether the tab bar is hidden, for the tab navigator it wraps.",
+      "primaryComponent": "TabBarVisibilityProvider",
+      "components": [
+        {
+          "name": "TabBarVisibilityProvider",
+          "summary": "Holds whether the tab bar is hidden, for the tab navigator it wraps.",
+          "props": [
+            {
+              "name": "children",
+              "type": "(hidden: boolean) => ReactNode",
+              "required": true,
+              "defaultValue": null,
+              "description": "Receives whether a focused screen asked to hide the bar; pass it to the tab navigator."
+            }
+          ]
+        },
+        {
+          "name": "useHideTabBar",
+          "summary": "Hides the tab bar while this screen is focused, and shows it again when it blurs or unmounts.\nPass `false` to keep it (a screen that hides it only in one mode). Outside a\n`TabBarVisibilityProvider` it does nothing.",
+          "props": []
+        },
+        {
+          "name": "useTabBarHidden",
+          "summary": "Whether a screen has hidden the tab bar: for chrome that sits above it (a floating bar, a mini player).",
+          "props": []
+        },
+        {
+          "name": "createPlaceExit",
+          "summary": "A place of its own inside the tabs, as Messages is on iOS: while it's open the tab bar hides\nfor its whole stack (`useHideTabBar` on each of its screens), and its first screen has a back\nbutton (and the edge swipe) that returns to where the person came from, in another tab. This\nremembers that place: the last path outside `isInside`. Navigation stays the app's:\n`router.navigate(exit.exitPath(\"/\"))`. Reads the path through `GenesisModules.router.usePathname`.\n\n  export const messagesExit = createPlaceExit((path) => /^\\/messages(\\/|$)/.test(path));",
+          "props": []
         }
       ]
     },
@@ -11620,6 +12270,13 @@
               "description": "Custom node rendered on the left of the nav bar."
             },
             {
+              "name": "headerLeftItems",
+              "type": "(() => readonly unknown[])",
+              "required": false,
+              "defaultValue": null,
+              "description": "Native header items on the left (`unstable_headerLeftItems`)."
+            },
+            {
               "name": "headerOptions",
               "type": "Record<string, unknown>",
               "required": false,
@@ -11632,6 +12289,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Custom node rendered on the right of the nav bar."
+            },
+            {
+              "name": "headerRightItems",
+              "type": "(() => readonly unknown[])",
+              "required": false,
+              "defaultValue": null,
+              "description": "Native header items on the right (react-native-screens' `unstable_headerRightItems`): bar\nbuttons and menus drawn by UIKit, with iOS 26's glass grouping. Prefer them to `headerRight`."
             },
             {
               "name": "headerTitle",
@@ -11653,6 +12317,13 @@
               "required": false,
               "defaultValue": null,
               "description": "iOS scroll-edge behavior. `\"match\"` collapses, `\"transparent\"` always transparent, `\"opaque\"` always opaque."
+            },
+            {
+              "name": "search",
+              "type": "ScreenSearchOptions",
+              "required": false,
+              "defaultValue": null,
+              "description": "Native search in the header (react-native-screens' `headerSearchBarOptions`): the system\nsearch field under the large title, which hides on scroll. On iOS 26 pass\n`placement: \"integrated\"` (or `\"integratedButton\"`) to put it in the toolbar; with a tab bar,\nsearch is usually its own tab (`role: \"search\"` on NativeTabs). Never draw your own."
             }
           ]
         },
@@ -11759,6 +12430,13 @@
               "description": "Custom node rendered on the left of the nav bar."
             },
             {
+              "name": "headerLeftItems",
+              "type": "(() => readonly unknown[])",
+              "required": false,
+              "defaultValue": null,
+              "description": "Native header items on the left (`unstable_headerLeftItems`)."
+            },
+            {
               "name": "headerOptions",
               "type": "Record<string, unknown>",
               "required": false,
@@ -11771,6 +12449,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Custom node rendered on the right of the nav bar."
+            },
+            {
+              "name": "headerRightItems",
+              "type": "(() => readonly unknown[])",
+              "required": false,
+              "defaultValue": null,
+              "description": "Native header items on the right (react-native-screens' `unstable_headerRightItems`): bar\nbuttons and menus drawn by UIKit, with iOS 26's glass grouping. Prefer them to `headerRight`."
             },
             {
               "name": "headerTitle",
@@ -11876,6 +12561,13 @@
               "required": false,
               "defaultValue": null,
               "description": "iOS scroll-edge behavior. `\"match\"` collapses, `\"transparent\"` always transparent, `\"opaque\"` always opaque."
+            },
+            {
+              "name": "search",
+              "type": "ScreenSearchOptions",
+              "required": false,
+              "defaultValue": null,
+              "description": "Native search in the header (react-native-screens' `headerSearchBarOptions`): the system\nsearch field under the large title, which hides on scroll. On iOS 26 pass\n`placement: \"integrated\"` (or `\"integratedButton\"`) to put it in the toolbar; with a tab bar,\nsearch is usually its own tab (`role: \"search\"` on NativeTabs). Never draw your own."
             },
             {
               "name": "slotProps",
@@ -12630,6 +13322,135 @@
           "name": "DEFAULT_MAX_PAGES",
           "summary": "Pages kept loaded by default (cursor paging).",
           "props": []
+        }
+      ]
+    },
+    {
+      "slug": "use-row-actions",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/components/use-row-actions.tsx",
+      "stability": "stable",
+      "summary": "A row action as the system menu takes it: its SF Symbol, and destructive in red.",
+      "primaryComponent": "toMenuAction",
+      "components": [
+        {
+          "name": "toMenuAction",
+          "summary": "A row action as the system menu takes it: its SF Symbol, and destructive in red.",
+          "props": [
+            {
+              "name": "id",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "label",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onPress",
+              "type": "() => void",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "accent",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "A system color by name, over `tone` (see {@link RowActionAccent})."
+            },
+            {
+              "name": "confirms",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Its `onPress` asks first or can be undone, so a full swipe that runs it by mistake loses nothing."
+            },
+            {
+              "name": "destructive",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Destructive (delete, leave): `danger` unless a `tone` or `accent` says otherwise."
+            },
+            {
+              "name": "icon",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "A Genesis icon name (`trash`, `pin`, `mail-open`), shown behind the swipe and in the menu.\nA string here, because core is platform-neutral and each platform keeps its own icon set:\ngenesis-ui-native's `NativeIconName` and `isNativeIconName` check it on the phone (an unknown\nname draws no icon, with a development warning)."
+            },
+            {
+              "name": "reason",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Set when a guard refuses it: pressing it explains instead of acting, and screen readers hear why."
+            },
+            {
+              "name": "side",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "@deprecated Use `swipe: { side }`. Read when `swipe` is unset."
+            },
+            {
+              "name": "swipe",
+              "type": "false | RowActionSwipe",
+              "required": false,
+              "defaultValue": null,
+              "description": "Where it sits behind the swipe on the phone: `{ side, full? }`, or `false` to keep it in the\nlong-press menu and the screen reader's actions only (an action that needs a second look).\nUnset: the trailing side, no full swipe (NativeResourceView keeps a view action that didn't\nsay to its menu)."
+            },
+            {
+              "name": "tone",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "What it means; its color comes from that. Default `danger` when destructive, else `tint`."
+            }
+          ]
+        },
+        {
+          "name": "NativeSystemMenuRow",
+          "summary": "A row inside the system context menu (`GenesisModules.menu`). The menu's host sizes itself to\nits content, which would shrink a row that only stretches: so the row is given its measured\nwidth once it's known.",
+          "props": [
+            {
+              "name": "actions",
+              "type": "readonly RowSwipeAction[]",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "Menu",
+              "type": "GenesisMenuComponent",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "title",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
         }
       ]
     },
@@ -21697,6 +22518,13 @@
               "description": "\"More\" on a row's action menu."
             },
             {
+              "name": "mutedLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Alerts off",
+              "description": "What a screen reader says for a muted row's bell-slash. Default \"Alerts off\"."
+            },
+            {
               "name": "now",
               "type": "(() => Date)",
               "required": false,
@@ -21737,6 +22565,13 @@
               "required": false,
               "defaultValue": null,
               "description": "A row was opened, when the row has no `onPress` of its own."
+            },
+            {
+              "name": "pinnedLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Pinned",
+              "description": "What a screen reader says for a pinned row's pin. Default \"Pinned\"."
             },
             {
               "name": "refreshing",
@@ -21793,6 +22628,33 @@
               "required": false,
               "defaultValue": "(count) => (count ? `${count} unread` : \"unread\")",
               "description": "How a row's unread count reads to a screen reader. Default \"3 unread\" (and \"unread\" for a dot)."
+            }
+          ]
+        },
+        {
+          "name": "InboxRowMenu",
+          "summary": "A row's actions as the web offers them: a More button at the row's end opening a menu, the\ntwin of the phone's swipe and long-press menu. InboxPage's default row draws it; a row of your\nown (the `row` slot) draws it the same way. Nothing when there are no actions.",
+          "props": [
+            {
+              "name": "actions",
+              "type": "readonly RowSwipeAction[]",
+              "required": true,
+              "defaultValue": null,
+              "description": "The row's actions (`InboxSwipeAction`): every one is listed, destructive ones in red. One a\nguard refused (`reason`) is dimmed with its reason beneath, and choosing it runs its `onPress`,\nwhich explains instead of acting."
+            },
+            {
+              "name": "label",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": "The More button's accessible name (\"More: Sam\")."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": "The row's testID: the button is `<testID>-more`, each item `<testID>-action-<id>`."
             }
           ]
         }

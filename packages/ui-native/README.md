@@ -113,7 +113,9 @@ system context menu with `GenesisModules.menu`, else a sheet), and as VoiceOver'
 refused one with its `reason`. `NativeListItem` `actions`, `NativeRowActions`, InboxPage's rows and
 NativeResourceView's rows all build them the same way. `preview` puts a peek above the long-press
 menu; `InboxPage` takes `swipeAppearance` and `menuPreview` for the same, and gives a `row` slot of
-your own `actionProps` to spread on its pressable.
+your own `actionProps` to spread on its pressable. An `actionProps` in `slotProps.row` is laid over
+the generated one key by key: give `accessibilityActions` and `onAccessibilityAction` together
+(listing the row's own actions to keep them), and an `onLongPress` of your own replaces the menu's.
 
 | Tone | iOS | | Accent |
 | --- | --- | --- | --- |

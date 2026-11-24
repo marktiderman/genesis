@@ -149,7 +149,7 @@ Mark read (`registerChatNotificationActions`, `handleChatPushResponse`, `chatThr
 
 ### Message status and typing
 
-Under the last message you sent, `ChatThreadScreen` says where it is, as iMessage does:
+Under the last message you sent, `ChatThreadScreen` says where it is, as a phone's Messages app does:
 
 | It says | When |
 |---|---|
@@ -188,7 +188,7 @@ VoiceOver.
 
 ### How the thread feels, and what an app adds to it
 
-The thread follows iMessage where the platform lets it:
+The thread follows the platform's Messages app where it can:
 
 - **Bubbles.** A run of one sender's messages reads as one shape: the corners where two bubbles
   meet are tight, and the last (or only) one has a tail on the sender's side (`bubbleCorners`).

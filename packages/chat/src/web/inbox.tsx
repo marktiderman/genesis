@@ -107,13 +107,29 @@ interface PendingConfirm {
   answer: (ok: boolean) => void;
 }
 
-/** A `ChatConfirm` drawn as genesis-ui's AlertDialog: the confirm to pass, and the dialog to render. */
-export function useConfirmDialog(cancelLabel = "Cancel"): { confirm: ChatConfirm; dialog: ReactElement } {
+/**
+ * A `ChatConfirm` drawn as genesis-ui's AlertDialog: the confirm to pass, and the dialog to render.
+ * When the dialog closes, focus returns to the control that asked.
+ *
+ * @param cancelLabel The Cancel button's label.
+ * @param fallbackFocus Where focus goes instead when the control that asked is gone (a confirmed
+ *   delete removed its row).
+ */
+export function useConfirmDialog(cancelLabel = "Cancel", fallbackFocus?: () => HTMLElement | null | undefined): { confirm: ChatConfirm; dialog: ReactElement } {
   const [pending, setPending] = useState<PendingConfirm | null>(null);
   const current = useRef<PendingConfirm | null>(null);
+  // What had focus when it asked, and when the dialog opened (a menu may have handed focus back to its button by then).
+  const askedFrom = useRef<HTMLElement[]>([]);
+  const fallback = useRef(fallbackFocus);
+  fallback.current = fallbackFocus;
   const confirm = useCallback<ChatConfirm>(
     (title, body, label) =>
       new Promise<boolean>((resolve) => {
+        const active = typeof document !== "undefined" ? document.activeElement : null;
+        // A second ask from inside the open dialog keeps the control that asked first.
+        if (!(active instanceof HTMLElement && active.closest('[role="alertdialog"]'))) {
+          askedFrom.current = active instanceof HTMLElement && active !== document.body ? [active] : [];
+        }
         // A second ask answers the first one no.
         current.current?.answer(false);
         const next: PendingConfirm = { title, body, label, answer: resolve };
@@ -139,7 +155,20 @@ export function useConfirmDialog(cancelLabel = "Cancel"): { confirm: ChatConfirm
   };
   const dialog = (
     <AlertDialog open={pending !== null} onOpenChange={(o) => !o && answer(false)}>
-      <AlertDialogContent>
+      <AlertDialogContent
+        onOpenAutoFocus={() => {
+          const active = document.activeElement;
+          if (active instanceof HTMLElement && active !== document.body) askedFrom.current = [active, ...askedFrom.current];
+        }}
+        onCloseAutoFocus={(e) => {
+          // Back to the control that asked (Radix would aim at a trigger this dialog doesn't have), or
+          // the fallback when that control is gone.
+          e.preventDefault();
+          const target = askedFrom.current.find((el) => el.isConnected) ?? fallback.current?.() ?? null;
+          askedFrom.current = [];
+          target?.focus();
+        }}
+      >
         <AlertDialogHeader>
           <AlertDialogTitle>{pending?.title}</AlertDialogTitle>
           <AlertDialogDescription>{pending?.body}</AlertDialogDescription>
@@ -161,7 +190,37 @@ export function ChatInbox({ resolveUser, onSelect, selectedId, kind, archived = 
   const { items, isLoading, error, refetch } = useInbox({ kind, archived });
   const act = useInboxActions();
   const labels = useMemo(() => ({ ...defaultInboxActionLabels, ...actionLabels }), [actionLabels]);
-  const { confirm, dialog } = useConfirmDialog(labels.cancel);
+  const navRef = useRef<HTMLElement>(null);
+  const listTabStop = useCallback(
+    // The list's tab stop, else any row, else the list itself (the last conversation went).
+    () => navRef.current?.querySelector<HTMLElement>('[data-inbox-row][tabindex="0"]') ?? navRef.current?.querySelector<HTMLElement>("[data-inbox-row]") ?? navRef.current,
+    [],
+  );
+  // The row whose menu asked: its More menu has closed by the time the dialog opens, so the dialog
+  // can't record it; on Cancel focus goes back to that row, else the list's tab stop.
+  const askingRow = useRef<string | null>(null);
+  const askingRowOrTabStop = useCallback(() => {
+    const id = askingRow.current;
+    const row = id ? navRef.current?.querySelector<HTMLElement>(`[data-inbox-row][data-testid="genesis-chat-inbox-row-${id}"]`) : null;
+    return row ?? listTabStop();
+  }, [listTabStop]);
+  const { confirm: ask, dialog } = useConfirmDialog(labels.cancel, askingRowOrTabStop);
+  // A confirmed action (Delete for me) removes its row only once the call and the inbox's refetch
+  // come back, after the dialog has already given focus back to that row. When that row leaves the
+  // list and took focus with it, put focus on the list's tab stop. Only that row's leaving counts:
+  // an action that failed or kept the row never pulls focus while the row is there. Each confirmed
+  // row is watched until it leaves, so deletes that overlap are each covered; if a row whose delete
+  // failed leaves later another way, focus moves only when it was already lost, which is right.
+  const leaving = useRef(new Set<string>());
+  const confirm = useCallback<ChatConfirm>(
+    async (title, body, label) => {
+      const asked = askingRow.current;
+      const ok = await ask(title, body, label);
+      if (ok && asked) leaving.current.add(asked);
+      return ok;
+    },
+    [ask],
+  );
   const rows = useMemo<ChatInboxRow[]>(
     () =>
       items.map((item) => {
@@ -173,7 +232,11 @@ export function ChatInbox({ resolveUser, onSelect, selectedId, kind, archived = 
           else if (!item.otherUserId && item.memberCount > 2) preview = `${resolveUser(last.senderId).name}: ${preview}`;
         }
         const timestamp = item.lastMessageAt ?? last?.createdAt;
-        const defaults = inboxRowActions(item, act, labels, { confirm, ...(onActionError ? { onError: onActionError } : {}) });
+        const rowConfirm: ChatConfirm = (title, body, label) => {
+          askingRow.current = item.conversationId;
+          return confirm(title, body, label);
+        };
+        const defaults = inboxRowActions(item, act, labels, { confirm: rowConfirm, ...(onActionError ? { onError: onActionError } : {}) });
         return {
           id: item.conversationId,
           title,
@@ -189,10 +252,24 @@ export function ChatInbox({ resolveUser, onSelect, selectedId, kind, archived = 
       }),
     [items, me, resolveUser, fallbackTitle, attachmentKinds, act, labels, confirm, onActionError, rowActions],
   );
+  useEffect(() => {
+    if (leaving.current.size === 0) return;
+    const present = new Set(rows.map((r) => r.id));
+    let left = false;
+    for (const id of leaving.current) {
+      if (present.has(id)) continue;
+      leaving.current.delete(id);
+      left = true;
+    }
+    if (!left) return;
+    const active = document.activeElement;
+    if (active && active !== document.body && active.isConnected) return;
+    listTabStop()?.focus();
+  }, [rows, listTabStop]);
   const label = rest["aria-label"] ?? "Conversations";
 
   return (
-    <nav aria-label={label} className={cn("flex min-h-0 flex-col", className)}>
+    <nav ref={navRef} tabIndex={-1} aria-label={label} className={cn("flex min-h-0 flex-col", className)}>
       <InboxPage
         testID="genesis-chat-inbox"
         items={rows}

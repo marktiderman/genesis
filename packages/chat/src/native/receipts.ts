@@ -1,6 +1,6 @@
 /**
  * @feat:chat
- * Message status, the way iMessage shows it: under the last message you sent, "Sending…",
+ * Message status, the way a phone's Messages app shows it: under the last message you sent, "Sending…",
  * "Sent", "Delivered", then "Read 9:41" in a direct conversation or "Read by 2" / "Read by
  * everyone" in a group. A send that failed shows nothing here: its bubble keeps the failure,
  * Retry and Delete.
