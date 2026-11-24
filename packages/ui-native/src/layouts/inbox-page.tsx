@@ -369,9 +369,10 @@ const InboxRow = memo(function InboxRow({
     testID: merged.testID,
     sheetTestID,
   });
-  // An actionProps the page gave in slotProps.row wins, as slotProps does everywhere.
+  // An actionProps the page gave in slotProps.row is laid over the generated one, key by key, as
+  // slotProps wins everywhere: a long press of its own keeps the row's screen-reader actions.
   const withActions = useMemo(
-    () => (actions.length ? { ...merged, actionProps: rowProps?.actionProps ?? actionProps } : merged),
+    () => (actions.length ? { ...merged, actionProps: rowProps?.actionProps ? { ...actionProps, ...rowProps.actionProps } : actionProps } : merged),
     [merged, rowProps, actions.length, actionProps],
   );
   return <>{wrap(renderSlot(DefaultRow, rowSlot, withActions))}</>;
