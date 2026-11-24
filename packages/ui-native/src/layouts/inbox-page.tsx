@@ -53,7 +53,7 @@ export { formatInboxTime } from "@marktiderman/genesis-core/conversation";
 /** The parts `slots` and `slotProps` reach, with the props each receives. */
 export type InboxPageSlotMap = {
   row: InboxItem & { testID: string; isFirst: boolean; isLast: boolean; timeLabel: string | null };
-  swipeable: { actions: InboxSwipeAction[]; testID: string; appearance?: "fill" | "round"; children?: ReactNode };
+  swipeable: { actions: InboxSwipeAction[]; testID: string; appearance?: "fill" | "round"; /** `false`: the row already has the actions for screen readers (InboxPage puts them on it). */ accessibilityActions?: boolean; children?: ReactNode };
   header: { testID: string };
   footer: { loadingMore: boolean; testID: string };
   empty: { title: string; body: string; actionLabel?: string; onAction?: () => void; testID: string };
@@ -190,7 +190,7 @@ export function InboxPage({
       return (
         <Fragment>
           {actions.length && swipeSlot !== null
-            ? renderSlot(NativeSwipeRow, swipeSlot, { actions, testID: `${row.testID}-swipe`, ...(swipeAppearance ? { appearance: swipeAppearance } : {}), children: content }, swipeProps)
+            ? renderSlot(NativeSwipeRow, swipeSlot, { actions, testID: `${row.testID}-swipe`, accessibilityActions: false, ...(swipeAppearance ? { appearance: swipeAppearance } : {}), children: content }, swipeProps)
             : content}
         </Fragment>
       );

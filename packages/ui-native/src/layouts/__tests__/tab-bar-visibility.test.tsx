@@ -260,5 +260,29 @@ describe("ScreenContainer header under StrictMode", () => {
     expect(merged.headerSearchBarOptions).toBeUndefined();
     expect(merged.title).toBe("Inbox");
   });
-});
 
+  it("resets every option it set when the screen drops its header altogether", () => {
+    let merged: Record<string, unknown> = {};
+    const StackScreen = ({ options }: { options?: Record<string, unknown> }) => {
+      merged = { ...merged, ...options };
+      return null;
+    };
+    const modules = { router: { StackScreen } };
+    const view = render(
+      <GenesisModulesProvider modules={modules}>
+        <ScreenContainer header={{ headerTitle: "Inbox", search: { placeholder: "Search" } }}><i /></ScreenContainer>
+      </GenesisModulesProvider>,
+    );
+    expect(merged.title).toBe("Inbox");
+    expect(merged.headerLargeTitle).toBe(true);
+    view.rerender(
+      <GenesisModulesProvider modules={modules}>
+        <ScreenContainer><i /></ScreenContainer>
+      </GenesisModulesProvider>,
+    );
+    expect(merged.title).toBeUndefined();
+    expect(merged.headerLargeTitle).toBeUndefined();
+    expect(merged.headerSearchBarOptions).toBeUndefined();
+    expect("title" in merged).toBe(true);
+  });
+});

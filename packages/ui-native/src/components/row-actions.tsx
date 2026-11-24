@@ -105,8 +105,16 @@ export function NativeRowActions({ actions, title, children, appearance, preview
         if (actions.some((a) => a.id === event.nativeEvent.actionName)) a11y.onAccessibilityAction(event);
         else child.props.onAccessibilityAction?.(event);
       },
-      // With the system menu, the long press is the menu's own gesture.
-      ...(Menu ? {} : { onLongPress: () => setOpen(true) }),
+      // With the system menu, the long press is the menu's own gesture; without it, the child's own
+      // long press still runs, then the menu opens.
+      ...(Menu
+        ? {}
+        : {
+            onLongPress: () => {
+              child.props.onLongPress?.();
+              setOpen(true);
+            },
+          }),
     });
   }
   if (Menu) {

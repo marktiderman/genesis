@@ -25,11 +25,13 @@
  * @stability Beta
  */
 import { cloneElement, isValidElement, useRef, useState, type ReactElement, type ReactNode } from "react";
+import { nativeThemeDark, nativeThemeLight } from "@marktiderman/genesis-design-system/tokens";
 import { I18nManager, Platform, PlatformColor, Pressable, View, type ColorValue } from "react-native";
 import type { RowActionTone, RowSwipeAction } from "@marktiderman/genesis-core/conversation";
 import { useHaptics } from "../hooks/use-haptics";
 import { useThemeRoles } from "../hooks/use-theme-roles";
-import { useGenesisModules } from "../native-modules";
+import { useThemeMode } from "../hooks/use-theme-mode";
+import { useGenesisModules, type GenesisReanimatedModule } from "../native-modules";
 import type { NativeIconName } from "../icon-names";
 import { ROW_ACTION_TONES, ROW_PILL, onRowActionColor } from "../tokens/row-action-tones";
 import { NativeIcon } from "./icon";
@@ -117,9 +119,12 @@ function withAccessibilityActions(children: ReactNode, actions: readonly RowSwip
  * Whether a release runs a side's full-swipe action. `dx` is the row's offset as the release is
  * reported (the latest UI-thread value, so the finger's position, not the furthest it went: a drag
  * that backs out, or crosses to the other side, doesn't run it). `direction` is where the row is
- * opening (gesture-handler: `"right"` uncovers the left-hand actions); the offset must be on that
- * side, and further than the side's open actions (`open`, their width) by `FULL_SWIPE_CLEARANCE`. The report comes a frame or so after the finger lifts, so a release right at the threshold
- * can land either side of it.
+ * opening, as gesture-handler 2.21 and later name it: `"right"` when the row moves right and
+ * uncovers the left-hand actions (2.20 and earlier named it the other way, so the peer range starts
+ * at 2.21). The offset must be on that side (a release flung across to the other side opens that
+ * side and runs nothing), and further than the side's open actions (`open`, their width) by
+ * `FULL_SWIPE_CLEARANCE`. The report comes a frame or so after the finger lifts, so a release right
+ * at the threshold can land either side of it.
  */
 export function fullSwipeSide(
   dx: number,
@@ -136,6 +141,51 @@ export function fullSwipeSide(
   return side;
 }
 
+declare const __DEV__: boolean | undefined;
+const warnedFull = new Set<string>();
+
+/** In development, once per action id: a destructive full swipe that doesn't say it confirms or can be undone. */
+function warnUnconfirmedFull(actions: readonly RowSwipeAction[]) {
+  if (typeof __DEV__ === "undefined" || !__DEV__) return;
+  for (const a of actions) {
+    if (!a.full || !a.destructive || a.confirms || warnedFull.has(a.id)) continue;
+    warnedFull.add(a.id);
+    // genesis-allow-console: a development-only hint about an unconfirmed destructive full swipe, not an error to report
+    console.warn(
+      `[genesis-ui-native] NativeSwipeRow: the destructive action "${a.id}" runs on a full swipe without \`confirms\`. One gesture is easy to make by mistake: ask first (or offer undo) in its onPress and set \`confirms: true\`.`,
+    );
+  }
+}
+
+type GroupStyle = Record<string, unknown>;
+
+/**
+ * The buttons behind one side, seen only while the row is off its resting place, so they never show
+ * in an inset row's margins at rest. With Reanimated the row's own translation drives it on the UI
+ * thread (a drag, a ref's `openLeft()`, a spring back); without it, the swipe's open and close events do.
+ */
+function ActionGroup({ R, translation, visible, style, children }: { R?: GenesisReanimatedModule; translation?: { value: number }; visible: boolean; style: GroupStyle; children: ReactNode }) {
+  if (R && translation) return <AnimatedActionGroup R={R} translation={translation} style={style}>{children}</AnimatedActionGroup>;
+  return (
+    <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ ...style, opacity: visible ? 1 : 0 }}>
+      {children}
+    </View>
+  );
+}
+
+function AnimatedActionGroup({ R, translation, style, children }: { R: GenesisReanimatedModule; translation: { value: number }; style: GroupStyle; children: ReactNode }) {
+  const shown = R.useAnimatedStyle(() => {
+    "worklet";
+    return { opacity: translation.value === 0 ? 0 : 1 };
+  });
+  const AnimatedView = R.default.View;
+  return (
+    <AnimatedView accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[style, shown]}>
+      {children}
+    </AnimatedView>
+  );
+}
+
 export function NativeSwipeRow({
   actions,
   children,
@@ -145,23 +195,27 @@ export function NativeSwipeRow({
   accessibilityActions = true,
   testID = "swipe-row",
 }: NativeSwipeRowProps) {
-  const { swipeable: Swipeable } = useGenesisModules();
+  const { swipeable: Swipeable, reanimated } = useGenesisModules();
   const colors = useThemeRoles();
+  const tokens = useThemeMode() === "dark" ? nativeThemeDark : nativeThemeLight;
   const play = useHaptics();
   const swipe = useRef<{ close?: () => void } | null>(null);
   const offset = useRef<{ value: number } | null>(null);
   const [width, setWidth] = useState(0);
   const [open, setOpen] = useState(false);
-  // The actions stay mounted (the swipe measures them) but unseen until a drag starts: an inset row
-  // doesn't cover the whole width, and they would show in its margins at rest.
-  const [dragging, setDragging] = useState(false);
+  // The actions stay mounted (the swipe measures them) but unseen at rest: an inset row doesn't
+  // cover the whole width, and they would show in its margins. Without Reanimated this is what shows
+  // them: a drag starting, or the row opening by any means (a ref's openLeft, say).
+  const [moving, setMoving] = useState(false);
   const content = accessibilityActions ? withAccessibilityActions(children, actions) : children;
   const { leading, trailing, fullLeading, fullTrailing } = splitSwipeActions(actions, maxPerSide);
   if (!Swipeable || leading.length + trailing.length === 0) return <>{content}</>;
+  warnUnconfirmedFull([...leading, ...trailing]);
 
+  // The action first (an alert it asks shows over the row), then the row closes behind it.
   const run = (action: RowSwipeAction) => {
-    swipe.current?.close?.();
     action.onPress();
+    swipe.current?.close?.();
   };
   const round = appearance === "round";
   // The width a side's actions open to: fill buttons side by side, or round ones with their gaps.
@@ -169,10 +223,16 @@ export function NativeSwipeRow({
   const group = (list: readonly RowSwipeAction[]) => (_progress?: unknown, translation?: { value: number }) => {
     if (translation) offset.current = translation;
     return (
-      <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ opacity: dragging ? 1 : 0, flexDirection: "row", alignItems: round ? "center" : "stretch", gap: round ? 10 : 0, paddingHorizontal: round ? 10 : 0 }}>
+      <ActionGroup
+        {...(reanimated ? { R: reanimated } : {})}
+        {...(translation ? { translation } : {})}
+        visible={moving}
+        style={{ flexDirection: "row", alignItems: round ? "center" : "stretch", gap: round ? 10 : 0, paddingHorizontal: round ? 10 : 0 }}
+      >
         {list.map((action) => {
           const color = rowActionColor(action, colors);
-          const on = onRowActionColor(action.tone);
+          const tone = action.tone ?? (action.destructive ? "red" : "tint");
+          const on = onRowActionColor(tone, color, tone === "red" ? tokens.destructiveForeground : tokens.primaryForeground);
           const icon = action.icon ? <NativeIcon name={action.icon as NativeIconName} size={round ? 20 : 22} color={on} /> : null;
           return (
             <Pressable
@@ -192,7 +252,7 @@ export function NativeSwipeRow({
             </Pressable>
           );
         })}
-      </View>
+      </ActionGroup>
     );
   };
   // In a right-to-left language, leading is the right edge.
@@ -222,10 +282,12 @@ export function NativeSwipeRow({
             play("medium");
             setOpen(true);
           }
+          setMoving(true);
         }}
         onSwipeableWillClose={() => setOpen(false)}
-        onSwipeableOpenStartDrag={() => setDragging(true)}
-        onSwipeableClose={() => setDragging(false)}
+        onSwipeableOpenStartDrag={() => setMoving(true)}
+        onSwipeableOpen={() => setMoving(true)}
+        onSwipeableClose={() => setMoving(false)}
         renderLeftActions={left.length ? group(left) : undefined}
         renderRightActions={right.length ? group(right) : undefined}
       >

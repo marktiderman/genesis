@@ -300,7 +300,8 @@ export function ScreenContainer({
     [!!h, h?.headerTitle, h?.large, h?.scrollEdgeBehavior, h?.search, h?.headerLeft, h?.headerRight, h?.headerRightItems, h?.headerLeftItems, h?.headerOptions],
   );
   const headerOptions = useMemo(() => {
-    if (!nextOptions) return null;
+    // A screen that drops `header` altogether resets what it set, once, before StackScreen goes.
+    if (!nextOptions) return appliedKeys.length ? Object.fromEntries(appliedKeys.map((key) => [key, undefined])) : null;
     const out: Record<string, unknown> = { ...nextOptions };
     for (const key of appliedKeys) if (!(key in nextOptions)) out[key] = undefined;
     return out;
