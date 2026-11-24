@@ -1,0 +1,273 @@
+# Copy to .eas/workflows/deploy-production.yml.
+# Rendered by genesis from genesis.config.json `release` (genesis add template release, genesis
+# upgrade): change the lane there. docs/NATIVE-RELEASE.md, docs/adr/0026-eas-owns-the-release-trigger.md.
+# Expo's deploy-to-production lane, on every push to main that changes the app, or by hand:
+# eas workflow:run deploy-production.yml --ref main.
+# Per platform: a build with the runtime version takes the commit as an update; none builds and
+# submits. The publishing lives in .eas/scripts/native-release.mjs: EAS takes files up to 16 KiB.
+name: Deploy production
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "**"
+      - "!**/*.md"
+      - "!docs/**"
+      - "!.github/**"
+      - "!.eas/**"
+      - "!.maestro/**"
+  workflow_dispatch: {}
+
+# One release at a time; the running one always finishes.
+concurrency:
+  group: ${{ workflow.filename }}
+  # The newest waiting run replaces those in between (Expo's deploy default).
+
+jobs:
+  # Fail-closed: main contains the commit, the checkout is it, and eas.json matches this file.
+  source:
+    name: The commit is on main
+    environment: "production"
+    env:
+      EVENT: ${{ github.event_name }}
+      # Empty when started by hand: the checkout's commit, and origin's repository.
+      COMMIT_SHA: ${{ github.sha }}
+      REPOSITORY: ${{ github.repository }}
+    outputs:
+      commit_sha: ${{ steps.commit.outputs.commit_sha }}
+      repository: ${{ steps.commit.outputs.repository }}
+      ios: ${{ steps.check.outputs.ios }}
+      android: ${{ steps.check.outputs.android }}
+    steps:
+      - uses: eas/checkout
+      - id: commit
+        name: The commit is on main, and is what was checked out
+        run: |
+          set -eo pipefail
+          if ! head=$(git rev-parse HEAD 2>/dev/null); then
+            echo "This run has no git checkout (an uploaded folder): start it with --ref main. Nothing was built or published."
+            exit 1
+          fi
+          COMMIT_SHA="${COMMIT_SHA:-$head}"
+          if [ "$head" != "$COMMIT_SHA" ]; then
+            echo "The checkout is $head, not $COMMIT_SHA: start this workflow with --ref $COMMIT_SHA. Nothing was built or published."
+            exit 1
+          fi
+          if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+            echo "The checkout has changes that aren't in $COMMIT_SHA: start this workflow with --ref main. Nothing was built or published."
+            exit 1
+          fi
+          git fetch --quiet origin main
+          if ! git merge-base --is-ancestor "$COMMIT_SHA" FETCH_HEAD; then
+            echo "$COMMIT_SHA isn't on main: production releases only from main. Nothing was built or published."
+            exit 1
+          fi
+          # By hand, only main's tip. A GitHub push names its repository; eas workflow:run
+          # --git-commit-hash reads as a push with none, so it counts as by hand.
+          if { [ "$EVENT" != push ] || [ -z "$REPOSITORY" ]; } && [ "$COMMIT_SHA" != "$(git rev-parse FETCH_HEAD)" ]; then
+            echo "$COMMIT_SHA isn't main's latest commit: a release by hand ships main as it is (--ref main). Nothing was built or published."
+            exit 1
+          fi
+          if [ -z "$REPOSITORY" ]; then
+            REPOSITORY=$(git remote get-url origin 2>/dev/null | sed -E 's#\.git$##; s#^.*github\.com[:/]##') || REPOSITORY=""
+          fi
+          set-output commit_sha "$COMMIT_SHA"
+          set-output repository "$REPOSITORY"
+      - id: check
+        name: eas.json matches; the platforms released
+        run: |
+          set -eo pipefail
+          platforms="ios,android"
+          if [ -n "$platforms" ]; then
+            node .eas/scripts/native-release.mjs channel eas.json "production" "production"
+            node .eas/scripts/native-release.mjs environment eas.json "production" "production" "$platforms"
+          fi
+          for platform in ios android; do
+            case ",$platforms," in *",$platform,"*) set-output "$platform" true ;; *) set-output "$platform" false ;; esac
+          done
+
+  # Its own job: a failure here holds back iOS alone.
+  runtime_ios:
+    name: Find iOS's runtime version
+    needs: [source]
+    if: ${{ needs.source.outputs.ios == 'true' }}
+    environment: "production"
+    env:
+      RELEASE_PROFILE: "production"
+      RELEASE_EAS: npx --yes eas-cli@26.0.0
+    outputs:
+      runtime_version: ${{ steps.runtime.outputs.runtime_version }}
+    steps:
+      - uses: eas/checkout
+      - uses: eas/install_node_modules
+      - id: runtime
+        run: |
+          set -eo pipefail
+          RUNTIME_VERSION=$(node .eas/scripts/native-release.mjs runtime-version ios)
+          echo "iOS runtime version: $RUNTIME_VERSION"
+          set-output runtime_version "$RUNTIME_VERSION"
+
+  get_ios_build:
+    name: Find a production iOS build with this runtime version
+    needs: [source, runtime_ios]
+    if: ${{ needs.source.outputs.ios == 'true' }}
+    type: get-build
+    params:
+      platform: ios
+      profile: "production"
+      channel: "production"
+      fingerprint_hash: ${{ needs.runtime_ios.outputs.runtime_version }}
+      wait_for_in_progress: true
+
+  build_ios:
+    name: Build iOS (native code changed)
+    needs: [source, get_ios_build]
+    if: ${{ needs.source.outputs.ios == 'true' && !needs.get_ios_build.outputs.build_id }}
+    type: build
+    environment: "production"
+    params:
+      platform: ios
+      profile: "production"
+
+  submit_ios:
+    name: Submit iOS (TestFlight)
+    needs: [build_ios]
+    if: ${{ needs.build_ios.outputs.build_id }}
+    type: submit
+    environment: "production"
+    params:
+      build_id: ${{ needs.build_ios.outputs.build_id }}
+      profile: "production"
+
+  # native-release.mjs publish: the order checks, the runtime check, the stamp, then eas update.
+  update_ios:
+    name: Update iOS (every production install)
+    needs: [source, get_ios_build]
+    if: ${{ needs.source.outputs.ios == 'true' && needs.get_ios_build.outputs.build_id }}
+    environment: "production"
+    env:
+      COMMIT_SHA: ${{ needs.source.outputs.commit_sha }}
+      RUNTIME_VERSION: ${{ needs.get_ios_build.outputs.runtime_version }}
+      BUILD_COMMIT: ${{ needs.get_ios_build.outputs.git_commit_hash }}
+      RELEASE_CHANNEL: "production"
+      RELEASE_PROFILE: "production"
+      RELEASE_EAS: npx --yes eas-cli@26.0.0
+    outputs:
+      update_group: ${{ steps.publish.outputs.update_group }}
+    steps:
+      - uses: eas/checkout
+      - uses: eas/install_node_modules
+      - id: publish
+        name: Publish the iOS update
+        run: |
+          set -eo pipefail
+          out=$(mktemp)
+          node .eas/scripts/native-release.mjs publish ios "$out"
+          while IFS='=' read -r key value; do set-output "$key" "$value"; done < "$out"
+
+  # Its own job: a failure here holds back Android alone.
+  runtime_android:
+    name: Find Android's runtime version
+    needs: [source]
+    if: ${{ needs.source.outputs.android == 'true' }}
+    environment: "production"
+    env:
+      RELEASE_PROFILE: "production"
+      RELEASE_EAS: npx --yes eas-cli@26.0.0
+    outputs:
+      runtime_version: ${{ steps.runtime.outputs.runtime_version }}
+    steps:
+      - uses: eas/checkout
+      - uses: eas/install_node_modules
+      - id: runtime
+        run: |
+          set -eo pipefail
+          RUNTIME_VERSION=$(node .eas/scripts/native-release.mjs runtime-version android)
+          echo "Android runtime version: $RUNTIME_VERSION"
+          set-output runtime_version "$RUNTIME_VERSION"
+
+  get_android_build:
+    name: Find a production Android build with this runtime version
+    needs: [source, runtime_android]
+    if: ${{ needs.source.outputs.android == 'true' }}
+    type: get-build
+    params:
+      platform: android
+      profile: "production"
+      channel: "production"
+      fingerprint_hash: ${{ needs.runtime_android.outputs.runtime_version }}
+      wait_for_in_progress: true
+
+  build_android:
+    name: Build Android (native code changed)
+    needs: [source, get_android_build]
+    if: ${{ needs.source.outputs.android == 'true' && !needs.get_android_build.outputs.build_id }}
+    type: build
+    environment: "production"
+    params:
+      platform: android
+      profile: "production"
+
+  submit_android:
+    name: Submit Android (internal track, draft)
+    needs: [build_android]
+    if: ${{ needs.build_android.outputs.build_id }}
+    type: submit
+    environment: "production"
+    params:
+      build_id: ${{ needs.build_android.outputs.build_id }}
+      profile: "production"
+
+  # native-release.mjs publish: the order checks, the runtime check, the stamp, then eas update.
+  update_android:
+    name: Update Android (every production install)
+    needs: [source, get_android_build]
+    if: ${{ needs.source.outputs.android == 'true' && needs.get_android_build.outputs.build_id }}
+    environment: "production"
+    env:
+      COMMIT_SHA: ${{ needs.source.outputs.commit_sha }}
+      RUNTIME_VERSION: ${{ needs.get_android_build.outputs.runtime_version }}
+      BUILD_COMMIT: ${{ needs.get_android_build.outputs.git_commit_hash }}
+      RELEASE_CHANNEL: "production"
+      RELEASE_PROFILE: "production"
+      RELEASE_EAS: npx --yes eas-cli@26.0.0
+    outputs:
+      update_group: ${{ steps.publish.outputs.update_group }}
+    steps:
+      - uses: eas/checkout
+      - uses: eas/install_node_modules
+      - id: publish
+        name: Publish the Android update
+        run: |
+          set -eo pipefail
+          out=$(mktemp)
+          node .eas/scripts/native-release.mjs publish android "$out"
+          while IFS='=' read -r key value; do set-output "$key" "$value"; done < "$out"
+
+  # A failed run is a failed commit status, but nobody is emailed: posts to RELEASE_FAILURE_WEBHOOK
+  # (an EAS secret) when set; release.failureEmails adds an email.
+  release_failed:
+    name: Say the release failed
+    after:
+      - source
+      - runtime_ios
+      - get_ios_build
+      - build_ios
+      - submit_ios
+      - update_ios
+      - runtime_android
+      - get_android_build
+      - build_android
+      - submit_android
+      - update_android
+    if: ${{ failure() }}
+    environment: "production"
+    env:
+      RELEASE_COMMIT: ${{ github.sha }}
+      RELEASE_REPOSITORY: ${{ github.repository }}
+      RELEASE_CHANNEL: "production"
+    steps:
+      - uses: eas/checkout
+      - name: Post the failure
+        run: node .eas/scripts/native-release.mjs notify-failure

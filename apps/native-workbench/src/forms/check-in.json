@@ -1,0 +1,309 @@
+{
+  "definition": {
+    "schemaVersion": 1,
+    "id": "weekly-check-in",
+    "title": "Weekly check-in",
+    "description": "About two minutes. Your team lead reads every answer.",
+    "layout": {
+      "mode": "focus"
+    },
+    "settings": {
+      "saveProgress": true
+    },
+    "blocks": [
+      {
+        "kind": "content",
+        "id": "welcome",
+        "type": "heading",
+        "text": "How was your week?"
+      },
+      {
+        "kind": "content",
+        "id": "intro",
+        "type": "text",
+        "text": "One question at a time. You can go back, and your answers are kept on this phone until you send them."
+      },
+      {
+        "kind": "field",
+        "id": "location",
+        "key": "location",
+        "type": "single-choice",
+        "label": "Which office do you work from?",
+        "required": true,
+        "props": {
+          "options": [
+            {
+              "value": "riverside",
+              "label": "Riverside",
+              "description": "12 Mill Lane"
+            },
+            {
+              "value": "hilltop",
+              "label": "Hilltop",
+              "description": "3 Summit Road"
+            },
+            {
+              "value": "harbour",
+              "label": "Harbour",
+              "description": "Pier 4"
+            }
+          ],
+          "prefill": {
+            "param": "location",
+            "hideWhenPrefilled": true
+          }
+        }
+      },
+      {
+        "kind": "field",
+        "id": "member",
+        "key": "member",
+        "type": "single-choice",
+        "label": "Who did you work with most this week?",
+        "description": "Only the people at your location are listed.",
+        "required": true,
+        "props": {
+          "optionsFrom": {
+            "source": "host",
+            "key": "members",
+            "filter": {
+              "attribute": "location",
+              "field": "location"
+            }
+          }
+        }
+      },
+      {
+        "kind": "field",
+        "id": "mood",
+        "key": "mood",
+        "type": "rating",
+        "label": "How do you feel about this week?",
+        "required": true,
+        "props": {
+          "max": 5,
+          "display": "stars",
+          "lowLabel": "Rough",
+          "highLabel": "Great"
+        }
+      },
+      {
+        "kind": "field",
+        "id": "name",
+        "key": "name",
+        "type": "short-text",
+        "label": "What should we call you?",
+        "required": true
+      },
+      {
+        "kind": "field",
+        "id": "daysOnPlan",
+        "key": "daysOnPlan",
+        "type": "number",
+        "label": "How many days did you get through your plan, {{field:name}}?",
+        "required": true,
+        "props": {
+          "min": 0,
+          "max": 7,
+          "step": 1
+        }
+      },
+      {
+        "kind": "field",
+        "id": "started",
+        "key": "started",
+        "type": "date",
+        "label": "When did your current project start?"
+      },
+      {
+        "kind": "field",
+        "id": "tookBreaks",
+        "key": "tookBreaks",
+        "type": "yes-no",
+        "label": "Did you take a proper break most days?"
+      },
+      {
+        "kind": "field",
+        "id": "focus",
+        "key": "focus",
+        "type": "multi-choice",
+        "label": "What did you work on?",
+        "props": {
+          "options": [
+            {
+              "value": "planning",
+              "label": "Planning"
+            },
+            {
+              "value": "building",
+              "label": "Building"
+            },
+            {
+              "value": "meetings",
+              "label": "Meetings"
+            },
+            {
+              "value": "learning",
+              "label": "Learning"
+            }
+          ],
+          "other": {
+            "label": "Something else"
+          }
+        }
+      },
+      {
+        "kind": "field",
+        "id": "highlight",
+        "key": "highlight",
+        "type": "single-choice",
+        "label": "Which part of the week went best?",
+        "props": {
+          "options": [
+            {
+              "value": "h01",
+              "label": "Monday stand-up"
+            },
+            {
+              "value": "h02",
+              "label": "Planning session"
+            },
+            {
+              "value": "h03",
+              "label": "Design review"
+            },
+            {
+              "value": "h04",
+              "label": "Pairing"
+            },
+            {
+              "value": "h05",
+              "label": "Customer call"
+            },
+            {
+              "value": "h06",
+              "label": "Demo day"
+            },
+            {
+              "value": "h07",
+              "label": "Retrospective"
+            },
+            {
+              "value": "h08",
+              "label": "Focus time"
+            },
+            {
+              "value": "h09",
+              "label": "Team lunch"
+            },
+            {
+              "value": "h10",
+              "label": "Training"
+            },
+            {
+              "value": "h11",
+              "label": "Workshop"
+            },
+            {
+              "value": "h12",
+              "label": "Friday wrap-up"
+            }
+          ],
+          "other": true
+        }
+      },
+      {
+        "kind": "content",
+        "id": "tip",
+        "type": "callout",
+        "text": "Nearly done. The next questions help plan next week.",
+        "props": {
+          "title": "Almost there",
+          "tone": "success"
+        }
+      },
+      {
+        "kind": "field",
+        "id": "recommend",
+        "key": "recommend",
+        "type": "nps",
+        "label": "How likely are you to recommend us to a friend?"
+      },
+      {
+        "kind": "field",
+        "id": "email",
+        "key": "email",
+        "type": "email",
+        "label": "Email for your weekly summary"
+      },
+      {
+        "kind": "field",
+        "id": "phone",
+        "key": "phone",
+        "type": "phone",
+        "label": "A phone number we can text"
+      },
+      {
+        "kind": "field",
+        "id": "photo",
+        "key": "photo",
+        "type": "photo",
+        "label": "A photo from your week, if you like"
+      },
+      {
+        "kind": "field",
+        "id": "notes",
+        "key": "notes",
+        "type": "long-text",
+        "label": "Anything else we should know?"
+      }
+    ],
+    "endings": [
+      {
+        "id": "done",
+        "title": "Thanks, {{field:name}}",
+        "description": "Your team lead will reply before next week."
+      }
+    ]
+  },
+  "contentTypes": [
+    {
+      "type": "callout",
+      "label": "Callout"
+    }
+  ],
+  "members": [
+    {
+      "value": "ada",
+      "label": "Ada Park",
+      "description": "Design",
+      "attributes": {
+        "location": "riverside"
+      }
+    },
+    {
+      "value": "grace",
+      "label": "Grace Okafor",
+      "description": "Engineering",
+      "attributes": {
+        "location": ["riverside", "hilltop"]
+      }
+    },
+    {
+      "value": "alan",
+      "label": "Alan Reyes",
+      "description": "Operations",
+      "attributes": {
+        "location": "hilltop"
+      }
+    },
+    {
+      "value": "mina",
+      "label": "Mina Sato",
+      "description": "Support",
+      "attributes": {
+        "location": "harbour"
+      }
+    }
+  ]
+}

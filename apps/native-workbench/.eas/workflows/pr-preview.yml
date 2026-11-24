@@ -1,0 +1,253 @@
+# Copy to .eas/workflows/pr-preview.yml.
+# Rendered first: `genesis add template release` (or `genesis init --template native`) writes it
+# with genesis.config.json `release`. Copying by hand, copy a rendered file (the RN starter's, or
+# the CLI's output), never this template: its `#@if` lines and release tokens only work rendered.
+#
+# PR preview: each pull request on its own update channel, `pr-<number>`, opened by a link in the
+# app people already have (channel surfing, genesis-native `PreviewScreen`).
+#
+# 1. Fingerprint the native project as the release builds it (production).
+# 2. A release build (store or TestFlight) with that fingerprint exists, so the pull request changed
+#    no native code: publish its JavaScript to the branch `pr-<number>` and point the channel
+#    `pr-<number>` at it. Any phone with that build opens it from the preview link. With Sentry on
+#    (release.sentry, which follows genesis.config.json observability.sentry), each platform's
+#    update uploads its source maps, and a missing SENTRY_AUTH_TOKEN stops the run before publishing.
+# 3. None exists (the pull request changed native code): an update can't load on any build out
+#    there, so a preview build is made instead: the preview variant's build with the same
+#    fingerprint is repacked with this JavaScript, or one is built (iOS only with PREVIEW_IOS=true:
+#    an internal build needs registered devices).
+# 4. One comment on the pull request: the preview link (a universal link on the web origin of
+#    release.previews.origin when set), a QR code for the app's scheme, and what was
+#    published. pr-preview-teardown.yml deletes the channel and branch when the pull request closes.
+#
+# When it runs: when someone adds the label `Preview` to a pull request (create the label in
+# GitHub). EAS runs the pull request's own code, from its head commit, before anyone has merged
+# it, so a person decides when: a reviewer adds the label once they've read the change. Add it
+# again after new pushes to preview them. With genesis.config.json
+# release.previews.everyPullRequest, every pull request into main (and release.previews.branches)
+# that changes the app runs too; only for a repository where everyone who can push is trusted.
+#
+# Its jobs read the EAS environment preview-release
+# (release.previews.easEnvironment), never the release's. Put there the release environment's
+# plain values, so the fingerprint and the bundle match the release builds, plus EXPO_TOKEN (to
+# publish pr-<number>; a robot token for this project only) and, with Sentry, SENTRY_AUTH_TOKEN.
+# Never the release hook's secrets, RELEASE_GITHUB_TOKEN or RELEASE_FAILURE_WEBHOOK.
+# What's left: anyone who can push a branch can write a workflow in it that names any EAS
+# environment, and EAS runs it from that branch. Keep write access to people you trust.
+#
+# The preview build fallback (step 3) is Android from the start; iOS is off until you turn it on.
+# An iOS preview build is an internal (ad hoc) build, which installs only on devices registered
+# before it was built (`eas device:create`). Register a device, then add the plain variable
+# PREVIEW_IOS=true to the preview EAS environment. The update in step 2 needs neither: it loads on
+# the TestFlight or store build people already have.
+#
+# Nothing here publishes to production: no submit or rollout job, and the update goes only to the
+# branch and channel pr-<number>, never the release channel. EAS doesn't run pull_request
+# workflows for pull requests from forks.
+#
+# Genesis template (templates/release/pr-preview.yml), rendered with genesis.config.json
+# `release` (its platforms, and `paths` after the app's own); see docs/NATIVE-RELEASE.md in the
+# Genesis repository.
+name: PR preview
+
+on:
+  pull_request_labeled:
+    labels: [Preview]
+
+# One run per branch: a newer run (a push, or the Preview label on a pull request that also
+# matched the paths) cancels the one in progress.
+concurrency:
+  group: ${{ workflow.filename }}-${{ github.ref }}
+  cancel_in_progress: true
+
+jobs:
+  fingerprint:
+    name: Fingerprint (as the release builds it)
+    type: fingerprint
+    environment: "preview-release"
+
+  fingerprint_preview:
+    name: Fingerprint (as the preview builds it)
+    type: fingerprint
+    environment: preview
+    env:
+      APP_VARIANT: preview
+      EXPO_PUBLIC_APP_VARIANT: preview
+
+  get_release_ios_build:
+    name: Find a release iOS build with this fingerprint
+    needs: [fingerprint]
+    type: get-build
+    environment: "preview-release"
+    params:
+      platform: ios
+      profile: production
+      fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
+
+  get_release_android_build:
+    name: Find a release Android build with this fingerprint
+    needs: [fingerprint]
+    type: get-build
+    environment: "preview-release"
+    params:
+      platform: android
+      profile: production
+      fingerprint_hash: ${{ needs.fingerprint.outputs.android_fingerprint_hash }}
+
+  publish_update:
+    name: Publish to channel pr-<number>
+    needs: [fingerprint, get_release_ios_build, get_release_android_build]
+    environment: "preview-release"
+    env:
+      PREVIEW_CHANNEL: pr-${{ github.event.pull_request.number }}
+      PREVIEW_ORIGIN: ""
+      PREVIEW_SCHEME: ""
+      PR_TITLE: ${{ github.event.pull_request.title }}
+      IOS_BUILD: ${{ needs.get_release_ios_build.outputs.build_id || '' }}
+      IOS_FINGERPRINT: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
+      ANDROID_BUILD: ${{ needs.get_release_android_build.outputs.build_id || '' }}
+      ANDROID_FINGERPRINT: ${{ needs.fingerprint.outputs.android_fingerprint_hash }}
+    outputs:
+      status: ${{ steps.publish.outputs.status }}
+      message: ${{ steps.publish.outputs.message }}
+      ios_native: ${{ steps.publish.outputs.ios_native }}
+      android_native: ${{ steps.publish.outputs.android_native }}
+    steps:
+      - uses: eas/checkout
+      - uses: eas/install_node_modules
+      - id: publish
+        name: Publish the update and point the channel at it
+        run: |
+          set -eo pipefail
+          platforms=""
+          native=""
+          # The fingerprint as the release profile builds it (its eas.json env included), which is
+          # what a release build records: a lookup's match is kept only when this agrees.
+          release_fingerprint() {
+            EXPO_NO_DOTENV=1 npx --yes eas-cli@26.0.0 fingerprint:generate --platform "$1" --build-profile "production" --json --non-interactive 2>/dev/null \
+              | node -e 'let s="";process.stdin.on("data",(d)=>s+=d).on("end",()=>{try{process.stdout.write(String(JSON.parse(s).hash||""))}catch{}})' || true
+          }
+          # Per platform: a release build with this fingerprint takes the update; one without needs a preview build.
+          if [ -n "${IOS_BUILD:-}" ] && [ "$(release_fingerprint ios)" = "$IOS_FINGERPRINT" ]; then platforms="ios"; set-output ios_native "false"; else native="ios"; set-output ios_native "true"; fi
+          if [ -n "${ANDROID_BUILD:-}" ] && [ "$(release_fingerprint android)" = "$ANDROID_FINGERPRINT" ]; then platforms="${platforms:+$platforms,}android"; set-output android_native "false"; else native="${native:+$native,}android"; set-output android_native "true"; fi
+          # The scheme from release.previews.scheme, else the app's resolved Expo config (app.config.ts included).
+          if [ -z "${PREVIEW_SCHEME:-}" ]; then
+            PREVIEW_SCHEME="$(npx --no expo config --type public --json 2>/dev/null | node -e 'let s="";process.stdin.on("data",(d)=>s+=d).on("end",()=>{try{const c=JSON.parse(s);const v=Array.isArray(c.scheme)?c.scheme[0]:c.scheme;process.stdout.write(typeof v==="string"&&/^[a-z][a-z0-9+.-]*$/.test(v)?v:"")}catch{}})' || true)"
+          fi
+          scheme_link="${PREVIEW_SCHEME:+$PREVIEW_SCHEME:///preview?channel=$PREVIEW_CHANNEL}"
+          link="${PREVIEW_ORIGIN:+$PREVIEW_ORIGIN/preview?channel=$PREVIEW_CHANNEL}"
+          link="${link:-$scheme_link}"
+          qr_target="${scheme_link:-$link}"
+          qr=""
+          [ -n "$qr_target" ] && qr="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=$(node -e 'process.stdout.write(encodeURIComponent(process.argv[1]))' "$qr_target")"
+          # The comment, as one line (an output is one line): the link, the code, what was published.
+          comment() {
+            local body="<!-- genesis-pr-preview --> <b>Preview: $PREVIEW_CHANNEL</b><br>$1"
+            [ -n "$qr" ] && [ "$2" = "link" ] && body="$body<br><img alt=\"Scan to open the preview\" width=\"180\" src=\"$qr\">"
+            set-output message "$body<br><sub>The channel and its updates are deleted when this pull request closes.</sub>"
+          }
+          # Only the platforms this run makes a preview build for: iOS's needs PREVIEW_IOS=true in the
+          # preview EAS environment (registered devices), which this job can't read.
+          native_note=""
+          case ",$native," in *,android,*) native_note=" Android's native code changed: install the Android preview build from this run on expo.dev." ;; esac
+          case ",$native," in *,ios,*) native_note="$native_note iOS's native code changed: an iOS preview build is made here only with PREVIEW_IOS=true in the preview EAS environment; otherwise wait for the next TestFlight build." ;; esac
+          if [ -z "$platforms" ]; then
+            # Native code changed everywhere: no build out there can load this; the preview builds below cover it.
+            set-output status "native"
+            comment "This pull request changes native code, so it can't load in the app people have.$native_note" none
+            exit 0
+          fi
+          node .eas/scripts/native-release.mjs genesis build-stamp --channel "$PREVIEW_CHANNEL"
+          node .eas/scripts/native-release.mjs stamped build-metadata.json "$PREVIEW_CHANNEL"
+          # The channel names the branch; both are created once, and kept in step on every push.
+          npx --yes eas-cli@26.0.0 channel:create "$PREVIEW_CHANNEL" --non-interactive >/dev/null 2>&1 || true
+          for p in ${platforms//,/ }; do
+            # As the release lane publishes: the job's EAS environment, with the release profile's eas.json
+            # env over it, and no --environment (it would put the EAS values back over the profile's).
+            node .eas/scripts/native-release.mjs with-profile eas.json "production" "$p" -- env CI=1 EXPO_NO_DOTENV=1 npx --yes eas-cli@26.0.0 update --branch "$PREVIEW_CHANNEL" --platform "$p" \
+              --message "PR ${PREVIEW_CHANNEL#pr-}: ${PR_TITLE}" --non-interactive
+          done
+          npx --yes eas-cli@26.0.0 channel:edit "$PREVIEW_CHANNEL" --branch "$PREVIEW_CHANNEL" --non-interactive
+          set-output status "published:$platforms"
+          if [ -z "$link" ]; then
+            comment "Published for $platforms, but the app has no scheme and no release.previews.origin, so there's no link to open it: set one in genesis.config.json.$native_note" none
+          else
+            comment "On a phone with the app ($platforms): <a href=\"$link\">$link</a>, or scan the code. The app asks before switching, shows a Preview banner while you're on it, and Leave goes back.$native_note" link
+          fi
+
+  get_ios_build:
+    name: Find a preview iOS build with this fingerprint
+    needs: [fingerprint_preview, publish_update]
+    if: ${{ env.PREVIEW_IOS == 'true' && needs.publish_update.outputs.ios_native == 'true' }}
+    type: get-build
+    environment: preview
+    params:
+      platform: ios
+      profile: preview
+      fingerprint_hash: ${{ needs.fingerprint_preview.outputs.ios_fingerprint_hash }}
+      wait_for_in_progress: true
+
+  repack_ios:
+    name: Repack the preview iOS build with this JavaScript
+    needs: [get_ios_build]
+    if: ${{ env.PREVIEW_IOS == 'true' && needs.get_ios_build.outputs.build_id }}
+    type: repack
+    environment: preview
+    env:
+      APP_VARIANT: preview
+      EXPO_PUBLIC_APP_VARIANT: preview
+    params:
+      build_id: ${{ needs.get_ios_build.outputs.build_id }}
+      profile: preview
+
+  build_ios:
+    name: Build a preview iOS build (native code changed)
+    needs: [get_ios_build, publish_update]
+    if: ${{ env.PREVIEW_IOS == 'true' && needs.publish_update.outputs.ios_native == 'true' && !needs.get_ios_build.outputs.build_id }}
+    type: build
+    environment: preview
+    params:
+      platform: ios
+      profile: preview
+
+  get_android_build:
+    name: Find a preview Android build with this fingerprint
+    needs: [fingerprint_preview, publish_update]
+    if: ${{ needs.publish_update.outputs.android_native == 'true' }}
+    type: get-build
+    environment: preview
+    params:
+      platform: android
+      profile: preview
+      fingerprint_hash: ${{ needs.fingerprint_preview.outputs.android_fingerprint_hash }}
+      wait_for_in_progress: true
+
+  repack_android:
+    name: Repack the preview Android build with this JavaScript
+    needs: [get_android_build]
+    if: ${{ needs.get_android_build.outputs.build_id }}
+    type: repack
+    environment: preview
+    env:
+      APP_VARIANT: preview
+      EXPO_PUBLIC_APP_VARIANT: preview
+    params:
+      build_id: ${{ needs.get_android_build.outputs.build_id }}
+      profile: preview
+
+  build_android:
+    name: Build a preview Android build (native code changed)
+    needs: [get_android_build, publish_update]
+    if: ${{ needs.publish_update.outputs.android_native == 'true' && !needs.get_android_build.outputs.build_id }}
+    type: build
+    environment: preview
+    params:
+      platform: android
+      profile: preview
+
+  comment:
+    name: Comment on the pull request
+    needs: [publish_update]
+    type: github-comment
+    params:
+      message: ${{ needs.publish_update.outputs.message }}

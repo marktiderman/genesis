@@ -1,0 +1,92 @@
+import { Redirect } from "expo-router";
+import { NativeTabs } from "expo-router/native-tabs";
+import { useSession } from "@marktiderman/genesis-native";
+import { NotificationsProvider } from "@marktiderman/genesis-notifications/react";
+import { TabBarVisibilityProvider } from "@marktiderman/genesis-ui-native/layouts";
+import { workbenchExit } from "@/workbench/screens/place-exit";
+import starter from "../../../starter.config";
+import { copy } from "@/copy";
+import { ChatRoot, useClearChatOnSignOut } from "@/lib/chat";
+import { notifications } from "@/lib/notifications";
+import { supabase } from "@/lib/supabase";
+
+/**
+ * Signed-in screens: the platform's own tab bar. A tab whose feature is off is hidden. The
+ * notifier (feed, unread count, preferences) is provided to every tab, and refetches on the
+ * person's private realtime channel. Chat (`features.chat`) is provided to every tab too, so
+ * Settings → Availability and the Messages tab share one chat (one outbox). A screen hides the tab
+ * bar while it's focused with `<ScreenContainer tabBar="hidden">` or `useHideTabBar()`.
+ */
+export default function AppLayout() {
+  const { status, userId } = useSession();
+  useClearChatOnSignOut();
+  // The workbench's place exit remembers the last path outside it.
+  workbenchExit.useRememberOutside();
+  if (status === "signedOut") return <Redirect href="/sign-in" />;
+  const tabs = (
+    <TabBarVisibilityProvider>
+      {(hidden) => (
+        <NativeTabs hidden={hidden}>
+          <NativeTabs.Trigger name="(home)">
+            <NativeTabs.Trigger.Label>
+              {copy.tabs.home}
+            </NativeTabs.Trigger.Label>
+            <NativeTabs.Trigger.Icon
+              sf={{ default: "house", selected: "house.fill" }}
+              md="home"
+            />
+          </NativeTabs.Trigger>
+          <NativeTabs.Trigger
+            name="notifications"
+            hidden={!starter.features.notifications}
+          >
+            <NativeTabs.Trigger.Label>
+              {copy.tabs.notifications}
+            </NativeTabs.Trigger.Label>
+            <NativeTabs.Trigger.Icon
+              sf={{ default: "bell", selected: "bell.fill" }}
+              md="notifications"
+            />
+          </NativeTabs.Trigger>
+          <NativeTabs.Trigger name="messages" hidden={!starter.features.chat}>
+            <NativeTabs.Trigger.Label>
+              {copy.tabs.messages}
+            </NativeTabs.Trigger.Label>
+            <NativeTabs.Trigger.Icon
+              sf={{
+                default: "bubble.left.and.bubble.right",
+                selected: "bubble.left.and.bubble.right.fill",
+              }}
+              md="chat"
+            />
+          </NativeTabs.Trigger>
+          <NativeTabs.Trigger name="workbench">
+        <NativeTabs.Trigger.Label>Workbench</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf={{ default: "wrench.and.screwdriver", selected: "wrench.and.screwdriver.fill" }} md="build" />
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="settings">
+            <NativeTabs.Trigger.Label>
+              {copy.tabs.settings}
+            </NativeTabs.Trigger.Label>
+            <NativeTabs.Trigger.Icon
+              sf={{ default: "gearshape", selected: "gearshape.fill" }}
+              md="settings"
+            />
+          </NativeTabs.Trigger>
+        </NativeTabs>
+      )}
+    </TabBarVisibilityProvider>
+  );
+  const app = starter.features.notifications ? (
+    <NotificationsProvider
+      client={supabase}
+      registry={notifications}
+      userId={status === "signedIn" ? userId : null}
+    >
+      {tabs}
+    </NotificationsProvider>
+  ) : (
+    tabs
+  );
+  return starter.features.chat ? <ChatRoot>{app}</ChatRoot> : app;
+}

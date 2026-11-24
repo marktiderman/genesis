@@ -1,0 +1,13 @@
+# Signs in with the proof run's test login and opens the Workbench tab. Not a flow of its own.
+appId: dev.genesis.workbench.dev
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+- runFlow: sign-in.yaml
+- tapOn: "Workbench"
+- extendedWaitUntil:
+    visible:
+      id: "workbench"
+    timeout: 15000

@@ -1,6 +1,7 @@
 import "../../global.css";
 import * as SplashScreen from "expo-splash-screen";
 import { Stack } from "expo-router";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { GenesisNativeApp } from "@marktiderman/genesis-native";
 import { shell } from "@/lib/app";
 import { wrapRoot } from "@/lib/observability";
@@ -14,9 +15,11 @@ function RootLayout() {
   // Genesis settings for whoever is signed in, live, while the app runs (support and Sentry read them).
   useWatchStarterSettings(starter.features.support || starter.features.observability);
   return (
-    <GenesisNativeApp {...shell} splash={SplashScreen}>
-      <Stack screenOptions={{ headerShown: false }} />
-    </GenesisNativeApp>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <GenesisNativeApp {...shell} splash={SplashScreen}>
+        <Stack screenOptions={{ headerShown: false }} />
+      </GenesisNativeApp>
+    </GestureHandlerRootView>
   );
 }
 
