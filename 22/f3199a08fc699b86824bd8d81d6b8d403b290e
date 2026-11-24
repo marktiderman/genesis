@@ -1,0 +1,37 @@
+packages/chat/src/native/inbox-screen.tsx
+  s_42efe440240299::t_bdfb5a00aa0c6c 293-294,442
+packages/chat/README.md
+  s_42efe440240299::t_e488ffe74c8f4f 130,133,151-226
+  s_42efe440240299::t_cac4b2bba05c07 227
+packages/chat/src/native/details-screen.tsx
+  s_42efe440240299::t_bdfb5a00aa0c6c 80,105
+.changeset/chat-messages-parity.md
+  s_42efe440240299::t_990b06633dec2d 1-25
+packages/chat/src/native/__tests__/messages-look.test.tsx
+  s_42efe440240299::t_591f26912a3a1b 9,54-56,58,63
+  s_42efe440240299::t_688046df537922 60
+  s_42efe440240299::t_873bbbb6a273a1 1-8,10-53,57,59,61-62,64-236
+docs/adr/0029-chat-native-messages-parity.md
+  s_42efe440240299::t_6b04718ce8f609 1-67
+packages/chat/figma/native/code-connect.json
+  s_42efe440240299::t_483dc95eb0d129 49-50
+  s_42efe440240299::t_1f424129285c81 26-48,51,63-64
+packages/chat/src/native/__tests__/thread-screen.test.tsx
+  s_42efe440240299::t_070a17ca920d1f 330-342
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "22f3199a08fc699b86824bd8d81d6b8d403b290e",
+  "prompts": {},
+  "sessions": {
+    "s_42efe440240299": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f544dd57-0b31-4773-b89e-4661a182129e",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
