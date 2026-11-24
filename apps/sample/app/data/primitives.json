@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-21",
+  "generatedAt": "2026-11-24",
   "surfaces": {
     "web": {
       "package": "@marktiderman/genesis-ui",
@@ -3902,14 +3902,14 @@
               "name": "slotProps",
               "type": "SlotPropsFor<InboxPageSlotMap>",
               "required": false,
-              "defaultValue": "{}",
+              "defaultValue": "Object.freeze({})",
               "description": ""
             },
             {
               "name": "slots",
               "type": "Slots<InboxPageSlotMap>",
               "required": false,
-              "defaultValue": "{}",
+              "defaultValue": "Object.freeze({})",
               "description": ""
             },
             {
@@ -11565,6 +11565,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Load earlier pages until the row is held; resolve false when it can't be found."
+            },
+            {
+              "name": "openAt",
+              "type": "string | null",
+              "required": false,
+              "defaultValue": null,
+              "description": "Open at this row (by `jumpId`), at the top of the screen, instead of the bottom: the first\nunread, when the \"New\" line would be above the screen. Once, when the rows and it are first\nknown: `undefined` means not known yet (it waits), `null` means open at the bottom. Ignored\nwhile `jumpTo` is set, and once the reader has scrolled. If the row goes before the list\nreaches it, the list opens at the newest rows.\n\n\"Once the reader has scrolled\" is a drag, or a scroll away from the bottom outside the list's\nown moves. Inside the 400 ms after the list moves itself, a reader's scroll counts only when it\ngoes up while the list is going down: the very first scroll event in that window can't be told\napart from the list's own placement, so one that comes before any other is taken as the list's."
             },
             {
               "name": "ref",
@@ -24552,12 +24559,12 @@
       "subpath": "@marktiderman/genesis-ui",
       "filePath": "packages/ui/src/components/ui/progress.tsx",
       "stability": "stable",
-      "summary": "",
+      "summary": "Progress — a bar from 0 to 100, announced as a progressbar with its value; named \"N% complete\" unless `aria-label` says more.",
       "primaryComponent": "Progress",
       "components": [
         {
           "name": "Progress",
-          "summary": "",
+          "summary": "Progress — a bar from 0 to 100, announced as a progressbar with its value; named \"N% complete\" unless `aria-label` says more.",
           "props": [
             {
               "name": "value",

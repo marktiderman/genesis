@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 891 components · 5279 other exports · 4476 standalone types across 229 entry points in 33 packages.
+**Totals:** 893 components · 5291 other exports · 4492 standalone types across 229 entry points in 33 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -473,9 +473,9 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useAvailability`](../packages/chat/src/react/index.tsx) | function | — | Availability: yours (`mine`, `setMine`) and, given a conversation, its members' (`members`, `forUser`). Pair with `awayLine` and `isWithinWorkingHours` from the core. |
 | [`useBroadcast`](../packages/chat/src/react/index.tsx) | function | — | Sends one message into many conversations (replies come back privately in each). |
 | [`useChat`](../packages/chat/src/react/index.tsx) | function | — | _(no summary)_ |
-| [`useConversation`](../packages/chat/src/react/index.tsx) | function | — | One conversation: its messages (with what you are still sending), members, your role, and who is typing. |
+| [`useConversation`](../packages/chat/src/react/index.tsx) | function | — | _(no summary)_ |
 | [`useDebouncedValue`](../packages/chat/src/react/index.tsx) | function | — | The value, once it has stopped changing for `ms`. |
-| [`useFileUrls`](../packages/chat/src/react/index.tsx) | function | — | Signed links for files (cached by the client until shortly before they expire). |
+| [`useFileUrls`](../packages/chat/src/react/index.tsx) | function | — | Signed links for files (cached by the client until shortly before they expire). While a new set of paths loads (a photo arrives), the links already signed stay: the photos on screen don't blank. |
 | [`useInbox`](../packages/chat/src/react/index.tsx) | function | — | Your conversations, live. `kind` narrows to one kind; `archived` shows the archived ones. |
 | [`useLinkPreviews`](../packages/chat/src/react/index.tsx) | function | — | Link previews for these messages, by message id, in link order (only those the server has fetched). Pass the messages whose text has links (`extractLinks(body).length > 0`). One query per message, so a new message asks only for its own, ... |
 | [`useMessageActions`](../packages/chat/src/react/index.tsx) | function | — | Edit, delete, react, pin, save and report, refreshing what they change. |
@@ -626,7 +626,7 @@ export type { VoiceRecording };
 
 **Barrel:** [`packages/chat/src/native/index.ts`](../packages/chat/src/native/index.ts)
 
-### Components (29)
+### Components (31)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
@@ -651,7 +651,9 @@ export type { VoiceRecording };
 | [`ChatSearchScreen`](../packages/chat/src/native/search-screen.tsx) | `ChatSearchScreenProps` | — | _(no summary)_ |
 | [`ChatStartSheet`](../packages/chat/src/native/start-sheet.tsx) | `ChatStartSheetProps` | — | _(no summary)_ |
 | [`ChatThreadScreen`](../packages/chat/src/native/thread-screen.tsx) | `ChatThreadScreenProps` | — | _(no summary)_ |
+| [`ChatThreadTitle`](../packages/chat/src/native/thread-title.tsx) | `ChatThreadTitleProps` | — | _(no summary)_ |
 | [`ChatTopicBar`](../packages/chat/src/native/topics.tsx) | `ChatTopicBarProps` | — | _(no summary)_ |
+| [`ChatTypingBubble`](../packages/chat/src/native/typing-bubble.tsx) | `ChatTypingBubbleProps` | — | _(no summary)_ |
 | [`ChatVideoPlayer`](../packages/chat/src/native/video-player.tsx) | `ChatVideoPlayerProps` | — | The bubble's video. Renders nothing without `modules.video` (the bubble shows a row instead). |
 | [`ChatVideoRecorder`](../packages/chat/src/native/video-recorder.tsx) | `ChatVideoRecorderProps` | — | Renders nothing without `modules.camera`. |
 | [`MessageActionsSheet`](../packages/chat/src/native/message-actions-sheet.tsx) | `MessageActionsSheetProps` | — | _(no summary)_ |
@@ -660,7 +662,7 @@ export type { VoiceRecording };
 | [`VoiceNotePlayer`](../packages/chat/src/native/voice-player.tsx) | `VoiceNotePlayerProps` | — | _(no summary)_ |
 | [`VoiceTranscript`](../packages/chat/src/native/media.tsx) | `VoiceTranscriptProps` | — | A voice note's transcript under the player: "Transcribing…" while it is made, then the text, folded to three lines with "Show more" when it is longer. The bubble reads the whole transcript to VoiceOver, so the toggle is for sight only. |
 
-### Other exports (166)
+### Other exports (177)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -678,6 +680,8 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`base64Utf8`](../packages/chat/src/native/tus.ts) | function | — | Base64 of a UTF-8 string, for TUS's Upload-Metadata (no `btoa`, which isn't on every Hermes build). |
 | [`broadcastOutcome`](../packages/chat/src/native/broadcast-sheet.tsx) | function | — | What a broadcast's toast says: all reached, one, or some of them. |
 | [`broadcastRows`](../packages/chat/src/native/broadcast-sheet.tsx) | function | — | Rows to pick from: the filter's, named as the inbox names them, in name order, matching the query. |
+| [`bubbleCorners`](../packages/chat/src/native/message-bubble.tsx) | function | — | A bubble's corners: round, except where it meets the next or the one before in its run, on the sender's side (the trailing side for yours). The last and the only one also get a tail. |
+| [`bubblePosition`](../packages/chat/src/native/message-bubble.tsx) | function | — | _(no summary)_ |
 | [`buildThreadRows`](../packages/chat/src/native/rows.ts) | function | — | Oldest first. |
 | [`BUILT_IN_KINDS`](../packages/chat/src/native/attachment-cards.tsx) | const | — | The kinds the package draws itself; every other kind is the app's. |
 | [`canManageTopics`](../packages/chat/src/native/topics.tsx) | function | — | Owners and admins add, rename, close and reopen topics. |
@@ -708,7 +712,9 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`clockToDate`](../packages/chat/src/native/availability.tsx) | function | — | "09:30" as a Date today at that time (for a time picker), and back. |
 | [`composerDisabledReason`](../packages/chat/src/native/composer-state.ts) | function | — | Why this person can't post here, for the disabled composer; null when they can. `canPost` is the server's answer (null while it loads, which disables quietly). |
 | [`composerReducer`](../packages/chat/src/native/composer-state.ts) | function | — | _(no summary)_ |
+| [`connectionState`](../packages/chat/src/native/thread-screen.tsx) | function | — | Offline wins; then a live channel that dropped; a channel not yet heard from is online. |
 | [`conversationIdFromData`](../packages/chat/src/native/push.ts) | function | — | The conversation a push is about: `data.conversationId`, else the id in `data.url`. |
+| [`countUnseenBelow`](../packages/chat/src/native/thread-screen.tsx) | function | — | How many messages from others came in after `afterSeq` (the newest when you scrolled up). |
 | [`createDraftSaver`](../packages/chat/src/native/composer-state.ts) | function | — | Saves the draft a moment after typing stops (and at once on `flush`); an empty composer removes it. Storage errors are swallowed: a draft is a nicety. |
 | [`createTusUpload`](../packages/chat/src/native/tus.ts) | function | — | _(no summary)_ |
 | [`createVideoUploads`](../packages/chat/src/native/video-upload.ts) | function | — | _(no summary)_ |
@@ -749,6 +755,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`isOnline`](../packages/chat/src/native/auto-retry.ts) | function | — | Whether a NetInfo state is online: unknown counts as online, so only a real "offline" waits. |
 | [`isOpenableHref`](../packages/chat/src/native/attachment-cards.tsx) | function | — | A link a card may open by itself: https only. A kind's href is often built from what another person sent, so any other scheme (tel:, sms:, another app's links) goes through the app's own `onOpenAttachment` or the kind's `onPress` instead. |
 | [`isVideoPlaying`](../packages/chat/src/native/video-player.tsx) | function | — | Whether the video with this id is playing. |
+| [`lastSentReceipt`](../packages/chat/src/native/receipts.ts) | function | — | The status of the last message you sent, and the row it goes under; null when there is none to show. |
 | [`linkHost`](../packages/chat/src/native/link-preview.tsx) | function | — | The site a link is on, without `www.`. |
 | [`linkPreviewIds`](../packages/chat/src/native/link-preview.tsx) | function | — | The messages to ask previews for: shown (not deleted, not hidden by moderation), with a link. |
 | [`liveBars`](../packages/chat/src/native/recorder-machine.ts) | function | — | The last `count` levels as bar heights 0–1, for the live waveform while recording. |
@@ -774,6 +781,8 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`PUSH_REPLY_WAIT_MS`](../packages/chat/src/native/push.ts) | const | — | How long a reply queued in the live outbox is waited for before it counts as queued, not sent. |
 | [`pushRecentEmoji`](../packages/chat/src/native/emoji.ts) | function | — | `emoji` first, once, the oldest dropped past `max`. |
 | [`QUICK_REACTIONS`](../packages/chat/src/native/actions.ts) | const | — | The quick reactions on the long-press sheet. |
+| [`readWhen`](../packages/chat/src/native/receipts.ts) | function | — | When it was read: the time today, else the day ("Yesterday", "Monday", "12 Mar"). |
+| [`receiptText`](../packages/chat/src/native/receipts.ts) | function | — | What the line under the message says. |
 | [`RECENT_EMOJI_MAX`](../packages/chat/src/native/emoji.ts) | const | — | How many recent emoji the picker keeps. |
 | [`recentEmojiKey`](../packages/chat/src/native/emoji.ts) | function | — | Where a person's recent emoji are kept: under their drafts' prefix, so `clearDrafts` removes them too. |
 | [`recordedVideoFile`](../packages/chat/src/native/video-upload.ts) | function | — | The video as a file the outbox uploads to storage (without `videoUpload`). |
@@ -797,7 +806,10 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`slotUrl`](../packages/chat/src/native/attachment-cards.tsx) | function | — | A URL a slot may be given: http or https only, else null. |
 | [`snippetText`](../packages/chat/src/native/search-screen.tsx) | function | — | The snippet without its marks, for a screen reader. |
 | [`splitCardAttachments`](../packages/chat/src/native/attachment-cards.tsx) | function | — | A message's attachments split into the app's cards and the rest (photos, voice, video, files). A card is a registered kind; with `slot` (the app draws its kinds) also any kind the package doesn't draw itself, as on the web. |
+| [`startsTimeReveal`](../packages/chat/src/native/thread-times.tsx) | function | — | A horizontal move counts as the reveal once it is this far left and mostly sideways. |
 | [`threadListMode`](../packages/chat/src/native/thread-screen.tsx) | function | — | How the thread's list is set up, oldest first and not inverted. FlashList: its chat mode (opens at the bottom, follows new rows while within a fifth of a screen of it, keeps the first visible row in place when earlier ones load at the to... |
+| [`TIME_REVEAL_WIDTH`](../packages/chat/src/native/thread-times.tsx) | const | — | How far the bubbles slide to show the times, in points. |
+| [`timeRevealFor`](../packages/chat/src/native/thread-times.tsx) | function | — | How far the thread is pulled for a drag of `dx` (negative is left). |
 | [`timeZones`](../packages/chat/src/native/availability.tsx) | function | — | Every IANA zone the engine knows (Hermes has `Intl.supportedValuesOf`), else a short list. |
 | [`toggleVideo`](../packages/chat/src/native/video-player.tsx) | function | — | Plays or pauses the video with this id; false when none with it is on screen. |
 | [`toggleVideoMute`](../packages/chat/src/native/video-player.tsx) | function | — | Mutes or unmutes the video with this id while it plays. |
@@ -815,6 +827,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useChatNative`](../packages/chat/src/native/context.tsx) | function | — | _(no summary)_ |
 | [`useChatThreadStackOptions`](../packages/chat/src/native/stack-options.ts) | function | — | `chatThreadStackOptions` in the theme's grouped background, the color `ChatThreadScreen` draws. |
 | [`useJumpToMessage`](../packages/chat/src/native/use-jump.ts) | function | — | _(no summary)_ |
+| [`useOnline`](../packages/chat/src/native/thread-screen.tsx) | function | — | Whether the phone is online, from the app's NetInfo (`modules.netInfo`); null without it or until it says. |
 | [`usePlayingVideo`](../packages/chat/src/native/video-player.tsx) | function | — | Which of these videos is playing, or null (re-renders only when that answer changes). |
 | [`usePlayingVoiceNote`](../packages/chat/src/native/voice-player.tsx) | function | — | Which of these voice notes is playing, or null (re-renders only when that answer changes). |
 | [`useScheduleSend`](../packages/chat/src/native/schedule-sheet.tsx) | function | — | Scheduled send from a thread's composer: `request` (Send held) checks there's text and no files and opens the sheet; `scheduleAt` schedules what's written, then empties the composer if it still holds just that. Pass `enabled: false` wher... |
@@ -833,7 +846,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`withDay`](../packages/chat/src/native/schedule-sheet.tsx) | function | — | `base` on the day of `day` (its time kept). |
 | [`withTime`](../packages/chat/src/native/schedule-sheet.tsx) | function | — | `base` at the time of `time` (its day kept). |
 
-### Types (96)
+### Types (105)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -844,6 +857,7 @@ export type { AudioRecorderLike };
 export type { AudioStatusLike };
 export type { AvailabilityForm };
 export type { BubbleAttachment };
+export type { BubblePosition };
 export type { BuildRowsOptions };
 export type { ByteSource };
 export type { CameraViewHandleLike };
@@ -854,6 +868,7 @@ export type { ChatAttachmentSlotProps };
 export type { ChatAutoRetryOptions };
 export type { ChatCardContext };
 export type { ChatComposerHandle };
+export type { ChatConnectionState };
 export type { ChatNativeContextValue };
 export type { ChatNativeCopy };
 export type { ChatNativeCopyOverrides };
@@ -868,9 +883,12 @@ export type { ChatPushOutcome };
 export type { ChatPushPayload };
 export type { ChatPushPayloadInput };
 export type { ChatPushResponseLike };
+export type { ChatReceiptsMode };
 export type { ChatStartPerson };
+export type { ChatThreadAccessoryContext };
 export type { ChatThreadScreenSlots };
 export type { ChatThreadStackOptionsProps };
+export type { ChatThreadTitleAvatar };
 export type { ChatVideoState };
 export type { ChunkFileLike };
 export type { ChunkedPutOptions };
@@ -894,6 +912,8 @@ export type { KeyboardAvoidingLike };
 export type { MediaLibraryLike };
 export type { MessageActionContext };
 export type { MessageActionId };
+export type { MessageReceipt };
+export type { MessageReceiptFor };
 export type { MintedUpload };
 export type { ModerationNote };
 export type { NetInfoLike };
@@ -903,6 +923,8 @@ export type { OutboxSend };
 export type { PermissionLike };
 export type { PickedAssetLike };
 export type { PickerResultLike };
+export type { ReceiptCopy };
+export type { ReceiptOptions };
 export type { RecordedVideo };
 export type { RecorderConfig };
 export type { RecorderEffect };
@@ -7360,7 +7382,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useThreadJump`](../packages/core/src/conversation/use-thread-jump.ts) | function | — | _(no summary)_ |
 | [`useToast`](../packages/ui-native/src/components/toast.tsx) | function | — | _(no summary)_ |
 
-### Types (109)
+### Types (111)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -7387,6 +7409,7 @@ export type { GenesisIconComponent };
 export type { GenesisIconSet };
 export type { GenesisImageComponent };
 export type { GenesisImageProps };
+export type { GenesisLayoutAnimation };
 export type { GenesisListComponent };
 export type { GenesisListProps };
 export type { GenesisModules };
@@ -7394,6 +7417,7 @@ export type { GenesisNavigationModule };
 export type { GenesisNavigationTheme };
 export type { GenesisReanimatedModule };
 export type { GenesisSvgModule };
+export type { GenesisSwipeableComponent };
 export type { GenesisSymbolComponent };
 export type { GenesisSymbolProps };
 export type { GoogleProviderOptions };
@@ -8565,7 +8589,7 @@ export type { ScaffoldResult };
 
 **Barrel:** [`packages/genesis-cli/src/doctor/index.ts`](../packages/genesis-cli/src/doctor/index.ts)
 
-### Other exports (74)
+### Other exports (75)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -8642,11 +8666,12 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | `validateConfig` | value | — | _(no summary)_ |
 | `validateDeclaration` | value | — | _(no summary)_ |
 | `validateLinks` | value | — | _(no summary)_ |
+| `validateRepo` | value | — | _(no summary)_ |
 | `webRoutes` | value | — | _(no summary)_ |
 | `writeAgentGuide` | value | — | _(no summary)_ |
 | `writeAgentHooks` | value | — | _(no summary)_ |
 
-### Types (25)
+### Types (26)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -8661,6 +8686,7 @@ export type { FixPlanDraft };
 export type { GenesisConfigFile };
 export type { GenesisInstall };
 export type { GenesisLinks };
+export type { GenesisRepo };
 export type { GenesisSupabase };
 export type { PackageDeclaration };
 export type { PackageGuide };
@@ -14623,7 +14649,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useThreadJump`](../packages/core/src/conversation/use-thread-jump.ts) | function | — | _(no summary)_ |
 | [`useToast`](../packages/ui-native/src/components/toast.tsx) | function | — | _(no summary)_ |
 
-### Types (109)
+### Types (111)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -14650,6 +14676,7 @@ export type { GenesisIconComponent };
 export type { GenesisIconSet };
 export type { GenesisImageComponent };
 export type { GenesisImageProps };
+export type { GenesisLayoutAnimation };
 export type { GenesisListComponent };
 export type { GenesisListProps };
 export type { GenesisModules };
@@ -14657,6 +14684,7 @@ export type { GenesisNavigationModule };
 export type { GenesisNavigationTheme };
 export type { GenesisReanimatedModule };
 export type { GenesisSvgModule };
+export type { GenesisSwipeableComponent };
 export type { GenesisSymbolComponent };
 export type { GenesisSymbolProps };
 export type { GoogleProviderOptions };
@@ -14916,7 +14944,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useReduceTransparency`](../packages/ui-native/src/components/glass-surface.tsx) | function | — | True while the user has Reduce Transparency on (iOS), `null` until the first answer. Always false elsewhere, and on a runtime that can't say. |
 | [`useToast`](../packages/ui-native/src/components/toast.tsx) | function | — | _(no summary)_ |
 
-### Types (68)
+### Types (70)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -14937,6 +14965,7 @@ export type { GenesisIconComponent };
 export type { GenesisIconSet };
 export type { GenesisImageComponent };
 export type { GenesisImageProps };
+export type { GenesisLayoutAnimation };
 export type { GenesisListComponent };
 export type { GenesisListProps };
 export type { GenesisModules };
@@ -14944,6 +14973,7 @@ export type { GenesisNavigationModule };
 export type { GenesisNavigationTheme };
 export type { GenesisReanimatedModule };
 export type { GenesisSvgModule };
+export type { GenesisSwipeableComponent };
 export type { GenesisSymbolComponent };
 export type { GenesisSymbolProps };
 export type { JustifiedRow };
