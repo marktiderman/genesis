@@ -4,7 +4,7 @@
  * DetailPage (a record's title block, actions, body and side column).
  */
 import { useMemo, useState, type ReactNode } from "react";
-import { View } from "react-native";
+import { Platform, PlatformColor, View } from "react-native";
 import {
   NativeBadge,
   NativeButton,
@@ -20,10 +20,13 @@ import { DetailPage, ScreenContainer, SettingsPage, type SettingsPageSection } f
 import type { WorkbenchScreen } from "../registry";
 
 /** The Settings app's leading tile: a white glyph on a colored rounded square. */
-function Tile({ name, color }: { name: NativeIconName; color: string }) {
+/** The tile colors are iOS system colors, so they follow light and dark mode as Settings' do. */
+type SystemColor = "systemBlue" | "systemOrange" | "systemGray" | "systemRed" | "systemGreen" | "systemIndigo" | "systemTeal";
+
+function Tile({ name, color }: { name: NativeIconName; color: SystemColor }) {
   return (
-    <View style={{ width: 29, height: 29, borderRadius: 7, backgroundColor: color, alignItems: "center", justifyContent: "center" }}>
-      <NativeIcon name={name} size={17} color="#ffffff" />
+    <View style={{ width: 29, height: 29, borderRadius: 7, backgroundColor: Platform.OS === "ios" ? PlatformColor(color) : PlatformColor("@android:color/holo_blue_dark"), alignItems: "center", justifyContent: "center" }}>
+      <NativeIcon name={name} size={17} color={PlatformColor(Platform.OS === "ios" ? "white" : "@android:color/white")} />
     </View>
   );
 }
@@ -51,9 +54,9 @@ function SettingsPageScreen() {
       id: "account",
       title: "Account",
       rows: [
-        { id: "profile", title: "Profile", subtitle: "Name, photo and bio", leading: <Tile name="user" color="#007AFF" />, showChevron: true, onPress: open("Profile") },
-        { id: "plan", title: "Plan", leading: <Tile name="star" color="#FF9500" />, trailing: <NativeBadge variant="info">Team</NativeBadge>, showChevron: true, onPress: open("Plan") },
-        { id: "security", title: "Password & security", leading: <Tile name="lock" color="#8E8E93" />, showChevron: true, onPress: open("Password & security") },
+        { id: "profile", title: "Profile", subtitle: "Name, photo and bio", leading: <Tile name="user" color="systemBlue" />, showChevron: true, onPress: open("Profile") },
+        { id: "plan", title: "Plan", leading: <Tile name="star" color="systemOrange" />, trailing: <NativeBadge variant="info">Team</NativeBadge>, showChevron: true, onPress: open("Plan") },
+        { id: "security", title: "Password & security", leading: <Tile name="lock" color="systemGray" />, showChevron: true, onPress: open("Password & security") },
       ],
     },
     {
@@ -64,17 +67,17 @@ function SettingsPageScreen() {
         {
           id: "push",
           title: "Push notifications",
-          leading: <Tile name="bell" color="#FF3B30" />,
+          leading: <Tile name="bell" color="systemRed" />,
           trailing: <NativeSwitch checked={push} onCheckedChange={setPush} testID="workbench-settings-page-push" />,
         },
         {
           id: "email",
           title: "Email digest",
           subtitle: "A summary every Monday",
-          leading: <Tile name="mail" color="#34C759" />,
+          leading: <Tile name="mail" color="systemGreen" />,
           trailing: <NativeSwitch checked={email} onCheckedChange={setEmail} testID="workbench-settings-page-email" />,
         },
-        { id: "quiet", title: "Quiet hours", leading: <Tile name="clock" color="#5856D6" />, trailing: <Value>10 PM – 7 AM</Value>, showChevron: true, onPress: open("Quiet hours") },
+        { id: "quiet", title: "Quiet hours", leading: <Tile name="clock" color="systemIndigo" />, trailing: <Value>10 PM – 7 AM</Value>, showChevron: true, onPress: open("Quiet hours") },
       ],
     },
     {
@@ -84,11 +87,11 @@ function SettingsPageScreen() {
         {
           id: "face-id",
           title: "Unlock with Face ID",
-          leading: <Tile name="eye" color="#30B0C7" />,
+          leading: <Tile name="eye" color="systemTeal" />,
           trailing: <NativeSwitch checked={faceId} onCheckedChange={setFaceId} testID="workbench-settings-page-face-id" />,
         },
-        { id: "blocked", title: "Blocked people", leading: <Tile name="close" color="#8E8E93" />, trailing: <Value>2</Value>, showChevron: true, onPress: open("Blocked people") },
-        { id: "export", title: "Export my data", leading: <Tile name="download" color="#007AFF" />, showChevron: true, onPress: open("Export my data") },
+        { id: "blocked", title: "Blocked people", leading: <Tile name="close" color="systemGray" />, trailing: <Value>2</Value>, showChevron: true, onPress: open("Blocked people") },
+        { id: "export", title: "Export my data", leading: <Tile name="download" color="systemBlue" />, showChevron: true, onPress: open("Export my data") },
       ],
     },
     {

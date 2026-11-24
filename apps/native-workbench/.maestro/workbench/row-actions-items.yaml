@@ -8,9 +8,11 @@ tags:
 - tapOn:
     id: "workbench-open-row-actions-items"
 - extendedWaitUntil:
-    visible: "Round (iOS 26)"
+    visible:
+      id: "workbench-row-actions-items-round"
     timeout: 15000
-- longPressOn: "Round (iOS 26)"
+- longPressOn:
+    id: "workbench-row-actions-items-round"
 - extendedWaitUntil:
     visible: "Hide Alerts"
     timeout: 5000
@@ -19,7 +21,8 @@ tags:
 - extendedWaitUntil:
     visible: "Ran alerts"
     timeout: 5000
-- longPressOn: "With a peek"
+- longPressOn:
+    id: "workbench-row-actions-items-peek-row"
 - extendedWaitUntil:
     visible:
       id: "workbench-row-actions-items-peek"

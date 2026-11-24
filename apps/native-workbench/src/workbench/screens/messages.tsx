@@ -141,7 +141,7 @@ const SCRIPT: { from: string; body: string; minutesAgo: number; reactions?: { em
   { from: "u-alan", body: "Crash rate is down to 0.2% since then 🎉", minutesAgo: 26 * 60 - 5, reactions: [{ emoji: "🎉", userId: "u-ada" }, { emoji: "🎉", userId: ME }] },
   { from: "u-ada", body: "Nice work, both of you.", minutesAgo: 42 },
   { from: "u-ada", body: "Can we look at the onboarding copy today?", minutesAgo: 41 },
-  { from: "u-ada", body: "The second screen still says **Workspace** where it should say **Team**.", minutesAgo: 41 },
+  { from: "u-ada", body: "The second screen still says “Workspace” where it should say “Team”.", minutesAgo: 41 },
   { from: ME, body: "Yes, I'll fix it this afternoon.", minutesAgo: 30 },
   { from: ME, body: "Want to pair on it at 2?", minutesAgo: 29, reactions: [{ emoji: "👍", userId: "u-alan" }] },
   { from: "u-alan", body: "Works for me. I'll bring the latest designs.", minutesAgo: 12 },

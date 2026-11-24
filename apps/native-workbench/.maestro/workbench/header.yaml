@@ -11,6 +11,11 @@ tags:
 - extendedWaitUntil:
     visible: "Native header"
     timeout: 15000
+# iOS 26 keeps the search field under the large title until the list is pulled down.
+- swipe:
+    direction: DOWN
+    duration: 600
+- waitForAnimationToEnd
 - assertVisible: "Search names"
 - assertVisible: "Drill in"
 - takeScreenshot: header-large
