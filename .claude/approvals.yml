@@ -9,7 +9,8 @@
 # A `humans` seat can be filled by the PR's author, so a filled seat here doesn't mean an
 # independent review. `"!pr/authors"` would not fix that in this repo: every agent, the
 # adversarial reviewer included, acts as the account that opened the PR, so the seat could
-# never fill. Independence is the review gate's job, not this policy's.
+# never fill. review-gate.yml checks the label and the verdict on the head; keeping the reviewer
+# apart from the author is process ("never approve or label your own PR"), not this policy.
 version: 1
 mode: observe
 rules:
