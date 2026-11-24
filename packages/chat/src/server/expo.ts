@@ -46,7 +46,7 @@ export interface ExpoDeliverOptions {
   categoryId?: string | undefined;
   /**
    * Replace a conversation's earlier notification with the newest (one per conversation).
-   * Off by default: like iMessage and WhatsApp, each message shows, grouped by thread.
+   * Off by default: as in most messaging apps, each message shows, grouped by thread.
    */
   collapse?: boolean | undefined;
 }

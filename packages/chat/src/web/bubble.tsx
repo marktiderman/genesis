@@ -172,7 +172,7 @@ export function MessageRow({ item, startsGroup, highlighted: highlightedProp, cl
   const hidden = !deleted && message.moderation === "hidden";
   const flagged = !deleted && message.moderation === "flagged";
   const observer = ctx.role === "observer";
-  // One preview per message, iMessage-style: the first link the server has fetched.
+  // One preview per message, as messaging apps do: the first link the server has fetched.
   const preview = !pending && !deleted && !hidden && message.body ? ctx.previews[message.id]?.[0] : undefined;
 
   const bubble = (
