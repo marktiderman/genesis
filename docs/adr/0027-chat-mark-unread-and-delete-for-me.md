@@ -51,6 +51,9 @@ genesis-chat migration 0007:
    - the inbox and badges leave the conversation out until a message the member can read on the
      main timeline arrives after `cleared_seq` (`readable_after`): not an observers-only note, a
      thread reply, a deleted message or one moderation hid. The next such message brings it back;
+   - `push_targets` leaves the member out of a message that wouldn't bring the conversation back (a
+     reply in a thread whose root they deleted), so they aren't notified of a conversation that
+     isn't in their inbox;
    - a restrictive read policy, `messages_cleared_for_me`, hides messages at or before
      `cleared_seq` from that member, so every read path agrees (thread pages, attachments and
      reactions through their message). Another, `pins_cleared_for_me`, drops pins of those
