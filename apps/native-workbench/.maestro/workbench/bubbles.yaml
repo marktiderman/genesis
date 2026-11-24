@@ -1,0 +1,25 @@
+# Messages: chat's message bubbles and the typing bubble. Opens the screen from its tab and keeps a screenshot of it, before and after a scroll.
+appId: dev.genesis.workbench.dev
+tags:
+  - workbench
+  - messages
+---
+- runFlow: ../subflows/open-workbench.yaml
+- tapOn: "Messages"
+- extendedWaitUntil:
+    visible:
+      id: "workbench-open-bubbles"
+    timeout: 10000
+- tapOn:
+    id: "workbench-open-bubbles"
+- extendedWaitUntil:
+    visible:
+      id: "workbench-bubbles"
+    timeout: 15000
+- waitForAnimationToEnd
+- takeScreenshot: bubbles
+- swipe:
+    direction: UP
+    duration: 800
+- waitForAnimationToEnd
+- takeScreenshot: bubbles-scrolled

@@ -13,7 +13,6 @@ import { genesisBrand } from "@marktiderman/genesis-design-system";
 import type { GenesisNativeAppProps } from "@marktiderman/genesis-native";
 import { persistOffline } from "@marktiderman/genesis-native/offline";
 import starter from "../../starter.config";
-import { assertEnv } from "./env";
 import { linkHold } from "./links";
 import { nativeModules } from "./native-modules";
 import { offlineCache } from "./offline";
@@ -36,10 +35,8 @@ export const persistedResources: readonly string[] = [];
 export const shell: Omit<GenesisNativeAppProps, "children" | "splash"> = {
   brand: genesisBrand,
   supabase,
-  steps: [
-    { id: "starter:env", run: assertEnv },
-    { id: "starter:session-storage", run: sessionReady },
-  ],
+  // No "starter:env" step: the showcase runs on sample data, so a missing Supabase URL isn't fatal.
+  steps: [{ id: "starter:session-storage", run: sessionReady }],
   persist: features.queryPersistence
     ? persistOffline({
         cache: offlineCache(),

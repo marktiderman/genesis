@@ -21,6 +21,8 @@ const sentry = sentryProject(JSON.parse(readFileSync(`${__dirname}/genesis.confi
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   ...easConfig(starter.app),
+  // The Expo account the EAS project belongs to.
+  owner: "streamlined-digital",
   name: starter.app.name,
   slug: starter.app.slug,
   scheme: starter.app.scheme,

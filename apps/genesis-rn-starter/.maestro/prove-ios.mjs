@@ -5,6 +5,7 @@
 //   node .maestro/prove-ios.mjs --flows workbench     the flows in .maestro/workbench instead (or any folder under .maestro)
 //   node .maestro/prove-ios.mjs --flow launch,deep-link   only these flows
 //   node .maestro/prove-ios.mjs --rebuild             build again even when the cached build matches
+//   node .maestro/prove-ios.mjs --no-stack            no Supabase stack and no test login (an app that runs on sample data)
 //   node .maestro/prove-ios.mjs --stop                stop the stack (its data goes); the simulator is kept
 //
 // It writes the evidence a pull request links: each flow's screenshots, Maestro's logs and a
@@ -124,7 +125,10 @@ function device({ create }) {
 
 // The build --------------------------------------------------------------------------------------
 const buildEnv = (s) => {
-  const env = { ...process.env, APP_VARIANT: "development", EXPO_PUBLIC_SUPABASE_URL: s.url, EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: s.key, EXPO_NO_DOTENV: "1", LANG: "en_US.UTF-8", SENTRY_DISABLE_AUTO_UPLOAD: "true", CI: "1" };
+  const env = { ...process.env, APP_VARIANT: "development", EXPO_NO_DOTENV: "1", LANG: "en_US.UTF-8", SENTRY_DISABLE_AUTO_UPLOAD: "true", CI: "1" };
+  delete env.EXPO_PUBLIC_SUPABASE_URL;
+  delete env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (s.url) Object.assign(env, { EXPO_PUBLIC_SUPABASE_URL: s.url, EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: s.key });
   delete env.EXPO_PUBLIC_SENTRY_DSN;
   delete env.SENTRY_AUTH_TOKEN;
   return env;
@@ -158,6 +162,8 @@ function buildApp(s, udid) {
   }
   const env = buildEnv(s);
   log("Generating the native project (expo prebuild, development variant)…");
+  // prebuild --clean's own delete of a large ios/ (Pods) can fail with ENOTEMPTY: remove it first, with retries.
+  rmSync(join(app, "ios"), { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
   if (run("npx", ["expo", "prebuild", "-p", "ios", "--clean", "--no-install"], { cwd: app, env }) !== 0) fail("expo prebuild failed");
   if (run("pod", ["install"], { cwd: join(app, "ios"), env }) !== 0) fail("pod install failed");
   const workspace = readdirSync(join(app, "ios")).find((f) => f.endsWith(".xcworkspace")) ?? fail("prebuild made no .xcworkspace");
@@ -165,6 +171,9 @@ function buildApp(s, udid) {
   log(`Building ${scheme} (Release, Simulator) as ${key}; later runs with the same sources only reinstall…`);
   mkdirSync(cacheDir, { recursive: true });
   const derived = join(cacheDir, "derived-data");
+  // prebuild --clean regenerates ios/ and its Pods, so the last build's intermediates (precompiled
+  // headers, header maps) point at files that are gone: start each new build from empty.
+  rmSync(derived, { recursive: true, force: true });
   const logFile = join(cacheDir, "build.log");
   const xcode = spawnSync(
     "xcodebuild",
@@ -242,9 +251,11 @@ if (flag("stop")) {
   process.exit(0);
 }
 
-const s = stack({ start: true });
-log(`Stack: ${s.url}. Making the test login…`);
-const account = await login(s);
+// --no-stack: an app that runs on sample data needs no stack and no login (its build has no Supabase URL).
+const noStack = flag("no-stack");
+const s = noStack ? { url: "", key: "" } : stack({ start: true });
+if (!noStack) log(`Stack: ${s.url}. Making the test login…`);
+const account = noStack ? { email: "", password: "" } : await login(s);
 const udid = device({ create: true });
 log(`Simulator: ${DEVICE_NAME} (${udid}).`);
 spawnSync("xcrun", ["simctl", "boot", udid], { stdio: "ignore" });

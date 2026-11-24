@@ -14,13 +14,16 @@ export default defineStarter({
     // the app runs, builds carry no update URL and `eas update` can't reach them.
     easProjectId: "",
   },
+  // The showcase runs with no sign-in and no backend: features that need a signed-in person or a
+  // server (notifications, push, check-in, support, chat sync) are off. Their UI is shown on
+  // sample data in the showcase's screens.
   features: {
     emailSignIn: true,
     appleSignIn: true,
     // Off: it needs Google client ids and the Universal sign-in module. README, "Google sign-in".
     googleSignIn: false,
     accountDeletion: true,
-    notifications: true,
+    notifications: false,
     queryPersistence: true,
     queryLifecycle: true,
     keyboardScroll: true,
@@ -28,11 +31,11 @@ export default defineStarter({
     wipeSessionOnReinstall: true,
     refreshWhileActive: true,
     updates: true,
-    push: true,
+    push: false,
     observability: true,
     devtools: true,
-    checkIn: true,
-    support: true,
-    chat: true,
+    checkIn: false,
+    support: false,
+    chat: false,
   },
 });

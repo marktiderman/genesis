@@ -99,7 +99,7 @@
     },
     ".eas/workflows/deploy-production.yml": {
       "source": "@marktiderman/genesis-cli:templates/release/deploy-production.yml",
-      "sha256": "6563257935855cf5f510936127dbecb00238debf3e86df4739552f27b9ae9be5",
+      "sha256": "d36e4d2633154cf07c54d4cd09d3b15088c2b280ec6856d3d8430fccd51b2f3e",
       "version": "1.34.0"
     },
     ".eas/workflows/e2e.yml": {
@@ -109,7 +109,7 @@
     },
     ".eas/workflows/pr-preview.yml": {
       "source": "@marktiderman/genesis-cli:templates/release/pr-preview.yml",
-      "sha256": "6d4aeaee036ca82215d8cc46a50d8091048ca095abab2e7efdf284764aee1d18",
+      "sha256": "b2da2aed2984401aecfcff189524fb6f9902b2acc222200517104f6fac2d50f2",
       "version": "1.34.0"
     },
     ".eas/workflows/rollout.yml": {

@@ -8,15 +8,18 @@
  * (`pnpm workbench:prove`); the screen's testIDs are `workbench-<id>-…`.
  */
 import type { ComponentType } from "react";
+import { componentsCards, componentsControls, componentsFeedback } from "./screens/components";
 import { headerDrilldown, headerLarge } from "./screens/header";
+import { layoutsDetailPage, layoutsSettingsPage } from "./screens/layouts";
+import { messagesBubbles, messagesInbox } from "./screens/messages";
 import { placeExit } from "./screens/place-exit";
 import { rowActionsItems, rowActionsList } from "./screens/row-actions";
 import { tabBarHidden } from "./screens/tab-bar";
 
-export type WorkbenchSection = "Standards" | "Components" | "Layouts";
+export type WorkbenchSection = "Standards" | "Components" | "Layouts" | "Messages";
 
 export interface WorkbenchScreen {
-  /** URL-safe, unique: the route is `/workbench/<id>`. */
+  /** URL-safe, unique: the route is `/<section>/<id>` (section-index.tsx, SECTION_ROUTE). */
   id: string;
   title: string;
   /** One sentence: what to look at, and what it should do. */
@@ -30,9 +33,23 @@ export interface WorkbenchScreen {
   screen: ComponentType;
 }
 
-export const workbenchScreens: readonly WorkbenchScreen[] = [rowActionsList, rowActionsItems, headerLarge, headerDrilldown, tabBarHidden, placeExit];
+export const workbenchScreens: readonly WorkbenchScreen[] = [
+  rowActionsList,
+  rowActionsItems,
+  headerLarge,
+  headerDrilldown,
+  tabBarHidden,
+  placeExit,
+  componentsControls,
+  componentsFeedback,
+  componentsCards,
+  layoutsSettingsPage,
+  layoutsDetailPage,
+  messagesInbox,
+  messagesBubbles,
+];
 
-export const WORKBENCH_SECTIONS: readonly WorkbenchSection[] = ["Standards", "Components", "Layouts"];
+export const WORKBENCH_SECTIONS: readonly WorkbenchSection[] = ["Standards", "Components", "Layouts", "Messages"];
 
 export function workbenchScreen(id: string): WorkbenchScreen | undefined {
   return workbenchScreens.find((s) => s.id === id);

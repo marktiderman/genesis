@@ -15,3 +15,6 @@ tags:
     id: "genesis-fatal"
 - assertNotVisible:
     id: "genesis-fatal-plain"
+# No sign-in: the showcase opens on its first section.
+- assertVisible:
+    id: "workbench-standards"

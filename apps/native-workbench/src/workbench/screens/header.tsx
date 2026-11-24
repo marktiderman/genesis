@@ -16,7 +16,7 @@ function HeaderLarge() {
     () => ({
       headerTitle: "Native header",
       search: { placeholder: "Search names", onChangeText: (e: { nativeEvent: { text: string } }) => setQuery(e.nativeEvent.text) },
-      headerRightItems: () => [{ type: "button", label: "Drill in", onPress: () => router.push("/workbench/header-drilldown" as Href) }],
+      headerRightItems: () => [{ type: "button", label: "Drill in", onPress: () => router.push("/standards/header-drilldown" as Href) }],
     }),
     [],
   );

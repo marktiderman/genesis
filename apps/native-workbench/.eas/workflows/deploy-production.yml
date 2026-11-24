@@ -11,12 +11,20 @@ on:
   push:
     branches: [main]
     paths:
-      - "**"
-      - "!**/*.md"
-      - "!docs/**"
-      - "!.github/**"
-      - "!.eas/**"
-      - "!.maestro/**"
+      - "apps/native-workbench/**"
+      - "!apps/native-workbench/**/*.md"
+      - "!apps/native-workbench/docs/**"
+      - "!apps/native-workbench/.github/**"
+      - "!apps/native-workbench/.eas/**"
+      - "!apps/native-workbench/.maestro/**"
+      - "packages/**" # release.paths
+      - "package.json" # repository root
+      - "pnpm-lock.yaml" # repository root
+      - "pnpm-workspace.yaml" # repository root
+      - "bun.lock" # repository root
+      - "bun.lockb" # repository root
+      - "yarn.lock" # repository root
+      - "package-lock.json" # repository root
   workflow_dispatch: {}
 
 # One release at a time; the running one always finishes.
@@ -38,7 +46,6 @@ jobs:
       commit_sha: ${{ steps.commit.outputs.commit_sha }}
       repository: ${{ steps.commit.outputs.repository }}
       ios: ${{ steps.check.outputs.ios }}
-      android: ${{ steps.check.outputs.android }}
     steps:
       - uses: eas/checkout
       - id: commit
@@ -78,7 +85,7 @@ jobs:
         name: eas.json matches; the platforms released
         run: |
           set -eo pipefail
-          platforms="ios,android"
+          platforms="ios"
           if [ -n "$platforms" ]; then
             node .eas/scripts/native-release.mjs channel eas.json "production" "production"
             node .eas/scripts/native-release.mjs environment eas.json "production" "production" "$platforms"
@@ -166,85 +173,6 @@ jobs:
           node .eas/scripts/native-release.mjs publish ios "$out"
           while IFS='=' read -r key value; do set-output "$key" "$value"; done < "$out"
 
-  # Its own job: a failure here holds back Android alone.
-  runtime_android:
-    name: Find Android's runtime version
-    needs: [source]
-    if: ${{ needs.source.outputs.android == 'true' }}
-    environment: "production"
-    env:
-      RELEASE_PROFILE: "production"
-      RELEASE_EAS: npx --yes eas-cli@26.0.0
-    outputs:
-      runtime_version: ${{ steps.runtime.outputs.runtime_version }}
-    steps:
-      - uses: eas/checkout
-      - uses: eas/install_node_modules
-      - id: runtime
-        run: |
-          set -eo pipefail
-          RUNTIME_VERSION=$(node .eas/scripts/native-release.mjs runtime-version android)
-          echo "Android runtime version: $RUNTIME_VERSION"
-          set-output runtime_version "$RUNTIME_VERSION"
-
-  get_android_build:
-    name: Find a production Android build with this runtime version
-    needs: [source, runtime_android]
-    if: ${{ needs.source.outputs.android == 'true' }}
-    type: get-build
-    params:
-      platform: android
-      profile: "production"
-      channel: "production"
-      fingerprint_hash: ${{ needs.runtime_android.outputs.runtime_version }}
-      wait_for_in_progress: true
-
-  build_android:
-    name: Build Android (native code changed)
-    needs: [source, get_android_build]
-    if: ${{ needs.source.outputs.android == 'true' && !needs.get_android_build.outputs.build_id }}
-    type: build
-    environment: "production"
-    params:
-      platform: android
-      profile: "production"
-
-  submit_android:
-    name: Submit Android (internal track, draft)
-    needs: [build_android]
-    if: ${{ needs.build_android.outputs.build_id }}
-    type: submit
-    environment: "production"
-    params:
-      build_id: ${{ needs.build_android.outputs.build_id }}
-      profile: "production"
-
-  # native-release.mjs publish: the order checks, the runtime check, the stamp, then eas update.
-  update_android:
-    name: Update Android (every production install)
-    needs: [source, get_android_build]
-    if: ${{ needs.source.outputs.android == 'true' && needs.get_android_build.outputs.build_id }}
-    environment: "production"
-    env:
-      COMMIT_SHA: ${{ needs.source.outputs.commit_sha }}
-      RUNTIME_VERSION: ${{ needs.get_android_build.outputs.runtime_version }}
-      BUILD_COMMIT: ${{ needs.get_android_build.outputs.git_commit_hash }}
-      RELEASE_CHANNEL: "production"
-      RELEASE_PROFILE: "production"
-      RELEASE_EAS: npx --yes eas-cli@26.0.0
-    outputs:
-      update_group: ${{ steps.publish.outputs.update_group }}
-    steps:
-      - uses: eas/checkout
-      - uses: eas/install_node_modules
-      - id: publish
-        name: Publish the Android update
-        run: |
-          set -eo pipefail
-          out=$(mktemp)
-          node .eas/scripts/native-release.mjs publish android "$out"
-          while IFS='=' read -r key value; do set-output "$key" "$value"; done < "$out"
-
   # A failed run is a failed commit status, but nobody is emailed: posts to RELEASE_FAILURE_WEBHOOK
   # (an EAS secret) when set; release.failureEmails adds an email.
   release_failed:
@@ -256,11 +184,6 @@ jobs:
       - build_ios
       - submit_ios
       - update_ios
-      - runtime_android
-      - get_android_build
-      - build_android
-      - submit_android
-      - update_android
     if: ${{ failure() }}
     environment: "production"
     env:

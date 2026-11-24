@@ -1,22 +1,16 @@
-# Smoke: a `scheme://` link opens its screen in this build. Each APP_VARIANT registers its own scheme
-# (withGenesis appends `-dev` / `-preview`), so the development variant answers to
-# `genesis-workbench-dev://`, and a production build installed beside it never takes the link.
-#
-#   MAESTRO_TEST_EMAIL=… MAESTRO_TEST_PASSWORD=… maestro test .maestro/flows/deep-link.yaml
-#
-# Change the scheme with `app.scheme` in starter.config.ts (and keep the `-dev`).
+# Smoke: the development variant answers to its own scheme. A link to a section opens its tab.
 appId: dev.genesis.workbench.dev
 tags:
   - smoke
-  - account
 ---
 - launchApp:
     clearState: true
-- runFlow: ../subflows/sign-in.yaml
-- openLink: "genesis-workbench-dev://settings"
 - extendedWaitUntil:
     visible:
-      id: "settings"
+      id: "workbench-standards"
+    timeout: 20000
+- openLink: "genesis-workbench-dev://components"
+- extendedWaitUntil:
+    visible:
+      id: "workbench-components"
     timeout: 10000
-- assertVisible:
-    id: "settings-row-version"

@@ -1,39 +1,20 @@
 # Maestro flows
 
-Smoke flows for the starter, run against the development variant on a simulator or emulator.
-`.eas/workflows/e2e.yml` runs them on EAS when started by hand (`eas workflow:run e2e.yml --ref <branch>`);
-it can run on pull requests once the EAS plan includes Maestro (see its header).
+Flows for the showcase, run against the development variant on a simulator. None signs in: the
+app opens straight into the showcase.
 
-| Flow | Tags | What it checks |
-| --- | --- | --- |
-| `flows/launch.yaml` | smoke | A fresh install runs every boot step and leaves the splash, with no fatal screen. |
-| `flows/sign-in-screen.yaml` | smoke | It lands on the sign-in screen: the email form and the sign-in / create-account switch. |
-| `flows/settings-version.yaml` | smoke, account | Signs in with email, opens the Settings tab, and finds the About row (`settings-row-version`) showing a version signature (`1.0.0 (1) · …`), and sign-out. `e2e.yml` leaves it out until its secrets exist. |
-| `flows/deep-link.yaml` | smoke, account | Signs in, opens `genesis-workbench-dev://settings` and lands on Settings: the development variant answers to its own scheme (each variant registers its own). |
-
-`subflows/sign-in.yaml` is the sign-in steps `settings-version.yaml` runs; it isn't a flow of its
-own, so it lives outside `flows/`.
+| Folder | What it holds |
+| --- | --- |
+| `flows/` | Smoke: `launch.yaml` (a fresh install boots, no fatal screen, lands on Standards) and `deep-link.yaml` (the development scheme opens a section's tab). |
+| `workbench/` | One flow per showcase screen: it opens the screen and proves what the screen demonstrates. |
+| `subflows/` | Steps the flows share (`open-workbench.yaml`: a clean launch to Standards). |
 
 ## Running
 
-You need [Maestro](https://maestro.mobile.dev), `.env` filled in (see the starter's README), and the
-development variant installed:
-
 ```bash
-APP_VARIANT=development pnpm --filter native-workbench ios --configuration Release
-pnpm --filter native-workbench e2e                       # every flow in flows/
-maestro test --exclude-tags account .maestro/flows          # the ones that don't sign in
+pnpm --filter native-workbench workbench:prove     # build (or reuse) and run .maestro/workbench
+pnpm --filter native-workbench prove:ios           # the smoke flows
 ```
 
-The `account` flow signs in with `MAESTRO_TEST_EMAIL` and `MAESTRO_TEST_PASSWORD` from the
-environment (Maestro reads `MAESTRO_*` variables): an account that can sign in with email and
-password on the Supabase project the build points at. On EAS they are secret variables of the
-development environment.
-
-`config.yaml` and each flow name the development variant's bundle id
-(`dev.genesis.workbench.dev`); change them with `app.bundleId` in `starter.config.ts` (a test
-checks they agree). The flows find screens by the testIDs the Genesis layouts set (`auth-screen`,
-`home`, `settings`, `settings-row-<id>`, `genesis-boot`, `genesis-fatal`).
-
-These files are copies of [`templates/maestro/`](../../../templates/maestro); a test fails if they
-drift.
+Its options are listed at the top of `prove-ios.mjs`. With the development variant already installed you can
+also run one flow directly: `maestro test .maestro/workbench/header.yaml`.

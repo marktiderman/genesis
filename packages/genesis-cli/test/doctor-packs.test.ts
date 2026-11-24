@@ -359,17 +359,6 @@ describe("native pack", () => {
     expect(levels(back.findings, "release-lane-live")).toEqual(["warn"]);
     // No release workflow at all: nothing to say.
     expect(brief((await nativeApp({})).findings, "release-lane-live")).toEqual([]);
-    // The repository's own starter (not native-release.yml) that dispatches the lane on a push: live, not an error.
-    const ownStarter = { ".github/workflows/mobile-ota.yml": "on:\n  push:\n    branches: [main]\njobs:\n  ota:\n    steps:\n      - run: npx eas-cli workflow:run .eas/workflows/deploy-production.yml\n" };
-    // On release.trigger "eas" (the default) it is drift, a warning naming that file; on "github", quiet.
-    const ownDrift = await nativeApp({ ...dispatchOnly, ...ownStarter });
-    expect(levels(ownDrift.findings, "release-lane-live")).toEqual(["warn"]);
-    expect(ownDrift.findings.find((f) => f.rule === "release-lane-live")!.message).toContain(".github/workflows/mobile-ota.yml");
-    const ownGithub = await nativeApp({ ...dispatchOnly, ...ownStarter, "genesis.config.json": JSON.stringify({ release: { trigger: "github" } }) });
-    expect(levels(ownGithub.findings, "release-lane-live")).toEqual([]);
-    // A manual-only one still starts nothing.
-    const manualStarter = { ".github/workflows/mobile-ota.yml": "on:\n  workflow_dispatch: {}\njobs:\n  ota:\n    steps:\n      - run: npx eas-cli workflow:run .eas/workflows/deploy-production.yml\n" };
-    expect(levels((await nativeApp({ ...dispatchOnly, ...manualStarter })).findings, "release-lane-live")).toEqual(["error"]);
   });
 
   it("preview-environment: pr-preview.yml reading the release's EAS environment (warn)", async () => {

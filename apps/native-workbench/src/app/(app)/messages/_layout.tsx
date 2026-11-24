@@ -1,12 +1,7 @@
-import { Redirect, Stack } from "expo-router";
-import { useSession } from "@marktiderman/genesis-native";
-import starter from "../../../../starter.config";
+import { Stack } from "expo-router";
 
-/** The Messages tab (`features.chat`): a stack, under the signed-in person's chat (`ChatRoot`, in the tabs' layout). */
+/** Each tab is a stack, so its screens get the platform's own header. */
 export default function MessagesStack() {
-  const { userId } = useSession();
-  if (!starter.features.chat) return <Redirect href="/" />;
-  if (!userId) return null;
   return <Stack />;
 }
 

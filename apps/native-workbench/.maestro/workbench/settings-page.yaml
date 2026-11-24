@@ -1,0 +1,25 @@
+# Layouts: SettingsPage: grouped rows, icon tiles, switches and the dangerous actions. Opens the screen from its tab and keeps a screenshot of it, before and after a scroll.
+appId: dev.genesis.workbench.dev
+tags:
+  - workbench
+  - layouts
+---
+- runFlow: ../subflows/open-workbench.yaml
+- tapOn: "Layouts"
+- extendedWaitUntil:
+    visible:
+      id: "workbench-open-settings-page"
+    timeout: 10000
+- tapOn:
+    id: "workbench-open-settings-page"
+- extendedWaitUntil:
+    visible:
+      id: "workbench-settings-page"
+    timeout: 15000
+- waitForAnimationToEnd
+- takeScreenshot: settings-page
+- swipe:
+    direction: UP
+    duration: 800
+- waitForAnimationToEnd
+- takeScreenshot: settings-page-scrolled

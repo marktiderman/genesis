@@ -1,0 +1,25 @@
+# Components: the buttons, switches, segmented control, chips, sliders and steppers. Opens the screen from its tab and keeps a screenshot of it, before and after a scroll.
+appId: dev.genesis.workbench.dev
+tags:
+  - workbench
+  - components
+---
+- runFlow: ../subflows/open-workbench.yaml
+- tapOn: "Components"
+- extendedWaitUntil:
+    visible:
+      id: "workbench-open-controls"
+    timeout: 10000
+- tapOn:
+    id: "workbench-open-controls"
+- extendedWaitUntil:
+    visible:
+      id: "workbench-controls"
+    timeout: 15000
+- waitForAnimationToEnd
+- takeScreenshot: controls
+- swipe:
+    direction: UP
+    duration: 800
+- waitForAnimationToEnd
+- takeScreenshot: controls-scrolled

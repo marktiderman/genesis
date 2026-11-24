@@ -84,19 +84,9 @@ jobs:
       profile: production
       fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
 
-  get_release_android_build:
-    name: Find a release Android build with this fingerprint
-    needs: [fingerprint]
-    type: get-build
-    environment: "preview-release"
-    params:
-      platform: android
-      profile: production
-      fingerprint_hash: ${{ needs.fingerprint.outputs.android_fingerprint_hash }}
-
   publish_update:
     name: Publish to channel pr-<number>
-    needs: [fingerprint, get_release_ios_build, get_release_android_build]
+    needs: [fingerprint, get_release_ios_build]
     environment: "preview-release"
     env:
       PREVIEW_CHANNEL: pr-${{ github.event.pull_request.number }}
@@ -105,8 +95,6 @@ jobs:
       PR_TITLE: ${{ github.event.pull_request.title }}
       IOS_BUILD: ${{ needs.get_release_ios_build.outputs.build_id || '' }}
       IOS_FINGERPRINT: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
-      ANDROID_BUILD: ${{ needs.get_release_android_build.outputs.build_id || '' }}
-      ANDROID_FINGERPRINT: ${{ needs.fingerprint.outputs.android_fingerprint_hash }}
     outputs:
       status: ${{ steps.publish.outputs.status }}
       message: ${{ steps.publish.outputs.message }}
@@ -129,7 +117,6 @@ jobs:
           }
           # Per platform: a release build with this fingerprint takes the update; one without needs a preview build.
           if [ -n "${IOS_BUILD:-}" ] && [ "$(release_fingerprint ios)" = "$IOS_FINGERPRINT" ]; then platforms="ios"; set-output ios_native "false"; else native="ios"; set-output ios_native "true"; fi
-          if [ -n "${ANDROID_BUILD:-}" ] && [ "$(release_fingerprint android)" = "$ANDROID_FINGERPRINT" ]; then platforms="${platforms:+$platforms,}android"; set-output android_native "false"; else native="${native:+$native,}android"; set-output android_native "true"; fi
           # The scheme from release.previews.scheme, else the app's resolved Expo config (app.config.ts included).
           if [ -z "${PREVIEW_SCHEME:-}" ]; then
             PREVIEW_SCHEME="$(npx --no expo config --type public --json 2>/dev/null | node -e 'let s="";process.stdin.on("data",(d)=>s+=d).on("end",()=>{try{const c=JSON.parse(s);const v=Array.isArray(c.scheme)?c.scheme[0]:c.scheme;process.stdout.write(typeof v==="string"&&/^[a-z][a-z0-9+.-]*$/.test(v)?v:"")}catch{}})' || true)"
@@ -208,41 +195,6 @@ jobs:
     environment: preview
     params:
       platform: ios
-      profile: preview
-
-  get_android_build:
-    name: Find a preview Android build with this fingerprint
-    needs: [fingerprint_preview, publish_update]
-    if: ${{ needs.publish_update.outputs.android_native == 'true' }}
-    type: get-build
-    environment: preview
-    params:
-      platform: android
-      profile: preview
-      fingerprint_hash: ${{ needs.fingerprint_preview.outputs.android_fingerprint_hash }}
-      wait_for_in_progress: true
-
-  repack_android:
-    name: Repack the preview Android build with this JavaScript
-    needs: [get_android_build]
-    if: ${{ needs.get_android_build.outputs.build_id }}
-    type: repack
-    environment: preview
-    env:
-      APP_VARIANT: preview
-      EXPO_PUBLIC_APP_VARIANT: preview
-    params:
-      build_id: ${{ needs.get_android_build.outputs.build_id }}
-      profile: preview
-
-  build_android:
-    name: Build a preview Android build (native code changed)
-    needs: [get_android_build, publish_update]
-    if: ${{ needs.publish_update.outputs.android_native == 'true' && !needs.get_android_build.outputs.build_id }}
-    type: build
-    environment: preview
-    params:
-      platform: android
       profile: preview
 
   comment:
