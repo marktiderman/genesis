@@ -142,7 +142,9 @@ base), so a PR can't change its own gate, and a gate change takes effect only on
   "Act on its own", which overrides the repository's and would start it on every PR the account
   opens (https://code.claude.com/docs/en/pr-steward-pull-requests); `@claude stop` stops it.
   `.claude/approvals.yml` stays in observe mode, where Claude only comments and the check normally
-  doesn't block, until the maintainer says otherwise.
+  doesn't block, until the maintainer says otherwise. All three bill the organization's usage credits
+  (observe mode included); turning them on is the maintainer's call, and until then agents don't
+  start them (`@claude review`, `@claude steward`).
 - One watcher per PR: Auto-fix can't start on a PR that PR Steward watches, a local `/steward`
   watch doesn't start there, and PR Steward labelling a PR ends a local `/ship` or `/steward` watch
   (https://code.claude.com/docs/en/pr-steward,
