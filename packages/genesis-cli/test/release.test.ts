@@ -1214,6 +1214,36 @@ describe("genesis add template", () => {
     expect(adoptTemplates(root, ["ci/native-release.yml"], { replaceRival: true })[0]).toMatchObject({ outcome: "created" });
   });
 
+  it("Agentic CI is opt-in: the eas set never takes it, list and upgrade never offer it, and only its own set adds it", async () => {
+    const agentic = (t: string) => t === "release/agentic-ci.yml" || t.startsWith("eas/agents/");
+    expect(resolveTemplateNames(["eas"]).filter(agentic)).toEqual([]);
+    expect(resolveTemplateNames(["eas", "release", "expo", "maestro"]).filter(agentic)).toEqual([]);
+    expect(resolveTemplateNames(["agentic-ci"])).toEqual(expect.arrayContaining(["release/agentic-ci.yml", "eas/agents/device.sh", "eas/agents/run-agent.sh"]));
+    // A single template by its path still resolves.
+    expect(resolveTemplateNames(["release/agentic-ci.yml"])).toEqual(["release/agentic-ci.yml"]);
+
+    const root = nativeApp({});
+    const logs: string[] = [];
+    expect(await addTemplates(root, ["eas"], { log: (l) => logs.push(l), checkGithubLink: async () => ({ state: "linked", repository: "acme/app" }) as never, checkEasEnvironment: async () => ({ state: "exists" }) as never })).toBeLessThanOrEqual(1);
+    expect(existsSync(path.join(root, ".eas/workflows/agentic-ci.yml"))).toBe(false);
+    expect(existsSync(path.join(root, ".eas/agents"))).toBe(false);
+    // With every other native set in place, nothing is missing: not eas, and never agentic-ci.
+    adoptTemplates(root, resolveTemplateNames(["release", "expo", "maestro"]), {});
+    expect(missingTemplateSets(root, readLock(root))).not.toContain("eas");
+    expect(missingTemplateSets(root, readLock(root))).not.toContain("agentic-ci");
+    const list: string[] = [];
+    expect(await addTemplates(root, [], { list: true, log: (l) => list.push(l) })).toBe(0);
+    expect(list.find((l) => / eas {7}/.test(l))).toMatch(/^ {2}✔ eas /);
+    expect(list.find((l) => / agentic-ci /.test(l))).toMatch(/^ {4}agentic-ci .*\(opt-in: only when you add it\)$/);
+
+    expect(await addTemplates(root, ["agentic-ci"], { log: () => {} })).toBeLessThanOrEqual(1);
+    expect(existsSync(path.join(root, ".eas/workflows/agentic-ci.yml"))).toBe(true);
+    expect(existsSync(path.join(root, ".eas/agents/device.sh"))).toBe(true);
+    const after: string[] = [];
+    await addTemplates(root, [], { list: true, log: (l) => after.push(l) });
+    expect(after.find((l) => / agentic-ci /.test(l))).toMatch(/^ {2}✔ agentic-ci /);
+  });
+
   it("the eas set never swaps an app's push-triggered deploy-production.yml for the dispatch-only one without the dispatcher", () => {
     const old = "name: Deploy production\non:\n  push:\n    branches: [main]\njobs:\n  update:\n    type: update\n";
     const root = nativeApp({ ".eas/workflows/deploy-production.yml": old, "genesis.config.json": JSON.stringify({ release: { trigger: "github" } }) });
@@ -2332,7 +2362,7 @@ describe("npx never fetches a package the lane didn't pin", () => {
   // An npx call may run the app's own installed tool (`npx --no <bin>`, which never installs), or a
   // package pinned to an exact version from this list (`npx --yes <package>@<x.y.z>`). Anything
   // else could fetch whatever npm serves under that name and run it with the release's secrets.
-  const PINNABLE = new Set(["eas-cli"]);
+  const PINNABLE = new Set(["eas-cli", "agent-device", "@anthropic-ai/claude-code"]);
   const files = [
     ...walkFiles(TEMPLATES),
     ...walkFiles(path.join(STARTER, ".eas")),

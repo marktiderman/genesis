@@ -1,0 +1,3 @@
+- Each session starts on a fresh install of the app, signed out. The app opens on the sign-in screen.
+- There are no test logins yet: do not sign in. Test only what a signed-out person can reach.
+- Do not delete the account, and do not change settings that leave the app.
