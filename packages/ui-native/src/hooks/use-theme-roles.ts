@@ -22,7 +22,7 @@
  * @stability Beta
  */
 import { useMemo } from "react";
-import { Platform, PlatformColor, type ColorValue } from "react-native";
+import { Platform, PlatformColor, processColor, type ColorValue } from "react-native";
 import { brandRoleVariables, resolveThemeRoles, useOptionalTheme, type CanonicalBrand, type ThemeRole } from "@marktiderman/genesis-design-system";
 import { nativeThemeDark, nativeThemeLight } from "@marktiderman/genesis-design-system/tokens";
 import { readableOn } from "../tokens/contrast";
@@ -60,6 +60,20 @@ function brandPrimary(brand: CanonicalBrand, mode: "light" | "dark"): { primary:
   return primary && onPrimary ? { primary, onPrimary } : undefined;
 }
 
+/**
+ * A colour string React Native resolves (a name such as "white" or "rebeccapurple", or any form
+ * `readableOn` doesn't parse) as `#rrggbb`, so the contrast check works on every form a tint can
+ * take. A PlatformColor or other opaque value stays unknown.
+ */
+function resolvedHex(color: ColorValue): string | undefined {
+  if (typeof color !== "string") return undefined;
+  const argb = processColor(color);
+  if (typeof argb !== "number") return undefined;
+  // Fully transparent ("transparent") has no colour to read on: leave it to the token.
+  if (((argb >>> 24) & 0xff) === 0) return undefined;
+  return `#${((argb >>> 0) & 0xffffff).toString(16).padStart(6, "0")}`;
+}
+
 export function useThemeRoles(options: UseThemeRolesOptions = {}): ThemeRoleColorsWithPrimary {
   const scheme = useThemeMode();
   const { tint, materialYou = false } = options;
@@ -80,7 +94,9 @@ export function useThemeRoles(options: UseThemeRolesOptions = {}): ThemeRoleColo
     return {
       ...roles,
       primary: brand?.primary ?? roles.tint,
-      onPrimary: brand?.onPrimary ?? readableOn(roles.tint) ?? tokens.primaryForeground,
+      // A brand's own onPrimary first; else whichever of white and black reads on the tint, for
+      // every colour form (a name too); the token only for an opaque PlatformColor tint.
+      onPrimary: brand?.onPrimary ?? readableOn(roles.tint) ?? readableOn(resolvedHex(roles.tint)) ?? tokens.primaryForeground,
     };
   }, [scheme, tint, androidDynamic, themeBrand, themeMode]);
 }
