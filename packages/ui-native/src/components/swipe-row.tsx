@@ -298,7 +298,7 @@ export function NativeSwipeRow({
             run(action);
           } else {
             play("medium");
-            // A full swipe runs its action and springs back: no pill while it does.
+            // A row opening onto its buttons (a drag already set this; a ref's openLeft() didn't).
             setOpen(true);
           }
         }}

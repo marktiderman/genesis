@@ -242,7 +242,8 @@ function InboxRow(row: InboxPageSlotMap["row"] & ChatInboxRow) {
     .join(", ");
 
   return (
-    <div className={cn("group relative flex items-stretch", selected && "bg-accent")}>
+    // The wrapper takes the selected highlight from data-selected, so `.bg-accent` stays the selected button's own (conformance names it by that class).
+    <div data-selected={selected ? "true" : undefined} className="group relative flex items-stretch data-[selected=true]:bg-accent">
     <button
       type="button"
       {...rowProps}

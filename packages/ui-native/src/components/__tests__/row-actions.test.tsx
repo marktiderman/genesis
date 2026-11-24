@@ -184,7 +184,7 @@ describe("row actions (ADR 0028)", () => {
     expect(screen.getByTestId("s-pill").dataset.style).toBeUndefined();
   });
 
-  it("a full swipe runs its action without turning the row into a pill", () => {
+  it("a full swipe runs its action once, and the pill from the drag stays until the row is home", () => {
     const Swipeable = fakeSwipeable(vi.fn(), () => 1000);
     const onFull = vi.fn();
     render(
@@ -195,8 +195,15 @@ describe("row actions (ADR 0028)", () => {
       </GenesisModulesProvider>,
     );
     layout(screen.getByTestId("f").parentElement!, 400);
+    // A real swipe starts with the drag, then is let go past the full-swipe point, then springs home.
+    fireEvent.mouseDown(screen.getByTestId("f"));
+    expect(screen.getByTestId("f-pill").dataset.style).toBeDefined();
     fireEvent.click(screen.getByTestId("f"));
     expect(onFull).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("f-pill").dataset.style).toBeDefined();
+    fireEvent.doubleClick(screen.getByTestId("f"));
+    expect(screen.getByTestId("f-pill").dataset.style).toBeDefined();
+    fireEvent.mouseUp(screen.getByTestId("f"));
     expect(screen.getByTestId("f-pill").dataset.style).toBeUndefined();
   });
 
