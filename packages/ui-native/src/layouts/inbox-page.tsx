@@ -25,7 +25,7 @@
  * text (an unread count shows at the end of the row, as in Mail); `leading`
  * replaces the dot.
  *
- * Slots: `row`, `swipeable`, `header` (above the group), `footer` (below it,
+ * Slots: `row`, `swipeable`, `rowMenu` (a long-press menu of your own), `header` (above the group), `footer` (below it,
  * the paging spinner by default) and `empty`. `slots` swaps a part for your
  * component (same props), `slotProps` feeds the default more props, `null`
  * drops it.
@@ -46,7 +46,7 @@ import { NativeBadge } from "../components/badge";
 import { NativeIcon } from "../components/icon";
 import { NativeRefreshControl } from "../components/refresh-control";
 import { NativeSwipeRow } from "../components/swipe-row";
-import { useRowActions, type RowActionProps, type RowActionsSwipeProps } from "../components/use-row-actions";
+import { useRowActions, type RowActionProps, type RowActionsMenuProps, type RowActionsSwipeProps } from "../components/use-row-actions";
 import { NativeLoadingState } from "../components/loading-state";
 import { composeHeaderOptions, type ScreenHeaderProps } from "./screen-container";
 import { formatInboxTime, type InboxItem, type InboxSwipeAction } from "@marktiderman/genesis-core/conversation";
@@ -78,6 +78,11 @@ export type InboxPageSlotMap = {
     actionProps?: RowActionProps;
   };
   swipeable: { actions: InboxSwipeAction[]; testID: string; appearance?: "fill" | "round"; /** `false`: the row already has the actions for screen readers (InboxPage puts them on it). */ accessibilityActions?: boolean; children?: ReactNode };
+  /**
+   * A row's long-press menu of the screen's own, in place of the sheet (and the system menu): none
+   * by default. With it, no sheet is mounted; the swipe and the screen reader's actions don't change.
+   */
+  rowMenu: RowActionsMenuProps;
   header: { testID: string };
   footer: { loadingMore: boolean; testID: string };
   empty: { title: string; body: string; actionLabel?: string; onAction?: () => void; testID: string };
@@ -218,6 +223,8 @@ export function InboxPage({
   const swipeSlot = slots.swipeable;
   const rowProps = slotProps.row;
   const swipeProps = slotProps.swipeable;
+  const menuSlot = slots.rowMenu;
+  const menuProps = slotProps.rowMenu;
   const renderRow = useCallback(
     ({ item: row }: { item: InboxPageSlotMap["row"] }) => (
       <InboxRow
@@ -226,12 +233,14 @@ export function InboxPage({
         rowProps={rowProps}
         swipeSlot={swipeSlot}
         swipeProps={swipeProps}
+        menuSlot={menuSlot}
+        menuProps={menuProps}
         swipeAppearance={swipeAppearance}
         menuPreview={menuPreview}
         sheetTestID={`${testID}-menu`}
       />
     ),
-    [rowSlot, rowProps, swipeSlot, swipeProps, swipeAppearance, menuPreview, testID],
+    [rowSlot, rowProps, swipeSlot, swipeProps, menuSlot, menuProps, swipeAppearance, menuPreview, testID],
   );
 
   const headerNode = (
@@ -361,6 +370,8 @@ const InboxRow = memo(function InboxRow({
   rowProps,
   swipeSlot,
   swipeProps,
+  menuSlot,
+  menuProps,
   swipeAppearance,
   menuPreview,
   sheetTestID,
@@ -370,6 +381,8 @@ const InboxRow = memo(function InboxRow({
   rowProps: Partial<InboxPageSlotMap["row"]> | undefined;
   swipeSlot: Slots<InboxPageSlotMap>["swipeable"];
   swipeProps: Partial<InboxPageSlotMap["swipeable"]> | undefined;
+  menuSlot: Slots<InboxPageSlotMap>["rowMenu"];
+  menuProps: Partial<InboxPageSlotMap["rowMenu"]> | undefined;
   swipeAppearance: "fill" | "round" | undefined;
   menuPreview: ((row: InboxPageSlotMap["row"]) => ReactNode) | undefined;
   sheetTestID: string;
@@ -386,6 +399,8 @@ const InboxRow = memo(function InboxRow({
     title: merged.title,
     ...(menuPreview ? { preview: () => menuPreview(merged) } : {}),
     ...(swipeAppearance ? { appearance: swipeAppearance } : {}),
+    // The screen's own menu (the slot): `null` or none keeps the sheet.
+    ...(menuSlot ? { renderMenu: (props: RowActionsMenuProps) => renderSlot(menuSlot, undefined, props, menuProps) } : {}),
     swipe,
     testID: merged.testID,
     sheetTestID,

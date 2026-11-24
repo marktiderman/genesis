@@ -183,6 +183,8 @@ describe("row actions (ADR 0028)", () => {
       </GenesisModulesProvider>,
     );
     expect(screen.getByTestId("s-action-pin-label").textContent).toBe("Pin");
+    // A labelled button is as it was: no role or label of its own.
+    expect(screen.getByTestId("s-action-pin").getAttribute("aria-label")).toBeNull();
   });
 
   it("draws an indigo accent in systemIndigo", () => {
@@ -247,6 +249,37 @@ describe("row actions (ADR 0028)", () => {
     fireEvent.contextMenu(screen.getByTestId("li"));
     expect(await screen.findByTestId("peek")).toBeTruthy();
     expect(screen.getByTestId("ra-sheet-preview")).toBeTruthy();
+  });
+
+  it("with renderMenu, the long press opens the screen's own menu, and neither the sheet nor the system menu is mounted", async () => {
+    const Menu: NonNullable<GenesisModules["menu"]> = () => <div data-testid="system-menu" />;
+    const seen: { open: boolean; title?: string; ids: string[]; testID: string }[] = [];
+    render(
+      <GenesisModulesProvider modules={{ menu: Menu }}>
+        <NativeRowActions
+          actions={make()}
+          title="Ada"
+          renderMenu={({ open, onClose, actions, title, testID }) => {
+            seen.push({ open, title, ids: actions.map((a) => a.id), testID });
+            return open ? <button data-testid="own-menu" onClick={onClose} /> : null;
+          }}
+          testID="ra"
+        >
+          <NativeListItem title="Ada" onPress={vi.fn()} testID="li" />
+        </NativeRowActions>
+      </GenesisModulesProvider>,
+    );
+    expect(screen.queryByTestId("system-menu")).toBeNull();
+    const row = screen.getByTestId("li");
+    expect(row.getAttribute("data-a11y-actions")).toBe("read,pin,review,delete");
+    fireEvent.contextMenu(row);
+    expect(await screen.findByTestId("own-menu")).toBeTruthy();
+    expect(seen.at(-1)).toMatchObject({ open: true, title: "Ada", ids: ["read", "pin", "review", "delete"], testID: "ra-menu" });
+    expect(screen.queryByTestId("ra-sheet")).toBeNull();
+    fireEvent.click(screen.getByTestId("own-menu"));
+    expect(screen.queryByTestId("own-menu")).toBeNull();
+    // VoiceOver's actions are unchanged.
+    expect(row.getAttribute("data-a11y-actions")).toBe("read,pin,review,delete");
   });
 
   it("keeps the actions unseen until a drag starts, so they never show in an inset row's margins", () => {

@@ -262,8 +262,8 @@ export function NativeSwipeRow({
             <Pressable
               key={action.id}
               testID={`${testID}-action-${action.id}`}
-              accessibilityRole="button"
-              accessibilityLabel={action.label}
+              // A round button drawn without its label is still named (the rest are as they were).
+              {...(round && !roundLabels ? { accessibilityRole: "button" as const, accessibilityLabel: action.label } : {})}
               onPress={() => run(action)}
               style={{ width: round ? m.roundSlot : m.fillWidth, alignItems: "center", justifyContent: "center", gap: 4, backgroundColor: round ? "transparent" : background }}
             >

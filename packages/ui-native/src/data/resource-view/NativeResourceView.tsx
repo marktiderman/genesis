@@ -40,7 +40,7 @@ import { NativeSearchBar } from "../../components/search-bar";
 import { NativeSectionListHeader } from "../../components/section-list";
 import { NativeSheet } from "../../components/sheet";
 import { NativeSwipeRow } from "../../components/swipe-row";
-import { useRowActions, type RowActionsSwipeProps } from "../../components/use-row-actions";
+import { useRowActions, type RowActionsMenuProps, type RowActionsSwipeProps } from "../../components/use-row-actions";
 import { NativeText } from "../../components/text";
 import { useGenesisModules } from "../../native-modules";
 import { useThemeRoles } from "../../hooks/use-theme-roles";
@@ -126,6 +126,11 @@ export interface NativeResourceViewProps<T extends Row = Row> extends NativeReso
    * `renderCard` rows swipe only with a `swipeable` of the screen's own. `null` turns it off.
    */
   swipeable?: ComponentType<NativeResourceSwipeableProps> | null;
+  /**
+   * The `"inbox"` type's rows: a long-press menu of the screen's own, in place of the sheet and the
+   * system menu (InboxPage's `rowMenu` slot). The swipe and the screen reader's actions stay.
+   */
+  rowMenu?: ComponentType<RowActionsMenuProps>;
   /** Above the list, under the search (a filter, a call to action). */
   header?: ReactNode;
   /** Replaces the empty state. */
@@ -521,6 +526,7 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
     subtitle,
     onRowPress,
     swipeable: swipeableProp,
+    rowMenu,
     header,
     emptyState,
     searchable,
@@ -877,11 +883,11 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
         <InboxPage
           testID={`${testID}-inbox`}
           // The screen's own `swipeable` wraps inbox rows too, and `null` turns their swipe off (the menu and accessibility actions stay).
-          {...(swipeableProp === null
-            ? { slots: { swipeable: null } }
-            : swipeableProp
-              ? { slots: { swipeable: swipeableProp as unknown as ComponentType<InboxPageSlotMap["swipeable"]> } }
-              : {})}
+          // The screen's own long-press menu too (InboxPage's `rowMenu`).
+          slots={{
+            ...(swipeableProp === null ? { swipeable: null } : swipeableProp ? { swipeable: swipeableProp as unknown as ComponentType<InboxPageSlotMap["swipeable"]> } : {}),
+            ...(rowMenu ? { rowMenu } : {}),
+          }}
           items={state.rows.map((row) => {
             const r = view.inboxRow(row as never);
             return {

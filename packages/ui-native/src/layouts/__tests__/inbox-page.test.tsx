@@ -237,6 +237,18 @@ describe("InboxPage", () => {
     expect(seen).toContain("plain");
   });
 
+  it("opens a rowMenu of the screen's own on long press, with no sheet in the tree", async () => {
+    const RowMenu = ({ open, title, actions, testID }: { open: boolean; title?: string; actions: readonly { id: string }[]; testID: string }) =>
+      open ? <div data-testid={testID}>{`${title}: ${actions.map((a) => a.id).join(",")}`}</div> : null;
+    render(<InboxPage testID="inbox" now={now} slots={{ rowMenu: RowMenu }} items={[{ id: "x", title: "Thread", swipeActions: [{ id: "read", label: "Mark read", onPress: vi.fn() }] }]} />);
+    const row = screen.getByTestId("inbox-row-x");
+    fireEvent.contextMenu(row);
+    await act(async () => {});
+    expect(screen.getByTestId("inbox-row-x-menu").textContent).toBe("Thread: read");
+    expect(screen.queryByTestId("inbox-menu")).toBeNull();
+    expect(row.getAttribute("data-a11y-actions")).toBe("read");
+  });
+
   it("on Android, rows are full width", () => {
     Platform.OS = "android";
     render(<InboxPage testID="inbox" items={items} now={now} />);

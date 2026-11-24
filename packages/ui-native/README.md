@@ -118,6 +118,10 @@ menu; `InboxPage` takes `swipeAppearance` and `menuPreview` for the same, and gi
 your own `actionProps` to spread on its pressable. An `actionProps` in `slotProps.row` is laid over
 the generated one key by key: give `accessibilityActions` and `onAccessibilityAction` together
 (listing the row's own actions to keep them), and an `onLongPress` of your own replaces the menu's.
+A long-press menu of a screen's own replaces the sheet and the system menu: `renderMenu` on
+`NativeRowActions` (and `useRowActions`), InboxPage's `rowMenu` slot, and NativeResourceView's
+`rowMenu` for its inbox rows. It gets `RowActionsMenuProps` (`open`, `onClose`, `actions`, `title`,
+`preview`, `testID`); the swipe and VoiceOver's actions don't change.
 
 | Tone | iOS | | Accent |
 | --- | --- | --- | --- |

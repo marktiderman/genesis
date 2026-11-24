@@ -5,7 +5,8 @@
  * `NativeListItem`'s `actions`, InboxPage's rows and NativeResourceView's rows and cards all use
  * it, so a row behaves the same wherever it is drawn.
  *
- * - **Long press:** the system context menu when the app passes `GenesisModules.menu` (the row
+ * - **Long press:** a screen's own menu when it gives `renderMenu` (no sheet or system menu is
+ *   mounted then); else the system context menu when the app passes `GenesisModules.menu` (the row
  *   lifted as its preview; the menu owns the gesture, so `rowProps` has no `onLongPress`), else
  *   `NativeContextMenu`'s sheet. A `preview` (a peek above the menu) needs the sheet, which the
  *   system menu can't draw.
@@ -32,6 +33,21 @@ export interface RowActionsSwipeProps {
   children: ReactNode;
 }
 
+/** What a screen's own long-press menu (`renderMenu`) is given. */
+export interface RowActionsMenuProps {
+  open: boolean;
+  /** Closes it: set `open` false. */
+  onClose: () => void;
+  /** Every action, as the sheet would list them (`swipe: false` ones included). */
+  actions: readonly RowSwipeAction[];
+  /** What the actions act on (the row's title). */
+  title?: string;
+  /** The row's peek, when it has one. */
+  preview?: () => ReactNode;
+  /** `<row testID>-menu`. */
+  testID: string;
+}
+
 export interface UseRowActionsOptions {
   /** What the actions act on: the menu's title (the row's title). */
   title?: string;
@@ -41,6 +57,12 @@ export interface UseRowActionsOptions {
   appearance?: "fill" | "round";
   /** The swipe around the row: default `NativeSwipeRow`; a screen's own; `null` for none (the menu and screen reader's actions stay). */
   swipe?: ((props: RowActionsSwipeProps) => ReactNode) | null;
+  /**
+   * The long-press menu of the screen's own (a glass menu, say), in place of the sheet and the
+   * system menu: it gets `RowActionsMenuProps` and is mounted from the first long press. The swipe
+   * and the screen reader's actions don't change.
+   */
+  renderMenu?: (props: RowActionsMenuProps) => ReactNode;
   /** The sheet's Cancel. */
   cancelLabel?: string;
   /** The row's testID; the menu, swipe and sheet are `<testID>-menu`, `-swipe`, `-sheet`. */
@@ -116,8 +138,8 @@ const defaultSwipe = (props: RowActionsSwipeProps) => <NativeSwipeRow {...props}
 
 export function useRowActions(actions: readonly RowSwipeAction[], options: UseRowActionsOptions): UseRowActionsReturn {
   const { menu } = useGenesisModules();
-  const { title, preview, appearance, swipe = defaultSwipe, cancelLabel, testID, sheetTestID } = options;
-  const Menu = preview ? undefined : menu;
+  const { title, preview, appearance, swipe = defaultSwipe, renderMenu, cancelLabel, testID, sheetTestID } = options;
+  const Menu = preview || renderMenu ? undefined : menu;
   const [open, setOpen] = useState(false);
   // The sheet mounts on the first long press and stays, so its words don't vanish while it closes.
   const [sheetShown, setSheetShown] = useState(false);
@@ -159,7 +181,9 @@ export function useRowActions(actions: readonly RowSwipeAction[], options: UseRo
     return (
       <>
         {swiped}
-        {sheetShown ? (
+        {sheetShown && renderMenu ? (
+          renderMenu({ open, onClose: () => setOpen(false), actions, ...(title ? { title } : {}), ...(preview ? { preview } : {}), testID: `${testID}-menu` })
+        ) : sheetShown ? (
           <NativeContextMenu
             open={open}
             onOpenChange={setOpen}
