@@ -212,7 +212,7 @@ export const chatNativeCopy: ChatNativeCopy = {
   showAlerts: "Show Alerts",
   deleteConversation: "Delete",
   deleteConversationTitle: "Delete this conversation?",
-  deleteConversationBody: "It leaves your inbox until someone sends a new message. Nobody else's conversation changes.",
+  deleteConversationBody: "Its messages are removed for you and it leaves your inbox. Everyone else still sees them. A new message brings it back, with only what comes after.",
   pin: "Pin",
   unpin: "Unpin",
   archive: "Archive",

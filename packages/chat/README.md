@@ -7,7 +7,7 @@ replies, threads, reactions, read state, live updates and push.
 | Entry | What it is |
 |---|---|
 | `@marktiderman/genesis-chat` | The headless core: types, `createChatClient`, the send outbox, thread logic, media rules. No React. |
-| `/react` | Hooks for web and native: `ChatProvider`, `useInbox`, `useConversation`, `useMessageActions`, and for 0002 `useTopics`, `useScheduled`, `useAvailability`, `useBroadcast`, `useSearch`, `useLinkPreviews`. |
+| `/react` | Hooks for web and native: `ChatProvider`, `useInbox`, `useInboxActions`, `useConversation`, `useMessageActions`, and for 0002 `useTopics`, `useScheduled`, `useAvailability`, `useBroadcast`, `useSearch`, `useLinkPreviews`. |
 | `/web` | Renderers on genesis-ui: inbox, thread, composer (text, photos, voice, video, emoji, scheduled send), media, topics, search, availability, broadcast, and the chat dock. |
 | `/native` | Beta: screens and parts on genesis-ui-native (inbox, thread, search, availability), voice notes, photos and video, and the push block's glue. See "On native" below. |
 | `/server` | `createChatRunner`: works the outbox (push, transcripts, storage cleanup). |
@@ -457,6 +457,11 @@ chat.setMySettings(conversationId, { markedUnread: true }): Promise<void>
 // else's inbox, thread or read receipts change.
 chat.deleteConversationForMe(conversationId, seq?): Promise<void>
 ```
+
+From React, `useInboxActions()` does both (and Pin, Hide Alerts and Archive), refreshes the inbox
+and badge, and on Delete for me drops the conversation's cached thread, pins and search results, so
+the deleted history can't show again on that device when a new message brings it back.
+`ChatInboxScreen` uses it for its row actions, and says so when one fails.
 
 Both are private to the person: they're kept in `genesis_chat.member_state`, which only they read,
 not on `members`, which everyone in the conversation reads. Both send the person's own devices an

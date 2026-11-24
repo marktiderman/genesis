@@ -12,9 +12,8 @@ import { Alert } from "react-native";
 import { NativeAvatar } from "@marktiderman/genesis-ui-native/components";
 import { InboxPage, type InboxItem, type InboxPageProps } from "@marktiderman/genesis-ui-native/layouts";
 import type { ChatInboxItem } from "../core/types";
-import { chatKeys, useChat, useInbox, usePeople, type ChatAttachmentKind } from "../react/index";
+import { useChat, useInbox, useInboxActions, usePeople, type ChatAttachmentKind } from "../react/index";
 import { attachmentPreview } from "./attachment-cards";
-import { useQueryClient } from "@tanstack/react-query";
 import type { ChatNativeCopy } from "./copy";
 import { initials, useChatNative, type ChatPerson } from "./context";
 import { displayBody } from "./message-bubble";
@@ -68,8 +67,8 @@ export function inboxRow(
 const FOREVER = "9999-12-31T00:00:00.000Z";
 
 export function ChatInboxScreen({ onOpen, onStart, kind, kinds, excludeKinds, archived, pageProps, testID = "chat-inbox" }: ChatInboxScreenProps) {
-  const { client, userId, attachmentKinds } = useChat();
-  const queryClient = useQueryClient();
+  const { userId, attachmentKinds } = useChat();
+  const act = useInboxActions();
   const { copy, person: known } = useChatNative();
   const inbox = useInbox({ kind, kinds, excludeKinds, archived });
   // The other person in each direct conversation, fetched in one batch (ChatProvider loadPeople).
@@ -87,10 +86,13 @@ export function ChatInboxScreen({ onOpen, onStart, kind, kinds, excludeKinds, ar
     }
   }, [inbox]);
 
-  const settle = useCallback(() => {
-    void queryClient.invalidateQueries({ queryKey: ["genesis-chat", "inbox"] });
-    void queryClient.invalidateQueries({ queryKey: chatKeys.unread() });
-  }, [queryClient]);
+  // A row action that fails says so, rather than leaving the row as it was without a word.
+  const run = useCallback(
+    (call: Promise<unknown>) => {
+      call.catch((e: unknown) => Alert.alert(copy.actionFailed, e instanceof Error ? e.message : undefined));
+    },
+    [copy],
+  );
 
   const items: InboxItem[] = inbox.items.map((item) => ({
     ...inboxRow(item, { me: userId, copy, person, kinds: attachmentKinds }),
@@ -100,15 +102,15 @@ export function ChatInboxScreen({ onOpen, onStart, kind, kinds, excludeKinds, ar
     // action on the row (NativeSwipeRow).
     swipeActions: [
       item.unread > 0
-        ? { id: "read", label: copy.markRead, icon: "mail-open", tone: "blue" as const, side: "leading" as const, full: true, onPress: () => void client.markRead(item.conversationId).then(settle, settle) }
-        : { id: "unread", label: copy.markUnread, icon: "message-unread", tone: "blue" as const, side: "leading" as const, full: true, onPress: () => void client.setMySettings(item.conversationId, { markedUnread: true }).then(settle, settle) },
+        ? { id: "read", label: copy.markRead, icon: "mail-open", tone: "blue" as const, side: "leading" as const, full: true, onPress: () => run(act.markRead(item.conversationId)) }
+        : { id: "unread", label: copy.markUnread, icon: "message-unread", tone: "blue" as const, side: "leading" as const, full: true, onPress: () => run(act.markUnread(item.conversationId)) },
       {
         id: "pin",
         label: item.pinned ? copy.unpin : copy.pin,
         icon: "pin",
         tone: "orange" as const,
         side: "leading" as const,
-        onPress: () => void client.setMySettings(item.conversationId, { pinned: !item.pinned }).then(settle, settle),
+        onPress: () => run(act.setPinned(item.conversationId, !item.pinned)),
       },
       {
         id: "alerts",
@@ -116,7 +118,7 @@ export function ChatInboxScreen({ onOpen, onStart, kind, kinds, excludeKinds, ar
         icon: item.muted ? "bell" : "bell-off",
         tone: "purple" as const,
         side: "trailing" as const,
-        onPress: () => void client.setMySettings(item.conversationId, { mutedUntil: item.muted ? null : FOREVER }).then(settle, settle),
+        onPress: () => run(act.setMutedUntil(item.conversationId, item.muted ? null : FOREVER)),
       },
       {
         id: "delete",
@@ -128,12 +130,13 @@ export function ChatInboxScreen({ onOpen, onStart, kind, kinds, excludeKinds, ar
         onPress: () =>
           Alert.alert(copy.deleteConversationTitle, copy.deleteConversationBody, [
             { text: copy.cancel, style: "cancel" },
-            { text: copy.deleteConversation, style: "destructive", onPress: () => void client.deleteConversationForMe(item.conversationId).then(settle, settle) },
+            // Up to the last message this row showed: one that came in since isn't deleted unseen.
+            { text: copy.deleteConversation, style: "destructive", onPress: () => run(act.deleteForMe(item.conversationId, item.lastSeq)) },
           ]),
       },
       ...(item.archived
         ? []
-        : [{ id: "archive", label: copy.archive, icon: "archive", swipe: false, onPress: () => void client.setMySettings(item.conversationId, { archived: true }).then(settle, settle) }]),
+        : [{ id: "archive", label: copy.archive, icon: "archive", swipe: false, onPress: () => run(act.setArchived(item.conversationId, true)) }]),
     ],
   }));
 
