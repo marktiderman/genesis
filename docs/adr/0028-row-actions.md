@@ -50,7 +50,16 @@ as it is.
      doesn't run it, and it must clear the side's open actions by 40pt, so a row springing open to its buttons never counts; a release right at the threshold can land either side, the report coming a
      frame after the finger lifts); a side keeps its destructive action under the cap;
      right-to-left aware; the actions on its child as `accessibilityActions` unless the row
-     already has them; unseen at rest.
+     already has them; unseen at rest, and seen whenever the row is off it (the row's translation
+     with Reanimated, else the swipe's open and close events, so a row opened from code shows them).
+     The side comes from gesture-handler 2.21+'s naming of the open direction (2.20 and earlier
+     named it the other way), so the optional peer starts at 2.21.0.
+   - Text and icons: white on the iOS system tones, as iOS draws them (black on yellow), which
+     doesn't reach WCAG AA on every tone; on `tint` and `red`, the color that reads on the app's
+     own color (black or white by contrast on a hex tint, else the theme's `primaryForeground` /
+     `destructiveForeground`). A destructive `full` action says it asks first or can be undone
+     (`confirms`), or warns in development; NativeResourceView sets it for a view action with a
+     `confirm`.
    - `NativeRowActions`: swipe + long-press menu + accessibility actions around any pressable
      row. The menu is the system context menu when the app passes `GenesisModules.menu`
      (`MenuView` from `@expo/ui/community/menu`), else `NativeContextMenu`'s sheet.

@@ -290,7 +290,9 @@ export function ScreenContainer({
     () => {
       if (!h) return null;
       const large = h.large ?? true;
-      return { ...composeHeaderOptions({ scrollEdgeBehavior: "match", ...h, large }), headerLargeTitle: large } as Record<string, unknown>;
+      // `large` (default true) always yields a headerLargeTitle from composeHeaderOptions, and its
+      // `headerOptions` passthrough still wins over it.
+      return composeHeaderOptions({ scrollEdgeBehavior: "match", ...h, large });
     },
     // By field, so an inline `header={{…}}` doesn't set the options on every render; keep `search`,
     // the callbacks and `headerOptions` stable (useMemo / useCallback) for the same reason.
@@ -298,7 +300,8 @@ export function ScreenContainer({
     [!!h, h?.headerTitle, h?.large, h?.scrollEdgeBehavior, h?.search, h?.headerLeft, h?.headerRight, h?.headerRightItems, h?.headerLeftItems, h?.headerOptions],
   );
   const headerOptions = useMemo(() => {
-    if (!nextOptions) return null;
+    // A screen that drops `header` altogether resets what it set, once, before StackScreen goes.
+    if (!nextOptions) return appliedKeys.length ? Object.fromEntries(appliedKeys.map((key) => [key, undefined])) : null;
     const out: Record<string, unknown> = { ...nextOptions };
     for (const key of appliedKeys) if (!(key in nextOptions)) out[key] = undefined;
     return out;

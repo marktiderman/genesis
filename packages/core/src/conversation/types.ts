@@ -166,9 +166,15 @@ export interface InboxSwipeAction {
   /**
    * A full swipe runs it, as Mail's Delete and Archive do: the row's first action on its side
    * with `full` is the one a drag past 0.6 of the row's width triggers when let go. Off by default.
-   * A destructive one should confirm in its `onPress` (or undo): one gesture is easy to make by mistake.
+   * A destructive one should confirm in its `onPress` (or undo): one gesture is easy to make by
+   * mistake. Say so with `confirms`; a destructive `full` action without it warns in development.
    */
   full?: boolean;
+  /**
+   * Its `onPress` asks first (an alert) or can be undone, so a full swipe that runs it by mistake
+   * loses nothing. `NativeResourceView` sets it for a view action with a `confirm`.
+   */
+  confirms?: boolean;
   /**
    * Behind a swipe on the phone. Default `true`; `false` keeps it in the long-press menu and the
    * screen reader's actions only (an action that needs a second look before it runs).

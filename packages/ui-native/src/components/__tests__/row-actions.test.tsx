@@ -10,7 +10,7 @@ import { ROW_ACTION_TONES, onRowActionColor } from "../../tokens/row-action-tone
 
 afterEach(cleanup);
 
-/** A ReanimatedSwipeable stand-in: draws both sides, and "releases" the row at `dx` on click. */
+/** A ReanimatedSwipeable stand-in: draws both sides, and "releases" the row at `dx` on click, naming the direction as gesture-handler 2.21+ does (row-actions-review.test.tsx covers the older naming). */
 function fakeSwipeable(close: () => void, dx: () => number) {
   return forwardRef<unknown, Record<string, any>>(function Swipeable(props, ref) {
     useImperativeHandle(ref, () => ({ close }));

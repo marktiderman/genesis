@@ -53,7 +53,8 @@ library's own. It is decorative (hidden from screen readers) unless you give it 
 **Gesture handler.** Two things here need `react-native-gesture-handler`: `NativeSheet` when it
 draws with `@gorhom/bottom-sheet`, and swipe actions (`GenesisModules.swipeable`, its
 `ReanimatedSwipeable`: NativeSwipeRow, NativeRowActions, InboxPage and NativeResourceView rows).
-If you use either, install `react-native-gesture-handler`
+If you use either, install `react-native-gesture-handler` (2.21 or later for swipe actions: earlier
+versions name the open direction the other way, so a full swipe wouldn't run)
 as a direct dependency of your app (`npx expo install react-native-gesture-handler`) and wrap the
 root in its `GestureHandlerRootView`; don't rely on another package bringing it in. The drawer's
 swipe uses React Native's `PanResponder`.
@@ -187,8 +188,9 @@ refresh (`refreshControl`, or built in).
 
 `NativeResourceView` draws a view as cards with `mode="grid"` (`numColumns`, default 2), and an
 app's own row or card with `renderCard(row, index, card)`; spread `card.pressableProps` on its
-Pressable for the built-in press, long press and accessibility. Sections, paging, refresh, the
-empty state and swipe actions stay. See docs/RESOURCE-VIEW.md, "Cards and custom rows".
+Pressable for the built-in press, long press and accessibility. Sections, paging, refresh and the
+empty state stay; grid cards and `renderCard` rows swipe only when the screen passes its own
+`swipeable` (the default swipe is for list rows). See docs/RESOURCE-VIEW.md, "Cards and custom rows".
 
 ## Keyboard toolbar
 

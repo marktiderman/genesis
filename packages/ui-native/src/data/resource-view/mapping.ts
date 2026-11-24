@@ -165,7 +165,7 @@ export function swipeActionsFor<T extends Row>(
     right: Allowed | false,
     run: () => void,
     destructive = false,
-    place: Pick<NativeResourceSwipeAction, "side" | "full" | "swipe" | "tone"> = {},
+    place: Pick<NativeResourceSwipeAction, "side" | "full" | "swipe" | "tone" | "confirms"> = {},
   ) => {
     if (right === false) return;
     const reason = right === true ? undefined : right;
@@ -189,6 +189,8 @@ export function swipeActionsFor<T extends Row>(
       const place = {
         ...(swipe === false ? { swipe: false } : swipe ? { side: swipe.side, ...(swipe.full ? { full: true } : {}) } : {}),
         ...(action.tone ? { tone: action.tone } : {}),
+        // NativeResourceView asks the action's `confirm` before it runs (a full swipe included).
+        ...(action.confirm ? { confirms: true } : {}),
       };
       add(action.name, action.label, action.icon, view.canAction(action.name, row as T & DataRow, viewer), () => options.onAction!(action.name, row), !!action.destructive, place);
     }

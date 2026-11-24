@@ -220,6 +220,19 @@ describe("ScreenContainer header, set by field", () => {
   });
 });
 
+describe("ScreenContainer header, headerOptions", () => {
+  it("lets headerOptions win over large, as everywhere else", () => {
+    const seen: Record<string, unknown>[] = [];
+    const StackScreen = ({ options }: { options?: Record<string, unknown> }) => {
+      seen.push(options ?? {});
+      return null;
+    };
+    const headerOptions = { headerLargeTitle: true };
+    render(<GenesisModulesProvider modules={{ router: { StackScreen } }}><ScreenContainer header={{ headerTitle: "Inbox", large: false, headerOptions }}><i /></ScreenContainer></GenesisModulesProvider>);
+    expect(seen.at(-1)!.headerLargeTitle).toBe(true);
+  });
+});
+
 describe("ScreenContainer header under StrictMode", () => {
   it("resets a removed search even with StrictMode's double render", () => {
     let merged: Record<string, unknown> = {};
@@ -247,5 +260,29 @@ describe("ScreenContainer header under StrictMode", () => {
     expect(merged.headerSearchBarOptions).toBeUndefined();
     expect(merged.title).toBe("Inbox");
   });
-});
 
+  it("resets every option it set when the screen drops its header altogether", () => {
+    let merged: Record<string, unknown> = {};
+    const StackScreen = ({ options }: { options?: Record<string, unknown> }) => {
+      merged = { ...merged, ...options };
+      return null;
+    };
+    const modules = { router: { StackScreen } };
+    const view = render(
+      <GenesisModulesProvider modules={modules}>
+        <ScreenContainer header={{ headerTitle: "Inbox", search: { placeholder: "Search" } }}><i /></ScreenContainer>
+      </GenesisModulesProvider>,
+    );
+    expect(merged.title).toBe("Inbox");
+    expect(merged.headerLargeTitle).toBe(true);
+    view.rerender(
+      <GenesisModulesProvider modules={modules}>
+        <ScreenContainer><i /></ScreenContainer>
+      </GenesisModulesProvider>,
+    );
+    expect(merged.title).toBeUndefined();
+    expect(merged.headerLargeTitle).toBeUndefined();
+    expect(merged.headerSearchBarOptions).toBeUndefined();
+    expect("title" in merged).toBe(true);
+  });
+});
