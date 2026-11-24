@@ -140,7 +140,8 @@ base), so a PR can't change its own gate, and a gate change takes effect only on
 - Code Review follows `REVIEW.md`. PR Steward follows `.claude/skills/steward/SKILL.md` and starts
   when someone comments `@claude steward`, if the maintainer sets it to start only on request and keeps their own PR Steward setting off
   "Act on its own", which overrides the repository's and would start it on every PR the account
-  opens (https://code.claude.com/docs/en/pr-steward-pull-requests); `@claude stop` stops it.
+  opens, and turns on "Include my draft PRs", without which it won't start on a draft PR
+  (https://code.claude.com/docs/en/pr-steward-pull-requests); `@claude stop` stops it.
   `.claude/approvals.yml` stays in observe mode, where Claude only comments and the check normally
   doesn't block, until the maintainer says otherwise. All three bill the organization's usage credits
   (observe mode included); turning them on is the maintainer's call, and until then agents don't
