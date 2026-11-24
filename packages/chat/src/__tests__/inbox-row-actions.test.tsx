@@ -300,6 +300,27 @@ describe("ChatInbox (web) row actions", () => {
     await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId("genesis-chat-inbox-row-c2")));
   });
 
+  it("gives focus back to the row whose menu asked when the question is cancelled", async () => {
+    const B = "00000000-0000-4000-8000-0000000000b2";
+    const client = createMemoryChatClient({
+      me: ME,
+      conversations: [
+        { id: "c1", title: "Morning crew", members: [{ userId: ME }, { userId: B }], messages: [] },
+        { id: "c2", title: "Evening crew", members: [{ userId: ME }, { userId: B }], messages: [] },
+      ],
+    });
+    mount(<ChatInbox resolveUser={resolveUser} onSelect={() => {}} />, client);
+    await screen.findByTestId("genesis-chat-inbox-row-c2");
+    const rows = screen.getAllByRole("button").filter((b) => b.hasAttribute("data-inbox-row"));
+    const asking = rows[rows.length - 1]!;
+    const id = asking.getAttribute("data-testid")!.replace("genesis-chat-inbox-row-", "");
+    await openMenu(`genesis-chat-inbox-row-${id}`);
+    fireEvent.click(await screen.findByTestId(`genesis-chat-inbox-row-${id}-action-delete`));
+    fireEvent.click(await screen.findByText("Cancel"));
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId(`genesis-chat-inbox-row-${id}`)));
+    expect(client.calls.some((c) => c.method === "deleteConversationForMe")).toBe(false);
+  });
+
   it("takes rowActions to reshape them", async () => {
     const rowActions = vi.fn((_item: ChatInboxItem, defaults: { id: string }[]) => defaults.filter((a) => a.id === "pin"));
     mount(<ChatInbox resolveUser={resolveUser} onSelect={() => {}} rowActions={rowActions as never} />);

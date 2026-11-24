@@ -575,7 +575,7 @@ export const StyleSheet = {
 };
 
 /** The few named colours the tests use, and hex, as React Native's ARGB number; else null. */
-const NAMED_COLORS: Record<string, number> = { white: 0xffffffff, black: 0xff000000, yellow: 0xffffff00, navy: 0xff000080 };
+const NAMED_COLORS: Record<string, number> = { white: 0xffffffff, black: 0xff000000, yellow: 0xffffff00, navy: 0xff000080, transparent: 0x00000000 };
 export function processColor(color: unknown): number | null {
   if (typeof color !== "string") return null;
   const named = NAMED_COLORS[color.toLowerCase()];

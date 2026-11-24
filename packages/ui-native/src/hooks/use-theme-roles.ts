@@ -69,6 +69,8 @@ function resolvedHex(color: ColorValue): string | undefined {
   if (typeof color !== "string") return undefined;
   const argb = processColor(color);
   if (typeof argb !== "number") return undefined;
+  // Fully transparent ("transparent") has no colour to read on: leave it to the token.
+  if (((argb >>> 24) & 0xff) === 0) return undefined;
   return `#${((argb >>> 0) & 0xffffff).toString(16).padStart(6, "0")}`;
 }
 

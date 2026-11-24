@@ -123,7 +123,10 @@ export function useConfirmDialog(cancelLabel = "Cancel", fallbackFocus?: () => H
     (title, body, label) =>
       new Promise<boolean>((resolve) => {
         const active = typeof document !== "undefined" ? document.activeElement : null;
-        askedFrom.current = active instanceof HTMLElement && active !== document.body ? [active] : [];
+        // A second ask from inside the open dialog keeps the control that asked first.
+        if (!(active instanceof HTMLElement && active.closest('[role="alertdialog"]'))) {
+          askedFrom.current = active instanceof HTMLElement && active !== document.body ? [active] : [];
+        }
         // A second ask answers the first one no.
         current.current?.answer(false);
         const next: PendingConfirm = { title, body, label, answer: resolve };
@@ -189,7 +192,15 @@ export function ChatInbox({ resolveUser, onSelect, selectedId, kind, archived = 
     () => navRef.current?.querySelector<HTMLElement>('[data-inbox-row][tabindex="0"]') ?? navRef.current?.querySelector<HTMLElement>("[data-inbox-row]") ?? null,
     [],
   );
-  const { confirm: ask, dialog } = useConfirmDialog(labels.cancel, listTabStop);
+  // The row whose menu asked: its More menu has closed by the time the dialog opens, so the dialog
+  // can't record it; on Cancel focus goes back to that row, else the list's tab stop.
+  const askingRow = useRef<string | null>(null);
+  const askingRowOrTabStop = useCallback(() => {
+    const id = askingRow.current;
+    const row = id ? navRef.current?.querySelector<HTMLElement>(`[data-inbox-row][data-testid="genesis-chat-inbox-row-${id}"]`) : null;
+    return row ?? listTabStop();
+  }, [listTabStop]);
+  const { confirm: ask, dialog } = useConfirmDialog(labels.cancel, askingRowOrTabStop);
   // A confirmed action (Delete for me) removes its row only once the call and the inbox's refetch
   // come back, after the dialog has already handed focus back to that row's More button. Until the
   // next rows arrive with focus lost, put it on the list's tab stop then; give up after 15 seconds
@@ -214,7 +225,11 @@ export function ChatInbox({ resolveUser, onSelect, selectedId, kind, archived = 
           else if (!item.otherUserId && item.memberCount > 2) preview = `${resolveUser(last.senderId).name}: ${preview}`;
         }
         const timestamp = item.lastMessageAt ?? last?.createdAt;
-        const defaults = inboxRowActions(item, act, labels, { confirm, ...(onActionError ? { onError: onActionError } : {}) });
+        const rowConfirm: ChatConfirm = (title, body, label) => {
+          askingRow.current = item.conversationId;
+          return confirm(title, body, label);
+        };
+        const defaults = inboxRowActions(item, act, labels, { confirm: rowConfirm, ...(onActionError ? { onError: onActionError } : {}) });
         return {
           id: item.conversationId,
           title,

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { renderHook } from "@testing-library/react";
 import { Platform } from "react-native";
+import { nativeThemeLight } from "@marktiderman/genesis-design-system/tokens";
 import { useThemeRoles } from "../use-theme-roles";
 
 describe("useThemeRoles", () => {
@@ -71,6 +72,8 @@ describe("readableOn", () => {
     expect(renderHook(() => useThemeRoles({ tint: "white" })).result.current.onPrimary).toBe("#000000");
     expect(renderHook(() => useThemeRoles({ tint: "yellow" })).result.current.onPrimary).toBe("#000000");
     expect(renderHook(() => useThemeRoles({ tint: "navy" })).result.current.onPrimary).toBe("#FFFFFF");
+    // Transparent has nothing to read on: the scheme's token, as before.
+    expect(renderHook(() => useThemeRoles({ tint: "transparent" })).result.current.onPrimary).toBe(nativeThemeLight.primaryForeground);
     expect(renderHook(() => useThemeRoles({ tint: "hsl(48, 96%, 77%)" })).result.current.onPrimary).toBe("#000000");
   });
 });
