@@ -215,6 +215,28 @@ describe("InboxPage", () => {
     expect(screen.getByTestId("inbox-row-a-separator-line")).toBeTruthy();
   });
 
+  it("plain: full-width clear rows on the page, no inset group, the hairlines still inset to the text", () => {
+    Platform.OS = "ios";
+    render(<InboxPage testID="inbox" items={items} now={now} variant="plain" />);
+    const first = styleOf(screen.getByTestId("inbox-row-a-cell"));
+    expect(first.marginHorizontal).toBeUndefined();
+    expect(first.borderTopLeftRadius).toBeUndefined();
+    expect(first.backgroundColor).toBe("transparent");
+    expect(screen.getByTestId("inbox-row-a-separator-line")).toBeTruthy();
+  });
+
+  it("takes a page background of its own, and hands the variant to a row of the app's own", () => {
+    Platform.OS = "ios";
+    const seen: (string | undefined)[] = [];
+    const Row = (row: { variant?: string; testID: string }) => {
+      seen.push(row.variant);
+      return null;
+    };
+    render(<InboxPage testID="inbox" items={items} now={now} variant="plain" background="transparent" slots={{ row: Row }} />);
+    expect((screen.getByTestId("inbox") as HTMLElement).style.backgroundColor).toBe("transparent");
+    expect(seen).toContain("plain");
+  });
+
   it("on Android, rows are full width", () => {
     Platform.OS = "android";
     render(<InboxPage testID="inbox" items={items} now={now} />);

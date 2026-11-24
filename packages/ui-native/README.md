@@ -424,6 +424,8 @@ Two generic layouts for conversations (support tickets, direct messages, comment
   (`mutedLabel`, default "Alerts off"; `pinnedLabel`, default "Pinned"). The pin is a row mark, as
   Mail, WhatsApp and Telegram show one, not Messages' pinned tiles above the list; the web
   `InboxPage` draws both the same way.
+  `variant="plain"` draws full-width rows on the page with no inset group, as Messages and Mail
+  list theirs (`background` sets the page; the default stays `"grouped"`).
 - **`ThreadPage`**: one conversation, built from the two atoms below.
   - **The list:**
     - messages oldest first (mine trailing in the tint, theirs leading on `surface`), and
