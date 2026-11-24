@@ -1,0 +1,25 @@
+packages/design-system/src/tokens/index.ts
+  s_42efe440240299::t_3cb2be1ccf2858 11
+packages/design-system/src/tokens/__tests__/chat-roles.test.ts
+  s_42efe440240299::t_aef45a91afc30f 1-30
+packages/design-system/src/tokens/chat-roles.ts
+  s_42efe440240299::t_d7d6525f83bd4e 1-130
+packages/design-system/src/index.ts
+  s_42efe440240299::t_aef45a91afc30f 19-25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "86855f55d1438911a6cbe49355e41f8066c0f1f0",
+  "prompts": {},
+  "sessions": {
+    "s_42efe440240299": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f544dd57-0b31-4773-b89e-4661a182129e",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
