@@ -21,7 +21,6 @@
  */
 import { memo, useCallback, useMemo, useRef, useState, type ComponentRef, type ReactNode } from "react";
 import { Alert, Platform, StyleSheet, TextInput, View, useWindowDimensions } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { RowSwipeAction } from "@marktiderman/genesis-core/row-actions";
 import { renderSlot, type SlotPropsFor, type Slots } from "@marktiderman/genesis-core/slots";
 import { NativeEmptyState, NativeLoadingState, NativeRowActions, NativeText, useGenesisModules, type NativeIconName } from "@marktiderman/genesis-ui-native/components";
@@ -32,7 +31,7 @@ import { attachmentPreview } from "./attachment-cards";
 import { fill, type ChatNativeCopy } from "./copy";
 import { useChatNative, type ChatPerson } from "./context";
 import { displayBody } from "./message-bubble";
-import { CHAT_METRICS, CHAT_TYPE, ChatFace, ChatGlassCircle, ChatGlassPanel, ChatSymbol, ChatTap, useChatColors } from "./messages-look";
+import { CHAT_METRICS, CHAT_TYPE, ChatFace, ChatGlassCircle, ChatGlassPanel, ChatSymbol, ChatTap, useChatColors, useChatInsets } from "./messages-look";
 import { ChatConversationPreview } from "./conversation-preview";
 
 // ---- Filters and menu --------------------------------------------------------------------------
@@ -464,7 +463,7 @@ export function ChatInboxScreen(props: ChatInboxScreenProps) {
 
 /** The list's footer under the search field: the paging spinner, then room for the field. */
 function SearchFieldFooter({ loadingMore, testID }: InboxPageSlotMap["footer"]) {
-  const insets = useSafeAreaInsets();
+  const insets = useChatInsets();
   return (
     <View testID={testID} style={{ paddingBottom: insets.bottom + 64 }}>
       {loadingMore ? <NativeLoadingState fullScreen={false} size="small" testID={`${testID}-loading`} /> : null}
@@ -657,7 +656,7 @@ function EmptyActionLabel({ label }: { label: string }): ReactNode {
 export function ChatSearchField({ value, onChange, onSubmit, testID }: ChatInboxSlotMap["searchField"]) {
   const c = useChatColors();
   const { copy, modules } = useChatNative();
-  const insets = useSafeAreaInsets();
+  const insets = useChatInsets();
   const input = useRef<ComponentRef<typeof TextInput> | null>(null);
   const [focused, setFocused] = useState(false);
   const field = (

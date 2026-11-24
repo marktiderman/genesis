@@ -12,13 +12,22 @@
  * Transparency), symbols from `GenesisModules.symbol`, haptics from `useHaptics`, overlays from
  * `NativeFullScreenModal`. Without those modules each piece is the solid, icon-font version.
  */
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Animated, Dimensions, I18nManager, Platform, PlatformColor, Pressable, View, type ColorValue, type PressableProps, type ViewStyle } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaInsetsContext } from "react-native-safe-area-context";
 import { resolveChatRoles, type ChatAccent, type ChatRole } from "@marktiderman/genesis-design-system";
 import { NativeFullScreenModal, NativeIcon, NativeImage, NativeText, useGenesisModules, useLiquidGlass, type NativeIconName } from "@marktiderman/genesis-ui-native/components";
 import { motionSpring, useHaptics, useMotion, useThemeMode, useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
 import { initials } from "./context";
+
+const NO_INSETS = Object.freeze({ top: 0, right: 0, bottom: 0, left: 0 });
+/**
+ * The safe area's insets, or none outside a SafeAreaProvider (a test, a screen drawn before the
+ * app's root), as ui-native's drawer reads them: useSafeAreaInsets would throw there.
+ */
+export function useChatInsets(): { top: number; right: number; bottom: number; left: number } {
+  return useContext(SafeAreaInsetsContext) ?? NO_INSETS;
+}
 
 // ---- Colors ------------------------------------------------------------------------------------
 
@@ -397,7 +406,7 @@ export function ChatContextOverlay({ open, onClose, anchor, preview, previewHeig
   const feel = useChatFeel();
   // Read on each draw (it only draws while open), so a turn of the phone is taken into account.
   const { width: W, height: H } = Dimensions.get("window");
-  const insets = useSafeAreaInsets();
+  const insets = useChatInsets();
   const m = useChatMotion();
   const c = useChatColors();
   const progress = useRef(new Animated.Value(0)).current;
