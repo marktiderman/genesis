@@ -26,37 +26,51 @@ gained them; they belong in genesis-chat.
   "Read" (0006). Moving it back would make a sender's receipt untrue, and it shows nothing when your
   own message is the last one.
 
-None of these fits, so this extends the members row (G2: extend before inventing).
+None of these fits, so this adds a member's private state beside the members row (G2: extend before
+inventing). It can't go on `members` itself: everyone in a conversation reads every member's row
+(`members_read`), and both are only the member's business.
 
 ## Decision
 
 genesis-chat migration 0007:
 
-1. `members.marked_unread boolean not null default false`: set by
-   `set_my_settings(p_marked_unread => true|false)` (a new argument with a default; the old call
-   shape works). The member's inbox, `unread_total` and the push badge (`push_targets`) count the
-   conversation as at least one unread while it's set. `mark_read` clears it. It never touches
-   `last_read_seq`, so receipts stay true.
-2. `members.cleared_seq bigint` (null: never deleted): `delete_conversation_for_me(conversation_id)`
-   sets it to the conversation's `last_seq`, and also clears `marked_unread` and unpins. Then:
-   - the inbox leaves the conversation out while `last_seq <= cleared_seq`, so the next message
-     brings it back;
+0. `member_state (conversation_id, user_id, marked_unread, cleared_seq)`, one row per member who
+   has used either, removed with their membership. Its read policy is `user_id = auth.uid()`, and
+   it's written only by the functions below, so nobody else in the conversation learns that a
+   member marked it unread or deleted it.
+1. `member_state.marked_unread`: set by `set_my_settings(p_marked_unread => true|false)` (a new
+   argument with a default; the old call shape works). The member's inbox, `unread_total` and the
+   push badge (`push_targets`) count the conversation as at least one unread while it's set.
+   `mark_read` clears it. It never touches `last_read_seq`, so receipts stay true.
+2. `member_state.cleared_seq` (null: never deleted):
+   `delete_conversation_for_me(conversation_id, p_seq => …)` sets it to `p_seq`, the latest message
+   the member saw (the inbox row they deleted), or the conversation's `last_seq` without it, clamped
+   to `last_seq` and never moving back. A message that arrived after what they saw isn't deleted
+   unseen. It also clears `marked_unread`, unpins and unarchives (so the conversation comes back to
+   the inbox, not to Archived). Then:
+   - the inbox and badges leave the conversation out until a message the member can read on the
+     main timeline arrives after `cleared_seq` (`readable_after`): not an observers-only note, a
+     thread reply, a deleted message or one moderation hid. The next such message brings it back;
    - a restrictive read policy, `messages_cleared_for_me`, hides messages at or before
      `cleared_seq` from that member, so every read path agrees (thread pages, attachments and
-     reactions through their message). The security-definer paths that read messages themselves
-     get the same guard (`my_cleared_seq`): search, the attachment files' read check
-     (`can_read_object`) and link previews (`link_previews_for`);
+     reactions through their message). Another, `pins_cleared_for_me`, drops pins of those
+     messages. The security-definer paths that read messages themselves get the same guard
+     (`my_cleared_seq`): search, the attachment files' read check (`can_read_object`) and link
+     previews (`link_previews_for`);
    - unread counts start after `greatest(last_read_seq, cleared_seq)`.
 
    Nothing is deleted, and no other member's rows change.
-3. The core client gains `setMySettings(id, { markedUnread })`, sent only when given so a client on
-   a database before 0007 keeps working, and `deleteConversationForMe(id)`.
+3. `set_my_settings` and `delete_conversation_for_me` send an `inbox` hint to the member's own topic
+   (`genesis-chat:user:<id>`), so their other devices refetch the inbox.
+4. The core client gains `setMySettings(id, { markedUnread })`, sent only when given so a client on
+   a database before 0007 keeps working, and `deleteConversationForMe(id, seq?)`.
 
 ## Glossary
 
 - **Mark as Unread**: a per-person flag that makes a conversation count as unread for them only.
   Don't say "unread marker" or "reset read".
-- **Delete for me**: removes a conversation from one person's inbox and view until a new message.
+- **Delete for me**: removes a conversation from one person's inbox and view until a new message
+  they can read.
   Don't call it "archive" (archiving keeps history and doesn't come back by itself) or "delete
   conversation" (that reads as for everyone).
 

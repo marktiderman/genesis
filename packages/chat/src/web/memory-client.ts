@@ -219,7 +219,9 @@ export function createMemoryChatClient(options: MemoryChatOptions): MemoryChatCl
     }
     throw new ChatError("Message not found", "42501", "message");
   };
+  // As the database reads (0001, 0002 and 0007's messages_cleared_for_me): not what you deleted for yourself.
   const visible = (c: Conv, m: ChatMessage) =>
+    m.seq > (c.clearedSeq ?? 0) &&
     (m.visibility !== "observers" || c.myRole === "observer") && (m.moderation !== "hidden" || m.senderId === me || c.myRole === "observer");
   const scheduledList: ScheduledMessage[] = [];
   const availability = new Map<string, ChatAvailability>(
@@ -241,10 +243,15 @@ export function createMemoryChatClient(options: MemoryChatOptions): MemoryChatCl
   };
   const log = (method: string, ...args: unknown[]) => calls.push({ method, args });
 
+  // What brings a conversation you deleted back (0007): a message you can read on the main timeline.
+  const readableAfter = (c: Conv, seq: number) =>
+    c.messages.some((m) => m.seq > seq && !m.threadRootId && !m.deletedAt && visible(c, m));
+
   function inboxItem(c: Conv): ChatInboxItem {
     const mine = c.members.find((m) => m.userId === me);
     const lastRead = mine?.lastReadSeq ?? 0;
-    const seen = c.messages.filter((m) => visible(c, m));
+    // The main timeline, as the inbox reads it: a thread reply is neither the last message nor unread.
+    const seen = c.messages.filter((m) => visible(c, m) && !m.threadRootId);
     const last = seen[seen.length - 1];
     const others = c.members.filter((m) => m.userId !== me);
     const unreadList = seen.filter((m) => m.seq > lastRead && m.senderId !== me && !m.deletedAt);
@@ -290,7 +297,7 @@ export function createMemoryChatClient(options: MemoryChatOptions): MemoryChatCl
       await wait();
       if (opts.archived) return [];
       return [...convs.values()]
-        .filter((c) => keepKind(c.conversation.kind, opts) && (c.clearedSeq === undefined || c.conversation.lastSeq > c.clearedSeq))
+        .filter((c) => keepKind(c.conversation.kind, opts) && (c.clearedSeq === undefined || readableAfter(c, c.clearedSeq)))
         .map(inboxItem)
         .sort((a, b) => Number(b.pinned) - Number(a.pinned) || (b.lastMessageAt ?? "").localeCompare(a.lastMessageAt ?? ""));
     },
@@ -439,11 +446,13 @@ export function createMemoryChatClient(options: MemoryChatOptions): MemoryChatCl
       if (s.pinned !== undefined) c.pinned = s.pinned;
       if (s.markedUnread !== undefined) c.markedUnread = s.markedUnread;
     },
-    async deleteConversationForMe(conversationId: string) {
+    async deleteConversationForMe(conversationId: string, seq?: number) {
       const c = get(conversationId);
-      c.clearedSeq = c.conversation.lastSeq;
+      const latest = c.conversation.lastSeq;
+      c.clearedSeq = Math.max(c.clearedSeq ?? 0, Math.max(0, Math.min(seq ?? latest, latest)));
       c.markedUnread = false;
       c.pinned = false;
+      for (const l of inboxListeners) l({ type: "inbox", conversationId });
     },
     async updateConversation(conversationId: string, s: { title?: string; settings?: Record<string, unknown> }) {
       const c = get(conversationId);
@@ -471,7 +480,9 @@ export function createMemoryChatClient(options: MemoryChatOptions): MemoryChatCl
       emit(c.conversation.id, { type: "conversation", conversationId: c.conversation.id });
     },
     async pins(conversationId: string) {
-      return [...(convs.get(conversationId)?.pins ?? [])];
+      const c = convs.get(conversationId);
+      if (!c) return [];
+      return c.pins.filter((id) => (c.messages.find((m) => m.id === id)?.seq ?? 0) > (c.clearedSeq ?? 0));
     },
     async save(messageId: string, on = true, note?: string) {
       log("save", messageId, on, note);

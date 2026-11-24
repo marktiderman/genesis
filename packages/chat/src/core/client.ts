@@ -503,10 +503,15 @@ export function createChatClient(supabase: ChatSupabase, options: ChatClientOpti
 
     /**
      * Delete for me (migration 0007): the conversation leaves your inbox, and its history your
-     * thread, until a new message arrives. Nobody else's inbox, thread or read receipts change.
+     * thread, until a new message you can read arrives. Nobody else's inbox, thread or read
+     * receipts change. `seq` is the latest message you saw (the inbox row's `lastSeq`): a message
+     * that came in after it isn't deleted unseen. Without it, everything up to the latest goes.
      */
-    async deleteConversationForMe(conversationId: string) {
-      await rpc("delete_conversation_for_me", { p_conversation_id: conversationId });
+    async deleteConversationForMe(conversationId: string, seq?: number) {
+      await rpc("delete_conversation_for_me", {
+        p_conversation_id: conversationId,
+        ...(seq === undefined ? {} : { p_seq: seq }),
+      });
     },
 
     async updateConversation(conversationId: string, s: { title?: string; settings?: Record<string, unknown> }) {
