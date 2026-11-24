@@ -3,7 +3,7 @@
 // reader's actions in NativeRowActions, NativeListItem, InboxPage and NativeResourceView.
 import { forwardRef, type ReactNode } from "react";
 import { Pressable } from "react-native";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { GenesisModulesProvider, type GenesisModules } from "../../native-modules";
 import { InboxPage } from "../../layouts/inbox-page";
@@ -59,6 +59,26 @@ describe("useRowActions", () => {
     fireEvent.contextMenu(screen.getByTestId("inbox-row-a"));
     expect(await screen.findByTestId("inbox-menu-action-pin")).toBeTruthy();
     expect(screen.getByTestId("inbox-menu-title").textContent).toBe("Sam");
+  });
+
+  it("closes the sheet when the row's actions go away, so it doesn't come back with them", async () => {
+    const list = actions();
+    const view = render(<NativeListItem title="Ada" actions={list} testID="li" />);
+    fireEvent.contextMenu(screen.getByTestId("li"));
+    expect(await screen.findByTestId("li-actions-sheet-action-delete")).toBeTruthy();
+    // The row is disabled (or loses its actions) while the sheet is open, then gets them back.
+    view.rerender(<NativeListItem title="Ada" actions={list} testID="li" disabled />);
+    expect(screen.queryByTestId("li-actions-sheet-action-delete")).toBeNull();
+    view.rerender(<NativeListItem title="Ada" actions={list} testID="li" />);
+    await act(() => new Promise((r) => setTimeout(r, 50)));
+    expect(screen.queryByTestId("li-actions-sheet-action-delete")).toBeNull();
+    view.rerender(<NativeListItem title="Ada" actions={[]} testID="li" />);
+    view.rerender(<NativeListItem title="Ada" actions={list} testID="li" />);
+    await act(() => new Promise((r) => setTimeout(r, 50)));
+    expect(screen.queryByTestId("li-actions-sheet-action-delete")).toBeNull();
+    // A long press still opens it.
+    fireEvent.contextMenu(screen.getByTestId("li"));
+    expect(await screen.findByTestId("li-actions-sheet-action-delete")).toBeTruthy();
   });
 
   it("behaves the same in NativeRowActions and NativeListItem: the system menu, else the sheet", async () => {

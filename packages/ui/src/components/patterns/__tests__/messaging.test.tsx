@@ -481,6 +481,31 @@ describe("InboxPage (web)", () => {
     expect(screen.getByRole("button", { name: "More: Cy" })).toBeTruthy();
   });
 
+  it("shows a refused action dimmed with its reason, and choosing it runs its onPress, which explains", async () => {
+    const explain = vi.fn();
+    const act2 = vi.fn();
+    const refused: InboxItem[] = [
+      {
+        id: "r",
+        title: "Rae",
+        swipeActions: [
+          { id: "delete", label: "Delete", destructive: true, reason: "Only the owner can delete it.", onPress: explain },
+          { id: "pin", label: "Pin", onPress: act2 },
+        ],
+      },
+    ];
+    render(<InboxPage testID="i" items={refused} now={now} />);
+    fireEvent.pointerDown(screen.getByTestId("i-row-r-more"), new PointerEvent("pointerdown", { bubbles: true, button: 0, ctrlKey: false }));
+    const item = await screen.findByTestId("i-row-r-action-delete");
+    expect(item.getAttribute("aria-label")).toBe("Delete: Only the owner can delete it.");
+    expect(item.hasAttribute("data-refused")).toBe(true);
+    expect(screen.getByTestId("i-row-r-action-delete-reason").textContent).toBe("Only the owner can delete it.");
+    expect(screen.getByTestId("i-row-r-action-pin").hasAttribute("data-refused")).toBe(false);
+    fireEvent.click(item);
+    expect(explain).toHaveBeenCalledTimes(1);
+    expect(act2).not.toHaveBeenCalled();
+  });
+
   it("moves between rows with the arrow keys and j/k, and the tab stop follows", () => {
     render(<InboxPage testID="i" items={items} now={now} />);
     screen.getByTestId("i-row-a").focus();

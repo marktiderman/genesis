@@ -29,6 +29,7 @@ import * as React from "react";
 import { MessagesSquare, MoreHorizontal } from "lucide-react";
 import { renderSlot, type SlotPropsFor, type Slots } from "@marktiderman/genesis-core/slots";
 import { formatInboxTime, type InboxItem, type InboxSwipeAction } from "@marktiderman/genesis-core/conversation";
+import { rowActionLabel } from "@marktiderman/genesis-core/row-actions";
 import { cn } from "../../../utils";
 import { useHydrated } from "../../../hooks/use-mobile";
 import { Button } from "../../ui/button";
@@ -358,7 +359,11 @@ function DefaultRow(row: InboxPageSlotMap["row"]) {
 }
 
 export interface InboxRowMenuProps {
-  /** The row's actions (`InboxSwipeAction`): every one is listed, destructive ones in red. */
+  /**
+   * The row's actions (`InboxSwipeAction`): every one is listed, destructive ones in red. One a
+   * guard refused (`reason`) is dimmed with its reason beneath, and choosing it runs its `onPress`,
+   * which explains instead of acting.
+   */
   actions: readonly InboxSwipeAction[];
   /** The More button's accessible name ("More: Sam"). */
   label: string;
@@ -381,11 +386,29 @@ export function InboxRowMenu({ actions, label, testID }: InboxRowMenuProps) {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        {actions.map((a) => (
-          <DropdownMenuItem key={a.id} onSelect={a.onPress} className={a.destructive ? "text-destructive focus:text-destructive" : undefined} data-testid={`${testID}-action-${a.id}`}>
-            {a.label}
-          </DropdownMenuItem>
-        ))}
+        {actions.map((a) =>
+          a.reason ? (
+            // A refused action stays, dimmed, with its reason under it, as on the phone; choosing it
+            // runs its onPress, which explains instead of acting (the RowSwipeAction contract).
+            <DropdownMenuItem
+              key={a.id}
+              onSelect={a.onPress}
+              aria-label={rowActionLabel(a)}
+              data-refused=""
+              className="flex-col items-start gap-0.5"
+              data-testid={`${testID}-action-${a.id}`}
+            >
+              <span className={cn("opacity-50", a.destructive && "text-destructive")}>{a.label}</span>
+              <span data-testid={`${testID}-action-${a.id}-reason`} className="text-xs text-muted-foreground">
+                {a.reason}
+              </span>
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem key={a.id} onSelect={a.onPress} className={a.destructive ? "text-destructive focus:text-destructive" : undefined} data-testid={`${testID}-action-${a.id}`}>
+              {a.label}
+            </DropdownMenuItem>
+          ),
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

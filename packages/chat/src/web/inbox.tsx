@@ -11,7 +11,7 @@
  * states. This screen keeps its data wiring (the chat client, realtime, read state) and draws chat's
  * row in the `row` slot.
  */
-import { useCallback, useMemo, useRef, useState, type ComponentProps, type ReactElement } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type ReactElement } from "react";
 import { AtSign, BellOff, MessageSquare, Pin } from "lucide-react";
 import {
   AlertDialog,
@@ -120,6 +120,15 @@ export function useConfirmDialog(cancelLabel = "Cancel"): { confirm: ChatConfirm
         current.current = next;
         setPending(next);
       }),
+    [],
+  );
+  // Unmounted with a question open (the inbox closed under it): answer it no, so the caller's await settles.
+  useEffect(
+    () => () => {
+      const p = current.current;
+      current.current = null;
+      p?.answer(false);
+    },
     [],
   );
   const answer = (ok: boolean) => {

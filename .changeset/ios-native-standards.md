@@ -19,7 +19,7 @@ iOS standards for every native screen (ADR 0028).
   - the swipe (`NativeSwipeRow`, or the screen's own);
   - the screen reader's actions, a refused one with its reason.
 
-  InboxPage now uses the system menu when the app has one, and its sheet keeps the testID `<page>-menu`. InboxPage's `row` slot gets `actionProps` to spread on its pressable. NativeResourceView's long press opens the sheet instead of an alert, and `card.showActions` opens it too. `showInboxActions` is deprecated.
+  InboxPage now uses the system menu when the app has one, and its sheet keeps the testID `<page>-menu`. InboxPage's `row` slot gets `actionProps` to spread on its pressable. NativeResourceView's long press opens the sheet instead of an alert, and `card.showActions` opens it too. `showInboxActions` is deprecated. A row whose actions go away while its sheet is open (disabled, or none left) closes the sheet, so it doesn't open again by itself when they return.
 - **NativeSwipeRow:**
   - draws each action's tone or accent in iOS's system colors (info blue, warning orange, success green, neutral gray, danger red, an accent by name), with Android fallbacks at 4.5:1;
   - draws `tint` in the app's primary with its foreground;
@@ -30,7 +30,7 @@ iOS standards for every native screen (ADR 0028).
   - warns in development when a destructive full action doesn't set `confirms`.
 
   The swipe tracks the finger 1:1, and a swipe action runs before the row closes.
-- **`useThemeRoles` adds `primary` and `onPrimary`:** the app's own `bg-primary` and `text-primary-foreground` on the phone. Under a `GenesisThemeProvider` they are `brandRoleVariables(brand, { platform: "native" })` for the resolved mode (native overrides, dark colors, the contrast-checked foreground). Otherwise they are the tint, with black or white by contrast.
+- **`useThemeRoles` adds `primary` and `onPrimary`:** the app's own `bg-primary` and `text-primary-foreground` on the phone. Under a `GenesisThemeProvider` they are `brandRoleVariables(brand, { platform: "native" })` for the resolved mode (native overrides, dark colors, the contrast-checked foreground). Otherwise they are the tint, with black or white by contrast, read from a hex, `rgb()`/`rgba()` or `hsl()`/`hsla()` tint (a PlatformColor tint takes the theme's foreground).
 - **Round rows and peeks:** NativeRowActions' `preview` and NativeContextMenu's `preview` show a peek above the menu; InboxPage takes `swipeAppearance` and `menuPreview`.
 - **Tab bar per screen:** `TabBarVisibilityProvider`, `useHideTabBar`, `useTabBarHidden`, `ScreenContainer tabBar="hidden"` and `NativeTabBar hidden`, as UIKit's `hidesBottomBarWhenPushed`. `createPlaceExit` remembers where a place that hides the bar for its whole stack (Messages) goes back to.
 - **Native header:** `ScreenContainer header` sets the stack's native header through `GenesisModules.router.StackScreen`, and resets what it set when a screen drops it. `composeHeaderOptions` takes `search` (`headerSearchBarOptions`) and `headerRightItems` / `headerLeftItems`. `NavBarSearchBar` is deprecated.

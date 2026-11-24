@@ -47,3 +47,26 @@ describe("useThemeRoles primary and onPrimary", () => {
     expect(outside.result.current.onPrimary).toBe("#FFFFFF");
   });
 });
+
+describe("readableOn", () => {
+  it("reads hex, rgb()/rgba() and hsl()/hsla() tints, so an rgb or hsl tint gets text that reads on it", async () => {
+    const { readableOn } = await import("../../tokens/contrast");
+    // The same dark navy and pale yellow, written every way React Native takes them.
+    for (const dark of ["#123456", "#123", "#123456ff", "rgb(18, 52, 86)", "rgba(18, 52, 86, 0.5)", "rgb(18 52 86 / 50%)", "rgb(7%, 20%, 34%)", "hsl(210, 65.4%, 20.4%)", "hsla(210deg, 65%, 20%, 1)", "hsl(210 65% 20%)"]) {
+      expect(readableOn(dark), dark).toBe("#FFFFFF");
+    }
+    for (const light of ["#FDE68A", "rgb(253, 230, 138)", "rgba(253,230,138,1)", "hsl(48, 96.5%, 76.7%)", "hsl(0, 0%, 100%)"]) {
+      expect(readableOn(light), light).toBe("#000000");
+    }
+    // What tripletToHsl emits for a brand triplet reads too.
+    const { tripletToHsl } = await import("../use-theme-roles");
+    expect(readableOn(tripletToHsl("243.4 75.4% 58.6%"))).toBe("#FFFFFF");
+    // Anything it can't read is left to the caller's fallback.
+    for (const other of [{ semantic: ["systemRed"] }, "red", "rgb(1, 2)", "hsl(10, 20, 30)", undefined]) expect(readableOn(other)).toBeUndefined();
+  });
+
+  it("gives an rgb() or hsl() tint white text when it's dark, not the theme's foreground", () => {
+    expect(renderHook(() => useThemeRoles({ tint: "rgb(18, 52, 86)" })).result.current.onPrimary).toBe("#FFFFFF");
+    expect(renderHook(() => useThemeRoles({ tint: "hsl(48, 96%, 77%)" })).result.current.onPrimary).toBe("#000000");
+  });
+});

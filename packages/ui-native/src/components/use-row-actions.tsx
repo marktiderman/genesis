@@ -122,6 +122,12 @@ export function useRowActions(actions: readonly RowSwipeAction[], options: UseRo
   // The sheet mounts on the first long press and stays, so its words don't vanish while it closes.
   const [sheetShown, setSheetShown] = useState(false);
   const has = actions.length > 0;
+  // A row whose actions go away (disabled, or none left) closes its sheet, so it doesn't open
+  // again by itself when they come back. Reset while rendering, so the sheet never draws open.
+  if (!has && (open || sheetShown)) {
+    setOpen(false);
+    setSheetShown(false);
+  }
   const rowProps = useMemo<RowActionProps>(() => {
     if (!has) return {};
     const a11y = rowAccessibilityActions(actions);

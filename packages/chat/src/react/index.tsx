@@ -69,8 +69,22 @@ function refreshInbox(queryClient: QueryClient): void {
   void queryClient.invalidateQueries({ queryKey: chatKeys.unread() });
 }
 
+/**
+ * How many times each conversation has been forgotten, per query cache. A load (a catch-up, a
+ * live message, an earlier page) captures it when it starts and writes nothing if it changed, so
+ * a fetch already under way when the conversation was deleted can't put its history back. Loads
+ * started afterwards write as usual.
+ */
+const forgotten = new WeakMap<QueryClient, Map<string, number>>();
+function generationOf(queryClient: QueryClient, conversationId: string): number {
+  return forgotten.get(queryClient)?.get(conversationId) ?? 0;
+}
+
 /** Drops what this device holds of a conversation (its thread, pins and every search), so deleted history can't show again. */
 function forgetConversation(queryClient: QueryClient, conversationId: string): void {
+  let byId = forgotten.get(queryClient);
+  if (!byId) forgotten.set(queryClient, (byId = new Map()));
+  byId.set(conversationId, generationOf(queryClient, conversationId) + 1);
   queryClient.removeQueries({ queryKey: chatKeys.conversation(conversationId) });
   queryClient.removeQueries({ queryKey: chatKeys.pins(conversationId) });
   queryClient.removeQueries({ queryKey: chatKeys.searchAll() });
@@ -407,13 +421,20 @@ export function useConversation(conversationId: string | null | undefined, opts:
     if (enabled) void refetchMembers();
   }, [id, enabled, refetchMembers]);
 
+  /**
+   * Merges messages into the list. `since` is the conversation's forget generation when the load
+   * began (see forgetConversation): when it has moved on, the load predates a Delete for me and
+   * writes nothing.
+   */
   const merge = useCallback(
-    (incoming: ChatMessage[], hasEarlierNow?: boolean) =>
+    (incoming: ChatMessage[], hasEarlierNow?: boolean, since = generationOf(queryClient, id)) => {
+      if (generationOf(queryClient, id) !== since) return;
       queryClient.setQueryData<MessagesData>(messagesKey, (prev) => {
         const base = prev ?? { messages: [], hasEarlier: false };
         return { messages: upsertMessages(base.messages, incoming), hasEarlier: hasEarlierNow ?? base.hasEarlier };
-      }),
-    [queryClient, messagesKey],
+      });
+    },
+    [queryClient, messagesKey, id],
   );
 
   /**
@@ -424,17 +445,20 @@ export function useConversation(conversationId: string | null | undefined, opts:
    * it shows the newest page instead, with the rest behind "load earlier".
    */
   const catchUp = useCallback(async () => {
+    const since = generationOf(queryClient, id);
     const current = queryClient.getQueryData<MessagesData>(messagesKey) ?? (await queryClient.ensureQueryData<MessagesData>({ queryKey: messagesKey, queryFn: fetchPage }));
     const list = current.messages;
     let after = list.length ? list[list.length - 1]!.seq : 0;
     for (let pages = 0; ; ) {
       const page = await client.messages(id, { afterSeq: after, limit: CATCH_UP_PAGE, threadRootId: opts.threadRootId, topic: opts.topic });
-      if (page.messages.length) merge(page.messages);
+      if (generationOf(queryClient, id) !== since) return;
+      if (page.messages.length) merge(page.messages, undefined, since);
       if (page.messages.length < CATCH_UP_PAGE) return;
       after = Math.max(after, ...page.messages.map((m) => m.seq));
       if (++pages >= CATCH_UP_MAX_PAGES) break;
     }
     const newest = await fetchPage();
+    if (generationOf(queryClient, id) !== since) return;
     queryClient.setQueryData<MessagesData>(messagesKey, { messages: newest.messages, hasEarlier: true });
   }, [client, fetchPage, id, merge, messagesKey, opts.threadRootId, opts.topic, queryClient]);
 
@@ -446,13 +470,14 @@ export function useConversation(conversationId: string | null | undefined, opts:
     if (!enabled) return;
     setLive(null);
     const fetchOne = async (messageId: string) => {
+      const since = generationOf(queryClient, id);
       const m = await client.message(messageId);
       if (!m) return;
       const belongs = opts.threadRootId ? m.threadRootId === opts.threadRootId : m.threadRootId === null;
-      if (belongs && (!opts.topic || m.topic === opts.topic)) merge([m]);
+      if (belongs && (!opts.topic || m.topic === opts.topic)) merge([m], undefined, since);
       if (m.threadRootId && !opts.threadRootId) {
         const root = await client.message(m.threadRootId);
-        if (root) merge([root]);
+        if (root) merge([root], undefined, since);
       }
     };
     let readRefetch: ReturnType<typeof setTimeout> | null = null;
@@ -549,17 +574,19 @@ export function useConversation(conversationId: string | null | undefined, opts:
     const first = list[0];
     if (!first || loadingEarlier) return;
     setLoadingEarlier(true);
+    const since = generationOf(queryClient, id);
     try {
       const page = await client.messages(id, { beforeSeq: first.seq, limit: pageSize, threadRootId: opts.threadRootId, topic: opts.topic });
-      merge(page.messages, page.hasEarlier);
+      merge(page.messages, page.hasEarlier, since);
     } finally {
       setLoadingEarlier(false);
     }
-  }, [client, id, list, loadingEarlier, merge, opts.threadRootId, opts.topic, pageSize]);
+  }, [client, id, list, loadingEarlier, merge, opts.threadRootId, opts.topic, pageSize, queryClient]);
 
   /** Loads earlier messages until the one with this seq is held (a search result, a pinned message). True when it is. */
   const loadUntil = useCallback(
     async (seq: number) => {
+      const since = generationOf(queryClient, id);
       let current = queryClient.getQueryData<MessagesData>(messagesKey);
       for (let guard = 0; guard < 20 && current; guard++) {
         const first = current.messages[0];
@@ -570,7 +597,8 @@ export function useConversation(conversationId: string | null | undefined, opts:
           threadRootId: opts.threadRootId,
           topic: opts.topic,
         });
-        merge(page.messages, page.hasEarlier);
+        if (generationOf(queryClient, id) !== since) return false;
+        merge(page.messages, page.hasEarlier, since);
         current = queryClient.getQueryData<MessagesData>(messagesKey);
       }
       return Boolean(current?.messages.some((m) => m.seq === seq));

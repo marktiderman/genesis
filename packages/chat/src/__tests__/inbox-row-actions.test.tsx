@@ -10,8 +10,9 @@ import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ChatClient } from "../core/client";
 import type { ChatInboxItem } from "../core/types";
-import { ChatProvider, chatKeys, defaultInboxActionLabels, inboxRowActions, useInboxActions, type ChatInboxActions } from "../react";
-import { ChatInbox, createMemoryChatClient } from "../web";
+import { ChatProvider, chatKeys, defaultInboxActionLabels, inboxRowActions, useConversation, useInboxActions, type ChatInboxActions } from "../react";
+import type { ChatMessage } from "../core/types";
+import { ChatInbox, createMemoryChatClient, useConfirmDialog } from "../web";
 
 afterEach(cleanup);
 configure({ asyncUtilTimeout: 4000 });
@@ -124,6 +125,87 @@ describe("useInboxActions", () => {
     expect(invalidate).toHaveBeenCalledWith({ queryKey: chatKeys.unread() });
     expect(chatKeys.inbox({ archived: false }).slice(0, 2)).toEqual([...chatKeys.inboxAll()]);
     expect(chatKeys.search("hello").slice(0, 2)).toEqual([...chatKeys.searchAll()]);
+  });
+});
+
+describe("useConfirmDialog", () => {
+  it("answers an open question no when it unmounts", async () => {
+    const { result, unmount } = renderHook(() => useConfirmDialog());
+    let asked!: Promise<boolean>;
+    act(() => {
+      asked = result.current.confirm("Delete this conversation?", "Gone for you.", "Delete");
+    });
+    unmount();
+    await expect(asked).resolves.toBe(false);
+  });
+});
+
+describe("the memory client's archive", () => {
+  it("stores Archive, reports it on the row, leaves it out of the inbox and lists it under archived", async () => {
+    const B = "00000000-0000-4000-8000-0000000000b2";
+    const client = createMemoryChatClient({
+      me: ME,
+      conversations: [
+        { id: "c1", members: [{ userId: ME }, { userId: B }] },
+        { id: "c2", members: [{ userId: ME }, { userId: B }], archived: true },
+      ],
+    });
+    expect((await client.inbox()).map((i) => i.conversationId)).toEqual(["c1"]);
+    expect(await client.inbox({ archived: true })).toEqual([expect.objectContaining({ conversationId: "c2", archived: true })]);
+    await client.setMySettings("c1", { archived: true });
+    expect(await client.inbox()).toEqual([]);
+    expect((await client.inbox({ archived: true })).map((i) => i.conversationId).sort()).toEqual(["c1", "c2"]);
+    await client.setMySettings("c2", { archived: false });
+    expect(await client.inbox()).toEqual([expect.objectContaining({ conversationId: "c2", archived: false })]);
+  });
+});
+
+describe("Delete for me while a catch-up is under way", () => {
+  const msg = (seq: number) => ({ id: `m${seq}`, conversationId: C, seq, threadRootId: null, topic: null, body: `hi ${seq}`, senderId: ME, createdAt: new Date().toISOString() }) as unknown as ChatMessage;
+  it("drops what the earlier fetch brings back, and a load started afterwards still fills the thread", async () => {
+    let release: (v: { messages: ChatMessage[]; hasEarlier: boolean }) => void = () => {};
+    let held = true;
+    const client = {
+      inbox: vi.fn(async () => []),
+      subscribeInbox: vi.fn(() => ({ unsubscribe: vi.fn() })),
+      unreadTotal: vi.fn(async () => 0),
+      conversation: vi.fn(async () => ({ id: C, kind: "direct" })),
+      kind: vi.fn(async () => ({ maxMembers: 2 })),
+      members: vi.fn(async () => []),
+      myRole: vi.fn(async () => "member"),
+      canPost: vi.fn(async () => true),
+      markRead: vi.fn(async () => 7),
+      deleteConversationForMe: vi.fn(async () => {}),
+      messages: vi.fn(async (_id: string, o: { afterSeq?: number }) => {
+        if (o.afterSeq === undefined) return { messages: [], hasEarlier: false };
+        if (held) return new Promise((r) => (release = r));
+        return { messages: [msg(10)], hasEarlier: false };
+      }),
+      subscribeConversation: vi.fn((_id: string, _u: string, h: { onJoin?: () => void }) => {
+        setTimeout(() => h.onJoin?.(), 0);
+        return { unsubscribe: vi.fn(), signal: vi.fn() };
+      }),
+    } as unknown as ChatClient;
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={qc}>
+        <ChatProvider client={client} userId={ME}>{children}</ChatProvider>
+      </QueryClientProvider>
+    );
+    const { result } = renderHook(() => ({ convo: useConversation(C, { markRead: false }), actions: useInboxActions() }), { wrapper });
+    // The catch-up on join is waiting on its page of messages.
+    await waitFor(() => expect(client.messages).toHaveBeenCalledWith(C, expect.objectContaining({ afterSeq: 0 })));
+    await act(() => result.current.actions.deleteForMe(item({ lastSeq: 9 })));
+    const key = [...chatKeys.conversation(C), "messages", null, null];
+    expect(qc.getQueryData(key)).toBeUndefined();
+    // The old page arrives after the delete: it holds the deleted history, and is dropped.
+    await act(async () => release({ messages: [msg(1), msg(2)], hasEarlier: false }));
+    await act(async () => new Promise((r) => setTimeout(r, 10)));
+    expect((qc.getQueryData(key) as { messages: ChatMessage[] } | undefined)?.messages.some((m) => m.seq < 10)).not.toBe(true);
+    // A catch-up started after the delete (a new message brought the conversation back) fills it.
+    held = false;
+    await act(() => result.current.convo.refetch());
+    await waitFor(() => expect((qc.getQueryData(key) as { messages: ChatMessage[] }).messages.map((m) => m.seq)).toEqual([10]));
   });
 });
 

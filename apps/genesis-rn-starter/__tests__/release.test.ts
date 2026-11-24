@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import { checkStamp } from "../.eas/scripts/native-release.mjs";
 import { checkRollout } from "../.eas/scripts/rollout-health.mjs";
@@ -370,7 +370,25 @@ describe("EAS workflows", () => {
 });
 
 /** The read-only session file start-session.sh writes and device.sh reads (app ID, platform, project). */
-const TARGET_DIR = "/tmp/agentic-ci-session";
+const SESSION_FILE = "/tmp/agentic-ci-session/target";
+/**
+ * The tests never touch the real session folder (a live session on this machine reads it): they
+ * run a copy of device.sh whose fixed path is rewritten to a folder of their own. The script
+ * itself keeps the fixed path, which nothing in its environment can change.
+ */
+const testRoot = mkdtempSync(join(tmpdir(), "agentic-ci-test-"));
+const TARGET_DIR = join(testRoot, "session");
+const DEVICE_SH = join(testRoot, "device.sh");
+{
+  const source = read(".eas/agents/device.sh");
+  const fixed = `target_file=${SESSION_FILE}\n`;
+  if (source.split(fixed).length !== 2) throw new Error(`device.sh should set ${fixed.trim()} exactly once`);
+  writeFileSync(DEVICE_SH, source.replace(fixed, `target_file=${join(TARGET_DIR, "target")}\n`));
+}
+afterAll(() => {
+  if (existsSync(TARGET_DIR)) chmodSync(TARGET_DIR, 0o755);
+  rmSync(testRoot, { recursive: true, force: true });
+});
 function writeTarget(lines: string[]) {
   if (existsSync(TARGET_DIR)) {
     chmodSync(TARGET_DIR, 0o755);
@@ -388,7 +406,7 @@ function device(...args: string[]) {
   writeFileSync(join(dir, "bin", "npx"), '#!/usr/bin/env bash\nprintf "%s\\n" "$@"\nenv > "${HOME}/env.txt"\n');
   chmodSync(join(dir, "bin", "npx"), 0o755);
   writeTarget(["com.example.app", "ios", dir]);
-  const r = spawnSync("bash", [join(root, ".eas/agents/device.sh"), ...args], {
+  const r = spawnSync("bash", [DEVICE_SH, ...args], {
     encoding: "utf8",
     env: {
       PATH: `${join(dir, "bin")}:${process.env.PATH}`,
@@ -413,7 +431,7 @@ function deviceShell(line: string) {
   mkdirSync(join(dir, "bin"));
   writeFileSync(join(dir, "bin", "npx"), '#!/usr/bin/env bash\nprintf "%s\\n" "$@"\n');
   chmodSync(join(dir, "bin", "npx"), 0o755);
-  const script = join(root, ".eas/agents/device.sh");
+  const script = DEVICE_SH;
   writeTarget(["com.example.app", "ios", dir]);
   const r = spawnSync("bash", ["-c", `bash ${script} ${line}`], {
     encoding: "utf8",
@@ -436,7 +454,7 @@ describe("device.sh reads what it drives from the session file", () => {
     [["com.example.app", "ios", "relative/dir"], "project folder"],
   ])("refuses a session file with a bad value (%j)", (lines, what) => {
     writeTarget(lines);
-    const r = spawnSync("bash", [join(root, ".eas/agents/device.sh"), "snapshot"], { encoding: "utf8", env: { PATH: process.env.PATH } as unknown as NodeJS.ProcessEnv });
+    const r = spawnSync("bash", [DEVICE_SH, "snapshot"], { encoding: "utf8", env: { PATH: process.env.PATH } as unknown as NodeJS.ProcessEnv });
     expect(r.status).toBe(2);
     expect(r.stderr).toContain(what);
   });
@@ -445,9 +463,15 @@ describe("device.sh reads what it drives from the session file", () => {
       chmodSync(TARGET_DIR, 0o755);
       rmSync(TARGET_DIR, { recursive: true, force: true });
     }
-    const r = spawnSync("bash", [join(root, ".eas/agents/device.sh"), "snapshot"], { encoding: "utf8", env: { PATH: process.env.PATH } as unknown as NodeJS.ProcessEnv });
+    const r = spawnSync("bash", [DEVICE_SH, "snapshot"], { encoding: "utf8", env: { PATH: process.env.PATH } as unknown as NodeJS.ProcessEnv });
     expect(r.status).toBe(2);
     expect(r.stderr).toContain("no session");
+  });
+  it("reads the session file from its fixed path, which no variable can move", () => {
+    const source = read(".eas/agents/device.sh");
+    expect(source).toMatch(/^target_file=\/tmp\/agentic-ci-session\/target$/m);
+    expect(source).not.toMatch(/target_file=.*\$/);
+    expect(readFileSync(join(templates, "eas/agents/device.sh"), "utf8")).toBe(source);
   });
   it("start-session.sh writes the session file read-only and no longer exports the target", () => {
     const start = readFileSync(join(root, ".eas/agents/start-session.sh"), "utf8");

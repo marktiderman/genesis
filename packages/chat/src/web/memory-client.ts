@@ -37,6 +37,8 @@ export interface MemoryConversationSeed {
   canPost?: boolean;
   muted?: boolean;
   pinned?: boolean;
+  /** In your archive: left out of the inbox, listed by `inbox({ archived: true })`. */
+  archived?: boolean;
   messages?: (Partial<Omit<ChatMessage, "attachments">> & { attachments?: Partial<ChatAttachment>[] })[];
   pins?: string[];
   /** Its topics, in order. */
@@ -64,6 +66,8 @@ interface Conv {
   canPost: boolean;
   muted: boolean;
   pinned: boolean;
+  /** Archived for you: the inbox lists it only when asked for the archive. */
+  archived: boolean;
   /** Mark as Unread (migration 0007). */
   markedUnread?: boolean;
   /** Delete for me (0007): only messages after this seq are shown, and the inbox leaves it out until one arrives. */
@@ -191,6 +195,7 @@ export function createMemoryChatClient(options: MemoryChatOptions): MemoryChatCl
       canPost: seed.canPost ?? true,
       muted: seed.muted ?? false,
       pinned: seed.pinned ?? false,
+      archived: seed.archived ?? false,
       messages: [],
       pins: seed.pins ?? [],
       topics: (seed.topics ?? []).map((t, i) => ({
@@ -271,7 +276,7 @@ export function createMemoryChatClient(options: MemoryChatOptions): MemoryChatCl
       mentioned: unreadList.some((m) => m.mentions.includes(me)),
       muted: c.muted,
       pinned: c.pinned,
-      archived: false,
+      archived: c.archived,
       lastMessageAt: c.conversation.lastMessageAt,
       lastMessage: last
         ? {
@@ -295,8 +300,9 @@ export function createMemoryChatClient(options: MemoryChatOptions): MemoryChatCl
     async inbox(opts: { kind?: string; kinds?: string[]; excludeKinds?: string[]; archived?: boolean; limit?: number; before?: string } = {}) {
       log("inbox", opts);
       await wait();
-      if (opts.archived) return [];
+      // The inbox leaves archived conversations out; `archived: true` lists only them.
       return [...convs.values()]
+        .filter((c) => c.archived === Boolean(opts.archived))
         .filter((c) => keepKind(c.conversation.kind, opts) && (c.clearedSeq === undefined || readableAfter(c, c.clearedSeq)))
         .map(inboxItem)
         .sort((a, b) => Number(b.pinned) - Number(a.pinned) || (b.lastMessageAt ?? "").localeCompare(a.lastMessageAt ?? ""));
@@ -366,6 +372,7 @@ export function createMemoryChatClient(options: MemoryChatOptions): MemoryChatCl
         canPost: true,
         muted: false,
         pinned: false,
+        archived: false,
         messages: [],
         pins: [],
         topics: [],
@@ -445,6 +452,7 @@ export function createMemoryChatClient(options: MemoryChatOptions): MemoryChatCl
       const c = get(conversationId);
       if (s.mutedUntil !== undefined) c.muted = s.mutedUntil !== null;
       if (s.pinned !== undefined) c.pinned = s.pinned;
+      if (s.archived !== undefined) c.archived = s.archived;
       if (s.markedUnread !== undefined) c.markedUnread = s.markedUnread;
     },
     async deleteConversationForMe(conversationId: string, seq?: number) {
