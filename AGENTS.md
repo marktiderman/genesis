@@ -129,6 +129,12 @@ base), so a PR can't change its own gate, and a gate change takes effect only on
 - A new commit, a merge of the base included, removes the label, and a review of an older head
   doesn't count, so every push needs a review of the new head. Batch pushes. Claude review (`claude-code-review.yml`, which calls the reusable `claude-review.yml` that apps call too) also re-runs on every push; it is not the adversarial review.
 - The author turns on Auto-fix for every PR it opens.
+- Claude Ship's agents (Code Review, PR Steward, Claude Approvals) help but gate nothing: a
+  `claude[bot]` review never counts here. Code Review follows `REVIEW.md`; PR Steward runs on
+  request (`@claude steward`) and follows `.claude/skills/steward/SKILL.md`; `.claude/approvals.yml`
+  stays in observe mode, where Claude only comments, until the maintainer says otherwise. Auto-merge
+  stays off. Once the managed Code Review is on, retire `claude-code-review.yml` (keep
+  `claude-review.yml`, which apps call).
 - Bot PRs get the same review: triage reviews each "chore: version packages" PR and each Dependabot
   PR like any other. The Release workflow pushes the version PR with Actions' `GITHUB_TOKEN`, which
   starts no run, so after reviewing a new head the reviewer removes and re-adds the label.

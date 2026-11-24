@@ -1,0 +1,23 @@
+# Claude Approvals (Claude Ship): https://code.claude.com/docs/en/approvals-policy
+#
+# Observe mode: the "Claude Approvals" check reports who still has to approve and never blocks.
+# Claude only comments, never approves: the merge gate stays the "Adversarial review" check
+# (review-gate.yml) and the maintainer's merge into main. Turning on `enforce`, or letting Claude approve,
+# is the maintainer's decision. Code Review's result is advisory here, so this policy starts no extra
+# billed reviews.
+version: 1
+mode: observe
+rules:
+  - purpose: "Every change takes one person's review. Claude comments and never approves."
+    paths: ["**"]
+    nested: inherit
+    verdict:
+      claude: comments
+      seats: [{ count: 1, from: [humans] }]
+    advisory: [claude/code_review]
+  - purpose: "A change to the review rules, the agent instructions or CI takes one person's review."
+    paths: ["**/.claude/**", "REVIEW.md", "AGENTS.md", "CLAUDE.md", ".github/**"]
+    nested: inherit
+    verdict:
+      claude: comments
+      seats: [{ count: 1, from: [humans] }]
