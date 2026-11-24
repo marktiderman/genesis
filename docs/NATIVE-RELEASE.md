@@ -771,26 +771,46 @@ where no flow covers it.
 
 1. The `e2e` simulator build with this fingerprint is repacked with the pull request's JavaScript,
    or one is built.
-2. `check` sources `.eas/agents/start-session.sh`: one named session (`--max-duration-minutes`
-   `AGENT_MAX_MINUTES`, default 25; `--max-idle-time-minutes` `AGENT_IDLE_MINUTES`, default 5),
-   the app opened, the screen recorded, and an EXIT trap that saves the recording and stops the
-   session however the step ends.
-3. `.eas/agents/run-maestro.sh` runs the flows listed in `.eas/agents/maestro-flows.txt` on that
-   session through agent-device (`test --maestro`: a subset of Maestro YAML; Expo Simulators has
-   no Maestro CLI). Their results go to `agent-output/evidence/maestro.md`.
-4. `.eas/agents/run-agent.sh` runs Claude Code on `.eas/agents/check-pr.md`, the pull request's
-   title and body, the device's commands and `.eas/agents/app-facts.md`, with no
-   `EXPO_TOKEN`, `EXPO_TOKEN_SIMULATOR` or `GITHUB_TOKEN`. Its rules allow reading the project,
-   writing only under `agent-output/evidence`, and agent-device on the session; they refuse
-   `/proc`, `/tmp`, the home folder and `.env` files, where the agent's own key could still be
-   read. It writes `agent-output/evidence/verdict.md` (line 1 `PASS: …` or `FAIL: …`) and
-   screenshots. `.eas/agents/redact-evidence.sh` removes the job's secret values from the evidence,
-   which is then uploaded as the run's artifact.
-5. `comment` posts only PASS or FAIL, the session page (its recording) and the run: the agent's
-   own words stay in the artifact, never in the comment. `result` fails the run unless it's PASS.
+2. `check` deletes any old `agent-output/`, copies `.eas/agents` to a read-only folder outside the
+   project (`/tmp/agentic-ci-tools`), so nothing the agent writes runs later, and sources its
+   `start-session.sh`: one named session (`--max-duration-minutes` `AGENT_MAX_MINUTES`, 10 to 115,
+   default 25; `--max-idle-time-minutes` `AGENT_IDLE_MINUTES`, default 5), the app opened, the
+   screen recorded, and an EXIT trap, set before the session starts, that saves the recording and
+   stops the session however the step ends.
+3. `run-maestro.sh` runs the flows listed in `.eas/agents/maestro-flows.txt` on that session
+   through agent-device (`test --maestro`: a subset of Maestro YAML; Expo Simulators has no Maestro
+   CLI). Their results go to `agent-output/evidence/maestro.md`.
+4. `run-agent.sh` runs Claude Code on `check-pr.md`, the pull request's title and body, the
+   device's commands and `app-facts.md`, without `EXPO_TOKEN`, `EXPO_TOKEN_SIMULATOR` or
+   `GITHUB_TOKEN`, for `AGENT_MAX_MINUTES` minus 5. What its permission rules (dontAsk mode)
+   enforce:
+   - its only shell command is `bash /tmp/agentic-ci-tools/device.sh <command>`, which runs one
+     agent-device command from a fixed list (snapshot, press, longpress, fill, type, keyboard,
+     scroll, swipe, back, wait, screenshot into `agent-output/evidence`, and open for the app under
+     test), under `env -i`, and refuses everything else: other commands such as `install` or
+     `save-script`, flags, paths, URLs, `$` and backticks;
+   - it reads the project's files only, never a `.env` file, `/proc`, `/tmp`, `/etc` or the home
+     folder;
+   - it writes only under `agent-output/evidence`.
+
+   It keeps its own key (`CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY`) in its environment:
+   that's why its shell is limited to `device.sh`, which also refuses an argument holding the key.
+   It writes `agent-output/evidence/verdict.md` (line 1 `PASS: …` or `FAIL: …`) and screenshots.
+5. A separate step, which runs however `check` ends, redacts the evidence into
+   `agent-output/upload` (`redact-evidence.sh`: every job variable named like a token, key, secret
+   or password, and the session's controller credentials), and only that folder is uploaded: if
+   redaction fails, nothing is. Images and video aren't redacted, the session's recording on
+   expo.dev included, so keep secrets off the app's screen.
+6. `comment` posts only PASS or FAIL, the session's page on expo.dev (it opens only for an Expo
+   login that can view the project) and the run: the agent's own words stay in the artifact,
+   never in the comment. `result` fails the run unless it's PASS.
+
+**Status:** the template follows Expo's Agentic CI page, and its scripts are tested here
+(`apps/genesis-rn-starter/__tests__/release.test.ts`), but Genesis hasn't run the workflow in EAS
+yet. Run it by hand on a test branch before you rely on it.
 
 When it runs: a reviewer adds the label `Agent check` (create it in GitHub) after reading the
-change. The label runs the pull request's own code, `.eas/agents` included, with the `development`
+change. Only adding that label starts a run; another label on the same pull request doesn't. The label runs the pull request's own code, `.eas/agents` included, with the `development`
 environment's secrets, so add it only to a pull request whose code you trust, never one from a fork
 or an outside contributor; or `eas workflow:run agentic-ci.yml --ref <branch> -F title="…" -F body="…"`. Never on every
 pull request, and never a required check until its verdicts have been read on real runs: a false
@@ -801,8 +821,8 @@ Setup, once:
 - Expo Simulators on the account (`eas simulator:availability --json`, read-only).
 - A robot user with the Developer role, and its token as the secret `EXPO_TOKEN_SIMULATOR` in the
   `development` EAS environment; the agent's key (`CLAUDE_CODE_OAUTH_TOKEN` from
-  `claude setup-token`, or `ANTHROPIC_API_KEY`) beside it. The agent and the pull request's code
-  can read every variable of that environment, so nothing production depends on goes there.
+  `claude setup-token`, or `ANTHROPIC_API_KEY`) beside it. The pull request's code can read every
+  variable of that environment, so nothing production depends on goes there.
 - The `e2e` build pointed at a test backend with test logins only (never production), and those
   logins in `app-facts.md`. Until then the template's facts say not to sign in.
 - `.env.eas-simulator` and `agent-output/` in `.gitignore`. In a monorepo, prefix the artifact

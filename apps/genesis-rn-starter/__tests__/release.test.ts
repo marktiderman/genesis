@@ -1,5 +1,7 @@
 // @feat:eas-workflows @feat:maestro-smoke
-import { readFileSync, readdirSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
@@ -27,6 +29,7 @@ interface Workflow {
   jobs: Record<string, Job>;
 }
 const workflow = (file: string) => parse(read(`.eas/workflows/${file}`)) as Workflow;
+const checkRun = () => workflow("agentic-ci.yml").jobs.check!.steps!.find((s) => (s.run ?? "").includes("start-session.sh"))!.run!;
 const workflowFiles = readdirSync(join(root, ".eas/workflows")).filter((f) => f.endsWith(".yml"));
 const easJson = JSON.parse(read("eas.json")) as {
   cli: { appVersionSource: string };
@@ -237,41 +240,83 @@ describe("EAS workflows", () => {
       expect(job.environment ?? "", id).not.toBe("production");
       expect(job.params?.profile ?? "", id).not.toBe("production");
     }
-    const run = workflow("agentic-ci.yml").jobs.check!.steps!.map((s) => s.run ?? "").join("\n");
+    const run = checkRun();
     expect(run).toMatch(/env -u EXPO_TOKEN -u EXPO_TOKEN_SIMULATOR -u GITHUB_TOKEN\s+\\?\s*timeout /);
+  });
+
+  it("agentic-ci runs the scripts from a read-only copy outside the project, so nothing the agent writes runs later", () => {
+    const run = checkRun();
+    const copy = run.indexOf('cp -R .eas/agents "$tools"');
+    expect(run).toContain("tools=/tmp/agentic-ci-tools");
+    expect(copy).toBeGreaterThan(-1);
+    expect(run.indexOf('chmod -R a-w "$tools"')).toBeGreaterThan(copy);
+    // After the copy, no step runs a script from the project's .eas/agents.
+    const steps = workflow("agentic-ci.yml").jobs.check!.steps!.map((s) => s.run ?? "");
+    expect(run.slice(copy + 30)).not.toMatch(/(?:bash|source) \.eas\/agents/);
+    for (const step of steps.slice(1)) expect(step).not.toMatch(/(?:bash|source) \.eas\/agents/);
+    expect(run).toMatch(/source "\$tools\/start-session\.sh"/);
+    expect(run).toMatch(/bash "\$tools\/run-agent\.sh"/);
+  });
+
+  it("agentic-ci deletes old or committed evidence before the run, so a stale verdict can't pass", () => {
+    const run = checkRun();
+    expect(run.indexOf("rm -rf agent-output")).toBeGreaterThan(-1);
+    expect(run.indexOf("rm -rf agent-output")).toBeLessThan(run.indexOf("start-session.sh"));
+  });
+
+  it("agentic-ci's agent always has a time limit shorter than the session's", () => {
+    const run = checkRun();
+    expect(run).toContain("case \"$AGENT_MAX_MINUTES\" in '' | *[!0-9]*)");
+    expect(run).toMatch(/-lt 10 \][\s\S]*-gt 115 \]/);
+    expect(run).toContain("agent_minutes=$(( AGENT_MAX_MINUTES - 5 ))");
+    expect(run).toContain('timeout "${agent_minutes}m"');
   });
 
   it("every Expo Simulators session has a maximum duration and an idle limit, and is stopped on exit", () => {
     const start = read(".eas/agents/start-session.sh");
-    const cmd = start.slice(start.indexOf("$EAS simulator:start"), start.indexOf("/tmp/session.json"));
+    const cmd = start.slice(start.indexOf("$EAS simulator:start"), start.indexOf("/tmp/session.json\n", start.indexOf("$EAS simulator:start")));
     expect(cmd).toContain("--max-duration-minutes");
     expect(cmd).toContain("--max-idle-time-minutes");
-    expect(start).toMatch(/trap agentic_ci_stop EXIT/);
     expect(start).toMatch(/agentic_ci_stop\(\) \{[\s\S]*simulator:stop/);
+    // The trap is set before the session starts: a start that creates a session and then fails still stops it.
+    expect(start.indexOf("trap agentic_ci_stop EXIT")).toBeGreaterThan(-1);
+    expect(start.indexOf("trap agentic_ci_stop EXIT")).toBeLessThan(start.indexOf("$EAS simulator:start"));
+    expect(start.indexOf("rm -f .env.eas-simulator")).toBeLessThan(start.indexOf("$EAS simulator:start"));
   });
 
-  it("the agent may read only the project, write only its evidence, and run only agent-device", () => {
+  it("the agent may read only the project, write only its evidence, and run only device.sh", () => {
     const runner = read(".eas/agents/run-agent.sh");
-    expect(runner).toContain("tools='Read,Glob,Grep,Edit(./agent-output/evidence/**),Bash(npx --yes eas-cli@27.11.0 simulator:exec npx --yes agent-device@0.21.41 *)'");
+    expect(runner).toContain("tools='Read(./**),Edit(./agent-output/evidence/**),Bash(bash /tmp/agentic-ci-tools/device.sh *)'");
     // Where the job's secrets can still be read: the process environment, /tmp, home, .env files.
-    for (const rule of ["Read(//proc/**)", "Read(//tmp/**)", "Read(~/**)", "Read(./.env*)"]) expect(runner).toContain(rule);
+    for (const rule of ["Read(//proc/**)", "Read(//tmp/**)", "Read(//etc/**)", "Read(~/**)", "Read(./.env*)", "Bash(*$*)"]) expect(runner).toContain(rule);
     expect(runner).toContain('--disallowedTools "$denied"');
     expect(runner).toContain("--permission-mode dontAsk");
-    // A bare Write or Edit would allow writing anywhere (Write is governed by Edit rules).
-    expect(runner).not.toMatch(/tools='[^']*(?:,|')(?:Write|Edit)(?:,|')/);
+    // A bare Read, Write or Edit would reach anywhere (Write is governed by Edit rules), and a bare
+    // Glob or Grep would search outside the project.
+    expect(runner).not.toMatch(/tools='[^']*(?:,|')(?:Read|Write|Edit|Glob|Grep)(?:,|')/);
+    expect(runner).not.toMatch(/agent-device@[\d.]+ \*/);
     expect(runner).not.toMatch(/dangerously|bypassPermissions/);
   });
 
-  it("agentic-ci's comment carries only PASS or FAIL, and the evidence is redacted before upload", () => {
+  it("agentic-ci's comment carries only PASS or FAIL, and only redacted evidence is uploaded", () => {
     const { jobs } = workflow("agentic-ci.yml");
-    const run = jobs.check!.steps!.map((s) => s.run ?? "").join("\n");
-    expect(run).toMatch(/redact-evidence\.sh[\s\S]*set-output verdict "\$verdict"/);
+    const steps = jobs.check!.steps!;
+    const run = checkRun();
     expect(run).toContain("PASS:*) verdict=PASS ;; *) verdict=FAIL ;;");
     expect(run).not.toMatch(/set-output verdict "\$\(head/);
-    const upload = jobs.check!.steps!.findIndex((s) => (s as { uses?: string }).uses === "eas/upload_artifact");
-    const check = jobs.check!.steps!.findIndex((s) => (s.run ?? "").includes("redact-evidence.sh"));
-    expect(check).toBeGreaterThanOrEqual(0);
-    expect(upload).toBeGreaterThan(check);
+    const redact = steps.findIndex((s) => (s.run ?? "").includes("/tmp/agentic-ci-tools/redact-evidence.sh"));
+    const upload = steps.findIndex((s) => (s as { uses?: string }).uses === "eas/upload_artifact");
+    expect(redact).toBeGreaterThan(steps.findIndex((s) => s.run === run));
+    expect(upload).toBeGreaterThan(redact);
+    expect((steps[redact] as { if?: string }).if).toContain("always()");
+    expect((steps[upload] as { with?: { path?: string } }).with?.path).toBe("agent-output/upload/**/*");
+  });
+
+  it("every agent script parses", () => {
+    for (const f of readdirSync(join(root, ".eas/agents")).filter((f) => f.endsWith(".sh"))) {
+      const r = spawnSync("bash", ["-n", join(root, ".eas/agents", f)], { encoding: "utf8" });
+      expect(r.status, `${f}: ${r.stderr}`).toBe(0);
+    }
   });
 
   it("e2e runs only by hand", () => {
@@ -317,6 +362,115 @@ describe("EAS workflows", () => {
     }
     // Inputs reach the shell only through env, never written into a script.
     for (const job of Object.values(jobs)) for (const step of job.steps ?? []) expect(step.run ?? "").not.toContain("${{");
+  });
+});
+
+/** Runs device.sh with a fake npx that prints the command it would run, one argument per line. */
+function device(...args: string[]) {
+  const dir = mkdtempSync(join(tmpdir(), "agentic-ci-"));
+  mkdirSync(join(dir, "bin"));
+  writeFileSync(join(dir, "bin", "npx"), '#!/usr/bin/env bash\nprintf "%s\\n" "$@"\nenv > "${HOME}/env.txt"\n');
+  chmodSync(join(dir, "bin", "npx"), 0o755);
+  const r = spawnSync("bash", [join(root, ".eas/agents/device.sh"), ...args], {
+    encoding: "utf8",
+    env: {
+      PATH: `${join(dir, "bin")}:${process.env.PATH}`,
+      HOME: dir,
+      AGENTIC_CI_APP_ID: "com.example.app",
+      AGENTIC_CI_PLATFORM: "ios",
+      AGENTIC_CI_PROJECT: dir,
+      ANTHROPIC_API_KEY: "sk-ant-test-0123456789",
+      EXPO_TOKEN: "expo-token-should-not-pass",
+    },
+  });
+  const lines = r.stdout.trim().split("\n");
+  const at = lines.indexOf("agent-device@0.21.41");
+  const envFile = join(dir, "env.txt");
+  const env = existsSync(envFile) ? readFileSync(envFile, "utf8") : "";
+  return { status: r.status, stderr: r.stderr, prefix: lines.slice(0, at + 1), device: at >= 0 ? lines.slice(at + 1) : [], stdout: r.stdout, env };
+}
+
+describe("device.sh, the agent's only shell command", () => {
+  it("runs an allowed command through eas simulator:exec, with none of the job's variables", () => {
+    const r = device("press", "@e2", "--settle");
+    expect(r.status, r.stderr).toBe(0);
+    expect(r.prefix).toEqual(["--yes", "eas-cli@27.11.0", "simulator:exec", "npx", "--yes", "agent-device@0.21.41"]);
+    expect(r.device).toEqual(["press", "@e2", "--settle"]);
+    expect(r.env).toMatch(/^PATH=/m);
+    expect(r.env).not.toMatch(/EXPO_TOKEN|ANTHROPIC_API_KEY|AGENTIC_CI_/);
+  });
+
+  it.each([
+    [["snapshot", "-i"], ["snapshot", "-i"]],
+    [["fill", 'label="Email"', "a@example.com"], ["fill", 'label="Email"', "a@example.com"]],
+    [["scroll", "down"], ["scroll", "down"]],
+    [["swipe", "300", "500", "40", "500"], ["swipe", "300", "500", "40", "500"]],
+    [["wait", "text", "Saved", "3000"], ["wait", "text", "Saved", "3000"]],
+    [["screenshot", "01-home.png"], ["screenshot", "agent-output/evidence/01-home.png"]],
+    [["open"], ["open", "com.example.app", "--platform", "ios"]],
+  ])("allows %j", (args, expected) => {
+    const r = device(...args);
+    expect(r.status, r.stderr).toBe(0);
+    expect(r.device).toEqual(expected);
+  });
+
+  it.each([
+    [[]],
+    [["install", "/tmp/evil.app"]],
+    [["save-script", ".eas/agents/redact-evidence.sh"]],
+    [["replay", "flow.ad"]],
+    [["metro", "prepare"]],
+    [["record", "stop"]],
+    [["test", "--maestro", "flow.yaml"]],
+    [["open", "https://attacker.example/"]],
+    [["open", "--save-script=.eas/agents/redact-evidence.sh"]],
+    [["screenshot", "../../.eas/agents/redact-evidence.sh"]],
+    [["screenshot", "/tmp/x.png"]],
+    [["screenshot", ".eas/agents/x.png"]],
+    [["press", "@e2", "--save-script=x"]],
+    [["fill", "@e1", "$ANTHROPIC_API_KEY"]],
+    [["fill", "@e1", "sk-ant-test-0123456789"]],
+    [["type", "`cat /proc/self/environ`"]],
+    [["type", "--settle"]],
+    [["snapshot", "--json"]],
+    [["keyboard", "enter; open"]],
+  ])("refuses %j", (args) => {
+    const r = device(...args);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toMatch(/^Refused: /);
+    expect(r.stdout).toBe("");
+  });
+});
+
+/** Runs redact-evidence.sh in a scratch project with these evidence files and a secret in the environment. */
+function redact(files: Record<string, string>, extraEnv: Record<string, string> = {}) {
+  const dir = mkdtempSync(join(tmpdir(), "agentic-ci-redact-"));
+  for (const [name, text] of Object.entries(files)) {
+    mkdirSync(join(dir, "agent-output/evidence", name, ".."), { recursive: true });
+    writeFileSync(join(dir, "agent-output/evidence", name), text);
+  }
+  const r = spawnSync("bash", [join(root, ".eas/agents/redact-evidence.sh")], {
+    cwd: dir,
+    encoding: "utf8",
+    env: { PATH: process.env.PATH, MY_API_KEY: "super-secret-value-123", ...extraEnv },
+  });
+  return { r, dir };
+}
+
+describe("redact-evidence.sh", () => {
+  it("writes redacted copies to agent-output/upload, the only folder uploaded", () => {
+    const { r, dir } = redact({ "verdict.md": "PASS: saw super-secret-value-123 on screen", "nested/log.jsonl": "x super-secret-value-123 y", "01.png": "super-secret-value-123" });
+    expect(r.status, r.stderr).toBe(0);
+    expect(readFileSync(join(dir, "agent-output/upload/verdict.md"), "utf8")).toBe("PASS: saw [redacted] on screen");
+    expect(readFileSync(join(dir, "agent-output/upload/nested/log.jsonl"), "utf8")).toBe("x [redacted] y");
+    // Images and video are copied as they are (nothing reads text out of them).
+    expect(readFileSync(join(dir, "agent-output/upload/01.png"), "utf8")).toBe("super-secret-value-123");
+  });
+
+  it("fails closed: when redaction fails, there is nothing to upload", () => {
+    const { r, dir } = redact({ "verdict.md": "PASS: x" }, { PATH: "/nonexistent" });
+    expect(r.status).not.toBe(0);
+    expect(existsSync(join(dir, "agent-output/upload"))).toBe(false);
   });
 });
 

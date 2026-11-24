@@ -2353,7 +2353,7 @@ export const features = defineFeatures({
   },
   "agentic-ci": {
     name: "Agentic CI (Expo Simulators)",
-    summary: "An EAS workflow a native app owns (templates/release/agentic-ci.yml, with .eas/agents from templates/eas/agents; genesis add template agentic-ci), after Expo's Agentic CI: on the Agent check label or by hand, never on every pull request, it repacks a matching iOS simulator build or builds one, starts one named Expo Simulators session with a maximum duration and an idle limit, records the screen, runs the app's Maestro flows there through agent-device, has a coding agent (Claude Code, allowed only the file tools and agent-device) test what the pull request's title and body describe, and comments a PASS or FAIL verdict with the session recording, screenshots and log. The session is always stopped.",
+    summary: "An EAS workflow a native app owns (templates/release/agentic-ci.yml, with .eas/agents from templates/eas/agents; genesis add template agentic-ci), after Expo's Agentic CI: on the Agent check label or by hand, never on every pull request, it repacks a matching iOS simulator build or builds one, starts one named Expo Simulators session with a maximum duration and an idle limit, records the screen, runs the app's Maestro flows there through agent-device, has a coding agent (Claude Code: reading the project, writing its evidence, and a fixed list of agent-device commands through device.sh) test what the pull request's title and body describe, and comments a PASS or FAIL verdict with the session recording, screenshots and log (redacted, and uploaded only when redaction succeeds). The session is always stopped.",
     category: "Tooling",
     // Not run in EAS yet: the session scripts were driven from a Mac on a consumer app's pull
     // request (a cloud session with local egress to its isolated stack). Beta once the workflow
@@ -2370,7 +2370,8 @@ export const features = defineFeatures({
     visibility: "internal",
     acceptance: [
       "It starts only on the Agent check label or a manual run, never on every pull request, and no job publishes, submits, or uses the production environment or profile.",
-      "Every session it starts has --max-duration-minutes and --max-idle-time-minutes, and an EXIT trap stops it; the agent runs without EXPO_TOKEN, EXPO_TOKEN_SIMULATOR or GITHUB_TOKEN and may run only agent-device on the session.",
+      "Every session it starts has --max-duration-minutes and --max-idle-time-minutes, and an EXIT trap set before the start stops it; the agent runs without EXPO_TOKEN, EXPO_TOKEN_SIMULATOR or GITHUB_TOKEN, reads only the project, writes only agent-output/evidence, and its only shell command is device.sh, run from a read-only copy outside the project, which refuses any agent-device command or argument outside its list.",
+      "Only redacted evidence is uploaded: redaction writes agent-output/upload, the only folder uploaded, so a failed redaction uploads nothing; stale or committed agent-output is deleted before the run.",
       "The workflow file stays under EAS's 16 KiB limit (doctor eas-workflow-size), and the starter's copies are byte-identical to the templates.",
     ],
     reviewedAt: "2026-11-22",

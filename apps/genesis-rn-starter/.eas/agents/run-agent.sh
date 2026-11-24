@@ -1,23 +1,29 @@
 #!/usr/bin/env bash
 # Runs the coding agent (Claude Code) with no person, on a prompt file.
 #
-#   bash .eas/agents/run-agent.sh <prompt file> device
+#   bash /tmp/agentic-ci-tools/run-agent.sh <prompt file> device
 #
-# `device` mode allows only agent-device through `eas simulator:exec`, reading the project's files,
-# and writing under agent-output/evidence. It can't run anything else, and can't read the process
-# environment (/proc), /tmp (the session file), the home folder or any .env file, where the job's
-# secrets are: a pull request's body can ask it to, so the rules, not the prompt, refuse (deny rules
-# also cover Glob and Grep; Edit rules govern Write; dontAsk denies whatever no rule allows). It reads
-# CLAUDE_CODE_OAUTH_TOKEN (`claude setup-token`) or ANTHROPIC_API_KEY from the job's EAS
-# environment; AGENT_MODEL picks a model. The log goes to agent-output/evidence/agent-log.jsonl.
+# What `device` mode enforces (Claude Code's permission rules, in dontAsk mode, so whatever no
+# rule allows is denied):
+# - Shell: only `bash /tmp/agentic-ci-tools/device.sh …`, the read-only copy of device.sh, which
+#   runs a fixed list of agent-device commands (see its header). A command with $, a backtick or
+#   $( is denied before it runs.
+# - Reading: the project's files only (Read(./**); Glob and Grep search the project), never a .env
+#   file, /proc, /tmp (the session file and the tools) or the home folder.
+# - Writing: only under agent-output/evidence (Edit rules also govern Write).
+# The agent's own key (CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY, from the job's EAS
+# environment) stays in its environment, which is why the shell is limited to device.sh, and
+# device.sh refuses an argument holding it. The job unsets EXPO_TOKEN, EXPO_TOKEN_SIMULATOR and
+# GITHUB_TOKEN before this runs. AGENT_MODEL picks a model. The log goes to
+# agent-output/evidence/agent-log.jsonl, which the job redacts before upload.
 #
 # Genesis template (templates/eas/agents/run-agent.sh), after Expo's agentic-workflows setup.
 set -euo pipefail
 
 case "${2:-}" in
   device)
-    tools='Read,Glob,Grep,Edit(./agent-output/evidence/**),Bash(npx --yes eas-cli@27.11.0 simulator:exec npx --yes agent-device@0.21.41 *)'
-    denied='Read(//proc/**),Read(//tmp/**),Read(//dev/**),Read(~/**),Read(./.env*),Read(./**/.env*),Bash(* /proc/*),Bash(*$(*),Bash(*`*)'
+    tools='Read(./**),Edit(./agent-output/evidence/**),Bash(bash /tmp/agentic-ci-tools/device.sh *)'
+    denied='Read(//proc/**),Read(//tmp/**),Read(//private/**),Read(//dev/**),Read(//etc/**),Read(~/**),Read(./.env*),Read(./**/.env*),Bash(*$*),Bash(*`*),Bash(* /proc/*)'
     ;;
   *)
     echo "Unknown mode \"${2:-}\". Use device." >&2
