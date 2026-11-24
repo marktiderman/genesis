@@ -5,6 +5,11 @@
 # (review-gate.yml) and the maintainer's merge into main. Turning on `enforce`, or letting Claude approve,
 # is the maintainer's decision. Code Review's result is advisory here, so this policy starts no extra
 # billed reviews.
+#
+# A `humans` seat can be filled by the PR's author, so a filled seat here doesn't mean an
+# independent review. `"!pr/authors"` would not fix that in this repo: every agent, the
+# adversarial reviewer included, acts as the account that opened the PR, so the seat could
+# never fill. Independence is the review gate's job, not this policy's.
 version: 1
 mode: observe
 rules:

@@ -1,7 +1,9 @@
 # Review instructions
 
-Claude Code Review (Claude Ship) reads this file from the base branch. The repo's rules are in
-AGENTS.md, included below; a change that breaks one of them is a finding. Cite the principle IDs
+Claude Code Review (Claude Ship) reads this file from the PR's base branch when that branch is
+protected, and otherwise from the default branch: a copy that is only in a staging batch isn't
+in force yet.
+The repo's rules are in AGENTS.md, included below; a change that breaks one of them is a finding. Cite the principle IDs
 (G1–G6, `docs/FRAMEWORK.md`) where one applies.
 
 @AGENTS.md
