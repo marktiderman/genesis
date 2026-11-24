@@ -13,7 +13,7 @@
  *
  * @stability Beta
  */
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { Platform, Pressable, View } from "react-native";
 import { useHaptics } from "../hooks/use-haptics";
 import { useThemeRoles } from "../hooks/use-theme-roles";
@@ -33,6 +33,8 @@ export interface NativeContextMenuProps {
   actions: readonly NativeContextMenuAction[];
   /** Over the actions: what they act on. */
   title?: string;
+  /** A peek of what they act on, above the title (a conversation's latest messages, a photo). */
+  preview?: ReactNode;
   cancelLabel?: string;
   testID?: string;
 }
@@ -40,7 +42,7 @@ export interface NativeContextMenuProps {
 /** If iOS never says the sheet has gone (Modal's `onDismiss` can be skipped), run the action after this. */
 const IOS_DISMISS_FALLBACK_MS = 600;
 
-export function NativeContextMenu({ open, onOpenChange, actions, title, cancelLabel = "Cancel", testID = "context-menu" }: NativeContextMenuProps) {
+export function NativeContextMenu({ open, onOpenChange, actions, title, preview, cancelLabel = "Cancel", testID = "context-menu" }: NativeContextMenuProps) {
   const colors = useThemeRoles();
   const play = useHaptics();
   const opened = useRef(false);
@@ -75,6 +77,11 @@ export function NativeContextMenu({ open, onOpenChange, actions, title, cancelLa
   return (
     <NativeSheet open={open} onOpenChange={onOpenChange} fitContent onDismissed={runTapped} testID={testID}>
       <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
+        {preview ? (
+          <View testID={`${testID}-preview`} style={{ borderRadius: 16, overflow: "hidden", marginBottom: 8, backgroundColor: colors.surface }}>
+            {preview}
+          </View>
+        ) : null}
         {title ? (
           <NativeText testID={`${testID}-title`} accessibilityRole="header" numberOfLines={2} style={{ paddingVertical: 8, color: colors.secondaryLabel, fontSize: 13, lineHeight: 18, textAlign: "center" }}>
             {title}

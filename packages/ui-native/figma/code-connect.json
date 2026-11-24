@@ -106,6 +106,7 @@
     "NativeResourceSettingsPage",
     "NativeNoFeaturesFound",
     "NativeNoFeedbackFound",
-    "NativeNoSearchResults"
+    "NativeNoSearchResults",
+    "NativeRowActions"
   ]
 }

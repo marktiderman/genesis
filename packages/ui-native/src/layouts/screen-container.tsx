@@ -9,6 +9,15 @@
  *   - A loading state (`loading`): a centred `NativeLoadingState` in place of the body
  *   - Pull to refresh (`onRefresh` + `refreshing`): a theme-tinted `NativeRefreshControl`
  *
+ *   - The native header (`header`): a large title that collapses on scroll, native header
+ *     items and native search, set from inside the screen through `GenesisModules.router.StackScreen`
+ *   - Tab bar visibility (`tabBar="hidden"`): UIKit's `hidesBottomBarWhenPushed`, through
+ *     `useHideTabBar` and the tabs layout's `TabBarVisibilityProvider`
+ *
+ * The rule (docs/FRAMEWORK.md, "Native screens follow iOS"): every screen uses the stack's native
+ * header, never one it draws. Top-level screens take a large title; a drill-down takes a standard
+ * one (`large: false`) and the stack's own back button.
+ *
  * Header customization is delegated: pass `headerLeft`, `headerRight`,
  * `large`, `scrollEdgeBehavior`, `safeAreaEdges`, plus any direct
  * `headerOptions` passthrough to `<Stack.Screen options={...} />`. We
@@ -28,7 +37,9 @@
  *
  * @stability Beta
  */
-import type { ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useGenesisModules } from "../native-modules";
+import { useHideTabBar } from "./tab-bar-visibility";
 import { ScrollView, StatusBar, View, type ViewStyle } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { cn } from "../utils";
@@ -91,6 +102,23 @@ export interface ScreenContainerProps {
   style?: ViewStyle;
   /** testID on the root container. */
   testID?: string;
+  /**
+   * The tab bar while this screen is focused. `"hidden"` hides it (a conversation, a full-screen
+   * viewer, a form pushed over a list), as UIKit's `hidesBottomBarWhenPushed`; the stack's back
+   * button and edge swipe stay. Needs `TabBarVisibilityProvider` around the tabs. Default `"visible"`.
+   */
+  tabBar?: "visible" | "hidden";
+  /**
+   * The screen's native header, set from inside the screen: `composeHeaderOptions` of these, passed
+   * to `GenesisModules.router.StackScreen` (expo-router's `Stack.Screen`). `large` defaults to
+   * `true` here, a large title that collapses on scroll; pass `large: false` on a drill-down.
+   * Without the router module, set `<Stack.Screen options={composeHeaderOptions(…)}>` yourself.
+   * An option this screen set and later leaves out is reset (the large title, a search that goes);
+   * one it never set is left to the layout's screenOptions. Keep
+   * `search`, the callbacks and `headerOptions` stable (useMemo / useCallback): they're compared by
+   * reference.
+   */
+  header?: ScreenHeaderProps;
 }
 
 /**
@@ -108,8 +136,36 @@ export interface ScreenHeaderProps {
   large?: boolean;
   /** iOS scroll-edge behavior. `"match"` collapses, `"transparent"` always transparent, `"opaque"` always opaque. */
   scrollEdgeBehavior?: ScrollEdgeBehavior;
+  /**
+   * Native search in the header (react-native-screens' `headerSearchBarOptions`): the system
+   * search field under the large title, which hides on scroll. On iOS 26 pass
+   * `placement: "integrated"` (or `"integratedButton"`) to put it in the toolbar; with a tab bar,
+   * search is usually its own tab (`role: "search"` on NativeTabs). Never draw your own.
+   */
+  search?: ScreenSearchOptions;
+  /**
+   * Native header items on the right (react-native-screens' `unstable_headerRightItems`): bar
+   * buttons and menus drawn by UIKit, with iOS 26's glass grouping. Prefer them to `headerRight`.
+   */
+  headerRightItems?: () => readonly unknown[];
+  /** Native header items on the left (`unstable_headerLeftItems`). */
+  headerLeftItems?: () => readonly unknown[];
   /** Direct passthrough merged INTO the resolved options object. Wins over named props. */
   headerOptions?: Record<string, unknown>;
+}
+
+/** `headerSearchBarOptions`, written structurally: the fields Genesis names, and the rest passed through. */
+export interface ScreenSearchOptions {
+  placeholder?: string;
+  onChangeText?: (event: { nativeEvent: { text: string } }) => void;
+  onSearchButtonPress?: (event: { nativeEvent: { text: string } }) => void;
+  onCancelButtonPress?: () => void;
+  /** Keep it visible while scrolling. Default: it hides as the list scrolls (iOS's default). */
+  hideWhenScrolling?: boolean;
+  /** `"automatic" | "inline" | "stacked" | "integrated" | "integratedButton" | "integratedCentered"`: iOS 26 adds the integrated ones. */
+  placement?: string;
+  autoCapitalize?: "none" | "words" | "sentences" | "characters" | "systemDefault";
+  [option: string]: unknown;
 }
 
 /**
@@ -137,6 +193,9 @@ export function composeHeaderOptions(
     headerRight,
     large,
     scrollEdgeBehavior,
+    search,
+    headerRightItems,
+    headerLeftItems,
     headerOptions,
   } = props;
 
@@ -153,11 +212,26 @@ export function composeHeaderOptions(
       opts.headerLargeTitleShadowVisible = true;
     }
   }
+  // An explicit `false` turns off a large title a navigator or an earlier render set (setOptions merges).
+  if (large === false) opts.headerLargeTitle = false;
+  if (search) opts.headerSearchBarOptions = search;
+  if (headerRightItems) opts.unstable_headerRightItems = headerRightItems;
+  if (headerLeftItems) opts.unstable_headerLeftItems = headerLeftItems;
   // Direct passthrough wins.
   if (headerOptions) {
     Object.assign(opts, headerOptions);
   }
   return opts;
+}
+
+/**
+ * Hides the tab bar while the screen is focused. A component of its own, so only a screen that
+ * asks reads focus: ScreenContainer also draws sheets and screens outside any navigator, where
+ * the router's focus hook has nothing to read.
+ */
+function HideTabBar() {
+  useHideTabBar();
+  return null;
 }
 
 const DEFAULT_EDGES: SafeAreaEdge[] = ["left", "right"];
@@ -199,7 +273,43 @@ export function ScreenContainer({
   refreshing = false,
   style,
   testID,
+  tabBar = "visible",
+  header,
 }: ScreenContainerProps) {
+  const { router } = useGenesisModules();
+  const StackScreen = router?.StackScreen;
+  // The large title is always set (on by default here). Any other option this screen set on an
+  // earlier render and leaves out now is sent as `undefined`, so taking it away resets it (setOptions
+  // merges); an option it never set isn't sent, so the layout's screenOptions (a shared headerRight,
+  // a transparent header) stay.
+  // The keys applied on the last committed render live in state, updated after commit, so the
+  // memo stays pure (StrictMode's double render and a discarded concurrent render can't desync it).
+  const h = header;
+  const [appliedKeys, setAppliedKeys] = useState<readonly string[]>([]);
+  const nextOptions = useMemo(
+    () => {
+      if (!h) return null;
+      const large = h.large ?? true;
+      // `large` (default true) always yields a headerLargeTitle from composeHeaderOptions, and its
+      // `headerOptions` passthrough still wins over it.
+      return composeHeaderOptions({ scrollEdgeBehavior: "match", ...h, large });
+    },
+    // By field, so an inline `header={{…}}` doesn't set the options on every render; keep `search`,
+    // the callbacks and `headerOptions` stable (useMemo / useCallback) for the same reason.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [!!h, h?.headerTitle, h?.large, h?.scrollEdgeBehavior, h?.search, h?.headerLeft, h?.headerRight, h?.headerRightItems, h?.headerLeftItems, h?.headerOptions],
+  );
+  const headerOptions = useMemo(() => {
+    // A screen that drops `header` altogether resets what it set, once, before StackScreen goes.
+    if (!nextOptions) return appliedKeys.length ? Object.fromEntries(appliedKeys.map((key) => [key, undefined])) : null;
+    const out: Record<string, unknown> = { ...nextOptions };
+    for (const key of appliedKeys) if (!(key in nextOptions)) out[key] = undefined;
+    return out;
+  }, [nextOptions, appliedKeys]);
+  useEffect(() => {
+    const keys = nextOptions ? Object.keys(nextOptions) : [];
+    setAppliedKeys((prev) => (prev.length === keys.length && prev.every((k, i) => k === keys[i]) ? prev : keys));
+  }, [nextOptions]);
   const osMode = useThemeMode();
   const resolvedMode = themeMode === "system" ? osMode : themeMode;
   const barStyle = resolveBarStyle(statusBar, resolvedMode);
@@ -238,6 +348,8 @@ export function ScreenContainer({
       className={cn("flex-1 bg-background", className)}
       style={style}
     >
+      {headerOptions && StackScreen ? <StackScreen options={headerOptions} /> : null}
+      {tabBar === "hidden" ? <HideTabBar /> : null}
       {statusBar !== "hidden" ? (
         <StatusBar
           barStyle={

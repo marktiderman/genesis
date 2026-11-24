@@ -518,6 +518,8 @@ export const Easing = {
   inOut: (e: unknown) => e,
 };
 
+export const I18nManager = { isRTL: false };
+
 export const AccessibilityInfo = {
   isReduceMotionEnabled: () => Promise.resolve(false),
   announceForAccessibility: (_text: string) => {},

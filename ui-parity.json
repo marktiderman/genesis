@@ -4,6 +4,7 @@
     "AuthPage": "AuthScreen",
     "DataBulkBar": "NativeBulkBar",
     "PageLoading": "NativeLoadingState",
+    "RowMenuButton": "NativeRowActions",
     "ShareDialog": "NativeShareSheet",
     "ToggleGroup": "NativeSegmentedControl"
   },
@@ -40,7 +41,6 @@
     "ResourceInbox": "Three panes side by side are a wide-screen layout; a phone shows the same view one pane at a time as NativeResourceView type=\"inbox\" (InboxPage's rows), opening a row as the list does.",
     "RowContextMenuItems": "A right-click menu: pointer-only. A phone long-presses a row, which NativeResourceView offers.",
     "ResourceSheet": "notYet: a spreadsheet on a phone (resource-view-sheet's native platform is planned); a phone edits a row in NativeResourceView's form sheet.",
-    "RowMenuButton": "A phone row's actions are its swipe and long-press menu (NativeResourceView: edit, the view's own actions and delete, each refusal with its reason); there's no trailing More button.",
     "ScrollArea": "Custom-styled scrollbars are a desktop concern; a phone scrolls natively.",
     "Section": "A genesis-sites page section for marketing pages.",
     "Spinner": "An inline spinner; a phone uses ActivityIndicator, or NativeLoadingState for a screen.",

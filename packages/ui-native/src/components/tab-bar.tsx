@@ -38,6 +38,8 @@ export interface NativeTabBarProps {
   max?: number;
   /** "More" (the last slot's label and the sheet's title). */
   moreLabel?: string;
+  /** Hides the bar: pass `TabBarVisibilityProvider`'s `hidden`, so a screen with `tabBar="hidden"` takes the full height. */
+  hidden?: boolean;
   className?: string;
   testID?: string;
 }
@@ -66,10 +68,12 @@ export function NativeTabBar({
   onChange,
   max = TAB_BAR_MAX,
   moreLabel = "More",
+  hidden = false,
   className,
   testID = "native-tab-bar",
 }: NativeTabBarProps) {
   const [moreOpen, setMoreOpen] = useState(false);
+  if (hidden) return null;
   const { shown, more } = splitTabBarItems(items, max);
   const moreActive = more.some((item) => item.key === value);
   return (

@@ -53,7 +53,7 @@ export { formatInboxTime } from "@marktiderman/genesis-core/conversation";
 /** The parts `slots` and `slotProps` reach, with the props each receives. */
 export type InboxPageSlotMap = {
   row: InboxItem & { testID: string; isFirst: boolean; isLast: boolean; timeLabel: string | null };
-  swipeable: { actions: InboxSwipeAction[]; testID: string; children?: ReactNode };
+  swipeable: { actions: InboxSwipeAction[]; testID: string; appearance?: "fill" | "round"; /** `false`: the row already has the actions for screen readers (InboxPage puts them on it). */ accessibilityActions?: boolean; children?: ReactNode };
   header: { testID: string };
   footer: { loadingMore: boolean; testID: string };
   empty: { title: string; body: string; actionLabel?: string; onAction?: () => void; testID: string };
@@ -92,6 +92,10 @@ export interface InboxPageProps extends ScreenHeaderProps {
   formatTime?: (date: Date, now: Date) => string;
   /** The clock, for tests. */
   now?: () => Date;
+  /** How a row's swipe draws its actions: `"fill"` (default) or iOS 26's `"round"`, as Messages has them (ADR 0028). */
+  swipeAppearance?: "fill" | "round";
+  /** A peek of the row above its long-press menu (Messages shows the latest messages). */
+  menuPreview?: (row: InboxPageSlotMap["row"]) => ReactNode;
   slots?: Slots<InboxPageSlotMap>;
   slotProps?: SlotPropsFor<InboxPageSlotMap>;
   /** testID on the root. Default `"inbox-page"`. */
@@ -147,6 +151,8 @@ export function InboxPage({
   now = defaultNow,
   slots = NO_SLOTS,
   slotProps = NO_SLOT_PROPS,
+  swipeAppearance,
+  menuPreview,
   testID = "inbox-page",
 }: InboxPageProps) {
   const colors = useThemeRoles();
@@ -183,11 +189,13 @@ export function InboxPage({
       const actions = row.swipeActions ?? [];
       return (
         <Fragment>
-          {actions.length && swipeSlot !== null ? renderSlot(NativeSwipeRow, swipeSlot, { actions, testID: `${row.testID}-swipe`, children: content }, swipeProps) : content}
+          {actions.length && swipeSlot !== null
+            ? renderSlot(NativeSwipeRow, swipeSlot, { actions, testID: `${row.testID}-swipe`, accessibilityActions: false, ...(swipeAppearance ? { appearance: swipeAppearance } : {}), children: content }, swipeProps)
+            : content}
         </Fragment>
       );
     },
-    [rowSlot, rowProps, swipeSlot, swipeProps],
+    [rowSlot, rowProps, swipeSlot, swipeProps, swipeAppearance],
   );
 
   const headerNode = (
@@ -263,7 +271,7 @@ export function InboxPage({
         renderItem={renderRow}
       />
       </OpenRowMenu.Provider>
-      {menuRow ? <NativeContextMenu open={menuOpen} onOpenChange={setMenuOpen} title={menuRow.title} actions={menuRow.swipeActions ?? []} testID={`${testID}-menu`} /> : null}
+      {menuRow ? <NativeContextMenu open={menuOpen} onOpenChange={setMenuOpen} title={menuRow.title} {...(menuPreview ? { preview: menuPreview(menuRow) } : {})} actions={menuRow.swipeActions ?? []} testID={`${testID}-menu`} /> : null}
     </SafeAreaView>
   );
 }

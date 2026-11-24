@@ -224,7 +224,8 @@ describe("ThreadPage", () => {
   });
 
   it("composes a standard header by default", () => {
-    expect(getThreadPageStackOptions({ headerTitle: "Report" })).toEqual({ title: "Report" });
+    // Explicitly not large, so a navigator's large-title default never carries into a thread.
+    expect(getThreadPageStackOptions({ headerTitle: "Report" })).toEqual({ title: "Report", headerLargeTitle: false });
   });
 });
 

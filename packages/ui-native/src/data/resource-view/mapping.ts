@@ -158,22 +158,41 @@ export function swipeActionsFor<T extends Row>(
 ): NativeResourceSwipeAction[] {
   const { messages, softDelete, editable, screen, viewer, onEdit, onDelete, onRefused } = options;
   const actions: NativeResourceSwipeAction[] = [];
-  const add = (id: string, label: string, icon: string, right: Allowed | false, run: () => void, destructive = false) => {
+  const add = (
+    id: string,
+    label: string,
+    icon: string | undefined,
+    right: Allowed | false,
+    run: () => void,
+    destructive = false,
+    place: Pick<NativeResourceSwipeAction, "side" | "full" | "swipe" | "tone" | "confirms"> = {},
+  ) => {
     if (right === false) return;
     const reason = right === true ? undefined : right;
     actions.push({
       id,
       label,
-      icon,
+      ...(icon ? { icon } : {}),
       ...(destructive ? { destructive } : {}),
+      ...place,
       ...(reason ? { reason } : {}),
       onPress: reason ? () => onRefused(label, reason) : run,
     });
   };
-  if (editable) add("edit", messages.common.edit, "edit", allowed(view, "update", row, screen, viewer), () => onEdit(row));
+  // Edit and Delete are always on the trailing swipe (never a full swipe: Delete confirms first).
+  if (editable) add("edit", messages.common.edit, "edit", allowed(view, "update", row, screen, viewer), () => onEdit(row), false, { side: "trailing" });
   if (options.onAction) {
     for (const action of view.actions()) {
-      add(action.name, action.label, "bolt", view.canAction(action.name, row as T & DataRow, viewer), () => options.onAction!(action.name, row), !!action.destructive);
+      // Where the view puts it behind the swipe (ADR 0028): its side and full swipe, or off the swipe.
+      // Unset leaves `side` unset: NativeResourceView's own swipe keeps it to the menu, a screen's own `swipeable` puts it trailing.
+      const swipe = action.swipe;
+      const place = {
+        ...(swipe === false ? { swipe: false } : swipe ? { side: swipe.side, ...(swipe.full ? { full: true } : {}) } : {}),
+        ...(action.tone ? { tone: action.tone } : {}),
+        // NativeResourceView asks the action's `confirm` before it runs (a full swipe included).
+        ...(action.confirm ? { confirms: true } : {}),
+      };
+      add(action.name, action.label, action.icon, view.canAction(action.name, row as T & DataRow, viewer), () => options.onAction!(action.name, row), !!action.destructive, place);
     }
   }
   add(
@@ -183,6 +202,7 @@ export function swipeActionsFor<T extends Row>(
     allowed(view, "delete", row, screen, viewer),
     () => onDelete(row),
     true,
+    { side: "trailing" },
   );
   return actions;
 }

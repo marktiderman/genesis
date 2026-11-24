@@ -85,3 +85,42 @@ describe("haptics-use-genesis", () => {
     ['import * as H from "expo-haptics";\nconst modules = { haptics: H };\nvideo.impactAsync()'],
   ])("leaves %s alone", (code) => expect(re.test(code)).toBe(false));
 });
+
+describe("screens-use-native-header", () => {
+  const { re, unless } = rule("screens-use-native-header");
+
+  it.each([
+    ["<Stack.Screen options={{ headerShown: false }} />"],
+    ["options={{ headerShown : false, title: 'x' }}"],
+    ["<NavBarSearchBar value={q} onChangeText={setQ} />"],
+    ["<Stack.Screen options={{ header: () => <MyBar /> }} />"],
+    ["options={{ header: ({ navigation }) => <MyBar nav={navigation} /> }}"],
+  ])("flags %s", (code) => expect(re.test(code)).toBe(true));
+
+  it.each([
+    ["<Stack.Screen options={{ headerShown: true, title: 'Inbox' }} />"],
+    ["<ScreenContainer header={{ headerTitle: 'Inbox', search: { placeholder: 'Search' } }} />"],
+    ["const headerShownFalse = false"],
+    ["headerTitle: () => <Logo />"],
+  ])("leaves %s alone", (code) => expect(re.test(code)).toBe(false));
+
+  it("leaves sign-in and full-screen media alone", () => {
+    expect(unless).toEqual({ renders: ["AuthScreen", "NativeFullScreenModal", "NativeLightbox"] });
+  });
+});
+
+describe("tab-bar-hidden-per-screen", () => {
+  const { re } = rule("tab-bar-hidden-per-screen");
+
+  it.each([
+    ["options={{ tabBarStyle: { display: 'none' } }}"],
+    ['tabBarStyle: { display: "none" }'],
+    ["tabBarStyle: hide ? { display: 'none' } : undefined"],
+  ])("flags %s", (code) => expect(re.test(code)).toBe(true));
+
+  it.each([
+    ["tabBarStyle: { backgroundColor: colors.background }"],
+    ["<ScreenContainer tabBar=\"hidden\" />"],
+    ["<NativeTabs hidden={hidden}>"],
+  ])("leaves %s alone", (code) => expect(re.test(code)).toBe(false));
+});

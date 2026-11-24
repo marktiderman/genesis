@@ -70,6 +70,7 @@ import {
   type NativeResourceSwipeableProps,
 } from "..";
 import { gridLines } from "../NativeResourceView";
+import { GenesisModulesProvider, type GenesisModules } from "../../../native-modules";
 
 type Brand = {
   id: string;
@@ -276,6 +277,24 @@ describe("guards to swipe actions", () => {
     actions[1]!.onPress();
     expect(h.onDelete).not.toHaveBeenCalled();
     expect(h.onRefused).toHaveBeenCalledWith("Delete", "The default brand stays.");
+  });
+
+  it("places the view's own actions where the view says (ADR 0028), with their icon and tone", () => {
+    const view = defineView(brands, {
+      actions: [
+        { name: "pin", label: "Pin", swipe: { side: "leading", full: true }, icon: "pin", tone: "orange" },
+        { name: "review", label: "Review", swipe: false },
+        { name: "archive", label: "Archive", icon: "archive", tone: "purple" },
+      ],
+    });
+    const actions = swipeActionsFor(view, ROWS[1]!, { messages, softDelete: false, editable: true, onAction: vi.fn(), ...handlers() });
+    expect(actions.map(({ onPress: _p, ...a }) => a)).toEqual([
+      { id: "edit", label: "Edit", icon: "edit", side: "trailing" },
+      { id: "pin", label: "Pin", icon: "pin", side: "leading", full: true, tone: "orange" },
+      { id: "review", label: "Review", swipe: false },
+      { id: "archive", label: "Archive", icon: "archive", tone: "purple" },
+      { id: "delete", label: "Delete", icon: "trash", destructive: true, side: "trailing" },
+    ]);
   });
 
   it("says Move to Bin when the provider bins deletes", () => {
@@ -1332,3 +1351,78 @@ describe("grid and custom rows", () => {
     expect(grown[2]!.rows.map((r) => r.id)).toEqual(["m4", "m5"]);
   });
 });
+
+describe("row actions by default (ADR 0028)", () => {
+  it("swipes through NativeSwipeRow without a swipeable prop, and null turns it off", async () => {
+    const opened: string[] = [];
+    const Swipeable = (props: { testID?: string; children?: ReactNode }) => {
+      opened.push(props.testID ?? "");
+      return <div data-testid={props.testID}>{props.children}</div>;
+    };
+    const withModules = (p: DataProvider) => {
+      const Inner = wrap(p);
+      return ({ children }: { children: ReactNode }) => (
+        <GenesisModulesProvider modules={{ swipeable: Swipeable as never }}>
+          <Inner>{children}</Inner>
+        </GenesisModulesProvider>
+      );
+    };
+    const view = render(<NativeResourceView view={plainView} />, { wrapper: withModules(provider()) });
+    await screen.findByTestId("native-resource-view-row-b1");
+    expect(screen.getByTestId("native-resource-view-row-b1-swipe")).toBeTruthy();
+    view.unmount();
+    opened.length = 0;
+    render(<NativeResourceView view={plainView} swipeable={null} />, { wrapper: withModules(provider()) });
+    await screen.findByTestId("native-resource-view-row-b1");
+    expect(opened).toEqual([]);
+  });
+
+  it("opens the system menu on long press when the app gives one, and drops the alert", async () => {
+    const seen: string[][] = [];
+    const Menu: NonNullable<GenesisModules["menu"]> = (props) => {
+      seen.push(props.actions.map((a) => a.id));
+      return <div data-testid={props.testID} onClick={() => props.onPressAction?.({ nativeEvent: { event: "delete" } })}>{props.children}</div>;
+    };
+    const Inner = wrap(provider());
+    render(<NativeResourceView view={plainView} swipeable={null} />, {
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <GenesisModulesProvider modules={{ menu: Menu }}>
+          <Inner>{children}</Inner>
+        </GenesisModulesProvider>
+      ),
+    });
+    const row = await screen.findByTestId("native-resource-view-row-b1");
+    expect(seen[0]).toEqual(["edit", "delete"]);
+    fireEvent.contextMenu(row);
+    expect(alert).not.toHaveBeenCalledWith("Northwind", undefined, expect.anything());
+    fireEvent.click(screen.getByTestId("native-resource-view-row-b1-menu"));
+    expect(alert).toHaveBeenLastCalledWith("Delete", "The default brand stays.");
+  });
+
+  it("puts only Edit, Delete and the actions that say where they swipe on the default swipe, and none on grid cards", async () => {
+    const got: string[][] = [];
+    const Swipeable = (props: { testID?: string; renderRightActions?: () => ReactNode; children?: ReactNode }) => {
+      got.push([props.testID ?? ""]);
+      return <div data-testid={props.testID}>{props.renderRightActions?.()}{props.children}</div>;
+    };
+    const view = defineView(brands, { actions: [{ name: "pin", label: "Pin", swipe: "trailing" }, { name: "note", label: "Note" }] });
+    const Inner = wrap(provider());
+    const withModules = ({ children }: { children: ReactNode }) => (
+      <GenesisModulesProvider modules={{ swipeable: Swipeable as never }}>
+        <Inner>{children}</Inner>
+      </GenesisModulesProvider>
+    );
+    const r = render(<NativeResourceView view={view} onAction={vi.fn()} />, { wrapper: withModules });
+    await screen.findByTestId("native-resource-view-row-b2");
+    expect(screen.getByTestId("native-resource-view-row-b2-swipe-action-pin")).toBeTruthy();
+    expect(screen.queryByTestId("native-resource-view-row-b2-swipe-action-note")).toBeNull();
+    // Still in the screen reader's actions (and the menu).
+    expect(screen.getByTestId("native-resource-view-row-b2").getAttribute("data-a11y-actions")).toContain("note");
+    r.unmount();
+    got.length = 0;
+    render(<NativeResourceView view={view} mode="grid" onAction={vi.fn()} />, { wrapper: withModules });
+    await screen.findByTestId("native-resource-view-row-b2");
+    expect(got).toEqual([]);
+  });
+});
+
