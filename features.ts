@@ -2355,9 +2355,8 @@ export const features = defineFeatures({
     name: "Agentic CI (Expo Simulators)",
     summary: "An EAS workflow a native app owns (templates/release/agentic-ci.yml, with .eas/agents from templates/eas/agents; genesis add template agentic-ci), after Expo's Agentic CI: on the Agent check label or by hand, never on every pull request, it repacks a matching iOS simulator build or builds one, starts one named Expo Simulators session with a maximum duration and an idle limit, records the screen, runs the app's Maestro flows there through agent-device, has a coding agent (Claude Code: reading the project, writing its evidence, and a fixed list of agent-device commands through device.sh) test what the pull request's title and body describe, and comments a PASS or FAIL verdict with the session recording, screenshots and log (redacted, and uploaded only when redaction succeeds). The session is always stopped.",
     category: "Tooling",
-    // Not run in EAS yet: the session scripts were driven from a Mac on a consumer app's pull
-    // request (a cloud session with local egress to its isolated stack). Beta once the workflow
-    // has run in EAS against a hosted test backend and its verdicts have been read.
+    // Not run in EAS or from a Mac yet. Beta once the workflow has run in EAS against a hosted
+    // test backend and its verdicts have been read.
     status: "building",
     claimedBy: "mark",
     kind: "tool",
