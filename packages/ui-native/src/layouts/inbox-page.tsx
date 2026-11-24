@@ -55,7 +55,10 @@ export { formatInboxTime } from "@marktiderman/genesis-core/conversation";
 export type InboxPageSlotMap = {
   /**
    * `actionProps`: the row's screen reader's actions and long press (`useRowActions`), for the
-   * row's pressable. A row of your own spreads them, as the default row does.
+   * row's pressable. A row of your own spreads them, as the default row does. An `actionProps` in
+   * `slotProps.row` is laid over these key by key: give `accessibilityActions` and
+   * `onAccessibilityAction` together, listing the row's own actions to keep them, and an
+   * `onLongPress` of your own replaces the one that opens the menu.
    */
   row: InboxItem & {
     testID: string;
