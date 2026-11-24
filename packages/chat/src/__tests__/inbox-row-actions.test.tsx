@@ -6,7 +6,7 @@
  */
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, configure, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ChatClient } from "../core/client";
 import type { ChatInboxItem } from "../core/types";
@@ -137,6 +137,41 @@ describe("useConfirmDialog", () => {
     });
     unmount();
     await expect(asked).resolves.toBe(false);
+  });
+
+  function Asker({ remove, fallback }: { remove?: boolean; fallback?: () => HTMLElement | null }) {
+    const { confirm, dialog } = useConfirmDialog("Cancel", fallback);
+    const [gone, setGone] = useState(false);
+    return (
+      <div>
+        <button type="button" data-testid="other">Other</button>
+        {gone ? null : (
+          <button type="button" data-testid="ask" onClick={() => void confirm("Delete?", "Gone.", "Delete").then((ok) => ok && remove && setGone(true))}>
+            Ask
+          </button>
+        )}
+        {dialog}
+      </div>
+    );
+  }
+
+  it("gives focus back to the control that asked when the dialog closes", async () => {
+    render(<Asker />);
+    const ask = screen.getByTestId("ask");
+    ask.focus();
+    fireEvent.click(ask);
+    fireEvent.click(await screen.findByText("Cancel"));
+    await waitFor(() => expect(document.activeElement).toBe(ask));
+  });
+
+  it("focuses the fallback when the confirmed action removed the control that asked", async () => {
+    render(<Asker remove fallback={() => screen.getByTestId("other")} />);
+    const ask = screen.getByTestId("ask");
+    ask.focus();
+    fireEvent.click(ask);
+    fireEvent.click(await screen.findByTestId("genesis-chat-inbox-confirm"));
+    await waitFor(() => expect(screen.queryByTestId("ask")).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId("other")));
   });
 });
 

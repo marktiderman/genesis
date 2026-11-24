@@ -134,6 +134,22 @@ describe("InboxPage", () => {
     await waitFor(() => expect(markRead).toHaveBeenCalled());
   });
 
+  it("builds the actions from slotProps.row when the page gives them there, for screen readers and long press", () => {
+    const archive = vi.fn();
+    render(
+      <InboxPage
+        testID="inbox"
+        now={now}
+        items={[{ id: "x", title: "Thread" }]}
+        slotProps={{ row: { swipeActions: [{ id: "archive", label: "Archive", onPress: archive }] } }}
+      />,
+    );
+    const row = screen.getByTestId("inbox-row-x");
+    expect(row.getAttribute("data-a11y-actions")).toBe("archive");
+    row.dispatchEvent(new CustomEvent("accessibilityaction", { detail: "archive" }));
+    expect(archive).toHaveBeenCalledTimes(1);
+  });
+
   it("swipes through NativeSwipeRow once the app gave the module", () => {
     const Swipeable = ({ children, testID, renderRightActions }: { children?: ReactNode; testID: string; renderRightActions?: () => ReactNode }) => (
       <div data-testid={testID}>

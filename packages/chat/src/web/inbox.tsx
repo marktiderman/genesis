@@ -108,12 +108,22 @@ interface PendingConfirm {
 }
 
 /** A `ChatConfirm` drawn as genesis-ui's AlertDialog: the confirm to pass, and the dialog to render. */
-export function useConfirmDialog(cancelLabel = "Cancel"): { confirm: ChatConfirm; dialog: ReactElement } {
+/**
+ * `fallbackFocus`: where focus goes when the dialog closes and the control that asked is gone (a
+ * confirmed delete removed its row). By default focus returns to the control that asked.
+ */
+export function useConfirmDialog(cancelLabel = "Cancel", fallbackFocus?: () => HTMLElement | null | undefined): { confirm: ChatConfirm; dialog: ReactElement } {
   const [pending, setPending] = useState<PendingConfirm | null>(null);
   const current = useRef<PendingConfirm | null>(null);
+  // What had focus when it asked, and when the dialog opened (a menu may have handed focus back to its button by then).
+  const askedFrom = useRef<HTMLElement[]>([]);
+  const fallback = useRef(fallbackFocus);
+  fallback.current = fallbackFocus;
   const confirm = useCallback<ChatConfirm>(
     (title, body, label) =>
       new Promise<boolean>((resolve) => {
+        const active = typeof document !== "undefined" ? document.activeElement : null;
+        askedFrom.current = active instanceof HTMLElement && active !== document.body ? [active] : [];
         // A second ask answers the first one no.
         current.current?.answer(false);
         const next: PendingConfirm = { title, body, label, answer: resolve };
@@ -139,7 +149,20 @@ export function useConfirmDialog(cancelLabel = "Cancel"): { confirm: ChatConfirm
   };
   const dialog = (
     <AlertDialog open={pending !== null} onOpenChange={(o) => !o && answer(false)}>
-      <AlertDialogContent>
+      <AlertDialogContent
+        onOpenAutoFocus={() => {
+          const active = document.activeElement;
+          if (active instanceof HTMLElement && active !== document.body) askedFrom.current = [active, ...askedFrom.current];
+        }}
+        onCloseAutoFocus={(e) => {
+          // Back to the control that asked (Radix would aim at a trigger this dialog doesn't have), or
+          // the fallback when that control is gone.
+          e.preventDefault();
+          const target = askedFrom.current.find((el) => el.isConnected) ?? fallback.current?.() ?? null;
+          askedFrom.current = [];
+          target?.focus();
+        }}
+      >
         <AlertDialogHeader>
           <AlertDialogTitle>{pending?.title}</AlertDialogTitle>
           <AlertDialogDescription>{pending?.body}</AlertDialogDescription>
@@ -161,7 +184,9 @@ export function ChatInbox({ resolveUser, onSelect, selectedId, kind, archived = 
   const { items, isLoading, error, refetch } = useInbox({ kind, archived });
   const act = useInboxActions();
   const labels = useMemo(() => ({ ...defaultInboxActionLabels, ...actionLabels }), [actionLabels]);
-  const { confirm, dialog } = useConfirmDialog(labels.cancel);
+  const navRef = useRef<HTMLElement>(null);
+  // A confirmed delete removes its row: focus goes to the list's tab stop instead.
+  const { confirm, dialog } = useConfirmDialog(labels.cancel, () => navRef.current?.querySelector<HTMLElement>('[data-inbox-row][tabindex="0"]') ?? navRef.current?.querySelector<HTMLElement>("[data-inbox-row]"));
   const rows = useMemo<ChatInboxRow[]>(
     () =>
       items.map((item) => {
@@ -192,7 +217,7 @@ export function ChatInbox({ resolveUser, onSelect, selectedId, kind, archived = 
   const label = rest["aria-label"] ?? "Conversations";
 
   return (
-    <nav aria-label={label} className={cn("flex min-h-0 flex-col", className)}>
+    <nav ref={navRef} aria-label={label} className={cn("flex min-h-0 flex-col", className)}>
       <InboxPage
         testID="genesis-chat-inbox"
         items={rows}
