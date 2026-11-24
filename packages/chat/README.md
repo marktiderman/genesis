@@ -268,20 +268,23 @@ VoiceOver.
 
 The thread follows the platform's Messages app where it can:
 
-- **Bubbles.** A run of one sender's messages reads as one shape: the corners where two bubbles
-  meet are tight, and the last (or only) one has a tail on the sender's side (`bubbleCorners`).
+- **Bubbles.** Yours in the sent role, theirs in the received one (`resolveChatRoles`), every
+  corner round, and the last (or only) bubble of a run has a tail on the sender's side
+  (`ChatBubbleShape`; `bubbleCorners(pos, mine, false)`).
 - **Times on demand.** Drag the thread left and every message's time slides in at the trailing
-  edge; let go and it slides back. The last message of a run keeps its time under it. VoiceOver
-  already reads each time in the bubble's label.
+  edge; let go and it slides back. A time separator ("Today 10:29 AM") starts each day and each
+  gap of an hour or more (`buildThreadRows(…, { separators: "time" })`). VoiceOver already reads
+  each time in the bubble's label.
 - **Swipe to reply** runs on react-native-gesture-handler when the app passes its
   `ReanimatedSwipeable` as `GenesisModules.swipeable` (the same module `InboxPage` swipes with),
   so the drag stays on the UI thread; without it, a PanResponder does it.
 - **Sending.** With `GenesisModules.reanimated` (Reanimated 4), a message you just sent rises in
   from the composer (`FadeInDown`); not with Reduce Motion, and not a message left in the outbox
   from an earlier launch. While you hold the mic it follows your finger toward cancel and the lock.
-- **Long press** taps a medium impact and opens the message's actions in a sheet that fits them
-  (the attach, emoji and scheduled sheets fit theirs too). The + button's menu opens the picker as
-  soon as the menu has gone, with no fixed wait.
+- **Long press** taps a medium impact, softens the thread, lifts the bubble in place with the
+  tapbacks above it and a glass menu of its actions below (`ChatMessageMenu`; the `messageMenu`
+  slot replaces it). The + button opens the + list (`plusItems`), whose choice opens its picker
+  as soon as the list has gone, with no fixed wait.
 - **Where it opens.** At the first unread, with the "New" line at the top, when that line would be
   above the screen; otherwise at the newest. An unread further back than the first page opens at
   the page's oldest unread, and earlier pages load from there. A row the list can't reach (FlatList
