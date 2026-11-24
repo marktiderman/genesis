@@ -189,7 +189,8 @@ export function ChatInbox({ resolveUser, onSelect, selectedId, kind, archived = 
   const labels = useMemo(() => ({ ...defaultInboxActionLabels, ...actionLabels }), [actionLabels]);
   const navRef = useRef<HTMLElement>(null);
   const listTabStop = useCallback(
-    () => navRef.current?.querySelector<HTMLElement>('[data-inbox-row][tabindex="0"]') ?? navRef.current?.querySelector<HTMLElement>("[data-inbox-row]") ?? null,
+    // The list's tab stop, else any row, else the list itself (the last conversation went).
+    () => navRef.current?.querySelector<HTMLElement>('[data-inbox-row][tabindex="0"]') ?? navRef.current?.querySelector<HTMLElement>("[data-inbox-row]") ?? navRef.current,
     [],
   );
   // The row whose menu asked: its More menu has closed by the time the dialog opens, so the dialog
@@ -202,14 +203,15 @@ export function ChatInbox({ resolveUser, onSelect, selectedId, kind, archived = 
   }, [listTabStop]);
   const { confirm: ask, dialog } = useConfirmDialog(labels.cancel, askingRowOrTabStop);
   // A confirmed action (Delete for me) removes its row only once the call and the inbox's refetch
-  // come back, after the dialog has already handed focus back to that row's More button. Until the
-  // next rows arrive with focus lost, put it on the list's tab stop then; give up after 15 seconds
-  // (the action failed, or left the row in place).
-  const refocusUntil = useRef(0);
+  // come back, after the dialog has already given focus back to that row. When that row leaves the
+  // list and took focus with it, put focus on the list's tab stop. Only that row's leaving counts:
+  // an action that failed or kept the row never pulls focus later.
+  const leaving = useRef<string | null>(null);
   const confirm = useCallback<ChatConfirm>(
     async (title, body, label) => {
+      const asked = askingRow.current;
       const ok = await ask(title, body, label);
-      if (ok) refocusUntil.current = Date.now() + 15_000;
+      if (ok && asked) leaving.current = asked;
       return ok;
     },
     [ask],
@@ -246,20 +248,17 @@ export function ChatInbox({ resolveUser, onSelect, selectedId, kind, archived = 
     [items, me, resolveUser, fallbackTitle, attachmentKinds, act, labels, confirm, onActionError, rowActions],
   );
   useEffect(() => {
-    if (refocusUntil.current === 0) return;
-    if (Date.now() > refocusUntil.current) {
-      refocusUntil.current = 0;
-      return;
-    }
+    const id = leaving.current;
+    if (!id || rows.some((r) => r.id === id)) return;
+    leaving.current = null;
     const active = document.activeElement;
     if (active && active !== document.body && active.isConnected) return;
-    refocusUntil.current = 0;
     listTabStop()?.focus();
   }, [rows, listTabStop]);
   const label = rest["aria-label"] ?? "Conversations";
 
   return (
-    <nav ref={navRef} aria-label={label} className={cn("flex min-h-0 flex-col", className)}>
+    <nav ref={navRef} tabIndex={-1} aria-label={label} className={cn("flex min-h-0 flex-col", className)}>
       <InboxPage
         testID="genesis-chat-inbox"
         items={rows}
