@@ -290,6 +290,8 @@ export function ChatInboxScreen(props: ChatInboxScreenProps) {
   const { copy, person: known } = useChatNative();
   const c = useChatColors();
   const insets = useSafeAreaInsets();
+  // The header and the tab bar are set through the app's router module; without it, the app's own.
+  const hasRouter = Boolean(useGenesisModules().router?.StackScreen);
   const inbox = useInbox({ kind, kinds, excludeKinds, archived });
   const others = useMemo(() => inbox.items.map((i) => i.otherUserId), [inbox.items]);
   const people = usePeople(others);
@@ -437,7 +439,7 @@ export function ChatInboxScreen(props: ChatInboxScreenProps) {
             slotProps.searchField,
           )
         : null}
-      {nativeHeader ? (
+      {nativeHeader && hasRouter ? (
         <InboxChrome
           title={title}
           filters={archived ? [] : filters}

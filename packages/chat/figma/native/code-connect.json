@@ -23,7 +23,32 @@
     "ChatScheduledBar",
     "ChatPhotoViewer"
   ],
-  "notYet": ["ChatTypingBubble", "ChatThreadTitle"],
+  "notYet": [
+    "ChatTypingBubble",
+    "ChatThreadTitle",
+    "ChatInboxRowContent",
+    "ChatPinnedFaces",
+    "ChatSearchField",
+    "ChatTap",
+    "ChatSymbol",
+    "ChatFace",
+    "ChatGlassPanel",
+    "ChatGlassCircle",
+    "ChatGlassMenu",
+    "ChatGlassList",
+    "ChatAccentIcon",
+    "ChatContextOverlay",
+    "ChatBubbleShape",
+    "ChatBubbleTail",
+    "ChatConversationPreview",
+    "ChatMessageMenu",
+    "ChatDetailsHero",
+    "ChatDetailsActions",
+    "ChatDetailsSettings",
+    "ChatDetailsMembers",
+    "ChatDetailsDanger",
+    "ChatPlusList"
+  ],
   "composed": [
     "ChatInboxScreen",
     "ChatThreadScreen",
@@ -35,6 +60,7 @@
     "ChatBroadcastSheet",
     "ChatEmojiPickerSheet",
     "ChatMediaViewer",
-    "AppAttachment"
+    "AppAttachment",
+    "ChatDetailsScreen"
   ]
 }

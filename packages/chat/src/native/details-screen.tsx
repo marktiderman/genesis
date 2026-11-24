@@ -77,6 +77,7 @@ export function ChatDetailsScreen({ conversationId, onSearch, onOpenScheduled, o
   const { client, userId } = useChat();
   const { copy, person: known } = useChatNative();
   const c = useChatColors();
+  const hasRouter = Boolean(useGenesisModules().router?.StackScreen);
   const conversation = useQuery({ queryKey: chatKeys.conversation(conversationId), queryFn: () => client.conversation(conversationId), enabled: Boolean(conversationId) }).data ?? null;
   const loaded = useQuery({ queryKey: chatKeys.members(conversationId), queryFn: () => client.members(conversationId), enabled: Boolean(conversationId), staleTime: 60_000 }).data;
   const posters = useMemo(() => (loaded ?? []).filter((m) => m.role !== "observer"), [loaded]);
@@ -101,7 +102,7 @@ export function ChatDetailsScreen({ conversationId, onSearch, onOpenScheduled, o
         {renderSlot(ChatDetailsMembers, slots.members, ctx, slotProps.members)}
         {renderSlot(ChatDetailsDanger, slots.danger, { ...ctx, onArchived }, slotProps.danger)}
       </ScrollView>
-      {nativeHeader ? <DetailsChrome /> : null}
+      {nativeHeader && hasRouter ? <DetailsChrome /> : null}
     </>
   );
 }
