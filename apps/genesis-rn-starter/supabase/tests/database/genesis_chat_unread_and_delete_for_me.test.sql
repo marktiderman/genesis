@@ -6,7 +6,7 @@
 -- People: a1 and b2 talk directly; c3 is someone else.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(47);
+select plan(49);
 
 insert into auth.users (id, aud, role, email, instance_id)
 select ('00000000-0000-4000-8000-00000000c7' || n)::uuid, 'authenticated', 'authenticated', 'genesis-chat-7-' || n || '@example.test', '00000000-0000-0000-0000-000000000000'
@@ -121,7 +121,7 @@ select is((select count(*)::int from genesis_chat.pins where conversation_id = p
 
 -- What b2 can't read on the main timeline doesn't bring it back: a thread reply, an observers-only
 -- note, or a message moderation hid.
-select genesis_chat.send_message(pg_temp.v('ab'), gen_random_uuid(), 'a reply in the old thread', p_thread_root_id => pg_temp.v('linked'));
+insert into t select 'reply', (genesis_chat.send_message(pg_temp.v('ab'), gen_random_uuid(), 'a reply in the old thread', p_thread_root_id => pg_temp.v('linked'))).id;
 insert into t select 'hidden', (genesis_chat.send_message(pg_temp.v('ab'), gen_random_uuid(), 'something rude')).id;
 reset role;
 update genesis_chat.messages set moderation = 'hidden' where id = pg_temp.v('hidden');
@@ -132,6 +132,9 @@ update genesis_chat.conversations set last_seq = last_seq + 1 where id = pg_temp
 select pg_temp.sign_in('b2');
 select is(pg_temp.listed(), 0, 'a thread reply, an observers-only note or a hidden message doesn''t bring it back to b2');
 select is(genesis_chat.unread_total(), 0, 'nor into b2''s badge');
+reset role;
+select is((select count(*)::int from genesis_chat.push_targets(pg_temp.v('reply')) where user_id = pg_temp.person('b2')), 0,
+  'nor is b2 notified of the reply in the thread they deleted');
 select pg_temp.sign_in('a1');
 select genesis_chat.send_message(pg_temp.v('ab'), gen_random_uuid(), 'are you there?');
 
@@ -139,6 +142,9 @@ select pg_temp.sign_in('b2');
 select is(pg_temp.listed(), 1, 'a new message brings it back to b2''s inbox');
 select is(pg_temp.visible(), 1, 'with only what came after');
 select is(pg_temp.unread(), 1, 'and only that unread');
+reset role;
+select is((select count(*)::int from genesis_chat.push_targets((select id from genesis_chat.messages where conversation_id = pg_temp.v('ab') and body = 'are you there?'))
+            where user_id = pg_temp.person('b2')), 1, 'and the message that brings it back notifies b2');
 
 select pg_temp.sign_in('c3');
 select throws_ok($$ select genesis_chat.delete_conversation_for_me(pg_temp.v('ab')) $$, '42501', null, 'someone not in it can''t delete it for anyone');

@@ -274,7 +274,8 @@ as $$
      and (p_exclude_kinds is null or not (c.kind = any (p_exclude_kinds)))
 $$;
 
--- A push's badge (0002's push_targets), counted the same way.
+-- A push's badge (0002's push_targets), counted the same way, and nobody told of a message in a
+-- conversation they deleted unless it brings it back.
 create or replace function genesis_chat.push_targets(p_message_id uuid, p_badge_exclude_kinds text[] default null)
 returns table (user_id uuid, conversation_id uuid, title text, sender_id uuid, preview text, mentioned boolean, unread_total integer)
 language sql
@@ -311,6 +312,11 @@ as $$
              and (c2.last_seq > greatest(m2.last_read_seq, coalesce(p2.cleared_seq, 0)) or p2.marked_unread)
              and (p_badge_exclude_kinds is null or not (c2.kind = any (p_badge_exclude_kinds))))
     from recipients r cross join msg
+   -- Someone who deleted the conversation for themselves hears only of a message that brings it
+   -- back to their inbox (not, say, a reply in a thread whose root they deleted).
+   where not exists (select 1 from genesis_chat.member_state s
+                      where s.conversation_id = msg.conversation_id and s.user_id = r.user_id and s.cleared_seq is not null
+                        and not genesis_chat.readable_after(msg.conversation_id, r.user_id, s.cleared_seq))
 $$;
 
 -- Search (0003's search_messages) never finds what you deleted for yourself.
