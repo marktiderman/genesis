@@ -15,12 +15,13 @@
  * React Flow 13 dropped `colorMode` and gives `.react-flow` `color-scheme: light dark` and its own
  * dark background, so a light app on a dark-mode device drew a near-black canvas. Genesis marks
  * dark mode with `.dark` only: follow that, and keep the canvas transparent over the panel's own
- * token background, as it was on 12.
+ * token background, as it was on 12. Scoped to the flow map's own wrapper, so an app's other React
+ * Flow canvases keep their own styles.
  */
-.react-flow {
+.genesis-flow-map .react-flow {
   color-scheme: light;
   --xy-background-color: transparent;
 }
-.dark .react-flow {
+.dark .genesis-flow-map .react-flow {
   color-scheme: dark;
 }
