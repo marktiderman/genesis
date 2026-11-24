@@ -1,6 +1,6 @@
 /**
  * @feat:chat
- * Every message's time, on demand, as iMessage shows it: drag the thread left and the bubbles
+ * Every message's time, on demand, as a phone's Messages app shows it: drag the thread left and the bubbles
  * slide over, each one's time appearing at the trailing edge; let go and they slide back. The
  * last message of a run keeps its time under it all the time. VoiceOver already reads each time
  * in the bubble's label, so the revealed times are hidden from it.

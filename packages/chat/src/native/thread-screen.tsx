@@ -8,7 +8,7 @@
  * at the top; day separators, the "New messages" line,
  * grouped bubbles with names and avatars in groups, the status of the last
  * message you sent ("Delivered", "Read 9:41", "Read by 2", with who read it),
- * who is typing (iMessage's bubble of dots) or recording, retry and delete on a send that failed, the long-press sheet and
+ * who is typing (a bubble of dots, as in Messages) or recording, retry and delete on a send that failed, the long-press sheet and
  * swipe to reply, a message's photos in the full-screen viewer, and the composer above
  * the keyboard (or, when your role couldn't be read, Retry). Render it as the screen's only content, under the
  * navigator's header with `useChatThreadStackOptions` (an opaque bar).
@@ -523,7 +523,7 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
   );
 
   const activity = activityLine(conv.activity, (id) => nameOf(id));
-  // Typing is iMessage's bubble of dots; recording a voice note or video keeps its words.
+  // Typing is a bubble of dots, as in Messages; recording a voice note or video keeps its words.
   const typers = conv.activity.filter((a) => a.activity === "typing");
   const recording = conv.activity.some((a) => a.activity !== "typing");
   const footer = !activity ? null : recording ? (

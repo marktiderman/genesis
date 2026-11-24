@@ -32,7 +32,7 @@
 
 ### Minor Changes
 
-- 7c39505: Message status on native, as iMessage shows it. Under the last message you sent, `ChatThreadScreen`
+- 7c39505: Message status on native, as a phone's Messages app shows it. Under the last message you sent, `ChatThreadScreen`
   says "Sending…", "Sent" (posted while a video's bytes still go up), "Delivered", then "Read 9:41"
   in a direct conversation (the other member's `lastReadSeq` has reached it) or "Read by 2" / "Read
   by everyone" in a group, a button that opens a sheet of who has read it. A failed send keeps its
@@ -62,7 +62,7 @@
 
   Native feel (an iOS audit of the thread):
 
-  - Bubbles take iMessage's shape: tight corners where a run's bubbles meet and a tail on the last
+  - Bubbles take the Messages shape: tight corners where a run's bubbles meet and a tail on the last
     one (`bubbleCorners`, `bubblePosition`). Drag the thread left for every message's time
     (`TIME_REVEAL_WIDTH`, `startsTimeReveal`, `timeRevealFor`); the run's last time stays.
   - Swipe to reply runs on `GenesisModules.swipeable` (gesture-handler's `ReanimatedSwipeable`) when
