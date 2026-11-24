@@ -78,7 +78,13 @@ describe("the permission store: refresh", () => {
     const store = createPermissionStore({ notifications: { ...n.module, requestPermissionsAsync } as unknown as NotificationsModuleLike });
     const pending = store.refresh();
     await expect(store.request()).resolves.toBe("granted");
-    n.answer(permission.denied);
+    // A refresh after the prompt (an account switch, say) reads again instead of joining the
+    // read that began before it.
+    const after = store.refresh();
+    expect(after).not.toBe(pending);
+    expect(n.getPermissionsAsync).toHaveBeenCalledTimes(2);
+    n.answer(permission.granted);
+    await expect(after).resolves.toBe("granted");
     await pending;
     expect(store.getState().status).toBe("granted");
   });

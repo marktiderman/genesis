@@ -91,8 +91,10 @@ export function createPermissionStore(options: {
     async request() {
       if (!notifications) return "unavailable";
       if (store.getState().requesting) return store.getState().status;
-      // The answer is newer than any read still pending: that read no longer writes the state.
+      // The answer is newer than any read still pending: that read no longer writes the state,
+      // and a later refresh() starts its own read instead of joining it.
       generation++;
+      reading = null;
       store.setState({ requesting: true });
       try {
         await options.beforeRequest?.().catch((error) => report(onError, error, "channels"));
