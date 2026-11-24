@@ -113,6 +113,11 @@ export interface ChatMember {
   userId: string;
   role: ChatRole;
   lastReadSeq: number;
+  /**
+   * When their read place last moved past someone else's message (migration 0006): a direct
+   * conversation's "Read 9:41". Null before they have, or on a database without 0006.
+   */
+  lastReadAt?: string | null;
   joinedAt: string;
 }
 
@@ -242,6 +247,8 @@ export type ChatSignal =
   | { type: "message"; conversationId: string; id: string; seq?: number; op: "insert" | "update" }
   | { type: "reaction"; conversationId: string; messageId: string }
   | { type: "members"; conversationId: string }
+  /** A member's read place moved (migration 0006): carries it, so nothing is fetched. */
+  | { type: "read"; conversationId: string; userId: string; seq: number; at: string | null }
   | { type: "conversation"; conversationId: string }
   | { type: "inbox"; conversationId: string; seq?: number };
 

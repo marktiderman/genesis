@@ -441,6 +441,20 @@ describe("chat", () => {
     expect(order.indexOf(paths[0]!)).toBeGreaterThan(order.findIndex((f) => f.endsWith("_genesis_chat_tenants.sql")));
   });
 
+  it.runIf(chat && database)("carries chat's 0006 migration and its pgTAP test unchanged, after 0005", () => {
+    const order = filesUnder("supabase/migrations").sort();
+    const receipts = order.filter((f) => f.endsWith("_genesis_chat_read_receipts.sql"));
+    expect(receipts).toHaveLength(1);
+    expect(read(receipts[0]!)).toBe(chatSql("0006_genesis_chat_read_receipts.sql"));
+    expect(read("supabase/tests/database/genesis_chat_read_receipts.test.sql")).toBe(chatSql("tests/0006_genesis_chat_read_receipts.test.sql"));
+    expect(order.indexOf(receipts[0]!)).toBeGreaterThan(order.findIndex((f) => f.endsWith("_genesis_chat_attachment_paths.sql")));
+    // After every migration the starter shipped before it, or `supabase db push` refuses it on a
+    // project that has pushed those ("inserted before the last migration on remote").
+    const shippedBefore = order.filter((f) => f.endsWith("_genesis_settings_pattern.sql"));
+    expect(shippedBefore).toHaveLength(1);
+    expect(order.indexOf(receipts[0]!)).toBeGreaterThan(order.indexOf(shippedBefore[0]!));
+  });
+
   it.runIf(chat && database)("carries chat's 0003 and 0004 migrations and their pgTAP tests unchanged, with a single-tenant hook before 0004", () => {
     const order = filesUnder("supabase/migrations").sort();
     const search = order.filter((f) => f.endsWith("_genesis_chat_search_threads.sql"));
