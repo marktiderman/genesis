@@ -10,7 +10,7 @@ import { checkEasEnvironment, checkGithubLink, type EasEnvironmentState, type Gi
 import { readApp, replaceApp } from "./files.js";
 import { readLock } from "./lock.js";
 import { pinnedVersion } from "./pm.js";
-import { adoptTemplates, competingReleaseWorkflows, folderInRepository, githubLaneInPlace, previewsInReleaseEnvironment, LANE_DISPATCH_TARGET, lookupPin, missingTemplateSets, releaseContext, resolveTemplateNames, TEMPLATE_SETS, type AdoptResult, type ReleasePin } from "./release.js";
+import { adoptTemplates, competingReleaseWorkflows, folderInRepository, githubLaneInPlace, previewsInReleaseEnvironment, LANE_DISPATCH_TARGET, lookupPin, missingTemplateSets, OPT_IN_SETS, releaseContext, resolveTemplateNames, setIsMissing, TEMPLATE_SETS, type AdoptResult, type ReleasePin } from "./release.js";
 
 export interface AddTemplateOptions {
   list?: boolean;
@@ -53,9 +53,12 @@ const WORDS: Record<AdoptResult["outcome"], string> = {
 export async function addTemplates(root: string, names: string[], options: AddTemplateOptions = {}): Promise<number> {
   const log = options.log ?? console.log;
   if (options.list || !names.length) {
-    const missing = new Set(missingTemplateSets(root, readLock(root)));
+    const lock = readLock(root);
+    const missing = new Set(missingTemplateSets(root, lock));
     log("Template sets (genesis add template <set>):");
-    for (const [name, set] of Object.entries(TEMPLATE_SETS)) log(`  ${missing.has(name) ? " " : "✔"} ${name.padEnd(9)} ${set.summary}`);
+    // An opt-in set is never "missing", so it's ticked only when the app has all of it.
+    const has = (name: string) => (OPT_IN_SETS.includes(name) ? !setIsMissing(root, lock, name) : !missing.has(name));
+    for (const [name, set] of Object.entries(TEMPLATE_SETS)) log(`  ${has(name) ? "✔" : " "} ${name.padEnd(9)} ${set.summary}${OPT_IN_SETS.includes(name) ? " (opt-in: only when you add it)" : ""}`);
     log("Or a single template by its path under templates/, such as eas/workflows/rollout.yml.");
     return names.length || options.list ? 0 : 1;
   }
