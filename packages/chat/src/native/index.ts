@@ -26,8 +26,68 @@
  *
  * @stability Beta
  */
-export { ChatInboxScreen, alertConfirm, inboxRow, type ChatInboxScreenProps } from "./inbox-screen";
-export { ChatThreadScreen, threadListMode, nearBottom, AT_BOTTOM_POINTS, connectionState, countUnseenBelow, useOnline, type ChatThreadScreenProps, type ChatThreadScreenSlots, type ChatThreadAccessoryContext, type ChatConnectionState } from "./thread-screen";
+export {
+  ChatInboxScreen,
+  alertConfirm,
+  inboxRow,
+  defaultInboxFilters,
+  applyInboxFilter,
+  pinnedConversations,
+  matchesInboxSearch,
+  isGroupConversation,
+  isSelfConversation,
+  inboxHeaderItems,
+  ChatInboxRowContent,
+  ChatPinnedFaces,
+  ChatSearchField,
+  type ChatInboxScreenProps,
+  type ChatInboxFilter,
+  type ChatInboxMenuItem,
+  type ChatInboxRowData,
+  type ChatInboxSlotMap,
+} from "./inbox-screen";
+export {
+  useChatColors,
+  chatColors,
+  useChatFeel,
+  useChatMotion,
+  CHAT_METRICS,
+  CHAT_TYPE,
+  ChatTap,
+  ChatSymbol,
+  ChatFace,
+  ChatGlassPanel,
+  ChatGlassCircle,
+  ChatGlassMenu,
+  ChatGlassList,
+  ChatAccentIcon,
+  ChatContextOverlay,
+  type ChatColors,
+  type ChatSymbolProps,
+  type ChatFaceProps,
+  type ChatGlassPanelProps,
+  type ChatGlassCircleProps,
+  type ChatGlassMenuProps,
+  type ChatMenuItem,
+  type ChatRect,
+  type ChatContextOverlayProps,
+} from "./messages-look";
+export { chatClock, timeSeparatorLabel, startsTimeSeparator, inboxTimeLabel, TIME_SEPARATOR_GAP_MS } from "./messages-time";
+export { ChatBubbleShape, ChatBubbleTail, ChatConversationPreview, runPositions, type ChatBubbleShapeProps, type ChatConversationPreviewProps } from "./conversation-preview";
+export { ChatMessageMenu, TAPBACKS, type ChatMessageMenuProps } from "./message-menu";
+export {
+  ChatDetailsScreen,
+  ChatDetailsHero,
+  ChatDetailsActions,
+  ChatDetailsSettings,
+  ChatDetailsMembers,
+  ChatDetailsDanger,
+  isSelfMembers,
+  type ChatDetailsScreenProps,
+  type ChatDetailsSlotMap,
+  type ChatDetailsContext,
+} from "./details-screen";
+export { ChatThreadScreen, threadListMode, nearBottom, AT_BOTTOM_POINTS, connectionState, countUnseenBelow, useOnline, type ChatThreadScreenProps, type ChatThreadScreenSlots, type ChatThreadSlotPropsMap, type ChatThreadAccessoryContext, type ChatConnectionState } from "./thread-screen";
 export { ChatThreadTitle, type ChatThreadTitleProps, type ChatThreadTitleAvatar } from "./thread-title";
 export { bubbleCorners, bubblePosition, type BubblePosition } from "./message-bubble";
 export { TIME_REVEAL_WIDTH, startsTimeReveal, timeRevealFor } from "./thread-times";
@@ -35,7 +95,7 @@ export { lastSentReceipt, receiptText, readWhen, type ChatReceiptsMode, type Mes
 export { ChatTypingBubble, type ChatTypingBubbleProps } from "./typing-bubble";
 export { chatThreadStackOptions, useChatThreadStackOptions, type ChatThreadStackOptionsProps } from "./stack-options";
 export { ChatStartSheet, ChatStartButton, type ChatStartPerson, type ChatStartSheetProps } from "./start-sheet";
-export { ChatComposer, type ChatComposerProps } from "./composer";
+export { ChatComposer, ChatPlusList, type ChatComposerProps, type ChatPlusItem, type ChatComposerSlotMap } from "./composer";
 export { MessageBubble, displayBody, formatClock, type MessageBubbleProps } from "./message-bubble";
 export { MessageActionsSheet, type MessageActionsSheetProps } from "./message-actions-sheet";
 export { VoiceNotePlayer, claimPlayback, releasePlayback, pauseChatPlayback, activePlaybackId, toggleVoiceNote, cycleVoiceNoteRate, usePlayingVoiceNote, scrubSeconds, waveformBars, barsThatFit, type VoiceNotePlayerProps } from "./voice-player";
@@ -167,7 +227,7 @@ export {
   type ChatPushResponseLike,
   type NotificationCategoriesLike,
 } from "./push";
-export { haptic, type ChatNativeModules, type ExpoAudioLike, type ImagePickerLike, type HapticsLike, type ClipboardLike, type KeyboardAvoidingLike, type DraftStorageLike, type AudioPlayerLike, type AudioRecorderLike, type AudioStatusLike, type RecorderStateLike, type PickedAssetLike, type PickerResultLike, type HapticEvent, type ExpoCameraLike, type ExpoVideoLike, type WebBrowserLike, type ChunkFileLike, type VideoPlayerLike, type CameraViewHandleLike, type VideoViewHandleLike, type PermissionLike, type SharingLike, type MediaLibraryLike, type NetInfoLike } from "./modules";
+export { haptic, type ChatNativeModules, type ExpoAudioLike, type ImagePickerLike, type HapticsLike, type ClipboardLike, type KeyboardAvoidingLike, type KeyboardStickyLike, type DraftStorageLike, type AudioPlayerLike, type AudioRecorderLike, type AudioStatusLike, type RecorderStateLike, type PickedAssetLike, type PickerResultLike, type HapticEvent, type ExpoCameraLike, type ExpoVideoLike, type WebBrowserLike, type ChunkFileLike, type VideoPlayerLike, type CameraViewHandleLike, type VideoViewHandleLike, type PermissionLike, type SharingLike, type MediaLibraryLike, type NetInfoLike } from "./modules";
 
 // Organising: topics, scheduled send, availability, broadcast, search and moderation.
 export { chatOrganiseCopy, type ChatOrganiseCopy } from "./organise-copy";

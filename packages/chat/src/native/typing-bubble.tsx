@@ -7,9 +7,9 @@
  */
 import { useEffect, useRef } from "react";
 import { AccessibilityInfo, Animated, Platform, View } from "react-native";
-import { NativeAvatar } from "@marktiderman/genesis-ui-native/components";
 import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
-import { initials, useChatNative } from "./context";
+import { useChatNative } from "./context";
+import { ChatFace, useChatColors } from "./messages-look";
 
 export interface ChatTypingBubbleProps {
   /** Read out: "Sam is typing…". */
@@ -27,6 +27,7 @@ const ANNOUNCE_GAP_MS = 4000;
 
 export function ChatTypingBubble({ label, userId, group, reducedMotion, testID }: ChatTypingBubbleProps) {
   const colors = useThemeRoles();
+  const chat = useChatColors();
   const { person } = useChatNative();
   const typer = userId ? person(userId) : null;
   const dots = useRef([new Animated.Value(0.4), new Animated.Value(0.4), new Animated.Value(0.4)]).current;
@@ -68,14 +69,14 @@ export function ChatTypingBubble({ label, userId, group, reducedMotion, testID }
       accessible
       accessibilityLabel={label}
       accessibilityLiveRegion="polite"
-      style={{ flexDirection: "row", alignItems: "flex-end", paddingTop: 8, paddingBottom: 6, paddingHorizontal: 8 }}
+      style={{ flexDirection: "row", alignItems: "flex-end", paddingTop: 10, paddingBottom: 6, paddingHorizontal: 4 }}
     >
       {group ? (
-        <View style={{ width: 40, alignItems: "flex-start" }}>
-          <NativeAvatar size={32} src={typer?.avatarUrl ?? null} fallback={initials(typer?.name)} alt={typer?.name} recyclingKey={userId ?? undefined} />
+        <View style={{ width: 36, alignItems: "flex-start" }}>
+          <ChatFace size={28} name={typer?.name} src={typer?.avatarUrl ?? null} recyclingKey={userId ?? undefined} />
         </View>
       ) : null}
-      <View testID={`${testID}-bubble`} style={{ flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 18, backgroundColor: colors.surface }}>
+      <View testID={`${testID}-bubble`} style={{ flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 18, backgroundColor: chat.roles.received }}>
         {dots.map((opacity, i) => (
           <Animated.View key={i} testID={`${testID}-dot-${i}`} style={{ width: DOT, height: DOT, borderRadius: DOT / 2, backgroundColor: colors.secondaryLabel, opacity }} />
         ))}

@@ -10,9 +10,17 @@
  * its row.
  */
 import { dayLabel, startsDay, startsGroup, itemSender, itemTime, type ThreadItem } from "../core/thread";
+import { startsTimeSeparator, timeSeparatorLabel } from "./messages-time";
 
 export type ThreadRow =
-  | { type: "day"; key: string; label: string }
+  | {
+      type: "day";
+      key: string;
+      label: string;
+      /** With `separators: "time"`: the day (drawn bold) and the time, Messages' "**Today** 9:41 AM". */
+      day?: string;
+      time?: string;
+    }
   | { type: "unread"; key: string }
   | {
       type: "message";
@@ -35,6 +43,11 @@ export interface BuildRowsOptions {
   group: boolean;
   now?: Date;
   locale?: string;
+  /**
+   * `"day"` (the default): a heading where a day starts. `"time"`: Messages' separators, where a
+   * day starts or an hour has passed, with the time ("Today 9:41 AM").
+   */
+  separators?: "day" | "time";
 }
 
 export function rowKey(item: ThreadItem): string {
@@ -43,11 +56,17 @@ export function rowKey(item: ThreadItem): string {
 
 /** Oldest first. */
 export function buildThreadRows(items: ThreadItem[], options: BuildRowsOptions): ThreadRow[] {
-  const { me, firstUnreadId, group, now = new Date(), locale } = options;
+  const { me, firstUnreadId, group, now = new Date(), locale, separators = "day" } = options;
   const rows: ThreadRow[] = [];
   for (let i = 0; i < items.length; i++) {
     const item = items[i]!;
-    if (startsDay(items, i)) rows.push({ type: "day", key: `d:${rowKey(item)}`, label: dayLabel(itemTime(item), now, locale) });
+    if (separators === "time") {
+      const at = itemTime(item);
+      if (startsTimeSeparator(i > 0 ? itemTime(items[i - 1]!) : null, at)) {
+        const { day, time } = timeSeparatorLabel(at, now, locale);
+        rows.push({ type: "day", key: `d:${rowKey(item)}`, label: `${day} ${time}`, day, time });
+      }
+    } else if (startsDay(items, i)) rows.push({ type: "day", key: `d:${rowKey(item)}`, label: dayLabel(itemTime(item), now, locale) });
     if (item.type === "message" && item.message.id === firstUnreadId) rows.push({ type: "unread", key: "unread" });
     const senderId = itemSender(item);
     const mine = item.type === "pending" || senderId === me;

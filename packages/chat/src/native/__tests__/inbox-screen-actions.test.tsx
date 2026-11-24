@@ -5,21 +5,25 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { InboxItem } from "@marktiderman/genesis-ui-native/layouts";
+import type { ReactNode } from "react";
+import type { RowSwipeAction } from "@marktiderman/genesis-core/row-actions";
 import type { ChatClient } from "../../core/client";
 import { ChatProvider } from "../../react/index";
 import { ChatNativeProvider } from "../context";
 
-const seen: { items: InboxItem[] } = { items: [] };
-vi.mock("@marktiderman/genesis-ui-native/layouts", () => ({
-  InboxPage: (props: { items: InboxItem[] }) => {
-    seen.items = props.items;
-    return null;
+// Each row's actions, as the inbox hands them to Genesis's NativeRowActions.
+const seen: { items: { swipeActions: readonly RowSwipeAction[] }[] } = { items: [] };
+vi.mock("@marktiderman/genesis-ui-native/components", async (original) => ({
+  ...(await original<object>()),
+  NativeRowActions: (props: { actions: readonly RowSwipeAction[]; children?: ReactNode }) => {
+    seen.items = [{ swipeActions: props.actions }];
+    return props.children;
   },
 }));
 const alerts: { title: string; body?: string; buttons: { text: string; onPress?: () => void }[] }[] = [];
 vi.mock("react-native", async (original) => ({
   ...(await original<object>()),
+  useWindowDimensions: () => ({ width: 390, height: 844, scale: 3, fontScale: 1 }),
   Alert: {
     alert: (title: string, body?: string, buttons: { text: string; onPress?: () => void }[] = []) => alerts.push({ title, body, buttons }),
   },

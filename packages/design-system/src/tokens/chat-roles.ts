@@ -52,6 +52,8 @@ export const CHAT_ROLES = [
   "avatarFlat",
   /** White on a colored circle: Send's arrow, the + list's icons, initials. */
   "onAccent",
+  /** The shadow under a floating glass panel or menu. */
+  "shadow",
 ] as const;
 
 /** @stability Beta */
@@ -89,6 +91,7 @@ const SOURCES: Record<ChatRole, Source> = {
   avatarBottom: { light: "#858994", dark: "#48484C" },
   avatarFlat: { light: "#9599A4", dark: "#5C5C61" },
   onAccent: { light: "#FFFFFF", dark: "#FFFFFF" },
+  shadow: { light: "#000000", dark: "#000000" },
 };
 
 /** Messages' + list colors: the same in light and dark, as Messages keeps them. */

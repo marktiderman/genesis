@@ -28,10 +28,11 @@
  * in `accessory`; `active={false}` keeps a thread mounted off screen without marking it read.
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, View, useWindowDimensions } from "react-native";
+import { KeyboardAvoidingView, Platform, StyleSheet, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { NativeAvatar, NativeButton, NativeEmptyState, NativeIcon, NativeListItem, NativeSheet, NativeSheetScrollView, NativeText, NativeThreadList, useGenesisModules, useToast, type NativeThreadListHandle, type ThreadRowInfo } from "@marktiderman/genesis-ui-native/components";
 import { useReducedMotion, useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
+import { renderSlot, type SlotOverride, type SlotPropsFor } from "@marktiderman/genesis-core/slots";
 import { activityLine } from "../core/thread";
 import type { ChatMessage, PendingFile } from "../core/types";
 import { useChat, useConversation, useFileUrls, useLinkPreviews, useMessageActions, usePeople, usePins, useTopics } from "../react/index";
@@ -47,7 +48,9 @@ import { ChatScheduledBar, ChatScheduleSheet, useScheduleSend } from "./schedule
 import { canManageTopics, ChatTopicBar, topicClosedFor } from "./topics";
 import type { JumpTarget } from "./use-jump";
 import type { MessageActionId } from "./actions";
-import { ChatComposer } from "./composer";
+import { ChatComposer, type ChatComposerProps, type ChatComposerSlotMap, type ChatPlusItem } from "./composer";
+import { ChatMessageMenu, type ChatMessageMenuProps } from "./message-menu";
+import { CHAT_METRICS, ChatGlassPanel, ChatSymbol, ChatTap, useChatColors, type ChatRect } from "./messages-look";
 import { composerDisabledReason, filesFromAssets, replyTargetFor } from "./composer-state";
 import { ChatPeopleScope, initials, useChatNative } from "./context";
 import { lastSentReceipt, receiptText, type ChatReceiptsMode } from "./receipts";
@@ -56,8 +59,7 @@ import { useChatComposer } from "./use-composer";
 import { ChatAccessError } from "./access-error";
 import { attachmentPaths } from "./media";
 import { ChatPhotoViewer, galleryFor, type ChatPhoto } from "./photo-viewer";
-import { MessageActionsSheet } from "./message-actions-sheet";
-import { displayBody, MessageBubble } from "./message-bubble";
+import { displayBody, MessageBubble, type MessageBubbleProps } from "./message-bubble";
 import { haptic, type KeyboardAvoidingLike } from "./modules";
 import { pauseChatPlayback } from "./voice-player";
 import { buildThreadRows, type ThreadRow } from "./rows";
@@ -126,8 +128,24 @@ export interface ChatThreadScreenProps {
   accessory?: (context: ChatThreadAccessoryContext) => ReactNode;
   /** The longest video message, in ms. Default: your role's recording limit (`recordingLimitMs`). */
   videoLimitMs?: number;
+  /**
+   * The composer's + list: receives the defaults (Camera, Photos, Audio, Video, Send Later, as the
+   * app's modules and this thread allow) and returns the list. Add, remove or reorder items.
+   */
+  plusItems?: (defaults: ChatPlusItem[]) => ChatPlusItem[];
+  /** Extra props for a part's default (`bubble`, `composer`, `messageMenu`, `belowHeader`). */
+  slotProps?: SlotPropsFor<ChatThreadSlotPropsMap>;
   testID?: string;
 }
+
+/** The parts of the thread `slots` and `slotProps` reach, with the props each receives. */
+export type ChatThreadSlotPropsMap = {
+  bubble: MessageBubbleProps;
+  composer: ChatComposerProps;
+  messageMenu: ChatMessageMenuProps;
+  /** Under the header, over the messages: nothing by default (an app's own pill or strip). */
+  belowHeader: { conversationId: string; testID: string };
+};
 
 /** What `ChatThreadScreen`'s `accessory` is given. */
 export interface ChatThreadAccessoryContext {
@@ -169,6 +187,16 @@ export function countUnseenBelow(messages: readonly { seq: number; senderId: str
 export interface ChatThreadScreenSlots {
   /** Draws the app's own attachment kinds; the card by default. */
   attachment?: ChatAttachmentSlot | null;
+  /** One message's row (`MessageBubble` by default). Receives exactly its props; wrap it to change one thing. */
+  bubble?: SlotOverride<MessageBubbleProps>;
+  /** The composer (`ChatComposer`). */
+  composer?: SlotOverride<ChatComposerProps>;
+  /** The long press on a bubble (`ChatMessageMenu`: tapbacks over it, the glass menu under it). */
+  messageMenu?: SlotOverride<ChatMessageMenuProps>;
+  /** Under the header, over the messages; nothing by default. */
+  belowHeader?: SlotOverride<{ conversationId: string; testID: string }>;
+  /** The composer's + list (`ChatComposer`'s `plusList`). */
+  plusList?: SlotOverride<ChatComposerSlotMap["plusList"]>;
 }
 
 /**
@@ -210,6 +238,8 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
   const chat = useChat();
   const { userId, videoUpload, attachmentKinds, outbox, queue } = chat;
   const attachmentSlot = props.slots?.attachment;
+  const bubbleSlot = props.slots?.bubble;
+  const bubbleExtra = props.slotProps?.bubble;
   const cardActionTimeoutMs = props.cardActionTimeoutMs;
   // Off unless the app turns it on: an og:image fetched from the phone tells its site who reads it.
   const linkPreviewImages = (chat as { linkPreviewImages?: boolean }).linkPreviewImages === true;
@@ -234,6 +264,7 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
   const { modules, copy, person } = useChatNative();
   const toast = useToast();
   const colors = useThemeRoles();
+  const look = useChatColors();
   const reducedMotion = useReducedMotion();
   const { height: windowHeight } = useWindowDimensions();
   const genesis = useGenesisModules();
@@ -242,7 +273,7 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
   const toNewest = useCallback(() => listRef.current?.scrollToEnd({ animated: true }), []);
   const composer = useChatComposer(conversationId, threadRootId, userId);
   const { setReply } = composer;
-  const [actionsFor, setActionsFor] = useState<ChatMessage | null>(null);
+  const [actionsFor, setActionsFor] = useState<{ message: ChatMessage; rect: ChatRect | null } | null>(null);
   const [viewer, setViewer] = useState<{ photos: ChatPhoto[]; index: number } | null>(null);
   const [retryingAccess, setRetryingAccess] = useState(false);
   // Where this screen starts on the window: the keyboard offset when the app gives none.
@@ -273,7 +304,7 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
   const [readersOpen, setReadersOpen] = useState(false);
   const openReaders = useCallback(() => setReadersOpen(true), []);
 
-  const rows = useMemo(() => buildThreadRows(conv.items, { me: userId, firstUnreadId: conv.firstUnreadId, group }), [conv.items, userId, conv.firstUnreadId, group]);
+  const rows = useMemo(() => buildThreadRows(conv.items, { me: userId, firstUnreadId: conv.firstUnreadId, group, separators: "time" }), [conv.items, userId, conv.firstUnreadId, group]);
   const paths = useMemo(() => conv.items.flatMap((i) => (i.type === "message" ? attachmentPaths(i.message.attachments) : [])), [conv.items]);
   const urls = useFileUrls(paths);
   // Out of sight (another tab, a screen pushed over it): what this thread is playing pauses.
@@ -341,9 +372,9 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
   // Stable handlers, so MessageBubble's memo holds while someone types or a row elsewhere changes.
   const { retry, discard, canPost: allowed } = conv;
   const onLongPress = useCallback(
-    (message: ChatMessage) => {
+    (message: ChatMessage, rect?: ChatRect) => {
       haptic(modules.haptics ?? genesis.haptics, "long-press");
-      setActionsFor(message);
+      setActionsFor({ message, rect: rect ?? null });
     },
     [modules.haptics, genesis.haptics],
   );
@@ -453,42 +484,41 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
 
   const renderItem = useCallback(
     (row: ThreadRow, { highlighted }: ThreadRowInfo) => {
-      if (row.type === "day") return <DaySeparator label={row.label} testID={`${testID}-day-${row.key}`} />;
+      if (row.type === "day") return <DaySeparator label={row.label} day={row.day} time={row.time} testID={`${testID}-day-${row.key}`} />;
       if (row.type === "unread") return <UnreadDivider label={copy.newMessages} testID={`${testID}-unread`} />;
       const m = row.item.type === "message" ? row.item.message : null;
       const replyTo = m?.replyToId ?? (row.item.type === "pending" ? row.item.pending.input.replyToId : null);
-      return (
-        <MessageBubble
-          row={row}
-          me={userId}
-          urls={urls}
-          repliedTo={replyTo ? byId.get(replyTo) : null}
-          group={group}
-          reducedMotion={reducedMotion}
-          onLongPress={onLongPress}
-          onReply={allowed ? reply : undefined}
-          onSwipeReply={onSwipeReply}
-          onRetry={onRetry}
-          onDiscard={onDiscard}
-          onReattach={picker && row.item.type === "pending" && reattachable(row.item.pending.files ?? []) ? onReattach : undefined}
-          onToggleReaction={allowed ? react : undefined}
-          onOpenImage={onOpenImage}
-          observer={observer}
-          highlighted={highlighted}
-          linkPreview={m ? previewToShow(previews[m.id]) : null}
-          linkPreviewImages={linkPreviewImages}
-          attachmentKinds={attachmentKinds}
-          onOpenAttachment={onOpenAttachment}
-          attachmentSlot={attachmentSlot}
-          cardActionTimeoutMs={cardActionTimeoutMs}
-          receipt={row.key === receiptKey ? receiptLabel : null}
-          backdrop={colors.groupedBackground as string}
-          onReceiptPress={row.key === receiptKey && readers ? openReaders : undefined}
-          testID={`${testID}-message-${m?.id ?? row.key}`}
-        />
-      );
+      const bubble: MessageBubbleProps = {
+        row,
+        me: userId,
+        urls,
+        repliedTo: replyTo ? byId.get(replyTo) : null,
+        group,
+        reducedMotion,
+        onLongPress,
+        onReply: allowed ? reply : undefined,
+        onSwipeReply,
+        onRetry,
+        onDiscard,
+        onReattach: picker && row.item.type === "pending" && reattachable(row.item.pending.files ?? []) ? onReattach : undefined,
+        onToggleReaction: allowed ? react : undefined,
+        onOpenImage,
+        observer,
+        highlighted,
+        linkPreview: m ? previewToShow(previews[m.id]) : null,
+        linkPreviewImages,
+        attachmentKinds,
+        onOpenAttachment,
+        attachmentSlot,
+        cardActionTimeoutMs,
+        receipt: row.key === receiptKey ? receiptLabel : null,
+        backdrop: look.roles.pageSolid as string,
+        onReceiptPress: row.key === receiptKey && readers ? openReaders : undefined,
+        testID: `${testID}-message-${m?.id ?? row.key}`,
+      };
+      return <>{renderSlot(MessageBubble, bubbleSlot, bubble, bubbleExtra)}</>;
     },
-    [receiptKey, receiptLabel, readers, openReaders, testID, colors.groupedBackground, copy.newMessages, userId, urls, byId, group, reducedMotion, onLongPress, allowed, reply, onSwipeReply, onRetry, onDiscard, react, onOpenImage, picker, reattachable, onReattach, previews, linkPreviewImages, attachmentKinds, onOpenAttachment, attachmentSlot, cardActionTimeoutMs, observer],
+    [bubbleSlot, bubbleExtra, receiptKey, receiptLabel, readers, openReaders, testID, look.roles.pageSolid, copy.newMessages, userId, urls, byId, group, reducedMotion, onLongPress, allowed, reply, onSwipeReply, onRetry, onDiscard, react, onOpenImage, picker, reattachable, onReattach, previews, linkPreviewImages, attachmentKinds, onOpenAttachment, attachmentSlot, cardActionTimeoutMs, observer],
   );
 
   // ---- Video messages ----
@@ -559,8 +589,9 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
 
   return (
     <ChatPeopleScope userIds={peopleIds}>
-      <SafeAreaView ref={rootRef as never} onLayout={measureTop} testID={testID} edges={["left", "right", "bottom"]} style={{ flex: 1, backgroundColor: colors.groupedBackground }}>
+      <SafeAreaView ref={rootRef as never} onLayout={measureTop} testID={testID} edges={["left", "right", "bottom"]} style={{ flex: 1, backgroundColor: look.roles.page }}>
         <KeyboardAvoiding style={{ flex: 1 }} {...keyboardProps}>
+          {renderSlot(NoPart, props.slots?.belowHeader, { conversationId, testID: `${testID}-below-header` }, props.slotProps?.belowHeader)}
           {showTopicBar ? (
             <ChatTopicBar topics={topics} value={topic ?? null} onValueChange={setChosenTopic} canManage={canManageTopics(conv.role)} onSetTopic={topicsState.setTopic} testID={`${testID}-topics`} />
           ) : null}
@@ -609,34 +640,46 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
           {accessFailed ? (
             <ChatAccessError onRetry={retryAccess} retrying={retryingAccess} testID={`${testID}-access-error`} />
           ) : (
-          <ChatComposer
-            composer={composer}
-            userId={userId}
-            placeholder={currentTopic ? fill(copy.topicPlaceholder, { name: currentTopic.title }) : undefined}
-            onSchedule={canSchedule ? schedule.request : undefined}
-            canPost={canPost}
-            disabledReason={disabledReason}
-            role={conv.role}
-            onSend={({ input, files }) => {
-              void conv.send(input, files).catch(fail);
-              toNewest();
-            }}
-            signalTyping={conv.signalTyping}
-            signalRecording={conv.signalRecording}
-            onRecordVideo={modules.camera ? () => setVideoOpen(true) : undefined}
-            testID={`${testID}-composer`}
-          />
+          renderSlot(
+            ChatComposer,
+            props.slots?.composer,
+            {
+              composer,
+              userId,
+              placeholder: currentTopic ? fill(copy.topicPlaceholder, { name: currentTopic.title }) : undefined,
+              onSchedule: canSchedule ? schedule.request : undefined,
+              canPost,
+              disabledReason,
+              role: conv.role,
+              onSend: ({ input, files }) => {
+                void conv.send(input, files).catch(fail);
+                toNewest();
+              },
+              signalTyping: conv.signalTyping,
+              signalRecording: conv.signalRecording,
+              onRecordVideo: modules.camera ? () => setVideoOpen(true) : undefined,
+              plusItems: props.plusItems,
+              slots: props.slots?.plusList !== undefined ? { plusList: props.slots.plusList } : undefined,
+              testID: `${testID}-composer`,
+            },
+            props.slotProps?.composer,
+          )
           )}
         </KeyboardAvoiding>
-        <MessageActionsSheet
-          message={actionsFor}
-          context={{ me: userId, role: conv.role, canPost: conv.canPost, pinned: actionsFor ? pins.includes(actionsFor.id) : false, canPin: conv.canPin, canCopy: Boolean(modules.clipboard) }}
-          onClose={() => setActionsFor(null)}
-          onReact={react}
-          onAction={onAction}
-          attachmentKinds={attachmentKinds}
-          testID={`${testID}-actions`}
-        />
+        {renderSlot(
+          ChatMessageMenu,
+          props.slots?.messageMenu,
+          {
+            target: actionsFor,
+            context: { me: userId, role: conv.role, canPost: conv.canPost, pinned: actionsFor ? pins.includes(actionsFor.message.id) : false, canPin: conv.canPin, canCopy: Boolean(modules.clipboard) },
+            onClose: () => setActionsFor(null),
+            onReact: react,
+            onAction,
+            attachmentKinds,
+            testID: `${testID}-actions`,
+          },
+          props.slotProps?.messageMenu,
+        )}
         <NativeSheet open={readersOpen && Boolean(readers?.length)} onOpenChange={setReadersOpen} fitContent testID={`${testID}-readers`}>
           <View style={{ paddingTop: 20, paddingBottom: 8, paddingHorizontal: 16, gap: 8 }}>
             <NativeText preset="label" accessibilityRole="header" style={{ color: colors.secondaryLabel, paddingHorizontal: 4 }}>
@@ -674,28 +717,38 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
   );
 }
 
-function DaySeparator({ label, testID }: { label: string; testID: string }) {
-  const colors = useThemeRoles();
+/** Messages' separator: the day in bold and the time, small and grey, centred. */
+function DaySeparator({ label, day, time, testID }: { label: string; day?: string; time?: string; testID: string }) {
+  const c = useChatColors();
   return (
-    <View testID={testID} accessibilityRole="header" style={{ alignItems: "center", paddingVertical: 10 }}>
-      <NativeText preset="caption" style={{ color: colors.secondaryLabel, fontWeight: "600" }}>
-        {label}
+    <View testID={testID} accessibilityRole="header" accessible accessibilityLabel={label} style={{ alignItems: "center", paddingTop: 14, paddingBottom: 6 }}>
+      <NativeText style={{ fontSize: 11, lineHeight: 13, color: c.secondaryLabel }}>
+        {day ? (
+          <>
+            <NativeText style={{ fontSize: 11, lineHeight: 13, fontWeight: "600", color: c.secondaryLabel }}>{day}</NativeText> {time}
+          </>
+        ) : (
+          label
+        )}
       </NativeText>
     </View>
   );
 }
 
 function UnreadDivider({ label, testID }: { label: string; testID: string }) {
-  const colors = useThemeRoles();
+  const c = useChatColors();
   return (
-    <View testID={testID} accessible accessibilityLabel={label} style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingVertical: 8 }}>
-      <View style={{ flex: 1, height: 1, backgroundColor: colors.tint }} />
-      <NativeText preset="caption" style={{ color: colors.tint, fontWeight: "600" }}>
-        {label}
-      </NativeText>
-      <View style={{ flex: 1, height: 1, backgroundColor: colors.tint }} />
+    <View testID={testID} accessible accessibilityLabel={label} style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 24, paddingVertical: 8 }}>
+      <View style={{ flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: c.separator }} />
+      <NativeText style={{ fontSize: 11, lineHeight: 13, color: c.secondaryLabel, fontWeight: "600" }}>{label}</NativeText>
+      <View style={{ flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: c.separator }} />
     </View>
   );
+}
+
+/** A part with nothing in it by default (`belowHeader`). */
+function NoPart(_props: { conversationId: string; testID: string }) {
+  return null;
 }
 
 /** "Waiting for network…" or "Connecting…" under the header; nothing while live. */
@@ -731,27 +784,21 @@ function ThreadLoadError({ onRetry, retrying, testID }: { onRetry: () => void; r
   );
 }
 
-/** "↓ 3 new messages", over the bottom of the list while you're scrolled up; goes to the newest. */
+/** "↓ 3 new messages", a glass pill over the bottom of the thread while you're scrolled up; goes to the newest. */
 function NewMessagesPill({ count, onPress, testID }: { count: number; onPress: () => void; testID: string }) {
-  const colors = useThemeRoles();
+  const c = useChatColors();
   const { copy } = useChatNative();
   const label = count === 1 ? copy.newMessagesPillOne : fill(copy.newMessagesPill, { count });
   return (
     <View pointerEvents="box-none" style={{ position: "absolute", left: 0, right: 0, bottom: 8, alignItems: "center" }}>
-      <Pressable
-        testID={testID}
-        accessibilityRole="button"
-        accessibilityLabel={label}
-        accessibilityHint={copy.newMessagesPillHint}
-        accessibilityLiveRegion="polite"
-        onPress={onPress}
-        style={{ flexDirection: "row", alignItems: "center", gap: 6, minHeight: 36, paddingHorizontal: 14, borderRadius: 18, backgroundColor: colors.tint }}
-      >
-        <NativeIcon name="chevron-down" size={14} color={colors.surface} />
-        <NativeText preset="caption" style={{ color: colors.surface, fontWeight: "600" }}>
-          {label}
-        </NativeText>
-      </Pressable>
+      <ChatTap testID={testID} accessibilityRole="button" accessibilityLabel={label} accessibilityHint={copy.newMessagesPillHint} accessibilityLiveRegion="polite" onPress={onPress} look={(pressed) => ({ opacity: pressed ? 0.8 : 1 })}>
+        <ChatGlassPanel radius={18} interactive>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, minHeight: 36, paddingHorizontal: 14 }}>
+            <ChatSymbol icon="chevron-down" sf="arrow.down" size={13} weight="semibold" color={c.roles.sent} />
+            <NativeText style={{ fontSize: 15, lineHeight: 20, fontWeight: "600", color: c.roles.sent }}>{label}</NativeText>
+          </View>
+        </ChatGlassPanel>
+      </ChatTap>
     </View>
   );
 }

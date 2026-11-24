@@ -112,6 +112,14 @@ export interface ClipboardLike {
   getImageAsync?(options: { format: "png" | "jpeg" }): Promise<{ data: string; size: { width: number; height: number } } | null>;
 }
 
+/** react-native-keyboard-controller's `KeyboardStickyView`. */
+export type KeyboardStickyLike = ComponentType<{
+  offset?: { closed?: number; opened?: number };
+  style?: unknown;
+  pointerEvents?: "box-none" | "none" | "box-only" | "auto";
+  children?: ReactNode;
+}>;
+
 /** react-native-keyboard-controller's `KeyboardAvoidingView` (needs its `KeyboardProvider`, which GenesisNativeApp mounts). */
 export type KeyboardAvoidingLike = ComponentType<{
   behavior?: "height" | "padding" | "position" | "translate-with-padding";
@@ -232,6 +240,8 @@ export interface ChatNativeModules {
   haptics?: HapticsLike;
   clipboard?: ClipboardLike;
   keyboardAvoidingView?: KeyboardAvoidingLike;
+  /** react-native-keyboard-controller's `KeyboardStickyView`: the inbox's search field rides up on the keyboard. */
+  keyboardStickyView?: KeyboardStickyLike;
   drafts?: DraftStorageLike;
   /** Share in the photo viewer (with `downloadFile` for photos not on the phone). */
   sharing?: SharingLike;
