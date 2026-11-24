@@ -1,0 +1,25 @@
+packages/chat/src/native/message-bubble.tsx
+  s_42efe440240299::t_774e569afe1ff7 137
+packages/chat/src/web/bubble.tsx
+  s_42efe440240299::t_774e569afe1ff7 141
+packages/chat/src/core/thread.ts
+  s_42efe440240299::t_774e569afe1ff7 154
+packages/chat/src/__tests__/mention-regex.test.tsx
+  s_42efe440240299::t_cd7e7a30b91846 1-49
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3509a927aef0eab6ccefb6ea69941e67ca6c2597",
+  "prompts": {},
+  "sessions": {
+    "s_42efe440240299": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f544dd57-0b31-4773-b89e-4661a182129e",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
