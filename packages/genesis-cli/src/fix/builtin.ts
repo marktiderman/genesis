@@ -501,7 +501,27 @@ function repoProtectFix(deps: BuiltinDeps): Fix {
   };
 }
 
+/**
+ * `expo.install-fix`: what `expo-native-deps` asks for. Expo's own command writes the versions
+ * the installed expo expects; the fix names it rather than running it (it rewrites package.json
+ * from the SDK's list, and the install and native build after it are the app's).
+ */
+const expoInstallFix: Fix = {
+  id: "expo.install-fix",
+  kind: "guided",
+  rules: ["expo-native-deps"],
+  title: "align the Expo-managed native packages with the installed Expo SDK (npx expo install --fix), then reinstall and make a native build",
+  async plan(ctx) {
+    const names = [...new Set(ctx.findings.filter((f) => f.rule === "expo-native-deps").map((f) => f.subject ?? f.file))].sort();
+    if (!names.length) return { summary: "every Expo-managed native package is in the range the installed expo expects" };
+    return {
+      summary: `off the Expo SDK's versions: ${names.join(", ")}`,
+      manual: `Run npx expo install --fix (it writes the versions the installed expo expects into package.json), change any override or resolution its finding names, then ${shellLine(installCommand(detectPackageManager(ctx.root)))} and make a new native build: an update can't change native code.`,
+    };
+  },
+};
+
 /** Every built-in fix, in the order the engine tries them for a rule. */
 export function builtinFixes(deps: BuiltinDeps = {}): Fix[] {
-  return [scopeNames, featuresRenamed, eslintConfig, agentGuide, agentHooks, contractsFix(deps), migrateCopyFix(deps), migrateForwardFix(deps), upgradeFix(deps), removeUnknownSettings, resetBadSettings, adoptMissed, reviewSettings, settingRequires, settingSetup, firstAdmin, setSecrets(), repoProtectFix(deps)];
+  return [scopeNames, featuresRenamed, eslintConfig, agentGuide, agentHooks, contractsFix(deps), migrateCopyFix(deps), migrateForwardFix(deps), upgradeFix(deps), removeUnknownSettings, resetBadSettings, adoptMissed, reviewSettings, settingRequires, settingSetup, firstAdmin, setSecrets(), repoProtectFix(deps), expoInstallFix];
 }

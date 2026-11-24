@@ -11,7 +11,7 @@ replies, threads, reactions, read state, live updates and push.
 | `/web` | Renderers on genesis-ui: inbox, thread, composer (text, photos, voice, video, emoji, scheduled send), media, topics, search, availability, broadcast, and the chat dock. |
 | `/native` | Beta: screens and parts on genesis-ui-native (inbox, thread, search, availability), voice notes, photos and video, and the push block's glue. See "On native" below. |
 | `/server` | `createChatRunner`: works the outbox (push, transcripts, storage cleanup). |
-| `migrations/0001_genesis_chat.sql` … `0005_genesis_chat_attachment_paths.sql` | The schema, copied into your app by `genesis add chat` in order, each with its pgTAP test. 0003 makes `search_messages` return a hit's `thread_root_id`; 0004 puts every conversation in a tenant (see Tenants). |
+| `migrations/0001_genesis_chat.sql` … `0006_genesis_chat_read_receipts.sql` | The schema, copied into your app by `genesis add chat` in order, each with its pgTAP test. 0003 makes `search_messages` return a hit's `thread_root_id`; 0004 puts every conversation in a tenant (see Tenants); 0006 records when each member read (see Message status). |
 
 ## On the web
 
@@ -128,7 +128,7 @@ copy and people) inside `GenesisNativeApp`, then put the screens in your routes:
 | Screen | What it is | Main props |
 |---|---|---|
 | `ChatInboxScreen` | The conversations on `InboxPage`: avatars, unread counts, the last message, pull to refresh, Mark read, Pin and Archive. | `onOpen(conversationId)`, `onStart`, `kind` / `kinds` / `excludeKinds`, `archived`, `pageProps` |
-| `ChatThreadScreen` | One conversation: grouped bubbles, day lines, replies, reactions, the composer (text, photos, voice notes, video, emoji, scheduled send), topics and the away line. | `conversationId`, `threadRootId`, `jumpTo` (open at a search result), `topic` / `showTopics`, `scheduling`, `availability`, `onOpenAttachment`, `focused` (the navigator's `useIsFocused()`), `keyboardVerticalOffset` |
+| `ChatThreadScreen` | One conversation: grouped bubbles, day lines, replies, reactions, the composer (text, photos, voice notes, video, emoji, scheduled send), topics and the away line. | `conversationId`, `threadRootId`, `jumpTo` (open at a search result), `topic` / `showTopics`, `scheduling`, `availability`, `onOpenAttachment`, `focused` (the navigator's `useIsFocused()`), `active`, `header`, `accessory`, `videoLimitMs`, `receipts` (`"show"` or `"hide"`), `keyboardVerticalOffset` |
 | `ChatSearchScreen` | Search across your conversations or in one, with matches highlighted and transcripts marked. | `onOpen(hit)`, `conversationId`, `conversationTitle` |
 | `ChatAvailabilityScreen` | Your away message, its end, working hours and time zone. | `onSaved` |
 
@@ -147,9 +147,122 @@ across the app, and the logic under them (`composerReducer`, `buildThreadRows`, 
 Mark read (`registerChatNotificationActions`, `handleChatPushResponse`, `chatThreadMatch`, also on
 `/push` alone).
 
+### Message status and typing
+
+Under the last message you sent, `ChatThreadScreen` says where it is, as iMessage does:
+
+| It says | When |
+|---|---|
+| Sending… | It is still in the outbox, not yet posted. |
+| Sent | Posted, but the outbox still holds it (a video's bytes are still going up). |
+| Delivered | The server has it, and nobody else has read that far. |
+| Read 9:41 | A direct conversation: the other member's `lastReadSeq` has reached it. The time is their `lastReadAt` (migration 0006): the time today, else the day. Without 0006, "Read" with no time. |
+| Read by 2 / Read by everyone | A group: how many of the other members (observers aside) have read that far. It is a button that opens a sheet of who. |
+
+A send that failed shows its failure, Retry and Delete instead, as before. `receipts="hide"` leaves
+the status out (an app that doesn't show read state). The logic is `lastSentReceipt` and
+`receiptText`, exported for a screen of your own, and the words are copy (`receiptSending`,
+`receiptDelivered`, `receiptReadAt` and the rest).
+
+Migration 0006 adds `members.last_read_at`, set when a member's read place moves past someone
+else's message (posting your own sets nothing; a hidden or deleted message doesn't count), and
+sends a `read` hint on the conversation's topic, so "Delivered" turns to "Read" while the thread
+is open. The hint is only a cue: the thread reads the members again (once for a burst), never the
+hint's own numbers, and only the database sends it (0006 lets clients broadcast nothing but
+typing and presence on a conversation's topic). Conversations of more than 32 members get no hint:
+there, "Read by N" updates when the thread next reads its members (on opening, on reconnecting).
+An observers-only or hidden message shows no status.
+
+Members already see each other's `lastReadSeq`, and with 0006 their `lastReadAt` too: every member
+and observer of a conversation can see when each member last read it. There is no setting yet to
+stop sending read receipts (`receipts="hide"` only hides them on the screen that passes it), so an
+app with a privacy policy should decide before it takes 0006.
+
+Someone typing shows as a bubble of three dots at the bottom of the thread (`ChatTypingBubble`),
+with their avatar beside it in a group, read out as "Sam is typing…"; someone recording a voice
+note or video keeps the words.
+
 Voice notes show their transcript under the player once the server has made one ("Transcribing…"
 until then), folded to three lines with "Show more"; the bubble reads the whole transcript to
 VoiceOver.
+
+### How the thread feels, and what an app adds to it
+
+The thread follows iMessage where the platform lets it:
+
+- **Bubbles.** A run of one sender's messages reads as one shape: the corners where two bubbles
+  meet are tight, and the last (or only) one has a tail on the sender's side (`bubbleCorners`).
+- **Times on demand.** Drag the thread left and every message's time slides in at the trailing
+  edge; let go and it slides back. The last message of a run keeps its time under it. VoiceOver
+  already reads each time in the bubble's label.
+- **Swipe to reply** runs on react-native-gesture-handler when the app passes its
+  `ReanimatedSwipeable` as `GenesisModules.swipeable` (the same module `InboxPage` swipes with),
+  so the drag stays on the UI thread; without it, a PanResponder does it.
+- **Sending.** With `GenesisModules.reanimated` (Reanimated 4), a message you just sent rises in
+  from the composer (`FadeInDown`); not with Reduce Motion, and not a message left in the outbox
+  from an earlier launch. While you hold the mic it follows your finger toward cancel and the lock.
+- **Long press** taps a medium impact and opens the message's actions in a sheet that fits them
+  (the attach, emoji and scheduled sheets fit theirs too). The + button's menu opens the picker as
+  soon as the menu has gone, with no fixed wait.
+- **Where it opens.** At the first unread, with the "New" line at the top, when that line would be
+  above the screen; otherwise at the newest. An unread further back than the first page opens at
+  the page's oldest unread, and earlier pages load from there. A row the list can't reach (FlatList
+  before it has measured that far) opens at the newest instead. Showing another conversation in
+  the same `ChatThreadScreen` opens it at its own first unread. With FlashList (`GenesisModules.list`) the list is
+  anchored at the bottom, so a send scrolls once. Scrolled up, a "↓ 3 new messages" pill comes up
+  when others write; it goes to the newest.
+- **Connection.** "Waiting for network…" while the app's NetInfo (`modules.netInfo`) says
+  offline, "Connecting…" while the live channel is down; when nothing could be read, an error with
+  Retry in place of "No messages yet".
+
+For a thread of the app's own, without copying the screen:
+
+| Prop | What it does |
+|---|---|
+| `active` | `false` keeps the thread mounted (a tab, a split view's other pane) without marking it read, and pauses what it plays; turning `true` marks it read. Default `true`. |
+| `header` | An app's own strip above the messages (who the client is, a booking). |
+| `accessory` | `(context) => ReactNode`: an app's tools over the composer. `context` has `conversationId`, `composer` (write into the draft with `composer.dispatch({ type: "text", text })`) and `canPost`. |
+| `videoLimitMs` | The longest video message. Default: the role's recording limit. |
+
+`useChatThreadStackOptions` also takes `avatar` (`{ src, name, id }` or an element), `subtitle`
+(left out with `conversationId`, the away line; `null` for none) and `onPressTitle` (the title
+becomes a button, `titleHint` its VoiceOver hint). The default subtitle reads the conversation
+through `ChatProvider`, so mount it above the navigator, or pass `subtitle` yourself. Show the away
+line there and pass `availability={false}` to the screen so it isn't said twice.
+
+```tsx
+import { Stack } from "expo-router";
+import { Text } from "react-native";
+import { ChatThreadScreen, useChatThreadStackOptions, type ChatThreadAccessoryContext } from "@marktiderman/genesis-chat/native";
+
+function QuickReplies({ composer, canPost }: ChatThreadAccessoryContext) {
+  if (!canPost) return null;
+  return <Text onPress={() => composer.dispatch({ type: "text", text: "On my way" })}>On my way</Text>;
+}
+
+export function ThreadRoute({ id, focused, onDetails }: { id: string; focused: boolean; onDetails: () => void }) {
+  const options = useChatThreadStackOptions({ headerTitle: "Sam", conversationId: id, avatar: { name: "Sam", id }, onPressTitle: onDetails });
+  return (
+    <>
+      <Stack.Screen options={options} />
+      <ChatThreadScreen
+        conversationId={id}
+        active={focused}
+        availability={false}
+        header={<Text>Acme · Plan B</Text>}
+        accessory={(context) => <QuickReplies {...context} />}
+        videoLimitMs={60_000}
+      />
+    </>
+  );
+}
+```
+
+For all of it, pass these in the app's Genesis modules (`GenesisNativeApp modules`), at module
+scope: `list: FlashList` (from `@shopify/flash-list` v2), `swipeable: ReanimatedSwipeable` (from
+`react-native-gesture-handler/ReanimatedSwipeable`, with `GestureHandlerRootView` at the root),
+`reanimated` (`import * as Reanimated from "react-native-reanimated"`), `haptics`, and chat's
+`netInfo` in `ChatNativeProvider modules`.
 
 ### Your own attachment kinds on native
 
@@ -338,7 +451,7 @@ reaches nothing. The pgTAP test beside the migration proves each rule.
 
 ## Live updates
 
-New and changed messages, reactions and memberships are broadcast as hints (ids only) to private
+New and changed messages, reactions, memberships and read places (0006) are broadcast as hints (ids and read places only) to private
 Realtime topics, `genesis-chat:conv:<id>` and `genesis-chat:user:<id>`; clients fetch through row
 level security, and fetch what they missed every time a channel joins (`onJoin`), the first time included. Typing and recording are broadcast
 by clients and never stored.

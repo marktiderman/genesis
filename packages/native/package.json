@@ -172,7 +172,7 @@
     "@tanstack/react-query": "5.107.1",
     "@testing-library/react": "^16.3.2",
     "@types/react": "^19.2.14",
-    "expo": "~58.0.19",
+    "expo": "~58.0.26",
     "happy-dom": "^21.0.4",
     "nativewind": "^4.2.7",
     "react": "^19.2.5",

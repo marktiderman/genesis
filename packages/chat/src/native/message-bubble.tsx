@@ -12,10 +12,17 @@
  * app card's action. App attachment kinds draw as cards, or through the app's
  * `attachmentSlot` (see attachment-cards.tsx); a voice note's transcript is
  * part of the bubble's label.
+ *
+ * Shape: iMessage's. A run of one sender's bubbles is drawn as one: the corners where two meet are
+ * tight, and the last (or only) one has a tail at its bottom corner on the sender's side
+ * (`bubbleCorners`). Swipe to reply runs on react-native-gesture-handler (the app's
+ * `GenesisModules.swipeable`, `ReanimatedSwipeable`) when given, on the UI thread; without it, a
+ * PanResponder. A message you just sent rises into place (`GenesisModules.reanimated`'s
+ * `FadeInDown`), not with Reduce Motion.
  */
-import { memo, useCallback, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
 import { Animated, PanResponder, Pressable, View } from "react-native";
-import { NativeAvatar, NativeText } from "@marktiderman/genesis-ui-native/components";
+import { NativeAvatar, NativeIcon, NativeText, useGenesisModules } from "@marktiderman/genesis-ui-native/components";
 import { sentBubbleColor, useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
 import { summarizeReactions } from "../core/thread";
 import type { ChatLinkPreview, ChatMessage, PendingFile } from "../core/types";
@@ -29,6 +36,7 @@ import { fromPending, fromPendingInput, fromServer, MessageAttachments, type Bub
 import { ModerationMarker, moderationNote, moderationText } from "./moderation";
 import { cycleVoiceNoteRate, toggleVoiceNote, usePlayingVoiceNote } from "./voice-player";
 import type { ThreadRow } from "./rows";
+import { TimeRevealRow } from "./thread-times";
 
 type MessageRow = Extract<ThreadRow, { type: "message" }>;
 
@@ -72,11 +80,50 @@ export interface MessageBubbleProps {
   attachmentSlot?: ChatAttachmentSlot | null;
   /** How long an app card's action may run before it reads as failed; 30 s by default, 0 for never. */
   cardActionTimeoutMs?: number;
+  /** Its status under the bubble, on the last message you sent: "Delivered", "Read 9:41" (`receiptText`). */
+  receipt?: string | null;
+  /** Makes the status a button ("Read by 2" opens who has read it). */
+  onReceiptPress?: () => void;
+  /** What is drawn behind the bubble, which the tail is cut from. The theme's grouped background by default (what ChatThreadScreen draws). */
+  backdrop?: string;
   testID: string;
 }
 
 const SWIPE_REPLY = 56;
 const SWIPE_MAX = 80;
+
+/** Where a bubble sits in its run of one sender's messages. */
+export type BubblePosition = "single" | "first" | "middle" | "last";
+
+export function bubblePosition(row: { groupStart: boolean; groupEnd: boolean }): BubblePosition {
+  if (row.groupStart && row.groupEnd) return "single";
+  if (row.groupStart) return "first";
+  if (row.groupEnd) return "last";
+  return "middle";
+}
+
+const ROUND = 18;
+const TIGHT = 5;
+
+/**
+ * A bubble's corners: round, except where it meets the next or the one before in its run, on the
+ * sender's side (the trailing side for yours). The last and the only one also get a tail.
+ */
+export function bubbleCorners(position: BubblePosition, mine: boolean) {
+  const joinsAbove = position === "middle" || position === "last";
+  const joinsBelow = position === "first" || position === "middle";
+  const near = { top: joinsAbove ? TIGHT : ROUND, bottom: joinsBelow ? TIGHT : ROUND };
+  return {
+    borderTopLeftRadius: mine ? ROUND : near.top,
+    borderBottomLeftRadius: mine ? ROUND : near.bottom,
+    borderTopRightRadius: mine ? near.top : ROUND,
+    borderBottomRightRadius: mine ? near.bottom : ROUND,
+    tail: position === "last" || position === "single",
+  };
+}
+
+/** Pending messages younger than this rise in when they first draw; older ones (a relaunch's outbox) don't. */
+const FRESH_MS = 1500;
 
 export function formatClock(iso: string): string {
   return new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
@@ -146,6 +193,18 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
       })
     : [];
   const playingVoice = usePlayingVoiceNote(voices.map((a) => a.key));
+  const genesis = useGenesisModules();
+  const Swipeable = genesis.swipeable;
+  const reanimated = genesis.reanimated;
+  // Decided once, on the first draw: only a message just sent rises in.
+  const [entering] = useState(() => {
+    const rise = reanimated?.FadeInDown;
+    if (!pending || reducedMotion || !rise || Date.now() - new Date(pending.createdAt).getTime() >= FRESH_MS) return undefined;
+    const timed = rise.duration(240);
+    // Reanimated's own check too, should Reduce Motion turn on before it plays.
+    return reanimated.ReduceMotion && timed.reduceMotion ? timed.reduceMotion(reanimated.ReduceMotion.System) : timed;
+  });
+  const swipeRef = useRef<{ close?: () => void } | null>(null);
 
   // ---- Swipe to reply ----
   const x = useRef(new Animated.Value(0)).current;
@@ -189,10 +248,15 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
   }
 
   const canSwipe = Boolean(message && !message.deletedAt && props.onReply);
+  const corners = bubbleCorners(bubblePosition(row), mine);
+  // The tail is cut from the thread's background: not over a highlighted row.
+  const tail = corners.tail && !props.highlighted;
+  const Root = (reanimated ? reanimated.default.View : View) as ComponentType<Record<string, unknown>>;
   const reactions = message ? summarizeReactions(message, me) : [];
   const time = formatClock(createdAt);
   const moderation = moderationNote(message, { mine, observer: Boolean(props.observer) });
-  const statusText = failed ? copy.notSent : sending ? copy.sending : null;
+  const receipt = failed ? null : (props.receipt ?? null);
+  const statusText = failed ? copy.notSent : receipt ? receipt : sending ? copy.sending : null;
   const label = [
     senderName,
     message?.deletedAt ? copy.deleted : displayBody(body),
@@ -273,27 +337,16 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
   const fg = mine ? "text-primary-foreground" : undefined;
   const textStyle = mine ? { fontSize: 17, lineHeight: 22 } : { fontSize: 17, lineHeight: 22, color: colors.label };
 
-  return (
-    <View
-      testID={testID}
-      accessibilityElementsHidden={invisible || undefined}
-      importantForAccessibility={invisible ? "no-hide-descendants" : undefined}
-      style={{ paddingTop: row.groupStart ? 8 : 2, borderRadius: 12, backgroundColor: props.highlighted ? colors.fill : undefined, display: invisible ? "none" : undefined }}
-    >
-      {row.showName && sender?.name ? (
-        <NativeText preset="caption" style={{ marginLeft: group ? 48 : 12, marginBottom: 2, color: colors.secondaryLabel }}>
-          {sender.name}
-        </NativeText>
-      ) : null}
+  const bubbleRow = (
       <View style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: mine ? "flex-end" : "flex-start" }}>
         {group && !mine ? (
-          <View style={{ width: 40, alignItems: "flex-start" }}>
+          <View style={{ width: 40, alignItems: "flex-start", zIndex: 1 }}>
             {row.showAvatar ? <NativeAvatar size={32} src={sender?.avatarUrl ?? null} fallback={initials(sender?.name)} alt={sender?.name} recyclingKey={row.senderId ?? undefined} /> : null}
           </View>
         ) : null}
         <Animated.View
           style={{ maxWidth: "80%", transform: [{ translateX: x }] }}
-          {...(canSwipe ? responder.panHandlers : {})}
+          {...(canSwipe && !Swipeable ? responder.panHandlers : {})}
         >
           <Pressable
             testID={`${testID}-bubble`}
@@ -307,7 +360,10 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
             style={{
               paddingHorizontal: attachments.length && !body ? 4 : 12,
               paddingVertical: attachments.length && !body ? 4 : 8,
-              borderRadius: 18,
+              borderTopLeftRadius: corners.borderTopLeftRadius,
+              borderTopRightRadius: corners.borderTopRightRadius,
+              borderBottomLeftRadius: corners.borderBottomLeftRadius,
+              borderBottomRightRadius: corners.borderBottomRightRadius,
               backgroundColor: bubbleColor,
               opacity: sending ? 0.6 : moderation === "hidden-mine" ? 0.7 : 1,
               gap: 4,
@@ -357,8 +413,49 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
             {moderation ? <ModerationMarker note={moderation} mine={mine} testID={`${testID}-moderation`} /> : null}
             {preview ? <ChatLinkPreviewCard preview={preview} mine={mine} images={props.linkPreviewImages} testID={`${testID}-preview`} /> : null}
           </Pressable>
+          {tail ? <BubbleTail mine={mine} color={bubbleColor} backdrop={props.backdrop ?? (colors.groupedBackground as string)} opacity={sending ? 0.6 : moderation === "hidden-mine" ? 0.7 : 1} testID={`${testID}-tail`} /> : null}
         </Animated.View>
       </View>
+  );
+  const swipeable =
+    canSwipe && Swipeable && message ? (
+      <Swipeable
+        ref={swipeRef}
+        testID={`${testID}-swipe`}
+        friction={2}
+        leftThreshold={SWIPE_REPLY}
+        overshootLeft={false}
+        // Leftward drags are the thread's (its times), never this row's.
+        dragOffsetFromRightEdge={10_000}
+        renderLeftActions={() => <ReplyHint color={colors.secondaryLabel} />}
+        onSwipeableWillOpen={() => {
+          props.onSwipeReply?.();
+          props.onReply?.(message);
+          swipeRef.current?.close?.();
+        }}
+      >
+        {bubbleRow}
+      </Swipeable>
+    ) : (
+      bubbleRow
+    );
+
+  return (
+    <Root
+      testID={testID}
+      entering={entering}
+      accessibilityElementsHidden={invisible || undefined}
+      importantForAccessibility={invisible ? "no-hide-descendants" : undefined}
+      style={{ paddingTop: row.groupStart ? 8 : 2, borderRadius: 12, backgroundColor: props.highlighted ? colors.fill : undefined, display: invisible ? "none" : undefined }}
+    >
+      {row.showName && sender?.name ? (
+        <NativeText preset="caption" style={{ marginLeft: group ? 48 : 12, marginBottom: 2, color: colors.secondaryLabel }}>
+          {sender.name}
+        </NativeText>
+      ) : null}
+      <TimeRevealRow time={time} testID={testID}>
+        {swipeable}
+      </TimeRevealRow>
       {reactions.length ? (
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 2, justifyContent: mine ? "flex-end" : "flex-start", marginLeft: group && !mine ? 40 : 0 }}>
           {reactions.map((r) => (
@@ -409,12 +506,67 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
             </>
           ) : (
             <NativeText preset="caption" style={{ color: colors.tertiaryLabel }}>
-              {[time, message?.editedAt ? copy.edited : null, sending ? copy.sending : null].filter(Boolean).join(" · ")}
+              {[time, message?.editedAt ? copy.edited : null, sending && !receipt ? copy.sending : null].filter(Boolean).join(" · ")}
             </NativeText>
           )}
         </View>
       ) : null}
+      {receipt ? <ReceiptLine text={receipt} onPress={props.onReceiptPress} hint={copy.receiptReadersHint} testID={`${testID}-receipt`} /> : null}
+    </Root>
+  );
+}
+
+/**
+ * iMessage's tail: a rounded piece of the bubble's color at its bottom corner, its inner curve cut
+ * by a piece of the thread's background. Drawn only, never read.
+ */
+function BubbleTail({ mine, color, backdrop, opacity, testID }: { mine: boolean; color: unknown; backdrop: unknown; opacity: number; testID: string }) {
+  const side = mine ? "right" : "left";
+  return (
+    <View testID={testID} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ position: "absolute", bottom: 0, [side]: -6, width: 20, height: 18 }}>
+      <View style={{ position: "absolute", bottom: 0, [side]: 0, width: 20, height: 18, opacity, backgroundColor: color as string, [mine ? "borderBottomLeftRadius" : "borderBottomRightRadius"]: 16 }} />
+      <View style={{ position: "absolute", bottom: 0, [side]: -6, width: 12, height: 20, backgroundColor: backdrop as string, [mine ? "borderBottomLeftRadius" : "borderBottomRightRadius"]: 10 }} />
     </View>
+  );
+}
+
+/** What the swipe to reply uncovers. */
+function ReplyHint({ color }: { color: unknown }): ReactNode {
+  return (
+    <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ width: SWIPE_MAX, alignItems: "center", justifyContent: "center" }}>
+      <NativeIcon name="reply" size={20} color={color as string} />
+    </View>
+  );
+}
+
+/** iMessage's status line: small, bold, under the bubble on your side. Read with the bubble unless it is a button. */
+function ReceiptLine({ text, onPress, hint, testID }: { text: string; onPress?: () => void; hint: string; testID: string }) {
+  const colors = useThemeRoles();
+  const words = (
+    <NativeText preset="caption" style={{ color: colors.secondaryLabel, fontWeight: "600" }}>
+      {text}
+    </NativeText>
+  );
+  if (!onPress) {
+    return (
+      <View testID={testID} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ alignItems: "flex-end", marginTop: 1, marginRight: 12 }}>
+        {words}
+      </View>
+    );
+  }
+  return (
+    <Pressable
+      testID={testID}
+      accessibilityRole="button"
+      accessibilityLabel={text}
+      accessibilityHint={hint}
+      onPress={onPress}
+      hitSlop={8}
+      // 28 + 8 above and below: a 44 pt target, like the Retry beside a failed send.
+      style={{ alignSelf: "flex-end", minHeight: 28, justifyContent: "center", marginRight: 12 }}
+    >
+      {words}
+    </Pressable>
   );
 }
 

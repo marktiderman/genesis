@@ -263,7 +263,8 @@ describe("rendering the templates", () => {
               checked++;
               const at = `${rel} (${platforms.join("+")}, ${trigger}) ${where}.${key}`;
               if (typeof value !== "string") problems.push(`${at}: ${typeof value} ${JSON.stringify(value)}`);
-              else if (typed.test(value)) problems.push(`${at}: ${value}`);
+              // `a || ''` is still a string: the empty default for an output a job may not set.
+              else if (typed.test(value.replace(/\|\|\s*'[^']*'/g, ""))) problems.push(`${at}: ${value}`);
             }
           }
         }
@@ -692,6 +693,17 @@ describe("rendering the templates", () => {
     const run = (yaml("release/pr-preview.yml", ctx({ platforms: ["ios"] })).jobs.publish_update.steps as { run?: string }[]).map((s) => s.run ?? "").join("\n");
     expect(run).toMatch(/update --branch "\$PREVIEW_CHANNEL"/);
     expect(run).toMatch(/channel:edit "\$PREVIEW_CHANNEL" --branch "\$PREVIEW_CHANNEL"/);
+  });
+
+  it("pr-preview gives IOS_BUILD and ANDROID_BUILD an empty default, so no matching release build passes EAS's job validation", () => {
+    for (const platforms of [["ios"], ["android"], ["ios", "android"]] as ("ios" | "android")[][]) {
+      const env = Object.values(yaml("release/pr-preview.yml", ctx({ platforms })).jobs as Record<string, { env?: Record<string, string> }>).reduce<Record<string, string>>((all, j) => ({ ...all, ...j.env }), {});
+      if (platforms.includes("ios")) expect(env.IOS_BUILD).toBe("${{ needs.get_release_ios_build.outputs.build_id || '' }}");
+      if (platforms.includes("android")) expect(env.ANDROID_BUILD).toBe("${{ needs.get_release_android_build.outputs.build_id || '' }}");
+    }
+    // Without the default, `get-build` finding nothing leaves the expression empty: "[env.IOS_BUILD]: Invalid input".
+    const raw = template("release/pr-preview.yml");
+    expect(raw).not.toMatch(/_BUILD: \$\{\{ needs\.get_release_\w+_build\.outputs\.build_id \}\}/);
   });
 
   it("pins the CI callers to a release, and moves any caller's pin", () => {

@@ -61,7 +61,7 @@ overrides:
   react: 19.3.0
   react-dom: 19.3.0
   "@types/react": 19.3.0
-  react-native: 0.88.0
+  react-native: 0.88.1
   # Security floors for transitive dependencies (Dependabot). Each dependent's own range would
   # hold the vulnerable version, or a fresh lockfile could fall back to it. A range-keyed override
   # touches only the versions below the fix. Overrides apply at the workspace root only: a package
