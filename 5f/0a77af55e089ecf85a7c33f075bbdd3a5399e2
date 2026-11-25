@@ -1,0 +1,33 @@
+templates/eas/scripts/native-release.mjs
+  s_f1aa8511899775::t_573d35fb5091fb 380-390
+templates/maestro/prove-ios.mjs
+  s_f1aa8511899775::t_573d35fb5091fb 9-10,84-85
+apps/genesis-rn-starter/.eas/scripts/native-release.mjs
+  s_f1aa8511899775::t_573d35fb5091fb 380-390
+.changeset/native-workbench.md
+  s_f1aa8511899775::t_573d35fb5091fb 12
+apps/genesis-rn-starter/.maestro/prove-ios.mjs
+  s_f1aa8511899775::t_573d35fb5091fb 9-10,84-85
+apps/native-workbench/.maestro/prove-ios.mjs
+  s_f1aa8511899775::t_573d35fb5091fb 9-10,84-85
+packages/genesis-cli/test/release.test.ts
+  s_f1aa8511899775::t_5b897a41cf5f9f 346-350
+apps/native-workbench/.eas/scripts/native-release.mjs
+  s_f1aa8511899775::t_573d35fb5091fb 380-390
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5f0a77af55e089ecf85a7c33f075bbdd3a5399e2",
+  "prompts": {},
+  "sessions": {
+    "s_f1aa8511899775": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "18c56dc7-ac34-4eaf-92bf-016e2c3bbcb7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
