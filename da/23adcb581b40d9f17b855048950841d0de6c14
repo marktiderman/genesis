@@ -1,0 +1,41 @@
+apps/genesis-rn-starter/.eas/workflows/deploy-production.yml
+  s_f1aa8511899775::t_a922ce9eb18069 87,126,205
+apps/genesis-rn-starter/__tests__/release.test.ts
+  s_f1aa8511899775::t_a922ce9eb18069 179
+templates/eas/scripts/native-release.mjs
+  s_f1aa8511899775::t_5c7fa507b2174d 373-376,798
+apps/native-workbench/README.md
+  s_f1aa8511899775::t_a922ce9eb18069 63-65
+docs/NATIVE-RELEASE.md
+  s_f1aa8511899775::t_a922ce9eb18069 394
+packages/genesis-cli/test/release.test.ts
+  s_f1aa8511899775::t_a922ce9eb18069 112-117,126,505
+apps/genesis-rn-starter/.eas/scripts/native-release.mjs
+  s_f1aa8511899775::t_a922ce9eb18069 373-376,798
+.changeset/native-workbench.md
+  s_f1aa8511899775::t_a922ce9eb18069 14
+apps/native-workbench/.eas/scripts/native-release.mjs
+  s_f1aa8511899775::t_a922ce9eb18069 373-376,798
+templates/release/deploy-production.yml
+  s_f1aa8511899775::t_5c7fa507b2174d 181,240,400
+apps/native-workbench/.eas/workflows/deploy-production.yml
+  s_f1aa8511899775::t_9e3efa6d7a9324 94,133
+apps/native-workbench/genesis.lock.json
+  s_f1aa8511899775::t_6dfcaf15b75543 87,102
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "da23adcb581b40d9f17b855048950841d0de6c14",
+  "prompts": {},
+  "sessions": {
+    "s_f1aa8511899775": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "18c56dc7-ac34-4eaf-92bf-016e2c3bbcb7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
