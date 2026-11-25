@@ -1,0 +1,89 @@
+apps/genesis-rn-starter/.eas/workflows/deploy-production.yml
+  s_f1aa8511899775::t_87c683078b9612 85
+.changeset/native-workbench.md
+  s_f1aa8511899775::t_0c0d2806495c87 5,7-15
+apps/native-workbench/genesis.lock.json
+  s_f1aa8511899775::t_06c24a1139e5e0 11-12,87-88,102-103,113,123,196
+  s_f1aa8511899775::t_738efed48811a0 128-129,134-135,140-141,146-147,152
+  s_f1aa8511899775::t_f4396cb40b6111 173-174,179-180,185-186
+features.ts
+  s_f1aa8511899775::t_bbd71ec52404bf 2356,2359
+AGENTS.md
+  s_f1aa8511899775::t_ae62c4aeb2d293 10
+templates/release/deploy-production.yml
+  s_f1aa8511899775::t_99dea9ee6f0237 179
+.changeset/config.json
+  s_f1aa8511899775::t_acdbc609a61e19 16-17
+apps/native-workbench/.eas/scripts/native-release.mjs
+  s_f1aa8511899775::t_7a022f165bf304 372-373,375-381,385-390,788-791
+  s_f1aa8511899775::t_2308e3beda2fb3 374,382-384
+  s_f1aa8511899775::t_d8d7203c19687c 371
+packages/genesis-cli/src/blocks/init-native.ts
+  s_f1aa8511899775::t_379d423a01a773 302
+  s_f1aa8511899775::t_3f4553b02fd4c0 293-298,300-301,532-536
+scripts/__tests__/check-workbench-coverage.test.mjs
+  s_f1aa8511899775::t_65391e05f36dcd 1-38
+templates/eas/scripts/native-release.mjs
+  s_f1aa8511899775::t_7a022f165bf304 373,380-381
+  s_f1aa8511899775::t_99dea9ee6f0237 372,375-379,385-390,788-791
+  s_f1aa8511899775::t_2308e3beda2fb3 374,382-384
+  s_f1aa8511899775::t_2ccb26373e1a07 371
+apps/native-workbench/starter.config.ts
+  s_f1aa8511899775::t_a9634723ecdee7 22
+  s_f1aa8511899775::t_60b885ae8353f2 17-19,24,27
+apps/genesis-rn-starter/.gitignore
+  s_f1aa8511899775::t_845b5e2f755c7a 24-27
+apps/native-workbench/.gitignore
+  s_f1aa8511899775::t_845b5e2f755c7a 24-27
+packages/ui-native/src/layouts/screen-container.tsx
+  s_f1aa8511899775::t_f3dd2a8c26e752 75-80
+packages/genesis-cli/test/init-native.test.ts
+  s_f1aa8511899775::t_fbd8aadd6d5323 2,6,258
+  s_f1aa8511899775::t_d36e83bcd8b484 96-98,255-257,259-260
+  s_f1aa8511899775::t_9caaa197c16181 261-262
+apps/native-workbench/.maestro/prove-ios.mjs
+  s_f1aa8511899775::t_3d27de3cfbf6b4 9,80-82,85,172-175
+  s_f1aa8511899775::t_db71923a9a0ab5 83-84
+apps/native-workbench/.eas/workflows/deploy-production.yml
+  s_f1aa8511899775::t_06c24a1139e5e0 92
+features.json
+  s_f1aa8511899775::t_bbd71ec52404bf 5360,5363
+apps/native-workbench/README.md
+  s_f1aa8511899775::t_611e31df7830c5 13-14,61-65
+  s_f1aa8511899775::t_4de12e1ec09f85 66
+packages/genesis-cli/test/release.test.ts
+  s_f1aa8511899775::t_b0d1cfffcb96ab 319-324
+apps/genesis-rn-starter/.maestro/prove-ios.mjs
+  s_f1aa8511899775::t_3d27de3cfbf6b4 9,80-82,85,172-175
+  s_f1aa8511899775::t_db71923a9a0ab5 83-84
+apps/native-workbench/package.json
+  s_f1aa8511899775::t_30dc64834165c6 7
+apps/genesis-rn-starter/.eas/scripts/native-release.mjs
+  s_f1aa8511899775::t_7a022f165bf304 372-373,375-381,385-390,788-791
+  s_f1aa8511899775::t_2308e3beda2fb3 374,382-384
+  s_f1aa8511899775::t_3489cc2b73dd18 371
+scripts/check-workbench-coverage.mjs
+  s_f1aa8511899775::t_ae76c69097eaab 11,13-15,53-57,75,78,88-89
+apps/native-workbench/scripts/eas-build-packages.mjs
+  s_f1aa8511899775::t_30dc64834165c6 1-3,5-12,14-18,24
+  s_f1aa8511899775::t_16c6f493799fec 4,13,19-23
+templates/maestro/prove-ios.mjs
+  s_f1aa8511899775::t_3d27de3cfbf6b4 9,80-82,85,172-175
+  s_f1aa8511899775::t_db71923a9a0ab5 83-84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "eacc2f2ae7174bab07b1b73e0d2095468e63e50f",
+  "prompts": {},
+  "sessions": {
+    "s_f1aa8511899775": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "18c56dc7-ac34-4eaf-92bf-016e2c3bbcb7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
