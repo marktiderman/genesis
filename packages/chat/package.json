@@ -265,6 +265,10 @@
           {
             "file": "migrations/0007_genesis_chat_unread_and_delete_for_me.sql",
             "test": "migrations/tests/0007_genesis_chat_unread_and_delete_for_me.test.sql"
+          },
+          {
+            "file": "migrations/0008_genesis_chat_cleared_history.sql",
+            "test": "migrations/tests/0008_genesis_chat_cleared_history.test.sql"
           }
         ],
         "install": [
