@@ -22,7 +22,7 @@ import { insideOverlayOf, markedOverlays } from "./overlays.js";
 import type { DoctorContext } from "./types.js";
 import { appFolderOf } from "../blocks/app-folder.js";
 import { parse as parseYaml } from "yaml";
-import { competingReleaseWorkflows, EAS_WORKFLOW_MAX_BYTES, hasPushTrigger, hasReleaseJob, LANE_DISPATCH_TARGET, NATIVE_RELEASE_PATH, releaseContext, repositoryRoot, RELEASE_COMMAND, stepRuns } from "../blocks/release.js";
+import { competingReleaseWorkflows, EAS_WORKFLOW_MAX_BYTES, githubReleaseWorkflows, hasPushTrigger, hasReleaseJob, LANE_DISPATCH_TARGET, NATIVE_RELEASE_PATH, releaseContext, repositoryRoot, RELEASE_COMMAND, stepRuns } from "../blocks/release.js";
 
 const SCRIPT_EXTS = new Set([".ts", ".tsx", ".js", ".jsx", ".mts", ".cts", ".mjs", ".cjs"]);
 const JSX_EXTS = new Set([".tsx", ".jsx"]);
@@ -291,7 +291,8 @@ export function checkReleaseLaneTwice(ctx: DoctorContext): void {
  * with deploy-production.yml must have exactly one live trigger for it: its own push trigger
  * (release.trigger "eas"), or native-release.yml on GitHub with a push trigger that starts it
  * (release.trigger "github"). Dispatch-only with no live dispatcher means a merge to main starts
- * nothing (an error). Files on the other trigger than the config names are drift (a warning):
+ * nothing (an error). Another GitHub workflow of the repository's own that releases on a push to
+ * main counts as GitHub's trigger. Files on the other trigger than the config names are drift (a warning):
  * the next genesis add template release or genesis upgrade rewrites them.
  *
  * `release-trigger-github` (a warning): releases start on GitHub Actions (release.trigger
@@ -312,8 +313,24 @@ export function checkReleaseLaneLive(ctx: DoctorContext): void {
   const nativeFile = path.join(repo, NATIVE_RELEASE_PATH);
   const native = existsSync(nativeFile) ? readFileSync(nativeFile, "utf8") : null;
   const easLive = hasPushTrigger(deploy);
-  const githubLive = native !== null && hasPushTrigger(native) && stepRuns(native).some((run) => RELEASE_COMMAND.test(run));
-  const shownNative = release.appFolder ? path.relative(ctx.root, nativeFile).split(path.sep).join("/") : NATIVE_RELEASE_PATH;
+  const nativeLive = native !== null && hasPushTrigger(native) && stepRuns(native).some((run) => RELEASE_COMMAND.test(run));
+  // The repository's own starter counts too: any GitHub workflow that releases on a push to main
+  // (a consumer app's mobile-ota.yml dispatching deploy-production.yml, say) means a merge ships.
+  // Only one that starts this lane (workflow:run of deploy-production.yml) or publishes itself
+  // (eas update / build): one that runs another EAS workflow (a preview) ships nothing to production.
+  const lane = path.basename(LANE_DISPATCH_TARGET);
+  const ownStarter = nativeLive
+    ? undefined
+    : githubReleaseWorkflows(ctx.root, release.appFolder).find((rel) =>
+        stepRuns(readFileSync(path.join(repo, rel), "utf8"))
+          // Each command of a step on its own: `eas update … && eas workflow:run preview.yml` still publishes.
+          // Joining `\`-newline continuations first, so one command written over two lines stays one.
+          .flatMap((run) => run.replace(/\\\r?\n/g, " ").split(/\n|&&|\|\||;/))
+          .some((cmd) => RELEASE_COMMAND.test(cmd) && (!/workflow:run/.test(cmd) || cmd.includes(lane))),
+      );
+  const githubLive = nativeLive || ownStarter !== undefined;
+  const starterFile = ownStarter ? path.join(repo, ownStarter) : nativeFile;
+  const shownNative = release.appFolder ? path.relative(ctx.root, starterFile).split(path.sep).join("/") : (ownStarter ?? NATIVE_RELEASE_PATH);
   if (!easLive && !githubLive) {
     ctx.report({
       rule: "release-lane-live",
@@ -331,7 +348,9 @@ export function checkReleaseLaneLive(ctx: DoctorContext): void {
       level: "warn",
       file: shownNative,
       subject: "release.trigger",
-      message: `genesis.config.json release.trigger is "eas", but releases still start from GitHub Actions (${shownNative}), so a merge ships only while GitHub Actions runs. Run genesis add template release --trigger eas, which gives deploy-production.yml its push trigger and retires ${shownNative} once the EAS project's GitHub link is confirmed; or genesis add template release --trigger github to keep GitHub's (docs/NATIVE-RELEASE.md, "Moving to EAS's trigger")`,
+      message: ownStarter
+        ? `genesis.config.json release.trigger is "eas", but releases still start from GitHub Actions (${shownNative}, the repository's own workflow), so a merge ships only while GitHub Actions runs. Run genesis add template release --trigger eas, which gives deploy-production.yml its push trigger, and remove ${shownNative} in the same change (it isn't Genesis's, so nothing removes it, and kept beside EAS's trigger every release would go out twice); or set release.trigger to "github" to keep it (docs/NATIVE-RELEASE.md, "Moving to EAS's trigger")`
+        : `genesis.config.json release.trigger is "eas", but releases still start from GitHub Actions (${shownNative}), so a merge ships only while GitHub Actions runs. Run genesis add template release --trigger eas, which gives deploy-production.yml its push trigger and retires ${shownNative} once the EAS project's GitHub link is confirmed; or genesis add template release --trigger github to keep GitHub's (docs/NATIVE-RELEASE.md, "Moving to EAS's trigger")`,
     });
   } else if (trigger === "github" && githubLive && !easLive) {
     ctx.report({
