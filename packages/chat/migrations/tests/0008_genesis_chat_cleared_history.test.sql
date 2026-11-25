@@ -8,7 +8,7 @@
 -- pins and saves).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(31);
+select plan(35);
 
 insert into auth.users (id, aud, role, email, instance_id)
 select ('00000000-0000-4000-8000-00000000c8' || n)::uuid, 'authenticated', 'authenticated', 'genesis-chat-8-' || n || '@example.test', '00000000-0000-0000-0000-000000000000'
@@ -176,6 +176,19 @@ select lives_ok($$ select genesis_chat.react(pg_temp.v('kept'), '👍') $$, 'but
 select lives_ok($$ select genesis_chat.save_message(pg_temp.v('kept')) $$, 'and saves it');
 select pg_temp.sign_in('a1');
 select lives_ok($$ select genesis_chat.react(pg_temp.v('old'), '👍') $$, 'a1, who deleted nothing, still reacts to the early message');
+-- What d4 added before deleting can still be taken off: a reaction, a pin (they're both members of
+-- a direct conversation, so either may pin).
+select pg_temp.sign_in('a1');
+insert into t select 'mine', (genesis_chat.send_message(pg_temp.v('rp'), gen_random_uuid(), 'one d4 reacts to, then deletes')).id;
+select pg_temp.sign_in('d4');
+select genesis_chat.react(pg_temp.v('mine'), '❤️');
+select genesis_chat.pin_message(pg_temp.v('mine'));
+select genesis_chat.delete_conversation_for_me(pg_temp.v('rp'));
+select lives_ok($$ select genesis_chat.react(pg_temp.v('mine'), '❤️', false) $$, 'd4 takes their own reaction off a message they deleted');
+select lives_ok($$ select genesis_chat.pin_message(pg_temp.v('mine'), false) $$, 'and unpins it');
+reset role;
+select is((select count(*)::integer from genesis_chat.reactions where message_id = pg_temp.v('mine')), 0, 'the reaction is gone');
+select is((select count(*)::integer from genesis_chat.pins where message_id = pg_temp.v('mine')), 0, 'and so is the pin');
 
 select * from finish();
 rollback;

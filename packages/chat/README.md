@@ -580,9 +580,16 @@ Migration 0008 closes the ways back into history deleted for me:
   then on everyone, the uploader too, reads it through a message they can read.
 - Reports: a message in it can't be reported, and a report's snapshot leaves it out, and deleted
   messages.
-- Reactions, pins and saves: refused for a message in it.
+- Reactions, pins and saves: adding one to a message in it is refused; taking your own reaction
+  off, unpinning and forgetting a save still work.
 
-Apply 0008 after 0007, with its pgTAP test, before upgrading to the client that reads `member_reads`.
+`member_reads` is what receipts read. The members table (under its read policy) and the `read`
+broadcast's `seq` still carry each member's raw read place: build receipts on `members()`, not on
+those.
+
+Apply 0008 after 0007, with its pgTAP test. Upgrade order: the database first, then the client.
+On a database before 0008, `members()` falls back to the members table, so everything keeps
+working except this receipt fix.
 
 ## Access
 

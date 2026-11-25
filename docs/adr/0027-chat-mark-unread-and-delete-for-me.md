@@ -84,7 +84,10 @@ Migration 0008 closes the places 0007 left open. Nothing in 0007 changes; 0008 r
      member's place stops at `cleared_read_seq` (and has no time) while your latest message is in
      what they deleted unread. The client's `members()` reads it, and receipts ("Read", "Read by
      N") keep comparing your last message's seq with those places, so the rule lives only on the
-     server. Your own place is your own.
+     server. Your own place is your own. The members table (under its read policy) and the `read`
+     broadcast's `seq` still carry the raw place; receipts read `member_reads`. On a database before
+     0008 the client falls back to the members table (no receipt fix). An index on messages
+     `(conversation_id, sender_id, seq)` serves its lookup of your latest message.
    - `read_passed` (0006's, which sets `last_read_at` and sends the `read` hint) counts only
      messages after `cleared_seq`.
 6. **Pushes.** `push_targets` never notifies a member of a message at or before their
@@ -93,8 +96,9 @@ Migration 0008 closes the places 0007 left open. Nothing in 0007 changes; 0008 r
    yet; a file in a message is readable only through it, so it follows item 2's read policy.
 8. **Reports.** `report_message` refuses a message in the reporter's deleted history, and its
    snapshot (which the reporter can read) leaves out deleted messages and that history.
-9. **Reactions, pins and saves.** `react`, `pin_message` and `save_message` refuse a message in the
-   caller's deleted history, as the read policy hides it; forgetting a saved message still works.
+9. **Reactions, pins and saves.** `react`, `pin_message` and `save_message` refuse adding to a
+   message in the caller's deleted history, as the read policy hides it; taking your own reaction
+   off, unpinning and forgetting a saved message still work.
 
 Alternatives for receipts: capping `last_read_seq` itself would also change the reader's own unread
 count and read state; letting the client subtract a per-member range would put the rule in every

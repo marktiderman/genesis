@@ -51,6 +51,39 @@ describe("members() reads the server's read places (member_reads)", () => {
     expect(members[1]).toEqual({ conversationId: "g", userId: "sam", role: "member", lastReadSeq: 7, lastReadAt: "2026-11-25T09:41:00Z", joinedAt: "2026-11-01T00:00:00Z" });
   });
 
+  it("falls back to the members table on a database before 0008 (no member_reads)", async () => {
+    for (const code of ["PGRST202", "42883"]) {
+      const filters: unknown[][] = [];
+      const query = {
+        select: (...a: unknown[]) => (filters.push(["select", ...a]), query),
+        eq: (...a: unknown[]) => (filters.push(["eq", ...a]), query),
+        is: (...a: unknown[]) => (filters.push(["is", ...a]), query),
+        neq: (...a: unknown[]) => (filters.push(["neq", ...a]), Promise.resolve({ data: [row("sam", 7)], error: null })),
+      };
+      const supabase = {
+        schema: () => ({
+          rpc: async () => ({ data: null, error: { message: "Could not find the function genesis_chat.member_reads", code } }),
+          from: (table: string) => (filters.push(["from", table]), query),
+        }),
+      } as unknown as ChatSupabase;
+      const members = await createChatClient(supabase).members("g");
+      expect(members.map((m) => [m.userId, m.lastReadSeq])).toEqual([["sam", 7]]);
+      expect(filters).toEqual([["from", "members"], ["select", "*"], ["eq", "conversation_id", "g"], ["is", "left_at", null], ["neq", "role", "observer"]]);
+    }
+  });
+
+  it("doesn't hide any other error behind the fallback", async () => {
+    const supabase = {
+      schema: () => ({
+        rpc: async () => ({ data: null, error: { message: "permission denied", code: "42501" } }),
+        from: () => {
+          throw new Error("no fallback for this");
+        },
+      }),
+    } as unknown as ChatSupabase;
+    await expect(createChatClient(supabase).members("g")).rejects.toMatchObject({ code: "42501" });
+  });
+
   it("reads none for a conversation you can't see", async () => {
     const { supabase } = fakeSupabase(null as unknown as Record<string, unknown>[]);
     expect(await createChatClient(supabase).members("g")).toEqual([]);

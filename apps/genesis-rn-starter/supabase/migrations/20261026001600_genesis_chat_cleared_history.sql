@@ -27,8 +27,10 @@
 --    messages before the reported one whatever the reporter had deleted. It now leaves out deleted
 --    messages and history the reporter deleted for themselves, and a message in that history can't
 --    be reported.
--- 5. Reactions, pins and saves (0001's `react`, `pin_message`, `save_message`): a message in history
---    you deleted for yourself is refused, as the read policy (0007's messages_cleared_for_me) hides it.
+-- 5. Reactions, pins and saves (0001's `react`, `pin_message`, `save_message`): adding one to a
+--    message in history you deleted for yourself is refused, as the read policy (0007's
+--    messages_cleared_for_me) hides it; taking your own reaction off, unpinning and forgetting a
+--    saved message still work.
 
 -- Whether a read place moving from p_from to p_to passed a message someone else sent that this
 -- member was shown: any kind but system, to everyone, not hidden by moderation, not deleted, and
@@ -164,6 +166,9 @@ begin
 end;
 $$;
 
+-- Your latest message in a conversation (member_reads' max(seq)), without reading all of it.
+create index messages_conversation_sender_idx on genesis_chat.messages (conversation_id, sender_id, seq);
+
 -- The members of a conversation you can see, with their read places as you may count them: what
 -- `members()` reads. Another member's place stops at where they had read to when they deleted the
 -- conversation for themselves while your latest message is in what they deleted unread, so it reads
@@ -241,7 +246,8 @@ $$;
 
 -- ── Reactions, pins and saves: not in history you deleted ──────────────────────
 
--- 0001's react, refusing a message in history you deleted for yourself.
+-- 0001's react: adding a reaction to a message in history you deleted for yourself is refused;
+-- taking your own off still works, as forgetting a saved message does.
 create or replace function genesis_chat.react(p_message_id uuid, p_emoji text, p_on boolean default true)
 returns void
 language plpgsql
@@ -254,7 +260,7 @@ begin
   select m.conversation_id into conv from genesis_chat.messages m
    where m.id = p_message_id and m.deleted_at is null
      and (m.visibility = 'everyone' or genesis_chat.observes(m.conversation_id))
-     and m.seq > genesis_chat.my_cleared_seq(m.conversation_id);
+     and (not p_on or m.seq > genesis_chat.my_cleared_seq(m.conversation_id));
   if conv is null or not genesis_chat.can_post(conv) then
     raise exception 'You can''t react to this message' using errcode = '42501';
   end if;
@@ -270,7 +276,8 @@ begin
 end;
 $$;
 
--- 0001's pin_message, refusing a message in history you deleted for yourself.
+-- 0001's pin_message: pinning a message in history you deleted for yourself is refused; unpinning
+-- still works, as forgetting a saved message does.
 create or replace function genesis_chat.pin_message(p_message_id uuid, p_on boolean default true)
 returns void
 language plpgsql
@@ -283,7 +290,7 @@ declare
   direct boolean;
 begin
   select * into msg from genesis_chat.messages m where m.id = p_message_id and m.deleted_at is null and m.visibility = 'everyone'
-    and m.seq > genesis_chat.my_cleared_seq(m.conversation_id);
+    and (not p_on or m.seq > genesis_chat.my_cleared_seq(m.conversation_id));
   role_ := coalesce(genesis_chat.my_role(msg.conversation_id), '');
   select k.max_members = 2 into direct from genesis_chat.conversations c join genesis_chat.kinds k on k.kind = c.kind
    where c.id = msg.conversation_id;

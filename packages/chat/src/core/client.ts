@@ -395,10 +395,22 @@ export function createChatClient(supabase: ChatSupabase, options: ChatClientOpti
      * The members, with their read places as you may count them (chat migration 0008's
      * `member_reads`): someone's place stops before what they deleted for themselves unread when
      * your latest message is in it, so a receipt reads "Delivered", never "Read", for a message they
-     * were never shown. Observers and members who left aren't listed.
+     * were never shown. Observers and members who left aren't listed. On a database before 0008 it
+     * reads the members table, as before (receipts without that fix).
      */
     async members(id: string): Promise<ChatMember[]> {
-      const rows = (await rpc<Row[] | null>("member_reads", { p_conversation_id: id })) ?? [];
+      let rows: Row[];
+      try {
+        rows = (await rpc<Row[] | null>("member_reads", { p_conversation_id: id })) ?? [];
+      } catch (error) {
+        // A database before 0008 has no member_reads (PostgREST's PGRST202, Postgres' 42883): read
+        // the members table as before, every member's raw place, without 0008's receipt fix.
+        if (!(error instanceof ChatError) || (error.code !== "PGRST202" && error.code !== "42883")) throw error;
+        rows = must<Row[]>(
+          "members",
+          await db().from("members").select("*").eq("conversation_id", id).is("left_at", null).neq("role", "observer"),
+        );
+      }
       return rows.map((r) => ({
         conversationId: String(r.conversation_id),
         userId: String(r.user_id),
