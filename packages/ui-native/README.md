@@ -122,8 +122,9 @@ A long-press menu of a screen's own replaces the sheet and the system menu: `ren
 `NativeRowActions` (and `useRowActions`), InboxPage's `rowMenu` slot, and NativeResourceView's
 `rowMenu` for its inbox rows. It gets `RowActionsMenuProps` (`open`, `onClose`, `actions`, `title`,
 `preview`, `testID`); the swipe and VoiceOver's actions don't change.
-`NativeSwipeRow` guards the row's press: once a touch has moved 10pt or more sideways, or while
-the row is swiped open, the row's press doesn't fire (a tap on an open row closes it instead).
+`NativeSwipeRow` guards the row's press: while a swipe is under way (from gesture-handler's start
+of a drag) or the row is open, the row's press doesn't fire, and a tap on an open row closes it. It
+reads the swipe's own callbacks and never takes the touch, so the swipe always gets its gesture.
 
 | Tone | iOS | | Accent |
 | --- | --- | --- | --- |

@@ -57,39 +57,50 @@ export interface NativeSwipeRowProps {
   testID?: string;
 }
 
-/** A touch that moves this far sideways, in points, is a swipe: the row's press doesn't fire. */
-export const SWIPE_PRESS_SLOP = 10;
-
-type TouchPoint = { nativeEvent: { pageX?: number; pageY?: number } };
+/** How long a drag that started counts as swiping when gesture-handler reports no end, in ms. */
+export const SWIPE_PRESS_HOLD_MS = 2000;
 
 /**
- * Tells a row's press from a swipe, for NativeSwipeRow's guard around the row: once a touch has
- * moved `SWIPE_PRESS_SLOP` or more sideways, or while the row is swiped (dragging or open), it
- * `blocks` the row's press. Each touch starts afresh.
+ * Tells NativeSwipeRow's row whether its press is a real one: not while a swipe is under way (from
+ * gesture-handler's start of a drag until the row opens or closes again) and not while the row is
+ * open. It reads the Swipeable's own callbacks and never touches the touch itself, so the swipe
+ * always gets its gesture. A drag with no end reported stops counting after `SWIPE_PRESS_HOLD_MS`.
  */
-export function createSwipePressGuard() {
-  let start: { x: number; y: number } | null = null;
-  let moved = false;
-  let swiping = false;
-  const at = (e: TouchPoint) => ({ x: e.nativeEvent.pageX ?? 0, y: e.nativeEvent.pageY ?? 0 });
+export function createSwipePressGuard(now: () => number = () => Date.now()) {
+  let open = false;
+  let dragAt: number | null = null;
   return {
-    touchStart(e: TouchPoint) {
-      start = at(e);
-      moved = false;
+    dragStart() {
+      dragAt = now();
     },
-    touchMove(e: TouchPoint) {
-      if (!start) return;
-      const { x, y } = at(e);
-      const dx = Math.abs(x - start.x);
-      if (dx >= SWIPE_PRESS_SLOP && dx > Math.abs(y - start.y)) moved = true;
+    opened() {
+      open = true;
+      dragAt = null;
     },
-    setSwiping(on: boolean) {
-      swiping = on;
+    closed() {
+      open = false;
+      dragAt = null;
     },
     blocks() {
-      return swiping || moved;
+      return open || (dragAt !== null && now() - dragAt < SWIPE_PRESS_HOLD_MS);
     },
   };
+}
+
+type Pressish = { onPress?: (...args: unknown[]) => void };
+
+/** The row with its press guarded: a press the guard `blocks` does nothing but `onBlocked` (the row's own element, its `onPress` wrapped). */
+function withPressGuard(children: ReactNode, guard: ReturnType<typeof createSwipePressGuard>, onBlocked: () => void): ReactNode {
+  if (!isValidElement(children)) return children;
+  const child = children as ReactElement<Pressish>;
+  const onPress = child.props.onPress;
+  if (typeof onPress !== "function") return children;
+  return cloneElement(child, {
+    onPress: (...args: unknown[]) => {
+      if (guard.blocks()) return onBlocked();
+      onPress(...args);
+    },
+  });
 }
 
 /** How far past a side's open actions a full swipe must go, in points. */
@@ -264,27 +275,14 @@ export function NativeSwipeRow({
   const play = useHaptics();
   const swipe = useRef<{ close?: () => void } | null>(null);
   const guard = useRef(createSwipePressGuard()).current;
-  // React Native's responder capture, asked before the row on every touch's start and move: the
-  // touch's start is noted, and a touch that became a swipe is taken from the row.
-  const guardHandlers = {
-    onStartShouldSetResponderCapture: (e: TouchPoint) => {
-      guard.touchStart(e);
-      return guard.blocks();
-    },
-    onMoveShouldSetResponderCapture: (e: TouchPoint) => {
-      guard.touchMove(e);
-      return guard.blocks();
-    },
-    // A tap taken from an open row closes it.
-    onResponderRelease: () => swipe.current?.close?.(),
-  } as Record<string, unknown>;
   const offset = useRef<{ value: number } | null>(null);
   const [width, setWidth] = useState(0);
   // The row off its resting place: from a drag starting (or a ref opening it) until it is back home.
   // It makes the open row a pill (round) and, without Reanimated, shows the buttons, which stay
   // mounted (the swipe measures them) but unseen at rest, so they never show in an inset row's margins.
   const [open, setOpen] = useState(false);
-  const content = accessibilityActions ? withAccessibilityActions(children, actions) : children;
+  // A tap on a swiped-open row closes it instead of pressing it.
+  const content = withPressGuard(accessibilityActions ? withAccessibilityActions(children, actions) : children, guard, () => swipe.current?.close?.());
   const { leading, trailing, fullLeading, fullTrailing } = splitSwipeActions(actions, maxPerSide);
   if (!Swipeable || leading.length + trailing.length === 0) return <>{content}</>;
   warnUnconfirmedFull([...leading, ...trailing]);
@@ -363,33 +361,29 @@ export function NativeSwipeRow({
           }
         }}
         onSwipeableOpenStartDrag={() => {
-          guard.setSwiping(true);
+          guard.dragStart();
           setOpen(true);
         }}
         onSwipeableOpen={() => {
-          guard.setSwiping(true);
+          guard.opened();
           setOpen(true);
         }}
         // Cleared once the row is home, not as it starts back: the buttons stay seen while it slides.
         onSwipeableClose={() => {
-          guard.setSwiping(false);
+          guard.closed();
           setOpen(false);
         }}
         renderLeftActions={left.length ? group(left) : undefined}
         renderRightActions={right.length ? group(right) : undefined}
       >
-        {/* The press guard: a touch that became a swipe (10pt sideways), or any touch while the row is
-            swiped, is taken from the row, so its press never fires; a tap on an open row closes it. */}
-        <View testID={`${testID}-guard`} {...guardHandlers}>
-          {round ? (
-            // Always the same wrapper, so opening never remounts the row; only its style changes.
-            <View testID={`${testID}-pill`} style={open && round ? { marginHorizontal: m.pillInset, borderRadius: m.pillRadius, overflow: "hidden", backgroundColor: Platform.OS === "ios" ? PlatformColor(ROW_PILL.ios) : ROW_PILL.fallback } : undefined}>
-              {content}
-            </View>
-          ) : (
-            content
-          )}
-        </View>
+        {round ? (
+          // Always the same wrapper, so opening never remounts the row; only its style changes.
+          <View testID={`${testID}-pill`} style={open && round ? { marginHorizontal: m.pillInset, borderRadius: m.pillRadius, overflow: "hidden", backgroundColor: Platform.OS === "ios" ? PlatformColor(ROW_PILL.ios) : ROW_PILL.fallback } : undefined}>
+            {content}
+          </View>
+        ) : (
+          content
+        )}
       </Swipeable>
     </View>
   );
