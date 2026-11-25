@@ -35,7 +35,7 @@ function LastRan({ id, last }: { id: string; last: string }) {
 }
 
 function RowActionsList() {
-  const provider = useMemo(sampleProvider, []);
+  const provider = useMemo(() => sampleProvider(), []);
   const [last, setLast] = useState("");
   const header = useMemo(() => ({ headerTitle: "Row actions" }), []);
   return (

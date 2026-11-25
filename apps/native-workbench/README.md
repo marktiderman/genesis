@@ -57,12 +57,12 @@ Genesis `main` that changes this app (`apps/native-workbench/**`) or the package
 builds and submits to TestFlight, otherwise it publishes an update to the builds already out. Docs,
 Markdown, `.maestro/` and CI files never start it. Nobody builds or submits by hand.
 
-The one-time setup, in order (only the maintainer can do these; none needs code):
+The one-time setup, in order. Each is an account action and the maintainer's; no agent runs them:
 
 1. **Confirm the name and bundle id** (proposed: "Genesis Showcase", `com.streamlineddigital.genesis.showcase`).
    An agent then sets them in `starter.config.ts`.
-2. **Create the EAS project** under `streamlined-digital` (`eas init` in this folder, or an agent
-   with the go-ahead), and put its id in `starter.config.ts` `app.easProjectId`.
+2. **Create the EAS project** under `streamlined-digital` (`eas init` in this folder), and put its
+   id in `starter.config.ts` `app.easProjectId`.
 3. **Create the App Store Connect app record** for that bundle id (App Store Connect → Apps → +):
    Apple's API can't. Put its Apple ID (the number) in `eas.json` `submit.production.ios.ascAppId`.
 4. **iOS credentials**: `eas credentials -p ios` (production profile) once, which uses the team's
