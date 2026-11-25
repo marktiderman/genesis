@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-24",
+  "generatedAt": "2026-11-25",
   "surfaces": {
     "web": {
       "package": "@marktiderman/genesis-ui",
@@ -3704,7 +3704,7 @@
       "subpath": "@marktiderman/genesis-ui-native",
       "filePath": "packages/ui-native/src/layouts/inbox-page.tsx",
       "stability": "beta",
-      "summary": "InboxPage — a list of conversations or tickets: unread state, a time, a\npreview line, swipe actions, pull to refresh, paging and an empty state.\n\nGeneric: the rows are whatever the app has (support reports, direct\nmessages, an idea board). Data and actions come in as props; the layout\ndraws them the platform's way. On iOS it is the Settings app's inset\ngrouped style, like `SettingsPage`: the page is `groupedBackground`, the\nrows one rounded group on `surface` with hairline separators that start at\nthe text. On Android rows are full width.\n\nSwipe actions: each row's `swipeActions` are always reachable without a\ngesture library, as VoiceOver / TalkBack custom actions and on long press\n(`NativeContextMenu`). The swipe itself is `NativeSwipeRow`, once the app\npasses `GenesisModules.swipeable` (`ReanimatedSwipeable` from\nreact-native-gesture-handler, an optional peer), with each action's `side`.\nThe `swipeable` slot takes your own wrapper instead; it receives the actions\nand the row.\n\nRows: `avatar` puts a picture of who it is between the unread dot and the\ntext (an unread count shows at the end of the row, as in Mail); `leading`\nreplaces the dot.\n\nSlots: `row`, `swipeable`, `header` (above the group), `footer` (below it,\nthe paging spinner by default) and `empty`. `slots` swaps a part for your\ncomponent (same props), `slotProps` feeds the default more props, `null`\ndrops it.\n\nHeader: `getInboxPageStackOptions()` for `<Stack.Screen options>`.",
+      "summary": "InboxPage — a list of conversations or tickets: unread state, a time, a\npreview line, swipe actions, pull to refresh, paging and an empty state.\n\nGeneric: the rows are whatever the app has (support reports, direct\nmessages, an idea board). Data and actions come in as props; the layout\ndraws them the platform's way. On iOS it is the Settings app's inset\ngrouped style, like `SettingsPage`: the page is `groupedBackground`, the\nrows one rounded group on `surface` with hairline separators that start at\nthe text. On Android rows are full width.\n\nSwipe actions: each row's `swipeActions` are always reachable without a\ngesture library, as VoiceOver / TalkBack custom actions and on long press\n(`NativeContextMenu`). The swipe itself is `NativeSwipeRow`, once the app\npasses `GenesisModules.swipeable` (`ReanimatedSwipeable` from\nreact-native-gesture-handler, an optional peer), with each action's `side`.\nThe `swipeable` slot takes your own wrapper instead; it receives the actions\nand the row.\n\nVariant: `\"grouped\"` (the default, above) or `\"plain\"`, Messages' and Mail's list: full-width\nrows on the page (`background`, the theme's background by default) with no rounded group, the\nhairlines inset to the text as before.\n\nRows: `avatar` puts a picture of who it is between the unread dot and the\ntext (an unread count shows at the end of the row, as in Mail); `leading`\nreplaces the dot.\n\nSlots: `row`, `swipeable`, `rowMenu` (a long-press menu of your own), `header` (above the group), `footer` (below it,\nthe paging spinner by default) and `empty`. `slots` swaps a part for your\ncomponent (same props), `slotProps` feeds the default more props, `null`\ndrops it.\n\nHeader: `getInboxPageStackOptions()` for `<Stack.Screen options>`.",
       "primaryComponent": "InboxPage",
       "components": [
         {
@@ -3786,6 +3786,13 @@
               "required": true,
               "defaultValue": null,
               "description": "Newest first, as they should show. Empty → the empty state."
+            },
+            {
+              "name": "background",
+              "type": "____ColorValue_Internal",
+              "required": false,
+              "defaultValue": null,
+              "description": "The page behind the rows. Default: the theme's grouped background, or its background for `\"plain\"`."
             },
             {
               "name": "emptyActionLabel",
@@ -3908,7 +3915,7 @@
             },
             {
               "name": "menuPreview",
-              "type": "((row: InboxItem & { testID: string; isFirst: boolean; isLast: boolean; timeLabel: string | null; mutedLabel?: string | null; pinnedLabel?: string | null; actionProps?: RowActionProps | undefined; }) => ReactNode) | undefined",
+              "type": "((row: InboxItem & { testID: string; isFirst: boolean; isLast: boolean; timeLabel: string | null; mutedLabel?: string | null; pinnedLabel?: string | null; variant?: \"grouped\" | ... 1 more ... | undefined; actionProps?: RowActionProps | undefined; }) => ReactNode) | undefined",
               "required": false,
               "defaultValue": null,
               "description": "A peek of the row above its long-press menu (Messages shows the latest messages)."
@@ -4017,6 +4024,13 @@
               "required": false,
               "defaultValue": "inbox-page",
               "description": "testID on the root. Default `\"inbox-page\"`."
+            },
+            {
+              "name": "variant",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "grouped",
+              "description": "`\"grouped\"` (default): the Settings app's inset group on iOS. `\"plain\"`: full-width rows on\nthe page with no group, as Messages and Mail draw their lists."
             }
           ]
         },
@@ -7662,6 +7676,13 @@
               "description": "Draws each row (list) or card (grid) yourself, as the web's `renderCard`. Spread\n`card.pressableProps` on your Pressable for the press, long press and accessibility; the\nscreen still wraps it in `swipeable`. It owns the whole row: no inset group cell or separator\nis drawn around it. `index` is the row's place in its section. Pass a stable function\n(`useCallback`) so rows redraw only when their data does."
             },
             {
+              "name": "rowMenu",
+              "type": "ComponentType<RowActionsMenuProps>",
+              "required": false,
+              "defaultValue": null,
+              "description": "The `\"inbox\"` type's rows: a long-press menu of the screen's own, in place of the sheet and the\nsystem menu (InboxPage's `rowMenu` slot). The swipe and the screen reader's actions stay."
+            },
+            {
               "name": "savedViews",
               "type": "SavedViewStore",
               "required": false,
@@ -8287,7 +8308,7 @@
               "type": "string",
               "required": false,
               "defaultValue": null,
-              "description": "Override inner content container className (the ScrollView's contentContainerClassName when scroll=true)."
+              "description": "Override inner content container className (the ScrollView's contentContainerClassName when\nscroll=true). Without `scroll`, a list under a large title should leave this to layout only: a\nbackground or border keeps the body a native view of its own, and iOS then can't collapse the\ntitle as the list scrolls (put the background on the list instead)."
             },
             {
               "name": "hideTitle",
@@ -8398,7 +8419,7 @@
               "type": "string",
               "required": false,
               "defaultValue": null,
-              "description": "Override inner content container className (the ScrollView's contentContainerClassName when scroll=true)."
+              "description": "Override inner content container className (the ScrollView's contentContainerClassName when\nscroll=true). Without `scroll`, a list under a large title should leave this to layout only: a\nbackground or border keeps the body a native view of its own, and iOS then can't collapse the\ntitle as the list scrolls (put the background on the list instead)."
             },
             {
               "name": "hideTitle",
@@ -8495,7 +8516,7 @@
               "type": "string",
               "required": false,
               "defaultValue": null,
-              "description": "Override inner content container className (the ScrollView's contentContainerClassName when scroll=true)."
+              "description": "Override inner content container className (the ScrollView's contentContainerClassName when\nscroll=true). Without `scroll`, a list under a large title should leave this to layout only: a\nbackground or border keeps the body a native view of its own, and iOS then can't collapse the\ntitle as the list scrolls (put the background on the list instead)."
             },
             {
               "name": "cover",
@@ -8606,7 +8627,7 @@
               "type": "string",
               "required": false,
               "defaultValue": null,
-              "description": "Override inner content container className (the ScrollView's contentContainerClassName when scroll=true)."
+              "description": "Override inner content container className (the ScrollView's contentContainerClassName when\nscroll=true). Without `scroll`, a list under a large title should leave this to layout only: a\nbackground or border keeps the body a native view of its own, and iOS then can't collapse the\ntitle as the list scrolls (put the background on the list instead)."
             },
             {
               "name": "description",
@@ -9438,7 +9459,7 @@
         },
         {
           "name": "onRowActionColor",
-          "summary": "The text and icon color on an action of this swatch.\n\n- **System colors** (blue, green, orange, purple, gray): white, as iOS draws them; black on yellow.\n- **`tint` and `danger`** sit on the app's own colors (`background`), so they take what reads on\n  that color: white or black by contrast when it's a hex color, else `foreground` (the theme's\n  `onPrimary` or `destructiveForeground`, which the caller passes), else white (iOS's systemRed,\n  as Mail draws Delete). `useRowActionColors` passes them.",
+          "summary": "The text and icon color on an action of this swatch.\n\n- **System colors** (blue, green, orange, purple, indigo, gray): white, as iOS draws them; black on yellow.\n- **`tint` and `danger`** sit on the app's own colors (`background`), so they take what reads on\n  that color: white or black by contrast when it's a hex color, else `foreground` (the theme's\n  `onPrimary` or `destructiveForeground`, which the caller passes), else white (iOS's systemRed,\n  as Mail draws Delete). `useRowActionColors` passes them.",
           "props": []
         },
         {
@@ -9480,7 +9501,7 @@
       "subpath": "@marktiderman/genesis-ui-native",
       "filePath": "packages/ui-native/src/components/row-actions.tsx",
       "stability": "beta",
-      "summary": "NativeRowActions — a row's actions offered the three ways iOS offers them, from one list\n(ADR 0028): behind a swipe (`NativeSwipeRow`), in the long-press menu, and as the screen\nreader's actions. Wrap any pressable row in it. `NativeListItem`'s `actions`, InboxPage's rows\nand NativeResourceView's rows and cards build theirs the same way (`useRowActions`), so a row\nbehaves the same everywhere.\n\nThe long press opens the system context menu (UIContextMenu, the row lifted as its preview)\nwhen the app passes `GenesisModules.menu` (`MenuView` from `@expo/ui/community/menu`), and\n`NativeContextMenu`'s sheet otherwise. Every action shows in the menu, `swipe: false` ones\nincluded; a refused one is still listed, and pressing it explains (its `onPress`).",
+      "summary": "NativeRowActions — a row's actions offered the three ways iOS offers them, from one list\n(ADR 0028): behind a swipe (`NativeSwipeRow`), in the long-press menu, and as the screen\nreader's actions. Wrap any pressable row in it. `NativeListItem`'s `actions`, InboxPage's rows\nand NativeResourceView's rows and cards build theirs the same way (`useRowActions`), so a row\nbehaves the same everywhere.\n\nThe long press opens the system context menu (UIContextMenu, the row lifted as its preview)\nwhen the app passes `GenesisModules.menu` (`MenuView` from `@expo/ui/community/menu`), and\n`NativeContextMenu`'s sheet otherwise; `renderMenu` puts a screen's own menu in their place. Every action shows in the menu, `swipe: false` ones\nincluded; a refused one is still listed, and pressing it explains (its `onPress`).",
       "primaryComponent": "NativeRowActions",
       "components": [
         {
@@ -9514,6 +9535,13 @@
               "required": false,
               "defaultValue": null,
               "description": "A peek of the row above its long-press menu (a conversation's latest messages). The system\nmenu from `GenesisModules.menu` can't draw one, so with a preview the long press opens\n`NativeContextMenu`'s sheet, the peek on top."
+            },
+            {
+              "name": "renderMenu",
+              "type": "((props: RowActionsMenuProps) => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "The long press opens this menu of the screen's own instead of the sheet or the system menu (`RowActionsMenuProps`)."
             },
             {
               "name": "testID",
@@ -9752,7 +9780,7 @@
               "type": "string",
               "required": false,
               "defaultValue": null,
-              "description": "Override inner content container className (the ScrollView's contentContainerClassName when scroll=true)."
+              "description": "Override inner content container className (the ScrollView's contentContainerClassName when\nscroll=true). Without `scroll`, a list under a large title should leave this to layout only: a\nbackground or border keeps the body a native view of its own, and iOS then can't collapse the\ntitle as the list scrolls (put the background on the list instead)."
             },
             {
               "name": "header",
@@ -11576,6 +11604,11 @@
       "primaryComponent": "NativeSwipeRow",
       "components": [
         {
+          "name": "createSwipePressGuard",
+          "summary": "Tells NativeSwipeRow's row whether its press is a real one. Not while the row is open; not when a\ndrag started after the touch did (gesture-handler's start of a drag, which can come just after the\nrelease); and, for a touch it didn't see start, not within `SWIPE_PRESS_HOLD_MS` of a drag that\nreported no end. It reads the Swipeable's own callbacks and a touch's start, and never takes the\ntouch, so the swipe always gets its gesture.",
+          "props": []
+        },
+        {
           "name": "openWidth",
           "summary": "The width a side's `n` actions open to: fill buttons side by side, or round ones with their gaps.",
           "props": []
@@ -11635,6 +11668,13 @@
               "description": "At most this many actions on a side; the rest stay in the menu and the screen reader's actions. Default 3, as Mail."
             },
             {
+              "name": "roundLabels",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "true",
+              "description": "Round buttons: the label under each circle. Default `true`; `false` draws the circles alone, as\nMessages does, and each button keeps its label as its accessibility label."
+            },
+            {
               "name": "testID",
               "type": "string",
               "required": false,
@@ -11642,6 +11682,11 @@
               "description": ""
             }
           ]
+        },
+        {
+          "name": "SWIPE_PRESS_HOLD_MS",
+          "summary": "How long a drag that started counts as swiping when gesture-handler reports no end, in ms.",
+          "props": []
         },
         {
           "name": "FULL_SWIPE_CLEARANCE",
