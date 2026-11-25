@@ -370,10 +370,10 @@ export function checkProfileEnvironment(easJson, profile, environment, platforms
 
 /**
  * Whether a platform's store details are filled in: no value in eas.json `submit.<profile>.<platform>`
- * is still a template placeholder (`REPLACE` + `_WITH_…`). The release holds that platform's build
- * and submit until they are (a build would fail at submit, and the next push would find it and ship
- * only updates, so the store would never get one); its updates to builds already out, and every
- * other platform, go on. No submit block at all is the app's choice (EAS can submit from what the
+ * is still a template placeholder (`REPLACE` + `_WITH_…`). The run leaves that platform out until
+ * they are (a build would fail at submit, and the next push would find it and ship only updates, so
+ * the store would never get one): no runtime job, build, submit or update for it, so nothing runs on
+ * EAS for a platform not set up yet. Every other platform goes on. No submit block at all is the app's choice (EAS can submit from what the
  * project holds). Returns the placeholder keys left, empty when ready.
  */
 export function submitPlaceholders(easJson, profile, platform) {
@@ -795,7 +795,7 @@ async function main(command, args, env) {
     const [file, profile, platform] = args;
     if (!file || !profile || !PLATFORMS.includes(platform)) throw new Error("store-ready needs <eas.json> <profile> <platform>.");
     const left = submitPlaceholders(readJson(file), profile, platform);
-    if (left.length) console.error(`::warning::eas.json submit.${profile}.${platform} still has template placeholders (${left.join(", ")}): ${platform} builds and submits are held until they're filled in; its updates to builds already out go on (docs/NATIVE-RELEASE.md, "One-time setup").`);
+    if (left.length) console.error(`::warning::eas.json submit.${profile}.${platform} still has template placeholders (${left.join(", ")}): this run leaves ${platform} out until they're filled in; the other platform goes on (docs/NATIVE-RELEASE.md, "One-time setup").`);
     console.log(left.length ? "false" : "true");
   } else if (command === "latest-commit" || command === "published-group") {
     const [channel, platform, commit] = args;

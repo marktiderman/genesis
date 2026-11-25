@@ -109,12 +109,12 @@ describe("the release block", () => {
 });
 
 describe("store details still placeholders", () => {
-  it("hold that platform's builds, never the run: its updates and the other platform go on", () => {
-    const lane = parse(renderRelease(template("release/deploy-production.yml"), DEFAULT_RELEASE_CONTEXT)) as { jobs: Record<string, { if?: string; needs?: string[] }> };
-    for (const p of ["ios", "android"]) {
-      expect(lane.jobs[`build_${p}`]!.if).toContain(`needs.source.outputs.${p}_store == 'true'`);
-      expect(lane.jobs[`update_${p}`]!.if ?? "").not.toContain("_store");
-    }
+  it("leave that platform out of the run (no runtime job, build, submit or update), never the run itself", () => {
+    const lane = renderRelease(template("release/deploy-production.yml"), DEFAULT_RELEASE_CONTEXT);
+    // The platform's own output is the store check, so every job of that platform waits on it.
+    expect(lane).toContain('set-output "$platform" "$(node .eas/scripts/native-release.mjs store-ready eas.json "production" "$platform")"');
+    const jobs = (parse(lane) as { jobs: Record<string, { if?: string }> }).jobs;
+    for (const p of ["ios", "android"]) for (const j of [`runtime_${p}`, `build_${p}`, `update_${p}`]) expect(jobs[j]!.if).toContain(`needs.source.outputs.${p} == 'true'`);
     const dir = mkdtempSync(path.join(tmpdir(), "store-ready-"));
     const eas = path.join(dir, "eas.json");
     writeFileSync(eas, JSON.stringify({ submit: { production: { ios: { ascAppId: "123" }, android: { serviceAccountKeyPath: "REPLACE" + "_WITH_PATH" } } } }));
@@ -123,7 +123,7 @@ describe("store details still placeholders", () => {
     expect(run("ios")).toMatchObject({ status: 0, stdout: "true\n" });
     const android = run("android");
     expect(android).toMatchObject({ status: 0, stdout: "false\n" });
-    expect(android.stderr).toContain("android builds and submits are held");
+    expect(android.stderr).toContain("this run leaves android out");
     rmSync(dir, { recursive: true, force: true });
   });
 });
@@ -502,7 +502,7 @@ describe("rendering the templates", () => {
       // it as text; every other job reads its output, also as text.
       expect(doc.jobs.source.env[`RELEASE_${p.toUpperCase()}`]).toBe(`\${{ inputs.${p} }}`);
       expect(doc.jobs[`get_${p}_build`].if).toBe(`\${{ needs.source.outputs.${p} == 'true' }}`);
-      expect(doc.jobs[`build_${p}`].if).toBe(`\${{ needs.source.outputs.${p} == 'true' && needs.source.outputs.${p}_store == 'true' && !needs.get_${p}_build.outputs.build_id }}`);
+      expect(doc.jobs[`build_${p}`].if).toBe(`\${{ needs.source.outputs.${p} == 'true' && !needs.get_${p}_build.outputs.build_id }}`);
       expect(doc.jobs[`update_${p}`].if).toBe(`\${{ needs.source.outputs.${p} == 'true' && needs.get_${p}_build.outputs.build_id }}`);
     }
     // Every other platform reference in the file is the text comparison.
