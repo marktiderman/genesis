@@ -402,7 +402,6 @@ export function createChatClient(supabase: ChatSupabase, options: ChatClientOpti
         role: r.role as ChatRole,
         lastReadSeq: Number(r.last_read_seq ?? 0),
         lastReadAt: r.last_read_at ? String(r.last_read_at) : null,
-        ...(r.receipt_seq == null ? {} : { receiptSeq: Number(r.receipt_seq) }),
         joinedAt: String(r.joined_at),
       }));
     },

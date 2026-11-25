@@ -118,12 +118,6 @@ export interface ChatMember {
    * conversation's "Read 9:41". Null before they have, or on a database without 0006.
    */
   lastReadAt?: string | null;
-  /**
-   * The read place a sender's "Read" reads (migration 0008): `lastReadSeq`, held before a message
-   * this member deleted for themselves without reading it, until they read someone else's message
-   * after it. Undefined on a database without 0008; use `lastReadSeq` then.
-   */
-  receiptSeq?: number;
   joinedAt: string;
 }
 
@@ -253,7 +247,7 @@ export type ChatSignal =
   | { type: "message"; conversationId: string; id: string; seq?: number; op: "insert" | "update" }
   | { type: "reaction"; conversationId: string; messageId: string }
   | { type: "members"; conversationId: string }
-  /** A member's read place moved (migration 0006): a cue to read the members again. `seq` is their receipt place (`receiptSeq`, migration 0008). */
+  /** A member's read place moved (migration 0006): a cue to read the members again. */
   | { type: "read"; conversationId: string; userId: string; seq: number; at: string | null }
   | { type: "conversation"; conversationId: string }
   | { type: "inbox"; conversationId: string; seq?: number };

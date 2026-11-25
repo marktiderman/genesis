@@ -101,15 +101,3 @@ describe("starting a conversation in a tenant (migration 0004)", () => {
     expect(calls[1]![1]).not.toHaveProperty("p_tenant_id");
   });
 });
-
-describe("members' receipt place (migration 0008)", () => {
-  function withRows(rows: Record<string, unknown>[]) {
-    const q = { select: () => q, eq: () => q, is: () => q, neq: async () => ({ data: rows, error: null }) };
-    return createChatClient({ schema: () => ({ from: () => q }) } as never);
-  }
-  it("reads receipt_seq as receiptSeq, and leaves it out on a database without 0008", async () => {
-    const row = { conversation_id: "c1", user_id: "u2", role: "member", last_read_seq: 2, last_read_at: null, joined_at: "2026-11-01T00:00:00Z" };
-    expect((await withRows([{ ...row, receipt_seq: 0 }]).members("c1"))[0]).toMatchObject({ lastReadSeq: 2, receiptSeq: 0 });
-    expect((await withRows([row]).members("c1"))[0]).not.toHaveProperty("receiptSeq");
-  });
-});

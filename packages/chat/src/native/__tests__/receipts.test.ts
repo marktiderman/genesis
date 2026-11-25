@@ -75,32 +75,6 @@ describe("lastSentReceipt", () => {
       expect(lastSentReceipt([msg(6, ME)], { me: ME, members, group: true })?.receipt).toEqual({ state: "delivered" });
     });
   });
-
-  // Chat 0008: someone deletes the conversation for themselves (Delete for me) without reading your
-  // message, then posts. Their read place (lastReadSeq) moves past your message; their receipt
-  // place (receiptSeq) doesn't.
-  describe("after the other person deleted your message unread", () => {
-    const deletedUnread = (userId: string, receiptSeq: number) => ({ ...member(userId, 2), receiptSeq });
-    it("isn't Read in a direct conversation, though their read place passed it", () => {
-      const members = [member(ME, 2), deletedUnread(SAM, 0)];
-      expect(lastSentReceipt([msg(1, ME), msg(2, SAM)], { me: ME, members, group: false })?.receipt).toEqual({ state: "delivered" });
-    });
-    it("doesn't count them in a group's Read by N", () => {
-      const members = [member(ME, 2), deletedUnread(SAM, 0), member(LEE, 2)];
-      expect(lastSentReceipt([msg(1, ME), msg(2, SAM)], { me: ME, members, group: true })?.receipt).toEqual({ state: "read-by", readers: [LEE], everyone: false });
-      expect(lastSentReceipt([msg(1, ME), msg(2, SAM)], { me: ME, members: [member(ME, 2), deletedUnread(SAM, 0), deletedUnread(LEE, 0)], group: true })?.receipt).toEqual({ state: "delivered" });
-    });
-    it("counts them in a group once they read someone else's later message: the documented trade-off", () => {
-      // SAM deleted your message (1) unread, then read LEE's (2). One public read place can't say
-      // "read 2 but not 1" without publishing SAM's private cleared range, so it reaches 2.
-      const members = [member(ME, 2), { ...member(SAM, 2), receiptSeq: 2 }, member(LEE, 2)];
-      expect(lastSentReceipt([msg(1, ME), msg(2, LEE)], { me: ME, members, group: true })?.receipt).toEqual({ state: "read-by", readers: [SAM, LEE], everyone: true });
-    });
-    it("is Read once their receipt place reaches it", () => {
-      const members = [member(ME, 3), { ...member(SAM, 4, "2026-11-22T09:41:00Z"), receiptSeq: 4 }];
-      expect(lastSentReceipt([msg(3, ME), msg(4, SAM)], { me: ME, members, group: false })?.receipt).toEqual({ state: "read", at: "2026-11-22T09:41:00Z" });
-    });
-  });
 });
 
 describe("receiptText", () => {

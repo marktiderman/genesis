@@ -8,11 +8,9 @@
  * - Sending: still in the outbox, not yet posted.
  * - Sent: posted, but the outbox still holds it (a video's bytes are still going up).
  * - Delivered: the server has it (it has a seq) and nobody else has read that far.
- * - Read: the other member's receipt place has reached its seq, with their `lastReadAt` (chat
- *   migration 0006) as the time; without it, "Read" with no time. The receipt place is
- *   `receiptSeq` (migration 0008), which never passes a message they deleted for themselves
- *   unread; on a database without 0008, `lastReadSeq`.
- * - Read by N: in a group, the other members whose receipt place has reached it.
+ * - Read: the other member's `lastReadSeq` has reached its seq, with their `lastReadAt` (chat
+ *   migration 0006) as the time; without it, "Read" with no time.
+ * - Read by N: in a group, the other members whose `lastReadSeq` has reached it.
  */
 import { dayLabel, sameDay, type ThreadItem } from "../core/thread";
 import type { ChatMember } from "../core/types";
@@ -70,7 +68,7 @@ export function lastSentReceipt(items: readonly ThreadItem[], options: ReceiptOp
   function receiptFor(seq: number, clientId: string): MessageReceipt {
     if (queued?.has(clientId)) return { state: "sent" };
     const others = members.filter((x) => x.userId !== me && x.role !== "observer");
-    const readers = others.filter((x) => (x.receiptSeq ?? x.lastReadSeq) >= seq);
+    const readers = others.filter((x) => x.lastReadSeq >= seq);
     if (!group) {
       const other = readers[0];
       return other ? { state: "read", at: other.lastReadAt ?? null } : { state: "delivered" };

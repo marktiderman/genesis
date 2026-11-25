@@ -571,23 +571,18 @@ before 0007.
 Apply 0007 after 0006 (`genesis migrate`), and copy its pgTAP test beside the others.
 
 Migration 0008 closes the ways back into history deleted for me:
-- **Read receipts.** `members.receipt_seq` is the read place a sender's status line reads
-  (`ChatMember.receiptSeq`; `lastSentReceipt` uses it, and `lastReadSeq` on a database without
-  0008). It follows `last_read_seq`, but never passes a message the member deleted for themselves
-  unread until they read someone else's message after it, so posting after Delete for me doesn't
-  turn the other person's message to "Read" (or count them in "Read by N"). It's exact in a direct
-  conversation. In a group, a sender whose last message is in the deleted history can see "Read" once
-  the member reads someone else's later message (one public read place can't say "read 3 but not 2"
-  without publishing the private cleared range). Rows from before 0008 keep it null, which reads
-  as `last_read_seq`, so receipts show what they showed before 0008 and the migration rewrites no
-  rows: the stored rows can't tell history read before Delete for me from history deleted unread,
-  so only reads after 0008 are held. `last_read_seq` still drives unread counts.
-  **Privacy:** everyone in the conversation reads both `last_read_seq` and `receipt_seq`, so a
-  receipt place behind the read place tells them the member deleted history unread that included
-  the message after it (not what was in it, nor where it ended). `cleared_seq` itself stays in
-  `member_state`, which only its member reads. Hiding that signal needs receipts worked out for
-  the viewer's own messages rather than a public read place, a later change. The read time (`last_read_at`) and the `read` hint move only for a
-  message after the deleted history, and the hint's `seq` is the receipt place.
+- **Read receipts.** The read place everyone in the conversation reads (`members.last_read_seq`,
+  `ChatMember.lastReadSeq`) is held: it never passes a message someone else sent that the member
+  deleted for themselves unread, until they read someone else's message after it. So posting
+  after Delete for me doesn't turn the other person's message to "Read" (or count them in "Read
+  by N"), and there is still one public number, so nothing else shows they used Delete for me.
+  Their true read place is kept, only while it differs, in `member_state.read_seq`, which only
+  they read; their unread counts, mentions, the inbox's `lastReadSeq` and `mark_read`'s answer
+  use it. It's exact in a direct conversation. In a group, a sender whose last message is in the
+  deleted history can see "Read" once the member reads someone else's later message (one public
+  read place can't say "read 3 but not 2"). No rows are rewritten: nothing is held until a read
+  place next moves. The read time (`last_read_at`) and the `read` hint move only for a message
+  after the deleted history. Clients need no change.
 - **Pushes.** A push is never sent for a message in it (a late push from the outbox).
 - **Files.** A file in a message in it can't be fetched through the uploader's fallback, the
   uploader's own included. That fallback (their own recent upload) now ends once the file is in a
