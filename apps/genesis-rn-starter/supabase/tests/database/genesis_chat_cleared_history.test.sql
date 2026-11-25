@@ -8,7 +8,7 @@
 -- pins and saves).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(35);
+select plan(37);
 
 insert into auth.users (id, aud, role, email, instance_id)
 select ('00000000-0000-4000-8000-00000000c8' || n)::uuid, 'authenticated', 'authenticated', 'genesis-chat-8-' || n || '@example.test', '00000000-0000-0000-0000-000000000000'
@@ -97,6 +97,18 @@ reset role;
 select is(pg_temp.pushed('early', 'c3'), 0, 'c3 isn''t told of a message they deleted, though a later one brought the conversation back');
 select is(pg_temp.pushed('later', 'c3'), 1, 'and is told of the later one');
 select is(pg_temp.pushed('early', 'a1'), 0, 'its sender is never told of it');
+-- A reply in a thread whose root c3 deleted, its push handled late, after an unrelated message
+-- brought the conversation back: still no push for the reply.
+select pg_temp.sign_in('a1');
+insert into t select 'root', (genesis_chat.send_message(pg_temp.v('ac'), gen_random_uuid(), 'a thread about Saturday')).id;
+select pg_temp.sign_in('c3');
+select genesis_chat.delete_conversation_for_me(pg_temp.v('ac'));
+select pg_temp.sign_in('a1');
+insert into t select 'reply', (genesis_chat.send_message(pg_temp.v('ac'), gen_random_uuid(), 'a reply in it', p_thread_root_id => pg_temp.v('root'))).id;
+insert into t select 'unrelated', (genesis_chat.send_message(pg_temp.v('ac'), gen_random_uuid(), 'something else')).id;
+reset role;
+select is(pg_temp.pushed('reply', 'c3'), 0, 'c3 isn''t told of a reply in a thread they deleted, though a later message came in');
+select is(pg_temp.pushed('unrelated', 'c3'), 1, 'and is told of the later message itself');
 
 -- ── 3. Your own file in history you deleted for yourself ────────────────────────
 select pg_temp.sign_in('b2');
@@ -154,11 +166,12 @@ select is((select count(*)::integer from genesis_chat.member_reads(pg_temp.v('g'
 select pg_temp.sign_in('a1');
 insert into t select 'rp', genesis_chat.start_conversation('direct', array[pg_temp.person('d4')]);
 insert into t select 'old', (genesis_chat.send_message(pg_temp.v('rp'), gen_random_uuid(), 'something d4 deleted')).id;
-insert into t select 'gone', (genesis_chat.send_message(pg_temp.v('rp'), gen_random_uuid(), 'something a1 deleted')).id;
-select genesis_chat.delete_message(pg_temp.v('gone'));
 select pg_temp.sign_in('d4');
 select genesis_chat.delete_conversation_for_me(pg_temp.v('rp'));
+-- After d4's cutoff, so only the deleted-message filter keeps it out of the snapshot.
 select pg_temp.sign_in('a1');
+insert into t select 'gone', (genesis_chat.send_message(pg_temp.v('rp'), gen_random_uuid(), 'something a1 deleted')).id;
+select genesis_chat.delete_message(pg_temp.v('gone'));
 insert into t select 'kept', (genesis_chat.send_message(pg_temp.v('rp'), gen_random_uuid(), 'something d4 still has')).id;
 insert into t select 'bad', (genesis_chat.send_message(pg_temp.v('rp'), gen_random_uuid(), 'the one d4 reports')).id;
 select pg_temp.sign_in('d4');

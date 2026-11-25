@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { GenesisModulesProvider, NativeToastProvider } from "@marktiderman/genesis-ui-native/components";
 import type { ChatClient } from "../../core/client";
 import type { ChatMessage } from "../../core/types";
-import { ChatProvider } from "../../react/index";
+import { ChatProvider, useMessageActions } from "../../react/index";
 import { chatNativeCopy } from "../copy";
 import { ChatNativeProvider } from "../context";
 import type { ThreadRow } from "../rows";
@@ -286,6 +286,42 @@ describe("ChatThreadScreen's message status", () => {
     act(() => handlers.onSignal?.({ type: "read", conversationId: CONV, userId: SAM, seq: 1_000_001, at: null }));
     await waitFor(() => expect(vi.mocked(client.members).mock.calls.length).toBe(fetches + 1));
     expect(screen.getByTestId("chat-thread-message-m2-receipt").textContent).toBe("Delivered");
+  });
+
+  it("reads the members again when a message of yours is deleted elsewhere (receipts count against your latest)", async () => {
+    const { client, handlers } = receiptsClient(messages, [{ userId: SAM, lastReadSeq: 1 }]);
+    render(wrap(client, drawingList().List, <ChatThreadScreen conversationId={CONV} />));
+    await waitFor(() => expect(screen.getByTestId("chat-thread-message-m2-receipt").textContent).toBe("Delivered"), { timeout: 2000 });
+    const fetches = vi.mocked(client.members).mock.calls.length;
+    vi.mocked(client.message).mockResolvedValue({ ...messages[1]!, deletedAt: "2026-11-25T09:00:00Z" });
+    await act(async () => handlers.onSignal?.({ type: "message", conversationId: CONV, id: "m2", seq: 2, op: "update" }));
+    await waitFor(() => expect(vi.mocked(client.members).mock.calls.length).toBeGreaterThan(fetches));
+  });
+
+  it("doesn't for someone else's message", async () => {
+    const { client, handlers } = receiptsClient(messages, [{ userId: SAM, lastReadSeq: 1 }]);
+    render(wrap(client, drawingList().List, <ChatThreadScreen conversationId={CONV} />));
+    await waitFor(() => expect(screen.getByTestId("chat-thread-message-m2-receipt").textContent).toBe("Delivered"), { timeout: 2000 });
+    const fetches = vi.mocked(client.members).mock.calls.length;
+    vi.mocked(client.message).mockResolvedValue({ ...messages[0]!, deletedAt: "2026-11-25T09:00:00Z" });
+    await act(async () => handlers.onSignal?.({ type: "message", conversationId: CONV, id: "m1", seq: 1, op: "update" }));
+    await act(async () => new Promise((r) => setTimeout(r, 50)));
+    expect(vi.mocked(client.members).mock.calls.length).toBe(fetches);
+  });
+
+  it("reads the members again when you delete your latest message here", async () => {
+    const { client } = receiptsClient(messages, [{ userId: SAM, lastReadSeq: 1 }]);
+    (client as unknown as { remove: unknown }).remove = vi.fn(async () => undefined);
+    let actions: ReturnType<typeof useMessageActions> | null = null;
+    function Grab() {
+      actions = useMessageActions();
+      return null;
+    }
+    render(wrap(client, drawingList().List, <><ChatThreadScreen conversationId={CONV} /><Grab /></>));
+    await waitFor(() => expect(screen.getByTestId("chat-thread-message-m2-receipt").textContent).toBe("Delivered"), { timeout: 2000 });
+    const fetches = vi.mocked(client.members).mock.calls.length;
+    await act(async () => actions!.remove(messages[1]!));
+    await waitFor(() => expect(vi.mocked(client.members).mock.calls.length).toBeGreaterThan(fetches));
   });
 
   it('hides it with receipts="hide"', async () => {

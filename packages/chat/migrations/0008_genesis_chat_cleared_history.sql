@@ -93,11 +93,14 @@ as $$
              and (c2.last_seq > greatest(m2.last_read_seq, coalesce(p2.cleared_seq, 0)) or p2.marked_unread)
              and (p_badge_exclude_kinds is null or not (c2.kind = any (p_badge_exclude_kinds))))
     from recipients r cross join msg
-   -- Not a message in the history they deleted, nor one that doesn't bring the conversation back
-   -- (say, a reply in a thread whose root they deleted).
+   -- Not a message in the history they deleted, nor a reply in a thread whose root they deleted
+   -- (judged by the message itself, so a later message elsewhere doesn't qualify it), nor one while
+   -- the conversation isn't back in their inbox.
    where not exists (select 1 from genesis_chat.member_state s
                       where s.conversation_id = msg.conversation_id and s.user_id = r.user_id and s.cleared_seq is not null
                         and (msg.seq <= s.cleared_seq
+                             or (msg.thread_root_id is not null
+                                 and coalesce((select root.seq from genesis_chat.messages root where root.id = msg.thread_root_id), 0) <= s.cleared_seq)
                              or not genesis_chat.readable_after(msg.conversation_id, r.user_id, s.cleared_seq)))
 $$;
 
@@ -222,15 +225,15 @@ declare
   cleared bigint;
 begin
   select * into msg from genesis_chat.messages m where m.id = p_message_id
-    and genesis_chat.can_view(m.conversation_id) and (m.visibility = 'everyone' or genesis_chat.observes(m.conversation_id))
-    and m.seq > genesis_chat.my_cleared_seq(m.conversation_id);
-  if msg.id is null then
+    and genesis_chat.can_view(m.conversation_id) and (m.visibility = 'everyone' or genesis_chat.observes(m.conversation_id));
+  -- The reporter's cutoff, read once: it admits the message and bounds the context alike.
+  cleared := genesis_chat.my_cleared_seq(msg.conversation_id);
+  if msg.id is null or msg.seq <= cleared then
     raise exception 'You can''t report this message' using errcode = '42501';
   end if;
   if (select count(*) from genesis_chat.reports where reporter_id = auth.uid() and created_at > now() - interval '1 hour') >= 20 then
     raise exception 'Too many reports; try again later' using errcode = 'GS429';
   end if;
-  cleared := genesis_chat.my_cleared_seq(msg.conversation_id);
   insert into genesis_chat.reports (message_id, conversation_id, reporter_id, reason, note, snapshot)
   values (msg.id, msg.conversation_id, auth.uid(), p_reason, p_note, jsonb_build_object(
     'message', jsonb_build_object('id', msg.id, 'sender_id', msg.sender_id, 'body', msg.body, 'created_at', msg.created_at),
