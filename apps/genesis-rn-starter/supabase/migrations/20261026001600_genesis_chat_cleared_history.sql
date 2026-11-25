@@ -9,10 +9,11 @@
 --    "Read" (or "Read by N") on what they were never shown. Now the public read place, the one
 --    everyone in the conversation reads, is held: it never passes a message someone else sent
 --    that the member deleted unread, until they read someone else's message after it. There is
---    still one public number, so nothing shows that the member used Delete for me beyond what a
---    correct receipt says ("not read"). Their true read place is kept, only when it differs, in
---    `member_state.read_seq`, which only they read: their unread counts, mentions, the inbox's
---    `last_read_seq` and `mark_read`'s answer use it, so their own view is unchanged. No row is
+--    still one public number: nothing shows beyond what a correct "not read" implies (that they
+--    posted after a message without reading it). Their true read place is kept, only when it
+--    differs, in `member_state.read_seq`, which only they read: their unread counts, mentions,
+--    the inbox's `last_read_seq`, `mark_read`'s answer and `my_read_seq` (what a client reads for
+--    its own read place) use it, so their own view is unchanged. No row is
 --    rewritten: nothing is held until a read place next moves. Exact in a direct conversation;
 --    in a group, a sender whose last message is in the deleted history can see "Read" once the
 --    member reads someone else's later message, since one public place can't say "read 3 but
@@ -39,8 +40,8 @@
 --    only through its own row).
 
 -- Whether a read place moving from p_from to p_to passed a message someone else sent that this
--- member was shown: any kind but system, to everyone, not hidden by moderation, not deleted, and
--- not in history they deleted for themselves.
+-- member was shown: any kind but system, to everyone, not hidden by moderation, not deleted, not
+-- in history they deleted for themselves, and not a reply in a thread whose root is in it.
 create or replace function genesis_chat.read_passed(p_conversation_id uuid, p_user_id uuid, p_from bigint, p_to bigint)
 returns boolean
 language sql
@@ -57,6 +58,12 @@ as $$
        and m.kind <> 'system' and m.visibility = 'everyone'
        and m.moderation is distinct from 'hidden' and m.deleted_at is null
        and m.sender_id is distinct from p_user_id
+       -- A reply in a thread whose root is in that history isn't shown to them either.
+       and (m.thread_root_id is null or exists (
+             select 1 from genesis_chat.messages r
+              where r.id = m.thread_root_id
+                and r.seq > coalesce((select s.cleared_seq from genesis_chat.member_state s
+                                       where s.conversation_id = p_conversation_id and s.user_id = p_user_id), 0)))
   )
 $$;
 revoke execute on function genesis_chat.read_passed(uuid, uuid, bigint, bigint) from public, anon, authenticated;
@@ -100,9 +107,9 @@ revoke execute on function genesis_chat.receipt_place(uuid, uuid, bigint, bigint
 
 -- Holds the public read place on every move of it (mark_read, posting, an observer's read), and
 -- keeps the true place in member_state.read_seq while they differ. A member with no Delete for me
--- has no member_state row, or no cleared_seq, and is left alone. Fires after 0006's
--- members_read_moved (triggers run in name order), which stamps last_read_at only for a message
--- after the deleted history.
+-- has no member_state row, or no cleared_seq, and is left alone (observers never have one: they
+-- can't Delete for me). Fires before 0006's members_read_moved (triggers run in name order), so
+-- that one sees the held place and stamps last_read_at only when the hold lets go.
 create function genesis_chat.read_held()
 returns trigger
 language plpgsql
@@ -132,6 +139,23 @@ $$;
 revoke execute on function genesis_chat.read_held() from public, anon, authenticated;
 create trigger members_read_held before update of last_read_seq on genesis_chat.members
   for each row execute function genesis_chat.read_held();
+
+-- Your own read place in a conversation: the true one, for the client's unread divider and its
+-- AI recap (members.last_read_seq may be held).
+create function genesis_chat.my_read_seq(p_conversation_id uuid)
+returns table (user_id uuid, read_seq bigint)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select me.user_id, greatest(me.last_read_seq, coalesce(s.read_seq, 0))
+    from genesis_chat.members me
+    left join genesis_chat.member_state s on s.conversation_id = me.conversation_id and s.user_id = me.user_id
+   where me.conversation_id = p_conversation_id and me.user_id = auth.uid()
+$$;
+revoke execute on function genesis_chat.my_read_seq(uuid) from public, anon;
+grant execute on function genesis_chat.my_read_seq(uuid) to authenticated, service_role;
 
 -- What a member counts as unread (0007's member_unread): after their true read place.
 create or replace function genesis_chat.member_unread(p_conversation_id uuid, p_user_id uuid, p_last_read_seq bigint, p_cleared_seq bigint, p_marked_unread boolean)

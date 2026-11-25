@@ -575,14 +575,16 @@ Migration 0008 closes the ways back into history deleted for me:
   `ChatMember.lastReadSeq`) is held: it never passes a message someone else sent that the member
   deleted for themselves unread, until they read someone else's message after it. So posting
   after Delete for me doesn't turn the other person's message to "Read" (or count them in "Read
-  by N"), and there is still one public number, so nothing else shows they used Delete for me.
-  Their true read place is kept, only while it differs, in `member_state.read_seq`, which only
-  they read; their unread counts, mentions, the inbox's `lastReadSeq` and `mark_read`'s answer
-  use it. It's exact in a direct conversation. In a group, a sender whose last message is in the
+  by N"), and there is still one public number: nothing shows beyond what a correct "not read"
+  implies (that they posted after a message without reading it). Their true read place is kept,
+  only while it differs, in `member_state.read_seq`, which only they read; their unread counts,
+  mentions, the inbox's `lastReadSeq`, `mark_read`'s answer and `my_read_seq` use it, and the
+  client's `members()` and the AI recap read your own place from `my_read_seq`. It's exact in a direct conversation. In a group, a sender whose last message is in the
   deleted history can see "Read" once the member reads someone else's later message (one public
   read place can't say "read 3 but not 2"). No rows are rewritten: nothing is held until a read
   place next moves. The read time (`last_read_at`) and the `read` hint move only for a message
-  after the deleted history. Clients need no change.
+  after the deleted history, and a reply in a thread whose root is in that history doesn't let the
+  hold go. On a database without 0008 the client uses the members row, as before.
 - **Pushes.** A push is never sent for a message in it (a late push from the outbox).
 - **Files.** A file in a message in it can't be fetched through the uploader's fallback, the
   uploader's own included. That fallback (their own recent upload) now ends once the file is in a

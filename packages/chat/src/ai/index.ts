@@ -107,7 +107,11 @@ async function loadConversation(
     .maybeSingle();
   if (member.error) throw new Error(`chat.${mode}: reading membership failed (${member.error.code ?? "?"})`);
   if (!member.data) throw new GuardrailError(CHAT_AI_REFUSALS.notMember, "forbidden");
-  const lastRead = Number((member.data as { last_read_seq: number | null }).last_read_seq ?? 0);
+  // Your true read place (migration 0008's my_read_seq): last_read_seq may be held after Delete
+  // for me. Without 0008 the call fails, and the row's own place is right.
+  const own = await chat.rpc("my_read_seq", { p_conversation_id: conversationId });
+  const ownRow = !own.error && Array.isArray(own.data) ? (own.data[0] as { read_seq: number | null } | undefined) : undefined;
+  const lastRead = Math.max(Number((member.data as { last_read_seq: number | null }).last_read_seq ?? 0), Number(ownRow?.read_seq ?? 0));
 
   const observes = await chat.rpc("i_observe", { p_conversation_id: conversationId });
   const observer = !observes.error && observes.data === true;

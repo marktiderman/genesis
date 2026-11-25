@@ -7,7 +7,7 @@
 -- talks with c3 (files); a1, b2 and c3 are in a group (read receipts).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(45);
+select plan(48);
 
 insert into auth.users (id, aud, role, email, instance_id)
 select ('00000000-0000-4000-8000-00000000c8' || n)::uuid, 'authenticated', 'authenticated', 'genesis-chat-8-' || n || '@example.test', '00000000-0000-0000-0000-000000000000'
@@ -127,6 +127,25 @@ reset role;
 select is((select count(*)::integer from genesis_chat.member_state s join genesis_chat.members me using (conversation_id, user_id)
             where s.read_seq is not null and s.read_seq <= me.last_read_seq), 0,
   'a private read place is never at or behind the public one');
+
+-- ── 1d. A reply in a thread whose root was deleted doesn't let the hold go ───────
+select pg_temp.sign_in('a1');
+insert into t select 'tg', genesis_chat.start_conversation('group', array[pg_temp.person('b2')], 'Two of us');
+insert into t select 'root', (genesis_chat.send_message(pg_temp.v('tg'), gen_random_uuid(), 'the question')).id;
+select pg_temp.sign_in('b2');
+select genesis_chat.delete_conversation_for_me(pg_temp.v('tg'));
+select pg_temp.sign_in('a1');
+select genesis_chat.send_message(pg_temp.v('tg'), gen_random_uuid(), 'about that', p_thread_root_id => pg_temp.v('root'));
+select pg_temp.sign_in('b2');
+select genesis_chat.send_message(pg_temp.v('tg'), gen_random_uuid(), 'new start');
+select genesis_chat.mark_read(pg_temp.v('tg'));
+select is((select r.read_seq from genesis_chat.my_read_seq(pg_temp.v('tg')) r), pg_temp.read_place('tg', 'b2'),
+  'my_read_seq gives b2 their true read place');
+select pg_temp.sign_in('a1');
+select ok(pg_temp.receipt('tg', 'b2') < pg_temp.seq('root'),
+  'a reply in the deleted thread doesn''t count as b2 reading on: no "Read" on its root');
+select is((select count(*)::integer from genesis_chat.my_read_seq(pg_temp.v('tg')) r where r.user_id = pg_temp.person('b2')), 0,
+  'my_read_seq answers only for the caller');
 
 -- ── 2. No push for a message in history deleted for me ──────────────────────────
 select pg_temp.sign_in('a1');

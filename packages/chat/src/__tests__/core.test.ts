@@ -101,3 +101,19 @@ describe("starting a conversation in a tenant (migration 0004)", () => {
     expect(calls[1]![1]).not.toHaveProperty("p_tenant_id");
   });
 });
+
+describe("your own read place (migration 0008)", () => {
+  const row = (userId: string, lastReadSeq: number) => ({ conversation_id: "c1", user_id: userId, role: "member", last_read_seq: lastReadSeq, last_read_at: null, joined_at: "2026-11-01T00:00:00Z" });
+  function withRows(rows: Record<string, unknown>[], rpc: () => Promise<{ data: unknown; error: unknown }>) {
+    const q = { select: () => q, eq: () => q, is: () => q, neq: async () => ({ data: rows, error: null }) };
+    return createChatClient({ schema: () => ({ from: () => q, rpc }) } as never);
+  }
+  it("reads your true place from my_read_seq, so a held public place doesn't move your unread divider", async () => {
+    const members = await withRows([row("me", 0), row("them", 2)], async () => ({ data: [{ user_id: "me", read_seq: 3 }], error: null })).members("c1");
+    expect(members.map((m) => [m.userId, m.lastReadSeq])).toEqual([["me", 3], ["them", 2]]);
+  });
+  it("keeps the rows' places on a database without 0008", async () => {
+    const members = await withRows([row("me", 1)], async () => ({ data: null, error: { code: "PGRST202" } })).members("c1");
+    expect(members[0]!.lastReadSeq).toBe(1);
+  });
+});

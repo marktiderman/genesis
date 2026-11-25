@@ -392,15 +392,24 @@ export function createChatClient(supabase: ChatSupabase, options: ChatClientOpti
     },
 
     async members(id: string): Promise<ChatMember[]> {
-      const rows = must<Row[]>(
-        "members",
-        await db().from("members").select("*").eq("conversation_id", id).is("left_at", null).neq("role", "observer"),
-      );
+      const [res, mine] = await Promise.all([
+        db().from("members").select("*").eq("conversation_id", id).is("left_at", null).neq("role", "observer"),
+        // Your own true read place (migration 0008): members.last_read_seq, which others read for
+        // receipts, can be held behind it after Delete for me. Without 0008 the call fails: use the row's.
+        Promise.resolve()
+          .then(() => db().rpc("my_read_seq", { p_conversation_id: id }))
+          .catch(() => null),
+      ]);
+      const rows = must<Row[]>("members", res);
+      const own = mine && !mine.error && Array.isArray(mine.data) ? (mine.data[0] as Row | undefined) : undefined;
       return rows.map((r) => ({
         conversationId: String(r.conversation_id),
         userId: String(r.user_id),
         role: r.role as ChatRole,
-        lastReadSeq: Number(r.last_read_seq ?? 0),
+        lastReadSeq:
+          own && String(own.user_id) === String(r.user_id)
+            ? Math.max(Number(r.last_read_seq ?? 0), Number(own.read_seq ?? 0))
+            : Number(r.last_read_seq ?? 0),
         lastReadAt: r.last_read_at ? String(r.last_read_at) : null,
         joinedAt: String(r.joined_at),
       }));
