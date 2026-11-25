@@ -84,7 +84,7 @@
     },
     ".eas/scripts/native-release.mjs": {
       "source": "@marktiderman/genesis-cli:templates/eas/scripts/native-release.mjs",
-      "sha256": "2655856f69be7b9994b312fba294f5aedaeff2be4b177e3fe2c171759f9a21b9",
+      "sha256": "faa6d93cd7107a82266d3bb11eefb1b0e4fe743ee92100c995d6110e9b630a18",
       "version": "1.35.0"
     },
     ".eas/scripts/rollout-health.mjs": {
@@ -99,7 +99,7 @@
     },
     ".eas/workflows/deploy-production.yml": {
       "source": "@marktiderman/genesis-cli:templates/release/deploy-production.yml",
-      "sha256": "60cee2031be7884a047c5e6334b9cb0362c0c103cead2ff95b7fe796d2de00fd",
+      "sha256": "8bc75d898cc39b8c30b8897f4c84543283f068fa03c9ad5bdb11be1a934cf917",
       "version": "1.35.0"
     },
     ".eas/workflows/e2e.yml": {
