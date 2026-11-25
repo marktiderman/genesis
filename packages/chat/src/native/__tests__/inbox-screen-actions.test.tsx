@@ -84,7 +84,7 @@ async function renderWith(item: ReturnType<typeof row>, over: Record<string, unk
     </QueryClientProvider>
   );
   const view = render(tree());
-  await waitFor(() => expect(seen.items.length).toBe(1));
+  await waitFor(() => expect(seen.items.length).toBeGreaterThan(0));
   await act(async () => {});
   const actions = seen.items[0]!.swipeActions ?? [];
   return { client, qc, actions, byId: (id: string) => actions.find((a) => a.id === id)!, rerender: () => view.rerender(tree()) };
@@ -191,6 +191,23 @@ describe("ChatInboxScreen's row actions", () => {
     props.current = { rowActions: (_i: unknown, d: { id: string }[]) => d.filter((a) => a.id !== "pin") };
     view.rerender();
     await waitFor(() => expect(seen.items[0]!.swipeActions!.map((a) => a.id)).not.toContain("pin"));
+  });
+
+  it("scope keeps the pinned faces to it: out-of-scope pins never crowd in-scope ones out", async () => {
+    const away = Array.from({ length: 8 }, (_, n) => ({ ...row(0), conversationId: `55555555-5555-4555-8555-00000000000${n}`, title: `Away ${n}`, pinned: true }));
+    const mine = { ...row(0), conversationId: "66666666-6666-4666-8666-666666666666", title: "Mine", pinned: true };
+    await renderWith(row(0), {}, { current: { scope: (i: { title: string | null }) => !i.title?.startsWith("Away") } }, [...away, mine]);
+    await waitFor(() => expect(screen.getByTestId("chat-inbox-pins")).toBeTruthy());
+    expect(seen.items.map((i) => i.id)).not.toContain(mine.conversationId);
+  });
+
+  it("scope holds in Archived too, and a reordered filter menu doesn't narrow it", async () => {
+    const other = { ...row(0), conversationId: "33333333-3333-4333-8333-333333333333", title: "Elsewhere", archived: true };
+    const third = { ...row(0), conversationId: "44444444-4444-4444-8444-444444444444", title: "Read one", archived: true };
+    // Unread first: Archived must still show the read conversation in scope.
+    const unreadFirst = (defaults: { id: string }[]) => [...defaults.filter((f) => f.id === "unread"), ...defaults.filter((f) => f.id !== "unread")];
+    await renderWith({ ...row(2), archived: true }, {}, { current: { archived: true, filters: unreadFirst, scope: (i: { conversationId: string }) => i.conversationId !== other.conversationId } }, [other, third]);
+    await waitFor(() => expect(seen.items.map((i) => i.id)).toEqual([C, third.conversationId]));
   });
 
 });

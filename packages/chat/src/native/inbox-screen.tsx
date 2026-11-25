@@ -200,9 +200,17 @@ export interface ChatInboxScreenProps {
   rowActions?: (item: ChatInboxItem, defaults: RowSwipeAction[]) => RowSwipeAction[];
   /**
    * The filter menu's filters: receives the defaults (All Messages, Unread, Groups) and returns
-   * the menu's, in order. Add one with an id, label, icon and predicate.
+   * the menu's, in order. Add one with an id, label, icon and predicate. Archived has no menu and
+   * shows every archived conversation in `scope`.
    */
   filters?: (defaults: ChatInboxFilter[]) => ChatInboxFilter[];
+  /**
+   * The conversations this screen is about, before any filter: one organization at a time, say.
+   * It holds for the rows, the pinned faces, the search field's filtering and Archived alike, not
+   * for ChatSearchScreen's message search (give that its own `scope`). Keep it stable
+   * (useCallback): a new function re-filters every row. Default: all of them.
+   */
+  scope?: (item: ChatInboxItem, ctx: { me: string }) => boolean;
   /** The filter shown, to control it; with `onFilterChange`. Default: the first filter, kept here. */
   filter?: string;
   onFilterChange?: (id: string) => void;
@@ -330,12 +338,15 @@ export function ChatInboxScreen(props: ChatInboxScreenProps) {
 
   const nameOf = useCallback((id: string | null) => person(id)?.name, [person]);
   const searching = query.trim().length > 0;
+  const { scope } = props;
+  const scoped = useMemo(() => (scope ? inbox.items.filter((i) => scope(i, { me: userId })) : inbox.items), [inbox.items, scope, userId]);
   const visible = useMemo(() => {
-    const filtered = applyInboxFilter(inbox.items, archived ? undefined : active, userId);
+    // Archived has no filter menu: everything archived in scope.
+    const filtered = applyInboxFilter(scoped, archived ? undefined : active, userId);
     return searching ? filtered.filter((i) => matchesInboxSearch(i, query, nameOf)) : filtered;
-  }, [inbox.items, archived, active, userId, searching, query, nameOf]);
+  }, [scoped, archived, active, userId, searching, query, nameOf]);
   const pinsShown = showPinned && !archived && !searching && active?.id === filters[0]?.id;
-  const pinnedIds = useMemo(() => new Set(pinsShown ? pinnedConversations(inbox.items).map((i) => i.conversationId) : []), [pinsShown, inbox.items]);
+  const pinnedIds = useMemo(() => new Set(pinsShown ? pinnedConversations(scoped).map((i) => i.conversationId) : []), [pinsShown, scoped]);
 
   // Built again only when the conversations, the filter or the people change: InboxPage keeps each
   // row's props equal (and its memo holding) while the screen re-renders.
