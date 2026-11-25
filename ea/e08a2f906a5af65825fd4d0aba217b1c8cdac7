@@ -1,0 +1,81 @@
+.changeset/screen-container-flatten-body.md
+  s_42efe440240299::t_2a25ae2ba822e6 1-5
+apps/native-workbench/.maestro/config.yaml
+  s_42efe440240299::t_8a14a2462e63cb 5
+apps/native-workbench/.maestro/flows/deep-link.yaml
+  s_42efe440240299::t_9354aa6fc8d93d 2,12-15,19
+apps/native-workbench/.maestro/flows/launch.yaml
+  s_42efe440240299::t_7b66d7af7eb65b 4
+apps/native-workbench/.maestro/subflows/open-workbench.yaml
+  s_42efe440240299::t_521845c25b27cd 2
+apps/native-workbench/.maestro/workbench/bubbles.yaml
+  s_42efe440240299::t_f8d3e1dcbf2634 2
+apps/native-workbench/.maestro/workbench/cards.yaml
+  s_42efe440240299::t_f8e351bcae2e10 2
+apps/native-workbench/.maestro/workbench/controls.yaml
+  s_42efe440240299::t_bdf1dfe5e23ca3 2
+apps/native-workbench/.maestro/workbench/detail-page.yaml
+  s_42efe440240299::t_2b426fdb238b98 2
+apps/native-workbench/.maestro/workbench/feedback.yaml
+  s_42efe440240299::t_7eadd6c0c6f763 2
+apps/native-workbench/.maestro/workbench/header.yaml
+  s_42efe440240299::t_409687cde65df6 3
+apps/native-workbench/.maestro/workbench/inbox.yaml
+  s_42efe440240299::t_47a898c9ae207c 2
+apps/native-workbench/.maestro/workbench/row-actions-items.yaml
+  s_42efe440240299::t_880d60820634c0 2
+apps/native-workbench/.maestro/workbench/row-actions-list.yaml
+  s_42efe440240299::t_4dbf0beffb2b1f 3
+apps/native-workbench/.maestro/workbench/settings-page.yaml
+  s_42efe440240299::t_7ecd9e879a694f 2
+apps/native-workbench/.maestro/workbench/tab-bar.yaml
+  s_42efe440240299::t_3545596a667139 2
+apps/native-workbench/README.md
+  s_42efe440240299::t_29c20da8533055 1,34,60-75,77
+apps/native-workbench/__tests__/app-config.test.ts
+  s_42efe440240299::t_f1533d2379bba0 32-35,69-70
+apps/native-workbench/__tests__/components/links.test.tsx
+  s_42efe440240299::t_bee04ce5b11151 1-13
+apps/native-workbench/genesis.lock.json
+  s_42efe440240299::t_208ffdf75b72cc 4,6-7
+apps/native-workbench/src/app/+native-intent.ts
+  s_42efe440240299::t_053c523502d557 3,5,8
+apps/native-workbench/src/lib/check-in-screen.tsx
+  s_42efe440240299::t_22229b9328b169 14
+apps/native-workbench/src/lib/check-in.ts
+  s_42efe440240299::t_c0e16a1f617c91 71
+apps/native-workbench/src/lib/links.ts
+  s_42efe440240299::t_23d189aa05e9f1 14,31-37,40
+apps/native-workbench/src/workbench/screens/header.tsx
+  s_42efe440240299::t_61f70b259f1ed1 39
+apps/native-workbench/src/workbench/screens/layouts.tsx
+  s_42efe440240299::t_bb41728c8fec40 158-159
+apps/native-workbench/src/workbench/screens/messages.tsx
+  s_42efe440240299::t_54df271162cf0d 56-69,100-108,115-171,183-184,202-203,209-215,238-248,250-258,260-269,271-281,285-289,319-322,331-335,337-371,374-408,410-423,425-429,432,434,436-437,445-446,456-457
+apps/native-workbench/starter.config.ts
+  s_42efe440240299::t_d74fbd669dadc8 9-12,15
+apps/native-workbench/supabase/config.toml
+  s_42efe440240299::t_5db9dac923a565 39
+packages/ui-native/src/layouts/__tests__/keyboard-scroll.test.tsx
+  s_42efe440240299::t_f0f65fd4088944 123-124,127-130
+packages/ui-native/src/layouts/__tests__/screen-container.test.tsx
+  s_42efe440240299::t_d5dcd79f2a1fa9 29,32,36-39
+packages/ui-native/src/layouts/screen-container.tsx
+  s_42efe440240299::t_a02ce38a55258f 336-341
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "eae08a2f906a5af65825fd4d0aba217b1c8cdac7",
+  "prompts": {},
+  "sessions": {
+    "s_42efe440240299": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f544dd57-0b31-4773-b89e-4661a182129e",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
