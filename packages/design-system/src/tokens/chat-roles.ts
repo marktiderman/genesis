@@ -56,7 +56,7 @@ export const CHAT_ROLES = [
   "shadow",
   /** A conversation's peek above its long-press menu: the card, as a plain string (a bubble's tail is cut from it). */
   "peek",
-  /** The screen behind a conversation's peek: dimmed nearly away, as Messages draws it. */
+  /** The screen behind a conversation's peek: hidden, as Messages draws it (flat grey in light, black in dark). */
   "peekScrim",
 ] as const;
 
@@ -97,7 +97,7 @@ const SOURCES: Record<ChatRole, Source> = {
   onAccent: { light: "#FFFFFF", dark: "#FFFFFF" },
   shadow: { light: "#000000", dark: "#000000" },
   peek: { light: "#FFFFFF", dark: "#1C1C1E" },
-  peekScrim: { light: "rgba(209,209,214,0.96)", dark: "rgba(0,0,0,0.94)" },
+  peekScrim: { light: "#D1D1D6", dark: "#000000" },
 };
 
 /**

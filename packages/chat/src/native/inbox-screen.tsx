@@ -590,7 +590,7 @@ export function ChatConversationMenu({ open, onClose, actions, preview, testID }
       anchor={null}
       // A tall card, as Messages draws its peek; it covers the header under the softened screen.
       previewHeight={Math.round(height * 0.55)}
-      // Dimmed nearly away, as Messages does: the header's buttons don't show behind the card.
+      // The screen behind hidden, as Messages does: the header's buttons don't show around the card.
       scrim="strong"
       preview={preview?.() ?? null}
       items={items}

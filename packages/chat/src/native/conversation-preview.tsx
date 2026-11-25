@@ -96,7 +96,7 @@ export function ChatConversationPreview({ conversationId, title, testID }: ChatC
   const scroll = useRef<ComponentRef<typeof ScrollView> | null>(null);
   return (
     // A card, as Messages' peek (white in light, raised grey in dark, with a hairline edge there),
-    // the conversation from its top, or its latest messages once it fills the card.
+    // the latest messages at its bottom, as a thread shows them.
     <View
       testID={testID}
       accessible
@@ -105,7 +105,7 @@ export function ChatConversationPreview({ conversationId, title, testID }: ChatC
     >
       <ScrollView
         ref={scroll}
-        contentContainerStyle={{ flexGrow: 1, padding: 12, paddingBottom: 16 }}
+        contentContainerStyle={{ flexGrow: 1, justifyContent: "flex-end", padding: 12, paddingBottom: 16 }}
         scrollEnabled={false}
         onContentSizeChange={() => scroll.current?.scrollToEnd?.({ animated: false })}
       >

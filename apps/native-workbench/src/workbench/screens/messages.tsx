@@ -13,6 +13,7 @@ import { ChatProvider } from "@marktiderman/genesis-chat/react";
 import {
   buildThreadRows,
   ChatBubbleShape,
+  ChatDetailsHero,
   ChatDetailsScreen,
   ChatGlassCircle,
   ChatInboxScreen,
@@ -23,6 +24,7 @@ import {
   ChatTypingBubble,
   MessageBubble,
   useChatColors,
+  type ChatDetailsContext,
   type ChatPerson,
   type ChatPlusItem,
   type ChatRect,
@@ -415,7 +417,8 @@ function LookBubble({ line, onLongPress }: { line: (typeof LOOK_LINES)[number]; 
 function MessagesLook() {
   const header = useMemo(() => ({ headerTitle: "Messages look", large: false }), []);
   return (
-    <ScreenContainer header={header} testID="workbench-messages-look">
+    // A scroll body: its automatic insets keep the bubbles under the header and the + above the tab bar.
+    <ScreenContainer header={header} scroll testID="workbench-messages-look">
       <ChatNativeProvider getPerson={lookPerson}>
         <MessagesLookBody />
       </ChatNativeProvider>
@@ -439,11 +442,11 @@ function MessagesLookBody() {
     [c],
   );
   return (
-    <View style={{ flex: 1, backgroundColor: c.roles.pageSolid }}>
+    <View style={{ flexGrow: 1, backgroundColor: c.roles.pageSolid }}>
       <NativeText testID="workbench-messages-look-last" preset="body-sm" className="px-5 pb-1 pt-4 text-muted-foreground">
         {last || "Long press a bubble, or tap + for the list."}
       </NativeText>
-      <View style={{ flex: 1, paddingTop: 8 }}>
+      <View style={{ paddingTop: 8, paddingBottom: 24 }}>
         {LOOK_LINES.map((line) => (
           <LookBubble key={line.id} line={line} onLongPress={(message, rect) => setTarget({ message, rect })} />
         ))}
@@ -469,16 +472,27 @@ function MessagesLookBody() {
   );
 }
 
+function DetailsHeroWithLast({ last, ...props }: ChatDetailsContext & { last: string }) {
+  return (
+    <>
+      <ChatDetailsHero {...props} />
+      <NativeText testID="workbench-chat-details-last" preset="body-sm" className="px-5 pt-3 text-center text-muted-foreground">
+        {last || "A group's details: Search, Pin, Scheduled, Hide Alerts, its members and Archive."}
+      </NativeText>
+    </>
+  );
+}
+
 function ChatDetails() {
   const header = useMemo(() => ({ headerTitle: "Conversation details", large: false }), []);
   const [last, setLast] = useState("");
+  const slots = useMemo(() => ({ hero: (props: ChatDetailsContext) => <DetailsHeroWithLast {...props} last={last} /> }), [last]);
   return (
     <ScreenContainer header={header} testID="workbench-chat-details">
-      <NativeText testID="workbench-chat-details-last" preset="body-sm" className="px-5 pb-1 pt-3 text-muted-foreground">
-        {last || "A group's details: Search, Pin, Scheduled, Hide Alerts, its members and Archive."}
-      </NativeText>
       <SampleChat>
         <ChatDetailsScreen
+          // The status line goes in the details' own scroll view (under its hero), so it sits below the header.
+          slots={slots}
           conversationId="c-team"
           nativeHeader={false}
           onSearch={() => setLast("Search in conversation")}
