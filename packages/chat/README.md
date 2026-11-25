@@ -570,6 +570,27 @@ not on `members`, which everyone in the conversation reads. Both send the person
 before 0007.
 Apply 0007 after 0006 (`genesis migrate`), and copy its pgTAP test beside the others.
 
+Migration 0008 closes the ways back into history deleted for me:
+- Read receipts: `members()` reads `member_reads`, the server's read places as you may count them.
+  Someone's place stops before what they deleted unread while your latest message is in it, so
+  your status line says "Delivered", never "Read", for a message they were never shown ("Read by N"
+  likewise). Such a message also no longer sets their read time or sends a `read` hint.
+- Pushes: none for a message in it (a late push from the outbox).
+- Files: the uploader's fallback (their own recent upload) ends once the file is in a message; from
+  then on everyone, the uploader too, reads it through a message they can read.
+- Reports: a message in it can't be reported, and a report's snapshot leaves it out, and deleted
+  messages.
+- Reactions, pins and saves: adding one to a message in it is refused; taking your own reaction
+  off, unpinning and forgetting a save still work.
+
+`member_reads` is what receipts read. The members table (under its read policy) and the `read`
+broadcast's `seq` still carry each member's raw read place: build receipts on `members()`, not on
+those.
+
+Apply 0008 after 0007, with its pgTAP test. Upgrade order: the database first, then the client.
+On a database before 0008, `members()` falls back to the members table, so everything keeps
+working except this receipt fix.
+
 ## Access
 
 Members read a conversation; who posts follows its kind and settings (`{"who_posts": "admins"}`

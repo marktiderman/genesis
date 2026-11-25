@@ -68,6 +68,42 @@ genesis-chat migration 0007:
 4. The core client gains `setMySettings(id, { markedUnread })`, sent only when given so a client on
    a database before 0007 keeps working, and `deleteConversationForMe(id, seq?)`.
 
+### Migration 0008: what still reached deleted history
+
+Migration 0008 closes the places 0007 left open. Nothing in 0007 changes; 0008 replaces functions.
+
+5. **Read receipts.** Delete for me leaves `last_read_seq` where it was (item 1's reason), so it
+   later moves past what the member deleted unread, and a sender would see "Read" on a message the
+   reader was never shown. So:
+   - `member_state.cleared_read_seq` keeps the member's read place when they deleted. What they
+     deleted unread is after it, up to `cleared_seq`. A later deletion while some of that is still
+     unread keeps the first start, so it never reads as read (at worst a message read since shows
+     "Delivered"). Rows from before 0008 have none and count as 0, for the same reason.
+   - `member_reads(conversation)` is the one source of read places a sender counts: the members of
+     a conversation you can see, each with `last_read_seq` and `last_read_at`, except that another
+     member's place stops at `cleared_read_seq` (and has no time) while your latest message is in
+     what they deleted unread. The client's `members()` reads it, and receipts ("Read", "Read by
+     N") keep comparing your last message's seq with those places, so the rule lives only on the
+     server. Your own place is your own. The members table (under its read policy) and the `read`
+     broadcast's `seq` still carry the raw place; receipts read `member_reads`. On a database before
+     0008 the client falls back to the members table (no receipt fix). An index on messages
+     `(conversation_id, sender_id, seq)` serves its lookup of your latest message.
+   - `read_passed` (0006's, which sets `last_read_at` and sends the `read` hint) counts only
+     messages after `cleared_seq`.
+6. **Pushes.** `push_targets` never notifies a member of a message at or before their
+   `cleared_seq`, even after a later message brought the conversation back.
+7. **Files.** `can_read_object`'s own-recent-upload fallback applies only to a file in no message
+   yet; a file in a message is readable only through it, so it follows item 2's read policy.
+8. **Reports.** `report_message` refuses a message in the reporter's deleted history, and its
+   snapshot (which the reporter can read) leaves out deleted messages and that history.
+9. **Reactions, pins and saves.** `react`, `pin_message` and `save_message` refuse adding to a
+   message in the caller's deleted history, as the read policy hides it; taking your own reaction
+   off, unpinning and forgetting a saved message still work.
+
+Alternatives for receipts: capping `last_read_seq` itself would also change the reader's own unread
+count and read state; letting the client subtract a per-member range would put the rule in every
+client. One server function keeps one answer.
+
 ## Glossary
 
 - **Mark as Unread**: a per-person flag that makes a conversation count as unread for them only.
@@ -90,7 +126,8 @@ genesis-chat migration 0007:
 
 ## Consequences
 
-- Apps apply 0007 after 0006 (`genesis migrate` / `upgrade`) and copy its pgTAP test.
+- Apps apply 0007 after 0006, and 0008 after 0007 (`genesis migrate` / `upgrade`), with their pgTAP
+  tests. A client from 0008's release reads `member_reads`, so 0008 is applied first.
 - Native and web inbox rows offer Mark as Unread and Delete through the swipe and menu actions
   from the iOS standards work (G1-315), which call these client methods. Delete asks first.
 - `ChatInboxItem` gains no new field: `unread` already reflects the mark.
