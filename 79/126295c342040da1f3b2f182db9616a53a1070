@@ -1,0 +1,27 @@
+packages/ui-native/README.md
+  s_42efe440240299::t_97a65482191187 125-129
+packages/ui-native/src/components/__tests__/row-actions.test.tsx
+  s_42efe440240299::t_d12e237d7a8eb1 305,322-326,328,330-331,334-341,345,347,352,354,358-379,402,406-408,410,412-414,420-425
+packages/ui-native/src/components/swipe-row.tsx
+  s_42efe440240299::t_dbc631aba5823e 64-68,73,75-77,90-95,100-106,108-114,117-131,312-313,409-418
+packages/ui-native/src/data/resource-view/__tests__/native-resource-inbox.test.tsx
+  s_42efe440240299::t_7b0c5f11e7459f 3,58-59
+packages/ui-native/src/layouts/__tests__/inbox-page.test.tsx
+  s_42efe440240299::t_832d8a06756599 252-281
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "79126295c342040da1f3b2f182db9616a53a1070",
+  "prompts": {},
+  "sessions": {
+    "s_42efe440240299": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f544dd57-0b31-4773-b89e-4661a182129e",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
