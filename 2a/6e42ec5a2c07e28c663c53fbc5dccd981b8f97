@@ -1,0 +1,23 @@
+apps/native-workbench/src/workbench/screens/header.tsx
+  s_42efe440240299::t_7d6df8467551e5 39
+apps/native-workbench/src/workbench/screens/messages.tsx
+  s_42efe440240299::t_f82abd167afaf8 459
+apps/native-workbench/src/workbench/screens/row-actions.tsx
+  s_42efe440240299::t_31c4273d7ae34f 38
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2a6e42ec5a2c07e28c663c53fbc5dccd981b8f97",
+  "prompts": {},
+  "sessions": {
+    "s_42efe440240299": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f544dd57-0b31-4773-b89e-4661a182129e",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
