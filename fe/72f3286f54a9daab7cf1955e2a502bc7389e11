@@ -1,0 +1,48 @@
+apps/genesis-rn-starter/.eas/workflows/deploy-production.yml
+  s_f1aa8511899775::t_0c7fd8e281184a 41,43,128,207
+  s_f1aa8511899775::t_ebd313c66f85af 89
+  s_f1aa8511899775::t_59b770b87a1f88 3
+packages/genesis-cli/test/release.test.ts
+  s_f1aa8511899775::t_736528a9b549d3 500
+  s_f1aa8511899775::t_6254f834d1cd94 340-345
+  s_f1aa8511899775::t_dea904b23733aa 111-130
+  s_f1aa8511899775::t_081ca13d2d5a98 7-8
+.changeset/native-workbench.md
+  s_f1aa8511899775::t_c0a218908cda9e 14
+apps/native-workbench/.eas/workflows/deploy-production.yml
+  s_f1aa8511899775::t_c0a218908cda9e 3,49,95,134
+apps/native-workbench/genesis.lock.json
+  s_f1aa8511899775::t_c0a218908cda9e 87,102
+docs/NATIVE-RELEASE.md
+  s_f1aa8511899775::t_c0a218908cda9e 394
+apps/native-workbench/README.md
+  s_f1aa8511899775::t_3c7aa457095c18 63-65
+apps/genesis-rn-starter/__tests__/release.test.ts
+  s_f1aa8511899775::t_e479e79823ecfb 179
+templates/eas/scripts/native-release.mjs
+  s_f1aa8511899775::t_5ebe727536cd08 372-377,379-384,784-790
+apps/native-workbench/.eas/scripts/native-release.mjs
+  s_f1aa8511899775::t_0c7fd8e281184a 372-377,379-384,784-790
+templates/release/deploy-production.yml
+  s_f1aa8511899775::t_59b770b87a1f88 3
+  s_f1aa8511899775::t_5ebe727536cd08 115,119,242,402
+  s_f1aa8511899775::t_ebd313c66f85af 183
+apps/genesis-rn-starter/.eas/scripts/native-release.mjs
+  s_f1aa8511899775::t_0c7fd8e281184a 372-377,379-384,784-790
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fe72f3286f54a9daab7cf1955e2a502bc7389e11",
+  "prompts": {},
+  "sessions": {
+    "s_f1aa8511899775": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "18c56dc7-ac34-4eaf-92bf-016e2c3bbcb7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
