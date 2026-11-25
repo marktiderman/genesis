@@ -1,0 +1,37 @@
+apps/native-workbench/.maestro/flows/deep-link.yaml
+  s_f1aa8511899775::t_9883ec25c38f80 13-16
+apps/native-workbench/README.md
+  s_f1aa8511899775::t_e23ecc6b3e2f8b 60,64-65
+apps/native-workbench/src/workbench/screens/messages.tsx
+  s_f1aa8511899775::t_b87159d5f6a951 9-26,48-61,92-100,107-163,175-176,194-195,201-207,230-240,242-250,252-261,263-273,277-281,311-314,323-327,329-363,366-400,402-415,417-421,424,426,428-429,437-438,448-449
+apps/native-workbench/src/workbench/screens/layouts.tsx
+  s_f1aa8511899775::t_b87159d5f6a951 158-159
+apps/native-workbench/src/workbench/registry.ts
+  s_f1aa8511899775::t_6c82ce5e3734b7 11,51
+apps/native-workbench/src/workbench/screens/header.tsx
+  s_f1aa8511899775::t_17ad36b507ffdb 39
+apps/native-workbench/src/workbench/screens/collapse-lab.tsx
+  s_f1aa8511899775::t_e8832710cb3ea4 4,15-21,23,27-35,51-67,82-83
+  s_f1aa8511899775::t_32c8d9c9b64494 24,42-50,81
+  s_f1aa8511899775::t_a1738ea7982dfc 2,77
+  s_f1aa8511899775::t_2fc000899e7287 68-76,84-86
+  s_f1aa8511899775::t_6c82ce5e3734b7 1,3,5-14,22,25-26,36-41,78-80,87-103
+apps/native-workbench/src/workbench/screens/row-actions.tsx
+  s_f1aa8511899775::t_31c3da2e35f532 38
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "753c04da84292178d8ceb002244a426e79ec0aee",
+  "prompts": {},
+  "sessions": {
+    "s_f1aa8511899775": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "18c56dc7-ac34-4eaf-92bf-016e2c3bbcb7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
