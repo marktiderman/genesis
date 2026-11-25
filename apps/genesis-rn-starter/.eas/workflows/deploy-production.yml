@@ -1,6 +1,6 @@
 # Copy to .eas/workflows/deploy-production.yml.
 # Rendered by genesis from genesis.config.json `release` (genesis add template release, genesis
-# upgrade): change the lane there. docs/NATIVE-RELEASE.md, docs/adr/0026-eas-owns-the-release-trigger.md.
+# upgrade): change the lane there. docs/NATIVE-RELEASE.md, docs/adr/0026.
 # Expo's deploy-to-production lane, on every push to main that changes the app, or by hand:
 # eas workflow:run deploy-production.yml --ref main.
 # Per platform: a build with the runtime version takes the commit as an update; none builds and
@@ -38,7 +38,9 @@ jobs:
       commit_sha: ${{ steps.commit.outputs.commit_sha }}
       repository: ${{ steps.commit.outputs.repository }}
       ios: ${{ steps.check.outputs.ios }}
+      ios_store: ${{ steps.check.outputs.ios_store }}
       android: ${{ steps.check.outputs.android }}
+      android_store: ${{ steps.check.outputs.android_store }}
     steps:
       - uses: eas/checkout
       - id: commit
@@ -82,10 +84,9 @@ jobs:
           if [ -n "$platforms" ]; then
             node .eas/scripts/native-release.mjs channel eas.json "production" "production"
             node .eas/scripts/native-release.mjs environment eas.json "production" "production" "$platforms"
-            node .eas/scripts/native-release.mjs submit eas.json "production" "$platforms"
           fi
           for platform in ios android; do
-            case ",$platforms," in *",$platform,"*) set-output "$platform" true ;; *) set-output "$platform" false ;; esac
+            case ",$platforms," in *",$platform,"*) set-output "$platform" true; set-output "${platform}_store" "$(node .eas/scripts/native-release.mjs store-ready eas.json "production" "$platform")" ;; *) set-output "$platform" false ;; esac
           done
 
   # Its own job: a failure here holds back iOS alone.
@@ -124,7 +125,7 @@ jobs:
   build_ios:
     name: Build iOS (native code changed)
     needs: [source, get_ios_build]
-    if: ${{ needs.source.outputs.ios == 'true' && !needs.get_ios_build.outputs.build_id }}
+    if: ${{ needs.source.outputs.ios == 'true' && needs.source.outputs.ios_store == 'true' && !needs.get_ios_build.outputs.build_id }}
     type: build
     environment: "production"
     params:
@@ -203,7 +204,7 @@ jobs:
   build_android:
     name: Build Android (native code changed)
     needs: [source, get_android_build]
-    if: ${{ needs.source.outputs.android == 'true' && !needs.get_android_build.outputs.build_id }}
+    if: ${{ needs.source.outputs.android == 'true' && needs.source.outputs.android_store == 'true' && !needs.get_android_build.outputs.build_id }}
     type: build
     environment: "production"
     params:
@@ -220,7 +221,6 @@ jobs:
       build_id: ${{ needs.build_android.outputs.build_id }}
       profile: "production"
 
-  # native-release.mjs publish: the order checks, the runtime check, the stamp, then eas update.
   update_android:
     name: Update Android (every production install)
     needs: [source, get_android_build]

@@ -4,7 +4,8 @@
  * plan script's decisions, adopting the templates into an app, and upgrading one (docs/NATIVE-RELEASE.md).
  */
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { createRequire } from "node:module";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -104,6 +105,26 @@ describe("the release block", () => {
   it("defaults: both platforms, production everywhere, no Sentry, no hook, the fingerprint", () => {
     expect(resolveRelease({}, "bun")).toEqual({ trigger: "eas", failureEmails: [], platforms: ["ios", "android"], environment: "production", paths: [], sentry: false, pushHook: null, profile: "production", channel: "production", easEnvironment: "production", packageManager: "bun", runtimeCommand: null, previews: { origin: "", scheme: "", branches: [], everyPullRequest: false, easEnvironment: "preview-release" } });
     expect(resolveRelease({ profile: "store" }).easEnvironment).toBe("store");
+  });
+});
+
+describe("store details still placeholders", () => {
+  it("hold that platform's builds, never the run: its updates and the other platform go on", () => {
+    const lane = parse(renderRelease(template("release/deploy-production.yml"), DEFAULT_RELEASE_CONTEXT)) as { jobs: Record<string, { if?: string; needs?: string[] }> };
+    for (const p of ["ios", "android"]) {
+      expect(lane.jobs[`build_${p}`]!.if).toContain(`needs.source.outputs.${p}_store == 'true'`);
+      expect(lane.jobs[`update_${p}`]!.if ?? "").not.toContain("_store");
+    }
+    const dir = mkdtempSync(path.join(tmpdir(), "store-ready-"));
+    const eas = path.join(dir, "eas.json");
+    writeFileSync(eas, JSON.stringify({ submit: { production: { ios: { ascAppId: "123" }, android: { serviceAccountKeyPath: "REPLACE" + "_WITH_PATH" } } } }));
+    const script = path.join(STARTER, ".eas/scripts/native-release.mjs");
+    const run = (platform: string) => spawnSync(process.execPath, [script, "store-ready", eas, "production", platform], { encoding: "utf8" });
+    expect(run("ios")).toMatchObject({ status: 0, stdout: "true\n" });
+    const android = run("android");
+    expect(android).toMatchObject({ status: 0, stdout: "false\n" });
+    expect(android.stderr).toContain("android builds and submits are held");
+    rmSync(dir, { recursive: true, force: true });
   });
 });
 
@@ -316,12 +337,12 @@ describe("rendering the templates", () => {
     expect(() => plan.checkProfileEnvironment(eas, "store", "store")).toThrow(/builds ios with the EAS environment "production", but the release reads "store"/);
     expect(() => plan.checkProfileEnvironment(eas, "split", "production")).toThrow(/builds android with the EAS environment "preview"/);
     expect(() => plan.checkProfileEnvironment(eas, "split", "production", ["ios"])).not.toThrow();
-    // The store details: a placeholder left in a released platform's submit block stops the release.
-    const submits = { submit: { production: { ios: { ascAppId: "REPLACE_WITH_APP_STORE_CONNECT_APP_ID", appleTeamId: "ABC" }, android: { track: "internal" } } } };
-    expect(() => plan.checkSubmitReady(submits, "production", ["ios"])).toThrow(/submit\.production\.ios still has template placeholders \(ascAppId\)/);
-    expect(() => plan.checkSubmitReady(submits, "production", ["android"])).not.toThrow();
-    expect(() => plan.checkSubmitReady({ submit: { production: { ios: { ascAppId: "123" } } } }, "production", ["ios"])).not.toThrow();
-    expect(() => plan.checkSubmitReady({}, "production", ["ios"])).not.toThrow();
+    // The store details: a placeholder left in a platform's submit block holds that platform's builds.
+    const submits = { submit: { production: { ios: { ascAppId: "REPLACE_WITH_APP_STORE_CONNECT_APP_ID", appleTeamId: "ABC" }, android: { serviceAccountKeyPath: "REPLACE_WITH_PATH_TO_GOOGLE_SERVICE_ACCOUNT_JSON", track: "internal" } } } };
+    expect(plan.submitPlaceholders(submits, "production", "ios")).toEqual(["ascAppId"]);
+    expect(plan.submitPlaceholders(submits, "production", "android")).toEqual(["serviceAccountKeyPath"]);
+    expect(plan.submitPlaceholders({ submit: { production: { ios: { ascAppId: "123" } } } }, "production", "ios")).toEqual([]);
+    expect(plan.submitPlaceholders({}, "production", "ios")).toEqual([]);
     // eas-json merges the whole chain, then the platform section over the common one: a platform
     // value anywhere along extends beats a common one, even the child's own.
     const chain = { build: { base: { ios: { environment: "preview", distribution: "internal" } }, child: { extends: "base", environment: "production", distribution: "store" }, dist: { extends: "base2", distribution: "store" }, base2: { ios: { distribution: "internal" } } } };
@@ -476,7 +497,7 @@ describe("rendering the templates", () => {
       // it as text; every other job reads its output, also as text.
       expect(doc.jobs.source.env[`RELEASE_${p.toUpperCase()}`]).toBe(`\${{ inputs.${p} }}`);
       expect(doc.jobs[`get_${p}_build`].if).toBe(`\${{ needs.source.outputs.${p} == 'true' }}`);
-      expect(doc.jobs[`build_${p}`].if).toBe(`\${{ needs.source.outputs.${p} == 'true' && !needs.get_${p}_build.outputs.build_id }}`);
+      expect(doc.jobs[`build_${p}`].if).toBe(`\${{ needs.source.outputs.${p} == 'true' && needs.source.outputs.${p}_store == 'true' && !needs.get_${p}_build.outputs.build_id }}`);
       expect(doc.jobs[`update_${p}`].if).toBe(`\${{ needs.source.outputs.${p} == 'true' && needs.get_${p}_build.outputs.build_id }}`);
     }
     // Every other platform reference in the file is the text comparison.

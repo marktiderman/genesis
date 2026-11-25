@@ -176,7 +176,7 @@ describe("EAS workflows", () => {
       expect(jobs[`get_${platform}_build`]?.if).toBe(`\${{ needs.source.outputs.${platform} == 'true' }}`);
       expect(jobs[`update_${platform}`]?.if).toBe(`\${{ needs.source.outputs.${platform} == 'true' && needs.get_${platform}_build.outputs.build_id }}`);
       expect(jobs[`update_${platform}`]?.needs).toEqual(["source", `get_${platform}_build`]);
-      expect(jobs[`build_${platform}`]?.if).toBe(`\${{ needs.source.outputs.${platform} == 'true' && !needs.get_${platform}_build.outputs.build_id }}`);
+      expect(jobs[`build_${platform}`]?.if).toBe(`\${{ needs.source.outputs.${platform} == 'true' && needs.source.outputs.${platform}_store == 'true' && !needs.get_${platform}_build.outputs.build_id }}`);
       expect(jobs[`submit_${platform}`]?.needs).toEqual([`build_${platform}`]);
       expect(jobs[`submit_${platform}`]?.params?.build_id).toBe(`\${{ needs.build_${platform}.outputs.build_id }}`);
     }
