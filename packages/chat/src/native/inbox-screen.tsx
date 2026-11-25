@@ -206,7 +206,9 @@ export interface ChatInboxScreenProps {
   filters?: (defaults: ChatInboxFilter[]) => ChatInboxFilter[];
   /**
    * The conversations this screen is about, before any filter: one organization at a time, say.
-   * It holds for the rows, the pinned faces, search and Archived alike. Default: all of them.
+   * It holds for the rows, the pinned faces, the search field's filtering and Archived alike, not
+   * for ChatSearchScreen's message search (give that its own `scope`). Keep it stable
+   * (useCallback): a new function re-filters every row. Default: all of them.
    */
   scope?: (item: ChatInboxItem, ctx: { me: string }) => boolean;
   /** The filter shown, to control it; with `onFilterChange`. Default: the first filter, kept here. */

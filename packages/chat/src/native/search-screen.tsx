@@ -55,18 +55,24 @@ export interface ChatSearchScreenProps {
   conversationTitle?: (conversationId: string) => string;
   /** The search field's text when the screen opens (a query carried from the inbox's search, say). Read once, on mount. */
   initialQuery?: string;
+  /**
+   * The results this screen shows: a hit outside it is left out (one organization at a time, say,
+   * as the inbox's `scope`). Keep it stable (useCallback). Default: every hit.
+   */
+  scope?: (hit: ChatSearchHit) => boolean;
   debounceMs?: number;
   /** The clock, for tests. */
   now?: () => Date;
   testID?: string;
 }
 
-export function ChatSearchScreen({ conversationId, onOpen, conversationTitle, initialQuery, debounceMs, now = () => new Date(), testID = "chat-search" }: ChatSearchScreenProps) {
+export function ChatSearchScreen({ conversationId, onOpen, conversationTitle, initialQuery, scope, debounceMs, now = () => new Date(), testID = "chat-search" }: ChatSearchScreenProps) {
   const { copy, person: known } = useChatNative();
   const { userId } = useChat();
   const colors = useThemeRoles();
   const [value, setValue] = useState(initialQuery ?? "");
-  const { hits, query, isSearching } = useSearch(value, { conversationId, debounceMs });
+  const { hits: found, query, isSearching } = useSearch(value, { conversationId, debounceMs });
+  const hits = useMemo(() => (scope ? found.filter((h) => scope(h)) : found), [found, scope]);
   // Names for "in …" across conversations, as the inbox shows them (one read, cached with it).
   const inbox = useInbox({});
   const ids = useMemo(() => [...hits.map((h) => h.senderId), ...inbox.items.map((i) => i.otherUserId)], [hits, inbox.items]);

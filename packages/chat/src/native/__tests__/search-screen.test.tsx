@@ -42,4 +42,32 @@ describe("ChatSearchScreen", () => {
     await waitFor(() => expect(search).toHaveBeenCalled());
     expect(search.mock.calls[0]![0]).toBe("invoice");
   });
+
+  it("leaves out hits outside scope", async () => {
+    const hit = (id: string, conversationId: string) => ({ id, messageId: id, conversationId, seq: 1, senderId: null, snippet: `invoice from ${conversationId}`, createdAt: "2026-11-01T00:00:00Z" });
+    const search = vi.fn(async (_query: string) => [hit("m1", "inside"), hit("m2", "outside")] as unknown[]);
+    const client = {
+      search,
+      inbox: vi.fn(async () => []),
+      subscribeInbox: vi.fn(() => ({ unsubscribe: vi.fn() })),
+      unreadTotal: vi.fn(async () => 0),
+      people: vi.fn(async () => []),
+    } as unknown as ChatClient;
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const view = render(
+      <QueryClientProvider client={qc}>
+        <GenesisModulesProvider modules={{}}>
+          <ChatProvider client={client} userId={ME}>
+            <NativeToastProvider>
+              <ChatNativeProvider>
+                <ChatSearchScreen onOpen={() => {}} initialQuery="invoice" scope={(h) => h.conversationId === "inside"} />
+              </ChatNativeProvider>
+            </NativeToastProvider>
+          </ChatProvider>
+        </GenesisModulesProvider>
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(view.container.textContent).toContain("from inside"));
+    expect(view.container.textContent).not.toContain("from outside");
+  });
 });
