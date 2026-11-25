@@ -390,6 +390,8 @@ export interface ChatContextOverlayProps {
   items: readonly ChatMenuItem[];
   align?: "leading" | "trailing";
   closeLabel?: string;
+  /** The screen behind: `"soft"` (default, the bubble's long press) or `"strong"` (a conversation's peek, which hides what's behind it nearly away). */
+  scrim?: "soft" | "strong";
   /** Runs once the layer has gone (a sheet to open next: iOS presents nothing over a closing layer). */
   onClosed?: () => void;
   testID: string;
@@ -402,7 +404,7 @@ const GAP = 10;
  * it and the glass menu opens under it, moving the preview when there isn't room. A choice runs
  * once the layer has closed (iOS presents nothing over a layer that is still going).
  */
-export function ChatContextOverlay({ open, onClose, anchor, preview, previewHeight, above, items, align = "leading", closeLabel = "Close", onClosed, testID }: ChatContextOverlayProps) {
+export function ChatContextOverlay({ open, onClose, anchor, preview, previewHeight, above, items, align = "leading", closeLabel = "Close", scrim = "soft", onClosed, testID }: ChatContextOverlayProps) {
   const feel = useChatFeel();
   // Read on each draw (it only draws while open), so a turn of the phone is taken into account.
   const { width: W, height: H } = Dimensions.get("window");
@@ -453,7 +455,7 @@ export function ChatContextOverlay({ open, onClose, anchor, preview, previewHeig
   return (
     <NativeFullScreenModal open onOpenChange={(o) => !o && onClose()} tone="none" testID={`${testID}-layer`}>
       <View testID={testID} style={{ flex: 1 }}>
-        <Animated.View pointerEvents="none" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, opacity: progress, backgroundColor: c.roles.scrim }} />
+        <Animated.View pointerEvents="none" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, opacity: progress, backgroundColor: scrim === "strong" ? c.roles.peekScrim : c.roles.scrim }} />
         <Pressable testID={`${testID}-dismiss`} accessibilityRole="button" accessibilityLabel={closeLabel} onPress={onClose} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} />
         {above ? (
           <Animated.View onLayout={(e) => setAboveH(e.nativeEvent.layout.height)} style={[{ position: "absolute", top: pY - GAP - aboveH }, side, pop]}>

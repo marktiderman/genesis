@@ -123,12 +123,13 @@ export function inboxHeaderItems(options: {
       tintColor: tint,
       menu: {
         // Flat: the filters (the shown one ticked), then the app's entries. iOS drew nested sections
-        // here as unnamed rows that only opened another menu.
+        // here as unnamed rows that only opened another menu. Each names itself by `label`, which
+        // expo-router's header turns into the item's title (it overwrites `title`).
         items: [
           ...(filters.length > 1
-            ? filters.map((f) => ({ type: "action", title: f.label, ...(f.sf ? { icon: { type: "sfSymbol", name: f.sf } } : {}), state: f.id === active ? "on" : "off", onPress: () => onFilter(f.id) }))
+            ? filters.map((f) => ({ type: "action", label: f.label, title: f.label, ...(f.sf ? { icon: { type: "sfSymbol", name: f.sf } } : {}), state: f.id === active ? "on" : "off", onPress: () => onFilter(f.id) }))
             : []),
-          ...menu.map((m) => ({ type: "action", title: m.label, ...(m.sf ? { icon: { type: "sfSymbol", name: m.sf } } : {}), onPress: m.onPress })),
+          ...menu.map((m) => ({ type: "action", label: m.label, title: m.label, ...(m.sf ? { icon: { type: "sfSymbol", name: m.sf } } : {}), onPress: m.onPress })),
         ],
       },
     });
@@ -589,6 +590,8 @@ export function ChatConversationMenu({ open, onClose, actions, preview, testID }
       anchor={null}
       // A tall card, as Messages draws its peek; it covers the header under the softened screen.
       previewHeight={Math.round(height * 0.55)}
+      // Dimmed nearly away, as Messages does: the header's buttons don't show behind the card.
+      scrim="strong"
       preview={preview?.() ?? null}
       items={items}
       closeLabel={copy.closeMenu}

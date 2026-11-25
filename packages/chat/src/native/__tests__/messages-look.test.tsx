@@ -18,6 +18,7 @@ import { ChatNativeProvider } from "../context";
 import { ChatDetailsScreen, isSelfMembers } from "../details-screen";
 import { applyInboxFilter, ChatInboxScreen, defaultInboxFilters, inboxHeaderItems, isGroupConversation, isSelfConversation, matchesInboxSearch, pinnedConversations } from "../inbox-screen";
 import { ChatMessageMenu, TAPBACKS } from "../message-menu";
+import { ChatBubbleShape } from "../conversation-preview";
 import { MessageBubble } from "../message-bubble";
 import { chatColors } from "../messages-look";
 import { chatThreadStackOptions } from "../stack-options";
@@ -97,14 +98,14 @@ describe("the inbox's filters", () => {
       type: string;
       icon?: { name: string };
       onPress?: () => void;
-      menu?: { items: { type: string; title: string; state?: string; onPress: () => void }[] };
+      menu?: { items: { type: string; label: string; title: string; state?: string; onPress: () => void }[] };
     }[];
     expect(items.map((i) => i.type)).toEqual(["menu", "button"]);
     expect(items[0]!.icon!.name).toBe("line.3.horizontal.decrease.circle.fill");
     // Every row shows directly with its title: no unnamed submenus.
     const rows = items[0]!.menu!.items;
-    expect(rows.every((r) => r.type === "action" && r.title)).toBe(true);
-    expect(rows.map((a) => [a.title, a.state])).toEqual([["All Messages", "off"], ["Unread", "on"], ["Groups", "off"], ["Archived", undefined]]);
+    expect(rows.every((r) => r.type === "action" && r.label && r.title === r.label)).toBe(true);
+    expect(rows.map((a) => [a.label, a.state])).toEqual([["All Messages", "off"], ["Unread", "on"], ["Groups", "off"], ["Archived", undefined]]);
     rows[2]!.onPress();
     expect(onFilter).toHaveBeenCalledWith("groups");
     rows[3]!.onPress();
@@ -141,6 +142,29 @@ describe("times", () => {
     expect(days[0]).toMatchObject({ day: "Today" });
     // The default stays a heading per day.
     expect(buildThreadRows(items, { me: ME, group: false }).filter((r) => r.type === "day")).toHaveLength(1);
+  });
+});
+
+describe("a bubble's tail", () => {
+  it("is cut from what's behind the bubble: the page by default, the peek's card inside it", () => {
+    const { rerender } = render(
+      <ChatNativeProvider>
+        <ChatBubbleShape mine position="single" testID="b">
+          <span />
+        </ChatBubbleShape>
+      </ChatNativeProvider>,
+    );
+    const cut = () => (JSON.parse(screen.getByTestId("b-tail-cut").dataset.style!) as { backgroundColor: unknown }).backgroundColor;
+    expect(cut()).toBe(resolveChatRoles({ target: "android", scheme: "light" }).roles.pageSolid);
+    const card = resolveChatRoles({ target: "android", scheme: "light" }).roles.peek;
+    rerender(
+      <ChatNativeProvider>
+        <ChatBubbleShape mine position="single" backdrop={card} testID="b">
+          <span />
+        </ChatBubbleShape>
+      </ChatNativeProvider>,
+    );
+    expect(cut()).toBe(card);
   });
 });
 
