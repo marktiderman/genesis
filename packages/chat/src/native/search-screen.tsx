@@ -53,17 +53,19 @@ export interface ChatSearchScreenProps {
   onOpen: (hit: ChatSearchHit) => void;
   /** Names a conversation on results across conversations; the inbox's names by default. */
   conversationTitle?: (conversationId: string) => string;
+  /** The search field's text when the screen opens (a query carried from the inbox's search, say). */
+  initialQuery?: string;
   debounceMs?: number;
   /** The clock, for tests. */
   now?: () => Date;
   testID?: string;
 }
 
-export function ChatSearchScreen({ conversationId, onOpen, conversationTitle, debounceMs, now = () => new Date(), testID = "chat-search" }: ChatSearchScreenProps) {
+export function ChatSearchScreen({ conversationId, onOpen, conversationTitle, initialQuery, debounceMs, now = () => new Date(), testID = "chat-search" }: ChatSearchScreenProps) {
   const { copy, person: known } = useChatNative();
   const { userId } = useChat();
   const colors = useThemeRoles();
-  const [value, setValue] = useState("");
+  const [value, setValue] = useState(initialQuery ?? "");
   const { hits, query, isSearching } = useSearch(value, { conversationId, debounceMs });
   // Names for "in …" across conversations, as the inbox shows them (one read, cached with it).
   const inbox = useInbox({});

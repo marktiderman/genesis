@@ -193,4 +193,11 @@ describe("ChatInboxScreen's row actions", () => {
     await waitFor(() => expect(seen.items[0]!.swipeActions!.map((a) => a.id)).not.toContain("pin"));
   });
 
+  it("Archived keeps to the list's scope: the first filter, as the app wrapped it", async () => {
+    const other = { ...row(0), conversationId: "33333333-3333-4333-8333-333333333333", title: "Elsewhere", archived: true };
+    const scoped = (defaults: { id: string; predicate: (i: { conversationId: string }, ctx: { me: string }) => boolean }[]) =>
+      defaults.map((f) => ({ ...f, predicate: (i: { conversationId: string }, ctx: { me: string }) => i.conversationId !== other.conversationId && f.predicate(i, ctx) }));
+    await renderWith({ ...row(0), archived: true }, {}, { current: { archived: true, filters: scoped } }, [other]);
+    expect(seen.items.map((i) => i.id)).toEqual([C]);
+  });
 });

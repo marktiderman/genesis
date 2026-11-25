@@ -200,7 +200,9 @@ export interface ChatInboxScreenProps {
   rowActions?: (item: ChatInboxItem, defaults: RowSwipeAction[]) => RowSwipeAction[];
   /**
    * The filter menu's filters: receives the defaults (All Messages, Unread, Groups) and returns
-   * the menu's, in order. Add one with an id, label, icon and predicate.
+   * the menu's, in order. Add one with an id, label, icon and predicate. With `archived` there's
+   * no menu, and the first filter is the list's scope: wrap every default's predicate (an
+   * organization, say) and Archived keeps to it too.
    */
   filters?: (defaults: ChatInboxFilter[]) => ChatInboxFilter[];
   /** The filter shown, to control it; with `onFilterChange`. Default: the first filter, kept here. */
@@ -331,9 +333,10 @@ export function ChatInboxScreen(props: ChatInboxScreenProps) {
   const nameOf = useCallback((id: string | null) => person(id)?.name, [person]);
   const searching = query.trim().length > 0;
   const visible = useMemo(() => {
-    const filtered = applyInboxFilter(inbox.items, archived ? undefined : active, userId);
+    // Archived has no filter menu, so it shows the first filter: the list's scope, as the app set it.
+    const filtered = applyInboxFilter(inbox.items, archived ? filters[0] : active, userId);
     return searching ? filtered.filter((i) => matchesInboxSearch(i, query, nameOf)) : filtered;
-  }, [inbox.items, archived, active, userId, searching, query, nameOf]);
+  }, [inbox.items, archived, filters, active, userId, searching, query, nameOf]);
   const pinsShown = showPinned && !archived && !searching && active?.id === filters[0]?.id;
   const pinnedIds = useMemo(() => new Set(pinsShown ? pinnedConversations(inbox.items).map((i) => i.conversationId) : []), [pinsShown, inbox.items]);
 
