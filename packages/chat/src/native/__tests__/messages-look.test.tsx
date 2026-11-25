@@ -97,15 +97,17 @@ describe("the inbox's filters", () => {
       type: string;
       icon?: { name: string };
       onPress?: () => void;
-      menu?: { items: { items: { title: string; state?: string; onPress: () => void }[] }[] };
+      menu?: { items: { type: string; title: string; state?: string; onPress: () => void }[] };
     }[];
     expect(items.map((i) => i.type)).toEqual(["menu", "button"]);
     expect(items[0]!.icon!.name).toBe("line.3.horizontal.decrease.circle.fill");
-    const [filters, entries] = items[0]!.menu!.items;
-    expect(filters!.items.map((a) => [a.title, a.state])).toEqual([["All Messages", "off"], ["Unread", "on"], ["Groups", "off"]]);
-    filters!.items[2]!.onPress();
+    // Every row shows directly with its title: no unnamed submenus.
+    const rows = items[0]!.menu!.items;
+    expect(rows.every((r) => r.type === "action" && r.title)).toBe(true);
+    expect(rows.map((a) => [a.title, a.state])).toEqual([["All Messages", "off"], ["Unread", "on"], ["Groups", "off"], ["Archived", undefined]]);
+    rows[2]!.onPress();
     expect(onFilter).toHaveBeenCalledWith("groups");
-    entries!.items[0]!.onPress();
+    rows[3]!.onPress();
     expect(archived).toHaveBeenCalled();
     items[1]!.onPress!();
     expect(onCompose).toHaveBeenCalled();
@@ -315,6 +317,11 @@ describe("ChatDetailsScreen", () => {
     expect(row.getAttribute("role")).toBe("switch");
     expect(row.getAttribute("aria-checked")).toBe("false");
     expect(row.getAttribute("aria-disabled")).not.toBe("true");
+    // One element, the switch: no value or other role of its own, and the drawn switch hidden from VoiceOver.
+    expect(row.getAttribute("aria-valuetext")).toBeNull();
+    expect(row.getAttribute("aria-valuenow")).toBeNull();
+    const drawnSwitch = row.querySelector("input, [role='switch']:not([data-testid='details-mute'])");
+    expect(drawnSwitch?.closest("[aria-hidden='true']")).toBeTruthy();
     await act(async () => fireEvent.click(row));
     await waitFor(() => expect(client.setMySettings).toHaveBeenCalledWith(C, expect.objectContaining({ mutedUntil: expect.any(String) })));
   });
