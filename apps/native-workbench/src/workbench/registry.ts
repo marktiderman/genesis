@@ -8,6 +8,7 @@
  * (`pnpm workbench:prove`); the screen's testIDs are `workbench-<id>-…`.
  */
 import type { ComponentType } from "react";
+import { collapseLab } from "./screens/collapse-lab";
 import { componentsCards, componentsControls, componentsFeedback } from "./screens/components";
 import { headerDrilldown, headerLarge } from "./screens/header";
 import { layoutsDetailPage, layoutsSettingsPage } from "./screens/layouts";
@@ -47,6 +48,7 @@ export const workbenchScreens: readonly WorkbenchScreen[] = [
   layoutsDetailPage,
   messagesInbox,
   messagesBubbles,
+  ...collapseLab,
 ];
 
 export const WORKBENCH_SECTIONS: readonly WorkbenchSection[] = ["Standards", "Components", "Layouts", "Messages"];
