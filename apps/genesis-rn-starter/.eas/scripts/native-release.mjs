@@ -369,23 +369,19 @@ export function checkProfileEnvironment(easJson, profile, environment, platforms
 }
 
 /**
- * The release submits each build it makes, so the store details have to be real before it starts:
- * no value in eas.json `submit.<profile>.<platform>`, for a platform released, is still a template's
- * placeholder (`REPLACE` + `_WITH_…`). Otherwise a build would be made and fail at
- * submit, and the next push would find that build and ship only an update: the store never gets one.
+ * Whether a platform's store details are filled in: no value in eas.json `submit.<profile>.<platform>`
+ * is still a template placeholder (`REPLACE` + `_WITH_…`). The release holds that platform's build
+ * and submit until they are (a build would fail at submit, and the next push would find it and ship
+ * only updates, so the store would never get one); its updates to builds already out, and every
+ * other platform, go on. No submit block at all is the app's choice (EAS can submit from what the
+ * project holds). Returns the placeholder keys left, empty when ready.
  */
-export function checkSubmitReady(easJson, profile, platforms = PLATFORMS) {
-  for (const platform of platforms) {
-    const submit = easJson?.submit?.[profile]?.[platform];
-    // No block at all is the app's choice (EAS can submit from what the project holds).
-    if (!submit || typeof submit !== "object") continue;
-    // Written in two parts, so this script itself never reads as an unfilled template.
-    const placeholder = "REPLACE" + "_WITH_";
-    const left = Object.entries(submit).filter(([, v]) => typeof v === "string" && v.startsWith(placeholder)).map(([k]) => k);
-    if (left.length) {
-      throw new Error(`eas.json submit.${profile}.${platform} still has template placeholders (${left.join(", ")}): fill them in before the first release (docs/NATIVE-RELEASE.md, "One-time setup"). Nothing was published or built.`);
-    }
-  }
+export function submitPlaceholders(easJson, profile, platform) {
+  const submit = easJson?.submit?.[profile]?.[platform];
+  if (!submit || typeof submit !== "object") return [];
+  // Written in two parts, so this script itself never reads as an unfilled template.
+  const placeholder = "REPLACE" + "_WITH_";
+  return Object.entries(submit).filter(([, v]) => typeof v === "string" && v.startsWith(placeholder)).map(([k]) => k);
 }
 
 /**
@@ -785,10 +781,13 @@ async function main(command, args, env) {
     const [file, profile, environment, list] = args;
     if (!file || !profile || !environment) throw new Error("environment needs <eas.json> <profile> <environment> [platforms].");
     checkProfileEnvironment(readJson(file), profile, environment, parsePlatforms(list ?? PLATFORMS.join(",")));
-  } else if (command === "submit") {
-    const [file, profile, list] = args;
-    if (!file || !profile) throw new Error("submit needs <eas.json> <profile> [platforms].");
-    checkSubmitReady(readJson(file), profile, parsePlatforms(list ?? PLATFORMS.join(",")));
+  } else if (command === "store-ready") {
+    // Prints true or false for one platform; never fails the run (the caller holds that platform's build).
+    const [file, profile, platform] = args;
+    if (!file || !profile || !PLATFORMS.includes(platform)) throw new Error("store-ready needs <eas.json> <profile> <platform>.");
+    const left = submitPlaceholders(readJson(file), profile, platform);
+    if (left.length) console.error(`::warning::eas.json submit.${profile}.${platform} still has template placeholders (${left.join(", ")}): ${platform} builds and submits are held until they're filled in; its updates to builds already out go on (docs/NATIVE-RELEASE.md, "One-time setup").`);
+    console.log(left.length ? "false" : "true");
   } else if (command === "latest-commit" || command === "published-group") {
     const [channel, platform, commit] = args;
     if (!channel || !PLATFORMS.includes(platform) || (command === "published-group" && !/^[0-9a-f]{40}$/i.test(commit ?? ""))) throw new Error(`${command} needs <channel> <platform>${command === "published-group" ? " <commit>" : ""}.`);
