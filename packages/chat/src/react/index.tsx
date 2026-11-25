@@ -473,6 +473,9 @@ export function useConversation(conversationId: string | null | undefined, opts:
       const since = generationOf(queryClient, id);
       const m = await client.message(messageId);
       if (!m) return;
+      // A message of yours deleted (on another device, say): receipts' read places are counted
+      // against your latest message (member_reads, chat 0008), so read the members again.
+      if (m.deletedAt && m.senderId === userId) void queryClient.invalidateQueries({ queryKey: chatKeys.members(id) });
       const belongs = opts.threadRootId ? m.threadRootId === opts.threadRootId : m.threadRootId === null;
       if (belongs && (!opts.topic || m.topic === opts.topic)) merge([m], undefined, since);
       if (m.threadRootId && !opts.threadRootId) {
@@ -706,6 +709,9 @@ export function useMessageActions() {
       remove: async (m: ChatMessage) => {
         await client.remove(m.id);
         await refresh(m.conversationId, m.id);
+        // Receipts count read places against your latest message (member_reads, chat 0008): with
+        // this one deleted, another may be your latest now.
+        await queryClient.invalidateQueries({ queryKey: chatKeys.members(m.conversationId) });
       },
       react: async (m: ChatMessage, emoji: string, on: boolean) => {
         await client.react(m.id, emoji, on);
