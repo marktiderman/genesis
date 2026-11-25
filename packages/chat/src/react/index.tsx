@@ -57,7 +57,9 @@ export const chatKeys = {
   myAvailability: () => ["genesis-chat", "my-availability"] as const,
   /** Every search's results (each `search(query, id)` is under it). */
   searchAll: () => ["genesis-chat", "search"] as const,
-  search: (query: string, conversationId?: string | null) => ["genesis-chat", "search", conversationId ?? null, query] as const,
+  /** One search's page: the limit is in the key, so a 30-result page is never reused where 100 were asked for. */
+  search: (query: string, conversationId?: string | null, limit?: number) =>
+    ["genesis-chat", "search", conversationId ?? null, query, limit ?? 30] as const,
   previews: (messageIds: string[]) => ["genesis-chat", "previews", [...messageIds].sort()] as const,
   /** One message's link previews (useLinkPreviews keeps one query per message). */
   preview: (messageId: string) => ["genesis-chat", "preview", messageId] as const,
@@ -969,7 +971,7 @@ export function useSearch(query: string, opts: { conversationId?: string | null;
   const q = useDebouncedValue(query.trim(), opts.debounceMs ?? 250);
   const enabled = q.length >= 2;
   const result = useQuery({
-    queryKey: chatKeys.search(q, opts.conversationId),
+    queryKey: chatKeys.search(q, opts.conversationId, opts.limit),
     queryFn: () => client.search(q, opts.conversationId ?? null, { limit: opts.limit }),
     enabled,
     staleTime: 30_000,

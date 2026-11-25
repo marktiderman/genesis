@@ -72,4 +72,35 @@ describe("ChatSearchScreen", () => {
     // Scope filters on the device, so it asks for the search's largest page.
     expect((search.mock.calls[0] as unknown[])[2]).toEqual({ limit: 100 });
   });
+
+  it("doesn't reuse an unscoped search's smaller page for a scoped one", async () => {
+    const search = vi.fn(async (_query: string) => [] as unknown[]);
+    const client = {
+      search,
+      inbox: vi.fn(async () => []),
+      subscribeInbox: vi.fn(() => ({ unsubscribe: vi.fn() })),
+      unreadTotal: vi.fn(async () => 0),
+      people: vi.fn(async () => []),
+    } as unknown as ChatClient;
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const tree = (scoped: boolean) => (
+      <QueryClientProvider client={qc}>
+        <GenesisModulesProvider modules={{}}>
+          <ChatProvider client={client} userId={ME}>
+            <NativeToastProvider>
+              <ChatNativeProvider>
+                <ChatSearchScreen onOpen={() => {}} initialQuery="invoice" {...(scoped ? { scope: () => true } : {})} />
+              </ChatNativeProvider>
+            </NativeToastProvider>
+          </ChatProvider>
+        </GenesisModulesProvider>
+      </QueryClientProvider>
+    );
+    const first = render(tree(false));
+    await waitFor(() => expect(search).toHaveBeenCalledTimes(1));
+    first.unmount();
+    render(tree(true));
+    await waitFor(() => expect(search).toHaveBeenCalledTimes(2));
+    expect((search.mock.calls[1] as unknown[])[2]).toEqual({ limit: 100 });
+  });
 });
