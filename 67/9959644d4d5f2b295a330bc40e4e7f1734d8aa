@@ -1,0 +1,23 @@
+.changeset/chat-messages-parity.md
+  s_42efe440240299::t_2a495cadd0b5d5 25
+packages/chat/README.md
+  s_42efe440240299::t_889615593d7407 39-40
+packages/chat/src/index.ts
+  s_42efe440240299::t_096a6609419c09 16-17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "679959644d4d5f2b295a330bc40e4e7f1734d8aa",
+  "prompts": {},
+  "sessions": {
+    "s_42efe440240299": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f544dd57-0b31-4773-b89e-4661a182129e",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
