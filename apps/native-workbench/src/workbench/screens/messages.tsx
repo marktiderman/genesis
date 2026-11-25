@@ -456,7 +456,7 @@ function MessagesLookBody() {
           <ChatSymbol icon="plus" sf="plus" size={19} weight="medium" color={c.label} />
         </ChatGlassCircle>
         <NativeText preset="body-sm" className="text-muted-foreground">
-          The composer's + list
+          The composer&apos;s + list
         </NativeText>
       </View>
       <ChatPlusList open={plusOpen} onClose={() => setPlusOpen(false)} items={plusItems} testID="workbench-messages-look-plus-list" />
