@@ -8,12 +8,18 @@
 --    was, and posting or reading later moves it past what they deleted unread, so its sender saw
 --    "Read" (or "Read by N") on what they were never shown. `members.receipt_seq` is now the read
 --    place receipts read: it follows `last_read_seq` but never passes a message the member
---    deleted unread, until they read someone else's message after it. Existing rows start at
---    `last_read_seq` (the receipts they showed before 0008): only reads from now on are held.
+--    deleted unread, until they read someone else's message after it. Existing rows keep it null,
+--    which reads as `last_read_seq` (the receipts they showed before 0008), so 0008 rewrites no
+--    rows; the first move of a read place after 0008 sets it, and only reads from then on are held.
 --    Exact in a direct conversation (the other person's last message is then after the deleted
 --    history); in a group, a sender whose last message is in that history can see "Read" once the
 --    member reads someone else's later message: one public read place can't say "read 3 but not
---    2" without publishing the private cleared range. `cleared_seq` itself stays private (`member_state`). `last_read_seq`
+--    2" without publishing the private cleared range. `cleared_seq` itself stays in `member_state`,
+--    which only its member reads. Privacy: everyone in the conversation reads both `last_read_seq`
+--    and `receipt_seq`, so a receipt place behind the read place tells them the member deleted
+--    history unread that included the message after `receipt_seq` (not what, nor where it ended).
+--    Hiding that needs receipts worked out for the viewer's own messages instead of a public read
+--    place, a later change. `last_read_seq`
 --    is unchanged (unread counts), and so is the read time (`last_read_at`) and the `read` hint,
 --    which now move only for a message after the deleted history; the hint's `seq` is
 --    `receipt_seq`.
@@ -27,11 +33,15 @@
 --    a file in a message is readable only through the message, which follows Delete for me.
 -- 4. Reports (0001's `report_message`): a report copied the message and the ten before it into a
 --    snapshot its reporter reads, whatever they had deleted for themselves, and messages deleted
---    for everyone too. A message in history you deleted can't be reported now, and the context
---    holds only messages after it that aren't deleted.
+--    for everyone or hidden by moderation too. A message in history you deleted, or one hidden from
+--    you by moderation, can't be reported now, and the context holds only messages after that
+--    history that aren't deleted and that moderation doesn't hide from you (0002's
+--    `messages_hide_moderated`: its sender and observers still see a hidden message).
 -- 5. Writes (0001's `react`, `pin_message`, `save_message`, `edit_message`, `delete_message`):
 --    each refuses a message in history you deleted for yourself, as it refuses one you can't see.
---    Forgetting a saved message still works.
+--    Forgetting a saved message still works. `send_message` isn't changed: a reply to, or a thread
+--    on, a message in that history is still accepted (it shows nothing of the message, which reads
+--    only through its own row).
 
 -- Whether a read place moving from p_from to p_to passed a message someone else sent that this
 -- member was shown: any kind but system, to everyone, not hidden by moderation, not deleted, and
@@ -57,10 +67,11 @@ $$;
 revoke execute on function genesis_chat.read_passed(uuid, uuid, bigint, bigint) from public, anon, authenticated;
 
 -- The read place receipts read. Everyone in the conversation reads it, as they read `last_read_seq`.
-alter table genesis_chat.members add column receipt_seq bigint not null default 0;
+-- Null on rows from before 0008 means "the same as last_read_seq", so adding it rewrites no rows.
+alter table genesis_chat.members add column receipt_seq bigint;
 
 comment on column genesis_chat.members.receipt_seq is
-  'The read place a sender''s "Read" reads: last_read_seq, held before a message this member deleted unread (Delete for me) until they read someone else''s message after it. Genesis Chat.';
+  'The read place a sender''s "Read" reads: last_read_seq, held before a message this member deleted unread (Delete for me) until they read someone else''s message after it; null (rows from before 0008) reads as last_read_seq. Genesis Chat.';
 
 -- Where a member's receipt place goes when their read place moves from p_from (their receipt place
 -- now) to p_to: to p_to, unless that passes a message someone else sent that they deleted unread
@@ -92,14 +103,11 @@ as $$
 $$;
 revoke execute on function genesis_chat.receipt_place(uuid, uuid, bigint, bigint) from public, anon, authenticated;
 
--- Existing rows: their read place, so every receipt shows what it showed before 0008. The stored
--- rows can't tell history a member read before Delete for me from history they deleted unread
--- (both are at or below cleared_seq), so only reads from now on hold anything back.
-update genesis_chat.members me
-   set receipt_seq = me.last_read_seq
- where me.last_read_seq > 0;
-
--- From now on the trigger keeps it: on every move of the read place, and on any other write to it.
+-- Existing rows aren't backfilled: null reads as their read place, so every receipt shows what it
+-- showed before 0008. The stored rows can't tell history a member read before Delete for me from
+-- history they deleted unread (both are at or below cleared_seq), so only reads from now on hold
+-- anything back. The trigger keeps it from now on: on every move of the read place, and on any
+-- other write to it, starting from the read place where it's still null.
 create function genesis_chat.receipt_moved()
 returns trigger
 language plpgsql
@@ -108,7 +116,7 @@ set search_path = ''
 as $$
 begin
   new.receipt_seq := genesis_chat.receipt_place(new.conversation_id, new.user_id,
-    case when tg_op = 'UPDATE' then old.receipt_seq else 0 end, new.last_read_seq);
+    case when tg_op = 'UPDATE' then coalesce(old.receipt_seq, old.last_read_seq) else 0 end, new.last_read_seq);
   return new;
 end;
 $$;
@@ -208,8 +216,9 @@ as $$
                          where (a.provider = 'storage' and a.path = object_name) or a.poster_path = object_name)))
 $$;
 
--- A report (0001's report_message): never of a message in history you deleted for yourself, and
--- its context only the messages after that history that aren't deleted.
+-- A report (0001's report_message): never of a message in history you deleted for yourself or one
+-- moderation hides from you, and its context only the messages after that history that aren't
+-- deleted and that moderation doesn't hide from you.
 create or replace function genesis_chat.report_message(p_message_id uuid, p_reason text, p_note text default null)
 returns uuid
 language plpgsql
@@ -223,7 +232,8 @@ declare
 begin
   select * into msg from genesis_chat.messages m where m.id = p_message_id
     and genesis_chat.can_view(m.conversation_id) and (m.visibility = 'everyone' or genesis_chat.observes(m.conversation_id))
-    and m.seq > genesis_chat.my_cleared_seq(m.conversation_id);
+    and m.seq > genesis_chat.my_cleared_seq(m.conversation_id)
+    and (m.moderation is distinct from 'hidden' or m.sender_id = auth.uid() or genesis_chat.i_observe(m.conversation_id));
   if msg.id is null then
     raise exception 'You can''t report this message' using errcode = '42501';
   end if;
@@ -238,6 +248,8 @@ begin
                          from (select * from genesis_chat.messages
                                 where conversation_id = msg.conversation_id and seq < msg.seq and visibility = 'everyone'
                                   and seq > cleared and deleted_at is null
+                                  and (moderation is distinct from 'hidden' or sender_id = auth.uid()
+                                       or genesis_chat.i_observe(conversation_id))
                                 order by seq desc limit 10) c), '[]')))
   returning id into id_;
   return id_;

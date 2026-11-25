@@ -7,7 +7,7 @@
 -- talks with c3 (files); a1, b2 and c3 are in a group (read receipts).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(37);
+select plan(40);
 
 insert into auth.users (id, aud, role, email, instance_id)
 select ('00000000-0000-4000-8000-00000000c8' || n)::uuid, 'authenticated', 'authenticated', 'genesis-chat-8-' || n || '@example.test', '00000000-0000-0000-0000-000000000000'
@@ -109,24 +109,31 @@ select ok(pg_temp.receipt('g', 'b2') >= pg_temp.seq('reply'), 'a message b2 read
 select pg_temp.sign_in('a1');
 select ok(pg_temp.receipt('g', 'b2') >= pg_temp.seq('plan'), 'and so, in a group, a1''s message deleted unread now counts b2 as a reader');
 
--- ── 1c. The backfill: rows from before 0008 keep the receipts they showed ───────
+-- ── 1c. Rows from before 0008 keep the receipts they showed ─────────────────────
 select pg_temp.sign_in('a1');
 insert into t select 'pre', genesis_chat.start_conversation('group', array[pg_temp.person('b2')], 'Before 0008');
 insert into t select 'seen', (genesis_chat.send_message(pg_temp.v('pre'), gen_random_uuid(), 'seen before the upgrade')).id;
 select pg_temp.sign_in('b2');
 select genesis_chat.mark_read(pg_temp.v('pre'));
 select genesis_chat.delete_conversation_for_me(pg_temp.v('pre'));
--- As a database before 0008 had it: no receipt place yet. Then 0008's backfill statement.
+-- As 0008 leaves a row from before it: no receipt place (null), which reads as the read place.
 reset role;
 alter table genesis_chat.members disable trigger members_receipt_moved;
-update genesis_chat.members set receipt_seq = 0 where conversation_id = pg_temp.v('pre');
-update genesis_chat.members me
-   set receipt_seq = me.last_read_seq
- where me.last_read_seq > 0 and me.conversation_id = pg_temp.v('pre');
+update genesis_chat.members set receipt_seq = null where conversation_id = pg_temp.v('pre');
 alter table genesis_chat.members enable trigger members_receipt_moved;
 select pg_temp.sign_in('a1');
-select is(pg_temp.receipt('pre', 'b2'), pg_temp.read_place('pre', 'b2'), 'b2, who read and then deleted before 0008, keeps receipt_seq = last_read_seq');
-select ok(pg_temp.receipt('pre', 'b2') >= pg_temp.seq('seen'), 'so a1''s message still shows "Read"');
+select is(coalesce(pg_temp.receipt('pre', 'b2'), pg_temp.read_place('pre', 'b2')), pg_temp.read_place('pre', 'b2'),
+  'b2, who read and then deleted before 0008, has no receipt place, which reads as last_read_seq');
+select ok(coalesce(pg_temp.receipt('pre', 'b2'), pg_temp.read_place('pre', 'b2')) >= pg_temp.seq('seen'), 'so a1''s message still shows "Read"');
+-- The first move after 0008 starts from the read place, not from 0: what b2 read stays read.
+insert into t select 'after', (genesis_chat.send_message(pg_temp.v('pre'), gen_random_uuid(), 'after the upgrade')).id;
+select pg_temp.sign_in('b2');
+select genesis_chat.mark_read(pg_temp.v('pre'));
+select pg_temp.sign_in('a1');
+select is(pg_temp.receipt('pre', 'b2'), pg_temp.read_place('pre', 'b2'), 'b2''s next read sets receipt_seq from the read place');
+reset role;
+select is((select count(*)::integer from genesis_chat.members where receipt_seq > last_read_seq), 0,
+  'no receipt place is ever ahead of its read place');
 
 -- ── 2. No push for a message in history deleted for me ──────────────────────────
 select pg_temp.sign_in('a1');
@@ -173,21 +180,28 @@ insert into t select 'mine', (genesis_chat.send_message(pg_temp.v('r'), gen_rand
 select genesis_chat.delete_conversation_for_me(pg_temp.v('r'));
 select pg_temp.sign_in('a1');
 insert into t select 'kept', (genesis_chat.send_message(pg_temp.v('r'), gen_random_uuid(), 'still here')).id;
+insert into t select 'hush', (genesis_chat.send_message(pg_temp.v('r'), gen_random_uuid(), 'hidden by moderation')).id;
+reset role;
+update genesis_chat.messages set moderation = 'hidden' where id = pg_temp.v('hush');
+select pg_temp.sign_in('a1');
 insert into t select 'gone', (genesis_chat.send_message(pg_temp.v('r'), gen_random_uuid(), 'take it back')).id;
 select genesis_chat.delete_message(pg_temp.v('gone'));
 insert into t select 'rude', (genesis_chat.send_message(pg_temp.v('r'), gen_random_uuid(), 'something rude')).id;
 select pg_temp.sign_in('b2');
 select throws_ok($$ select genesis_chat.report_message(pg_temp.v('old'), 'spam') $$, '42501', null,
   'b2 can''t report a message from history they deleted');
+select throws_ok($$ select genesis_chat.report_message(pg_temp.v('hush'), 'spam') $$, '42501', null,
+  'nor one moderation hides from them');
 insert into t select 'report', genesis_chat.report_message(pg_temp.v('rude'), 'harassment');
 select is((select array_agg((c ->> 'id')::uuid) from genesis_chat.reports r, jsonb_array_elements(r.snapshot -> 'context') c
             where r.id = pg_temp.v('report')),
-          array[pg_temp.v('kept')], 'a report''s context holds only what b2 can still read: not the deleted history, not a deleted message');
+          array[pg_temp.v('kept')], 'a report''s context holds only what b2 can still read: not the deleted history, not a deleted message, not a hidden one');
 select pg_temp.sign_in('a1');
 insert into t select 'report2', genesis_chat.report_message(pg_temp.v('rude'), 'harassment');
-select is((select (array_agg((c ->> 'id')::uuid order by ord desc))[1:3] from genesis_chat.reports r,
+select is((select (array_agg((c ->> 'id')::uuid order by ord desc))[1:4] from genesis_chat.reports r,
              jsonb_array_elements(r.snapshot -> 'context') with ordinality e(c, ord) where r.id = pg_temp.v('report2')),
-          array[pg_temp.v('kept'), pg_temp.v('mine'), pg_temp.v('old')], 'a1, who deleted nothing, gets the history before it, without the deleted message');
+          array[pg_temp.v('hush'), pg_temp.v('kept'), pg_temp.v('mine'), pg_temp.v('old')],
+          'a1, who deleted nothing, gets the history before it, with their own hidden message and without the deleted one');
 
 -- ── 5. Writes to a message in history deleted for me ────────────────────────────
 select pg_temp.sign_in('b2');
