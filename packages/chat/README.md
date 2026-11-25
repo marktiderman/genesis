@@ -36,7 +36,8 @@ const chat = createChatClient(supabase);
 for your own attachment kinds, `composerAccessory`). Mount a Genesis `<Toaster />` for refusals
 (a file too big, a send not allowed). Tailwind must scan the package
 (`@source "../node_modules/@marktiderman/genesis-chat/dist"`). `createMemoryChatClient` runs it
-all with no backend, for demos, stories and tests.
+all with no backend, for demos, stories and tests; it's exported from the root entry too, so the
+native screens run on it as well.
 
 ### As a view's inbox
 
