@@ -8,8 +8,8 @@
 --    was, and posting or reading later moves it past what they deleted unread, so its sender saw
 --    "Read" (or "Read by N") on what they were never shown. `members.receipt_seq` is now the read
 --    place receipts read: it follows `last_read_seq` but never passes a message the member
---    deleted unread, until they read someone else's message after it. Existing rows start at
---    `last_read_seq` (the receipts they showed before 0008): only reads from now on are held.
+--    deleted unread, until they read someone else's message after it. Null means `last_read_seq`:
+--    every row before 0008 (the receipts they showed then), so only reads from now on are held.
 --    Exact in a direct conversation (the other person's last message is then after the deleted
 --    history); in a group, a sender whose last message is in that history can see "Read" once the
 --    member reads someone else's later message: one public read place can't say "read 3 but not
@@ -27,11 +27,12 @@
 --    a file in a message is readable only through the message, which follows Delete for me.
 -- 4. Reports (0001's `report_message`): a report copied the message and the ten before it into a
 --    snapshot its reporter reads, whatever they had deleted for themselves, and messages deleted
---    for everyone too. A message in history you deleted can't be reported now, and the context
---    holds only messages after it that aren't deleted.
--- 5. Writes (0001's `react`, `pin_message`, `save_message`, `edit_message`, `delete_message`):
---    each refuses a message in history you deleted for yourself, as it refuses one you can't see.
---    Forgetting a saved message still works.
+--    for everyone or hidden by moderation too. A message in history you deleted, or one hidden
+--    from you, can't be reported now, and the context holds only messages after that history that
+--    aren't deleted or hidden from you.
+-- 5. Writes (0001's `react`, `pin_message`, `save_message`, `edit_message`, `delete_message`, and
+--    `send_message`'s reply and thread root): each refuses a message in history you deleted for
+--    yourself, as it refuses one you can't see. Forgetting a saved message still works.
 
 -- Whether a read place moving from p_from to p_to passed a message someone else sent that this
 -- member was shown: any kind but system, to everyone, not hidden by moderation, not deleted, and
@@ -57,10 +58,12 @@ $$;
 revoke execute on function genesis_chat.read_passed(uuid, uuid, bigint, bigint) from public, anon, authenticated;
 
 -- The read place receipts read. Everyone in the conversation reads it, as they read `last_read_seq`.
-alter table genesis_chat.members add column receipt_seq bigint not null default 0;
+-- Null (every row before 0008, and whenever it equals the read place) means last_read_seq, so
+-- adding it rewrites no rows.
+alter table genesis_chat.members add column receipt_seq bigint;
 
 comment on column genesis_chat.members.receipt_seq is
-  'The read place a sender''s "Read" reads: last_read_seq, held before a message this member deleted unread (Delete for me) until they read someone else''s message after it. Genesis Chat.';
+  'The read place a sender''s "Read" reads; null means last_read_seq. Held before a message this member deleted unread (Delete for me) until they read someone else''s message after it. Genesis Chat.';
 
 -- Where a member's receipt place goes when their read place moves from p_from (their receipt place
 -- now) to p_to: to p_to, unless that passes a message someone else sent that they deleted unread
@@ -92,14 +95,11 @@ as $$
 $$;
 revoke execute on function genesis_chat.receipt_place(uuid, uuid, bigint, bigint) from public, anon, authenticated;
 
--- Existing rows: their read place, so every receipt shows what it showed before 0008. The stored
--- rows can't tell history a member read before Delete for me from history they deleted unread
--- (both are at or below cleared_seq), so only reads from now on hold anything back.
-update genesis_chat.members me
-   set receipt_seq = me.last_read_seq
- where me.last_read_seq > 0;
-
--- From now on the trigger keeps it: on every move of the read place, and on any other write to it.
+-- No backfill: an existing row's null is its read place, so every receipt shows what it showed
+-- before 0008. The stored rows can't tell history a member read before Delete for me from history
+-- they deleted unread (both are at or below cleared_seq), so only reads from now on hold anything
+-- back. The trigger keeps it on every move of the read place, and on any other write to it: the
+-- place it works out, or null when that is the read place.
 create function genesis_chat.receipt_moved()
 returns trigger
 language plpgsql
@@ -107,8 +107,9 @@ security definer
 set search_path = ''
 as $$
 begin
-  new.receipt_seq := genesis_chat.receipt_place(new.conversation_id, new.user_id,
-    case when tg_op = 'UPDATE' then old.receipt_seq else 0 end, new.last_read_seq);
+  new.receipt_seq := nullif(genesis_chat.receipt_place(new.conversation_id, new.user_id,
+    case when tg_op = 'UPDATE' then coalesce(old.receipt_seq, old.last_read_seq) else 0 end, new.last_read_seq),
+    new.last_read_seq);
   return new;
 end;
 $$;
@@ -132,7 +133,7 @@ begin
   ) <= 32 then
     perform genesis_chat.broadcast('genesis-chat:conv:' || new.conversation_id, 'read',
       jsonb_build_object('conversation_id', new.conversation_id, 'user_id', new.user_id,
-                         'seq', new.receipt_seq, 'at', new.last_read_at));
+                         'seq', coalesce(new.receipt_seq, new.last_read_seq), 'at', new.last_read_at));
   end if;
   return null;
 end;
@@ -208,8 +209,9 @@ as $$
                          where (a.provider = 'storage' and a.path = object_name) or a.poster_path = object_name)))
 $$;
 
--- A report (0001's report_message): never of a message in history you deleted for yourself, and
--- its context only the messages after that history that aren't deleted.
+-- A report (0001's report_message): never of a message in history you deleted for yourself, nor
+-- of one hidden by moderation that you can't see; its context only the messages after that
+-- history that aren't deleted, and none hidden from you.
 create or replace function genesis_chat.report_message(p_message_id uuid, p_reason text, p_note text default null)
 returns uuid
 language plpgsql
@@ -223,7 +225,8 @@ declare
 begin
   select * into msg from genesis_chat.messages m where m.id = p_message_id
     and genesis_chat.can_view(m.conversation_id) and (m.visibility = 'everyone' or genesis_chat.observes(m.conversation_id))
-    and m.seq > genesis_chat.my_cleared_seq(m.conversation_id);
+    and m.seq > genesis_chat.my_cleared_seq(m.conversation_id)
+    and (m.moderation is distinct from 'hidden' or m.sender_id = auth.uid() or genesis_chat.i_observe(m.conversation_id));
   if msg.id is null then
     raise exception 'You can''t report this message' using errcode = '42501';
   end if;
@@ -235,10 +238,11 @@ begin
   values (msg.id, msg.conversation_id, auth.uid(), p_reason, p_note, jsonb_build_object(
     'message', jsonb_build_object('id', msg.id, 'sender_id', msg.sender_id, 'body', msg.body, 'created_at', msg.created_at),
     'context', coalesce((select jsonb_agg(jsonb_build_object('id', c.id, 'sender_id', c.sender_id, 'body', c.body, 'created_at', c.created_at) order by c.seq)
-                         from (select * from genesis_chat.messages
-                                where conversation_id = msg.conversation_id and seq < msg.seq and visibility = 'everyone'
-                                  and seq > cleared and deleted_at is null
-                                order by seq desc limit 10) c), '[]')))
+                         from (select * from genesis_chat.messages x
+                                where x.conversation_id = msg.conversation_id and x.seq < msg.seq and x.visibility = 'everyone'
+                                  and x.seq > cleared and x.deleted_at is null
+                                  and (x.moderation is distinct from 'hidden' or x.sender_id = auth.uid() or genesis_chat.i_observe(x.conversation_id))
+                                order by x.seq desc limit 10) c), '[]')))
   returning id into id_;
   return id_;
 end;
@@ -389,5 +393,127 @@ begin
   else
     delete from genesis_chat.saved where user_id = auth.uid() and message_id = p_message_id;
   end if;
+end;
+$$;
+
+-- Sends a message (0001's send_message): never a reply to, or in the thread of, a message in
+-- history you deleted for yourself.
+create or replace function genesis_chat.send_message(
+  p_conversation_id uuid,
+  p_client_id uuid,
+  p_body text default '',
+  p_attachments jsonb default '[]',
+  p_reply_to_id uuid default null,
+  p_thread_root_id uuid default null,
+  p_topic text default null,
+  p_mentions uuid[] default '{}',
+  p_visibility text default 'everyone',
+  p_silent boolean default false
+)
+returns genesis_chat.messages
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  me uuid := auth.uid();
+  msg genesis_chat.messages;
+  role_ text;
+  k genesis_chat.kinds;
+  a jsonb;
+  i integer := 0;
+  folder text := p_conversation_id::text || '/' || auth.uid()::text || '/';
+  file_path text;
+  attachment_count integer := coalesce(jsonb_array_length(case when jsonb_typeof(p_attachments) = 'array' then p_attachments end), 0);
+begin
+  if me is null then
+    raise exception 'Sign in to send a message' using errcode = '42501';
+  end if;
+  if p_client_id is null then
+    raise exception 'A message needs a client_id' using errcode = '22023';
+  end if;
+  select * into msg from genesis_chat.messages where sender_id = me and client_id = p_client_id;
+  if msg.id is not null then
+    if msg.conversation_id <> p_conversation_id then
+      raise exception 'That client_id was used in another conversation' using errcode = '22023';
+    end if;
+    return msg;
+  end if;
+  if not genesis_chat.can_post(p_conversation_id) then
+    raise exception 'You can''t post in this conversation' using errcode = '42501';
+  end if;
+  role_ := genesis_chat.my_role(p_conversation_id);
+  select kd.* into k from genesis_chat.conversations c join genesis_chat.kinds kd on kd.kind = c.kind
+   where c.id = p_conversation_id;
+  if p_attachments is not null and jsonb_typeof(p_attachments) <> 'array' then
+    raise exception 'Attachments are a list' using errcode = '22023';
+  end if;
+  if attachment_count > 20 then
+    raise exception 'A message carries at most 20 attachments' using errcode = '22023';
+  end if;
+  if btrim(coalesce(p_body, '')) = '' and attachment_count = 0 then
+    raise exception 'A message needs text or an attachment' using errcode = '22023';
+  end if;
+  if p_visibility not in ('everyone', 'observers') then
+    raise exception 'Visibility is everyone or observers' using errcode = '22023';
+  end if;
+  if p_visibility = 'observers' and not genesis_chat.observes(p_conversation_id) then
+    raise exception 'Only observers write internal notes' using errcode = '42501';
+  end if;
+  if p_reply_to_id is not null and not exists (
+       select 1 from genesis_chat.messages where id = p_reply_to_id and conversation_id = p_conversation_id
+          and seq > genesis_chat.my_cleared_seq(p_conversation_id)) then
+    raise exception 'The message you reply to isn''t in this conversation' using errcode = '22023';
+  end if;
+  if p_thread_root_id is not null then
+    if not k.threads then
+      raise exception 'This conversation has no threads' using errcode = '22023';
+    end if;
+    if not exists (select 1 from genesis_chat.messages where id = p_thread_root_id
+                    and conversation_id = p_conversation_id and thread_root_id is null and deleted_at is null
+                    and seq > genesis_chat.my_cleared_seq(p_conversation_id)) then
+      raise exception 'A thread starts on a message in this conversation' using errcode = '22023';
+    end if;
+  end if;
+
+  insert into genesis_chat.messages (conversation_id, client_id, sender_id, sender_role, body, mentions,
+                                     reply_to_id, thread_root_id, topic, visibility, silent)
+  values (p_conversation_id, p_client_id, me, role_, coalesce(p_body, ''),
+          coalesce((select array_agg(distinct u) from unnest(coalesce(p_mentions, '{}')) u
+                    where genesis_chat.is_member(p_conversation_id, u)), '{}'),
+          p_reply_to_id, p_thread_root_id, nullif(btrim(p_topic), ''), p_visibility, coalesce(p_silent, false))
+  returning * into msg;
+
+  for a in select value from jsonb_array_elements(coalesce(p_attachments, '[]')) loop
+    file_path := a ->> 'path';
+    if coalesce(a ->> 'provider', 'storage') = 'storage' then
+      if file_path is null or left(file_path, length(folder)) <> folder
+         or not exists (select 1 from storage.objects o where o.bucket_id = 'genesis-chat'
+                          and o.name = file_path and o.owner_id = me::text) then
+        raise exception 'Upload the file into this conversation before sending it' using errcode = '22023';
+      end if;
+    end if;
+    if a ->> 'poster_path' is not null and (left(a ->> 'poster_path', length(folder)) <> folder
+         or not exists (select 1 from storage.objects o where o.bucket_id = 'genesis-chat'
+                          and o.name = a ->> 'poster_path' and o.owner_id = me::text)) then
+      raise exception 'Upload the poster into this conversation before sending it' using errcode = '22023';
+    end if;
+    insert into genesis_chat.attachments (message_id, conversation_id, position, kind, ref, provider, path, provider_id,
+                                          url, status, name, mime, bytes, width, height, duration_ms, waveform,
+                                          poster_path, thumbhash, transcript_status)
+    values (msg.id, p_conversation_id, i, a ->> 'kind', coalesce(a -> 'ref', '{}'),
+            coalesce(a ->> 'provider', 'storage'), file_path, a ->> 'provider_id', a ->> 'url',
+            -- A hosted video is ready only when its provider's webhook says so.
+            case when a ->> 'status' = 'pending' or coalesce(a ->> 'provider', 'storage') in ('mux', 'cloudflare')
+                 then 'pending' else 'ready' end,
+            a ->> 'name', a ->> 'mime', (a ->> 'bytes')::bigint, (a ->> 'width')::integer, (a ->> 'height')::integer,
+            (a ->> 'duration_ms')::integer,
+            case when jsonb_typeof(a -> 'waveform') = 'array'
+                 then (select array_agg(least(greatest(x::integer, 0), 100)::smallint) from jsonb_array_elements_text(a -> 'waveform') x) end,
+            a ->> 'poster_path', a ->> 'thumbhash',
+            case when a ->> 'kind' in ('voice', 'video') then 'pending' end);
+    i := i + 1;
+  end loop;
+  return msg;
 end;
 $$;

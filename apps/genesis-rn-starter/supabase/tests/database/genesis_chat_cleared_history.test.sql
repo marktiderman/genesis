@@ -7,7 +7,7 @@
 -- talks with c3 (files); a1, b2 and c3 are in a group (read receipts).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(37);
+select plan(44);
 
 insert into auth.users (id, aud, role, email, instance_id)
 select ('00000000-0000-4000-8000-00000000c8' || n)::uuid, 'authenticated', 'authenticated', 'genesis-chat-8-' || n || '@example.test', '00000000-0000-0000-0000-000000000000'
@@ -37,7 +37,7 @@ create function pg_temp.read_at(conv text, n text) returns timestamptz language 
 $$;
 -- What the signed-in member reads of another's read places, as a sender's status line does.
 create function pg_temp.receipt(conv text, n text) returns bigint language sql stable as $$
-  select receipt_seq from genesis_chat.members where conversation_id = pg_temp.v(conv) and user_id = pg_temp.person(n)
+  select coalesce(receipt_seq, last_read_seq) from genesis_chat.members where conversation_id = pg_temp.v(conv) and user_id = pg_temp.person(n)
 $$;
 create function pg_temp.read_place(conv text, n text) returns bigint language sql stable as $$
   select last_read_seq from genesis_chat.members where conversation_id = pg_temp.v(conv) and user_id = pg_temp.person(n)
@@ -109,24 +109,36 @@ select ok(pg_temp.receipt('g', 'b2') >= pg_temp.seq('reply'), 'a message b2 read
 select pg_temp.sign_in('a1');
 select ok(pg_temp.receipt('g', 'b2') >= pg_temp.seq('plan'), 'and so, in a group, a1''s message deleted unread now counts b2 as a reader');
 
--- ── 1c. The backfill: rows from before 0008 keep the receipts they showed ───────
+-- ── 1c. Rows from before 0008, and the column's invariants ─────────────────────
+-- Null is the read place: every row before 0008 (adding the column writes none), so their
+-- receipts show what they showed then.
 select pg_temp.sign_in('a1');
 insert into t select 'pre', genesis_chat.start_conversation('group', array[pg_temp.person('b2')], 'Before 0008');
-insert into t select 'seen', (genesis_chat.send_message(pg_temp.v('pre'), gen_random_uuid(), 'seen before the upgrade')).id;
+insert into t select 'seen', (genesis_chat.send_message(pg_temp.v('pre'), gen_random_uuid(), 'seen, then deleted')).id;
 select pg_temp.sign_in('b2');
 select genesis_chat.mark_read(pg_temp.v('pre'));
 select genesis_chat.delete_conversation_for_me(pg_temp.v('pre'));
--- As a database before 0008 had it: no receipt place yet. Then 0008's backfill statement.
+select genesis_chat.send_message(pg_temp.v('pre'), gen_random_uuid(), 'after deleting');
+select pg_temp.sign_in('a1');
+select ok(pg_temp.receipt('pre', 'b2') >= pg_temp.seq('seen'), 'a message b2 read before deleting it still shows "Read"');
 reset role;
+select is((select count(*)::integer from genesis_chat.members
+            where conversation_id in (pg_temp.v('ab'), pg_temp.v('g'), pg_temp.v('pre'))
+              and receipt_seq is not null and receipt_seq >= last_read_seq), 0,
+          'receipt_seq is null or behind last_read_seq, never at or past it');
+select is((select receipt_seq from genesis_chat.members where conversation_id = pg_temp.v('pre') and user_id = pg_temp.person('b2')),
+          null, 'and null when nothing is held back');
+-- A row as 0008 found it: null, whatever its read place.
 alter table genesis_chat.members disable trigger members_receipt_moved;
-update genesis_chat.members set receipt_seq = 0 where conversation_id = pg_temp.v('pre');
-update genesis_chat.members me
-   set receipt_seq = me.last_read_seq
- where me.last_read_seq > 0 and me.conversation_id = pg_temp.v('pre');
+update genesis_chat.members set receipt_seq = null where conversation_id = pg_temp.v('ab');
 alter table genesis_chat.members enable trigger members_receipt_moved;
 select pg_temp.sign_in('a1');
-select is(pg_temp.receipt('pre', 'b2'), pg_temp.read_place('pre', 'b2'), 'b2, who read and then deleted before 0008, keeps receipt_seq = last_read_seq');
-select ok(pg_temp.receipt('pre', 'b2') >= pg_temp.seq('seen'), 'so a1''s message still shows "Read"');
+select is(pg_temp.receipt('ab', 'b2'), pg_temp.read_place('ab', 'b2'), 'a null receipt_seq reads as last_read_seq');
+insert into t select 'after', (genesis_chat.send_message(pg_temp.v('ab'), gen_random_uuid(), 'after the upgrade')).id;
+select pg_temp.sign_in('b2');
+select genesis_chat.mark_read(pg_temp.v('ab'));
+select pg_temp.sign_in('a1');
+select ok(pg_temp.receipt('ab', 'b2') >= pg_temp.seq('after'), 'and moves on from it');
 
 -- ── 2. No push for a message in history deleted for me ──────────────────────────
 select pg_temp.sign_in('a1');
@@ -175,19 +187,25 @@ select pg_temp.sign_in('a1');
 insert into t select 'kept', (genesis_chat.send_message(pg_temp.v('r'), gen_random_uuid(), 'still here')).id;
 insert into t select 'gone', (genesis_chat.send_message(pg_temp.v('r'), gen_random_uuid(), 'take it back')).id;
 select genesis_chat.delete_message(pg_temp.v('gone'));
+insert into t select 'hidden', (genesis_chat.send_message(pg_temp.v('r'), gen_random_uuid(), 'hidden by moderation')).id;
 insert into t select 'rude', (genesis_chat.send_message(pg_temp.v('r'), gen_random_uuid(), 'something rude')).id;
+reset role;
+update genesis_chat.messages set moderation = 'hidden' where id = pg_temp.v('hidden');
 select pg_temp.sign_in('b2');
 select throws_ok($$ select genesis_chat.report_message(pg_temp.v('old'), 'spam') $$, '42501', null,
   'b2 can''t report a message from history they deleted');
+select throws_ok($$ select genesis_chat.report_message(pg_temp.v('hidden'), 'spam') $$, '42501', null,
+  'nor one hidden by moderation, which they never saw');
 insert into t select 'report', genesis_chat.report_message(pg_temp.v('rude'), 'harassment');
 select is((select array_agg((c ->> 'id')::uuid) from genesis_chat.reports r, jsonb_array_elements(r.snapshot -> 'context') c
             where r.id = pg_temp.v('report')),
-          array[pg_temp.v('kept')], 'a report''s context holds only what b2 can still read: not the deleted history, not a deleted message');
+          array[pg_temp.v('kept')], 'a report''s context holds only what b2 can still read: not the deleted history, a deleted message or a hidden one');
 select pg_temp.sign_in('a1');
 insert into t select 'report2', genesis_chat.report_message(pg_temp.v('rude'), 'harassment');
-select is((select (array_agg((c ->> 'id')::uuid order by ord desc))[1:3] from genesis_chat.reports r,
+select is((select (array_agg((c ->> 'id')::uuid order by ord desc))[1:4] from genesis_chat.reports r,
              jsonb_array_elements(r.snapshot -> 'context') with ordinality e(c, ord) where r.id = pg_temp.v('report2')),
-          array[pg_temp.v('kept'), pg_temp.v('mine'), pg_temp.v('old')], 'a1, who deleted nothing, gets the history before it, without the deleted message');
+          array[pg_temp.v('hidden'), pg_temp.v('kept'), pg_temp.v('mine'), pg_temp.v('old')],
+          'a1, who deleted nothing, gets the history before it, with their own hidden message, without the deleted one');
 
 -- ── 5. Writes to a message in history deleted for me ────────────────────────────
 select pg_temp.sign_in('b2');
@@ -196,6 +214,12 @@ select throws_ok($$ select genesis_chat.pin_message(pg_temp.v('old')) $$, '42501
 select throws_ok($$ select genesis_chat.save_message(pg_temp.v('old')) $$, '42501', null, 'nor save it');
 select throws_ok($$ select genesis_chat.edit_message(pg_temp.v('mine'), 'rewritten') $$, '42501', null, 'nor edit their own message in it');
 select throws_ok($$ select genesis_chat.delete_message(pg_temp.v('mine')) $$, '42501', null, 'nor delete it');
+select throws_ok($$ select genesis_chat.send_message(pg_temp.v('r'), gen_random_uuid(), 'replying', p_reply_to_id => pg_temp.v('old')) $$,
+  '22023', null, 'nor reply to it');
+select throws_ok($$ select genesis_chat.send_message(pg_temp.v('r'), gen_random_uuid(), 'in its thread', p_thread_root_id => pg_temp.v('old')) $$,
+  '22023', null, 'nor post in its thread');
+select lives_ok($$ select genesis_chat.send_message(pg_temp.v('r'), gen_random_uuid(), 'replying', p_reply_to_id => pg_temp.v('kept')) $$,
+  'a reply to a message after the deleted history still posts');
 select lives_ok($$ select genesis_chat.save_message(pg_temp.v('old'), false) $$, 'forgetting a saved one still works');
 select lives_ok($$ select genesis_chat.react(pg_temp.v('kept'), '👍') $$, 'a message after the deleted history takes a reaction');
 select lives_ok($$ select genesis_chat.pin_message(pg_temp.v('kept')) $$, 'and a pin');

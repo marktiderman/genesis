@@ -578,8 +578,8 @@ Migration 0008 closes the ways back into history deleted for me:
   turn the other person's message to "Read" (or count them in "Read by N"). It's exact in a direct
   conversation. In a group, a sender whose last message is in the deleted history can see "Read" once
   the member reads someone else's later message (one public read place can't say "read 3 but not 2"
-  without publishing the private cleared range). Existing rows start at `last_read_seq`, so
-  receipts show what they showed before 0008: the stored rows can't tell history read before
+  without publishing the private cleared range). Null means `last_read_seq` (every row before
+  0008, so adding it rewrites no rows, and whenever nothing is held back), so receipts show what they showed before 0008: the stored rows can't tell history read before
   Delete for me from history deleted unread, so only reads after 0008 are held. `cleared_seq` stays private, and `last_read_seq`
   still drives unread counts. The read time (`last_read_at`) and the `read` hint move only for a
   message after the deleted history, and the hint's `seq` is the receipt place.
@@ -587,10 +587,11 @@ Migration 0008 closes the ways back into history deleted for me:
 - **Files.** A file in a message in it can't be fetched through the uploader's fallback, the
   uploader's own included. That fallback (their own recent upload) now ends once the file is in a
   message. From then on everyone, the uploader too, reads it through a message they can read, as before.
-- **Reports.** `report_message` refuses a message in it, and a report's context is only messages
-  after it that aren't deleted (it held deleted messages before, too).
-- **Writes.** `react`, `pin_message`, `save_message`, `edit_message` and `delete_message` refuse a
-  message in it, as they refuse one you can't see. Forgetting a saved message still works.
+- **Reports.** `report_message` refuses a message in it, or one hidden by moderation that you can't
+  see, and a report's context is only messages after it that aren't deleted or hidden from you (it
+  held both before, too).
+- **Writes.** `react`, `pin_message`, `save_message`, `edit_message`, `delete_message`, and
+  `send_message`'s reply and thread root refuse a message in it, as they refuse one you can't see. Forgetting a saved message still works.
 
 Apply 0008 after 0007, with its pgTAP test.
 
