@@ -1,0 +1,34 @@
+packages/chat/src/native/__tests__/messages-look.test.tsx
+  s_42efe440240299::t_b5ff3c572f6f55 100,104-108,110
+  s_42efe440240299::t_3ea704286ee4dc 320-324
+packages/chat/src/native/conversation-preview.tsx
+  s_42efe440240299::t_a3e21e79d48a85 9,93-100
+packages/chat/src/native/message-bubble.tsx
+  s_42efe440240299::t_22dfee5fe0b555 151-152,511-514,587,589
+packages/chat/src/native/__tests__/bubble-native-feel.test.tsx
+  s_42efe440240299::t_fc07512f6f2cc6 3,116-135
+  s_42efe440240299::t_7503e90798fdbf 136-138
+packages/chat/src/native/inbox-screen.tsx
+  s_42efe440240299::t_a3e21e79d48a85 590-591
+  s_42efe440240299::t_34fa970a8984a7 125-126,129,131
+  s_42efe440240299::t_7d01c3c1c58f59 522-523
+.changeset/chat-messages-parity.md
+  s_42efe440240299::t_ce5eb46de46aca 17
+  s_42efe440240299::t_847082158bca06 33
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0c179eba2e5ee7f4efd2392f08e1c2d841e67d43",
+  "prompts": {},
+  "sessions": {
+    "s_42efe440240299": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f544dd57-0b31-4773-b89e-4661a182129e",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
