@@ -1,0 +1,11 @@
+# Opens the showcase on a clean install: no sign-in, straight to the Standards tab. Not a flow of its own.
+appId: dev.genesis.workbench.dev
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+- extendedWaitUntil:
+    visible:
+      id: "workbench-standards"
+    timeout: 20000

@@ -1,0 +1,50 @@
+# The local Supabase stack for the starter (`supabase start`). Settings not listed here keep the
+# CLI's defaults. See https://supabase.com/docs/guides/local-development/cli/config
+project_id = "native-workbench"
+
+# The API serves `genesis_chat` too (features.chat): its tables under row level security and its
+# functions, which are the chat client's only writes.
+[api]
+port = 54421
+schemas = ["public", "graphql_public", "genesis_chat"]
+# The workbench's own ports (5442x), so its stack never meets another app's on the default
+# 5432x: `pnpm workbench:prove` starts it beside whatever else runs.
+
+[db]
+port = 54422
+shadow_port = 54420
+
+[studio]
+port = 54423
+
+[local_smtp]
+port = 54424
+
+[analytics]
+port = 54427
+
+[db.pooler]
+port = 54429
+
+# Sign-up asks the person to confirm their email. The link confirms it on Supabase's side and
+# then opens `site_url`, not the app; the app's copy says to come back and sign in. (Opening the
+# app from the link needs `emailRedirectTo`, a redirect URL here and a screen that exchanges the
+# code: not in the starter yet.)
+[auth.email]
+enable_confirmations = true
+
+# Sign in with Apple: the bundle id (and its .dev / .preview variants) as client ids.
+[auth.external.apple]
+enabled = true
+client_id = "dev.genesis.workbench,dev.genesis.workbench.dev,dev.genesis.workbench.preview"
+secret = ""
+
+# Keeps Apple's refresh token at sign-in and revokes it when the account is deleted. It checks
+# the caller itself (and its revoke step runs after the login is gone), so the gateway's JWT
+# check is off. Secrets: APPLE_TEAM_ID, APPLE_KEY_ID, APPLE_PRIVATE_KEY, APPLE_CLIENT_IDS.
+[functions.genesis-apple-revoke]
+verify_jwt = false
+
+# Checks GENESIS_PUSH_SECRET itself; never called by the app.
+[functions.genesis-push-send]
+verify_jwt = false

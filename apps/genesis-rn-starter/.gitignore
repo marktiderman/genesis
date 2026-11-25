@@ -19,3 +19,5 @@ build-metadata.json
 # Agentic CI (.eas/agents): the session file eas simulator:start writes, and the evidence.
 .env.eas-simulator
 agent-output/
+# The proof run (.maestro/prove-ios.mjs): its build cache, test login and evidence.
+.e2e/

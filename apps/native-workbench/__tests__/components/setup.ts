@@ -1,0 +1,98 @@
+/**
+ * Runs before every component test file. The app's Supabase client is swapped for the fake
+ * in `fake-supabase.ts`; everything else is the starter's own code on jest-expo's mocks.
+ */
+import { afterEach, beforeEach, jest } from "@jest/globals";
+import { expectedReports } from "./reports";
+
+process.env.EXPO_PUBLIC_SUPABASE_URL = "https://test.supabase.invalid";
+process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "test-publishable-key";
+
+// Reanimated's test mode (its Jest guide, with the resolver in resolver.js): animations run on
+// Jest's timers, and `toHaveAnimatedStyle` checks an animated style. Gesture Handler's mocks load
+// from jest.config.js (`setupFiles`); `__tests__/components/gestures.test.tsx` shows both.
+require("react-native-reanimated").setUpTests();
+
+// Native modules jest-expo has no mock for: each library's own Jest mock.
+jest.mock("@react-native-async-storage/async-storage", () => require("@react-native-async-storage/async-storage/jest/async-storage-mock"));
+jest.mock("@react-native-community/netinfo", () => require("@react-native-community/netinfo/jest/netinfo-mock.js"));
+jest.mock("react-native-keyboard-controller", () => require("react-native-keyboard-controller/jest"));
+// expo-audio (chat's voice notes) builds its classes on the native module at import; chat only
+// reaches it from the Messages screens, so the stand-in names what it exports.
+jest.mock("expo-audio", () => ({
+  useAudioRecorder: () => ({ prepareToRecordAsync: async () => {}, record: () => {}, stop: async () => {}, getStatus: () => ({ isRecording: false, durationMillis: 0, url: null }), uri: null }),
+  useAudioPlayer: () => ({ play: () => {}, pause: () => {}, seekTo: async () => {}, setPlaybackRate: () => {} }),
+  useAudioPlayerStatus: () => ({ currentTime: 0, duration: 0, playing: false, didJustFinish: false, isLoaded: false, playbackRate: 1 }),
+  RecordingPresets: { HIGH_QUALITY: {} },
+  requestRecordingPermissionsAsync: async () => ({ granted: false, canAskAgain: true }),
+  setAudioModeAsync: async () => {},
+}));
+// jest-expo's expo-notifications mock returns listener subscriptions without `remove`, which the
+// push block calls; this one is the subset the block uses, on a device that hasn't been asked yet.
+jest.mock("expo-notifications", () => {
+  const subscription = () => ({ remove: () => {} });
+  return {
+    setNotificationHandler: () => {},
+    setNotificationChannelAsync: async () => null,
+    getPermissionsAsync: async () => ({ status: "undetermined", granted: false, canAskAgain: true, expires: "never" }),
+    requestPermissionsAsync: async () => ({ status: "denied", granted: false, canAskAgain: false, expires: "never" }),
+    getExpoPushTokenAsync: async () => ({ type: "expo", data: "ExponentPushToken[test]" }),
+    addPushTokenListener: subscription,
+    addNotificationResponseReceivedListener: subscription,
+    getLastNotificationResponse: () => null,
+    clearLastNotificationResponse: () => {},
+    setBadgeCountAsync: async () => true,
+    // Chat's Reply and Mark read actions.
+    setNotificationCategoryAsync: async () => null,
+    dismissNotificationAsync: async () => {},
+    getBadgeCountAsync: async () => 0,
+    AndroidImportance: { DEFAULT: 3 },
+  };
+});
+// jest-expo's expo-updates mock answers `checkForUpdateAsync` with nothing; the server has no update.
+// expo-sqlite's native module isn't in Jest: an empty database for the device cache, which
+// starts every test with nothing kept (as a fresh install does).
+jest.mock("expo-sqlite", () => {
+  const db = {
+    execAsync: async () => undefined,
+    runAsync: async () => ({ changes: 0, lastInsertRowId: 0 }),
+    getAllAsync: async () => [],
+    withExclusiveTransactionAsync: async (task: (txn: unknown) => Promise<void>) => task(db),
+  };
+  return { openDatabaseSync: () => db };
+});
+jest.mock("expo-updates", () => ({
+  ...jest.requireActual<object>("expo-updates"),
+  checkForUpdateAsync: async () => ({ isAvailable: false, isRollBackToEmbedded: false }),
+}));
+
+jest.mock("@/lib/supabase", () => {
+  const { fakeSupabase, sessionReady } = jest.requireActual<typeof import("./fake-supabase")>("./fake-supabase");
+  return { supabase: fakeSupabase, sessionReady };
+});
+
+// A block that reports an error (`[push] …`, `[updates] …`, the observability sink's
+// `[observability] …`) only warns in the app; here it fails the test, as does a React update
+// outside act(). A mock that's missing something the app calls can't pass in silence.
+// A test that provokes a report on purpose names it with `expectReport` (from `./reports`).
+const LOUD = [/^\[(push|updates|observability)\] /, /not wrapped in act\(/];
+const heard: string[] = [];
+const originals = { warn: console.warn, error: console.error };
+beforeEach(() => {
+  // Installed per test: a test file's `jest.restoreAllMocks()` takes these off with its own spies.
+  for (const level of ["warn", "error"] as const) {
+    if (jest.isMockFunction(console[level])) continue;
+    jest.spyOn(console, level).mockImplementation((...args: unknown[]) => {
+      const line = args.map(String).join(" ");
+      if (LOUD.some((pattern) => pattern.test(line)) && !expectedReports.some((pattern) => pattern.test(line))) {
+        heard.push(`console.${level}: ${line.split("\n")[0]}`);
+      }
+      originals[level](...args);
+    });
+  }
+});
+afterEach(() => {
+  expectedReports.length = 0;
+  const lines = heard.splice(0);
+  if (lines.length > 0) throw new Error(`The app reported problems during this test:\n${lines.join("\n")}`);
+});

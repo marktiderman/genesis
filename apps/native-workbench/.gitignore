@@ -1,0 +1,23 @@
+# Expo
+.expo/
+dist/
+android/
+ios/
+expo-env.d.ts
+
+# Dependencies
+node_modules/
+
+# Environment (copy .env.example)
+.env
+.env.local
+
+# genesis build-stamp writes it before every bundle, typecheck and test (package.json), and EAS
+# builds and updates stamp their own: never committed, so a release never ships a stale stamp.
+build-metadata.json
+
+# Agentic CI (.eas/agents): the session file eas simulator:start writes, and the evidence.
+.env.eas-simulator
+agent-output/
+# The proof run (.maestro/prove-ios.mjs): its build cache, test login and evidence.
+.e2e/

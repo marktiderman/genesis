@@ -1,0 +1,312 @@
+{
+  "version": 1,
+  "substitutions": {
+    "com.example.genesisstarter": "dev.genesis.workbench",
+    "genesis-rn-starter": "native-workbench",
+    "genesis-starter": "genesis-workbench",
+    "Genesis Starter": "Genesis Workbench",
+    "REPLACE_WITH_APP_FOLDER": "apps/native-workbench/src"
+  },
+  "pin": {
+    "sha": "b322c78c21a5274e4ee2713794e95b306278e3de",
+    "version": "0.11.7"
+  },
+  "blocks": {
+    "account": {
+      "package": "@marktiderman/genesis-supabase",
+      "version": "0.18.0"
+    },
+    "app-updates": {
+      "package": "@marktiderman/genesis-native",
+      "version": "0.15.1"
+    },
+    "chat": {
+      "package": "@marktiderman/genesis-chat",
+      "version": "0.12.0"
+    },
+    "notifications": {
+      "package": "@marktiderman/genesis-notifications",
+      "version": "0.4.7"
+    },
+    "push": {
+      "package": "@marktiderman/genesis-native",
+      "version": "0.15.1"
+    },
+    "settings": {
+      "package": "@marktiderman/genesis-supabase",
+      "version": "0.18.0"
+    },
+    "support-feedback": {
+      "package": "@marktiderman/genesis-support",
+      "version": "0.13.0"
+    }
+  },
+  "files": {
+    ".eas/agents/app-facts.md": {
+      "source": "@marktiderman/genesis-cli:templates/eas/agents/app-facts.md",
+      "sha256": "71e3548289a7c80cb64ee52da961d949f1f2a5016317403e4b8c01bc599736fd",
+      "version": "1.34.0"
+    },
+    ".eas/agents/check-pr.md": {
+      "source": "@marktiderman/genesis-cli:templates/eas/agents/check-pr.md",
+      "sha256": "c2e53fa3056409d1751e1962ccc32f219a004f274de2fbb335215e1f386c188e",
+      "version": "1.34.0"
+    },
+    ".eas/agents/device.sh": {
+      "source": "@marktiderman/genesis-cli:templates/eas/agents/device.sh",
+      "sha256": "a1f029db1256b9c8361f624c0ffd3b271716b0c9c85e1c7ff481649a8cc83136",
+      "version": "1.34.0"
+    },
+    ".eas/agents/maestro-flows.txt": {
+      "source": "@marktiderman/genesis-cli:templates/eas/agents/maestro-flows.txt",
+      "sha256": "e8f2dba8d8203ca99fea68a69d362eea7aec373aec93a1b8b254b46ed608a65d",
+      "version": "1.34.0"
+    },
+    ".eas/agents/redact-evidence.sh": {
+      "source": "@marktiderman/genesis-cli:templates/eas/agents/redact-evidence.sh",
+      "sha256": "a89f42f73470f19f0826e49f0ffa45bb2ad184932de46f7cc1c227b794053c9b",
+      "version": "1.34.0"
+    },
+    ".eas/agents/run-agent.sh": {
+      "source": "@marktiderman/genesis-cli:templates/eas/agents/run-agent.sh",
+      "sha256": "765482a3eb05d399008f65464b4ca0fd21c70b7121b9e4382e78b0a35690479e",
+      "version": "1.34.0"
+    },
+    ".eas/agents/run-maestro.sh": {
+      "source": "@marktiderman/genesis-cli:templates/eas/agents/run-maestro.sh",
+      "sha256": "1c4c398f4e15e954d9693b0fe66a4de1e556b3108fa7378a7143c6d8339d0e5c",
+      "version": "1.34.0"
+    },
+    ".eas/agents/start-session.sh": {
+      "source": "@marktiderman/genesis-cli:templates/eas/agents/start-session.sh",
+      "sha256": "c1a8526da54caeaa7cdebbe28b70a4ebcbc7dab77b50fb85d079290631822922",
+      "version": "1.34.0"
+    },
+    ".eas/scripts/native-release.mjs": {
+      "source": "@marktiderman/genesis-cli:templates/eas/scripts/native-release.mjs",
+      "sha256": "2eeb9501af0b9a430b68cb868e9ac5702896e6132550c11712fa4b91bfc912eb",
+      "version": "1.34.0"
+    },
+    ".eas/scripts/rollout-health.mjs": {
+      "source": "@marktiderman/genesis-cli:templates/eas/scripts/rollout-health.mjs",
+      "sha256": "5c3d42266b08bd4c33440c7c8fee3a03d2c04dc8cefdcc24dba9dbd18b3189b7",
+      "version": "1.34.0"
+    },
+    ".eas/workflows/agentic-ci.yml": {
+      "source": "@marktiderman/genesis-cli:templates/release/agentic-ci.yml",
+      "sha256": "3f4216672fd01177f98d8756992552c41a877718b3207ad5914639a5222fd607",
+      "version": "1.34.0"
+    },
+    ".eas/workflows/deploy-production.yml": {
+      "source": "@marktiderman/genesis-cli:templates/release/deploy-production.yml",
+      "sha256": "d36e4d2633154cf07c54d4cd09d3b15088c2b280ec6856d3d8430fccd51b2f3e",
+      "version": "1.34.0"
+    },
+    ".eas/workflows/e2e.yml": {
+      "source": "@marktiderman/genesis-cli:templates/eas/workflows/e2e.yml",
+      "sha256": "de6ec82afb64880298ffe986208ac9bc53579ace31e876e1ab45842b51c79c21",
+      "version": "1.34.0"
+    },
+    ".eas/workflows/pr-preview.yml": {
+      "source": "@marktiderman/genesis-cli:templates/release/pr-preview.yml",
+      "sha256": "b2da2aed2984401aecfcff189524fb6f9902b2acc222200517104f6fac2d50f2",
+      "version": "1.34.0"
+    },
+    ".eas/workflows/rollout.yml": {
+      "source": "@marktiderman/genesis-cli:templates/eas/workflows/rollout.yml",
+      "sha256": "088024cd6ea5f9cf2e7860d6102315d94349c2ab9198188ec9a912608abd89c6",
+      "version": "1.34.0"
+    },
+    ".fingerprintignore": {
+      "source": "@marktiderman/genesis-cli:templates/expo/.fingerprintignore",
+      "sha256": "7d55ce9f1761d7dcf0e831894af3b80a746f5a182819e8b816f3adbc5e706ec8",
+      "version": "1.34.0"
+    },
+    ".github/workflows/ci.yml": {
+      "source": "@marktiderman/genesis-cli:templates/ci/app-ci.yml",
+      "sha256": "2c93423063d49dbdb3fc64fc29a41a61dd6cf96b75c5e670a10e9c54909539a3",
+      "version": "1.34.0"
+    },
+    ".github/workflows/claude-review.yml": {
+      "source": "@marktiderman/genesis-cli:templates/ci/claude-review.yml",
+      "sha256": "210011c4337784416887853973cef279e397c1dd422abcbd3e1158e3ca58777c",
+      "version": "1.34.0"
+    },
+    ".github/workflows/database.yml": {
+      "source": "@marktiderman/genesis-cli:templates/ci/supabase-ci.yml",
+      "sha256": "a39c070dd2eff06073d7288ac901af1a3188482d91a6ba443e43b431cad65f06",
+      "version": "1.34.0"
+    },
+    ".github/workflows/genesis-upgrade.yml": {
+      "source": "@marktiderman/genesis-cli:templates/ci/genesis-upgrade.yml",
+      "sha256": "c89e2eb6b1875d4a9d020585d5508c1e30df6f0f9d7d937db597708526e0a433",
+      "version": "1.34.0"
+    },
+    ".github/workflows/pr-preview-teardown.yml": {
+      "source": "@marktiderman/genesis-cli:templates/ci/pr-preview-teardown.yml",
+      "sha256": "f5fc7d2155f5cf3ac4a0f5f653b317a0b8a4723f0228c0367f1d64622376d358",
+      "version": "1.34.0",
+      "deleted": true
+    },
+    ".maestro/config.yaml": {
+      "source": "@marktiderman/genesis-cli:templates/maestro/config.yaml",
+      "sha256": "92f8f6b587036f949dd195875f9982f0ab9679e3d6038935dbaf0a062891ad70",
+      "version": "1.34.0"
+    },
+    ".maestro/flows/deep-link.yaml": {
+      "source": "@marktiderman/genesis-cli:templates/maestro/flows/deep-link.yaml",
+      "sha256": "2cb70655b0a48b076109c14a8af93d4cbdfa2193ef1d4fd8c313ad32e7067c60",
+      "version": "1.34.0"
+    },
+    ".maestro/flows/launch.yaml": {
+      "source": "@marktiderman/genesis-cli:templates/maestro/flows/launch.yaml",
+      "sha256": "92f972d67a60403dd12410ca2308f52ba82d2809aa217a6c262c64a24c96b98c",
+      "version": "1.34.0"
+    },
+    ".maestro/flows/settings-version.yaml": {
+      "source": "@marktiderman/genesis-cli:templates/maestro/flows/settings-version.yaml",
+      "sha256": "aca11686932f6e7ab46e5cee719780a4a28e94dc6193f9f81e52afc6f091b46f",
+      "version": "1.34.0"
+    },
+    ".maestro/flows/sign-in-screen.yaml": {
+      "source": "@marktiderman/genesis-cli:templates/maestro/flows/sign-in-screen.yaml",
+      "sha256": "77703788b6ba310829f894bcc023f286aa90ee0450b9c506d92902db3d5c53ae",
+      "version": "1.34.0"
+    },
+    ".maestro/subflows/sign-in.yaml": {
+      "source": "@marktiderman/genesis-cli:templates/maestro/subflows/sign-in.yaml",
+      "sha256": "b5543551e7339bb2f1afdf01d4eb75bd294721cf6fdb70f5453fbe83b320474f",
+      "version": "1.34.0"
+    },
+    "eas.json": {
+      "source": "@marktiderman/genesis-cli:templates/eas/eas.json",
+      "sha256": "5bd3c7c4630bec129acf01f7b682b65cde8863002514f388109026a6e069368b",
+      "version": "1.34.0"
+    },
+    "fingerprint.config.js": {
+      "source": "@marktiderman/genesis-cli:templates/expo/fingerprint.config.js",
+      "sha256": "9a75c71ba023e1ec17a48ef77c08924078152ccf075cb3e6062cf9c81479726b",
+      "version": "1.34.0"
+    },
+    "supabase/functions/genesis-apple-revoke/apple.ts": {
+      "source": "@marktiderman/genesis-supabase:functions/genesis-apple-revoke/apple.ts",
+      "sha256": "96d54bbcee0e2313aaf5d80357044e57863b03964e721519deef79ac37b3a72d"
+    },
+    "supabase/functions/genesis-apple-revoke/handler.ts": {
+      "source": "@marktiderman/genesis-supabase:functions/genesis-apple-revoke/handler.ts",
+      "sha256": "5aed5e91721279e4508dd6edb127617c6f71612eec9e9ce9c0becdd373ae31fa"
+    },
+    "supabase/functions/genesis-apple-revoke/index.ts": {
+      "source": "@marktiderman/genesis-supabase:functions/genesis-apple-revoke/index.ts",
+      "sha256": "2fdeca9e9754bfbfd9c9e1a2bccbf091e60bb7d0ec69d09979f789cc2e83daef"
+    },
+    "supabase/functions/genesis-push-send/expo.ts": {
+      "source": "@marktiderman/genesis-supabase:functions/genesis-push-send/expo.ts",
+      "sha256": "08371ac05a8067b9af5b80db050eafa5c3e3fa9b5abd6c853dcd5ba9b5274eb4"
+    },
+    "supabase/functions/genesis-push-send/handler.ts": {
+      "source": "@marktiderman/genesis-supabase:functions/genesis-push-send/handler.ts",
+      "sha256": "a68c78b6b2474825c88bbc8f45457d75ed5eb25df8b81f9f3031bf2b46eba06c"
+    },
+    "supabase/functions/genesis-push-send/index.ts": {
+      "source": "@marktiderman/genesis-supabase:functions/genesis-push-send/index.ts",
+      "sha256": "0aaea30c30a74a2c556ca5f106316f7dfeb4b9e8f85e12373887bf94ec601536"
+    },
+    "supabase/tests/database/genesis_account_deletion.test.sql": {
+      "source": "@marktiderman/genesis-supabase:migrations/tests/0001_genesis_account_deletion.test.sql",
+      "sha256": "1b2573c41837ff4f1a022192a82ee3e96460cec8f25cf65b5150a12c59248ba6"
+    },
+    "supabase/tests/database/genesis_app_release_policy.test.sql": {
+      "source": "@marktiderman/genesis-supabase:migrations/tests/0002_genesis_app_release_policy.test.sql",
+      "sha256": "6ce87ec40a49d04a361136f9ad776781524b00243af683538fb7bff9ca4cd555"
+    },
+    "supabase/tests/database/genesis_apple_token_revocation.test.sql": {
+      "source": "@marktiderman/genesis-supabase:migrations/tests/0003_genesis_apple_token_revocation.test.sql",
+      "sha256": "a2709d8cc7b18890171629f274ec30630570d4b160d721bfb7d0e69a1c2ea97d"
+    },
+    "supabase/tests/database/genesis_chat_attachment_paths.test.sql": {
+      "source": "@marktiderman/genesis-chat:migrations/tests/0005_genesis_chat_attachment_paths.test.sql",
+      "sha256": "278a15a41ebb30a8c04d734a6748c992b673cd93dce89b91a69ae52a8afc887a"
+    },
+    "supabase/tests/database/genesis_chat_coaching.test.sql": {
+      "source": "@marktiderman/genesis-chat:migrations/tests/0002_genesis_chat_coaching.test.sql",
+      "sha256": "7bfbc3429045439f358f7e6df3e342a7c1b1bb3d76d1655132a81ef241a92d90"
+    },
+    "supabase/tests/database/genesis_chat_read_receipts.test.sql": {
+      "source": "@marktiderman/genesis-chat:migrations/tests/0006_genesis_chat_read_receipts.test.sql",
+      "sha256": "4ab6f532bf319e786780b740eee5cfa6d89d90c9841b973ef97f95d902935048"
+    },
+    "supabase/tests/database/genesis_chat_search_threads.test.sql": {
+      "source": "@marktiderman/genesis-chat:migrations/tests/0003_genesis_chat_search_threads.test.sql",
+      "sha256": "f5f041aa3b54999373004286c8a5440eb56d435b44b58b4153fdb3e035752b0f"
+    },
+    "supabase/tests/database/genesis_chat_tenants.test.sql": {
+      "source": "@marktiderman/genesis-chat:migrations/tests/0004_genesis_chat_tenants.test.sql",
+      "sha256": "bacab1703e44696ba45c4890d8718e1597612c7c931c82d3838c4c8842ea8d8d"
+    },
+    "supabase/tests/database/genesis_chat_unread_and_delete_for_me.test.sql": {
+      "source": "@marktiderman/genesis-chat:migrations/tests/0007_genesis_chat_unread_and_delete_for_me.test.sql",
+      "sha256": "8a62965905e502aeab079cb01847340939c0b443a9f6abfeef411a8e9f6e36c0"
+    },
+    "supabase/tests/database/genesis_chat.test.sql": {
+      "source": "@marktiderman/genesis-chat:migrations/tests/0001_genesis_chat.test.sql",
+      "sha256": "f7247c29e6fa8f0d78fc95a760a2acd939dbb01ae29f27b235f9d78372bc82ba"
+    },
+    "supabase/tests/database/genesis_notifications.test.sql": {
+      "source": "@marktiderman/genesis-notifications:migrations/tests/0001_genesis_notifications.test.sql",
+      "sha256": "baf9e746a9734215af2a78236ac661a56da5372150c42d48d8adbfe11349945b"
+    },
+    "supabase/tests/database/genesis_support_diagnostics.test.sql": {
+      "source": "@marktiderman/genesis-support:migrations/tests/0019_genesis_support_diagnostics.test.sql",
+      "sha256": "2b22455b3479beff66418a3a4bbfa6321c05b858f72ab1da11f6171c6fc440d0"
+    },
+    "supabase/tests/database/genesis_support_findings.test.sql": {
+      "source": "@marktiderman/genesis-support:migrations/tests/0003_genesis_support_findings.test.sql",
+      "sha256": "a2d3588f53ce26aecf8bcccdb005fda911f3dace4329cca9a589f975cdd46e3e"
+    },
+    "supabase/tests/database/genesis_support_ticket_fixes.test.sql": {
+      "source": "@marktiderman/genesis-support:migrations/tests/0016_genesis_support_ticket_fixes.test.sql",
+      "sha256": "01e5869ba39d36c6d429e22797ac6b4ca1f6dbd47217c6ce324e3e7fedc286c9"
+    },
+    "supabase/tests/database/genesis_support_tickets.test.sql": {
+      "source": "@marktiderman/genesis-support:migrations/tests/0004_genesis_support_tickets.test.sql",
+      "sha256": "0c145a74c58708d4c67cd97a120203aa5d6a7ffdabe3b2ed8cb4180c7cc0d8f6"
+    },
+    "supabase/tests/database/genesis_support.test.sql": {
+      "source": "@marktiderman/genesis-supabase:migrations/tests/0006_genesis_support.test.sql",
+      "sha256": "ca4c81a80ab66d27a403a9209a55f7f203d2e58f65729278b617b0a424ad12f0"
+    }
+  },
+  "migrations": {
+    "@marktiderman/genesis-chat:migrations/0001_genesis_chat.sql": "supabase/migrations/20261025000000_genesis_chat.sql",
+    "@marktiderman/genesis-chat:migrations/0002_genesis_chat_coaching.sql": "supabase/migrations/20261025000050_genesis_chat_coaching.sql",
+    "@marktiderman/genesis-chat:migrations/0003_genesis_chat_search_threads.sql": "supabase/migrations/20261025000060_genesis_chat_search_threads.sql",
+    "@marktiderman/genesis-chat:migrations/0004_genesis_chat_tenants.sql": "supabase/migrations/20261025000080_genesis_chat_tenants.sql",
+    "@marktiderman/genesis-chat:migrations/0005_genesis_chat_attachment_paths.sql": "supabase/migrations/20261025000090_genesis_chat_attachment_paths.sql",
+    "@marktiderman/genesis-chat:migrations/0006_genesis_chat_read_receipts.sql": "supabase/migrations/20261026001400_genesis_chat_read_receipts.sql",
+    "@marktiderman/genesis-chat:migrations/0007_genesis_chat_unread_and_delete_for_me.sql": "supabase/migrations/20261026001500_genesis_chat_unread_and_delete_for_me.sql",
+    "@marktiderman/genesis-notifications:migrations/0001_genesis_notifications.sql": "supabase/migrations/20261025000100_genesis_notifications.sql",
+    "@marktiderman/genesis-supabase:migrations/0001_genesis_account_deletion.sql": "supabase/migrations/20261024000000_genesis_account_deletion.sql",
+    "@marktiderman/genesis-supabase:migrations/0002_genesis_app_release_policy.sql": "supabase/migrations/20261024000100_genesis_app_release_policy.sql",
+    "@marktiderman/genesis-supabase:migrations/0003_genesis_apple_token_revocation.sql": "supabase/migrations/20261024000200_genesis_apple_token_revocation.sql",
+    "@marktiderman/genesis-supabase:migrations/0005_genesis_push.sql": "supabase/migrations/20261024000400_genesis_push.sql",
+    "@marktiderman/genesis-supabase:migrations/0006_genesis_support.sql": "supabase/migrations/20261024000600_genesis_support.sql",
+    "@marktiderman/genesis-supabase:migrations/0020_genesis_settings.sql": "supabase/migrations/20261026000700_genesis_settings.sql",
+    "@marktiderman/genesis-supabase:migrations/0021_genesis_settings_integer.sql": "supabase/migrations/20261026000800_genesis_settings_integer.sql",
+    "@marktiderman/genesis-supabase:migrations/0022_genesis_platform_admins.sql": "supabase/migrations/20261026000900_genesis_platform_admins.sql",
+    "@marktiderman/genesis-supabase:migrations/0023_genesis_settings_tenant_person.sql": "supabase/migrations/20261026001100_genesis_settings_tenant_person.sql",
+    "@marktiderman/genesis-supabase:migrations/0025_genesis_settings_pattern.sql": "supabase/migrations/20261026001300_genesis_settings_pattern.sql",
+    "@marktiderman/genesis-support:migrations/0003_genesis_support_findings.sql": "supabase/migrations/20261024000700_genesis_support_findings.sql",
+    "@marktiderman/genesis-support:migrations/0004_genesis_support_tickets.sql": "supabase/migrations/20261024000800_genesis_support_tickets.sql",
+    "@marktiderman/genesis-support:migrations/0016_genesis_support_ticket_fixes.sql": "supabase/migrations/20261025000095_genesis_support_ticket_fixes.sql",
+    "@marktiderman/genesis-support:migrations/0019_genesis_support_diagnostics.sql": "supabase/migrations/20261025000096_genesis_support_diagnostics.sql",
+    "@marktiderman/genesis-support:migrations/0020_genesis_support_settings.sql": "supabase/migrations/20261026000300_genesis_support_settings.sql",
+    "@marktiderman/genesis-support:migrations/0021_genesis_support_default_hooks.sql": "supabase/migrations/20261026000100_genesis_support_default_hooks.sql",
+    "@marktiderman/genesis-support:migrations/0023_genesis_support_hook_defaults.sql": "supabase/migrations/20261026000200_genesis_support_hook_defaults.sql",
+    "@marktiderman/genesis-support:migrations/0026_genesis_support_diagnostics_access.sql": "supabase/migrations/20261026000400_genesis_support_diagnostics_access.sql",
+    "@marktiderman/genesis-support:migrations/0028_genesis_support_diagnostics_fixes.sql": "supabase/migrations/20261026000500_genesis_support_diagnostics_fixes.sql",
+    "@marktiderman/genesis-support:migrations/0030_genesis_support_notifications.sql": "supabase/migrations/20261026000600_genesis_support_notifications.sql",
+    "@marktiderman/genesis-support:migrations/0032_genesis_support_staff_admin_list.sql": "supabase/migrations/20261026001000_genesis_support_staff_admin_list.sql",
+    "@marktiderman/genesis-support:migrations/0033_genesis_support_settings_resolver.sql": "supabase/migrations/20261026001200_genesis_support_settings_resolver.sql"
+  }
+}

@@ -1,0 +1,30 @@
+# Standards: a view's row actions. Long press opens the system menu with every action (Add Note,
+# which has no swipe, too); picking one runs it. Swipes are checked with real gestures (Argent).
+appId: dev.genesis.workbench.dev
+tags:
+  - workbench
+  - standards
+---
+- runFlow: ../subflows/open-workbench.yaml
+- tapOn:
+    id: "workbench-open-row-actions-list"
+- extendedWaitUntil:
+    visible: "Ada Lovelace"
+    timeout: 15000
+- takeScreenshot: row-actions-list
+- longPressOn: "Ada Lovelace"
+- extendedWaitUntil:
+    visible: "Add Note"
+    timeout: 5000
+- assertVisible: "Hide Alerts"
+- takeScreenshot: row-actions-list-menu
+- tapOn: "Pin"
+- extendedWaitUntil:
+    visible: "Ran pin on Ada Lovelace"
+    timeout: 5000
+# The large title collapses as the list scrolls (the screenshot shows it in the bar).
+- swipe:
+    direction: UP
+    duration: 800
+- waitForAnimationToEnd
+- takeScreenshot: row-actions-list-collapsed

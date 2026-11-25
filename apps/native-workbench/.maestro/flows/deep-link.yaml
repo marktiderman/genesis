@@ -1,0 +1,16 @@
+# Smoke: the development variant answers to its own scheme. A link to a section opens its tab.
+appId: dev.genesis.workbench.dev
+tags:
+  - smoke
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible:
+      id: "workbench-standards"
+    timeout: 20000
+- openLink: "genesis-workbench-dev://components"
+- extendedWaitUntil:
+    visible:
+      id: "workbench-components"
+    timeout: 10000

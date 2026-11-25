@@ -66,6 +66,7 @@ program
   .option("--bundle-id <id>", "--template: iOS bundle id and Android package (default com.example.<slug>)")
   .option("--scheme <scheme>", "--template: the URL scheme (default: the slug)")
   .option("--without <switches>", "--template: starter.config.ts feature switches to turn off, comma-separated (e.g. chat,support); their blocks are left out")
+  .option("--supabase-ports <base>", "--template: the local Supabase stack's ports from this base (API base+1, database base+2…), for a machine where another stack has the defaults (5432x)")
   .option("--beside <web-app>", "--template: a phone app that uses this web app's database: no supabase/ here when it has one, and genesis.config.json says where it is")
   .option(
     "--emit-conflicts",
@@ -93,6 +94,7 @@ program
     scheme?: string;
     without?: string;
     beside?: string;
+    supabasePorts?: string;
   }) => {
     if (consumer === undefined) {
       const root = path.resolve(opts.target ?? process.cwd());
@@ -138,6 +140,7 @@ program
         ...(opts.scheme ? { scheme: opts.scheme } : {}),
         ...(opts.without ? { without: opts.without.split(",").map((s) => s.trim()).filter(Boolean) } : {}),
         ...(opts.beside ? { beside: opts.beside } : {}),
+        ...(opts.supabasePorts !== undefined ? { supabasePorts: Number(opts.supabasePorts) } : {}),
       });
       if (opts.preset !== undefined) {
         const { withPreset } = await import("./wizard/init.js");
