@@ -1,5 +1,5 @@
 # Components: stat tiles, status badges, badges, avatars and cards. Opens the screen from its tab and keeps a screenshot of it, before and after a scroll.
-appId: com.streamlineddigital.genesis.showcase.dev
+appId: com.streamlineddigital.genesis.dev
 tags:
   - workbench
   - components
