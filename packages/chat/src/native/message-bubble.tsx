@@ -511,6 +511,8 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
         // The arrow shows only while the row is dragged, whatever the bubble sits in (a thread, a gallery).
         renderLeftActions={() => <ReplyHint color={colors.secondaryLabel} shown={dragging} testID={`${testID}-reply-hint`} />}
         onSwipeableOpenStartDrag={() => setDragging(true)}
+        // Cleared as the row starts back too, so a cancelled drag never leaves the arrow showing.
+        onSwipeableWillClose={() => setDragging(false)}
         onSwipeableClose={() => setDragging(false)}
         onSwipeableWillOpen={() => {
           props.onSwipeReply?.();
