@@ -18,7 +18,7 @@ function Harness() {
 }
 
 describe("the composer's + button", () => {
-  it("opens a menu that fits its actions, and the picker opens as soon as the menu has gone, with no fixed wait", async () => {
+  it("opens the + list (Camera, then Photos), and the picker opens as soon as the list has gone, with no fixed wait", async () => {
     vi.useFakeTimers();
     const launchImageLibraryAsync = vi.fn(async () => ({ canceled: true, assets: null }));
     const launchCameraAsync = vi.fn(async () => ({ canceled: true, assets: null }));
@@ -29,12 +29,44 @@ describe("the composer's + button", () => {
     );
     await act(async () => fireEvent.click(screen.getByTestId("cmp-attach")));
     await act(async () => void (await vi.advanceTimersByTimeAsync(0)));
-    expect(screen.getByTestId("cmp-attach-sheet-action-library")).toBeTruthy();
-    expect(screen.getByTestId("cmp-attach-sheet-action-camera")).toBeTruthy();
-    expect(screen.getByTestId("cmp-attach-sheet-cancel")).toBeTruthy();
-    await act(async () => fireEvent.click(screen.getByTestId("cmp-attach-sheet-action-library")));
+    const items = screen.getAllByRole("menuitem").map((e) => e.getAttribute("data-testid"));
+    expect(items).toEqual(["cmp-plus-camera", "cmp-plus-photos"]);
+    expect(screen.getByTestId("cmp-plus-dismiss")).toBeTruthy();
+    await act(async () => fireEvent.click(screen.getByTestId("cmp-plus-photos")));
     await act(async () => void (await vi.advanceTimersByTimeAsync(10)));
     expect(launchImageLibraryAsync).toHaveBeenCalledTimes(1);
+  });
+
+  it("takes the app's own items, and lets it remove or reorder the defaults", async () => {
+    vi.useFakeTimers();
+    const mine = vi.fn();
+    const launchImageLibraryAsync = vi.fn(async () => ({ canceled: true, assets: null }));
+    const launchCameraAsync = vi.fn(async () => ({ canceled: true, assets: null }));
+    function Own() {
+      const composer = useChatComposer("c1", null, "u1");
+      return (
+        <ChatComposer
+          composer={composer}
+          canPost
+          disabledReason={null}
+          role="member"
+          onSend={vi.fn()}
+          plusItems={(defaults) => [{ id: "sample", label: "Sample tool", icon: "star", color: "transparent", onPress: mine }, ...defaults.filter((d) => d.id !== "camera")]}
+          testID="cmp"
+        />
+      );
+    }
+    render(
+      <ChatNativeProvider modules={{ imagePicker: { launchImageLibraryAsync, launchCameraAsync } } as unknown as ChatNativeModules}>
+        <Own />
+      </ChatNativeProvider>,
+    );
+    await act(async () => fireEvent.click(screen.getByTestId("cmp-attach")));
+    await act(async () => void (await vi.advanceTimersByTimeAsync(0)));
+    expect(screen.getAllByRole("menuitem").map((e) => e.getAttribute("data-testid"))).toEqual(["cmp-plus-sample", "cmp-plus-photos"]);
+    await act(async () => fireEvent.click(screen.getByTestId("cmp-plus-sample")));
+    await act(async () => void (await vi.advanceTimersByTimeAsync(10)));
+    expect(mine).toHaveBeenCalledTimes(1);
   });
 });
 

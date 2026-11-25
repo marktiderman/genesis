@@ -327,3 +327,16 @@ describe("ChatThreadScreen's typing", () => {
     expect(screen.queryByTestId("chat-thread-typing")).toBeNull();
   });
 });
+
+describe("ChatThreadScreen's slots", () => {
+  const at = new Date().toISOString();
+
+  it("puts the app's own part under the header (nothing by default), and swaps a bubble for the app's own, given its props", async () => {
+    const { client } = receiptsClient([msg(1, SAM, at)], [{ userId: SAM, lastReadSeq: 1 }]);
+    const Below = ({ conversationId, testID }: { conversationId: string; testID: string }) => <span data-testid={testID}>{`pill ${conversationId}`}</span>;
+    const Bubble = ({ testID, row }: { testID: string; row: { mine: boolean } }) => <span data-testid={testID}>{row.mine ? "mine" : "theirs"}</span>;
+    render(wrap(client, drawingList().List, <ChatThreadScreen conversationId={CONV} slots={{ belowHeader: Below, bubble: Bubble }} />));
+    expect(screen.getByTestId("chat-thread-below-header").textContent).toBe(`pill ${CONV}`);
+    expect((await screen.findByTestId("chat-thread-message-m1", {}, { timeout: 2000 })).textContent).toBe("theirs");
+  });
+});

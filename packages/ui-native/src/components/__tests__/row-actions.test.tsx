@@ -1,4 +1,5 @@
 // @feat:row-actions
+import { useState } from "react";
 import { forwardRef, useImperativeHandle, type ReactNode } from "react";
 import { act, cleanup, fireEvent, render, renderHook, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -163,6 +164,35 @@ describe("row actions (ADR 0028)", () => {
     expect(JSON.parse(button.dataset.style!)).toMatchObject({ backgroundColor: "transparent", width: 56 });
   });
 
+  it("draws round buttons without the labels under them with roundLabels={false}, each still named for the screen reader", () => {
+    const Swipeable = fakeSwipeable(vi.fn(), () => 0);
+    const { rerender } = render(
+      <GenesisModulesProvider modules={{ swipeable: Swipeable as never }}>
+        <NativeSwipeRow actions={make()} appearance="round" roundLabels={false} testID="s">
+          <i />
+        </NativeSwipeRow>
+      </GenesisModulesProvider>,
+    );
+    expect(screen.queryByTestId("s-action-pin-label")).toBeNull();
+    expect(screen.getByTestId("s-action-pin").getAttribute("aria-label")).toBe("Pin");
+    // The default keeps them.
+    rerender(
+      <GenesisModulesProvider modules={{ swipeable: Swipeable as never }}>
+        <NativeSwipeRow actions={make()} appearance="round" testID="s">
+          <i />
+        </NativeSwipeRow>
+      </GenesisModulesProvider>,
+    );
+    expect(screen.getByTestId("s-action-pin-label").textContent).toBe("Pin");
+    // A labelled button is as it was: no role or label of its own.
+    expect(screen.getByTestId("s-action-pin").getAttribute("aria-label")).toBeNull();
+  });
+
+  it("draws an indigo accent in systemIndigo", () => {
+    expect(ROW_ACTION_SYSTEM_COLORS.indigo.ios).toBe("systemIndigo");
+    expect(onRowActionColor("indigo")).toBe("#FFFFFF");
+  });
+
   it("turns the row into a pill while its round actions are open, without remounting it", () => {
     const Swipeable = fakeSwipeable(vi.fn(), () => 10);
     render(
@@ -220,6 +250,56 @@ describe("row actions (ADR 0028)", () => {
     fireEvent.contextMenu(screen.getByTestId("li"));
     expect(await screen.findByTestId("peek")).toBeTruthy();
     expect(screen.getByTestId("ra-sheet-preview")).toBeTruthy();
+  });
+
+  it("with renderMenu, the long press opens the screen's own menu, and neither the sheet nor the system menu is mounted", async () => {
+    const Menu: NonNullable<GenesisModules["menu"]> = () => <div data-testid="system-menu" />;
+    const seen: { open: boolean; title?: string; ids: string[]; testID: string }[] = [];
+    render(
+      <GenesisModulesProvider modules={{ menu: Menu }}>
+        <NativeRowActions
+          actions={make()}
+          title="Ada"
+          renderMenu={({ open, onClose, actions, title, testID }) => {
+            seen.push({ open, title, ids: actions.map((a) => a.id), testID });
+            return open ? <button data-testid="own-menu" onClick={onClose} /> : null;
+          }}
+          testID="ra"
+        >
+          <NativeListItem title="Ada" onPress={vi.fn()} testID="li" />
+        </NativeRowActions>
+      </GenesisModulesProvider>,
+    );
+    expect(screen.queryByTestId("system-menu")).toBeNull();
+    const row = screen.getByTestId("li");
+    expect(row.getAttribute("data-a11y-actions")).toBe("read,pin,review,delete");
+    fireEvent.contextMenu(row);
+    expect(await screen.findByTestId("own-menu")).toBeTruthy();
+    expect(seen.at(-1)).toMatchObject({ open: true, title: "Ada", ids: ["read", "pin", "review", "delete"], testID: "ra-menu" });
+    expect(screen.queryByTestId("ra-sheet")).toBeNull();
+    fireEvent.click(screen.getByTestId("own-menu"));
+    expect(screen.queryByTestId("own-menu")).toBeNull();
+    // VoiceOver's actions are unchanged.
+    expect(row.getAttribute("data-a11y-actions")).toBe("read,pin,review,delete");
+  });
+
+  it("takes a menu component with hooks as renderMenu, with no hook-order warning", async () => {
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    function HookedMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
+      const [count, setCount] = useState(0);
+      return open ? <button data-testid="hooked-menu" data-count={count} onClick={() => (setCount((n) => n + 1), onClose())} /> : null;
+    }
+    render(
+      <NativeRowActions actions={make()} title="Ada" renderMenu={HookedMenu} testID="ra">
+        <NativeListItem title="Ada" onPress={vi.fn()} testID="li" />
+      </NativeRowActions>,
+    );
+    fireEvent.contextMenu(screen.getByTestId("li"));
+    fireEvent.click(await screen.findByTestId("hooked-menu"));
+    fireEvent.contextMenu(screen.getByTestId("li"));
+    expect((await screen.findByTestId("hooked-menu")).getAttribute("data-count")).toBe("1");
+    expect(errors.mock.calls.some((c) => String(c[0]).includes("order of Hooks") || String(c[0]).includes("Rendered more hooks"))).toBe(false);
+    errors.mockRestore();
   });
 
   it("keeps the actions unseen until a drag starts, so they never show in an inset row's margins", () => {

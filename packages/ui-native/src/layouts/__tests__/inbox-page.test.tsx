@@ -215,6 +215,40 @@ describe("InboxPage", () => {
     expect(screen.getByTestId("inbox-row-a-separator-line")).toBeTruthy();
   });
 
+  it("plain: full-width clear rows on the page, no inset group, the hairlines still inset to the text", () => {
+    Platform.OS = "ios";
+    render(<InboxPage testID="inbox" items={items} now={now} variant="plain" />);
+    const first = styleOf(screen.getByTestId("inbox-row-a-cell"));
+    expect(first.marginHorizontal).toBeUndefined();
+    expect(first.borderTopLeftRadius).toBeUndefined();
+    expect(first.backgroundColor).toBe("transparent");
+    expect(screen.getByTestId("inbox-row-a-separator-line")).toBeTruthy();
+  });
+
+  it("takes a page background of its own, and hands the variant to a row of the app's own", () => {
+    Platform.OS = "ios";
+    const seen: (string | undefined)[] = [];
+    const Row = (row: { variant?: string; testID: string }) => {
+      seen.push(row.variant);
+      return null;
+    };
+    render(<InboxPage testID="inbox" items={items} now={now} variant="plain" background="transparent" slots={{ row: Row }} />);
+    expect((screen.getByTestId("inbox") as HTMLElement).style.backgroundColor).toBe("transparent");
+    expect(seen).toContain("plain");
+  });
+
+  it("opens a rowMenu of the screen's own on long press, with no sheet in the tree", async () => {
+    const RowMenu = ({ open, title, actions, testID }: { open: boolean; title?: string; actions: readonly { id: string }[]; testID: string }) =>
+      open ? <div data-testid={testID}>{`${title}: ${actions.map((a) => a.id).join(",")}`}</div> : null;
+    render(<InboxPage testID="inbox" now={now} slots={{ rowMenu: RowMenu }} items={[{ id: "x", title: "Thread", swipeActions: [{ id: "read", label: "Mark read", onPress: vi.fn() }] }]} />);
+    const row = screen.getByTestId("inbox-row-x");
+    fireEvent.contextMenu(row);
+    await act(async () => {});
+    expect(screen.getByTestId("inbox-row-x-menu").textContent).toBe("Thread: read");
+    expect(screen.queryByTestId("inbox-menu")).toBeNull();
+    expect(row.getAttribute("data-a11y-actions")).toBe("read");
+  });
+
   it("on Android, rows are full width", () => {
     Platform.OS = "android";
     render(<InboxPage testID="inbox" items={items} now={now} />);

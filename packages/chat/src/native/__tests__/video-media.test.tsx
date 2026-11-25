@@ -462,17 +462,18 @@ function Composer({ onRecordVideo }: { onRecordVideo?: () => void }) {
   return <ChatComposer composer={composer} canPost disabledReason={null} role="member" onSend={vi.fn()} onRecordVideo={onRecordVideo} testID="c" />;
 }
 
-describe("the composer's video button", () => {
-  it("opens the recorder, and is absent without one", () => {
+describe("the composer's + list", () => {
+  it("offers Video, which opens the recorder, and leaves it out without one", async () => {
     const onRecordVideo = vi.fn();
     render(withModules({}, <Composer onRecordVideo={onRecordVideo} />));
-    const button = screen.getByTestId("c-video");
-    expect(button.getAttribute("aria-label")).toBe("Record a video");
-    fireEvent.click(button);
+    // Video is the only item here, so + goes straight to it.
+    await act(async () => fireEvent.click(screen.getByTestId("c-attach")));
+    expect(screen.getByTestId("c-attach").getAttribute("aria-label")).toBe("More");
     expect(onRecordVideo).toHaveBeenCalled();
     cleanup();
     render(withModules({}, <Composer />));
-    expect(screen.queryByTestId("c-video")).toBeNull();
+    // No item at all: no + either.
+    expect(screen.queryByTestId("c-attach")).toBeNull();
   });
 });
 
