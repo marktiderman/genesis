@@ -122,21 +122,14 @@ export function inboxHeaderItems(options: {
       accessibilityLabel: copy.filters,
       tintColor: tint,
       menu: {
+        // Flat: the filters (the shown one ticked), then the app's entries. iOS drew nested sections
+        // here as unnamed rows that only opened another menu. Each names itself by `label`, which
+        // expo-router's header turns into the item's title (it overwrites `title`).
         items: [
           ...(filters.length > 1
-            ? [
-                {
-                  type: "submenu",
-                  title: copy.filterMenuTitle,
-                  displayInline: true,
-                  singleSelection: true,
-                  items: filters.map((f) => ({ type: "action", title: f.label, ...(f.sf ? { icon: { type: "sfSymbol", name: f.sf } } : {}), state: f.id === active ? "on" : "off", onPress: () => onFilter(f.id) })),
-                },
-              ]
+            ? filters.map((f) => ({ type: "action", label: f.label, title: f.label, ...(f.sf ? { icon: { type: "sfSymbol", name: f.sf } } : {}), state: f.id === active ? "on" : "off", onPress: () => onFilter(f.id) }))
             : []),
-          ...(menu.length
-            ? [{ type: "submenu", displayInline: true, items: menu.map((m) => ({ type: "action", title: m.label, ...(m.sf ? { icon: { type: "sfSymbol", name: m.sf } } : {}), onPress: m.onPress })) }]
-            : []),
+          ...menu.map((m) => ({ type: "action", label: m.label, title: m.label, ...(m.sf ? { icon: { type: "sfSymbol", name: m.sf } } : {}), onPress: m.onPress })),
         ],
       },
     });
@@ -519,7 +512,6 @@ export const ChatInboxRowContent = memo(function ChatInboxRowContent(row: ChatIn
   const { copy } = useChatNative();
   const unread = Boolean(row.unread || (row.unreadCount ?? 0) > 0);
   const label = [unread ? copy.unread : null, row.title, row.pinnedLabel, row.mutedLabel, row.timeLabel, row.preview, row.meta].filter(Boolean).join(", ");
-  const swipeGuard = useSwipeGuard();
   return (
     <View>
       <ChatTap
@@ -528,9 +520,8 @@ export const ChatInboxRowContent = memo(function ChatInboxRowContent(row: ChatIn
         accessibilityLabel={label}
         // The screen reader's actions and the long press (which opens the `rowMenu`, Messages' layer).
         {...row.actionProps}
-        onPressIn={swipeGuard.onPressIn}
-        onPressOut={swipeGuard.onPressOut}
-        onPress={() => swipeGuard.isTap() && row.onPress?.()}
+        // A press that became a swipe never fires: NativeSwipeRow's guard takes it from the row.
+        onPress={row.onPress}
         look={(pressed) => ({
           flexDirection: "row",
           alignItems: "center",
@@ -577,47 +568,6 @@ export const ChatInboxRowContent = memo(function ChatInboxRowContent(row: ChatIn
   );
 });
 
-/** A press that moved this far sideways was a swipe, not a tap: it doesn't open the conversation. */
-const TAP_SLOP = 10;
-
-/** Where a touch is across the screen: React Native's `pageX` (a DOM event's `clientX`, on the web). */
-function touchX(e: { nativeEvent?: { pageX?: number; clientX?: number } } | undefined): number | null {
-  const n = e?.nativeEvent;
-  if (!n) return null;
-  if (typeof n.clientX === "number") return n.clientX;
-  return typeof n.pageX === "number" ? n.pageX : null;
-}
-
-/**
- * Tells a tap from the start of a swipe, by how far the finger moved between press-in and
- * press-out (which comes before the press). Each touch starts afresh, and press-out clears where it
- * began, so a swipe that never became a press leaves nothing behind for the next tap.
- */
-function useSwipeGuard() {
-  const start = useRef<number | null>(null);
-  const swiped = useRef(false);
-  return useMemo(
-    () => ({
-      onPressIn: (e: { nativeEvent?: { pageX?: number; clientX?: number } }) => {
-        start.current = touchX(e);
-        swiped.current = false;
-      },
-      onPressOut: (e: { nativeEvent?: { pageX?: number; clientX?: number } }) => {
-        const from = start.current;
-        const to = touchX(e);
-        start.current = null;
-        swiped.current = from != null && to != null && Math.abs(to - from) >= TAP_SLOP;
-      },
-      isTap: () => {
-        const tap = !swiped.current;
-        swiped.current = false;
-        return tap;
-      },
-    }),
-    [],
-  );
-}
-
 /**
  * A conversation's long press, as Messages shows it (InboxPage's `rowMenu`, the inbox's default):
  * the row's peek (`preview`, the conversation's latest messages) lifted over a softened screen, and
@@ -638,7 +588,10 @@ export function ChatConversationMenu({ open, onClose, actions, preview, testID }
       open={open}
       onClose={onClose}
       anchor={null}
-      previewHeight={Math.round(height * 0.45)}
+      // A tall card, as Messages draws its peek; it covers the header under the softened screen.
+      previewHeight={Math.round(height * 0.55)}
+      // The screen behind hidden, as Messages does: the header's buttons don't show around the card.
+      scrim="strong"
       preview={preview?.() ?? null}
       items={items}
       closeLabel={copy.closeMenu}

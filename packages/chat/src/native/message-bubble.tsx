@@ -148,6 +148,8 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
   const chat = useChatColors();
   const bubbleRef = useRef<ComponentRef<typeof View> | null>(null);
   const [allReactions, setAllReactions] = useState(false);
+  // A swipe to reply is under way: the arrow behind the row shows.
+  const [dragging, setDragging] = useState(false);
   const { item, mine } = row;
   const message = item.type === "message" ? item.message : null;
   const pending = item.type === "pending" ? item.pending : null;
@@ -506,7 +508,10 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
         overshootLeft={false}
         // Leftward drags are the thread's (its times), never this row's.
         dragOffsetFromRightEdge={10_000}
-        renderLeftActions={() => <ReplyHint color={colors.secondaryLabel} />}
+        // The arrow shows only while the row is dragged, whatever the bubble sits in (a thread, a gallery).
+        renderLeftActions={() => <ReplyHint color={colors.secondaryLabel} shown={dragging} testID={`${testID}-reply-hint`} />}
+        onSwipeableOpenStartDrag={() => setDragging(true)}
+        onSwipeableClose={() => setDragging(false)}
         onSwipeableWillOpen={() => {
           props.onSwipeReply?.();
           props.onReply?.(message);
@@ -579,9 +584,9 @@ function BubbleTail({ mine, color, backdrop, opacity, testID }: { mine: boolean;
 }
 
 /** What the swipe to reply uncovers. */
-function ReplyHint({ color }: { color: unknown }): ReactNode {
+function ReplyHint({ color, shown, testID }: { color: unknown; shown: boolean; testID: string }): ReactNode {
   return (
-    <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ width: SWIPE_MAX, alignItems: "center", justifyContent: "center" }}>
+    <View testID={testID} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ width: SWIPE_MAX, alignItems: "center", justifyContent: "center", opacity: shown ? 1 : 0 }}>
       <NativeIcon name="reply" size={20} color={color as string} />
     </View>
   );

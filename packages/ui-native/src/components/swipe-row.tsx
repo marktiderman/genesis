@@ -57,6 +57,80 @@ export interface NativeSwipeRowProps {
   testID?: string;
 }
 
+/** How long a drag that started counts as swiping when gesture-handler reports no end, in ms. */
+export const SWIPE_PRESS_HOLD_MS = 2000;
+
+/**
+ * Tells NativeSwipeRow's row whether its press is a real one. Not while the row is open; not when a
+ * drag started after the touch did (gesture-handler's start of a drag, which can come just after the
+ * release); and, for a touch it didn't see start, not within `SWIPE_PRESS_HOLD_MS` of a drag that
+ * reported no end. It reads the Swipeable's own callbacks and a touch's start, and never takes the
+ * touch, so the swipe always gets its gesture.
+ */
+export function createSwipePressGuard(now: () => number = () => Date.now()) {
+  let open = false;
+  let dragAt: number | null = null;
+  let touchAt: number | null = null;
+  return {
+    touchStart() {
+      touchAt = now();
+    },
+    dragStart() {
+      dragAt = now();
+    },
+    opened() {
+      open = true;
+      dragAt = null;
+    },
+    closed() {
+      open = false;
+      dragAt = null;
+    },
+    blocks() {
+      if (open) return true;
+      if (dragAt === null) return false;
+      // This touch became a drag.
+      if (touchAt !== null && dragAt >= touchAt) return true;
+      // A touch it didn't see start: a drag lately, with no end reported.
+      return touchAt === null && now() - dragAt < SWIPE_PRESS_HOLD_MS;
+    },
+  };
+}
+
+type Pressish = { onPress?: (...args: unknown[]) => void; children?: ReactNode };
+
+/** How deep the guard looks for the row's press: a system menu or another wrapper can sit around the row. */
+const PRESS_SEARCH_DEPTH = 4;
+
+/** One frame later: gesture-handler can report a drag's start just after the release that ends it. */
+const nextFrame = (run: () => void) => (typeof requestAnimationFrame === "function" ? requestAnimationFrame(() => run()) : setTimeout(run, 16));
+
+/**
+ * The row with its press guarded: the first element with an `onPress` (the row, or the row inside a
+ * menu wrapper) gets it wrapped. A press the guard blocks does nothing but `onBlocked`; one it lets
+ * through runs a frame later, unless a drag has started by then.
+ */
+function withPressGuard(children: ReactNode, guard: ReturnType<typeof createSwipePressGuard>, onBlocked: () => void, depth = 0): ReactNode {
+  if (!isValidElement(children) || depth > PRESS_SEARCH_DEPTH) return children;
+  const child = children as ReactElement<Pressish>;
+  const onPress = child.props.onPress;
+  if (typeof onPress === "function") {
+    return cloneElement(child, {
+      onPress: (...args: unknown[]) => {
+        if (guard.blocks()) return onBlocked();
+        nextFrame(() => {
+          if (guard.blocks()) return;
+          onPress(...args);
+        });
+      },
+    });
+  }
+  const inner = child.props.children;
+  if (!isValidElement(inner)) return children;
+  const guarded = withPressGuard(inner, guard, onBlocked, depth + 1);
+  return guarded === inner ? children : cloneElement(child, { children: guarded });
+}
+
 /** How far past a side's open actions a full swipe must go, in points. */
 export const FULL_SWIPE_CLEARANCE = 40;
 
@@ -228,13 +302,17 @@ export function NativeSwipeRow({
   const colorsOf = useRowActionColors();
   const play = useHaptics();
   const swipe = useRef<{ close?: () => void } | null>(null);
+  const guard = useRef(createSwipePressGuard()).current;
   const offset = useRef<{ value: number } | null>(null);
   const [width, setWidth] = useState(0);
   // The row off its resting place: from a drag starting (or a ref opening it) until it is back home.
   // It makes the open row a pill (round) and, without Reanimated, shows the buttons, which stay
   // mounted (the swipe measures them) but unseen at rest, so they never show in an inset row's margins.
   const [open, setOpen] = useState(false);
-  const content = accessibilityActions ? withAccessibilityActions(children, actions) : children;
+  // A touch's start, without taking it (no responder): the guard tells a press that became a drag.
+  const touchStart = { onTouchStart: () => guard.touchStart() } as Record<string, unknown>;
+  // A tap on a swiped-open row closes it instead of pressing it.
+  const content = withPressGuard(accessibilityActions ? withAccessibilityActions(children, actions) : children, guard, () => swipe.current?.close?.());
   const { leading, trailing, fullLeading, fullTrailing } = splitSwipeActions(actions, maxPerSide);
   if (!Swipeable || leading.length + trailing.length === 0) return <>{content}</>;
   warnUnconfirmedFull([...leading, ...trailing]);
@@ -312,21 +390,32 @@ export function NativeSwipeRow({
             setOpen(true);
           }
         }}
-        onSwipeableOpenStartDrag={() => setOpen(true)}
-        onSwipeableOpen={() => setOpen(true)}
+        onSwipeableOpenStartDrag={() => {
+          guard.dragStart();
+          setOpen(true);
+        }}
+        onSwipeableOpen={() => {
+          guard.opened();
+          setOpen(true);
+        }}
         // Cleared once the row is home, not as it starts back: the buttons stay seen while it slides.
-        onSwipeableClose={() => setOpen(false)}
+        onSwipeableClose={() => {
+          guard.closed();
+          setOpen(false);
+        }}
         renderLeftActions={left.length ? group(left) : undefined}
         renderRightActions={right.length ? group(right) : undefined}
       >
-        {round ? (
-          // Always the same wrapper, so opening never remounts the row; only its style changes.
-          <View testID={`${testID}-pill`} style={open && round ? { marginHorizontal: m.pillInset, borderRadius: m.pillRadius, overflow: "hidden", backgroundColor: Platform.OS === "ios" ? PlatformColor(ROW_PILL.ios) : ROW_PILL.fallback } : undefined}>
-            {content}
-          </View>
-        ) : (
-          content
-        )}
+        <View testID={`${testID}-touch`} {...touchStart}>
+          {round ? (
+            // Always the same wrapper, so opening never remounts the row; only its style changes.
+            <View testID={`${testID}-pill`} style={open && round ? { marginHorizontal: m.pillInset, borderRadius: m.pillRadius, overflow: "hidden", backgroundColor: Platform.OS === "ios" ? PlatformColor(ROW_PILL.ios) : ROW_PILL.fallback } : undefined}>
+              {content}
+            </View>
+          ) : (
+            content
+          )}
+        </View>
       </Swipeable>
     </View>
   );

@@ -193,22 +193,4 @@ describe("ChatInboxScreen's row actions", () => {
     await waitFor(() => expect(seen.items[0]!.swipeActions!.map((a) => a.id)).not.toContain("pin"));
   });
 
-  it("doesn't open the conversation when the press was the start of a swipe", async () => {
-    const onOpen = vi.fn();
-    await renderWith(row(0), {}, { current: { onOpen } });
-    const drawn = screen.getByTestId(`chat-inbox-row-${C}`);
-    // Press in, move 100pt sideways, let go: a swipe.
-    fireEvent.pointerDown(drawn, { clientX: 300 });
-    fireEvent.pointerUp(drawn, { clientX: 200 });
-    fireEvent.click(drawn);
-    expect(onOpen).not.toHaveBeenCalled();
-    // A swipe that never became a press leaves nothing behind: the next tap opens it.
-    fireEvent.pointerDown(drawn, { clientX: 300 });
-    fireEvent.pointerUp(drawn, { clientX: 180 });
-    fireEvent.pointerDown(drawn, { clientX: 50 });
-    fireEvent.pointerUp(drawn, { clientX: 52 });
-    fireEvent.click(drawn);
-    expect(onOpen).toHaveBeenCalledTimes(1);
-    expect(onOpen).toHaveBeenCalledWith(C);
-  });
 });

@@ -18,6 +18,7 @@ import { ChatNativeProvider } from "../context";
 import { ChatDetailsScreen, isSelfMembers } from "../details-screen";
 import { applyInboxFilter, ChatInboxScreen, defaultInboxFilters, inboxHeaderItems, isGroupConversation, isSelfConversation, matchesInboxSearch, pinnedConversations } from "../inbox-screen";
 import { ChatMessageMenu, TAPBACKS } from "../message-menu";
+import { ChatBubbleShape } from "../conversation-preview";
 import { MessageBubble } from "../message-bubble";
 import { chatColors } from "../messages-look";
 import { chatThreadStackOptions } from "../stack-options";
@@ -97,15 +98,17 @@ describe("the inbox's filters", () => {
       type: string;
       icon?: { name: string };
       onPress?: () => void;
-      menu?: { items: { items: { title: string; state?: string; onPress: () => void }[] }[] };
+      menu?: { items: { type: string; label: string; title: string; state?: string; onPress: () => void }[] };
     }[];
     expect(items.map((i) => i.type)).toEqual(["menu", "button"]);
     expect(items[0]!.icon!.name).toBe("line.3.horizontal.decrease.circle.fill");
-    const [filters, entries] = items[0]!.menu!.items;
-    expect(filters!.items.map((a) => [a.title, a.state])).toEqual([["All Messages", "off"], ["Unread", "on"], ["Groups", "off"]]);
-    filters!.items[2]!.onPress();
+    // Every row shows directly with its title: no unnamed submenus.
+    const rows = items[0]!.menu!.items;
+    expect(rows.every((r) => r.type === "action" && r.label && r.title === r.label)).toBe(true);
+    expect(rows.map((a) => [a.label, a.state])).toEqual([["All Messages", "off"], ["Unread", "on"], ["Groups", "off"], ["Archived", undefined]]);
+    rows[2]!.onPress();
     expect(onFilter).toHaveBeenCalledWith("groups");
-    entries!.items[0]!.onPress();
+    rows[3]!.onPress();
     expect(archived).toHaveBeenCalled();
     items[1]!.onPress!();
     expect(onCompose).toHaveBeenCalled();
@@ -139,6 +142,29 @@ describe("times", () => {
     expect(days[0]).toMatchObject({ day: "Today" });
     // The default stays a heading per day.
     expect(buildThreadRows(items, { me: ME, group: false }).filter((r) => r.type === "day")).toHaveLength(1);
+  });
+});
+
+describe("a bubble's tail", () => {
+  it("is cut from what's behind the bubble: the page by default, the peek's card inside it", () => {
+    const { rerender } = render(
+      <ChatNativeProvider>
+        <ChatBubbleShape mine position="single" testID="b">
+          <span />
+        </ChatBubbleShape>
+      </ChatNativeProvider>,
+    );
+    const cut = () => (JSON.parse(screen.getByTestId("b-tail-cut").dataset.style!) as { backgroundColor: unknown }).backgroundColor;
+    expect(cut()).toBe(resolveChatRoles({ target: "android", scheme: "light" }).roles.pageSolid);
+    const card = resolveChatRoles({ target: "android", scheme: "light" }).roles.peek;
+    rerender(
+      <ChatNativeProvider>
+        <ChatBubbleShape mine position="single" backdrop={card} testID="b">
+          <span />
+        </ChatBubbleShape>
+      </ChatNativeProvider>,
+    );
+    expect(cut()).toBe(card);
   });
 });
 
@@ -315,6 +341,11 @@ describe("ChatDetailsScreen", () => {
     expect(row.getAttribute("role")).toBe("switch");
     expect(row.getAttribute("aria-checked")).toBe("false");
     expect(row.getAttribute("aria-disabled")).not.toBe("true");
+    // One element, the switch: no value or other role of its own, and the drawn switch hidden from VoiceOver.
+    expect(row.getAttribute("aria-valuetext")).toBeNull();
+    expect(row.getAttribute("aria-valuenow")).toBeNull();
+    const drawnSwitch = row.querySelector("input, [role='switch']:not([data-testid='details-mute'])");
+    expect(drawnSwitch?.closest("[aria-hidden='true']")).toBeTruthy();
     await act(async () => fireEvent.click(row));
     await waitFor(() => expect(client.setMySettings).toHaveBeenCalledWith(C, expect.objectContaining({ mutedUntil: expect.any(String) })));
   });

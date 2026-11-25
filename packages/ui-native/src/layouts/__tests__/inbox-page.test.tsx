@@ -249,6 +249,36 @@ describe("InboxPage", () => {
     expect(row.getAttribute("data-a11y-actions")).toBe("read");
   });
 
+  it("never presses its default row when a swipe ends the touch, with or without the system menu", async () => {
+    for (const withMenu of [false, true]) {
+      const seen: Record<string, any>[] = [];
+      function Swipeable(props: Record<string, any>) {
+        seen.push(props);
+        return <div data-testid={props.testID}>{props.children}</div>;
+      }
+      const Menu = ({ children }: { children?: ReactNode }) => <div data-testid="system-menu">{children}</div>;
+      const onPress = vi.fn();
+      const { unmount } = render(
+        <GenesisModulesProvider modules={{ swipeable: Swipeable as never, ...(withMenu ? { menu: Menu as never } : {}) }}>
+          <InboxPage testID="inbox" now={now} items={[{ id: "x", title: "Thread", onPress, swipeActions: [{ id: "read", label: "Read", swipe: { side: "leading" }, onPress: vi.fn() }] }]} />
+        </GenesisModulesProvider>,
+      );
+      const swipe = seen.at(-1)!;
+      act(() => (swipe.children as { props: { onTouchStart: () => void } }).props.onTouchStart());
+      act(() => swipe.onSwipeableOpenStartDrag());
+      fireEvent.click(screen.getByTestId("inbox-row-x"));
+      await act(async () => void (await new Promise((r) => setTimeout(r, 30))));
+      expect(onPress).not.toHaveBeenCalled();
+      // Home again, a tap opens it.
+      act(() => swipe.onSwipeableClose());
+      act(() => (swipe.children as { props: { onTouchStart: () => void } }).props.onTouchStart());
+      fireEvent.click(screen.getByTestId("inbox-row-x"));
+      await act(async () => void (await new Promise((r) => setTimeout(r, 30))));
+      expect(onPress).toHaveBeenCalledTimes(1);
+      unmount();
+    }
+  });
+
   it("on Android, rows are full width", () => {
     Platform.OS = "android";
     render(<InboxPage testID="inbox" items={items} now={now} />);
