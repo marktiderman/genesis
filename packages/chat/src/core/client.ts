@@ -391,11 +391,14 @@ export function createChatClient(supabase: ChatSupabase, options: ChatClientOpti
       return rpc<boolean>("can_post", { p_conversation_id: id });
     },
 
+    /**
+     * The members, with their read places as you may count them (chat migration 0008's
+     * `member_reads`): someone's place stops before what they deleted for themselves unread when
+     * your latest message is in it, so a receipt reads "Delivered", never "Read", for a message they
+     * were never shown. Observers and members who left aren't listed.
+     */
     async members(id: string): Promise<ChatMember[]> {
-      const rows = must<Row[]>(
-        "members",
-        await db().from("members").select("*").eq("conversation_id", id).is("left_at", null).neq("role", "observer"),
-      );
+      const rows = (await rpc<Row[] | null>("member_reads", { p_conversation_id: id })) ?? [];
       return rows.map((r) => ({
         conversationId: String(r.conversation_id),
         userId: String(r.user_id),
