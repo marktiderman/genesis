@@ -8,10 +8,12 @@
 --    was, and posting or reading later moves it past what they deleted unread, so its sender saw
 --    "Read" (or "Read by N") on what they were never shown. `members.receipt_seq` is now the read
 --    place receipts read: it follows `last_read_seq` but never passes a message the member
---    deleted unread, until they read someone else's message after it. Exact in a direct
---    conversation (the other person's last message is then after the deleted history); in a group,
---    a sender whose last message is in that history can see "Read" once the member reads someone
---    else's later message. `cleared_seq` itself stays private (`member_state`). `last_read_seq`
+--    deleted unread, until they read someone else's message after it. Existing rows start at
+--    `last_read_seq` (the receipts they showed before 0008): only reads from now on are held.
+--    Exact in a direct conversation (the other person's last message is then after the deleted
+--    history); in a group, a sender whose last message is in that history can see "Read" once the
+--    member reads someone else's later message: one public read place can't say "read 3 but not
+--    2" without publishing the private cleared range. `cleared_seq` itself stays private (`member_state`). `last_read_seq`
 --    is unchanged (unread counts), and so is the read time (`last_read_at`) and the `read` hint,
 --    which now move only for a message after the deleted history; the hint's `seq` is
 --    `receipt_seq`.
@@ -90,10 +92,11 @@ as $$
 $$;
 revoke execute on function genesis_chat.receipt_place(uuid, uuid, bigint, bigint) from public, anon, authenticated;
 
--- Existing rows: their read place, held before what each member deleted unread. Before the
--- trigger, which would work it out a second time.
+-- Existing rows: their read place, so every receipt shows what it showed before 0008. The stored
+-- rows can't tell history a member read before Delete for me from history they deleted unread
+-- (both are at or below cleared_seq), so only reads from now on hold anything back.
 update genesis_chat.members me
-   set receipt_seq = genesis_chat.receipt_place(me.conversation_id, me.user_id, 0, me.last_read_seq)
+   set receipt_seq = me.last_read_seq
  where me.last_read_seq > 0;
 
 -- From now on the trigger keeps it: on every move of the read place, and on any other write to it.

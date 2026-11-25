@@ -7,7 +7,7 @@
 -- talks with c3 (files); a1, b2 and c3 are in a group (read receipts).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(35);
+select plan(37);
 
 insert into auth.users (id, aud, role, email, instance_id)
 select ('00000000-0000-4000-8000-00000000c8' || n)::uuid, 'authenticated', 'authenticated', 'genesis-chat-8-' || n || '@example.test', '00000000-0000-0000-0000-000000000000'
@@ -82,9 +82,6 @@ select pg_temp.sign_in('a1');
 select ok(pg_temp.receipt('ab', 'b2') >= pg_temp.seq('works'), 'a message after what b2 deleted reads as read');
 select isnt(pg_temp.read_at('ab', 'b2'), null, 'with its read time');
 select is(pg_temp.read_place('ab', 'b2'), pg_temp.receipt('ab', 'b2'), 'and the receipt place catches up with the read place');
-reset role;
-select is(genesis_chat.receipt_place(pg_temp.v('ab'), pg_temp.person('b2'), 0, pg_temp.read_place('ab', 'b2')),
-          pg_temp.receipt('ab', 'b2'), 'the backfill''s rule gives the same place');
 select pg_temp.sign_in('a1');
 select is(pg_temp.receipt('ab', 'a1'), pg_temp.read_place('ab', 'a1'), 'someone who deleted nothing: the receipt place is the read place');
 
@@ -107,6 +104,29 @@ select pg_temp.sign_in('b2');
 select genesis_chat.mark_read(pg_temp.v('g'));
 select pg_temp.sign_in('c3');
 select ok(pg_temp.receipt('g', 'b2') >= pg_temp.seq('reply'), 'a message b2 read after the deleted history counts');
+-- The documented trade-off: one public read place can't say "read c3's message but not a1's"
+-- without publishing b2's private cleared range, so a1's earlier message now counts b2 too.
+select pg_temp.sign_in('a1');
+select ok(pg_temp.receipt('g', 'b2') >= pg_temp.seq('plan'), 'and so, in a group, a1''s message deleted unread now counts b2 as a reader');
+
+-- ── 1c. The backfill: rows from before 0008 keep the receipts they showed ───────
+select pg_temp.sign_in('a1');
+insert into t select 'pre', genesis_chat.start_conversation('group', array[pg_temp.person('b2')], 'Before 0008');
+insert into t select 'seen', (genesis_chat.send_message(pg_temp.v('pre'), gen_random_uuid(), 'seen before the upgrade')).id;
+select pg_temp.sign_in('b2');
+select genesis_chat.mark_read(pg_temp.v('pre'));
+select genesis_chat.delete_conversation_for_me(pg_temp.v('pre'));
+-- As a database before 0008 had it: no receipt place yet. Then 0008's backfill statement.
+reset role;
+alter table genesis_chat.members disable trigger members_receipt_moved;
+update genesis_chat.members set receipt_seq = 0 where conversation_id = pg_temp.v('pre');
+update genesis_chat.members me
+   set receipt_seq = me.last_read_seq
+ where me.last_read_seq > 0 and me.conversation_id = pg_temp.v('pre');
+alter table genesis_chat.members enable trigger members_receipt_moved;
+select pg_temp.sign_in('a1');
+select is(pg_temp.receipt('pre', 'b2'), pg_temp.read_place('pre', 'b2'), 'b2, who read and then deleted before 0008, keeps receipt_seq = last_read_seq');
+select ok(pg_temp.receipt('pre', 'b2') >= pg_temp.seq('seen'), 'so a1''s message still shows "Read"');
 
 -- ── 2. No push for a message in history deleted for me ──────────────────────────
 select pg_temp.sign_in('a1');

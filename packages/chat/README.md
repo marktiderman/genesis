@@ -577,7 +577,10 @@ Migration 0008 closes the ways back into history deleted for me:
   unread until they read someone else's message after it, so posting after Delete for me doesn't
   turn the other person's message to "Read" (or count them in "Read by N"). It's exact in a direct
   conversation. In a group, a sender whose last message is in the deleted history can see "Read" once
-  the member reads someone else's later message. `cleared_seq` stays private, and `last_read_seq`
+  the member reads someone else's later message (one public read place can't say "read 3 but not 2"
+  without publishing the private cleared range). Existing rows start at `last_read_seq`, so
+  receipts show what they showed before 0008: the stored rows can't tell history read before
+  Delete for me from history deleted unread, so only reads after 0008 are held. `cleared_seq` stays private, and `last_read_seq`
   still drives unread counts. The read time (`last_read_at`) and the `read` hint move only for a
   message after the deleted history, and the hint's `seq` is the receipt place.
 - **Pushes.** A push is never sent for a message in it (a late push from the outbox).
