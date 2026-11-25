@@ -579,7 +579,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`toLocalInput`](../packages/chat/src/web/schedule.tsx) | function | — | `YYYY-MM-DDTHH:mm` in local time, for a datetime-local input. |
 | [`uploadVideo`](../packages/chat/src/web/video.tsx) | function | — | Uploads a recording through the app's `videoUpload` (a Mux direct upload: PUT the bytes to the URL it returns) and gives back the attachment to send, pending until Mux's webhook marks it ready. The composer no longer uses it: it sends `v... |
 | [`useChatDock`](../packages/chat/src/web/dock.tsx) | function | — | The dock: open a conversation or a panel in it from anywhere under `ChatDockProvider`. |
-| [`useConfirmDialog`](../packages/chat/src/web/inbox.tsx) | function | — | A `ChatConfirm` drawn as genesis-ui's AlertDialog: the confirm to pass, and the dialog to render. |
+| [`useConfirmDialog`](../packages/chat/src/web/inbox.tsx) | function | — | `fallbackFocus`: where focus goes when the dialog closes and the control that asked is gone (a confirmed delete removed its row). By default focus returns to the control that asked. |
 | [`useOptionalChatDock`](../packages/chat/src/web/dock.tsx) | function | — | The dock when there is one, else null: for a button that opens in the dock when the app has one, and navigates when it doesn't. |
 | [`useVideoRecorder`](../packages/chat/src/web/video.tsx) | function | — | _(no summary)_ |
 | [`useVoiceRecorder`](../packages/chat/src/web/use-voice-recorder.ts) | function | — | _(no summary)_ |
