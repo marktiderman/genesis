@@ -4,7 +4,8 @@
  * plan script's decisions, adopting the templates into an app, and upgrading one (docs/NATIVE-RELEASE.md).
  */
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { createRequire } from "node:module";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -19,6 +20,7 @@ import { adoptTemplates, appScheme, EAS_WORKFLOW_MAX_BYTES, bumpCallerPins, comp
 import { templateTarget } from "../src/blocks/templates.js";
 import { checkEasEnvironment, checkGithubLink, easProjectId, originRepository } from "../src/blocks/eas-link.js";
 import { GenesisConfigError, validateRelease } from "../src/doctor/config.js";
+import { placeholderStep } from "../src/eas-placeholders.js";
 import { runUpgrade, type ReleaseLookup } from "../src/upgrade/index.js";
 import { fakePackage, makeApp, read, tempDir, writeTree } from "./blocks-helpers.js";
 // @ts-expect-error: a plain .mjs template, tested as the app runs it.
@@ -104,6 +106,53 @@ describe("the release block", () => {
   it("defaults: both platforms, production everywhere, no Sentry, no hook, the fingerprint", () => {
     expect(resolveRelease({}, "bun")).toEqual({ trigger: "eas", failureEmails: [], platforms: ["ios", "android"], environment: "production", paths: [], sentry: false, pushHook: null, profile: "production", channel: "production", easEnvironment: "production", packageManager: "bun", runtimeCommand: null, previews: { origin: "", scheme: "", branches: [], everyPullRequest: false, easEnvironment: "preview-release" } });
     expect(resolveRelease({ profile: "store" }).easEnvironment).toBe("store");
+  });
+});
+
+describe("store details still placeholders", () => {
+  it("leave that platform out of the run (no runtime job, build, submit or update), never the run itself", () => {
+    const lane = renderRelease(template("release/deploy-production.yml"), DEFAULT_RELEASE_CONTEXT);
+    // The platform's own output is the store check, so every job of that platform waits on it.
+    expect(lane).toContain('set-output "$platform" "$(node .eas/scripts/native-release.mjs store-ready eas.json "production" "$platform")"');
+    const jobs = (parse(lane) as { jobs: Record<string, { if?: string }> }).jobs;
+    for (const p of ["ios", "android"]) for (const j of [`runtime_${p}`, `build_${p}`, `update_${p}`]) expect(jobs[j]!.if).toContain(`needs.source.outputs.${p} == 'true'`);
+    const dir = mkdtempSync(path.join(tmpdir(), "store-ready-"));
+    const eas = path.join(dir, "eas.json");
+    writeFileSync(eas, JSON.stringify({ submit: { production: { ios: { ascAppId: "123" }, android: { serviceAccountKeyPath: "REPLACE" + "_WITH_PATH" } } } }));
+    const script = path.join(STARTER, ".eas/scripts/native-release.mjs");
+    const run = (platform: string) => spawnSync(process.execPath, [script, "store-ready", eas, "production", platform], { encoding: "utf8" });
+    expect(run("ios")).toMatchObject({ status: 0, stdout: "true\n" });
+    const android = run("android");
+    expect(android).toMatchObject({ status: 0, stdout: "false\n" });
+    expect(android.stderr).toContain("this run leaves android out");
+    rmSync(dir, { recursive: true, force: true });
+  });
+});
+
+describe("the Google Play placeholder's advice", () => {
+  it("says to release iOS only until the key is in: a placeholder leaves Android out, its updates too", () => {
+    const step = placeholderStep("eas.json", '"serviceAccountKeyPath": "REPLACE_WITH_PATH_TO_GOOGLE_SERVICE_ACCOUNT_JSON"', "REPLACE_WITH_PATH_TO_GOOGLE_SERVICE_ACCOUNT_JSON");
+    expect(step).toContain('release.platforms to ["ios"]');
+    expect(step).not.toContain("keep submit.production.android");
+  });
+});
+
+describe("prove-ios's stack guard", () => {
+  // Runs the template in a throwaway app: it refuses before `supabase start`, so nothing starts.
+  const refusal = (toml: string) => {
+    const dir = mkdtempSync(path.join(tmpdir(), "prove-ios-"));
+    mkdirSync(path.join(dir, ".maestro"));
+    mkdirSync(path.join(dir, "supabase"));
+    writeFileSync(path.join(dir, ".maestro", "prove-ios.mjs"), readFileSync(path.join(STARTER, ".maestro", "prove-ios.mjs")));
+    writeFileSync(path.join(dir, "starter.config.ts"), 'export default { app: { name: "Probe", bundleId: "test.probe" } };\n');
+    writeFileSync(path.join(dir, "supabase", "config.toml"), toml);
+    const r = spawnSync(process.execPath, [path.join(dir, ".maestro", "prove-ios.mjs")], { cwd: dir, encoding: "utf8", env: { ...process.env, PATH: "/usr/bin:/bin" } });
+    rmSync(dir, { recursive: true, force: true });
+    return { status: r.status, err: r.stderr };
+  };
+  it("reads [api]'s port even with a comment after the header, and refuses 54321 or none", () => {
+    expect(refusal("[api] # the local API\nport = 54321\n[db]\nport = 54422\n")).toMatchObject({ status: 1, err: expect.stringContaining("[api] port is 54321") });
+    expect(refusal("[api]\nschemas = []\n[db]\nport = 54422\n")).toMatchObject({ status: 1, err: expect.stringContaining("unset (54321)") });
   });
 });
 
@@ -316,12 +365,19 @@ describe("rendering the templates", () => {
     expect(() => plan.checkProfileEnvironment(eas, "store", "store")).toThrow(/builds ios with the EAS environment "production", but the release reads "store"/);
     expect(() => plan.checkProfileEnvironment(eas, "split", "production")).toThrow(/builds android with the EAS environment "preview"/);
     expect(() => plan.checkProfileEnvironment(eas, "split", "production", ["ios"])).not.toThrow();
-    // The store details: a placeholder left in a released platform's submit block stops the release.
-    const submits = { submit: { production: { ios: { ascAppId: "REPLACE_WITH_APP_STORE_CONNECT_APP_ID", appleTeamId: "ABC" }, android: { track: "internal" } } } };
-    expect(() => plan.checkSubmitReady(submits, "production", ["ios"])).toThrow(/submit\.production\.ios still has template placeholders \(ascAppId\)/);
-    expect(() => plan.checkSubmitReady(submits, "production", ["android"])).not.toThrow();
-    expect(() => plan.checkSubmitReady({ submit: { production: { ios: { ascAppId: "123" } } } }, "production", ["ios"])).not.toThrow();
-    expect(() => plan.checkSubmitReady({}, "production", ["ios"])).not.toThrow();
+    // The store details: a placeholder left in a platform's submit block holds that platform's builds.
+    const submits = { submit: { production: { ios: { ascAppId: "REPLACE_WITH_APP_STORE_CONNECT_APP_ID", appleTeamId: "ABC" }, android: { serviceAccountKeyPath: "REPLACE_WITH_PATH_TO_GOOGLE_SERVICE_ACCOUNT_JSON", track: "internal" } } } };
+    expect(plan.submitPlaceholders(submits, "production", "ios")).toEqual(["ascAppId"]);
+    expect(plan.submitPlaceholders(submits, "production", "android")).toEqual(["serviceAccountKeyPath"]);
+    expect(plan.submitPlaceholders({ submit: { production: { ios: { ascAppId: "123" } } } }, "production", "ios")).toEqual([]);
+    expect(plan.submitPlaceholders({}, "production", "ios")).toEqual([]);
+    // Along `extends`, as eas-json resolves it: an inherited placeholder counts, a child's own value replaces it.
+    const inherited = { submit: { base: { ios: { ascAppId: "REPLACE" + "_WITH_ID", appleTeamId: "ABC" } }, production: { extends: "base", ios: { appleTeamId: "XYZ" } } } };
+    expect(plan.submitPlaceholders(inherited, "production", "ios")).toEqual(["ascAppId"]);
+    const replaced = { submit: { base: inherited.submit.base, production: { extends: "base", ios: { ascAppId: "123" } } } };
+    expect(plan.submitPlaceholders(replaced, "production", "ios")).toEqual([]);
+    // A loop along `extends` throws, and the lane reads the result inside $(…): the platform is left out.
+    expect(() => plan.submitPlaceholders({ submit: { a: { extends: "b", ios: {} }, b: { extends: "a", ios: {} } } }, "a", "ios")).toThrow(/extend each other in a loop/);
     // eas-json merges the whole chain, then the platform section over the common one: a platform
     // value anywhere along extends beats a common one, even the child's own.
     const chain = { build: { base: { ios: { environment: "preview", distribution: "internal" } }, child: { extends: "base", environment: "production", distribution: "store" }, dist: { extends: "base2", distribution: "store" }, base2: { ios: { distribution: "internal" } } } };

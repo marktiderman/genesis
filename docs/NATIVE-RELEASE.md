@@ -391,7 +391,7 @@ Nothing in the templates names a real account. Before the first run:
    Developer account, once, so EAS keeps the certificate, profiles and push key. For Google Play,
    upload a service account key with `eas credentials` and remove only `serviceAccountKeyPath`
    ([Expo's guide](https://docs.expo.dev/submit/android/)). Until you ship to Google Play, set
-   `"platforms": ["ios"]`. A placeholder left in fails the submit job.
+   `"platforms": ["ios"]`. While a platform's `submit` block still has a placeholder, each run leaves that platform out (a warning on the run: no runtime job, build, submit or update for it, so nothing runs on EAS for it) and goes on with the other platform.
 7. **Release policy.** Apply `supabase/migrations` (the `app_release_policy` table the updates
    block reads).
 8. **Watch the first run.** The fingerprint is computed on GitHub's Linux runner and compared with
