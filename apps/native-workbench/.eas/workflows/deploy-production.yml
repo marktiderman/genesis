@@ -46,7 +46,6 @@ jobs:
       commit_sha: ${{ steps.commit.outputs.commit_sha }}
       repository: ${{ steps.commit.outputs.repository }}
       ios: ${{ steps.check.outputs.ios }}
-      ios_store: ${{ steps.check.outputs.ios_store }}
     steps:
       - uses: eas/checkout
       - id: commit
@@ -92,7 +91,7 @@ jobs:
             node .eas/scripts/native-release.mjs environment eas.json "production" "production" "$platforms"
           fi
           for platform in ios android; do
-            case ",$platforms," in *",$platform,"*) set-output "$platform" true; set-output "${platform}_store" "$(node .eas/scripts/native-release.mjs store-ready eas.json "production" "$platform")" ;; *) set-output "$platform" false ;; esac
+            case ",$platforms," in *",$platform,"*) set-output "$platform" "$(node .eas/scripts/native-release.mjs store-ready eas.json "production" "$platform")" ;; *) set-output "$platform" false ;; esac
           done
 
   # Its own job: a failure here holds back iOS alone.
@@ -131,7 +130,7 @@ jobs:
   build_ios:
     name: Build iOS (native code changed)
     needs: [source, get_ios_build]
-    if: ${{ needs.source.outputs.ios == 'true' && needs.source.outputs.ios_store == 'true' && !needs.get_ios_build.outputs.build_id }}
+    if: ${{ needs.source.outputs.ios == 'true' && !needs.get_ios_build.outputs.build_id }}
     type: build
     environment: "production"
     params:
