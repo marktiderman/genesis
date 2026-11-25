@@ -11,7 +11,7 @@ import type { ComponentType } from "react";
 import { componentsCards, componentsControls, componentsFeedback } from "./screens/components";
 import { headerDrilldown, headerLarge } from "./screens/header";
 import { layoutsDetailPage, layoutsSettingsPage } from "./screens/layouts";
-import { messagesBubbles, messagesInbox } from "./screens/messages";
+import { messagesBubbles, messagesChatDetails, messagesChatInbox, messagesInbox, messagesLook } from "./screens/messages";
 import { placeExit } from "./screens/place-exit";
 import { rowActionsItems, rowActionsList } from "./screens/row-actions";
 import { tabBarHidden } from "./screens/tab-bar";
@@ -47,6 +47,9 @@ export const workbenchScreens: readonly WorkbenchScreen[] = [
   layoutsDetailPage,
   messagesInbox,
   messagesBubbles,
+  messagesChatInbox,
+  messagesLook,
+  messagesChatDetails,
 ];
 
 export const WORKBENCH_SECTIONS: readonly WorkbenchSection[] = ["Standards", "Components", "Layouts", "Messages"];

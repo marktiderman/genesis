@@ -54,6 +54,10 @@ export const CHAT_ROLES = [
   "onAccent",
   /** The shadow under a floating glass panel or menu. */
   "shadow",
+  /** A conversation's peek above its long-press menu: the card, as a plain string (a bubble's tail is cut from it). */
+  "peek",
+  /** The screen behind a conversation's peek: hidden, as Messages draws it (flat grey in light, black in dark). */
+  "peekScrim",
 ] as const;
 
 /** @stability Beta */
@@ -92,6 +96,8 @@ const SOURCES: Record<ChatRole, Source> = {
   avatarFlat: { light: "#9599A4", dark: "#5C5C61" },
   onAccent: { light: "#FFFFFF", dark: "#FFFFFF" },
   shadow: { light: "#000000", dark: "#000000" },
+  peek: { light: "#FFFFFF", dark: "#1C1C1E" },
+  peekScrim: { light: "#D1D1D6", dark: "#000000" },
 };
 
 /**

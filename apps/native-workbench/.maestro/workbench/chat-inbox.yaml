@@ -1,0 +1,33 @@
+# Messages: genesis-chat's inbox in the Messages look, on sample conversations. Opens it from its tab, keeps a screenshot, then long presses a row for the peek over the glass menu.
+appId: dev.genesis.workbench.dev
+tags:
+  - workbench
+  - messages
+---
+- runFlow: ../subflows/open-workbench.yaml
+- tapOn: "Messages"
+- scrollUntilVisible:
+    element:
+      id: "workbench-open-chat-inbox"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "workbench-open-chat-inbox"
+- extendedWaitUntil:
+    visible:
+      id: "workbench-chat-inbox"
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      id: "workbench-chat-inbox-list-row-c-ada"
+    timeout: 10000
+- waitForAnimationToEnd
+- takeScreenshot: chat-inbox
+- longPressOn:
+    id: "workbench-chat-inbox-list-row-c-ada"
+- extendedWaitUntil:
+    visible:
+      id: "workbench-chat-inbox-list-row-c-ada-menu"
+    timeout: 5000
+- waitForAnimationToEnd
+- takeScreenshot: chat-inbox-long-press

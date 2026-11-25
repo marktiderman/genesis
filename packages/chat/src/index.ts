@@ -13,3 +13,5 @@ export * from "./core/transfer";
 export * from "./core/availability";
 export * from "./core/extras";
 export * from "./core/inbox";
+// The in-memory client (demos, a showcase, tests): platform-neutral, so a native app reaches it here too.
+export { createMemoryChatClient, type MemoryChatClient, type MemoryChatOptions, type MemoryConversationSeed } from "./web/memory-client";

@@ -1,29 +1,37 @@
 /**
  * Messages: an inbox of conversations (InboxPage) with unread, muted and pinned marks, avatars and
- * swipe actions that change the rows; and chat's bubbles (MessageBubble, ChatTypingBubble) drawing
- * a sample group conversation from memory, with no ChatProvider and no network.
+ * swipe actions that change the rows; chat's bubbles (MessageBubble, ChatTypingBubble) drawing a
+ * sample group conversation from memory, with no ChatProvider and no network; and chat's Messages
+ * look (the inbox, the bubbles' long press and + list, the details) on genesis-chat's in-memory
+ * client, also with no network.
  */
-import { useCallback, useMemo, useState } from "react";
-import { View } from "react-native";
-import type { ChatMessage } from "@marktiderman/genesis-chat";
+import { useCallback, useMemo, useRef, useState, type ComponentRef, type ReactNode } from "react";
+import { Pressable, View } from "react-native";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { createMemoryChatClient, type ChatMessage } from "@marktiderman/genesis-chat";
+import { ChatProvider } from "@marktiderman/genesis-chat/react";
 import {
   buildThreadRows,
+  ChatBubbleShape,
+  ChatDetailsHero,
+  ChatDetailsScreen,
+  ChatGlassCircle,
+  ChatInboxScreen,
+  ChatMessageMenu,
   ChatNativeProvider,
+  ChatPlusList,
+  ChatSymbol,
   ChatTypingBubble,
   MessageBubble,
+  useChatColors,
+  type ChatDetailsContext,
   type ChatPerson,
+  type ChatPlusItem,
+  type ChatRect,
+  type MessageActionId,
 } from "@marktiderman/genesis-chat/native";
-import {
-  NativeText,
-  NativeUserAvatar,
-  useThemeRoles,
-} from "@marktiderman/genesis-ui-native";
-import {
-  InboxPage,
-  ScreenContainer,
-  type InboxItem,
-  type InboxSwipeAction,
-} from "@marktiderman/genesis-ui-native/layouts";
+import { NativeText, NativeUserAvatar, useThemeRoles } from "@marktiderman/genesis-ui-native";
+import { InboxPage, ScreenContainer, type InboxItem, type InboxSwipeAction } from "@marktiderman/genesis-ui-native/layouts";
 import type { WorkbenchScreen } from "../registry";
 import { SAMPLE_MESSAGES } from "../sample-data";
 
@@ -451,4 +459,252 @@ export const messagesBubbles: WorkbenchScreen = {
   package: "genesis-chat",
   covers: ["MessageBubble", "ChatTypingBubble", "ChatNativeProvider"],
   screen: Bubbles,
+};
+
+// --- The Messages look, on the in-memory client -------------------------------------------------
+
+const ADA = "u-ada";
+const ALAN = "u-alan";
+const GRACE = "u-grace";
+const LOOK_PEOPLE: Record<string, ChatPerson> = { [ME]: { name: "Sam Sample" }, [ADA]: { name: "Ada Lovelace" }, [ALAN]: { name: "Alan Turing" }, [GRACE]: { name: "Grace Hopper" } };
+const lookPerson = (id: string) => LOOK_PEOPLE[id];
+const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
+
+/** Four conversations: an unread direct one, a pinned group, a muted one and the conversation with yourself. */
+const SAMPLE_CHAT = createMemoryChatClient({
+  me: ME,
+  conversations: [
+    {
+      id: "c-ada",
+      kind: "direct",
+      members: [{ userId: ME, lastReadSeq: 1 }, { userId: ADA }],
+      messages: [
+        { senderId: ME, body: "Did the new build go out?", createdAt: minutesAgo(90) },
+        { senderId: ADA, body: "It did, last night around 11.", createdAt: minutesAgo(80), reactions: [{ emoji: "❤️", userId: ME }] },
+        { senderId: ADA, body: "Crash rate is down since then.", createdAt: minutesAgo(5) },
+      ],
+    },
+    {
+      id: "c-team",
+      kind: "group",
+      title: "Launch team",
+      pinned: true,
+      members: [{ userId: ME, role: "owner" }, { userId: ADA }, { userId: ALAN, role: "admin" }, { userId: GRACE }],
+      messages: [
+        { senderId: ALAN, body: "Checklist is in the shared folder.", createdAt: minutesAgo(300) },
+        { senderId: ME, body: "Thanks, I'll go through it today.", createdAt: minutesAgo(240) },
+      ],
+    },
+    {
+      id: "c-alan",
+      kind: "direct",
+      muted: true,
+      members: [{ userId: ME }, { userId: ALAN }],
+      messages: [{ senderId: ALAN, body: "Lunch on Thursday?", createdAt: minutesAgo(26 * 60) }],
+    },
+    {
+      id: "c-self",
+      kind: "direct",
+      title: "Notes",
+      members: [{ userId: ME }],
+      messages: [{ senderId: ME, body: "Remember to book the room.", createdAt: minutesAgo(3 * 24 * 60) }],
+    },
+  ],
+});
+
+/** genesis-chat's providers over the in-memory client: the screens below read it as they would a server. */
+function SampleChat({ children }: { children: ReactNode }) {
+  const [queries] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: false } } }));
+  const loadPeople = useCallback(async (ids: string[]) => Object.fromEntries(ids.flatMap((id) => (LOOK_PEOPLE[id] ? [[id, LOOK_PEOPLE[id]!]] : []))), []);
+  return (
+    <QueryClientProvider client={queries}>
+      <ChatProvider client={SAMPLE_CHAT} userId={ME} loadPeople={loadPeople}>
+        <ChatNativeProvider getPerson={lookPerson}>{children}</ChatNativeProvider>
+      </ChatProvider>
+    </QueryClientProvider>
+  );
+}
+
+function ChatInbox() {
+  const header = useMemo(() => ({ headerTitle: "Messages inbox", large: false }), []);
+  const [last, setLast] = useState("");
+  const pageProps = useMemo(
+    () => ({
+      header: (
+        <NativeText testID="workbench-chat-inbox-last" preset="body-sm" className="px-5 pb-2 pt-3 text-muted-foreground">
+          {last || "Tap, swipe or long press a row; type in the search field."}
+        </NativeText>
+      ),
+    }),
+    [last],
+  );
+  return (
+    <ScreenContainer header={header} testID="workbench-chat-inbox">
+      <SampleChat>
+        <ChatInboxScreen
+          nativeHeader={false}
+          onOpen={(id) => setLast(`Opened ${id}`)}
+          onStart={() => setLast("New message")}
+          onSearchMessages={(q) => setLast(`Searched messages for “${q}”`)}
+          pageProps={pageProps}
+          testID="workbench-chat-inbox-list"
+        />
+      </SampleChat>
+    </ScreenContainer>
+  );
+}
+
+const LOOK_LINES: { id: string; mine: boolean; body: string; position: "single" | "first" | "middle" | "last" }[] = [
+  { id: "l1", mine: false, body: "Morning! Did the new build go out?", position: "single" },
+  { id: "l2", mine: true, body: "It did, last night around 11.", position: "first" },
+  { id: "l3", mine: true, body: "Crash rate is down since then.", position: "last" },
+  { id: "l4", mine: false, body: "Long press a bubble for the tapbacks and the menu.", position: "single" },
+];
+
+function lookMessage(line: (typeof LOOK_LINES)[number], i: number): ChatMessage {
+  return { ...sampleMessage(i, { from: line.mine ? ME : ADA, body: line.body, minutesAgo: 10 - i }, Date.now()), id: line.id };
+}
+
+function LookBubble({ line, onLongPress }: { line: (typeof LOOK_LINES)[number]; onLongPress: (message: ChatMessage, rect: ChatRect) => void }) {
+  const c = useChatColors();
+  const ref = useRef<ComponentRef<typeof View> | null>(null);
+  const message = useMemo(() => lookMessage(line, LOOK_LINES.indexOf(line)), [line]);
+  return (
+    <View style={{ alignItems: line.mine ? "flex-end" : "flex-start", marginTop: line.position === "middle" || line.position === "last" ? 2 : 10, paddingHorizontal: 16 }}>
+      <View ref={ref} collapsable={false} style={{ maxWidth: "75%" }}>
+        <Pressable
+          testID={`workbench-messages-look-bubble-${line.id}`}
+          accessibilityRole="button"
+          accessibilityLabel={line.body}
+          delayLongPress={300}
+          onLongPress={() => ref.current?.measureInWindow((x, y, width, height) => onLongPress(message, { x, y, width, height }))}
+        >
+          <ChatBubbleShape mine={line.mine} position={line.position} maxWidth="100%">
+            <NativeText style={{ fontSize: 17, lineHeight: 22, color: line.mine ? c.roles.onSent : c.roles.onReceived }}>{line.body}</NativeText>
+          </ChatBubbleShape>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+function MessagesLook() {
+  const header = useMemo(() => ({ headerTitle: "Messages look", large: false }), []);
+  return (
+    // A scroll body: its automatic insets keep the bubbles under the header and the + above the tab bar.
+    <ScreenContainer header={header} scroll testID="workbench-messages-look">
+      <ChatNativeProvider getPerson={lookPerson}>
+        <MessagesLookBody />
+      </ChatNativeProvider>
+    </ScreenContainer>
+  );
+}
+
+function MessagesLookBody() {
+  const c = useChatColors();
+  const [last, setLast] = useState("");
+  const [target, setTarget] = useState<{ message: ChatMessage; rect: ChatRect } | null>(null);
+  const [plusOpen, setPlusOpen] = useState(false);
+  const plusItems: ChatPlusItem[] = useMemo(
+    () => [
+      { id: "camera", label: "Camera", icon: "camera", sf: "camera.fill", color: c.accents.camera, onPress: () => setLast("Camera") },
+      { id: "photos", label: "Photos", icon: "image", sf: "photo.on.rectangle", color: c.accents.photos, onPress: () => setLast("Photos") },
+      { id: "audio", label: "Audio", icon: "mic", sf: "waveform", color: c.accents.audio, onPress: () => setLast("Audio") },
+      { id: "video", label: "Video", icon: "video", sf: "video.fill", color: c.accents.video, onPress: () => setLast("Video") },
+      { id: "send-later", label: "Send Later", icon: "clock", sf: "clock.fill", color: c.accents.schedule, onPress: () => setLast("Send Later") },
+    ],
+    [c],
+  );
+  return (
+    <View style={{ flexGrow: 1, backgroundColor: c.roles.pageSolid }}>
+      <NativeText testID="workbench-messages-look-last" preset="body-sm" className="px-5 pb-1 pt-4 text-muted-foreground">
+        {last || "Long press a bubble, or tap + for the list."}
+      </NativeText>
+      <View style={{ paddingTop: 8, paddingBottom: 24 }}>
+        {LOOK_LINES.map((line) => (
+          <LookBubble key={line.id} line={line} onLongPress={(message, rect) => setTarget({ message, rect })} />
+        ))}
+      </View>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingBottom: 24 }}>
+        <ChatGlassCircle size={40} testID="workbench-messages-look-plus" label="More" onPress={() => setPlusOpen(true)}>
+          <ChatSymbol icon="plus" sf="plus" size={19} weight="medium" color={c.label} />
+        </ChatGlassCircle>
+        <NativeText preset="body-sm" className="text-muted-foreground">
+          The composer&apos;s + list
+        </NativeText>
+      </View>
+      <ChatPlusList open={plusOpen} onClose={() => setPlusOpen(false)} items={plusItems} testID="workbench-messages-look-plus-list" />
+      <ChatMessageMenu
+        target={target}
+        context={{ me: ME, role: "member", canPost: true, pinned: false, canPin: true, canCopy: true }}
+        onClose={() => setTarget(null)}
+        onReact={(message, emoji, on) => setLast(`${on ? "Reacted" : "Took back"} ${emoji} on “${message.body}”`)}
+        onAction={(message, action: MessageActionId) => setLast(`${action} “${message.body}”`)}
+        testID="workbench-messages-look-menu"
+      />
+    </View>
+  );
+}
+
+function DetailsHeroWithLast({ last, ...props }: ChatDetailsContext & { last: string }) {
+  return (
+    <>
+      <ChatDetailsHero {...props} />
+      <NativeText testID="workbench-chat-details-last" preset="body-sm" className="px-5 pt-3 text-center text-muted-foreground">
+        {last || "A group's details: Search, Pin, Scheduled, Hide Alerts, its members and Archive."}
+      </NativeText>
+    </>
+  );
+}
+
+function ChatDetails() {
+  const header = useMemo(() => ({ headerTitle: "Conversation details", large: false }), []);
+  const [last, setLast] = useState("");
+  const slots = useMemo(() => ({ hero: (props: ChatDetailsContext) => <DetailsHeroWithLast {...props} last={last} /> }), [last]);
+  return (
+    <ScreenContainer header={header} testID="workbench-chat-details">
+      <SampleChat>
+        <ChatDetailsScreen
+          // The status line goes in the details' own scroll view (under its hero), so it sits below the header.
+          slots={slots}
+          conversationId="c-team"
+          nativeHeader={false}
+          onSearch={() => setLast("Search in conversation")}
+          onOpenScheduled={() => setLast("Scheduled messages")}
+          onArchived={() => setLast("Archived")}
+          testID="workbench-chat-details-screen"
+        />
+      </SampleChat>
+    </ScreenContainer>
+  );
+}
+
+export const messagesChatInbox: WorkbenchScreen = {
+  id: "chat-inbox",
+  title: "Messages inbox",
+  summary: "genesis-chat's inbox in the Messages look on sample conversations: plain rows with faces, an unread dot, a pinned group's face, a muted row and the conversation with yourself; round swipe actions, the long press's peek over a glass menu, and the glass search field.",
+  section: "Messages",
+  package: "genesis-chat",
+  covers: ["ChatInboxScreen", "ChatInboxRowContent", "ChatPinnedFaces", "ChatSearchField", "ChatConversationMenu", "ChatConversationPreview", "ChatFace", "ChatSymbol", "ChatTap"],
+  screen: ChatInbox,
+};
+
+export const messagesLook: WorkbenchScreen = {
+  id: "messages-look",
+  title: "Messages look",
+  summary: "Bubbles in the chat roles with tails; a long press lifts a bubble with the tapbacks over it and the glass menu under it; + opens the glass list of round colored icons.",
+  section: "Messages",
+  package: "genesis-chat",
+  covers: ["ChatBubbleShape", "ChatBubbleTail", "ChatMessageMenu", "ChatContextOverlay", "ChatGlassMenu", "ChatGlassPanel", "ChatGlassCircle", "ChatGlassList", "ChatPlusList", "ChatAccentIcon"],
+  screen: MessagesLook,
+};
+
+export const messagesChatDetails: WorkbenchScreen = {
+  id: "chat-details",
+  title: "Conversation details",
+  summary: "A group's details on sample data: the large face and name, round glass Search, Pin and Scheduled, Hide Alerts as a switch, the members with their admins, and Archive in red.",
+  section: "Messages",
+  package: "genesis-chat",
+  covers: ["ChatDetailsScreen", "ChatDetailsHero", "ChatDetailsActions", "ChatDetailsSettings", "ChatDetailsMembers", "ChatDetailsDanger"],
+  screen: ChatDetails,
 };

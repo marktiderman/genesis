@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 // @feat:chat
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { Animated, View } from "react-native";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -110,6 +110,29 @@ describe("swipe to reply on gesture-handler", () => {
     expect(onReply).toHaveBeenCalledWith(expect.objectContaining({ id: "m1" }));
     expect(onSwipeReply).toHaveBeenCalled();
     expect(close).toHaveBeenCalled();
+  });
+});
+
+describe("the reply arrow", () => {
+  it("is unseen at rest, whatever the bubble sits in, and shows only while the row is dragged", () => {
+    const seen: Record<string, unknown>[] = [];
+    function Swipeable(props: Record<string, unknown> & { children?: ReactNode }) {
+      seen.push(props);
+      return createElement(View, { testID: props.testID as string }, (props.renderLeftActions as () => ReactNode)(), props.children as ReactNode);
+    }
+    const [row] = rowsOf([message(1, ME)]);
+    // Alone, outside a thread: nothing covers the arrow but the bubble's own rule.
+    render(
+      <GenesisModulesProvider modules={{ swipeable: Swipeable as never }}>
+        <MessageBubble row={row!} me={ME} urls={{}} group={false} reducedMotion onReply={vi.fn()} testID="s" />
+      </GenesisModulesProvider>,
+    );
+    const opacity = () => (JSON.parse(screen.getByTestId("s-reply-hint").dataset.style!) as { opacity: number }).opacity;
+    expect(opacity()).toBe(0);
+    act(() => (seen.at(-1)!.onSwipeableOpenStartDrag as () => void)());
+    expect(opacity()).toBe(1);
+    act(() => (seen.at(-1)!.onSwipeableClose as () => void)());
+    expect(opacity()).toBe(0);
   });
 });
 

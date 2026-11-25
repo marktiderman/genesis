@@ -5,8 +5,8 @@
  * long press on an inbox row shows: the conversation's latest messages on a rounded card, as
  * Messages' peek does (`ChatConversationPreview`). Reading the peek marks nothing read.
  */
-import { useMemo, type ReactNode } from "react";
-import { ScrollView, View, type DimensionValue } from "react-native";
+import { useMemo, useRef, type ComponentRef, type ReactNode } from "react";
+import { ScrollView, StyleSheet, View, type DimensionValue } from "react-native";
 import { NativeText } from "@marktiderman/genesis-ui-native/components";
 import { useChat, useConversation } from "../react/index";
 import { attachmentPreview } from "./attachment-cards";
@@ -24,11 +24,13 @@ export interface ChatBubbleShapeProps {
   padded?: boolean;
   /** A message still sending. */
   faded?: boolean;
+  /** What's behind the bubble, a plain color string: the tail's curve is cut from it. Default the page (`pageSolid`). */
+  backdrop?: string;
   testID?: string;
 }
 
 /** The bubble, drawn alone (the long-press preview, the inbox's peek). */
-export function ChatBubbleShape({ mine, position, children, maxWidth = CHAT_METRICS.bubbleMaxWidth, padded = true, faded = false, testID }: ChatBubbleShapeProps) {
+export function ChatBubbleShape({ mine, position, children, maxWidth = CHAT_METRICS.bubbleMaxWidth, padded = true, faded = false, backdrop, testID }: ChatBubbleShapeProps) {
   const c = useChatColors();
   const color = mine ? c.roles.sent : c.roles.received;
   const tail = position === "single" || position === "last";
@@ -45,20 +47,20 @@ export function ChatBubbleShape({ mine, position, children, maxWidth = CHAT_METR
       >
         {children}
       </View>
-      {tail ? <ChatBubbleTail mine={mine} color={color} /> : null}
+      {tail ? <ChatBubbleTail mine={mine} color={color} backdrop={backdrop} testID={testID ? `${testID}-tail` : undefined} /> : null}
     </View>
   );
 }
 
 /** The tail: a piece of the bubble's color at its bottom corner, its inner curve cut by the page. */
-export function ChatBubbleTail({ mine, color, testID }: { mine: boolean; color: unknown; testID?: string }) {
+export function ChatBubbleTail({ mine, color, backdrop, testID }: { mine: boolean; color: unknown; backdrop?: string; testID?: string }) {
   const c = useChatColors();
   const side = mine ? "right" : "left";
   const inner = mine ? "borderBottomLeftRadius" : "borderBottomRightRadius";
   return (
     <View testID={testID} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ position: "absolute", bottom: 0, [side]: -6, width: 20, height: 18 }}>
       <View style={{ position: "absolute", bottom: 0, [side]: 0, width: 20, height: 18, backgroundColor: color as string, [inner]: 16 }} />
-      <View style={{ position: "absolute", bottom: 0, [side]: -6, width: 12, height: 20, backgroundColor: c.roles.pageSolid, [inner]: 10 }} />
+      <View testID={testID ? `${testID}-cut` : undefined} style={{ position: "absolute", bottom: 0, [side]: -6, width: 12, height: 20, backgroundColor: backdrop ?? c.roles.pageSolid, [inner]: 10 }} />
     </View>
   );
 }
@@ -89,9 +91,24 @@ export function ChatConversationPreview({ conversationId, title, testID }: ChatC
   const messages = useMemo(() => conv.messages.filter((m) => m.kind !== "system").slice(-12), [conv.messages]);
   const positions = useMemo(() => runPositions(messages), [messages]);
   const first = messages[0] ? timeSeparatorLabel(messages[0].createdAt, undefined, undefined, copy) : null;
+  // The card's color as a plain string: the bubbles' tails are cut from it.
+  const card = String(c.roles.peek);
+  const scroll = useRef<ComponentRef<typeof ScrollView> | null>(null);
   return (
-    <View testID={testID} accessible accessibilityLabel={title} style={{ flex: 1, borderRadius: 30, overflow: "hidden", backgroundColor: c.roles.page }}>
-      <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: "flex-end", padding: 12, paddingBottom: 16 }} scrollEnabled={false}>
+    // A card, as Messages' peek (white in light, raised grey in dark, with a hairline edge there),
+    // the latest messages at its bottom, as a thread shows them.
+    <View
+      testID={testID}
+      accessible
+      accessibilityLabel={title}
+      style={{ flex: 1, borderRadius: 22, overflow: "hidden", backgroundColor: card, borderWidth: c.scheme === "dark" ? StyleSheet.hairlineWidth : 0, borderColor: c.separator }}
+    >
+      <ScrollView
+        ref={scroll}
+        contentContainerStyle={{ flexGrow: 1, justifyContent: "flex-end", padding: 12, paddingBottom: 16 }}
+        scrollEnabled={false}
+        onContentSizeChange={() => scroll.current?.scrollToEnd?.({ animated: false })}
+      >
         {first ? (
           <NativeText style={{ textAlign: "center", fontSize: 11, lineHeight: 13, color: c.secondaryLabel, marginBottom: 8 }}>
             <NativeText style={{ fontSize: 11, lineHeight: 13, fontWeight: "600", color: c.secondaryLabel }}>{first.day}</NativeText> {first.time}
@@ -103,7 +120,7 @@ export function ChatConversationPreview({ conversationId, title, testID }: ChatC
           const text = m.deletedAt ? copy.deleted : displayBody(m.body) || attachmentPreview("", m.attachments[0], attachmentKinds, false);
           return (
             <View key={m.id} style={{ marginTop: position === "single" || position === "first" ? (i === 0 ? 0 : CHAT_METRICS.runGap) : CHAT_METRICS.bubbleGap, alignItems: mine ? "flex-end" : "flex-start" }}>
-              <ChatBubbleShape mine={mine} position={position} maxWidth="78%">
+              <ChatBubbleShape mine={mine} position={position} maxWidth="78%" backdrop={card}>
                 <NativeText style={{ fontSize: 15, lineHeight: 20, color: mine ? c.roles.onSent : c.roles.onReceived }}>{text}</NativeText>
               </ChatBubbleShape>
             </View>
