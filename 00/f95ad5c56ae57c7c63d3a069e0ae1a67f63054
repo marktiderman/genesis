@@ -1,0 +1,25 @@
+apps/native-workbench/.maestro/flows/deep-link.yaml
+  s_f1aa8511899775::t_d7c9fb92afa801 12-14,19
+apps/native-workbench/src/app/+native-intent.ts
+  s_f1aa8511899775::t_003d8c4e4b2ad1 3,5,8
+apps/native-workbench/src/lib/links.ts
+  s_f1aa8511899775::t_003d8c4e4b2ad1 31-37,40
+apps/native-workbench/__tests__/components/links.test.tsx
+  s_f1aa8511899775::t_294a46eef49aeb 1-13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "00f95ad5c56ae57c7c63d3a069e0ae1a67f63054",
+  "prompts": {},
+  "sessions": {
+    "s_f1aa8511899775": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "18c56dc7-ac34-4eaf-92bf-016e2c3bbcb7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
