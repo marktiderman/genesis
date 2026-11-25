@@ -791,7 +791,9 @@ async function main(command, args, env) {
     if (!file || !profile || !environment) throw new Error("environment needs <eas.json> <profile> <environment> [platforms].");
     checkProfileEnvironment(readJson(file), profile, environment, parsePlatforms(list ?? PLATFORMS.join(",")));
   } else if (command === "store-ready") {
-    // Prints true or false for one platform; never fails the run (the caller holds that platform's build).
+    // Prints true or false for one platform; never fails the run. The lane reads it inside $(…): if
+    // this throws (a broken eas.json, an `extends` loop), it prints nothing, so the platform's output
+    // isn't "true" and the platform is left out. It fails closed.
     const [file, profile, platform] = args;
     if (!file || !profile || !PLATFORMS.includes(platform)) throw new Error("store-ready needs <eas.json> <profile> <platform>.");
     const left = submitPlaceholders(readJson(file), profile, platform);
