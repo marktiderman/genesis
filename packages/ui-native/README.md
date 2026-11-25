@@ -129,8 +129,7 @@ frame. It reads the swipe's callbacks and the touch's start (a wrapper view, `<t
 never takes the touch, so the swipe always gets its gesture. The row element must carry the
 `onPress`: NativeSwipeRow's child, or the element a menu wrapper holds (InboxPage's `row` slot gets
 it as `onPress`), within five levels; development warns when none is found. A row with nothing to
-swipe, or without gesture-handler, is left as it is. With `GenesisModules.menu` the system menu goes
-around the swipe, which holds the row itself, so the first swipe on a fresh screen opens.
+swipe, or without gesture-handler, is left as it is.
 
 | Tone | iOS | | Accent |
 | --- | --- | --- | --- |

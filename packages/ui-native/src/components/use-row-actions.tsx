@@ -5,7 +5,6 @@
  * `NativeListItem`'s `actions`, InboxPage's rows and NativeResourceView's rows and cards all use
  * it, so a row behaves the same wherever it is drawn.
  *
- * - **Order:** the system menu goes around the swipe, which holds the row.
  * - **Long press:** a screen's own menu when it gives `renderMenu` (no sheet or system menu is
  *   mounted then); else the system context menu when the app passes `GenesisModules.menu` (the row
  *   lifted as its preview; the menu owns the gesture, so `rowProps` has no `onLongPress`), else
@@ -172,22 +171,17 @@ export function useRowActions(actions: readonly RowSwipeAction[], options: UseRo
   };
   const wrap = (row: ReactNode): ReactNode => {
     if (!has) return row;
-    // The swipe holds the row itself, and the system menu goes around the swipe. With the menu inside
-    // it, the Swipeable laid out over a host that starts at no width and is stretched only after its
-    // first layout, with the menu's own interaction under the pan: on a fresh screen the first swipes
-    // didn't open. Outside, the swipe owns its row from the first frame, and the press guard finds
-    // the row's press at once.
-    const swiped = swipe === null ? row : swipe({ actions, testID: `${testID}-swipe`, accessibilityActions: false, ...(appearance ? { appearance } : {}), children: row });
     const menuRow = Menu ? (
       <NativeSystemMenuRow Menu={Menu} actions={actions} {...(title ? { title } : {})} testID={`${testID}-menu`}>
-        {swiped}
+        {row}
       </NativeSystemMenuRow>
     ) : (
-      swiped
+      row
     );
+    const swiped = swipe === null ? menuRow : swipe({ actions, testID: `${testID}-swipe`, accessibilityActions: false, ...(appearance ? { appearance } : {}), children: menuRow });
     return (
       <>
-        {menuRow}
+        {swiped}
         {sheetShown && renderMenu ? (
           <RowMenuHost render={renderMenu} menu={{ open, onClose: () => setOpen(false), actions, ...(title ? { title } : {}), ...(preview ? { preview } : {}), testID: `${testID}-menu` }} />
         ) : sheetShown ? (
