@@ -60,9 +60,9 @@ Markdown, `.maestro/` and CI files never start it. Nobody builds or submits by h
 
 Two guards keep it from running half set up. On EAS, `postinstall` (`scripts/eas-build-packages.mjs`)
 builds the workspace packages the app depends on, since their git-ignored `dist/` is what the app's
-config loads. And the lane holds iOS builds and submits while `eas.json`'s
-`submit.production.ios` still has a `REPLACE_WITH_…` placeholder (step 1 below), so no merge makes
-a paid build until the App Store record exists; the run's `source` check is all that runs.
+config loads. And while `eas.json`'s `submit.production.ios` still has a `REPLACE_WITH_…`
+placeholder (step 1 below), each run leaves iOS out: the `source` check is all that runs, with no
+runtime job, build or update, so nothing else runs on EAS until the App Store record exists.
 
 The app is "Genesis", bundle id `com.streamlineddigital.genesis` (the
 development variant adds `.dev`, the preview `.preview`), slug `genesis`, Apple team

@@ -112,11 +112,9 @@ jobs:
       repository: ${{ steps.commit.outputs.repository }}
 #@if ios
       ios: ${{ steps.check.outputs.ios }}
-      ios_store: ${{ steps.check.outputs.ios_store }}
 #@end
 #@if android
       android: ${{ steps.check.outputs.android }}
-      android_store: ${{ steps.check.outputs.android_store }}
 #@end
     steps:
       - uses: eas/checkout
@@ -180,7 +178,7 @@ jobs:
             node .eas/scripts/native-release.mjs environment eas.json "GENESIS_RELEASE_PROFILE" "GENESIS_RELEASE_EAS_ENVIRONMENT" "$platforms"
           fi
           for platform in ios android; do
-            case ",$platforms," in *",$platform,"*) set-output "$platform" true; set-output "${platform}_store" "$(node .eas/scripts/native-release.mjs store-ready eas.json "GENESIS_RELEASE_PROFILE" "$platform")" ;; *) set-output "$platform" false ;; esac
+            case ",$platforms," in *",$platform,"*) set-output "$platform" "$(node .eas/scripts/native-release.mjs store-ready eas.json "GENESIS_RELEASE_PROFILE" "$platform")" ;; *) set-output "$platform" false ;; esac
           done
 #@if ios
 
@@ -239,7 +237,7 @@ jobs:
   build_ios:
     name: Build iOS (native code changed)
     needs: [source, get_ios_build]
-    if: ${{ needs.source.outputs.ios == 'true' && needs.source.outputs.ios_store == 'true' && !needs.get_ios_build.outputs.build_id }}
+    if: ${{ needs.source.outputs.ios == 'true' && !needs.get_ios_build.outputs.build_id }}
     type: build
     environment: "GENESIS_RELEASE_EAS_ENVIRONMENT"
     params:
@@ -399,7 +397,7 @@ jobs:
   build_android:
     name: Build Android (native code changed)
     needs: [source, get_android_build]
-    if: ${{ needs.source.outputs.android == 'true' && needs.source.outputs.android_store == 'true' && !needs.get_android_build.outputs.build_id }}
+    if: ${{ needs.source.outputs.android == 'true' && !needs.get_android_build.outputs.build_id }}
     type: build
     environment: "GENESIS_RELEASE_EAS_ENVIRONMENT"
     params:
