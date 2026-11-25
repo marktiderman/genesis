@@ -1,0 +1,23 @@
+# Standards: tabBar="hidden" hides the tab bar on one screen; going back shows it again.
+appId: com.streamlineddigital.genesis.dev
+tags:
+  - workbench
+  - standards
+---
+- runFlow: ../subflows/open-workbench.yaml
+- assertVisible: "Tab Bar"
+- tapOn:
+    id: "workbench-open-tab-bar-hidden"
+- extendedWaitUntil:
+    visible:
+      id: "workbench-tab-bar-hidden-body"
+    timeout: 15000
+- waitForAnimationToEnd
+- assertNotVisible: "Tab Bar"
+- takeScreenshot: tab-bar-hidden
+- tapOn:
+    id: "BackButton"
+- extendedWaitUntil:
+    visible: "Tab Bar"
+    timeout: 10000
+- takeScreenshot: tab-bar-back

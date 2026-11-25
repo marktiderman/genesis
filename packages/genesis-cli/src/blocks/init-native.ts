@@ -20,6 +20,10 @@
  *   genesis.lock.json, so `genesis upgrade` can refresh them and `genesis
  *   migrate` knows the blocks. Every file the lock names is written.
  * - Keeps the copied migrations byte for byte (genesis migrate knows them by name and text).
+ * - Inside the Genesis workspace (the target is under the monorepo's `apps/`, as the native
+ *   workbench is): the app stays linked to the packages. Its `workspace:` dependencies and the
+ *   monorepo Metro config are kept, and no pnpm-workspace.yaml of its own is written, so a package
+ *   change shows in the app with nothing published.
  * - `--beside <web-app>`: a phone app that uses a web app's database. When that
  *   app has a supabase/ folder, none of the starter's supabase/ files are
  *   written (nor the database CI workflow), genesis.config.json says where the
@@ -58,6 +62,13 @@ export interface InitNativeOptions {
   without?: string[];
   /** Blocks it may find in the starter (their migrations all copied) and record. */
   blocks: BlockManifest[];
+  /**
+   * The first of the local Supabase stack's ports (`--supabase-ports 54420`): the API on base+1, the
+   * database on base+2 (its shadow on base), Studio base+3, mail base+4, analytics base+7 and the
+   * pooler base+9, as Supabase numbers its defaults from 54320. Unset keeps the CLI's defaults
+   * (5432x); set it when another stack runs on this machine.
+   */
+  supabasePorts?: number;
   /** The web app this phone app sits beside: when it has a supabase/ folder, its database is this app's. */
   beside?: string;
   /** The Genesis release the CI callers pin (`GENESIS_SHA`); null or absent leaves the placeholder. */
@@ -71,6 +82,8 @@ export interface InitNativeOptions {
 
 export interface InitNativeResult {
   target: string;
+  /** The app is inside the Genesis workspace and stays linked to its packages (`workspace:` ranges). */
+  workspace: boolean;
   files: string[];
   dependencies: Record<string, string>;
   unpinned: string[];
@@ -174,6 +187,35 @@ An Expo app made with \`genesis init ${slug} --template native\` from the Genesi
 `;
 }
 
+/** supabase/config.toml with the local stack's ports from `base` (see `InitNativeOptions.supabasePorts`). */
+export function withSupabasePorts(toml: string, base: number): string {
+  if (!Number.isInteger(base) || base < 1024 || base > 65525) throw new Error(`--supabase-ports: ${base} isn't a port base between 1024 and 65525.`);
+  const sections: [string, Record<string, number>][] = [
+    ["api", { port: base + 1 }],
+    ["db", { port: base + 2, shadow_port: base }],
+    ["studio", { port: base + 3 }],
+    ["local_smtp", { port: base + 4 }],
+    ["analytics", { port: base + 7 }],
+    ["db.pooler", { port: base + 9 }],
+  ];
+  let out = toml;
+  for (const [name, keys] of sections) {
+    const header = new RegExp(`^\\[${name.replace(".", "\\.")}\\][ \\t]*$`, "m");
+    const lines = Object.entries(keys).map(([k, v]) => `${k} = ${v}`).join("\n");
+    if (header.test(out)) {
+      // Drop any of these keys the section already sets, then put them right under its header.
+      const start = out.search(header);
+      const next = out.slice(start + 1).search(/^\[/m);
+      const end = next < 0 ? out.length : start + 1 + next;
+      let body = out.slice(start, end);
+      for (const k of Object.keys(keys)) body = body.replace(new RegExp(`^${k}\\s*=.*\\n?`, "m"), "");
+      body = body.replace(header, (h) => `${h}\n${lines}`);
+      out = out.slice(0, start) + body + out.slice(end);
+    } else out = `${out.trimEnd()}\n\n[${name}]\n${lines}\n`;
+  }
+  return out;
+}
+
 export function initNative(options: InitNativeOptions): InitNativeResult {
   const slug = options.name;
   if (!SLUG.test(slug)) throw new Error(`"${slug}" isn't an app slug: lowercase letters, digits and -, starting with a letter.`);
@@ -197,6 +239,9 @@ export function initNative(options: InitNativeOptions): InitNativeResult {
 
   const source = starterDir();
   const read = (rel: string) => readFileSync(path.join(source, rel), "utf8");
+  // Inside the Genesis workspace (a sibling of the starter under apps/): stay linked to the packages.
+  const workspaceApps = path.dirname(source);
+  const inWorkspace = path.basename(workspaceApps) === "apps" && path.dirname(target) === workspaceApps && existsSync(path.join(workspaceApps, "..", "pnpm-workspace.yaml"));
   const was = starterIdentity(read(STARTER_CONFIG));
   const switches = parseStarterFeatures(read(STARTER_CONFIG)) ?? {};
   const without = [...new Set(options.without ?? [])];
@@ -211,7 +256,7 @@ export function initNative(options: InitNativeOptions): InitNativeResult {
     [was.slug]: slug,
     [was.scheme]: scheme,
     [was.name]: display,
-    [APP_FOLDER_PLACEHOLDER]: "src",
+    [APP_FOLDER_PLACEHOLDER]: inWorkspace ? `apps/${path.basename(target)}/src` : "src",
   };
   const files = new Map<string, string>();
   for (const rel of walk(source, STARTER_EXCLUDE)) {
@@ -230,6 +275,10 @@ export function initNative(options: InitNativeOptions): InitNativeResult {
     const deps = pkg[section] as Record<string, string> | undefined;
     for (const [name, spec] of Object.entries(deps ?? {})) {
       if (!spec.startsWith("workspace:")) continue;
+      if (inWorkspace) {
+        dependencies[name] = spec;
+        continue;
+      }
       const version = versionFor(name);
       if (!version) {
         unpinned.push(name);
@@ -242,11 +291,18 @@ export function initNative(options: InitNativeOptions): InitNativeResult {
   }
   if (unpinned.length) throw new Error(`No published version known for ${unpinned.join(", ")}; pass versions or install a newer CLI.`);
   files.set("package.json", `${JSON.stringify(pkg, null, 2)}\n`);
-  files.set("metro.config.js", METRO);
-  // pnpm settings the app needs on its own (Metro needs the hoisted layout; pnpm 11 refuses
-  // unlisted build scripts; one React): the monorepo's, without its workspace list.
-  const pnpmSettings = [path.join(source, "pnpm-workspace.yaml"), path.join(source, "..", "..", "pnpm-workspace.yaml")].find((f) => existsSync(f));
-  if (pnpmSettings) files.set("pnpm-workspace.yaml", appPnpmSettings(readFileSync(pnpmSettings, "utf8")));
+  if (options.supabasePorts !== undefined && files.has("supabase/config.toml")) {
+    files.set("supabase/config.toml", withSupabasePorts(files.get("supabase/config.toml")!, options.supabasePorts));
+  }
+  if (!inWorkspace) {
+    // Outside the monorepo: the plain Metro config, and the pnpm settings the app needs on its own
+    // (Metro needs the hoisted layout; pnpm 11 refuses unlisted build scripts; one React): the
+    // monorepo's, without its workspace list. Inside it, the starter's monorepo config and the
+    // workspace's own settings already apply.
+    files.set("metro.config.js", METRO);
+    const pnpmSettings = [path.join(source, "pnpm-workspace.yaml"), path.join(source, "..", "..", "pnpm-workspace.yaml")].find((f) => existsSync(f));
+    if (pnpmSettings) files.set("pnpm-workspace.yaml", appPnpmSettings(readFileSync(pnpmSettings, "utf8")));
+  }
   files.set("README.md", readme(display, slug, shared ? beside!.app : undefined));
   if (without.length) files.set(STARTER_CONFIG, setStarterFeatures(files.get(STARTER_CONFIG)!, Object.fromEntries(without.map((w) => [w, false]))));
 
@@ -353,7 +409,7 @@ export function initNative(options: InitNativeOptions): InitNativeResult {
       besideResult = { app: beside.app, shared, missing, line };
       steps.unshift(line);
     }
-    return { target, files: [...files.keys(), "genesis.lock.json"].sort(), dependencies, unpinned, blocks, leftOut, steps, ...(besideResult ? { beside: besideResult } : {}) };
+    return { target, workspace: inWorkspace, files: [...files.keys(), "genesis.lock.json"].sort(), dependencies, unpinned, blocks, leftOut, steps, ...(besideResult ? { beside: besideResult } : {}) };
   }
 }
 

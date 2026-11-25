@@ -182,6 +182,58 @@ export interface ChatNativeCopy extends ChatOrganiseCopy, ChatInboxActionLabels 
   tooLarge: string;
   notAllowedType: string;
   tooMany: string;
+  // The Messages look: the inbox's filters and search, the + list, tapbacks and the details screen.
+  /** The inbox's filter menu: every conversation. */
+  filterAll: string;
+  filterUnread: string;
+  filterGroups: string;
+  /** VoiceOver's name for the filter menu's button. */
+  filters: string;
+  filterMenuTitle: string;
+  /** The filter menu's link to the archived conversations. */
+  archived: string;
+  scheduledMessages: string;
+  back: string;
+  /** The inbox's search field. */
+  search: string;
+  searchMessagesFor: string;
+  noMatchTitle: string;
+  noMatchBody: string;
+  noUnreadTitle: string;
+  filteredEmptyTitle: string;
+  pinnedConversation: string;
+  unread: string;
+  closeMenu: string;
+  /** The composer's + button. */
+  more: string;
+  moreHint: string;
+  /** The + list's items. */
+  camera: string;
+  photos: string;
+  audio: string;
+  sendLater: string;
+  sendAudio: string;
+  tapback: string;
+  /** The thread header's hint: it opens the details. */
+  conversationInfo: string;
+  /** The details screen's buttons and rows. */
+  searchInConversation: string;
+  archiveConversation: string;
+  moveToInbox: string;
+  members: string;
+  membersOne: string;
+  /** Under the name of the conversation with yourself. */
+  justYou: string;
+  admin: string;
+  member: string;
+  settingsFailed: string;
+  jumpToNewest: string;
+  /** The thread's time separators: "**Today** 9:41 AM", "**Yesterday** …", "**Mon, Nov 3** at 9:41 AM". */
+  today: string;
+  yesterday: string;
+  atTime: string;
+  /** The "+N" chip after the first three tapbacks on a bubble. */
+  moreReactionsCount: string;
 }
 
 export const chatNativeCopy: ChatNativeCopy = {
@@ -334,6 +386,47 @@ export const chatNativeCopy: ChatNativeCopy = {
   tooLarge: "{name} is too large to send.",
   notAllowedType: "{name} can't be sent.",
   tooMany: "At most {count} attachments in one message.",
+  // The Messages look.
+  filterAll: "All Messages",
+  filterUnread: "Unread",
+  filterGroups: "Groups",
+  filters: "Filters",
+  filterMenuTitle: "Show",
+  archived: "Archived",
+  scheduledMessages: "Scheduled Messages",
+  back: "Back",
+  search: "Search",
+  searchMessagesFor: "Search messages for “{text}”",
+  noMatchTitle: "No conversations match",
+  noMatchBody: "Try searching the messages to look inside them.",
+  noUnreadTitle: "You're all caught up",
+  filteredEmptyTitle: "Nothing here",
+  pinnedConversation: "{name}, pinned",
+  unread: "Unread",
+  closeMenu: "Close",
+  more: "More",
+  moreHint: "Camera, photos, audio and more",
+  camera: "Camera",
+  photos: "Photos",
+  audio: "Audio",
+  sendLater: "Send Later",
+  sendAudio: "Send audio",
+  tapback: "Tapback {emoji}",
+  conversationInfo: "Conversation info",
+  searchInConversation: "Search in conversation",
+  archiveConversation: "Archive Conversation",
+  moveToInbox: "Move to Inbox",
+  members: "{count} members",
+  membersOne: "1 member",
+  justYou: "Just you",
+  admin: "Admin",
+  member: "Member",
+  settingsFailed: "Couldn't save that",
+  jumpToNewest: "Go to the newest message",
+  today: "Today",
+  yesterday: "Yesterday",
+  atTime: "at {time}",
+  moreReactionsCount: "{count} more reactions",
 };
 
 export type ChatNativeCopyOverrides = Partial<ChatNativeCopy>;

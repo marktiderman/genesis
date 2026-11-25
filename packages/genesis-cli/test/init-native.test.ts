@@ -1,9 +1,10 @@
 // @feat:init-native-template
-import { existsSync, mkdirSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 import { parse } from "yaml";
 import { describe, expect, it } from "vitest";
-import { appPnpmSettings, runInitNative } from "../src/blocks/init-native.js";
+import { appPnpmSettings, runInitNative, withSupabasePorts } from "../src/blocks/init-native.js";
+import { starterDir } from "../src/blocks/templates.js";
 import { readLock, type GenesisLock } from "../src/blocks/lock.js";
 import { runDoctor } from "../src/doctor/index.js";
 import { blocksSwitchedOff, parseStarterBlocks, parseStarterFeatures, setStarterFeatures } from "../src/blocks/starter-features.js";
@@ -64,6 +65,37 @@ describe("genesis init --template native", () => {
     expect(files["pnpm-workspace.yaml"]).toContain("nodeLinker: hoisted");
     expect(files["pnpm-workspace.yaml"]).not.toMatch(/^packages:/m);
     expect(files["pnpm-workspace.yaml"]).not.toMatch(/patchedDependencies|patches\//);
+  });
+
+  it("--supabase-ports sets the local stack's ports from a base, keeping the rest of config.toml", async () => {
+    const { files } = await init({ supabasePorts: 54420 });
+    const toml = files["supabase/config.toml"]!;
+    expect(toml).toMatch(/^\[api\]\nport = 54421$/m);
+    expect(toml).toMatch(/^\[db\]\nport = 54422\nshadow_port = 54420$/m);
+    expect(toml).toMatch(/^\[studio\]\nport = 54423$/m);
+    expect(toml).toMatch(/^\[local_smtp\]\nport = 54424$/m);
+    expect(toml).toMatch(/^\[analytics\]\nport = 54427$/m);
+    expect(toml).toMatch(/^\[db\.pooler\]\nport = 54429$/m);
+    // The API section keeps its own settings.
+    expect(toml).toContain('schemas = ["public", "graphql_public", "genesis_chat"]');
+    // Twice gives the same file: a port a section already set is replaced, not repeated.
+    expect(withSupabasePorts(toml, 54420)).toBe(toml);
+    expect(() => withSupabasePorts(toml, 80)).toThrow(/port base/);
+  });
+
+  it("inside the Genesis workspace's apps/, keeps the workspace links and the monorepo's Metro config", async () => {
+    const target = path.join(path.dirname(starterDir()), `zz-init-workspace-test-${process.pid}`);
+    try {
+      const result = await runInitNative({ name: "trail-notes", target, bundleId: "com.acmeco.trailnotes" });
+      const files = snapshot(target);
+      expect(result.workspace).toBe(true);
+      expect(result.dependencies["@marktiderman/genesis-native"]).toBe("workspace:^");
+      expect(JSON.parse(files["package.json"]!).dependencies["@marktiderman/genesis-ui-native"]).toBe("workspace:^");
+      expect(files["metro.config.js"]).toContain("monorepoRoot");
+      expect(files["pnpm-workspace.yaml"]).toBeUndefined();
+    } finally {
+      rmSync(target, { recursive: true, force: true });
+    }
   });
 
   it("adds the templates and records owned files, blocks and renames in genesis.lock.json", async () => {

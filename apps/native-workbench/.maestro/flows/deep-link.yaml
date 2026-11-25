@@ -1,0 +1,19 @@
+# Smoke: the development variant answers to its own scheme. A link to a section opens its tab.
+appId: com.streamlineddigital.genesis.dev
+tags:
+  - smoke
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible:
+      id: "workbench-standards"
+    timeout: 20000
+# From a stopped app: the link launches it straight onto the section (a running app's own link
+# can make iOS ask "Open in …?" first, an alert outside the app that a flow can't see).
+- stopApp
+- openLink: "genesis-dev://components"
+- extendedWaitUntil:
+    visible:
+      id: "workbench-components"
+    timeout: 20000

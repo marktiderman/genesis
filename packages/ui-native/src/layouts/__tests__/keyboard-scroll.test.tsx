@@ -120,12 +120,14 @@ describe("FormPage and the keyboard", () => {
     expect(screen.getByTestId("form-page-scroll").querySelector("[data-testid=form-page-actions]")).not.toBeNull();
   });
 
-  it("pads once and has one body testID", () => {
-    render(page);
+  it("pads once", () => {
+    const { container } = render(page);
     // contentClassName is the form's padding only: ScreenContainer's body doesn't get it too.
-    expect(screen.getByTestId("form-page-body").className).not.toContain("px-8");
     expect(screen.getByTestId("form-page-scroll").outerHTML).toContain("px-8");
-    expect(screen.getAllByTestId("form-page-body")).toHaveLength(1);
+    const count = (html: string) => html.split("px-8").length - 1;
+    expect(count(container.innerHTML)).toBe(count(screen.getByTestId("form-page-scroll").outerHTML));
+    // ScreenContainer's static body has no testID of its own (it flattens; see screen-container).
+    expect(screen.queryByTestId("form-page-body")).toBeNull();
     expect(screen.getByTestId("form-page-fields").textContent).toBe("fields");
   });
 });

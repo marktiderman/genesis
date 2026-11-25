@@ -9,9 +9,12 @@ appId: com.example.genesisstarter.dev
 - tapOn:
     id: "auth-screen-form-email"
 - inputText: ${MAESTRO_TEST_EMAIL}
+# The keyboard covers the fields under it: close it before each tap.
+- hideKeyboard
 - tapOn:
     id: "auth-screen-form-password"
 - inputText: ${MAESTRO_TEST_PASSWORD}
+- hideKeyboard
 - tapOn:
     id: "auth-screen-form-submit"
 - extendedWaitUntil:

@@ -1,0 +1,26 @@
+# Messages: a group's details in the Messages look, on sample data. Opens the screen from its tab and keeps a screenshot, before and after a scroll.
+appId: dev.genesis.workbench.dev
+tags:
+  - workbench
+  - messages
+---
+- runFlow: ../subflows/open-workbench.yaml
+- tapOn: "Messages"
+- scrollUntilVisible:
+    element:
+      id: "workbench-open-chat-details"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "workbench-open-chat-details"
+- extendedWaitUntil:
+    visible:
+      id: "workbench-chat-details-screen-mute"
+    timeout: 15000
+- waitForAnimationToEnd
+- takeScreenshot: chat-details
+- swipe:
+    direction: UP
+    duration: 800
+- waitForAnimationToEnd
+- takeScreenshot: chat-details-scrolled

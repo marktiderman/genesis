@@ -333,12 +333,12 @@ export function ScreenContainer({
       {children}
     </ScrollView>
   ) : (
-    <View
-      testID={testID ? `${testID}-body` : undefined}
-      className={cn("flex-1", contentClassName)}
-    >
-      {children}
-    </View>
+    // No testID here: a View with one isn't flattened, and an extra native view between the
+    // safe area and a list stops iOS collapsing the large title as the list scrolls (react-native-
+    // screens looks for the scroll view down the first-subview chain). Flattened, the list is
+    // the screen's first scroll view, as it is without ScreenContainer. Proven in the native
+    // workbench (Standards → Row actions on a list).
+    <View className={cn("flex-1", contentClassName)}>{children}</View>
   );
 
   return (

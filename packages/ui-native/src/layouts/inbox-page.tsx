@@ -17,11 +17,15 @@
  * The `swipeable` slot takes your own wrapper instead; it receives the actions
  * and the row.
  *
+ * Variant: `"grouped"` (the default, above) or `"plain"`, Messages' and Mail's list: full-width
+ * rows on the page (`background`, the theme's background by default) with no rounded group, the
+ * hairlines inset to the text as before.
+ *
  * Rows: `avatar` puts a picture of who it is between the unread dot and the
  * text (an unread count shows at the end of the row, as in Mail); `leading`
  * replaces the dot.
  *
- * Slots: `row`, `swipeable`, `header` (above the group), `footer` (below it,
+ * Slots: `row`, `swipeable`, `rowMenu` (a long-press menu of your own), `header` (above the group), `footer` (below it,
  * the paging spinner by default) and `empty`. `slots` swaps a part for your
  * component (same props), `slotProps` feeds the default more props, `null`
  * drops it.
@@ -32,7 +36,7 @@
  */
 import { memo, useCallback, useMemo, useState, type ReactNode } from "react";
 import { renderSlot, type SlotPropsFor, type Slots } from "@marktiderman/genesis-core/slots";
-import { Alert, FlatList, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Alert, FlatList, Platform, Pressable, ScrollView, StyleSheet, View, type ColorValue } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useThemeRoles } from "../hooks/use-theme-roles";
 import { NativeEmptyState } from "../components/empty-state";
@@ -42,7 +46,7 @@ import { NativeBadge } from "../components/badge";
 import { NativeIcon } from "../components/icon";
 import { NativeRefreshControl } from "../components/refresh-control";
 import { NativeSwipeRow } from "../components/swipe-row";
-import { useRowActions, type RowActionProps, type RowActionsSwipeProps } from "../components/use-row-actions";
+import { useRowActions, type RowActionProps, type RowActionsMenuProps, type RowActionsSwipeProps } from "../components/use-row-actions";
 import { NativeLoadingState } from "../components/loading-state";
 import { composeHeaderOptions, type ScreenHeaderProps } from "./screen-container";
 import { formatInboxTime, type InboxItem, type InboxSwipeAction } from "@marktiderman/genesis-core/conversation";
@@ -69,9 +73,16 @@ export type InboxPageSlotMap = {
     mutedLabel?: string | null;
     /** The page's `pinnedLabel` on a pinned row, else null. */
     pinnedLabel?: string | null;
+    /** The page's `variant`: a `"plain"` row is full width on the page, with no group around it. */
+    variant?: "grouped" | "plain";
     actionProps?: RowActionProps;
   };
   swipeable: { actions: InboxSwipeAction[]; testID: string; appearance?: "fill" | "round"; /** `false`: the row already has the actions for screen readers (InboxPage puts them on it). */ accessibilityActions?: boolean; children?: ReactNode };
+  /**
+   * A row's long-press menu of the screen's own, in place of the sheet (and the system menu): none
+   * by default. With it, no sheet is mounted; the swipe and the screen reader's actions don't change.
+   */
+  rowMenu: RowActionsMenuProps;
   header: { testID: string };
   footer: { loadingMore: boolean; testID: string };
   empty: { title: string; body: string; actionLabel?: string; onAction?: () => void; testID: string };
@@ -118,6 +129,13 @@ export interface InboxPageProps extends ScreenHeaderProps {
   mutedLabel?: string;
   /** What a screen reader says for a pinned row's pin. Default `"Pinned"`. */
   pinnedLabel?: string;
+  /**
+   * `"grouped"` (default): the Settings app's inset group on iOS. `"plain"`: full-width rows on
+   * the page with no group, as Messages and Mail draw their lists.
+   */
+  variant?: "grouped" | "plain";
+  /** The page behind the rows. Default: the theme's grouped background, or its background for `"plain"`. */
+  background?: ColorValue;
   slots?: Slots<InboxPageSlotMap>;
   slotProps?: SlotPropsFor<InboxPageSlotMap>;
   /** testID on the root. Default `"inbox-page"`. */
@@ -175,9 +193,13 @@ export function InboxPage({
   menuPreview,
   mutedLabel = "Alerts off",
   pinnedLabel = "Pinned",
+  variant = "grouped",
+  background,
   testID = "inbox-page",
 }: InboxPageProps) {
   const colors = useThemeRoles();
+  const plain = variant === "plain";
+  const page = background ?? (plain ? colors.background : colors.groupedBackground);
   // Built again only when the items change, or the minute does (so "Yesterday" and the times turn
   // over at midnight on a re-render): each row's props otherwise stay equal and its memo holds. The
   // default formatter reads only minutes; a formatter of the app's own gets the exact clock, every render.
@@ -194,12 +216,15 @@ export function InboxPage({
       timeLabel: item.timestamp ? formatTime(typeof item.timestamp === "string" ? new Date(item.timestamp) : item.timestamp, clock) : null,
       mutedLabel: item.muted ? mutedLabel : null,
       pinnedLabel: item.pinned ? pinnedLabel : null,
+      ...(plain ? { variant: "plain" as const } : {}),
     }));
-  }, [items, tick, formatTime, testID, mutedLabel, pinnedLabel]);
+  }, [items, tick, formatTime, testID, mutedLabel, pinnedLabel, plain]);
   const rowSlot = slots.row;
   const swipeSlot = slots.swipeable;
   const rowProps = slotProps.row;
   const swipeProps = slotProps.swipeable;
+  const menuSlot = slots.rowMenu;
+  const menuProps = slotProps.rowMenu;
   const renderRow = useCallback(
     ({ item: row }: { item: InboxPageSlotMap["row"] }) => (
       <InboxRow
@@ -208,12 +233,14 @@ export function InboxPage({
         rowProps={rowProps}
         swipeSlot={swipeSlot}
         swipeProps={swipeProps}
+        menuSlot={menuSlot}
+        menuProps={menuProps}
         swipeAppearance={swipeAppearance}
         menuPreview={menuPreview}
         sheetTestID={`${testID}-menu`}
       />
     ),
-    [rowSlot, rowProps, swipeSlot, swipeProps, swipeAppearance, menuPreview, testID],
+    [rowSlot, rowProps, swipeSlot, swipeProps, menuSlot, menuProps, swipeAppearance, menuPreview, testID],
   );
 
   const headerNode = (
@@ -230,7 +257,7 @@ export function InboxPage({
     // scroll view's automatic content inset moves the content below the header, and pull to
     // refresh needs one too.
     return (
-      <SafeAreaView testID={testID} edges={["left", "right", "bottom"]} style={{ flex: 1, backgroundColor: colors.groupedBackground }}>
+      <SafeAreaView testID={testID} edges={["left", "right", "bottom"]} style={{ flex: 1, backgroundColor: page }}>
         <ScrollView
           testID={`${testID}-empty-scroll`}
           contentInsetAdjustmentBehavior="automatic"
@@ -269,7 +296,7 @@ export function InboxPage({
   }
 
   return (
-    <SafeAreaView testID={testID} edges={["left", "right", "bottom"]} style={{ flex: 1, backgroundColor: colors.groupedBackground }}>
+    <SafeAreaView testID={testID} edges={["left", "right", "bottom"]} style={{ flex: 1, backgroundColor: page }}>
       <FlatList
         testID={`${testID}-list`}
         data={rows}
@@ -280,7 +307,7 @@ export function InboxPage({
         keyboardShouldPersistTaps="handled"
         ListHeaderComponent={headerNode}
         ListFooterComponent={renderSlot(DefaultFooter, slots.footer, { loadingMore, testID: `${testID}-footer` }, slotProps.footer)}
-        contentContainerStyle={{ paddingTop: 8, paddingBottom: 32 }}
+        contentContainerStyle={{ paddingTop: plain ? 0 : 8, paddingBottom: 32 }}
         onEndReached={onEndReached}
         onEndReachedThreshold={0.5}
         {...(onStartReached ? { onStartReached, onStartReachedThreshold: 0.5, maintainVisibleContentPosition: { minIndexForVisible: 0 } } : {})}
@@ -343,6 +370,8 @@ const InboxRow = memo(function InboxRow({
   rowProps,
   swipeSlot,
   swipeProps,
+  menuSlot,
+  menuProps,
   swipeAppearance,
   menuPreview,
   sheetTestID,
@@ -352,6 +381,8 @@ const InboxRow = memo(function InboxRow({
   rowProps: Partial<InboxPageSlotMap["row"]> | undefined;
   swipeSlot: Slots<InboxPageSlotMap>["swipeable"];
   swipeProps: Partial<InboxPageSlotMap["swipeable"]> | undefined;
+  menuSlot: Slots<InboxPageSlotMap>["rowMenu"];
+  menuProps: Partial<InboxPageSlotMap["rowMenu"]> | undefined;
   swipeAppearance: "fill" | "round" | undefined;
   menuPreview: ((row: InboxPageSlotMap["row"]) => ReactNode) | undefined;
   sheetTestID: string;
@@ -368,6 +399,8 @@ const InboxRow = memo(function InboxRow({
     title: merged.title,
     ...(menuPreview ? { preview: () => menuPreview(merged) } : {}),
     ...(swipeAppearance ? { appearance: swipeAppearance } : {}),
+    // The screen's own menu (the slot): `null` or none keeps the sheet.
+    ...(menuSlot ? { renderMenu: (props: RowActionsMenuProps) => renderSlot(menuSlot, undefined, props, menuProps) } : {}),
     swipe,
     testID: merged.testID,
     sheetTestID,
@@ -395,12 +428,14 @@ const DefaultRow = memo(function DefaultRow(row: InboxPageSlotMap["row"]) {
   // The separator starts at the text: the row's padding, the dot's column, and the avatar when there is one.
   const [avatarWidth, setAvatarWidth] = useState(0);
   const separatorInset = ROW_PADDING + LEADING_WIDTH + (row.avatar ? (avatarWidth || DEFAULT_AVATAR) + AVATAR_GAP : 0);
+  const plain = row.variant === "plain";
   return (
     <View
       testID={`${row.testID}-cell`}
       style={[
-        { backgroundColor: colors.surface },
-        ios
+        // A plain row is clear: the page shows through, and so does an open swipe's pill.
+        { backgroundColor: plain ? "transparent" : colors.surface },
+        ios && !plain
           ? {
               marginHorizontal: IOS_GROUP_MARGIN,
               borderTopLeftRadius: row.isFirst ? radius : 0,

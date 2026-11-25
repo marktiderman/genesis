@@ -33,6 +33,8 @@ export const ROW_ACTION_SYSTEM_COLORS: Record<RowActionSystemColor, { ios: strin
   green: { ios: "systemGreen", fallback: "#1E7B34" },
   orange: { ios: "systemOrange", fallback: "#B45400" },
   purple: { ios: "systemPurple", fallback: "#8A3FB8" },
+  // Messages' Hide Alerts.
+  indigo: { ios: "systemIndigo", fallback: "#4B49C7" },
   // Yellow carries black text (onRowActionColor): 13.9:1.
   yellow: { ios: "systemYellow", fallback: "#FFCC00" },
   gray: { ios: "systemGray", fallback: "#636366" },
@@ -61,7 +63,7 @@ export const ON_ROW_ACTION_LIGHT_TONE = "#000000";
 /**
  * The text and icon color on an action of this swatch.
  *
- * - **System colors** (blue, green, orange, purple, gray): white, as iOS draws them; black on yellow.
+ * - **System colors** (blue, green, orange, purple, indigo, gray): white, as iOS draws them; black on yellow.
  * - **`tint` and `danger`** sit on the app's own colors (`background`), so they take what reads on
  *   that color: white or black by contrast when it's a hex color, else `foreground` (the theme's
  *   `onPrimary` or `destructiveForeground`, which the caller passes), else white (iOS's systemRed,

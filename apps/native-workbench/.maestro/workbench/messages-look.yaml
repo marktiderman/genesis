@@ -1,0 +1,40 @@
+# Messages: chat's Messages look pieces. Opens the screen from its tab, long presses a bubble for the tapbacks and the glass menu, then opens the + list.
+appId: dev.genesis.workbench.dev
+tags:
+  - workbench
+  - messages
+---
+- runFlow: ../subflows/open-workbench.yaml
+- tapOn: "Messages"
+- scrollUntilVisible:
+    element:
+      id: "workbench-open-messages-look"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "workbench-open-messages-look"
+- extendedWaitUntil:
+    visible:
+      id: "workbench-messages-look"
+    timeout: 15000
+- waitForAnimationToEnd
+- takeScreenshot: messages-look
+- longPressOn:
+    id: "workbench-messages-look-bubble-l1"
+- extendedWaitUntil:
+    visible:
+      id: "workbench-messages-look-menu-tapbacks"
+    timeout: 5000
+- waitForAnimationToEnd
+- takeScreenshot: messages-look-long-press
+- tapOn:
+    id: "workbench-messages-look-menu-dismiss"
+- waitForAnimationToEnd
+- tapOn:
+    id: "workbench-messages-look-plus"
+- extendedWaitUntil:
+    visible:
+      id: "workbench-messages-look-plus-list-camera"
+    timeout: 5000
+- waitForAnimationToEnd
+- takeScreenshot: messages-look-plus

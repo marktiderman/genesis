@@ -6,7 +6,10 @@
  * @expo/ui (SwiftUI / Jetpack Compose) date picker, and React Navigation's
  * theming (GenesisNativeApp themes headers and tab bars in the brand's light
  * and dark colors), and keyboard-controller's KeyboardAvoidingView for
- * ThreadPage's composer. To fall back to plain
+ * ThreadPage's composer, gesture-handler's ReanimatedSwipeable for every row's swipe actions,
+ * @expo/ui's MenuView for the system long-press menu, and expo-router's focus, path and
+ * Stack.Screen for each screen's native header and tab bar (docs/FRAMEWORK.md, "Native screens
+ * follow iOS"). To fall back to plain
  * React Native for one, delete its line, its import below and its package.
  */
 import { DateTimePicker } from "@expo/ui/community/datetime-picker";
@@ -14,7 +17,9 @@ import { FlashList } from "@shopify/flash-list";
 import * as GlassEffect from "expo-glass-effect";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
-import { DarkTheme, DefaultTheme, ThemeProvider } from "expo-router";
+import { MenuView } from "@expo/ui/community/menu";
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider, useFocusEffect, usePathname } from "expo-router";
+import ReanimatedSwipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import { SymbolView } from "expo-symbols";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import * as Reanimated from "react-native-reanimated";
@@ -35,4 +40,10 @@ export const nativeModules: GenesisModules = {
   keyboardAvoidingView: KeyboardAvoidingView,
   // expo-haptics, once: useHaptics(), playHaptic and NativeButton's `haptic` play through it.
   haptics: Haptics as unknown as GenesisModules["haptics"],
+  // A row's actions behind a swipe (NativeSwipeRow, InboxPage, NativeResourceView, NativeListItem).
+  swipeable: ReanimatedSwipeable as unknown as GenesisModules["swipeable"],
+  // The long press opens the system context menu (UIContextMenu) with a row's actions.
+  menu: MenuView as unknown as GenesisModules["menu"],
+  // Per-screen tab bar (useHideTabBar) and native header (ScreenContainer `header`) follow the router.
+  router: { useFocusEffect: useFocusEffect as never, usePathname, StackScreen: Stack.Screen as never },
 };

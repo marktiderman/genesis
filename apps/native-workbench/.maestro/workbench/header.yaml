@@ -1,0 +1,36 @@
+# Standards: the native header. Large title, the system search field and a native header button;
+# the title collapses as the list scrolls; the drill-down has a standard title and back.
+appId: com.streamlineddigital.genesis.dev
+tags:
+  - workbench
+  - standards
+---
+- runFlow: ../subflows/open-workbench.yaml
+- tapOn:
+    id: "workbench-open-header-large"
+- extendedWaitUntil:
+    visible: "Native header"
+    timeout: 15000
+# iOS 26 keeps the search field under the large title until the list is pulled down.
+- swipe:
+    direction: DOWN
+    duration: 600
+- waitForAnimationToEnd
+- assertVisible: "Search names"
+- assertVisible: "Drill in"
+- takeScreenshot: header-large
+- swipe:
+    direction: UP
+    duration: 800
+- waitForAnimationToEnd
+- takeScreenshot: header-collapsed
+- tapOn: "Drill in"
+- extendedWaitUntil:
+    visible: "Drill-down"
+    timeout: 10000
+- takeScreenshot: header-drilldown
+- tapOn:
+    id: "BackButton"
+- extendedWaitUntil:
+    visible: "Drill in"
+    timeout: 10000

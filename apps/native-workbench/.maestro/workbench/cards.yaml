@@ -1,0 +1,25 @@
+# Components: stat tiles, status badges, badges, avatars and cards. Opens the screen from its tab and keeps a screenshot of it, before and after a scroll.
+appId: com.streamlineddigital.genesis.dev
+tags:
+  - workbench
+  - components
+---
+- runFlow: ../subflows/open-workbench.yaml
+- tapOn: "Components"
+- extendedWaitUntil:
+    visible:
+      id: "workbench-open-cards"
+    timeout: 10000
+- tapOn:
+    id: "workbench-open-cards"
+- extendedWaitUntil:
+    visible:
+      id: "workbench-cards"
+    timeout: 15000
+- waitForAnimationToEnd
+- takeScreenshot: cards
+- swipe:
+    direction: UP
+    duration: 800
+- waitForAnimationToEnd
+- takeScreenshot: cards-scrolled

@@ -1,6 +1,6 @@
 // @feat:view-inbox @feat:native-components
 /** NativeResourceView `type="inbox"`: the view's rows as InboxPage's, unread first in weight, a press opening the row. */
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -55,7 +55,8 @@ describe("NativeResourceView inbox", () => {
     expect(screen.getByText("Please resend it.")).toBeTruthy();
     expect(screen.queryByTestId("native-resource-view-list")).toBeNull();
     fireEvent.click(screen.getByText("Invoice copy"));
-    expect(onRowPress).toHaveBeenCalledWith(expect.objectContaining({ id: "t2" }));
+    // A swiped row's press runs a frame later (NativeSwipeRow's guard waits for a late drag report).
+    await waitFor(() => expect(onRowPress).toHaveBeenCalledWith(expect.objectContaining({ id: "t2" })));
   });
 
   it("swipes only the view's placed actions, as list rows do; the rest stay in the menu", async () => {

@@ -20,10 +20,10 @@
  * PanResponder. A message you just sent rises into place (`GenesisModules.reanimated`'s
  * `FadeInDown`), not with Reduce Motion.
  */
-import { memo, useCallback, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
+import { memo, useCallback, useMemo, useRef, useState, type ComponentRef, type ComponentType, type ReactNode } from "react";
 import { Animated, PanResponder, Pressable, View } from "react-native";
-import { NativeAvatar, NativeIcon, NativeText, useGenesisModules } from "@marktiderman/genesis-ui-native/components";
-import { sentBubbleColor, useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
+import { NativeIcon, NativeText, useGenesisModules } from "@marktiderman/genesis-ui-native/components";
+import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
 import { summarizeReactions } from "../core/thread";
 import type { ChatLinkPreview, ChatMessage, PendingFile } from "../core/types";
 import type { ChatAttachmentKind } from "../react/index";
@@ -31,7 +31,8 @@ import { AppAttachment, attachmentKindOf, attachmentPreview, cardAction, cardTit
 import { ChatLinkPreviewCard, linkHost, openChatLink } from "./link-preview";
 import { cycleVideoRate, fullScreenVideo, toggleVideo, toggleVideoMute, usePlayingVideo } from "./video-player";
 import { fill } from "./copy";
-import { initials, useChatNative } from "./context";
+import { useChatNative } from "./context";
+import { ChatFace, useChatColors, type ChatRect } from "./messages-look";
 import { fromPending, fromPendingInput, fromServer, MessageAttachments, type BubbleAttachment } from "./media";
 import { ModerationMarker, moderationNote, moderationText } from "./moderation";
 import { cycleVoiceNoteRate, toggleVoiceNote, usePlayingVoiceNote } from "./voice-player";
@@ -50,7 +51,8 @@ export interface MessageBubbleProps {
   /** Avatars sit in a column when the conversation is a group. */
   group: boolean;
   reducedMotion: boolean;
-  onLongPress?: (message: ChatMessage) => void;
+  /** The long press, with where the bubble is on the window (for the menu that opens over it). */
+  onLongPress?: (message: ChatMessage, rect?: ChatRect) => void;
   onReply?: (message: ChatMessage) => void;
   onRetry?: (clientId: string) => void;
   onDiscard?: (clientId: string) => void;
@@ -84,12 +86,16 @@ export interface MessageBubbleProps {
   receipt?: string | null;
   /** Makes the status a button ("Read by 2" opens who has read it). */
   onReceiptPress?: () => void;
-  /** What is drawn behind the bubble, which the tail is cut from. The theme's grouped background by default (what ChatThreadScreen draws). */
+  /** What is drawn behind the bubble, which the tail is cut from. The chat role `pageSolid` by default (what ChatThreadScreen draws). */
   backdrop?: string;
   testID: string;
 }
 
 const SWIPE_REPLY = 56;
+/** Tapbacks shown on the corner before "+N" (which shows the rest). */
+const REACTIONS_SHOWN = 3;
+/** How far the tapbacks rise above the bubble's top corner: they overlap only its corner, as Messages draws them. */
+const TAPBACK_RISE = 22;
 const SWIPE_MAX = 80;
 
 /** Where a bubble sits in its run of one sender's messages. */
@@ -108,10 +114,11 @@ const TIGHT = 5;
 /**
  * A bubble's corners: round, except where it meets the next or the one before in its run, on the
  * sender's side (the trailing side for yours). The last and the only one also get a tail.
+ * `joined: false` keeps every corner round, as Messages draws a run on iOS 26.
  */
-export function bubbleCorners(position: BubblePosition, mine: boolean) {
-  const joinsAbove = position === "middle" || position === "last";
-  const joinsBelow = position === "first" || position === "middle";
+export function bubbleCorners(position: BubblePosition, mine: boolean, joined = true) {
+  const joinsAbove = joined && (position === "middle" || position === "last");
+  const joinsBelow = joined && (position === "first" || position === "middle");
   const near = { top: joinsAbove ? TIGHT : ROUND, bottom: joinsBelow ? TIGHT : ROUND };
   return {
     borderTopLeftRadius: mine ? ROUND : near.top,
@@ -131,13 +138,18 @@ export function formatClock(iso: string): string {
 
 /** Mentions written `@[Name](user:<id>)` read as `@Name`. */
 export function displayBody(body: string): string {
-  return body.replace(/@\[([^\]]+)\]\(user:[0-9a-f-]{36}\)/gi, "@$1");
+  return body.replace(/@\[([^\]]{1,80})\]\(user:[0-9a-f-]{36}\)/gi, "@$1");
 }
 
 function MessageBubbleImpl(props: MessageBubbleProps) {
   const { row, me, urls, repliedTo, group, reducedMotion, testID } = props;
   const { copy, person, modules } = useChatNative();
   const colors = useThemeRoles();
+  const chat = useChatColors();
+  const bubbleRef = useRef<ComponentRef<typeof View> | null>(null);
+  const [allReactions, setAllReactions] = useState(false);
+  // A swipe to reply is under way: the arrow behind the row shows.
+  const [dragging, setDragging] = useState(false);
   const { item, mine } = row;
   const message = item.type === "message" ? item.message : null;
   const pending = item.type === "pending" ? item.pending : null;
@@ -248,7 +260,7 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
   }
 
   const canSwipe = Boolean(message && !message.deletedAt && props.onReply);
-  const corners = bubbleCorners(bubblePosition(row), mine);
+  const corners = bubbleCorners(bubblePosition(row), mine, false);
   // The tail is cut from the thread's background: not over a highlighted row.
   const tail = corners.tail && !props.highlighted;
   const Root = (reanimated ? reanimated.default.View : View) as ComponentType<Record<string, unknown>>;
@@ -333,19 +345,41 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
   const quoted = quote && repliedTo ? repliedTo : null;
   // A message that is only app attachments the slot drew nothing for has nothing to show or read.
   const invisible = Boolean(message && !message.deletedAt && !body && !attachments.length && !preview && !quote && !moderation && cards.length && !shownCards.length);
-  const bubbleColor = mine ? sentBubbleColor(colors) : colors.surface;
-  const fg = mine ? "text-primary-foreground" : undefined;
-  const textStyle = mine ? { fontSize: 17, lineHeight: 22 } : { fontSize: 17, lineHeight: 22, color: colors.label };
+  // Messages' colors whatever the brand: the design system's chat roles.
+  const bubbleColor = mine ? chat.roles.sent : chat.roles.received;
+  const onBubble = mine ? chat.roles.onSent : chat.roles.onReceived;
+  const fg = undefined;
+  const textStyle = { fontSize: 17, lineHeight: 22, color: onBubble };
+  const longPress = () => {
+    if (!message || message.deletedAt || !props.onLongPress) return;
+    const node = bubbleRef.current as { measureInWindow?: (cb: (x: number, y: number, width: number, height: number) => void) => void } | null;
+    if (node?.measureInWindow) node.measureInWindow((x, y, width, height) => props.onLongPress?.(message, { x, y, width, height }));
+    else props.onLongPress(message);
+  };
 
   const bubbleRow = (
-      <View style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: mine ? "flex-end" : "flex-start" }}>
+      <View
+        testID={`${testID}-row`}
+        style={{
+          flexDirection: "row",
+          alignItems: "flex-end",
+          justifyContent: mine ? "flex-end" : "flex-start",
+          // Room above for the tapbacks, inside the swipe's container (which clips what overflows it).
+          paddingTop: reactions.length ? TAPBACK_RISE : 0,
+          // Full width, in what's behind the thread (its backdrop): it covers the swipe's reply arrow
+          // until the row is dragged.
+          backgroundColor: props.highlighted ? chat.roles.pressed : (props.backdrop ?? chat.roles.pageSolid),
+        }}
+      >
         {group && !mine ? (
-          <View style={{ width: 40, alignItems: "flex-start", zIndex: 1 }}>
-            {row.showAvatar ? <NativeAvatar size={32} src={sender?.avatarUrl ?? null} fallback={initials(sender?.name)} alt={sender?.name} recyclingKey={row.senderId ?? undefined} /> : null}
+          <View style={{ width: 36, alignItems: "flex-start", zIndex: 1 }}>
+            {row.showAvatar ? <ChatFace size={28} name={sender?.name} src={sender?.avatarUrl ?? null} recyclingKey={row.senderId ?? undefined} /> : null}
           </View>
         ) : null}
         <Animated.View
-          style={{ maxWidth: "80%", transform: [{ translateX: x }] }}
+          ref={bubbleRef}
+          collapsable={false}
+          style={{ maxWidth: "75%", transform: [{ translateX: x }] }}
           {...(canSwipe && !Swipeable ? responder.panHandlers : {})}
         >
           <Pressable
@@ -355,11 +389,11 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
             accessibilityHint={failed ? copy.retry : undefined}
             accessibilityActions={actions}
             onAccessibilityAction={(e) => onAction(e.nativeEvent.actionName)}
-            onLongPress={message && !message.deletedAt ? () => props.onLongPress?.(message) : undefined}
-            delayLongPress={350}
+            onLongPress={message && !message.deletedAt ? longPress : undefined}
+            delayLongPress={300}
             style={{
               paddingHorizontal: attachments.length && !body ? 4 : 12,
-              paddingVertical: attachments.length && !body ? 4 : 8,
+              paddingVertical: attachments.length && !body ? 4 : 7,
               borderTopLeftRadius: corners.borderTopLeftRadius,
               borderTopRightRadius: corners.borderTopRightRadius,
               borderBottomLeftRadius: corners.borderBottomLeftRadius,
@@ -372,12 +406,12 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
             {quote ? (
               <View
                 testID={`${testID}-quote`}
-                style={{ borderLeftWidth: 3, borderLeftColor: mine ? colors.surface : colors.tint, paddingLeft: 8, paddingVertical: 2, opacity: 0.85 }}
+                style={{ borderLeftWidth: 3, borderLeftColor: mine ? chat.roles.onSent : chat.roles.sent, paddingLeft: 8, paddingVertical: 2, opacity: 0.85 }}
               >
-                <NativeText preset="caption" className={fg} style={mine ? { fontWeight: "600" } : { fontWeight: "600", color: colors.secondaryLabel }}>
+                <NativeText preset="caption" className={fg} style={{ fontWeight: "600", color: mine ? chat.roles.onSent : colors.secondaryLabel }}>
                   {quoted ? (quoted.senderId === me ? copy.you : (person(quoted.senderId)?.name ?? "")) : ""}
                 </NativeText>
-                <NativeText preset="caption" numberOfLines={2} className={fg} style={mine ? undefined : { color: colors.secondaryLabel }}>
+                <NativeText preset="caption" numberOfLines={2} className={fg} style={{ color: mine ? chat.roles.onSent : colors.secondaryLabel }}>
                   {quoted ? attachmentPreview(displayBody(quoted.body), quoted.attachments[0], kinds, Boolean(quoted.deletedAt)) : "…"}
                 </NativeText>
               </View>
@@ -413,7 +447,54 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
             {moderation ? <ModerationMarker note={moderation} mine={mine} testID={`${testID}-moderation`} /> : null}
             {preview ? <ChatLinkPreviewCard preview={preview} mine={mine} images={props.linkPreviewImages} testID={`${testID}-preview`} /> : null}
           </Pressable>
-          {tail ? <BubbleTail mine={mine} color={bubbleColor} backdrop={props.backdrop ?? (colors.groupedBackground as string)} opacity={sending ? 0.6 : moderation === "hidden-mine" ? 0.7 : 1} testID={`${testID}-tail`} /> : null}
+          {tail ? <BubbleTail mine={mine} color={bubbleColor} backdrop={props.backdrop ?? (chat.roles.pageSolid as string)} opacity={sending ? 0.6 : moderation === "hidden-mine" ? 0.7 : 1} testID={`${testID}-tail`} /> : null}
+          {reactions.length ? (
+            // Tapbacks on the bubble's top corner, away from the sender's side, as Messages puts them.
+            <View pointerEvents="box-none" style={{ position: "absolute", top: -TAPBACK_RISE, ...(mine ? { start: -12 } : { end: -12 }), flexDirection: "row", flexWrap: "wrap", gap: 2 }}>
+              {(allReactions ? reactions : reactions.slice(0, REACTIONS_SHOWN)).map((r) => (
+                <Pressable
+                  key={r.emoji}
+                  testID={`${testID}-reaction-${r.emoji}`}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: r.mine }}
+                  accessibilityLabel={`${r.emoji} ${r.count}`}
+                  disabled={!message || !props.onToggleReaction}
+                  onPress={() => message && props.onToggleReaction?.(message, r.emoji, !r.mine)}
+                  hitSlop={6}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    minWidth: 30,
+                    height: 30,
+                    paddingHorizontal: 5,
+                    borderRadius: 15,
+                    justifyContent: "center",
+                    backgroundColor: r.mine ? chat.roles.sent : chat.roles.received,
+                    borderWidth: 2,
+                    borderColor: chat.roles.pageSolid,
+                  }}
+                >
+                  <NativeText style={{ fontSize: 15 }}>{r.emoji}</NativeText>
+                  {r.count > 1 ? (
+                    <NativeText style={{ fontSize: 11, fontWeight: "700", marginStart: 2, color: r.mine ? chat.roles.onSent : chat.roles.onReceived }}>{String(r.count)}</NativeText>
+                  ) : null}
+                </Pressable>
+              ))}
+              {!allReactions && reactions.length > REACTIONS_SHOWN ? (
+                // The rest behind "+N": every reaction stays reachable, to see and to toggle.
+                <Pressable
+                  testID={`${testID}-reactions-more`}
+                  accessibilityRole="button"
+                  accessibilityLabel={fill(copy.moreReactionsCount, { count: reactions.length - REACTIONS_SHOWN })}
+                  onPress={() => setAllReactions(true)}
+                  hitSlop={6}
+                  style={{ minWidth: 30, height: 30, paddingHorizontal: 6, borderRadius: 15, alignItems: "center", justifyContent: "center", backgroundColor: chat.roles.received, borderWidth: 2, borderColor: chat.roles.pageSolid }}
+                >
+                  <NativeText style={{ fontSize: 12, fontWeight: "700", color: chat.roles.onReceived }}>{`+${reactions.length - REACTIONS_SHOWN}`}</NativeText>
+                </Pressable>
+              ) : null}
+            </View>
+          ) : null}
         </Animated.View>
       </View>
   );
@@ -427,7 +508,10 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
         overshootLeft={false}
         // Leftward drags are the thread's (its times), never this row's.
         dragOffsetFromRightEdge={10_000}
-        renderLeftActions={() => <ReplyHint color={colors.secondaryLabel} />}
+        // The arrow shows only while the row is dragged, whatever the bubble sits in (a thread, a gallery).
+        renderLeftActions={() => <ReplyHint color={colors.secondaryLabel} shown={dragging} testID={`${testID}-reply-hint`} />}
+        onSwipeableOpenStartDrag={() => setDragging(true)}
+        onSwipeableClose={() => setDragging(false)}
         onSwipeableWillOpen={() => {
           props.onSwipeReply?.();
           props.onReply?.(message);
@@ -446,7 +530,7 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
       entering={entering}
       accessibilityElementsHidden={invisible || undefined}
       importantForAccessibility={invisible ? "no-hide-descendants" : undefined}
-      style={{ paddingTop: row.groupStart ? 8 : 2, borderRadius: 12, backgroundColor: props.highlighted ? colors.fill : undefined, display: invisible ? "none" : undefined }}
+      style={{ paddingTop: row.groupStart ? 10 : 2, paddingHorizontal: 4, borderRadius: 12, backgroundColor: props.highlighted ? chat.roles.pressed : undefined, display: invisible ? "none" : undefined }}
     >
       {row.showName && sender?.name ? (
         <NativeText preset="caption" style={{ marginLeft: group ? 48 : 12, marginBottom: 2, color: colors.secondaryLabel }}>
@@ -456,39 +540,7 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
       <TimeRevealRow time={time} testID={testID}>
         {swipeable}
       </TimeRevealRow>
-      {reactions.length ? (
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 2, justifyContent: mine ? "flex-end" : "flex-start", marginLeft: group && !mine ? 40 : 0 }}>
-          {reactions.map((r) => (
-            <Pressable
-              key={r.emoji}
-              testID={`${testID}-reaction-${r.emoji}`}
-              accessibilityRole="button"
-              accessibilityState={{ selected: r.mine }}
-              accessibilityLabel={`${r.emoji} ${r.count}`}
-              disabled={!message || !props.onToggleReaction}
-              onPress={() => message && props.onToggleReaction?.(message, r.emoji, !r.mine)}
-              hitSlop={6}
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 4,
-                minHeight: 32,
-                paddingHorizontal: 10,
-                borderRadius: 16,
-                backgroundColor: r.mine ? colors.fill : colors.surface,
-                borderWidth: r.mine ? 1 : 0,
-                borderColor: colors.tint,
-              }}
-            >
-              <NativeText style={{ fontSize: 15 }}>{r.emoji}</NativeText>
-              <NativeText preset="caption" style={{ color: colors.secondaryLabel }}>
-                {String(r.count)}
-              </NativeText>
-            </Pressable>
-          ))}
-        </View>
-      ) : null}
-      {row.groupEnd || failed ? (
+      {failed || (row.groupEnd && message?.editedAt) ? (
         <View style={{ flexDirection: "row", justifyContent: mine ? "flex-end" : "flex-start", alignItems: "center", gap: 4, marginTop: 2, marginLeft: group && !mine ? 52 : 12, marginRight: 12 }}>
           {failed ? (
             <>
@@ -504,11 +556,12 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
               )}
               <SmallAction testID={`${testID}-discard`} label={copy.discard} onPress={() => props.onDiscard?.(pending!.clientId)} color={colors.destructive} />
             </>
-          ) : (
-            <NativeText preset="caption" style={{ color: colors.tertiaryLabel }}>
-              {[time, message?.editedAt ? copy.edited : null, sending && !receipt ? copy.sending : null].filter(Boolean).join(" · ")}
+          ) : message?.editedAt ? (
+            // Messages shows no time under a bubble (drag the thread left for it); only "Edited".
+            <NativeText testID={`${testID}-edited`} style={{ fontSize: 11, lineHeight: 13, color: colors.secondaryLabel }}>
+              {copy.edited}
             </NativeText>
-          )}
+          ) : null}
         </View>
       ) : null}
       {receipt ? <ReceiptLine text={receipt} onPress={props.onReceiptPress} hint={copy.receiptReadersHint} testID={`${testID}-receipt`} /> : null}
@@ -531,9 +584,9 @@ function BubbleTail({ mine, color, backdrop, opacity, testID }: { mine: boolean;
 }
 
 /** What the swipe to reply uncovers. */
-function ReplyHint({ color }: { color: unknown }): ReactNode {
+function ReplyHint({ color, shown, testID }: { color: unknown; shown: boolean; testID: string }): ReactNode {
   return (
-    <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ width: SWIPE_MAX, alignItems: "center", justifyContent: "center" }}>
+    <View testID={testID} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ width: SWIPE_MAX, alignItems: "center", justifyContent: "center", opacity: shown ? 1 : 0 }}>
       <NativeIcon name="reply" size={20} color={color as string} />
     </View>
   );
@@ -543,7 +596,7 @@ function ReplyHint({ color }: { color: unknown }): ReactNode {
 function ReceiptLine({ text, onPress, hint, testID }: { text: string; onPress?: () => void; hint: string; testID: string }) {
   const colors = useThemeRoles();
   const words = (
-    <NativeText preset="caption" style={{ color: colors.secondaryLabel, fontWeight: "600" }}>
+    <NativeText style={{ fontSize: 11, lineHeight: 13, color: colors.secondaryLabel, fontWeight: "600" }}>
       {text}
     </NativeText>
   );
