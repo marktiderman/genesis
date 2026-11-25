@@ -124,9 +124,12 @@ A long-press menu of a screen's own replaces the sheet and the system menu: `ren
 `preview`, `testID`); the swipe and VoiceOver's actions don't change.
 `NativeSwipeRow` guards the row's press (the row, or the row inside the system menu): a press whose
 touch became a drag, or any press while the row is open, doesn't fire, and a tap on an open row
-closes it. A press it lets through runs a frame later, in case gesture-handler reports the drag just
-after the release. It reads the swipe's callbacks and the touch's start, and never takes the touch,
-so the swipe always gets its gesture.
+closes it. A plain tap presses at once; only while a drag is still reported does a press wait a
+frame. It reads the swipe's callbacks and the touch's start (a wrapper view, `<testID>-touch`) and
+never takes the touch, so the swipe always gets its gesture. The row element must carry the
+`onPress`: NativeSwipeRow's child, or the element a menu wrapper holds (InboxPage's `row` slot gets
+it as `onPress`), within five levels; development warns when none is found. A row with nothing to
+swipe, or without gesture-handler, is left as it is.
 
 | Tone | iOS | | Accent |
 | --- | --- | --- | --- |
