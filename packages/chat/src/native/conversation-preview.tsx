@@ -36,7 +36,11 @@ export function ChatBubbleShape({ mine, position, children, maxWidth = CHAT_METR
   const tail = position === "single" || position === "last";
   return (
     <View testID={testID} style={{ maxWidth, opacity: faded ? 0.6 : 1 }}>
+      {/* The tail first, behind the bubble: drawn over it, its piece covered the first letters at
+          the bubble's bottom corner ("It did" read "!t did"). */}
+      {tail ? <ChatBubbleTail mine={mine} color={color} backdrop={backdrop} testID={testID ? `${testID}-tail` : undefined} /> : null}
       <View
+        testID={testID ? `${testID}-body` : undefined}
         style={{
           backgroundColor: color,
           borderRadius: CHAT_METRICS.bubbleRadius,
@@ -47,7 +51,6 @@ export function ChatBubbleShape({ mine, position, children, maxWidth = CHAT_METR
       >
         {children}
       </View>
-      {tail ? <ChatBubbleTail mine={mine} color={color} backdrop={backdrop} testID={testID ? `${testID}-tail` : undefined} /> : null}
     </View>
   );
 }
