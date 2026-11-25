@@ -22,7 +22,9 @@
 -- 2. Pushes (0007's `push_targets`): a member who deleted the conversation was told of a message
 --    whenever the conversation had come back, even of a message from the deleted history (a push
 --    sent late, from the outbox, after a newer message). Now they hear only of a message after
---    their `cleared_seq`, and still only of one that brings the conversation back.
+--    their `cleared_seq`, still only of one that brings the conversation back, and never of a
+--    reply in a thread whose root is in what they deleted. A mention in such a reply doesn't mark
+--    their inbox row (0007's `inbox`) either.
 -- 3. Files (0007's `can_read_object`): the uploader's own recent file (a day) was readable whether
 --    or not it was in a message, so a photo of their own in history they deleted stayed reachable.
 --    That fallback is now for a file not yet in any message (an upload before its message is sent);
