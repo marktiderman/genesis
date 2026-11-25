@@ -302,7 +302,7 @@ describe("row actions (ADR 0028)", () => {
     errors.mockRestore();
   });
 
-  it("guards the row's press from the swipe's own callbacks: a pan doesn't press, a tap does, a tap while open closes it", () => {
+  it("guards the row's press from the swipe's own callbacks: a pan doesn't press, a tap does, a tap while open closes it", async () => {
     const seen: Record<string, any>[] = [];
     const close = vi.fn();
     const Swipeable = forwardRef<unknown, Record<string, any>>(function Swipeable(props, ref) {
@@ -319,22 +319,62 @@ describe("row actions (ADR 0028)", () => {
       </GenesisModulesProvider>,
     );
     const row = () => screen.getByTestId("li");
-    // A tap presses the row.
+    // The touch's start, as React Native reports it to the row's wrapper (it takes nothing).
+    const touch = () => (seen.at(-1)!.children as { props: { onTouchStart: () => void } }).props.onTouchStart();
+    const frame = () => act(async () => void (await new Promise((r) => setTimeout(r, 30))));
+    // A tap presses the row, a frame later.
+    touch();
     fireEvent.click(row());
+    await frame();
     expect(onPress).toHaveBeenCalledTimes(1);
-    // A pan: gesture-handler starts a drag; the release that ends it doesn't press the row.
+    // A pan: the touch becomes a drag; its release doesn't press.
+    touch();
     act(() => seen.at(-1)!.onSwipeableOpenStartDrag());
     fireEvent.click(row());
+    await frame();
+    expect(onPress).toHaveBeenCalledTimes(1);
+    // A release gesture-handler reports as a drag only just after: still no press.
+    act(() => seen.at(-1)!.onSwipeableClose());
+    touch();
+    fireEvent.click(row());
+    act(() => seen.at(-1)!.onSwipeableOpenStartDrag());
+    await frame();
     expect(onPress).toHaveBeenCalledTimes(1);
     // Open: a tap closes it rather than pressing.
     act(() => seen.at(-1)!.onSwipeableOpen());
+    touch();
     fireEvent.click(row());
+    await frame();
     expect(onPress).toHaveBeenCalledTimes(1);
     expect(close).toHaveBeenCalled();
     // Home again: a tap presses.
     act(() => seen.at(-1)!.onSwipeableClose());
+    touch();
     fireEvent.click(row());
+    await frame();
     expect(onPress).toHaveBeenCalledTimes(2);
+  });
+
+  it("guards a row inside the system context menu too (the press sits a level down)", async () => {
+    const seen: Record<string, any>[] = [];
+    function Swipeable(props: Record<string, any>) {
+      seen.push(props);
+      return <div data-testid={props.testID}>{props.children}</div>;
+    }
+    const Menu: NonNullable<GenesisModules["menu"]> = ({ children }) => <div data-testid="system-menu">{children}</div>;
+    const onPress = vi.fn();
+    render(
+      <GenesisModulesProvider modules={{ swipeable: Swipeable as never, menu: Menu }}>
+        <NativeRowActions actions={make()} title="Ada" testID="ra">
+          <NativeListItem title="Ada" onPress={onPress} testID="li" />
+        </NativeRowActions>
+      </GenesisModulesProvider>,
+    );
+    expect(screen.getByTestId("system-menu")).toBeTruthy();
+    act(() => seen.at(-1)!.onSwipeableOpenStartDrag());
+    fireEvent.click(screen.getByTestId("li"));
+    await act(async () => void (await new Promise((r) => setTimeout(r, 30))));
+    expect(onPress).not.toHaveBeenCalled();
   });
 
   it("never takes the touch: nothing in the row's tree sets a responder-capture handler, so the swipe always gets its gesture", () => {
@@ -359,18 +399,30 @@ describe("row actions (ADR 0028)", () => {
     expect(walk({ props: { children: seen.at(-1)!.children } })).toEqual([]);
   });
 
-  it("counts a drag gesture-handler never reported the end of as swiping for a while, then lets a tap through", () => {
+  it("blocks a press whose touch became a drag, any press while open, and, for a touch it didn't see start, one soon after a drag", () => {
     let t = 0;
     const g = createSwipePressGuard(() => t);
     expect(g.blocks()).toBe(false);
+    // A touch, then a drag: blocked, however long it takes.
+    g.touchStart();
+    t = 10;
     g.dragStart();
+    t = SWIPE_PRESS_HOLD_MS * 2;
     expect(g.blocks()).toBe(true);
-    t = SWIPE_PRESS_HOLD_MS;
+    // The next touch starts after that drag: a tap.
+    t += 10;
+    g.touchStart();
     expect(g.blocks()).toBe(false);
     g.opened();
     expect(g.blocks()).toBe(true);
     g.closed();
     expect(g.blocks()).toBe(false);
+    // No touch seen: a drag lately counts for SWIPE_PRESS_HOLD_MS.
+    const h = createSwipePressGuard(() => t);
+    h.dragStart();
+    expect(h.blocks()).toBe(true);
+    t += SWIPE_PRESS_HOLD_MS;
+    expect(h.blocks()).toBe(false);
   });
 
   it("keeps the actions unseen until a drag starts, so they never show in an inset row's margins", () => {

@@ -61,15 +61,20 @@ export interface NativeSwipeRowProps {
 export const SWIPE_PRESS_HOLD_MS = 2000;
 
 /**
- * Tells NativeSwipeRow's row whether its press is a real one: not while a swipe is under way (from
- * gesture-handler's start of a drag until the row opens or closes again) and not while the row is
- * open. It reads the Swipeable's own callbacks and never touches the touch itself, so the swipe
- * always gets its gesture. A drag with no end reported stops counting after `SWIPE_PRESS_HOLD_MS`.
+ * Tells NativeSwipeRow's row whether its press is a real one. Not while the row is open; not when a
+ * drag started after the touch did (gesture-handler's start of a drag, which can come just after the
+ * release); and, for a touch it didn't see start, not within `SWIPE_PRESS_HOLD_MS` of a drag that
+ * reported no end. It reads the Swipeable's own callbacks and a touch's start, and never takes the
+ * touch, so the swipe always gets its gesture.
  */
 export function createSwipePressGuard(now: () => number = () => Date.now()) {
   let open = false;
   let dragAt: number | null = null;
+  let touchAt: number | null = null;
   return {
+    touchStart() {
+      touchAt = now();
+    },
     dragStart() {
       dragAt = now();
     },
@@ -82,25 +87,48 @@ export function createSwipePressGuard(now: () => number = () => Date.now()) {
       dragAt = null;
     },
     blocks() {
-      return open || (dragAt !== null && now() - dragAt < SWIPE_PRESS_HOLD_MS);
+      if (open) return true;
+      if (dragAt === null) return false;
+      // This touch became a drag.
+      if (touchAt !== null && dragAt >= touchAt) return true;
+      // A touch it didn't see start: a drag lately, with no end reported.
+      return touchAt === null && now() - dragAt < SWIPE_PRESS_HOLD_MS;
     },
   };
 }
 
-type Pressish = { onPress?: (...args: unknown[]) => void };
+type Pressish = { onPress?: (...args: unknown[]) => void; children?: ReactNode };
 
-/** The row with its press guarded: a press the guard `blocks` does nothing but `onBlocked` (the row's own element, its `onPress` wrapped). */
-function withPressGuard(children: ReactNode, guard: ReturnType<typeof createSwipePressGuard>, onBlocked: () => void): ReactNode {
-  if (!isValidElement(children)) return children;
+/** How deep the guard looks for the row's press: a system menu or another wrapper can sit around the row. */
+const PRESS_SEARCH_DEPTH = 4;
+
+/** One frame later: gesture-handler can report a drag's start just after the release that ends it. */
+const nextFrame = (run: () => void) => (typeof requestAnimationFrame === "function" ? requestAnimationFrame(() => run()) : setTimeout(run, 16));
+
+/**
+ * The row with its press guarded: the first element with an `onPress` (the row, or the row inside a
+ * menu wrapper) gets it wrapped. A press the guard blocks does nothing but `onBlocked`; one it lets
+ * through runs a frame later, unless a drag has started by then.
+ */
+function withPressGuard(children: ReactNode, guard: ReturnType<typeof createSwipePressGuard>, onBlocked: () => void, depth = 0): ReactNode {
+  if (!isValidElement(children) || depth > PRESS_SEARCH_DEPTH) return children;
   const child = children as ReactElement<Pressish>;
   const onPress = child.props.onPress;
-  if (typeof onPress !== "function") return children;
-  return cloneElement(child, {
-    onPress: (...args: unknown[]) => {
-      if (guard.blocks()) return onBlocked();
-      onPress(...args);
-    },
-  });
+  if (typeof onPress === "function") {
+    return cloneElement(child, {
+      onPress: (...args: unknown[]) => {
+        if (guard.blocks()) return onBlocked();
+        nextFrame(() => {
+          if (guard.blocks()) return;
+          onPress(...args);
+        });
+      },
+    });
+  }
+  const inner = child.props.children;
+  if (!isValidElement(inner)) return children;
+  const guarded = withPressGuard(inner, guard, onBlocked, depth + 1);
+  return guarded === inner ? children : cloneElement(child, { children: guarded });
 }
 
 /** How far past a side's open actions a full swipe must go, in points. */
@@ -281,6 +309,8 @@ export function NativeSwipeRow({
   // It makes the open row a pill (round) and, without Reanimated, shows the buttons, which stay
   // mounted (the swipe measures them) but unseen at rest, so they never show in an inset row's margins.
   const [open, setOpen] = useState(false);
+  // A touch's start, without taking it (no responder): the guard tells a press that became a drag.
+  const touchStart = { onTouchStart: () => guard.touchStart() } as Record<string, unknown>;
   // A tap on a swiped-open row closes it instead of pressing it.
   const content = withPressGuard(accessibilityActions ? withAccessibilityActions(children, actions) : children, guard, () => swipe.current?.close?.());
   const { leading, trailing, fullLeading, fullTrailing } = splitSwipeActions(actions, maxPerSide);
@@ -376,14 +406,16 @@ export function NativeSwipeRow({
         renderLeftActions={left.length ? group(left) : undefined}
         renderRightActions={right.length ? group(right) : undefined}
       >
-        {round ? (
-          // Always the same wrapper, so opening never remounts the row; only its style changes.
-          <View testID={`${testID}-pill`} style={open && round ? { marginHorizontal: m.pillInset, borderRadius: m.pillRadius, overflow: "hidden", backgroundColor: Platform.OS === "ios" ? PlatformColor(ROW_PILL.ios) : ROW_PILL.fallback } : undefined}>
-            {content}
-          </View>
-        ) : (
-          content
-        )}
+        <View testID={`${testID}-touch`} {...touchStart}>
+          {round ? (
+            // Always the same wrapper, so opening never remounts the row; only its style changes.
+            <View testID={`${testID}-pill`} style={open && round ? { marginHorizontal: m.pillInset, borderRadius: m.pillRadius, overflow: "hidden", backgroundColor: Platform.OS === "ios" ? PlatformColor(ROW_PILL.ios) : ROW_PILL.fallback } : undefined}>
+              {content}
+            </View>
+          ) : (
+            content
+          )}
+        </View>
       </Swipeable>
     </View>
   );
