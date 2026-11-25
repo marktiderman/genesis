@@ -138,7 +138,7 @@ function returnFocus(e: Event, keepFocus: MutableRefObject<(() => void) | null>)
 
 /** Plain text for the clipboard: mentions as @Name. */
 export function plainText(body: string): string {
-  return body.replace(/@\[([^\]]+)\]\(user:[0-9a-f-]{36}\)/gi, "@$1");
+  return body.replace(/@\[([^\]]{1,80})\]\(user:[0-9a-f-]{36}\)/gi, "@$1");
 }
 
 export function MessageRow({ item, startsGroup, highlighted: highlightedProp, className }: MessageRowProps) {

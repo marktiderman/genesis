@@ -16,8 +16,8 @@
 import { createElement, type ReactNode } from "react";
 import type { ColorValue } from "react-native";
 import { getThreadPageStackOptions, type ScreenHeaderProps } from "@marktiderman/genesis-ui-native/layouts";
-import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
 import { ChatThreadTitle, type ChatThreadTitleAvatar } from "./thread-title";
+import { useChatColors } from "./messages-look";
 
 export type ChatThreadStackOptionsProps = ScreenHeaderProps & {
   headerTitle?: string;
@@ -35,11 +35,15 @@ export type ChatThreadStackOptionsProps = ScreenHeaderProps & {
   titleHint?: string;
   /** For the default subtitle. */
   conversationId?: string;
+  /** `"stacked"` (default): Messages' face over the name pill. `"inline"`: the picture beside the name. */
+  titleLayout?: "stacked" | "inline";
+  /** The stacked face's size (default 30, which fits the bar). */
+  faceSize?: number;
 };
 
 /** The thread's header options with an opaque bar in `background` (the thread's own background). */
 export function chatThreadStackOptions(props: ChatThreadStackOptionsProps, background: ColorValue): Record<string, unknown> {
-  const { avatar, subtitle, onPressTitle, titleHint, conversationId, ...header } = props;
+  const { avatar, subtitle, onPressTitle, titleHint, conversationId, titleLayout, faceSize, ...header } = props;
   // A title of its own only when asked for: otherwise the bar's plain title, as before.
   const custom = avatar !== undefined || subtitle !== undefined || onPressTitle !== undefined || conversationId !== undefined;
   const title = header.headerTitle ?? "Conversation";
@@ -50,10 +54,13 @@ export function chatThreadStackOptions(props: ChatThreadStackOptionsProps, backg
     headerOptions: {
       headerTransparent: false,
       headerStyle: { backgroundColor: background },
+      headerShadowVisible: false,
+      // The chevron alone, as Messages' back button.
+      headerBackButtonDisplayMode: "minimal",
       ...(custom
         ? {
             headerTitle: ({ tintColor }: { tintColor?: string }) =>
-              createElement(ChatThreadTitle, { title, subtitle, avatar, onPress: onPressTitle, pressHint: titleHint, conversationId, tintColor }),
+              createElement(ChatThreadTitle, { title, subtitle, avatar, onPress: onPressTitle, pressHint: titleHint, conversationId, tintColor, layout: titleLayout, faceSize }),
           }
         : {}),
       ...props.headerOptions,
@@ -61,8 +68,11 @@ export function chatThreadStackOptions(props: ChatThreadStackOptionsProps, backg
   });
 }
 
-/** `chatThreadStackOptions` in the theme's grouped background, the color `ChatThreadScreen` draws. */
+/**
+ * `chatThreadStackOptions` on the chat role `pageSolid`: the page as a plain string for the scheme,
+ * since the native header takes no PlatformColor for its background. It follows a scheme change.
+ */
 export function useChatThreadStackOptions(props: ChatThreadStackOptionsProps): Record<string, unknown> {
-  const colors = useThemeRoles();
-  return chatThreadStackOptions(props, colors.groupedBackground);
+  const c = useChatColors();
+  return chatThreadStackOptions(props, String(c.roles.pageSolid));
 }

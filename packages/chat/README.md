@@ -127,9 +127,10 @@ copy and people) inside `GenesisNativeApp`, then put the screens in your routes:
 
 | Screen | What it is | Main props |
 |---|---|---|
-| `ChatInboxScreen` | The conversations on `InboxPage`: avatars, unread counts, the last message, pull to refresh, Mark read, Pin and Archive. | `onOpen(conversationId)`, `onStart`, `kind` / `kinds` / `excludeKinds`, `archived`, `pageProps` |
+| `ChatInboxScreen` | The conversations, as Messages draws them: plain rows with faces, the unread dot, pinned faces, round row actions with a peek, the glass search field, the stack's large title with the filter menu and Compose. | `onOpen(conversationId)`, `onStart`, `onCompose`, `onBack`, `kind` / `kinds` / `excludeKinds`, `archived`, `filters`, `menuItems`, `onOpenArchived`, `onOpenScheduled`, `onSearchMessages`, `rowActions`, `slots` |
 | `ChatThreadScreen` | One conversation: grouped bubbles, day lines, replies, reactions, the composer (text, photos, voice notes, video, emoji, scheduled send), topics and the away line. | `conversationId`, `threadRootId`, `jumpTo` (open at a search result), `topic` / `showTopics`, `scheduling`, `availability`, `onOpenAttachment`, `focused` (the navigator's `useIsFocused()`), `active`, `header`, `accessory`, `videoLimitMs`, `receipts` (`"show"` or `"hide"`), `keyboardVerticalOffset` |
 | `ChatSearchScreen` | Search across your conversations or in one, with matches highlighted and transcripts marked. | `onOpen(hit)`, `conversationId`, `conversationTitle` |
+| `ChatDetailsScreen` | A conversation's details: the large face and name, round glass buttons (Search, Pin, Scheduled), Hide Alerts, a group's members, Archive. | `conversationId`, `onSearch`, `onOpenScheduled`, `onArchived`, `slots` |
 | `ChatAvailabilityScreen` | Your away message, its end, working hours and time zone. | `onSaved` |
 
 `ChatNativeProvider` takes `modules` (expo-audio, expo-image-picker, expo-haptics, expo-clipboard,
@@ -146,6 +147,85 @@ across the app, and the logic under them (`composerReducer`, `buildThreadRows`, 
 `ChatProvider upload`), and for genesis-native's push block the `messages` category with Reply and
 Mark read (`registerChatNotificationActions`, `handleChatPushResponse`, `chatThreadMatch`, also on
 `/push` alone).
+
+### The Messages look
+
+<!-- api: ChatInboxScreenProps, ChatThreadScreenProps, ChatComposerProps, ChatDetailsScreenProps, ChatThreadStackOptionsProps -->
+
+The native screens draw the platform's Messages pattern (iOS 26) by default, with no app code:
+sent bubbles in Messages' blue and received ones in its grey whatever the brand, tapbacks on a
+bubble's corner, a centred "**Today** 9:41 AM" where a day starts or an hour has passed, the time
+of every message on a drag to the left, "Delivered" or "Read" under your last message, the typing
+bubble, the long press (the tapbacks over the lifted bubble, the glass menu under it, the screen
+softened), the composer's glass + circle and "Message" pill with the mic and the Send arrow, and the
++ list of round colored icons. The header's title is the face over a glass pill with the name;
+`ChatDetailsScreen` is what it opens.
+
+Colors are the design system's chat roles (`resolveChatRoles`, read through `useChatColors`;
+genesis-design-system is a required peer): iOS
+system colors on iOS, their light and dark values elsewhere, never the brand's. Glass is
+genesis-ui-native's (`GenesisModules.glass`; solid under Reduce Transparency or without it), symbols
+`GenesisModules.symbol` with Genesis's icons as the fallback, haptics `GenesisModules.haptics` and
+motion Genesis's tokens (still under Reduce Motion).
+
+The inbox is genesis-ui-native's `InboxPage` in its plain variant, chat's row in its `row`
+slot; `pageProps` reaches it (paging with `onEndReached`, `formatTime`, its own slots). It sets its own header through `GenesisModules.router.StackScreen`: a large title that
+collapses with the list (the list is the screen's scroll view), Back on the left with `onBack`, and
+on the right the filter menu and Compose as native header items. It hides the tab bar while it
+shows (`useHideTabBar`, which needs the tabs layout's `TabBarVisibilityProvider`).
+`nativeHeader={false}` leaves the header and the tab bar to the app.
+
+What an app adds is configuration, each with a Messages default:
+
+| Prop | What it does |
+|---|---|
+| `filters` | `(defaults) => filters`: the inbox's filter menu. The defaults are All Messages, Unread and Groups; a filter is `{ id, label, icon, sf, predicate, sort, emptyTitle }`. |
+| `menuItems` | `(defaults) => items`: the entries under the filters. The defaults are Archived and Scheduled Messages, with `onOpenArchived` and `onOpenScheduled`. |
+| `onSearchMessages` | The search field's "Search messages for…" and its Search key. |
+| `plusItems` | `(defaults) => items` on `ChatThreadScreen` and `ChatComposer`: the + list. The defaults are Camera, Photos, Audio, Video and Send Later, as the app's modules and the thread allow; an item is `{ id, label, icon, sf, color, onPress }`, `color` a chat accent (`useChatColors().accents`). |
+| `slots` | Every part is a slot, as everywhere in Genesis (`renderSlot`): on the inbox `row`, `pinned`, `searchField`, `listHeader` and `empty`; on the thread `bubble`, `composer`, `messageMenu`, `plusList` and `belowHeader` (under the header, nothing by default); on the details `hero`, `actions`, `settings`, `members` and `danger`. `slotProps` feeds a default more props; `null` drops a part. |
+| `titleLayout` | On `useChatThreadStackOptions`: `"stacked"` (the face over the name pill, the default) or `"inline"`. |
+
+The conversation with yourself (direct, you its only member) shows your own face in the inbox and
+"Just you" on its details.
+
+```tsx
+import { Text } from "react-native";
+import { ChatInboxScreen, ChatThreadScreen, useChatColors } from "@marktiderman/genesis-chat/native";
+
+export function InboxRoute({ open, compose, archived }: { open: (id: string) => void; compose: () => void; archived: () => void }) {
+  return (
+    <ChatInboxScreen
+      onOpen={open}
+      onStart={compose}
+      onOpenArchived={archived}
+      filters={(defaults) => [...defaults, { id: "mentions", label: "Mentions", icon: "message", sf: "at", predicate: (item) => item.mentioned }]}
+    />
+  );
+}
+
+function SamplePill({ conversationId }: { conversationId: string; testID: string }) {
+  return <Text>{`Plan for ${conversationId}`}</Text>;
+}
+
+export function ThreadRoute({ id, insert }: { id: string; insert: () => void }) {
+  const c = useChatColors();
+  return (
+    <ChatThreadScreen
+      conversationId={id}
+      slots={{ belowHeader: SamplePill }}
+      plusItems={(defaults) => [...defaults, { id: "sample", label: "Sample tool", icon: "star", sf: "star.fill", color: c.accents.recap, onPress: insert }]}
+    />
+  );
+}
+```
+
+The pieces are exported for a screen of an app's own: `ChatFace`, `ChatGlassPanel`,
+`ChatGlassCircle`, `ChatGlassMenu`, `ChatContextOverlay`, `ChatSymbol`, `ChatBubbleShape`,
+`ChatMessageMenu`, `ChatConversationPreview`, `CHAT_METRICS` and `CHAT_TYPE`, with the times
+(`timeSeparatorLabel`) and the inbox's rules (`defaultInboxFilters`,
+`applyInboxFilter`, `pinnedConversations`, `matchesInboxSearch`, `isSelfConversation`).
+`MessageActionsSheet` stays exported; the thread no longer opens it.
 
 ### Message status and typing
 
@@ -190,20 +270,23 @@ VoiceOver.
 
 The thread follows the platform's Messages app where it can:
 
-- **Bubbles.** A run of one sender's messages reads as one shape: the corners where two bubbles
-  meet are tight, and the last (or only) one has a tail on the sender's side (`bubbleCorners`).
+- **Bubbles.** Yours in the sent role, theirs in the received one (`resolveChatRoles`), every
+  corner round, and the last (or only) bubble of a run has a tail on the sender's side
+  (`ChatBubbleShape`; `bubbleCorners(pos, mine, false)`).
 - **Times on demand.** Drag the thread left and every message's time slides in at the trailing
-  edge; let go and it slides back. The last message of a run keeps its time under it. VoiceOver
-  already reads each time in the bubble's label.
+  edge; let go and it slides back. A time separator ("Today 10:29 AM") starts each day and each
+  gap of an hour or more (`buildThreadRows(…, { separators: "time" })`). VoiceOver already reads
+  each time in the bubble's label.
 - **Swipe to reply** runs on react-native-gesture-handler when the app passes its
   `ReanimatedSwipeable` as `GenesisModules.swipeable` (the same module `InboxPage` swipes with),
   so the drag stays on the UI thread; without it, a PanResponder does it.
 - **Sending.** With `GenesisModules.reanimated` (Reanimated 4), a message you just sent rises in
   from the composer (`FadeInDown`); not with Reduce Motion, and not a message left in the outbox
   from an earlier launch. While you hold the mic it follows your finger toward cancel and the lock.
-- **Long press** taps a medium impact and opens the message's actions in a sheet that fits them
-  (the attach, emoji and scheduled sheets fit theirs too). The + button's menu opens the picker as
-  soon as the menu has gone, with no fixed wait.
+- **Long press** taps a medium impact, softens the thread, lifts the bubble in place with the
+  tapbacks above it and a glass menu of its actions below (`ChatMessageMenu`; the `messageMenu`
+  slot replaces it). The + button opens the + list (`plusItems`), whose choice opens its picker
+  as soon as the list has gone, with no fixed wait.
 - **Where it opens.** At the first unread, with the "New" line at the top, when that line would be
   above the screen; otherwise at the newest. An unread further back than the first page opens at
   the page's oldest unread, and earlier pages load from there. A row the list can't reach (FlatList
@@ -466,7 +549,7 @@ show again on that device when a new message brings it back.
 
 `inboxRowActions(item, actions, labels, { confirm, onError })` turns them into the row's actions,
 Messages' set: Mark as Unread (or Read) and Pin leading, Hide Alerts and Delete trailing, Archive in
-the menu only; Unread blue, Pin orange, Hide Alerts purple, Delete red. `confirm` is
+the menu only; Unread blue, Pin orange, Hide Alerts indigo, Delete red. `confirm` is
 `(title, body, label) => Promise<boolean>`: `alertConfirm(cancel)` on the phone, `useConfirmDialog()`
 on the web. `ChatInboxScreen` swipes them and `ChatInbox` lists them in each row's More menu; both
 take `rowActions(item, defaults)` to reshape them, and say so when one fails.

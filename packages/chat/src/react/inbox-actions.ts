@@ -4,7 +4,7 @@
  * Archive in the menu only. ChatInboxScreen (native) and ChatInbox (web) both take them, and an app
  * reshapes them with `rowActions(item, defaults)`.
  *
- * The look is Messages': Unread blue (`info`), Pin orange, Hide Alerts purple, Delete red.
+ * The look is Messages': Unread blue (`info`), Pin orange, Hide Alerts indigo, Delete red.
  */
 import type { RowSwipeAction } from "@marktiderman/genesis-core/row-actions";
 import type { ChatInboxItem } from "../core/types";
@@ -99,7 +99,7 @@ export function inboxRowActions(item: ChatInboxItem, act: ChatInboxActions, labe
       id: "alerts",
       label: item.muted ? labels.showAlerts : labels.hideAlerts,
       icon: item.muted ? "bell" : "bell-off",
-      accent: "purple",
+      accent: "indigo",
       swipe: { side: "trailing" },
       onPress: () => run(act.toggleMuted(item)),
     },

@@ -108,7 +108,9 @@ first screen to wherever the person came from: `createPlaceExit((path) => …)`,
 **Row actions** ([ADR 0028](../../docs/adr/0028-row-actions.md)). One list, in core's neutral
 shape (`RowSwipeAction` from `@marktiderman/genesis-core/row-actions`), offered three ways: behind a
 swipe (`swipe: { side, full? } | false`, an `icon`, a `tone` for what it means or an `accent` for a
-system color by name; `appearance="round"` for iOS 26's round buttons), in the long-press menu (the
+system color by name, `indigo` among them; `appearance="round"` for iOS 26's round buttons, and
+`NativeSwipeRow roundLabels={false}` for the circles without labels under them, as Messages draws
+them, each still named for VoiceOver), in the long-press menu (the
 system context menu with `GenesisModules.menu`, else a sheet), and as VoiceOver's actions, a
 refused one with its `reason`. `NativeListItem` `actions`, `NativeRowActions`, InboxPage's rows and
 NativeResourceView's rows all build them the same way. `preview` puts a peek above the long-press
@@ -116,6 +118,10 @@ menu; `InboxPage` takes `swipeAppearance` and `menuPreview` for the same, and gi
 your own `actionProps` to spread on its pressable. An `actionProps` in `slotProps.row` is laid over
 the generated one key by key: give `accessibilityActions` and `onAccessibilityAction` together
 (listing the row's own actions to keep them), and an `onLongPress` of your own replaces the menu's.
+A long-press menu of a screen's own replaces the sheet and the system menu: `renderMenu` on
+`NativeRowActions` (and `useRowActions`), InboxPage's `rowMenu` slot, and NativeResourceView's
+`rowMenu` for its inbox rows. It gets `RowActionsMenuProps` (`open`, `onClose`, `actions`, `title`,
+`preview`, `testID`); the swipe and VoiceOver's actions don't change.
 
 | Tone | iOS | | Accent |
 | --- | --- | --- | --- |
@@ -424,6 +430,8 @@ Two generic layouts for conversations (support tickets, direct messages, comment
   (`mutedLabel`, default "Alerts off"; `pinnedLabel`, default "Pinned"). The pin is a row mark, as
   Mail, WhatsApp and Telegram show one, not Messages' pinned tiles above the list; the web
   `InboxPage` draws both the same way.
+  `variant="plain"` draws full-width rows on the page with no inset group, as Messages and Mail
+  list theirs (`background` sets the page; the default stays `"grouped"`).
 - **`ThreadPage`**: one conversation, built from the two atoms below.
   - **The list:**
     - messages oldest first (mine trailing in the tint, theirs leading on `surface`), and

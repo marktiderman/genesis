@@ -113,7 +113,11 @@ describe("ChatComposer", () => {
     );
     expect(screen.getByTestId("cmp-mic")).toBeTruthy();
     expect(screen.queryByTestId("cmp-send")).toBeNull();
+    // Photos and Audio: + opens the list; Photos goes to the library once the list has gone.
     fireEvent.click(screen.getByTestId("cmp-attach"));
+    await waitFor(() => expect(screen.getByTestId("cmp-plus-photos")).toBeTruthy());
+    expect(screen.getByTestId("cmp-plus-audio")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("cmp-plus-photos"));
     await waitFor(() => expect(screen.getByTestId("cmp-attachments")).toBeTruthy());
     expect(screen.queryByTestId("cmp-mic")).toBeNull();
     fireEvent.click(screen.getByTestId("cmp-send"));

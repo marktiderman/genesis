@@ -16,6 +16,13 @@ export {
   resolveThemeRoles,
   type ResolveThemeRolesOptions,
   type ThemeRole,
+  CHAT_ROLES,
+  CHAT_ACCENTS,
+  resolveChatRoles,
+  type ChatRole,
+  type ChatAccent,
+  type ChatRoleColors,
+  type ResolveChatRolesOptions,
 } from "./tokens/index";
 
 // Canonical brand schema (extensions slot, declaration-merging types).

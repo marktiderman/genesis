@@ -7,14 +7,14 @@
  *
  * The long press opens the system context menu (UIContextMenu, the row lifted as its preview)
  * when the app passes `GenesisModules.menu` (`MenuView` from `@expo/ui/community/menu`), and
- * `NativeContextMenu`'s sheet otherwise. Every action shows in the menu, `swipe: false` ones
+ * `NativeContextMenu`'s sheet otherwise; `renderMenu` puts a screen's own menu in their place. Every action shows in the menu, `swipe: false` ones
  * included; a refused one is still listed, and pressing it explains (its `onPress`).
  *
  * @stability Beta
  */
 import { cloneElement, isValidElement, type ReactElement, type ReactNode } from "react";
 import type { RowSwipeAction } from "@marktiderman/genesis-core/row-actions";
-import { useRowActions } from "./use-row-actions";
+import { useRowActions, type RowActionsMenuProps } from "./use-row-actions";
 
 export { NativeSystemMenuRow, toMenuAction } from "./use-row-actions";
 
@@ -32,6 +32,8 @@ export interface NativeRowActionsProps {
   preview?: () => ReactNode;
   /** The swipe's look: `"fill"` or iOS 26's `"round"`. */
   appearance?: "fill" | "round";
+  /** The long press opens this menu of the screen's own instead of the sheet or the system menu (`RowActionsMenuProps`). */
+  renderMenu?: (props: RowActionsMenuProps) => ReactNode;
   testID?: string;
 }
 
@@ -41,10 +43,11 @@ type RowProps = {
   onAccessibilityAction?: (event: { nativeEvent: { actionName: string } }) => void;
 };
 
-export function NativeRowActions({ actions, title, children, appearance, preview, testID = "row-actions" }: NativeRowActionsProps) {
+export function NativeRowActions({ actions, title, children, appearance, preview, renderMenu, testID = "row-actions" }: NativeRowActionsProps) {
   const { rowProps, wrap } = useRowActions(actions, {
     ...(title ? { title } : {}),
     ...(preview ? { preview } : {}),
+    ...(renderMenu ? { renderMenu } : {}),
     ...(appearance ? { appearance } : {}),
     testID,
   });
