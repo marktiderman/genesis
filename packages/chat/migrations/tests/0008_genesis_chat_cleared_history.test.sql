@@ -31,10 +31,10 @@ create temp table t (k text primary key, v uuid);
 grant select, insert, update on t to authenticated;
 create function pg_temp.v(k_ text) returns uuid language sql stable as $$ select v from t where k = k_ $$;
 grant execute on function pg_temp.v(text) to authenticated;
-create function pg_temp.read_at(conv text, n text) returns timestamptz language sql stable security definer as $$
+create function pg_temp.read_at(conv text, n text) returns timestamptz language sql stable security definer set search_path = '' as $$
   select last_read_at from genesis_chat.members where conversation_id = pg_temp.v(conv) and user_id = pg_temp.person(n)
 $$;
-create function pg_temp.pushed(message text, n text) returns integer language sql stable security definer as $$
+create function pg_temp.pushed(message text, n text) returns integer language sql stable security definer set search_path = '' as $$
   select count(*)::integer from genesis_chat.push_targets(pg_temp.v(message)) where user_id = pg_temp.person(n)
 $$;
 grant execute on function pg_temp.read_at(text, text), pg_temp.pushed(text, text) to authenticated;
