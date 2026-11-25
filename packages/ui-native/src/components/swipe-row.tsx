@@ -57,6 +57,41 @@ export interface NativeSwipeRowProps {
   testID?: string;
 }
 
+/** A touch that moves this far sideways, in points, is a swipe: the row's press doesn't fire. */
+export const SWIPE_PRESS_SLOP = 10;
+
+type TouchPoint = { nativeEvent: { pageX?: number; pageY?: number } };
+
+/**
+ * Tells a row's press from a swipe, for NativeSwipeRow's guard around the row: once a touch has
+ * moved `SWIPE_PRESS_SLOP` or more sideways, or while the row is swiped (dragging or open), it
+ * `blocks` the row's press. Each touch starts afresh.
+ */
+export function createSwipePressGuard() {
+  let start: { x: number; y: number } | null = null;
+  let moved = false;
+  let swiping = false;
+  const at = (e: TouchPoint) => ({ x: e.nativeEvent.pageX ?? 0, y: e.nativeEvent.pageY ?? 0 });
+  return {
+    touchStart(e: TouchPoint) {
+      start = at(e);
+      moved = false;
+    },
+    touchMove(e: TouchPoint) {
+      if (!start) return;
+      const { x, y } = at(e);
+      const dx = Math.abs(x - start.x);
+      if (dx >= SWIPE_PRESS_SLOP && dx > Math.abs(y - start.y)) moved = true;
+    },
+    setSwiping(on: boolean) {
+      swiping = on;
+    },
+    blocks() {
+      return swiping || moved;
+    },
+  };
+}
+
 /** How far past a side's open actions a full swipe must go, in points. */
 export const FULL_SWIPE_CLEARANCE = 40;
 
@@ -228,6 +263,21 @@ export function NativeSwipeRow({
   const colorsOf = useRowActionColors();
   const play = useHaptics();
   const swipe = useRef<{ close?: () => void } | null>(null);
+  const guard = useRef(createSwipePressGuard()).current;
+  // React Native's responder capture, asked before the row on every touch's start and move: the
+  // touch's start is noted, and a touch that became a swipe is taken from the row.
+  const guardHandlers = {
+    onStartShouldSetResponderCapture: (e: TouchPoint) => {
+      guard.touchStart(e);
+      return guard.blocks();
+    },
+    onMoveShouldSetResponderCapture: (e: TouchPoint) => {
+      guard.touchMove(e);
+      return guard.blocks();
+    },
+    // A tap taken from an open row closes it.
+    onResponderRelease: () => swipe.current?.close?.(),
+  } as Record<string, unknown>;
   const offset = useRef<{ value: number } | null>(null);
   const [width, setWidth] = useState(0);
   // The row off its resting place: from a drag starting (or a ref opening it) until it is back home.
@@ -312,21 +362,34 @@ export function NativeSwipeRow({
             setOpen(true);
           }
         }}
-        onSwipeableOpenStartDrag={() => setOpen(true)}
-        onSwipeableOpen={() => setOpen(true)}
+        onSwipeableOpenStartDrag={() => {
+          guard.setSwiping(true);
+          setOpen(true);
+        }}
+        onSwipeableOpen={() => {
+          guard.setSwiping(true);
+          setOpen(true);
+        }}
         // Cleared once the row is home, not as it starts back: the buttons stay seen while it slides.
-        onSwipeableClose={() => setOpen(false)}
+        onSwipeableClose={() => {
+          guard.setSwiping(false);
+          setOpen(false);
+        }}
         renderLeftActions={left.length ? group(left) : undefined}
         renderRightActions={right.length ? group(right) : undefined}
       >
-        {round ? (
-          // Always the same wrapper, so opening never remounts the row; only its style changes.
-          <View testID={`${testID}-pill`} style={open && round ? { marginHorizontal: m.pillInset, borderRadius: m.pillRadius, overflow: "hidden", backgroundColor: Platform.OS === "ios" ? PlatformColor(ROW_PILL.ios) : ROW_PILL.fallback } : undefined}>
-            {content}
-          </View>
-        ) : (
-          content
-        )}
+        {/* The press guard: a touch that became a swipe (10pt sideways), or any touch while the row is
+            swiped, is taken from the row, so its press never fires; a tap on an open row closes it. */}
+        <View testID={`${testID}-guard`} {...guardHandlers}>
+          {round ? (
+            // Always the same wrapper, so opening never remounts the row; only its style changes.
+            <View testID={`${testID}-pill`} style={open && round ? { marginHorizontal: m.pillInset, borderRadius: m.pillRadius, overflow: "hidden", backgroundColor: Platform.OS === "ios" ? PlatformColor(ROW_PILL.ios) : ROW_PILL.fallback } : undefined}>
+              {content}
+            </View>
+          ) : (
+            content
+          )}
+        </View>
       </Swipeable>
     </View>
   );
