@@ -357,6 +357,24 @@ describe("row actions (ADR 0028)", () => {
     expect(onPress).toHaveBeenCalledTimes(3);
   });
 
+  it("puts the system menu around the swipe, so the swipe holds the row itself from the first frame", () => {
+    function Swipeable(props: Record<string, any>) {
+      return <div data-testid={props.testID}>{props.children}</div>;
+    }
+    const Menu: NonNullable<GenesisModules["menu"]> = ({ children, testID }) => <div data-testid={testID}>{children}</div>;
+    render(
+      <GenesisModulesProvider modules={{ swipeable: Swipeable as never, menu: Menu }}>
+        <NativeRowActions actions={make()} title="Ada" testID="ra">
+          <NativeListItem title="Ada" onPress={vi.fn()} testID="li" />
+        </NativeRowActions>
+      </GenesisModulesProvider>,
+    );
+    const menu = screen.getByTestId("ra-menu");
+    const swipe = screen.getByTestId("ra-swipe");
+    expect(menu.contains(swipe)).toBe(true);
+    expect(swipe.contains(screen.getByTestId("li"))).toBe(true);
+  });
+
   it("guards a row inside the system context menu too (the press sits a level down)", async () => {
     const seen: Record<string, any>[] = [];
     function Swipeable(props: Record<string, any>) {
