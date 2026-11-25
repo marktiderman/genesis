@@ -7,7 +7,7 @@ web reference app (`apps/sample`), the Expo starter new native apps are made fro
 - Build before you test or typecheck: `pnpm build:packages`, then `pnpm test` and `pnpm typecheck`.
   `pnpm lint:genesis` runs the repo's own rules.
 - Every package change needs a changeset (`pnpm changeset`). Releases follow `docs/RELEASING.md`.
-- A PR that changes a package's native surface adds or updates its screen and flow in `apps/native-workbench` and links its `workbench:prove` run (`apps/native-workbench/README.md`); `pnpm check:workbench-coverage` keeps every native component on a screen.
+- A PR that adds or changes a component, layout or screen a package exports for React Native adds or updates its screen and flow in `apps/native-workbench`, runs `pnpm --filter native-workbench workbench:prove`, and pastes the run's `summary.md` result into the PR body (`apps/native-workbench/README.md`). `pnpm check:workbench-coverage` fails on a native component with neither a screen nor a `notYet` line.
 - `docs/component-reference.md` and `apps/sample/app/data/primitives.json` (with `story-ids.json`
   beside it) are generated, and the version PR refreshes them (`pnpm version:packages`). A feature
   PR doesn't regenerate or commit them; on a merge conflict in either, take main's version

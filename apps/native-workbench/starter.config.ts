@@ -14,15 +14,17 @@ export default defineStarter({
     // the app runs, builds carry no update URL and `eas update` can't reach them.
     easProjectId: "1b02b312-e860-48a1-9ccb-6280e3b9e6a1",
   },
-  // The showcase runs with no sign-in and no backend: features that need a signed-in person or a
-  // server (notifications, push, check-in, support, chat sync) are off. Their UI is shown on
+  // The showcase runs with no sign-in and no backend: sign-in and account deletion, and features
+  // that need a signed-in person or a server (notifications, push, check-in, support, chat sync),
+  // are off. Their UI is shown on
   // sample data in the showcase's screens.
   features: {
+    // On only because the starter config needs one sign-in method: no route signs in (sign-in.tsx is gone).
     emailSignIn: true,
-    appleSignIn: true,
+    appleSignIn: false,
     // Off: it needs Google client ids and the Universal sign-in module. README, "Google sign-in".
     googleSignIn: false,
-    accountDeletion: true,
+    accountDeletion: false,
     notifications: false,
     queryPersistence: true,
     queryLifecycle: true,

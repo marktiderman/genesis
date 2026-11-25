@@ -290,9 +290,16 @@ export function initNative(options: InitNativeOptions): InitNativeResult {
     }
   }
   if (unpinned.length) throw new Error(`No published version known for ${unpinned.join(", ")}; pass versions or install a newer CLI.`);
+  if (inWorkspace) {
+    // In the workspace the packages are linked and their dist/ is git-ignored: on EAS nothing has
+    // built them, and the app's config loads them. A postinstall builds them there (EAS only).
+    files.set(EAS_BUILD_PACKAGES_PATH, EAS_BUILD_PACKAGES);
+    pkg.scripts = { postinstall: `node ${EAS_BUILD_PACKAGES_PATH}`, ...((pkg.scripts as Record<string, string> | undefined) ?? {}) };
+  }
   files.set("package.json", `${JSON.stringify(pkg, null, 2)}\n`);
-  if (options.supabasePorts !== undefined && files.has("supabase/config.toml")) {
-    files.set("supabase/config.toml", withSupabasePorts(files.get("supabase/config.toml")!, options.supabasePorts));
+  if (options.supabasePorts !== undefined) {
+    if (files.has("supabase/config.toml")) files.set("supabase/config.toml", withSupabasePorts(files.get("supabase/config.toml")!, options.supabasePorts));
+    else throw new Error("--supabase-ports moves the app's local Supabase stack, but this app has no supabase/config.toml (init it with Supabase, or leave the option out).");
   }
   if (!inWorkspace) {
     // Outside the monorepo: the plain Metro config, and the pnpm settings the app needs on its own
@@ -522,3 +529,8 @@ export function releasePinFor(target: string): ReleasePin | null {
   const umbrella = pinnedVersion(target, "@marktiderman/genesis")?.version;
   return umbrella ? lookupPin(umbrella) : null;
 }
+
+/** Where `genesis init` writes the EAS package build for an app inside the workspace. */
+export const EAS_BUILD_PACKAGES_PATH = "scripts/eas-build-packages.mjs";
+/** The script itself (apps/native-workbench has the same file; a test keeps them equal). */
+export const EAS_BUILD_PACKAGES = "#!/usr/bin/env node\n// On EAS only: build the Genesis workspace packages this app depends on, right after the install.\n//\n// Written by `genesis init` for an app made inside the Genesis workspace (`apps/<name>`).\n// The app lives in the Genesis monorepo and links the packages (`workspace:^`). Their `dist/` is\n// git-ignored, but the app's config loads it (the genesis-cli Expo plugin, genesis-native's\n// rich-push plugin) and so does `genesis build-stamp`. Locally `pnpm build:packages` has made it; on\n// an EAS build or a workflow job (fingerprint, update) nothing has, so every one would fail.\n// `postinstall` runs after every install there: `eas/install_node_modules` in each custom job, and\n// the build's own install, before the config is read. EAS sets EAS_BUILD_ID on every job's machine\n// (docs.expo.dev/eas/environment-variables/usage, \"Built-in environment variables\").\nimport { spawnSync } from \"node:child_process\";\nimport { readFileSync } from \"node:fs\";\nimport { dirname, join } from \"node:path\";\nimport { fileURLToPath } from \"node:url\";\n\nif (!process.env.EAS_BUILD_ID && process.env.EAS_BUILD !== \"true\") process.exit(0);\n\nconst app = join(dirname(fileURLToPath(import.meta.url)), \"..\");\nconst { name } = JSON.parse(readFileSync(join(app, \"package.json\"), \"utf8\"));\nconsole.log(`[${name}] Building the workspace packages this app depends on (EAS)\u2026`);\n// `<app>^...`: every workspace package the app depends on, in dependency order, not the app itself.\nconst r = spawnSync(\"pnpm\", [\"--dir\", join(app, \"..\", \"..\"), \"--filter\", `${name}^...`, \"run\", \"build\"], { stdio: \"inherit\" });\nprocess.exit(r.status ?? 1);\n";

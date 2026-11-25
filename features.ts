@@ -2353,10 +2353,10 @@ export const features = defineFeatures({
   },
   "native-workbench": {
     name: "Native workbench",
-    summary: "apps/native-workbench: a full Genesis app made with genesis init --template native and linked to the workspace's packages, where every native feature has a screen (a registry by section: Standards, Components, Layouts) and a Maestro flow. pnpm workbench:prove starts the app's own local stack (ports 5442x), makes a test login, builds the development variant for the Simulator and runs the flows, writing screenshots and a summary.md a PR links. check:workbench-coverage fails on an exported native component with no screen, from a notYet list that only shrinks. A PR that changes a native package adds its screen and flow and links the run (AGENTS.md).",
+    summary: "apps/native-workbench, the \"Genesis\" app: a full Genesis app made with genesis init --template native and linked to the workspace's packages, that opens with no sign-in and no backend onto every native feature on sample data, one tab per section (Standards, Components, Layouts, Messages), each screen with a Maestro flow. pnpm workbench:prove builds the development variant for the Simulator (no stack, no login) and runs the flows, writing screenshots and a summary.md whose result goes in the PR body. check:workbench-coverage fails on an exported native component with neither a screen nor a notYet line. A PR that changes a native package adds its screen and flow and pastes the run (AGENTS.md). It ships to TestFlight through the release lane once its App Store setup is done.",
     category: "Tooling",
     status: "building",
-    claimedBy: "claude/ios-standards-main",
+    claimedBy: "claude/genesis-showcase",
     kind: "tool",
     keywords: ["workbench", "showcase", "native showcase", "proof", "simulator", "verify native", "e2e", "maestro", "evidence"],
     platforms: { native: "building" },

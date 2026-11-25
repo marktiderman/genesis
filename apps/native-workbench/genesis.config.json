@@ -21,10 +21,6 @@
       "url": "https://sentry.io/"
     }
   },
-  "links": {
-    "hosts": ["example.com"],
-    "paths": ["/standards", "/components", "/layouts", "/messages"]
-  },
   "starter": {
     "$comment": "The blocks each starter.config.ts switch carries. A block whose switch is off isn't in genesis.lock.json, and genesis upgrade and migrate leave it out (genesis init --without leaves its files out too).",
     "blocks": {
