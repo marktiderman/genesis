@@ -130,7 +130,7 @@ copy and people) inside `GenesisNativeApp`, then put the screens in your routes:
 |---|---|---|
 | `ChatInboxScreen` | The conversations, as Messages draws them: plain rows with faces, the unread dot, pinned faces, round row actions with a peek, the glass search field, the stack's large title with the filter menu and Compose. | `onOpen(conversationId)`, `onStart`, `onCompose`, `onBack`, `kind` / `kinds` / `excludeKinds`, `archived`, `filters`, `menuItems`, `onOpenArchived`, `onOpenScheduled`, `onSearchMessages`, `rowActions`, `slots` |
 | `ChatThreadScreen` | One conversation: grouped bubbles, day lines, replies, reactions, the composer (text, photos, voice notes, video, emoji, scheduled send), topics and the away line. | `conversationId`, `threadRootId`, `jumpTo` (open at a search result), `topic` / `showTopics`, `scheduling`, `availability`, `onOpenAttachment`, `focused` (the navigator's `useIsFocused()`), `active`, `header`, `accessory`, `videoLimitMs`, `receipts` (`"show"` or `"hide"`), `keyboardVerticalOffset` |
-| `ChatSearchScreen` | Search across your conversations or in one, with matches highlighted and transcripts marked. | `onOpen(hit)`, `conversationId`, `conversationTitle` |
+| `ChatSearchScreen` | Search across your conversations or in one, with matches highlighted and transcripts marked. | `onOpen(hit)`, `conversationId`, `conversationTitle`, `initialQuery` |
 | `ChatDetailsScreen` | A conversation's details: the large face and name, round glass buttons (Search, Pin, Scheduled), Hide Alerts, a group's members, Archive. | `conversationId`, `onSearch`, `onOpenScheduled`, `onArchived`, `slots` |
 | `ChatAvailabilityScreen` | Your away message, its end, working hours and time zone. | `onSaved` |
 
@@ -180,7 +180,8 @@ What an app adds is configuration, each with a Messages default:
 
 | Prop | What it does |
 |---|---|
-| `filters` | `(defaults) => filters`: the inbox's filter menu. The defaults are All Messages, Unread and Groups; a filter is `{ id, label, icon, sf, predicate, sort, emptyTitle }`. |
+| `filters` | `(defaults) => filters`: the inbox's filter menu. The defaults are All Messages, Unread and Groups; a filter is `{ id, label, icon, sf, predicate, sort, emptyTitle }`. Archived has no menu. |
+| `scope` | `(item, { me }) => boolean`: the conversations the screen is about, before any filter (one organization at a time, say). It holds for the rows, the pinned faces, search and Archived. |
 | `menuItems` | `(defaults) => items`: the entries under the filters. The defaults are Archived and Scheduled Messages, with `onOpenArchived` and `onOpenScheduled`. |
 | `onSearchMessages` | The search field's "Search messages for…" and its Search key. |
 | `plusItems` | `(defaults) => items` on `ChatThreadScreen` and `ChatComposer`: the + list. The defaults are Camera, Photos, Audio, Video and Send Later, as the app's modules and the thread allow; an item is `{ id, label, icon, sf, color, onPress }`, `color` a chat accent (`useChatColors().accents`). |

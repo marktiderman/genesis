@@ -32,7 +32,7 @@ describe("ChatSearchScreen", () => {
           <ChatProvider client={client} userId={ME}>
             <NativeToastProvider>
               <ChatNativeProvider>
-                <ChatSearchScreen onOpen={() => {}} initialQuery="invoice" debounceMs={0} />
+                <ChatSearchScreen onOpen={() => {}} initialQuery="invoice" />
               </ChatNativeProvider>
             </NativeToastProvider>
           </ChatProvider>

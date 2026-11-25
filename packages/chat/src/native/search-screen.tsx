@@ -53,7 +53,7 @@ export interface ChatSearchScreenProps {
   onOpen: (hit: ChatSearchHit) => void;
   /** Names a conversation on results across conversations; the inbox's names by default. */
   conversationTitle?: (conversationId: string) => string;
-  /** The search field's text when the screen opens (a query carried from the inbox's search, say). */
+  /** The search field's text when the screen opens (a query carried from the inbox's search, say). Read once, on mount. */
   initialQuery?: string;
   debounceMs?: number;
   /** The clock, for tests. */
