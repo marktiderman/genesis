@@ -10,7 +10,8 @@ deep links, EAS and Maestro. Inside this workspace it stays linked to the packag
 (`workspace:^`), so a package change shows here with nothing published. The features that need a
 signed-in person or a server (notifications, push, support, chat sync) are off in
 `starter.config.ts`; their UI is shown on sample data in the showcase's screens. Its local Supabase
-stack (ports 5442x) is optional and nothing in the showcase needs it.
+stack (ports 5442x) is optional and nothing in the showcase needs it: `supabase/` stays so a
+showcase screen that needs a real backend (chat sync, push) can run against a local one later.
 
 ## The showcase
 
@@ -56,6 +57,12 @@ Genesis `main` that changes this app (`apps/native-workbench/**`) or the package
 (`packages/**`), `.eas/workflows/deploy-production.yml` runs on EAS: when the fingerprint changed it
 builds and submits to TestFlight, otherwise it publishes an update to the builds already out. Docs,
 Markdown, `.maestro/` and CI files never start it. Nobody builds or submits by hand.
+
+Two guards keep it from running half set up. On EAS, `postinstall` (`scripts/eas-build-packages.mjs`)
+builds the workspace packages the app depends on, since their git-ignored `dist/` is what the app's
+config loads. And the lane's `source` check stops a release before anything is built while
+`eas.json`'s `submit.production.ios` still has a `REPLACE_WITH_…` placeholder (step 1 below), so
+no merge builds anything until the App Store record exists.
 
 The app is "Genesis", bundle id `com.streamlineddigital.genesis` (the
 development variant adds `.dev`, the preview `.preview`), slug `genesis`, Apple team

@@ -13,7 +13,8 @@
   },
   "ignore": [
     "sample",
-    "genesis-rn-starter"
+    "genesis-rn-starter",
+    "native-workbench"
   ],
   "___experimentalUnsafeOptions_WILL_CHANGE_IN_PATCH": {
     "onlyUpdatePeerDependentsWhenOutOfRange": true

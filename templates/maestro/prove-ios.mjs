@@ -6,6 +6,7 @@
 //   node .maestro/prove-ios.mjs --flow launch,deep-link   only these flows
 //   node .maestro/prove-ios.mjs --rebuild             build again even when the cached build matches
 //   node .maestro/prove-ios.mjs --no-stack            no Supabase stack and no test login (an app that runs on sample data)
+//   node .maestro/prove-ios.mjs --force               regenerate ios/ even when the app commits it (its native edits go)
 //   node .maestro/prove-ios.mjs --stop                stop the stack (its data goes); the simulator is kept
 //
 // It writes the evidence a pull request links: each flow's screenshots, Maestro's logs and a
@@ -76,6 +77,12 @@ function stack({ start }) {
   let s = status();
   if (!s) {
     if (!start) return null;
+    // Before starting anything: a config on the default port would start a stack beside (or on
+    // top of) another project's, and the refusal below would only come after it was running.
+    const config = existsSync(join(app, "supabase", "config.toml")) ? readFileSync(join(app, "supabase", "config.toml"), "utf8") : "";
+    const apiSection = /^\[api\][ \t]*$([\s\S]*?)(?=^\[|(?![\s\S]))/m.exec(config)?.[1] ?? "";
+    const apiPort = /^\s*port\s*=\s*(\d+)/m.exec(apiSection)?.[1];
+    if (!apiPort || apiPort === "54321") fail(`Refusing to start: supabase/config.toml's [api] port is ${apiPort ?? "unset (54321)"}. Give the app its own (genesis init --supabase-ports, or [api] port), not 54321.`);
     // Lean: the database, auth, the API and realtime are all a proof run needs (the test login is
     // made through the admin API, so no mail; no Studio, logs, image proxy, pooler or functions).
     log("Starting this app's local Supabase stack (lean)…");
@@ -162,6 +169,10 @@ function buildApp(s, udid) {
   }
   const env = buildEnv(s);
   log("Generating the native project (expo prebuild, development variant)…");
+  // An app that commits its native project would lose its edits: prebuild --clean regenerates ios/.
+  if (out("git", ["ls-files", "--", "ios"], { cwd: app }).trim() && !flag("force")) {
+    fail("This app commits ios/, and a proof run regenerates it (expo prebuild --clean). Commit or stash your native edits, then run again with --force.");
+  }
   // prebuild --clean's own delete of a large ios/ (Pods) can fail with ENOTEMPTY: remove it first, with retries.
   rmSync(join(app, "ios"), { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
   if (run("npx", ["expo", "prebuild", "-p", "ios", "--clean", "--no-install"], { cwd: app, env }) !== 0) fail("expo prebuild failed");

@@ -8,8 +8,8 @@
     "REPLACE_WITH_APP_FOLDER": "apps/native-workbench/src"
   },
   "pin": {
-    "sha": "b322c78c21a5274e4ee2713794e95b306278e3de",
-    "version": "0.11.7"
+    "sha": "b5aee1524ecf4718765fa6d140d1f5cfa40fa0f5",
+    "version": "0.11.9"
   },
   "blocks": {
     "account": {
@@ -84,8 +84,8 @@
     },
     ".eas/scripts/native-release.mjs": {
       "source": "@marktiderman/genesis-cli:templates/eas/scripts/native-release.mjs",
-      "sha256": "2eeb9501af0b9a430b68cb868e9ac5702896e6132550c11712fa4b91bfc912eb",
-      "version": "1.34.0"
+      "sha256": "2655856f69be7b9994b312fba294f5aedaeff2be4b177e3fe2c171759f9a21b9",
+      "version": "1.35.0"
     },
     ".eas/scripts/rollout-health.mjs": {
       "source": "@marktiderman/genesis-cli:templates/eas/scripts/rollout-health.mjs",
@@ -99,8 +99,8 @@
     },
     ".eas/workflows/deploy-production.yml": {
       "source": "@marktiderman/genesis-cli:templates/release/deploy-production.yml",
-      "sha256": "d36e4d2633154cf07c54d4cd09d3b15088c2b280ec6856d3d8430fccd51b2f3e",
-      "version": "1.34.0"
+      "sha256": "60cee2031be7884a047c5e6334b9cb0362c0c103cead2ff95b7fe796d2de00fd",
+      "version": "1.35.0"
     },
     ".eas/workflows/e2e.yml": {
       "source": "@marktiderman/genesis-cli:templates/eas/workflows/e2e.yml",
@@ -110,7 +110,7 @@
     ".eas/workflows/pr-preview.yml": {
       "source": "@marktiderman/genesis-cli:templates/release/pr-preview.yml",
       "sha256": "b2da2aed2984401aecfcff189524fb6f9902b2acc222200517104f6fac2d50f2",
-      "version": "1.34.0"
+      "version": "1.35.0"
     },
     ".eas/workflows/rollout.yml": {
       "source": "@marktiderman/genesis-cli:templates/eas/workflows/rollout.yml",
@@ -120,32 +120,36 @@
     ".fingerprintignore": {
       "source": "@marktiderman/genesis-cli:templates/expo/.fingerprintignore",
       "sha256": "7d55ce9f1761d7dcf0e831894af3b80a746f5a182819e8b816f3adbc5e706ec8",
-      "version": "1.34.0"
+      "version": "1.35.0"
     },
     ".github/workflows/ci.yml": {
       "source": "@marktiderman/genesis-cli:templates/ci/app-ci.yml",
       "sha256": "2c93423063d49dbdb3fc64fc29a41a61dd6cf96b75c5e670a10e9c54909539a3",
-      "version": "1.34.0"
+      "version": "1.34.0",
+      "deleted": true
     },
     ".github/workflows/claude-review.yml": {
       "source": "@marktiderman/genesis-cli:templates/ci/claude-review.yml",
       "sha256": "210011c4337784416887853973cef279e397c1dd422abcbd3e1158e3ca58777c",
-      "version": "1.34.0"
+      "version": "1.34.0",
+      "deleted": true
     },
     ".github/workflows/database.yml": {
       "source": "@marktiderman/genesis-cli:templates/ci/supabase-ci.yml",
       "sha256": "a39c070dd2eff06073d7288ac901af1a3188482d91a6ba443e43b431cad65f06",
-      "version": "1.34.0"
+      "version": "1.34.0",
+      "deleted": true
     },
     ".github/workflows/genesis-upgrade.yml": {
       "source": "@marktiderman/genesis-cli:templates/ci/genesis-upgrade.yml",
       "sha256": "c89e2eb6b1875d4a9d020585d5508c1e30df6f0f9d7d937db597708526e0a433",
-      "version": "1.34.0"
+      "version": "1.34.0",
+      "deleted": true
     },
     ".github/workflows/pr-preview-teardown.yml": {
       "source": "@marktiderman/genesis-cli:templates/ci/pr-preview-teardown.yml",
       "sha256": "f5fc7d2155f5cf3ac4a0f5f653b317a0b8a4723f0228c0367f1d64622376d358",
-      "version": "1.34.0",
+      "version": "1.35.0",
       "deleted": true
     },
     ".maestro/config.yaml": {
@@ -166,17 +170,20 @@
     ".maestro/flows/settings-version.yaml": {
       "source": "@marktiderman/genesis-cli:templates/maestro/flows/settings-version.yaml",
       "sha256": "aca11686932f6e7ab46e5cee719780a4a28e94dc6193f9f81e52afc6f091b46f",
-      "version": "1.34.0"
+      "version": "1.34.0",
+      "deleted": true
     },
     ".maestro/flows/sign-in-screen.yaml": {
       "source": "@marktiderman/genesis-cli:templates/maestro/flows/sign-in-screen.yaml",
       "sha256": "77703788b6ba310829f894bcc023f286aa90ee0450b9c506d92902db3d5c53ae",
-      "version": "1.34.0"
+      "version": "1.34.0",
+      "deleted": true
     },
     ".maestro/subflows/sign-in.yaml": {
       "source": "@marktiderman/genesis-cli:templates/maestro/subflows/sign-in.yaml",
       "sha256": "b5543551e7339bb2f1afdf01d4eb75bd294721cf6fdb70f5453fbe83b320474f",
-      "version": "1.34.0"
+      "version": "1.34.0",
+      "deleted": true
     },
     "eas.json": {
       "source": "@marktiderman/genesis-cli:templates/eas/eas.json",
@@ -186,7 +193,7 @@
     "fingerprint.config.js": {
       "source": "@marktiderman/genesis-cli:templates/expo/fingerprint.config.js",
       "sha256": "9a75c71ba023e1ec17a48ef77c08924078152ccf075cb3e6062cf9c81479726b",
-      "version": "1.34.0"
+      "version": "1.35.0"
     },
     "supabase/functions/genesis-apple-revoke/apple.ts": {
       "source": "@marktiderman/genesis-supabase:functions/genesis-apple-revoke/apple.ts",

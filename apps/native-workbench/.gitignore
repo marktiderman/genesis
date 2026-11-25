@@ -21,3 +21,7 @@ build-metadata.json
 agent-output/
 # The proof run (.maestro/prove-ios.mjs): its build cache, test login and evidence.
 .e2e/
+
+# The Supabase CLI's local state (the linked branch, its version cache).
+supabase/.branches/
+supabase/.temp/

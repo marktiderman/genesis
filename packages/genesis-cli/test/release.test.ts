@@ -316,6 +316,12 @@ describe("rendering the templates", () => {
     expect(() => plan.checkProfileEnvironment(eas, "store", "store")).toThrow(/builds ios with the EAS environment "production", but the release reads "store"/);
     expect(() => plan.checkProfileEnvironment(eas, "split", "production")).toThrow(/builds android with the EAS environment "preview"/);
     expect(() => plan.checkProfileEnvironment(eas, "split", "production", ["ios"])).not.toThrow();
+    // The store details: a placeholder left in a released platform's submit block stops the release.
+    const submits = { submit: { production: { ios: { ascAppId: "REPLACE_WITH_APP_STORE_CONNECT_APP_ID", appleTeamId: "ABC" }, android: { track: "internal" } } } };
+    expect(() => plan.checkSubmitReady(submits, "production", ["ios"])).toThrow(/submit\.production\.ios still has template placeholders \(ascAppId\)/);
+    expect(() => plan.checkSubmitReady(submits, "production", ["android"])).not.toThrow();
+    expect(() => plan.checkSubmitReady({ submit: { production: { ios: { ascAppId: "123" } } } }, "production", ["ios"])).not.toThrow();
+    expect(() => plan.checkSubmitReady({}, "production", ["ios"])).not.toThrow();
     // eas-json merges the whole chain, then the platform section over the common one: a platform
     // value anywhere along extends beats a common one, even the child's own.
     const chain = { build: { base: { ios: { environment: "preview", distribution: "internal" } }, child: { extends: "base", environment: "production", distribution: "store" }, dist: { extends: "base2", distribution: "store" }, base2: { ios: { distribution: "internal" } } } };

@@ -369,6 +369,26 @@ export function checkProfileEnvironment(easJson, profile, environment, platforms
 }
 
 /**
+ * The release submits each build it makes, so the store details have to be real before it starts:
+ * no value in eas.json `submit.<profile>.<platform>`, for a platform released, is still a template's
+ * placeholder (`REPLACE` + `_WITH_…`). Otherwise a build would be made and fail at
+ * submit, and the next push would find that build and ship only an update: the store never gets one.
+ */
+export function checkSubmitReady(easJson, profile, platforms = PLATFORMS) {
+  for (const platform of platforms) {
+    const submit = easJson?.submit?.[profile]?.[platform];
+    // No block at all is the app's choice (EAS can submit from what the project holds).
+    if (!submit || typeof submit !== "object") continue;
+    // Written in two parts, so this script itself never reads as an unfilled template.
+    const placeholder = "REPLACE" + "_WITH_";
+    const left = Object.entries(submit).filter(([, v]) => typeof v === "string" && v.startsWith(placeholder)).map(([k]) => k);
+    if (left.length) {
+      throw new Error(`eas.json submit.${profile}.${platform} still has template placeholders (${left.join(", ")}): fill them in before the first release (docs/NATIVE-RELEASE.md, "One-time setup"). Nothing was published or built.`);
+    }
+  }
+}
+
+/**
  * The latest update group on a branch, from eas-cli 26's `eas update:list --branch <b> --platform
  * <p> --limit 1 --json`: `{ name, id, currentPage: [{ group, platforms, runtimeVersion, … }] }`,
  * newest first. Its entries carry no commit (`latestCommit` reads it with `eas update:view`). ""
@@ -765,6 +785,10 @@ async function main(command, args, env) {
     const [file, profile, environment, list] = args;
     if (!file || !profile || !environment) throw new Error("environment needs <eas.json> <profile> <environment> [platforms].");
     checkProfileEnvironment(readJson(file), profile, environment, parsePlatforms(list ?? PLATFORMS.join(",")));
+  } else if (command === "submit") {
+    const [file, profile, list] = args;
+    if (!file || !profile) throw new Error("submit needs <eas.json> <profile> [platforms].");
+    checkSubmitReady(readJson(file), profile, parsePlatforms(list ?? PLATFORMS.join(",")));
   } else if (command === "latest-commit" || command === "published-group") {
     const [channel, platform, commit] = args;
     if (!channel || !PLATFORMS.includes(platform) || (command === "published-group" && !/^[0-9a-f]{40}$/i.test(commit ?? ""))) throw new Error(`${command} needs <channel> <platform>${command === "published-group" ? " <commit>" : ""}.`);

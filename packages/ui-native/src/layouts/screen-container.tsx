@@ -72,7 +72,12 @@ export interface ScreenContainerProps {
   themeMode?: "light" | "dark" | "system";
   /** Override root container className. */
   className?: string;
-  /** Override inner content container className (the ScrollView's contentContainerClassName when scroll=true). */
+  /**
+   * Override inner content container className (the ScrollView's contentContainerClassName when
+   * scroll=true). Without `scroll`, a list under a large title should leave this to layout only: a
+   * background or border keeps the body a native view of its own, and iOS then can't collapse the
+   * title as the list scrolls (put the background on the list instead).
+   */
   contentClassName?: string;
   /**
    * `keyboardShouldPersistTaps` for the inner ScrollView. Default `"handled"`.
