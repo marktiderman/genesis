@@ -190,7 +190,7 @@ manifest for the packages installed, export compliance and the fingerprint runti
   are genesis-chat's migrations 0001 to 0008 (topics, scheduled send, availability, broadcast, search,
   link previews, moderation; every conversation in a tenant; tightened attachment paths; read times
   for message status; Mark as Unread and Delete for me, and history deleted for me kept out of
-  receipts, pushes and files), copied and drift-tested the same way. The starter is single-tenant:
+  receipts, pushes, files, reports and writes), copied and drift-tested the same way. The starter is single-tenant:
   `20261025000070_starter_tenancy.sql` puts every login in one tenant
   (`private.genesis_viewer_people`); replace it when you add organizations. Scheduled messages, link previews, moderation and chat pushes are
   worked by genesis-chat's runner (`createChatRunner` from `@marktiderman/genesis-chat/server`),

@@ -570,13 +570,25 @@ not on `members`, which everyone in the conversation reads. Both send the person
 before 0007.
 Apply 0007 after 0006 (`genesis migrate`), and copy its pgTAP test beside the others.
 
-Migration 0008 closes three ways back into history deleted for me: a message deleted unread no
-longer sets the member's read time (`last_read_at`) or sends a `read` hint when their read place
-later moves past it (0006's receipts; the sender's status line still reads the read place itself), a push is
-never sent for a message in it (a late push from the outbox), and a file in a message in it can't be
-fetched through the uploader's fallback, the uploader's own included: that fallback (their own recent
-upload) now ends once the file is in a message, and from then on everyone, the uploader too, reads
-it through a message they can read, as before.
+Migration 0008 closes the ways back into history deleted for me:
+- **Read receipts.** `members.receipt_seq` is the read place a sender's status line reads
+  (`ChatMember.receiptSeq`; `lastSentReceipt` uses it, and `lastReadSeq` on a database without
+  0008). It follows `last_read_seq`, but never passes a message the member deleted for themselves
+  unread until they read someone else's message after it, so posting after Delete for me doesn't
+  turn the other person's message to "Read" (or count them in "Read by N"). It's exact in a direct
+  conversation. In a group, a sender whose last message is in the deleted history can see "Read" once
+  the member reads someone else's later message. `cleared_seq` stays private, and `last_read_seq`
+  still drives unread counts. The read time (`last_read_at`) and the `read` hint move only for a
+  message after the deleted history, and the hint's `seq` is the receipt place.
+- **Pushes.** A push is never sent for a message in it (a late push from the outbox).
+- **Files.** A file in a message in it can't be fetched through the uploader's fallback, the
+  uploader's own included. That fallback (their own recent upload) now ends once the file is in a
+  message. From then on everyone, the uploader too, reads it through a message they can read, as before.
+- **Reports.** `report_message` refuses a message in it, and a report's context is only messages
+  after it that aren't deleted (it held deleted messages before, too).
+- **Writes.** `react`, `pin_message`, `save_message`, `edit_message` and `delete_message` refuse a
+  message in it, as they refuse one you can't see. Forgetting a saved message still works.
+
 Apply 0008 after 0007, with its pgTAP test.
 
 ## Access
