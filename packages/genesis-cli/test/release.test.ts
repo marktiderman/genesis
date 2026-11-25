@@ -343,6 +343,11 @@ describe("rendering the templates", () => {
     expect(plan.submitPlaceholders(submits, "production", "android")).toEqual(["serviceAccountKeyPath"]);
     expect(plan.submitPlaceholders({ submit: { production: { ios: { ascAppId: "123" } } } }, "production", "ios")).toEqual([]);
     expect(plan.submitPlaceholders({}, "production", "ios")).toEqual([]);
+    // Along `extends`, as eas-json resolves it: an inherited placeholder counts, a child's own value replaces it.
+    const inherited = { submit: { base: { ios: { ascAppId: "REPLACE" + "_WITH_ID", appleTeamId: "ABC" } }, production: { extends: "base", ios: { appleTeamId: "XYZ" } } } };
+    expect(plan.submitPlaceholders(inherited, "production", "ios")).toEqual(["ascAppId"]);
+    const replaced = { submit: { base: inherited.submit.base, production: { extends: "base", ios: { ascAppId: "123" } } } };
+    expect(plan.submitPlaceholders(replaced, "production", "ios")).toEqual([]);
     // eas-json merges the whole chain, then the platform section over the common one: a platform
     // value anywhere along extends beats a common one, even the child's own.
     const chain = { build: { base: { ios: { environment: "preview", distribution: "internal" } }, child: { extends: "base", environment: "production", distribution: "store" }, dist: { extends: "base2", distribution: "store" }, base2: { ios: { distribution: "internal" } } } };
