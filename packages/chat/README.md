@@ -585,7 +585,8 @@ Migration 0008 closes the ways back into history deleted for me:
   place next moves. The read time (`last_read_at`) and the `read` hint move only for a message
   after the deleted history, and a reply in a thread whose root is in that history doesn't let the
   hold go. On a database without 0008 the client uses the members row, as before.
-- **Pushes.** A push is never sent for a message in it (a late push from the outbox).
+- **Pushes.** A push is never sent for a message in it (a late push from the outbox), nor for a
+  reply in a thread whose root is in it; a mention in such a reply doesn't mark the inbox row.
 - **Files.** A file in a message in it can't be fetched through the uploader's fallback, the
   uploader's own included. That fallback (their own recent upload) now ends once the file is in a
   message. From then on everyone, the uploader too, reads it through a message they can read, as before.

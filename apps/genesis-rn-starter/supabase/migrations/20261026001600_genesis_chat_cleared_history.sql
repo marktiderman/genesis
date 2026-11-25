@@ -172,7 +172,8 @@ as $$
                   case when p_marked_unread then 1 else 0 end)
 $$;
 
--- The inbox (0007's): your own read place and mentions read from your true read place.
+-- The inbox (0007's): your own read place and mentions read from your true read place, and a
+-- mention in a thread whose root you deleted doesn't count.
 create or replace function genesis_chat.inbox(
   p_kind text default null,
   p_archived boolean default false,
@@ -216,7 +217,10 @@ as $$
          genesis_chat.member_unread(c.id, me.user_id, me.last_read_seq, ps.cleared_seq, coalesce(ps.marked_unread, false)),
          exists (select 1 from genesis_chat.messages m
                   where m.conversation_id = c.id and m.seq > greatest(me.last_read_seq, coalesce(ps.read_seq, 0), coalesce(ps.cleared_seq, 0)) and me.user_id = any (m.mentions)
-                    and m.moderation is distinct from 'hidden'),
+                    and m.moderation is distinct from 'hidden'
+                    -- not in a thread whose root is in the history you deleted
+                    and (m.thread_root_id is null or exists (select 1 from genesis_chat.messages root
+                                                              where root.id = m.thread_root_id and root.seq > coalesce(ps.cleared_seq, 0)))),
          coalesce(me.muted_until > now(), false), me.pinned, me.archived, c.last_message_at,
          (select jsonb_build_object('id', m.id, 'seq', m.seq, 'sender_id', m.sender_id, 'kind', m.kind,
                                     'body', left(m.body, 160), 'deleted', m.deleted_at is not null, 'created_at', m.created_at,
@@ -277,7 +281,8 @@ end;
 $$;
 
 -- A push's recipients and badge (0007's push_targets): someone who deleted the conversation for
--- themselves hears only of a message after what they deleted that brings it back to their inbox.
+-- themselves hears only of a message after what they deleted that brings it back to their inbox,
+-- and never of a reply in a thread whose root is in what they deleted.
 create or replace function genesis_chat.push_targets(p_message_id uuid, p_badge_exclude_kinds text[] default null)
 returns table (user_id uuid, conversation_id uuid, title text, sender_id uuid, preview text, mentioned boolean, unread_total integer)
 language sql
@@ -319,7 +324,10 @@ as $$
    where not exists (select 1 from genesis_chat.member_state s
                       where s.conversation_id = msg.conversation_id and s.user_id = r.user_id and s.cleared_seq is not null
                         and (msg.seq <= s.cleared_seq
-                             or not genesis_chat.readable_after(msg.conversation_id, r.user_id, s.cleared_seq)))
+                             or not genesis_chat.readable_after(msg.conversation_id, r.user_id, s.cleared_seq)
+                             -- a reply in a thread whose root is in the history they deleted
+                             or exists (select 1 from genesis_chat.messages root
+                                          where root.id = msg.thread_root_id and root.seq <= s.cleared_seq)))
 $$;
 
 -- A file (0007's can_read_object): one in a message only through that message, so never one from

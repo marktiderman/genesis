@@ -7,7 +7,7 @@
 -- talks with c3 (files); a1, b2 and c3 are in a group (read receipts).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(48);
+select plan(51);
 
 insert into auth.users (id, aud, role, email, instance_id)
 select ('00000000-0000-4000-8000-00000000c8' || n)::uuid, 'authenticated', 'authenticated', 'genesis-chat-8-' || n || '@example.test', '00000000-0000-0000-0000-000000000000'
@@ -137,15 +137,24 @@ select genesis_chat.delete_conversation_for_me(pg_temp.v('tg'));
 select pg_temp.sign_in('a1');
 select genesis_chat.send_message(pg_temp.v('tg'), gen_random_uuid(), 'about that', p_thread_root_id => pg_temp.v('root'));
 select pg_temp.sign_in('b2');
-select genesis_chat.send_message(pg_temp.v('tg'), gen_random_uuid(), 'new start');
+insert into t select 'restart', (genesis_chat.send_message(pg_temp.v('tg'), gen_random_uuid(), 'new start')).id;
 select genesis_chat.mark_read(pg_temp.v('tg'));
 select is((select r.read_seq from genesis_chat.my_read_seq(pg_temp.v('tg')) r), pg_temp.read_place('tg', 'b2'),
   'my_read_seq gives b2 their true read place');
 select pg_temp.sign_in('a1');
 select ok(pg_temp.receipt('tg', 'b2') < pg_temp.seq('root'),
   'a reply in the deleted thread doesn''t count as b2 reading on: no "Read" on its root');
-select is((select count(*)::integer from genesis_chat.my_read_seq(pg_temp.v('tg')) r where r.user_id = pg_temp.person('b2')), 0,
-  'my_read_seq answers only for the caller');
+select is((select array_agg(r.user_id) from genesis_chat.my_read_seq(pg_temp.v('tg')) r), array[pg_temp.person('a1')],
+  'my_read_seq answers for the caller only: one row, their own');
+-- Now that the conversation is back for b2, a reply under the deleted root, mentioning b2.
+insert into t select 'late', (genesis_chat.send_message(pg_temp.v('tg'), gen_random_uuid(), 'still about that', p_thread_root_id => pg_temp.v('root'),
+  p_mentions => array[pg_temp.person('b2')])).id;
+insert into t select 'onrestart', (genesis_chat.send_message(pg_temp.v('tg'), gen_random_uuid(), 'welcome back', p_thread_root_id => pg_temp.v('restart'))).id;
+select is(pg_temp.pushed('late', 'b2'), 0, 'no push to b2 for a reply under the root they deleted');
+select is(pg_temp.pushed('onrestart', 'b2'), 1, 'but a reply under a message they can see is pushed');
+select pg_temp.sign_in('b2');
+select is((select i.mentioned from genesis_chat.inbox() i where i.conversation_id = pg_temp.v('tg')), false,
+  'and a mention in the deleted thread doesn''t mark b2''s inbox row');
 
 -- ── 2. No push for a message in history deleted for me ──────────────────────────
 select pg_temp.sign_in('a1');
