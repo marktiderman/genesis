@@ -1,5 +1,12 @@
 # @marktiderman/genesis
 
+## 0.11.11
+
+### Patch Changes
+
+- Updated dependencies [bffbb84]
+  - @marktiderman/genesis-ui-native@3.18.1
+
 ## 0.11.10
 
 ### Patch Changes
