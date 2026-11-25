@@ -1,0 +1,35 @@
+.changeset/chat-cleared-history.md
+  s_42efe440240299::t_54f2159906d78b 5,7,11
+apps/genesis-rn-starter/supabase/migrations/20261026001600_genesis_chat_cleared_history.sql
+  s_42efe440240299::t_2712744dde8f0e 30-33,169-171,249-250,263,279-280,293
+apps/genesis-rn-starter/supabase/tests/database/genesis_chat_cleared_history.test.sql
+  s_42efe440240299::t_e01ccd9d13460f 11,179-191
+docs/adr/0027-chat-mark-unread-and-delete-for-me.md
+  s_42efe440240299::t_c87c57868b3221 87-90,99-101
+packages/chat/README.md
+  s_42efe440240299::t_b2f348a2270254 583-584,586-592
+packages/chat/migrations/0008_genesis_chat_cleared_history.sql
+  s_42efe440240299::t_8c9686d46ea0c1 30-33,169-171,249-250,263,279-280,293
+packages/chat/migrations/tests/0008_genesis_chat_cleared_history.test.sql
+  s_42efe440240299::t_1237c344ecfbf1 11,179-191
+packages/chat/src/__tests__/cleared-history-receipts.test.ts
+  s_42efe440240299::t_94c294ba07ab1a 54-86
+packages/chat/src/core/client.ts
+  s_42efe440240299::t_3c6ed5a04090a6 398-399,402-413
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3a6f58e4f2a877ce6a5ef88f4840413d6e45da52",
+  "prompts": {},
+  "sessions": {
+    "s_42efe440240299": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f544dd57-0b31-4773-b89e-4661a182129e",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
