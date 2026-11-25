@@ -1,0 +1,21 @@
+packages/ui-native/README.md
+  s_42efe440240299::t_0e8d90e486b66b 132
+packages/ui-native/src/components/use-row-actions.tsx
+  s_42efe440240299::t_f4b0d417212615 176,179,181,184
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b7849c564fe0f0deda7cf3773b50ddf5229b2049",
+  "prompts": {},
+  "sessions": {
+    "s_42efe440240299": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f544dd57-0b31-4773-b89e-4661a182129e",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
