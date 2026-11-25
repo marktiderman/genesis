@@ -11,7 +11,7 @@ import { linkHosts } from "./link-hosts";
 
 /**
  * The schemes this build answers to. withGenesis gives each APP_VARIANT its own
- * (`genesis-workbench-dev://`, `genesis-workbench-preview://`, production keeps `genesis-workbench://`),
+ * (`genesis-showcase-dev://`, `genesis-showcase-preview://`, production keeps `genesis-showcase://`),
  * so the OS hands a link to the build it names, and only that build. Every variant's is accepted
  * here, plus the one in the served config: a `.dev` binary running against a plain `expo start`
  * (no APP_VARIANT) gets the production config from Metro, but still receives `-dev` links.
@@ -30,7 +30,7 @@ export const links: LinkOptions = {
   hosts: linkHosts(genesisConfig),
   map: {
     ...(starter.features.notifications ? { "/notifications": "/notifications" } : {}),
-    // The check-in example's link (`genesis-workbench://check-in?location=hilltop` fills in the location; `genesis-workbench-dev://` in a development build).
+    // The check-in example's link (`genesis-showcase://check-in?location=hilltop` fills in the location; `genesis-showcase-dev://` in a development build).
     ...(starter.features.checkIn ? { "/check-in": "/check-in" } : {}),
     // A message's push opens its thread (`data.url` = `/messages/<conversation>`).
     ...(starter.features.chat ? { "/messages": "/messages", "/messages/:id": "/messages/:id" } : {}),

@@ -68,7 +68,7 @@ export const checkInKey = (): string => Crypto.randomUUID();
 /** One outbox for the whole app: submissions wait on the phone until the server has them. */
 export const checkInOutbox = createSubmitOutbox({
   storage: AsyncStorage,
-  prefix: "genesis-workbench:check-in-outbox",
+  prefix: "genesis-showcase:check-in-outbox",
   send,
   createKey: checkInKey,
 });

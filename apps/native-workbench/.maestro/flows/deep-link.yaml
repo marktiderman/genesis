@@ -1,5 +1,5 @@
 # Smoke: the development variant answers to its own scheme. A link to a section opens its tab.
-appId: dev.genesis.workbench.dev
+appId: com.streamlineddigital.genesis.showcase.dev
 tags:
   - smoke
 ---
@@ -9,7 +9,7 @@ tags:
     visible:
       id: "workbench-standards"
     timeout: 20000
-- openLink: "genesis-workbench-dev://components"
+- openLink: "genesis-showcase-dev://components"
 # iOS asks before an app opens its own link from outside.
 - tapOn:
     text: "Open"

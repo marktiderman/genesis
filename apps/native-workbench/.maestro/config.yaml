@@ -2,4 +2,4 @@
 #
 # appId is the development variant's bundle id (APP_VARIANT=development appends `.dev` to
 # starter.config.ts `app.bundleId`). Change both together when you rename the app.
-appId: dev.genesis.workbench.dev
+appId: com.streamlineddigital.genesis.showcase.dev
