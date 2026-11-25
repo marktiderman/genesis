@@ -392,17 +392,22 @@ export function createChatClient(supabase: ChatSupabase, options: ChatClientOpti
     },
 
     async members(id: string): Promise<ChatMember[]> {
-      const rows = must<Row[]>(
-        "members",
-        await db().from("members").select("*").eq("conversation_id", id).is("left_at", null).neq("role", "observer"),
-      );
+      const [members, state] = await Promise.all([
+        db().from("members").select("*").eq("conversation_id", id).is("left_at", null).neq("role", "observer"),
+        // Your own private row (chat 0007): after Delete for me your public read place can lag
+        // what you've read (0008 keeps that in read_seq). Others' rows stay their public place,
+        // which receipts read. Without the table or the column, nothing changes.
+        db().from("member_state").select("*").eq("conversation_id", id),
+      ]);
+      const rows = must<Row[]>("members", members);
+      const own = new Map<string, number>();
+      if (!state.error) for (const s of (state.data ?? []) as Row[]) if (s.read_seq != null) own.set(String(s.user_id), Number(s.read_seq));
       return rows.map((r) => ({
         conversationId: String(r.conversation_id),
         userId: String(r.user_id),
         role: r.role as ChatRole,
-        lastReadSeq: Number(r.last_read_seq ?? 0),
+        lastReadSeq: Math.max(Number(r.last_read_seq ?? 0), own.get(String(r.user_id)) ?? 0),
         lastReadAt: r.last_read_at ? String(r.last_read_at) : null,
-        ...(r.receipt_seq == null ? {} : { receiptSeq: Number(r.receipt_seq) }),
         joinedAt: String(r.joined_at),
       }));
     },

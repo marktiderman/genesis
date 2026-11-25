@@ -19,7 +19,7 @@ const rows: Row[] = [
 ];
 
 /** A genesis_chat client as the caller: just the queries the loaders make. */
-function fakeDb(opts: { member?: Row | null; observer?: boolean; messages?: Row[] } = {}): ChatAiDb {
+function fakeDb(opts: { member?: Row | null; observer?: boolean; messages?: Row[]; ownReadSeq?: number } = {}): ChatAiDb {
   const query = (table: string) => {
     const filters: Array<[string, unknown]> = [];
     const builder = {
@@ -36,7 +36,12 @@ function fakeDb(opts: { member?: Row | null; observer?: boolean; messages?: Row[
   return {
     schema: () => ({
       from: query,
-      rpc: async (fn: string) => (fn === "i_observe" ? { data: opts.observer ?? false, error: null } : { data: null, error: { code: "42883" } }),
+      rpc: async (fn: string) =>
+        fn === "i_observe"
+          ? { data: opts.observer ?? false, error: null }
+          : fn === "my_read_seq" && opts.ownReadSeq !== undefined
+            ? { data: opts.ownReadSeq, error: null }
+            : { data: null, error: { code: "42883" } },
     }),
   };
 }
@@ -122,6 +127,13 @@ describe("chat.recap", () => {
     let s = setup(fakeDb({ member: null }));
     expect(await runTask(s.ai, chatRecapTask(), { conversationId: CONV }, s.ctx)).toEqual({ ok: false, outcome: "forbidden", message: CHAT_AI_REFUSALS.notMember });
     s = setup(fakeDb({ member: { last_read_seq: 4 } }));
+    expect(await runTask(s.ai, chatRecapTask(), { conversationId: CONV }, s.ctx)).toEqual({ ok: false, outcome: "invalid_input", message: CHAT_AI_REFUSALS.empty });
+    expect(s.calls).toHaveLength(0);
+  });
+
+  it("reads from your own read place when Delete for me holds the public one (chat 0008)", async () => {
+    // The public place is held at 0, but you've read up to 4: nothing is new.
+    const s = setup(fakeDb({ member: { last_read_seq: 0 }, ownReadSeq: 4 }));
     expect(await runTask(s.ai, chatRecapTask(), { conversationId: CONV }, s.ctx)).toEqual({ ok: false, outcome: "invalid_input", message: CHAT_AI_REFUSALS.empty });
     expect(s.calls).toHaveLength(0);
   });

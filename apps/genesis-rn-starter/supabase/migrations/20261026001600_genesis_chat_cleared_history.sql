@@ -5,26 +5,34 @@
 -- Several places still reached history a member deleted for themselves (0007's `cleared_seq`):
 --
 -- 1. Read receipts (0006): Delete for me leaves the member's read place (`last_read_seq`) where it
---    was, and posting or reading later moves it past what they deleted unread, so its sender saw
---    "Read" (or "Read by N") on what they were never shown. `members.receipt_seq` is now the read
---    place receipts read: it follows `last_read_seq` but never passes a message the member
---    deleted unread, until they read someone else's message after it. Null means `last_read_seq`:
---    every row before 0008 (the receipts they showed then), so only reads from now on are held.
---    Exact in a direct conversation (the other person's last message is then after the deleted
---    history); in a group, a sender whose last message is in that history can see "Read" once the
---    member reads someone else's later message: one public read place can't say "read 3 but not
---    2" without publishing the private cleared range. `cleared_seq` itself stays private (`member_state`). `last_read_seq`
---    is unchanged (unread counts), and so is the read time (`last_read_at`) and the `read` hint,
---    which now move only for a message after the deleted history; the hint's `seq` is
---    `receipt_seq`.
+--    was, and posting or reading later moved it past what they deleted unread, so its sender saw
+--    "Read" (or "Read by N") on what they were never shown. Now the public `last_read_seq` is
+--    held: it never passes a message someone else sent that the member deleted unread, until they
+--    read someone else's message after it. Meanwhile their own read place is kept privately in
+--    `member_state.read_seq`, and everything about their own reading uses it: unread counts
+--    (`member_unread`, so the inbox, `unread_total` and `push_targets`' badge), the inbox's read
+--    place and mentions, `mark_read`'s result and `my_read_seq` (the "New" line). Receipts, the
+--    read time (`last_read_at`) and the `read` hint read the public place, so clients read
+--    receipts as before, old ones included. Exact in a direct conversation (the other person's
+--    last message is then after the deleted history); in a group, a sender whose last message is
+--    in that history can see "Read" once the member reads someone else's later message. Rows from
+--    before 0008 aren't changed (they can't tell history read before Delete for me from history
+--    deleted unread), so only reads from now on are held.
+--
+--    Privacy: as before, everyone in the conversation sees one read place for each member
+--    (`last_read_seq`, with `last_read_at`), and nothing beside it to compare: `cleared_seq` and
+--    `read_seq` stay in `member_state`, which only that member reads. With this migration a
+--    member's own `last_read_seq` can lag what they've read after Delete for me; their own read
+--    place is `my_read_seq` (or the inbox's `last_read_seq`, or what `mark_read` returns).
 -- 2. Pushes (0007's `push_targets`): a member who deleted the conversation was told of a message
 --    whenever the conversation had come back, even of a message from the deleted history (a push
 --    sent late, from the outbox, after a newer message). Now they hear only of a message after
 --    their `cleared_seq`, and still only of one that brings the conversation back.
 -- 3. Files (0007's `can_read_object`): the uploader's own recent file (a day) was readable whether
 --    or not it was in a message, so a photo of their own in history they deleted stayed reachable.
---    That fallback is now for a file not yet in any message (an upload before its message is sent);
---    a file in a message is readable only through the message, which follows Delete for me.
+--    That fallback is now for a file not yet in any message (an upload before its message is sent),
+--    and not one whose attachment was deleted while its removal is queued; a file in a message is
+--    readable only through the message, which follows Delete for me.
 -- 4. Reports (0001's `report_message`): a report copied the message and the ten before it into a
 --    snapshot its reporter reads, whatever they had deleted for themselves, and messages deleted
 --    for everyone or hidden by moderation too. A message in history you deleted, or one hidden
@@ -57,19 +65,18 @@ as $$
 $$;
 revoke execute on function genesis_chat.read_passed(uuid, uuid, bigint, bigint) from public, anon, authenticated;
 
--- The read place receipts read. Everyone in the conversation reads it, as they read `last_read_seq`.
--- Null (every row before 0008, and whenever it equals the read place) means last_read_seq, so
--- adding it rewrites no rows.
-alter table genesis_chat.members add column receipt_seq bigint;
+-- The member's own read place, when Delete for me holds `members.last_read_seq` behind it. Null:
+-- not held (their read place is `last_read_seq`). Private, like the rest of `member_state`.
+alter table genesis_chat.member_state add column read_seq bigint;
 
-comment on column genesis_chat.members.receipt_seq is
-  'The read place a sender''s "Read" reads; null means last_read_seq. Held before a message this member deleted unread (Delete for me) until they read someone else''s message after it. Genesis Chat.';
+comment on column genesis_chat.member_state.read_seq is
+  'Where this member has really read to, while members.last_read_seq is held before a message they deleted unread (Delete for me). Only they read it. Null: not held. Genesis Chat.';
 
--- Where a member's receipt place goes when their read place moves from p_from (their receipt place
--- now) to p_to: to p_to, unless that passes a message someone else sent that they deleted unread
--- (at or below their `cleared_seq`, counted as read_passed counts) and they haven't read someone
--- else's message after it; then to just before the first such message.
-create function genesis_chat.receipt_place(p_conversation_id uuid, p_user_id uuid, p_from bigint, p_to bigint)
+-- Where a member's public read place goes when it moves from p_from to p_to: to p_to, unless that
+-- passes a message someone else sent that they deleted unread (at or below their `cleared_seq`,
+-- counted as read_passed counts) and they haven't read someone else's message after it; then to
+-- just before the first such message.
+create function genesis_chat.held_read_place(p_conversation_id uuid, p_user_id uuid, p_from bigint, p_to bigint)
 returns bigint
 language sql
 stable
@@ -77,7 +84,7 @@ security definer
 set search_path = ''
 as $$
   select case
-    when p_to <= p_from then p_from
+    when p_to <= p_from then p_to
     when gap.first_seq is null then p_to
     when genesis_chat.read_passed(p_conversation_id, p_user_id, p_from, p_to) then p_to
     else gap.first_seq - 1
@@ -93,50 +100,180 @@ as $$
        and m.sender_id is distinct from p_user_id
   ) gap
 $$;
-revoke execute on function genesis_chat.receipt_place(uuid, uuid, bigint, bigint) from public, anon, authenticated;
+revoke execute on function genesis_chat.held_read_place(uuid, uuid, bigint, bigint) from public, anon, authenticated;
 
--- No backfill: an existing row's null is its read place, so every receipt shows what it showed
--- before 0008. The stored rows can't tell history a member read before Delete for me from history
--- they deleted unread (both are at or below cleared_seq), so only reads from now on hold anything
--- back. The trigger keeps it on every move of the read place, and on any other write to it: the
--- place it works out, or null when that is the read place.
-create function genesis_chat.receipt_moved()
+-- Holds the public read place, and keeps the true one in member_state.read_seq meanwhile. Named to
+-- run before 0006's members_read_moved, so the read time and the read hint see the held place.
+create function genesis_chat.read_held()
 returns trigger
 language plpgsql
 security definer
 set search_path = ''
 as $$
+declare
+  held bigint := genesis_chat.held_read_place(new.conversation_id, new.user_id, old.last_read_seq, new.last_read_seq);
 begin
-  new.receipt_seq := nullif(genesis_chat.receipt_place(new.conversation_id, new.user_id,
-    case when tg_op = 'UPDATE' then coalesce(old.receipt_seq, old.last_read_seq) else 0 end, new.last_read_seq),
-    new.last_read_seq);
+  if held < new.last_read_seq then
+    update genesis_chat.member_state s set read_seq = greatest(coalesce(s.read_seq, 0), new.last_read_seq)
+     where s.conversation_id = new.conversation_id and s.user_id = new.user_id;
+    new.last_read_seq := held;
+  else
+    update genesis_chat.member_state s set read_seq = null
+     where s.conversation_id = new.conversation_id and s.user_id = new.user_id and s.read_seq <= new.last_read_seq;
+  end if;
   return new;
 end;
 $$;
-revoke execute on function genesis_chat.receipt_moved() from public, anon, authenticated;
-create trigger members_receipt_moved before insert or update of last_read_seq, receipt_seq on genesis_chat.members
-  for each row execute function genesis_chat.receipt_moved();
+revoke execute on function genesis_chat.read_held() from public, anon, authenticated;
+create trigger members_read_held before update of last_read_seq on genesis_chat.members
+  for each row execute function genesis_chat.read_held();
 
--- 0006's read hint, carrying the receipt place.
-create or replace function genesis_chat.read_hint()
-returns trigger
+-- A member's own read place: `last_read_seq`, or the private one while that is held.
+create function genesis_chat.own_read_seq(p_conversation_id uuid, p_user_id uuid, p_last_read_seq bigint)
+returns bigint
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select greatest(coalesce(p_last_read_seq, 0),
+                  coalesce((select s.read_seq from genesis_chat.member_state s
+                             where s.conversation_id = p_conversation_id and s.user_id = p_user_id), 0))
+$$;
+revoke execute on function genesis_chat.own_read_seq(uuid, uuid, bigint) from public, anon, authenticated;
+
+-- What a member counts as unread (0007's member_unread), from their own read place. The inbox,
+-- unread_total and push_targets' badge all count through it.
+create or replace function genesis_chat.member_unread(p_conversation_id uuid, p_user_id uuid, p_last_read_seq bigint, p_cleared_seq bigint, p_marked_unread boolean)
+returns integer
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select greatest(genesis_chat.unread_count(p_conversation_id, p_user_id,
+                    greatest(genesis_chat.own_read_seq(p_conversation_id, p_user_id, p_last_read_seq), coalesce(p_cleared_seq, 0))),
+                  case when p_marked_unread then 1 else 0 end)
+$$;
+
+-- Reading (0007's mark_read) returns your own read place, not the held public one.
+create or replace function genesis_chat.mark_read(p_conversation_id uuid, p_seq bigint default null)
+returns bigint
 language plpgsql
 security definer
 set search_path = ''
 as $$
+declare
+  me uuid := auth.uid();
+  latest bigint;
+  result bigint;
 begin
-  if new.role <> 'observer'
-     and genesis_chat.read_passed(new.conversation_id, new.user_id, old.last_read_seq, new.last_read_seq)
-     and (
-    select count(*) from genesis_chat.members m
-     where m.conversation_id = new.conversation_id and m.left_at is null
-  ) <= 32 then
-    perform genesis_chat.broadcast('genesis-chat:conv:' || new.conversation_id, 'read',
-      jsonb_build_object('conversation_id', new.conversation_id, 'user_id', new.user_id,
-                         'seq', coalesce(new.receipt_seq, new.last_read_seq), 'at', new.last_read_at));
+  select last_seq into latest from genesis_chat.conversations where id = p_conversation_id;
+  if latest is null or not genesis_chat.can_view(p_conversation_id) then
+    raise exception 'You aren''t in this conversation' using errcode = '42501';
   end if;
-  return null;
+  if genesis_chat.is_member(p_conversation_id) then
+    update genesis_chat.members set last_read_seq = greatest(last_read_seq, least(coalesce(p_seq, latest), latest))
+     where conversation_id = p_conversation_id and user_id = me
+    returning last_read_seq into result;
+    update genesis_chat.member_state set marked_unread = false
+     where conversation_id = p_conversation_id and user_id = me and marked_unread;
+    if result is not null then
+      result := genesis_chat.own_read_seq(p_conversation_id, me, result);
+    end if;
+  else
+    insert into genesis_chat.members as m (conversation_id, user_id, role, last_read_seq)
+    values (p_conversation_id, me, 'observer', least(coalesce(p_seq, latest), latest))
+    on conflict (conversation_id, user_id) do update
+      set last_read_seq = greatest(m.last_read_seq, excluded.last_read_seq)
+    returning last_read_seq into result;
+  end if;
+  return result;
 end;
+$$;
+
+-- Your own read place in a conversation (`last_read_seq`, or the private one while that's held):
+-- for the "New" line and anything else about your own reading.
+create function genesis_chat.my_read_seq(p_conversation_id uuid)
+returns bigint
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select genesis_chat.own_read_seq(me.conversation_id, me.user_id, me.last_read_seq)
+    from genesis_chat.members me where me.conversation_id = p_conversation_id and me.user_id = auth.uid()
+$$;
+revoke execute on function genesis_chat.my_read_seq(uuid) from public, anon;
+grant execute on function genesis_chat.my_read_seq(uuid) to authenticated, service_role;
+
+-- The inbox (0007's), from your own read place: the read place it returns (the client's "New" line
+-- and scroll), the unread count and whether you're mentioned.
+create or replace function genesis_chat.inbox(
+  p_kind text default null,
+  p_archived boolean default false,
+  p_limit integer default 50,
+  p_before timestamptz default null,
+  p_kinds text[] default null,
+  p_exclude_kinds text[] default null
+)
+returns table (
+  conversation_id uuid,
+  kind text,
+  title text,
+  subject_type text,
+  subject_id text,
+  status text,
+  role text,
+  other_user_id uuid,
+  member_count integer,
+  last_seq bigint,
+  last_read_seq bigint,
+  unread integer,
+  mentioned boolean,
+  muted boolean,
+  pinned boolean,
+  archived boolean,
+  last_message_at timestamptz,
+  last_message jsonb
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select c.id, c.kind, c.title, c.subject_type, c.subject_id, c.status, me.role,
+         (select o.user_id from genesis_chat.members o
+           where o.conversation_id = c.id and o.user_id <> me.user_id and o.left_at is null and o.role <> 'observer'
+             and k.max_members = 2 limit 1),
+         (select count(*)::integer from genesis_chat.members o
+           where o.conversation_id = c.id and o.left_at is null and o.role <> 'observer'),
+         c.last_seq, genesis_chat.own_read_seq(c.id, me.user_id, me.last_read_seq),
+         genesis_chat.member_unread(c.id, me.user_id, me.last_read_seq, ps.cleared_seq, coalesce(ps.marked_unread, false)),
+         exists (select 1 from genesis_chat.messages m
+                  where m.conversation_id = c.id and m.seq > greatest(genesis_chat.own_read_seq(c.id, me.user_id, me.last_read_seq), coalesce(ps.cleared_seq, 0)) and me.user_id = any (m.mentions)
+                    and m.moderation is distinct from 'hidden'),
+         coalesce(me.muted_until > now(), false), me.pinned, me.archived, c.last_message_at,
+         (select jsonb_build_object('id', m.id, 'seq', m.seq, 'sender_id', m.sender_id, 'kind', m.kind,
+                                    'body', left(m.body, 160), 'deleted', m.deleted_at is not null, 'created_at', m.created_at,
+                                    'attachment', (select a.kind from genesis_chat.attachments a where a.message_id = m.id order by a.position limit 1))
+            from genesis_chat.messages m
+           where m.conversation_id = c.id and m.visibility = 'everyone' and m.thread_root_id is null and m.seq > coalesce(ps.cleared_seq, 0)
+             and (m.moderation is distinct from 'hidden' or m.sender_id = me.user_id)
+           order by m.seq desc limit 1)
+    from genesis_chat.members me
+    join genesis_chat.conversations c on c.id = me.conversation_id
+    join genesis_chat.kinds k on k.kind = c.kind
+    left join genesis_chat.member_state ps on ps.conversation_id = me.conversation_id and ps.user_id = me.user_id
+   where me.user_id = auth.uid() and me.left_at is null and me.role <> 'observer'
+     and me.archived = coalesce(p_archived, false)
+     and (ps.cleared_seq is null or genesis_chat.readable_after(c.id, me.user_id, ps.cleared_seq))
+     and (p_kind is null or c.kind = p_kind)
+     and (p_kinds is null or c.kind = any (p_kinds))
+     and (p_exclude_kinds is null or not (c.kind = any (p_exclude_kinds)))
+     and (p_before is null or coalesce(c.last_message_at, c.created_at) < p_before)
+   order by me.pinned desc, coalesce(c.last_message_at, c.created_at) desc, c.id
+   limit least(greatest(coalesce(p_limit, 50), 1), 200)
 $$;
 
 -- A push's recipients and badge (0007's push_targets): someone who deleted the conversation for
@@ -186,7 +323,8 @@ as $$
 $$;
 
 -- A file (0007's can_read_object): one in a message only through that message, so never one from
--- history you deleted for yourself; your own recent upload only until it's in a message.
+-- history you deleted for yourself; your own recent upload only until it's in a message, and never
+-- again once that message's attachment is deleted (its storage removal may still be queued).
 create or replace function genesis_chat.can_read_object(object_name text, object_owner text, uploaded_at timestamptz)
 returns boolean
 language sql
@@ -206,7 +344,9 @@ as $$
     or (object_owner = auth.uid()::text and split_part(object_name, '/', 2) = auth.uid()::text
         and uploaded_at > now() - interval '1 day'
         and not exists (select 1 from genesis_chat.attachments a
-                         where (a.provider = 'storage' and a.path = object_name) or a.poster_path = object_name)))
+                         where (a.provider = 'storage' and a.path = object_name) or a.poster_path = object_name)
+        -- Nor one that was in a message whose attachment has gone (deleted, its removal queued).
+        and not exists (select 1 from genesis_chat.effects e where e.key = 'storage.remove:' || object_name)))
 $$;
 
 -- A report (0001's report_message): never of a message in history you deleted for yourself, nor

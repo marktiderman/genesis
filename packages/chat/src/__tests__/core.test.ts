@@ -102,14 +102,21 @@ describe("starting a conversation in a tenant (migration 0004)", () => {
   });
 });
 
-describe("members' receipt place (migration 0008)", () => {
-  function withRows(rows: Record<string, unknown>[]) {
-    const q = { select: () => q, eq: () => q, is: () => q, neq: async () => ({ data: rows, error: null }) };
-    return createChatClient({ schema: () => ({ from: () => q }) } as never);
+describe("your own read place in members() (migration 0008)", () => {
+  function withRows(rows: Record<string, unknown>[], state: { data?: Record<string, unknown>[]; error?: { code: string } }) {
+    const members = { select: () => members, eq: () => members, is: () => members, neq: async () => ({ data: rows, error: null }) };
+    const memberState = { select: () => memberState, eq: async () => ({ data: state.data ?? null, error: state.error ?? null }) };
+    return createChatClient({ schema: () => ({ from: (t: string) => (t === "members" ? members : memberState) }) } as never);
   }
-  it("reads receipt_seq as receiptSeq, and leaves it out on a database without 0008", async () => {
-    const row = { conversation_id: "c1", user_id: "u2", role: "member", last_read_seq: 2, last_read_at: null, joined_at: "2026-11-01T00:00:00Z" };
-    expect((await withRows([{ ...row, receipt_seq: 0 }]).members("c1"))[0]).toMatchObject({ lastReadSeq: 2, receiptSeq: 0 });
-    expect((await withRows([row]).members("c1"))[0]).not.toHaveProperty("receiptSeq");
+  const row = (userId: string, seq: number) => ({ conversation_id: "c1", user_id: userId, role: "member", last_read_seq: seq, last_read_at: null, joined_at: "2026-11-01T00:00:00Z" });
+
+  it("takes your private read place for your row while the public one is held, and leaves others' alone", async () => {
+    const members = await withRows([row("me", 0), row("sam", 1)], { data: [{ conversation_id: "c1", user_id: "me", read_seq: 3 }] }).members("c1");
+    expect(members.map((m) => [m.userId, m.lastReadSeq])).toEqual([["me", 3], ["sam", 1]]);
+  });
+
+  it("is the public place without 0008's column, or without member_state at all", async () => {
+    expect((await withRows([row("me", 2)], { data: [{ conversation_id: "c1", user_id: "me" }] }).members("c1"))[0]!.lastReadSeq).toBe(2);
+    expect((await withRows([row("me", 2)], { error: { code: "42P01" } }).members("c1"))[0]!.lastReadSeq).toBe(2);
   });
 });

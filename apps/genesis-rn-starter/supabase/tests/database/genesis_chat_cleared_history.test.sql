@@ -7,7 +7,7 @@
 -- talks with c3 (files); a1, b2 and c3 are in a group (read receipts).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(44);
+select plan(53);
 
 insert into auth.users (id, aud, role, email, instance_id)
 select ('00000000-0000-4000-8000-00000000c8' || n)::uuid, 'authenticated', 'authenticated', 'genesis-chat-8-' || n || '@example.test', '00000000-0000-0000-0000-000000000000'
@@ -35,20 +35,32 @@ grant execute on function pg_temp.v(text) to authenticated;
 create function pg_temp.read_at(conv text, n text) returns timestamptz language sql stable security definer set search_path = '' as $$
   select last_read_at from genesis_chat.members where conversation_id = pg_temp.v(conv) and user_id = pg_temp.person(n)
 $$;
--- What the signed-in member reads of another's read places, as a sender's status line does.
-create function pg_temp.receipt(conv text, n text) returns bigint language sql stable as $$
-  select coalesce(receipt_seq, last_read_seq) from genesis_chat.members where conversation_id = pg_temp.v(conv) and user_id = pg_temp.person(n)
-$$;
+-- A member's read place as the signed-in member reads it: what a sender's status line reads.
 create function pg_temp.read_place(conv text, n text) returns bigint language sql stable as $$
   select last_read_seq from genesis_chat.members where conversation_id = pg_temp.v(conv) and user_id = pg_temp.person(n)
 $$;
 create function pg_temp.seq(message text) returns bigint language sql stable as $$
   select seq from genesis_chat.messages where id = pg_temp.v(message)
 $$;
-grant execute on function pg_temp.receipt(text, text), pg_temp.read_place(text, text), pg_temp.seq(text) to authenticated;
+-- The signed-in member's own private row, and what they count as unread.
+create function pg_temp.own_read_seq(conv text) returns bigint language sql stable as $$
+  select read_seq from genesis_chat.member_state where conversation_id = pg_temp.v(conv) and user_id = auth.uid()
+$$;
+create function pg_temp.inbox_row(conv text) returns table (unread integer, last_read_seq bigint, mentioned boolean) language sql stable as $$
+  select i.unread, i.last_read_seq, i.mentioned from genesis_chat.inbox() i where i.conversation_id = pg_temp.v(conv)
+$$;
+create function pg_temp.last_seq(conv text) returns bigint language sql stable security definer set search_path = '' as $$
+  select last_seq from genesis_chat.conversations where id = pg_temp.v(conv)
+$$;
+grant execute on function pg_temp.read_place(text, text), pg_temp.seq(text), pg_temp.own_read_seq(text),
+  pg_temp.inbox_row(text), pg_temp.last_seq(text) to authenticated;
 create function pg_temp.pushed(message text, n text) returns integer language sql stable security definer set search_path = '' as $$
   select count(*)::integer from genesis_chat.push_targets(pg_temp.v(message)) where user_id = pg_temp.person(n)
 $$;
+create function pg_temp.badge(message text, n text) returns integer language sql stable security definer set search_path = '' as $$
+  select unread_total from genesis_chat.push_targets(pg_temp.v(message)) where user_id = pg_temp.person(n)
+$$;
+grant execute on function pg_temp.badge(text, text) to authenticated;
 grant execute on function pg_temp.read_at(text, text), pg_temp.pushed(text, text) to authenticated;
 
 create function public.genesis_chat_test8_may_start(member_ids uuid[], subject_type text, subject_id text, user_id uuid)
@@ -64,26 +76,42 @@ insert into t select 'ab', genesis_chat.start_conversation('direct', array[pg_te
 insert into t select 'thursday', (genesis_chat.send_message(pg_temp.v('ab'), gen_random_uuid(), 'are you free on Thursday?')).id;
 select pg_temp.sign_in('b2');
 select genesis_chat.delete_conversation_for_me(pg_temp.v('ab'));
--- b2 never read it; posting moves b2's read place past it.
-select genesis_chat.send_message(pg_temp.v('ab'), gen_random_uuid(), 'starting over');
+-- b2 never read it; posting would move b2's read place past it.
+insert into t select 'over', (genesis_chat.send_message(pg_temp.v('ab'), gen_random_uuid(), 'starting over')).id;
 select pg_temp.sign_in('a1');
-select is(pg_temp.read_place('ab', 'b2'), (select last_seq from genesis_chat.conversations where id = pg_temp.v('ab')),
-          'b2''s read place moved past a1''s deleted message');
-select ok(pg_temp.receipt('ab', 'b2') < pg_temp.seq('thursday'), 'but a1 doesn''t see "Read" on the message b2 deleted unread');
+select ok(pg_temp.read_place('ab', 'b2') < pg_temp.seq('thursday'), 'a1 sees b2''s read place held before the message b2 deleted unread: no "Read"');
 select is(pg_temp.read_at('ab', 'b2'), null, 'nor a read time');
+select is((select count(*)::integer from genesis_chat.member_state where conversation_id = pg_temp.v('ab')), 0,
+          'a1 reads none of b2''s private state');
+select is((select count(*)::integer from information_schema.columns
+            where table_schema = 'genesis_chat' and table_name = 'members' and column_name like '%seq%'), 1,
+          'and members holds one read place each (last_read_seq), with nothing beside it to compare');
 select pg_temp.sign_in('b2');
-select genesis_chat.mark_read(pg_temp.v('ab'));
-select pg_temp.sign_in('a1');
-select ok(pg_temp.receipt('ab', 'b2') < pg_temp.seq('thursday'), 'nor once b2 marks the conversation read');
-insert into t select 'works', (genesis_chat.send_message(pg_temp.v('ab'), gen_random_uuid(), 'sure, Thursday works')).id;
+select is(pg_temp.own_read_seq('ab'), pg_temp.seq('over'), 'b2''s own read place is kept privately');
+select is((select last_read_seq from pg_temp.inbox_row('ab')), pg_temp.seq('over'), 'b2''s inbox gives their own read place');
+select is((select unread from pg_temp.inbox_row('ab')), 0, 'and nothing unread');
+-- A system message after what b2 deleted: b2 reads it, and nobody else's message moves the hold.
+reset role;
+select genesis_chat.post_system_message(pg_temp.v('ab'), 'b2 changed the chat colour');
 select pg_temp.sign_in('b2');
-select genesis_chat.mark_read(pg_temp.v('ab'));
+select is(genesis_chat.mark_read(pg_temp.v('ab')), pg_temp.last_seq('ab'), 'mark_read returns b2''s own read place');
+select is(genesis_chat.my_read_seq(pg_temp.v('ab')), pg_temp.last_seq('ab'), 'and so does my_read_seq');
+select is((select unread from pg_temp.inbox_row('ab')), 0, 'the system message b2 read isn''t unread');
+select is(genesis_chat.unread_total(), 0, 'nor in b2''s badge');
 select pg_temp.sign_in('a1');
-select ok(pg_temp.receipt('ab', 'b2') >= pg_temp.seq('works'), 'a message after what b2 deleted reads as read');
+select ok(pg_temp.read_place('ab', 'b2') < pg_temp.seq('thursday'), 'and a1 still sees no "Read"');
+insert into t select 'works', (genesis_chat.send_message(pg_temp.v('ab'), gen_random_uuid(), 'sure, Thursday works @b2', p_mentions => array[pg_temp.person('b2')])).id;
+reset role;
+select is(pg_temp.badge('works', 'b2'), 1, 'a push''s badge counts only the new message for b2');
+select pg_temp.sign_in('b2');
+select is((select unread from pg_temp.inbox_row('ab')), 1, 'b2''s inbox counts it');
+select ok((select mentioned from pg_temp.inbox_row('ab')), 'and the mention in it');
+select genesis_chat.mark_read(pg_temp.v('ab'));
+select is(pg_temp.own_read_seq('ab'), null, 'once b2 reads a1''s later message, nothing is held');
+select ok(not (select mentioned from pg_temp.inbox_row('ab')), 'and the mention is read');
+select pg_temp.sign_in('a1');
+select ok(pg_temp.read_place('ab', 'b2') >= pg_temp.seq('works'), 'a1 sees "Read" on the message after what b2 deleted');
 select isnt(pg_temp.read_at('ab', 'b2'), null, 'with its read time');
-select is(pg_temp.read_place('ab', 'b2'), pg_temp.receipt('ab', 'b2'), 'and the receipt place catches up with the read place');
-select pg_temp.sign_in('a1');
-select is(pg_temp.receipt('ab', 'a1'), pg_temp.read_place('ab', 'a1'), 'someone who deleted nothing: the receipt place is the read place');
 
 -- ── 1b. The same in a group ─────────────────────────────────────────────────────
 select pg_temp.sign_in('a1');
@@ -95,50 +123,36 @@ select pg_temp.sign_in('b2');
 select genesis_chat.delete_conversation_for_me(pg_temp.v('g'));
 select genesis_chat.send_message(pg_temp.v('g'), gen_random_uuid(), 'hi all');
 select pg_temp.sign_in('a1');
-select ok(pg_temp.read_place('g', 'b2') >= pg_temp.seq('plan'), 'in a group, b2''s read place moved past a1''s message');
-select ok(pg_temp.receipt('g', 'b2') < pg_temp.seq('plan'), 'but b2 isn''t one of its readers');
-select ok(pg_temp.receipt('g', 'c3') >= pg_temp.seq('plan'), 'c3, who read it, is: "Read by 1"');
+select ok(pg_temp.read_place('g', 'b2') < pg_temp.seq('plan'), 'in a group, b2 isn''t one of the readers of a1''s message');
+select ok(pg_temp.read_place('g', 'c3') >= pg_temp.seq('plan'), 'c3, who read it, is: "Read by 1"');
 select pg_temp.sign_in('c3');
 insert into t select 'reply', (genesis_chat.send_message(pg_temp.v('g'), gen_random_uuid(), 'sounds good')).id;
 select pg_temp.sign_in('b2');
 select genesis_chat.mark_read(pg_temp.v('g'));
 select pg_temp.sign_in('c3');
-select ok(pg_temp.receipt('g', 'b2') >= pg_temp.seq('reply'), 'a message b2 read after the deleted history counts');
+select ok(pg_temp.read_place('g', 'b2') >= pg_temp.seq('reply'), 'a message b2 read after the deleted history counts');
 -- The documented trade-off: one public read place can't say "read c3's message but not a1's"
 -- without publishing b2's private cleared range, so a1's earlier message now counts b2 too.
 select pg_temp.sign_in('a1');
-select ok(pg_temp.receipt('g', 'b2') >= pg_temp.seq('plan'), 'and so, in a group, a1''s message deleted unread now counts b2 as a reader');
+select ok(pg_temp.read_place('g', 'b2') >= pg_temp.seq('plan'), 'and so, in a group, a1''s message deleted unread now counts b2 as a reader');
 
--- ── 1c. Rows from before 0008, and the column's invariants ─────────────────────
--- Null is the read place: every row before 0008 (adding the column writes none), so their
--- receipts show what they showed then.
+-- ── 1c. History read before Delete for me, and the private place's invariant ─────
 select pg_temp.sign_in('a1');
-insert into t select 'pre', genesis_chat.start_conversation('group', array[pg_temp.person('b2')], 'Before 0008');
+insert into t select 'pre', genesis_chat.start_conversation('group', array[pg_temp.person('b2')], 'Read, then deleted');
 insert into t select 'seen', (genesis_chat.send_message(pg_temp.v('pre'), gen_random_uuid(), 'seen, then deleted')).id;
 select pg_temp.sign_in('b2');
 select genesis_chat.mark_read(pg_temp.v('pre'));
 select genesis_chat.delete_conversation_for_me(pg_temp.v('pre'));
-select genesis_chat.send_message(pg_temp.v('pre'), gen_random_uuid(), 'after deleting');
+-- The first move after it passes nobody else's message: b2's own.
+insert into t select 'own', (genesis_chat.send_message(pg_temp.v('pre'), gen_random_uuid(), 'after deleting')).id;
 select pg_temp.sign_in('a1');
-select ok(pg_temp.receipt('pre', 'b2') >= pg_temp.seq('seen'), 'a message b2 read before deleting it still shows "Read"');
+select is(pg_temp.read_place('pre', 'b2'), pg_temp.seq('own'), 'what b2 read before deleting holds nothing back: the read place moves on');
+select ok(pg_temp.read_place('pre', 'b2') >= pg_temp.seq('seen'), 'so a1''s message still shows "Read"');
 reset role;
-select is((select count(*)::integer from genesis_chat.members
-            where conversation_id in (pg_temp.v('ab'), pg_temp.v('g'), pg_temp.v('pre'))
-              and receipt_seq is not null and receipt_seq >= last_read_seq), 0,
-          'receipt_seq is null or behind last_read_seq, never at or past it');
-select is((select receipt_seq from genesis_chat.members where conversation_id = pg_temp.v('pre') and user_id = pg_temp.person('b2')),
-          null, 'and null when nothing is held back');
--- A row as 0008 found it: null, whatever its read place.
-alter table genesis_chat.members disable trigger members_receipt_moved;
-update genesis_chat.members set receipt_seq = null where conversation_id = pg_temp.v('ab');
-alter table genesis_chat.members enable trigger members_receipt_moved;
-select pg_temp.sign_in('a1');
-select is(pg_temp.receipt('ab', 'b2'), pg_temp.read_place('ab', 'b2'), 'a null receipt_seq reads as last_read_seq');
-insert into t select 'after', (genesis_chat.send_message(pg_temp.v('ab'), gen_random_uuid(), 'after the upgrade')).id;
-select pg_temp.sign_in('b2');
-select genesis_chat.mark_read(pg_temp.v('ab'));
-select pg_temp.sign_in('a1');
-select ok(pg_temp.receipt('ab', 'b2') >= pg_temp.seq('after'), 'and moves on from it');
+select is((select count(*)::integer from genesis_chat.member_state s join genesis_chat.members m using (conversation_id, user_id)
+            where s.conversation_id in (pg_temp.v('ab'), pg_temp.v('g'), pg_temp.v('pre'))
+              and s.read_seq is not null and not (s.read_seq > m.last_read_seq)), 0,
+          'a private read place is kept only while it''s ahead of the public one');
 
 -- ── 2. No push for a message in history deleted for me ──────────────────────────
 select pg_temp.sign_in('a1');
@@ -174,6 +188,12 @@ select ok(genesis_chat.can_read_object(pg_temp.file('pending.jpg'), pg_temp.pers
 select pg_temp.sign_in('c3');
 select ok(genesis_chat.can_read_object(pg_temp.file('sent.jpg'), pg_temp.person('b2')::text, now()), 'c3 still reads the photo b2 sent');
 select ok(not genesis_chat.can_read_object(pg_temp.file('pending.jpg'), pg_temp.person('b2')::text, now()), 'and never b2''s unsent upload');
+-- Someone deletes the message: its attachment row goes and the file's removal is queued.
+reset role;
+delete from genesis_chat.attachments where path = pg_temp.file('sent.jpg');
+select pg_temp.sign_in('b2');
+select ok(not genesis_chat.can_read_object(pg_temp.file('sent.jpg'), pg_temp.person('b2')::text, now()),
+  'b2 can''t fetch it once its attachment is deleted and its removal queued: it isn''t an unsent upload again');
 
 -- ── 4. Reports: nothing from history deleted for me, nor deleted messages ──────
 select pg_temp.sign_in('a1');

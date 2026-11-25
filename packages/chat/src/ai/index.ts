@@ -107,7 +107,13 @@ async function loadConversation(
     .maybeSingle();
   if (member.error) throw new Error(`chat.${mode}: reading membership failed (${member.error.code ?? "?"})`);
   if (!member.data) throw new GuardrailError(CHAT_AI_REFUSALS.notMember, "forbidden");
-  const lastRead = Number((member.data as { last_read_seq: number | null }).last_read_seq ?? 0);
+  // Your own read place: after Delete for me the public last_read_seq can lag it (chat 0008, which
+  // keeps it privately); without 0008 there's no my_read_seq and the row is the place.
+  const ownRead = await chat.rpc("my_read_seq", { p_conversation_id: conversationId });
+  const lastRead = Math.max(
+    Number((member.data as { last_read_seq: number | null }).last_read_seq ?? 0),
+    !ownRead.error && ownRead.data != null ? Number(ownRead.data) : 0,
+  );
 
   const observes = await chat.rpc("i_observe", { p_conversation_id: conversationId });
   const observer = !observes.error && observes.data === true;

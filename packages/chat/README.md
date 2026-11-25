@@ -571,27 +571,38 @@ before 0007.
 Apply 0007 after 0006 (`genesis migrate`), and copy its pgTAP test beside the others.
 
 Migration 0008 closes the ways back into history deleted for me:
-- **Read receipts.** `members.receipt_seq` is the read place a sender's status line reads
-  (`ChatMember.receiptSeq`; `lastSentReceipt` uses it, and `lastReadSeq` on a database without
-  0008). It follows `last_read_seq`, but never passes a message the member deleted for themselves
-  unread until they read someone else's message after it, so posting after Delete for me doesn't
-  turn the other person's message to "Read" (or count them in "Read by N"). It's exact in a direct
-  conversation. In a group, a sender whose last message is in the deleted history can see "Read" once
-  the member reads someone else's later message (one public read place can't say "read 3 but not 2"
-  without publishing the private cleared range). Null means `last_read_seq` (every row before
-  0008, so adding it rewrites no rows, and whenever nothing is held back), so receipts show what they showed before 0008: the stored rows can't tell history read before
-  Delete for me from history deleted unread, so only reads after 0008 are held. `cleared_seq` stays private, and `last_read_seq`
-  still drives unread counts. The read time (`last_read_at`) and the `read` hint move only for a
-  message after the deleted history, and the hint's `seq` is the receipt place.
+- **Read receipts.** The public read place, `members.last_read_seq`, is now held: it never passes
+  a message someone else sent that the member deleted for themselves unread, until they read
+  someone else's message after it. So posting after Delete for me doesn't turn the other person's
+  message to "Read" (or count them in "Read by N"), and clients, old ones included, read receipts
+  from `lastReadSeq` as before. It's exact in a direct conversation. In a group, a sender whose last
+  message is in the deleted history can see "Read" once the member reads someone else's later
+  message: one public read place can't say "read 3 but not 2" without publishing the private
+  cleared range. Rows from before 0008 aren't changed (the stored rows can't tell history read
+  before Delete for me from history deleted unread), so only reads after 0008 are held. The read
+  time (`last_read_at`) and the `read` hint move only with the held place.
+- **Your own read place.** While the public place is held, the member's own one is kept in
+  `member_state.read_seq`. Everything about their own reading uses it: unread counts
+  (`member_unread`, so the inbox, `unread_total` and a push's badge), the inbox's `last_read_seq`
+  and `mentioned`, what `mark_read` returns, `my_read_seq(conversation_id)`, the client's own row
+  in `members()` (the "New" line) and the AI recap.
 - **Pushes.** A push is never sent for a message in it (a late push from the outbox).
 - **Files.** A file in a message in it can't be fetched through the uploader's fallback, the
   uploader's own included. That fallback (their own recent upload) now ends once the file is in a
-  message. From then on everyone, the uploader too, reads it through a message they can read, as before.
+  message, and doesn't come back when that attachment is deleted and the file's removal is queued.
+  From then on everyone, the uploader too, reads it through a message they can read, as before.
 - **Reports.** `report_message` refuses a message in it, or one hidden by moderation that you can't
   see, and a report's context is only messages after it that aren't deleted or hidden from you (it
   held both before, too).
 - **Writes.** `react`, `pin_message`, `save_message`, `edit_message`, `delete_message`, and
-  `send_message`'s reply and thread root refuse a message in it, as they refuse one you can't see. Forgetting a saved message still works.
+  `send_message`'s reply and thread root refuse a message in it, as they refuse one you can't see.
+  Forgetting a saved message still works.
+
+Privacy: as before 0008, everyone in a conversation sees one read place for each member
+(`last_read_seq`, and `last_read_at`), with nothing beside it to compare: `cleared_seq` and
+`read_seq` stay in `member_state`, which only that member reads. With 0008 a member's own
+`last_read_seq` can lag what they've read after Delete for me; their own read place is
+`my_read_seq`, the inbox's `last_read_seq` or what `mark_read` returns.
 
 Apply 0008 after 0007, with its pgTAP test.
 
