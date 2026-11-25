@@ -82,6 +82,7 @@ jobs:
           if [ -n "$platforms" ]; then
             node .eas/scripts/native-release.mjs channel eas.json "production" "production"
             node .eas/scripts/native-release.mjs environment eas.json "production" "production" "$platforms"
+            node .eas/scripts/native-release.mjs submit eas.json "production" "$platforms"
           fi
           for platform in ios android; do
             case ",$platforms," in *",$platform,"*) set-output "$platform" true ;; *) set-output "$platform" false ;; esac

@@ -4,6 +4,7 @@
   "private": true,
   "main": "index.ts",
   "scripts": {
+    "postinstall": "node scripts/eas-build-packages.mjs",
     "start": "genesis build-stamp && expo start",
     "ios": "genesis build-stamp && expo run:ios",
     "android": "genesis build-stamp && expo run:android",

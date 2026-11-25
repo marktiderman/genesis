@@ -1,9 +1,9 @@
 // @feat:init-native-template
-import { existsSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 import { parse } from "yaml";
 import { describe, expect, it } from "vitest";
-import { appPnpmSettings, runInitNative, withSupabasePorts } from "../src/blocks/init-native.js";
+import { appPnpmSettings, EAS_BUILD_PACKAGES, EAS_BUILD_PACKAGES_PATH, runInitNative, withSupabasePorts } from "../src/blocks/init-native.js";
 import { starterDir } from "../src/blocks/templates.js";
 import { readLock, type GenesisLock } from "../src/blocks/lock.js";
 import { runDoctor } from "../src/doctor/index.js";
@@ -93,6 +93,9 @@ describe("genesis init --template native", () => {
       expect(JSON.parse(files["package.json"]!).dependencies["@marktiderman/genesis-ui-native"]).toBe("workspace:^");
       expect(files["metro.config.js"]).toContain("monorepoRoot");
       expect(files["pnpm-workspace.yaml"]).toBeUndefined();
+      // On EAS the linked packages' dist/ doesn't exist: a postinstall builds them there.
+      expect(JSON.parse(files["package.json"]!).scripts.postinstall).toBe(`node ${EAS_BUILD_PACKAGES_PATH}`);
+      expect(files[EAS_BUILD_PACKAGES_PATH]).toBe(EAS_BUILD_PACKAGES);
     } finally {
       rmSync(target, { recursive: true, force: true });
     }
@@ -247,5 +250,13 @@ describe("genesis init --template native", () => {
   it("drops the monorepo's patched dependencies, whose patch files an app doesn't have", () => {
     const text = "nodeLinker: hoisted\n\npatchedDependencies:\n  # why\n  tsup@8.5.1: patches/tsup@8.5.1.patch\nautoInstallPeers: true\n";
     expect(appPnpmSettings(text)).toBe("# pnpm settings for this app, from the Genesis monorepo it was made from.\nnodeLinker: hoisted\n\nautoInstallPeers: true\n");
+  });
+});
+
+describe("the EAS package build an app in the workspace gets", () => {
+  it("is the workbench's own copy, and does nothing off EAS", () => {
+    const workbench = path.join(path.dirname(starterDir()), "native-workbench", EAS_BUILD_PACKAGES_PATH);
+    expect(readFileSync(workbench, "utf8")).toBe(EAS_BUILD_PACKAGES);
+    expect(EAS_BUILD_PACKAGES).toMatch(/if \(!process\.env\.EAS_BUILD_ID && process\.env\.EAS_BUILD !== "true"\) process\.exit\(0\);/);
   });
 });

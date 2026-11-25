@@ -176,6 +176,7 @@ jobs:
           if [ -n "$platforms" ]; then
             node .eas/scripts/native-release.mjs channel eas.json "GENESIS_RELEASE_PROFILE" "GENESIS_RELEASE_CHANNEL"
             node .eas/scripts/native-release.mjs environment eas.json "GENESIS_RELEASE_PROFILE" "GENESIS_RELEASE_EAS_ENVIRONMENT" "$platforms"
+            node .eas/scripts/native-release.mjs submit eas.json "GENESIS_RELEASE_PROFILE" "$platforms"
           fi
           for platform in ios android; do
             case ",$platforms," in *",$platform,"*) set-output "$platform" true ;; *) set-output "$platform" false ;; esac

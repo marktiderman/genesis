@@ -8,9 +8,11 @@
  * (`apps/native-workbench/src/workbench/screens/*.tsx`).
  *
  * A component with no screen yet is listed in `apps/native-workbench/workbench-coverage.json`
- * under `notYet`, by package. The list only shrinks:
+ * under `notYet`, by package:
  * - a new export with no screen and no entry fails (add its screen, or its `notYet` line);
- * - an entry whose component now has a screen, or is no longer exported, fails (remove it).
+ * - an entry whose component now has a screen, or is no longer exported, fails (remove it);
+ * - a `covers` name that isn't a native component is reported (a typo would otherwise pass).
+ * A new `notYet` line is a review question: the PR that adds a component owes its screen.
  *
  * The components are the ones check-code-connect counts as visual, for every package with a
  * native surface (NATIVE_PACKAGES).
@@ -48,6 +50,11 @@ export function nativeComponents(root) {
 export function checkCoverage(root) {
   const covered = coveredNames(root);
   const components = nativeComponents(root);
+  // A name in `covers` that no native package exports as a component counts for nothing: say so,
+  // so a typo can't hide a missing screen. (Hooks and helpers a screen shows, like
+  // composeHeaderOptions, are fine to list; they're reported, not failed.)
+  const known = new Set(Object.values(components).flat());
+  const unknown = [...covered].filter((n) => !known.has(n)).sort();
   const file = path.join(root, COVERAGE_FILE);
   const notYet = fs.existsSync(file) ? (JSON.parse(fs.readFileSync(file, "utf8")).notYet ?? {}) : {};
   const problems = [];
@@ -65,10 +72,10 @@ export function checkCoverage(root) {
     for (const name of listed) if (!names.includes(name)) problems.push(`${pkg}: ${name} is in notYet but isn't exported any more: remove it`);
   }
   for (const pkg of Object.keys(notYet)) if (!(pkg in components)) problems.push(`notYet names a package that isn't native: ${pkg}`);
-  return { problems, screens, pending, components };
+  return { problems, screens, pending, components, unknown };
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const root = process.cwd();
   if (process.argv.includes("--write")) {
     const covered = coveredNames(root);
@@ -78,7 +85,8 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
     console.log(`check-workbench-coverage: wrote ${COVERAGE_FILE}.`);
     process.exit(0);
   }
-  const { problems, screens, pending } = checkCoverage(root);
+  const { problems, screens, pending, unknown } = checkCoverage(root);
+  if (unknown.length) console.warn(`check-workbench-coverage: these covers names aren't native components (not counted): ${unknown.join(", ")}`);
   if (problems.length) {
     console.error(`check-workbench-coverage: ${problems.length} problem(s):`);
     for (const p of problems) console.error(`  - ${p}`);
