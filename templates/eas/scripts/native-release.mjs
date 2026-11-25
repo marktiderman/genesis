@@ -377,8 +377,17 @@ export function checkProfileEnvironment(easJson, profile, environment, platforms
  * project holds). Returns the placeholder keys left, empty when ready.
  */
 export function submitPlaceholders(easJson, profile, platform) {
-  const submit = easJson?.submit?.[profile]?.[platform];
-  if (!submit || typeof submit !== "object") return [];
+  // The effective profile, as eas-json resolves `extends`: the base's platform fields under the
+  // profile's own, so a placeholder inherited from a base counts unless the profile replaces it.
+  const profiles = easJson?.submit ?? {};
+  const chain = [];
+  for (let name = profile; name !== undefined && profiles[name]; name = profiles[name].extends) {
+    if (chain.includes(name)) throw new Error(`eas.json submit profiles extend each other in a loop at "${name}".`);
+    chain.push(name);
+  }
+  const parts = chain.reverse().map((name) => profiles[name]?.[platform]).filter((p) => p && typeof p === "object");
+  if (!parts.length) return [];
+  const submit = Object.assign({}, ...parts);
   // Written in two parts, so this script itself never reads as an unfilled template.
   const placeholder = "REPLACE" + "_WITH_";
   return Object.entries(submit).filter(([, v]) => typeof v === "string" && v.startsWith(placeholder)).map(([k]) => k);

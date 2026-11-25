@@ -6,7 +6,8 @@
 //   node .maestro/prove-ios.mjs --flow launch,deep-link   only these flows
 //   node .maestro/prove-ios.mjs --rebuild             build again even when the cached build matches
 //   node .maestro/prove-ios.mjs --no-stack            no Supabase stack and no test login (an app that runs on sample data)
-//   node .maestro/prove-ios.mjs --force               regenerate ios/ even when the app commits it (its native edits go)
+//   node .maestro/prove-ios.mjs --force               regenerate ios/ even when the app commits it. Every build deletes all of
+//                                                     ios/ (tracked, untracked and ignored files): it's prebuild's output
 //   node .maestro/prove-ios.mjs --stop                stop the stack (its data goes); the simulator is kept
 //
 // It writes the evidence a pull request links: each flow's screenshots, Maestro's logs and a
@@ -80,7 +81,8 @@ function stack({ start }) {
     // Before starting anything: a config on the default port would start a stack beside (or on
     // top of) another project's, and the refusal below would only come after it was running.
     const config = existsSync(join(app, "supabase", "config.toml")) ? readFileSync(join(app, "supabase", "config.toml"), "utf8") : "";
-    const apiSection = /^\[api\][ \t]*$([\s\S]*?)(?=^\[|(?![\s\S]))/m.exec(config)?.[1] ?? "";
+    // The [api] table up to the next header (TOML allows a comment after a header).
+    const apiSection = /^\[api\][ \t]*(?:#.*)?$([\s\S]*?)(?=^\[|(?![\s\S]))/m.exec(config)?.[1] ?? "";
     const apiPort = /^\s*port\s*=\s*(\d+)/m.exec(apiSection)?.[1];
     if (!apiPort || apiPort === "54321") fail(`Refusing to start: supabase/config.toml's [api] port is ${apiPort ?? "unset (54321)"}. Give the app its own (genesis init --supabase-ports, or [api] port), not 54321.`);
     // Lean: the database, auth, the API and realtime are all a proof run needs (the test login is
