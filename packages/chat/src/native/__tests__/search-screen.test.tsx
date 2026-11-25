@@ -69,5 +69,7 @@ describe("ChatSearchScreen", () => {
     );
     await waitFor(() => expect(view.container.textContent).toContain("from inside"));
     expect(view.container.textContent).not.toContain("from outside");
+    // Scope filters on the device, so it asks for the search's largest page.
+    expect((search.mock.calls[0] as unknown[])[2]).toEqual({ limit: 100 });
   });
 });

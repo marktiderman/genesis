@@ -57,7 +57,9 @@ export interface ChatSearchScreenProps {
   initialQuery?: string;
   /**
    * The results this screen shows: a hit outside it is left out (one organization at a time, say,
-   * as the inbox's `scope`). Keep it stable (useCallback). Default: every hit.
+   * as the inbox's `scope`). It filters the page the server returns, which is then its largest (100
+   * matches, newest first), so a search whose newest 100 matches are all outside it shows none.
+   * Keep it stable (useCallback). Default: every hit.
    */
   scope?: (hit: ChatSearchHit) => boolean;
   debounceMs?: number;
@@ -66,12 +68,15 @@ export interface ChatSearchScreenProps {
   testID?: string;
 }
 
+/** search_messages' largest page: with `scope` the screen asks for all of it, as scope filters on the device. */
+const SCOPED_SEARCH_LIMIT = 100;
+
 export function ChatSearchScreen({ conversationId, onOpen, conversationTitle, initialQuery, scope, debounceMs, now = () => new Date(), testID = "chat-search" }: ChatSearchScreenProps) {
   const { copy, person: known } = useChatNative();
   const { userId } = useChat();
   const colors = useThemeRoles();
   const [value, setValue] = useState(initialQuery ?? "");
-  const { hits: found, query, isSearching } = useSearch(value, { conversationId, debounceMs });
+  const { hits: found, query, isSearching } = useSearch(value, { conversationId, debounceMs, ...(scope ? { limit: SCOPED_SEARCH_LIMIT } : {}) });
   const hits = useMemo(() => (scope ? found.filter((h) => scope(h)) : found), [found, scope]);
   // Names for "in …" across conversations, as the inbox shows them (one read, cached with it).
   const inbox = useInbox({});
