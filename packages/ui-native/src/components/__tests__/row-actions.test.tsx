@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { GenesisModulesProvider, type GenesisModules } from "../../native-modules";
 import { NativeListItem } from "../list-item";
 import { NativeRowActions, toMenuAction } from "../row-actions";
-import { NativeSwipeRow, SWIPE_METRICS, fullSwipeSide, openWidth, splitSwipeActions } from "../swipe-row";
+import { NativeSwipeRow, SWIPE_METRICS, SWIPE_PRESS_SLOP, createSwipePressGuard, fullSwipeSide, openWidth, splitSwipeActions } from "../swipe-row";
 import { ROW_ACTION_SYSTEM_COLORS, onRowActionColor, useRowActionColors } from "../../tokens/row-action-tones";
 
 afterEach(cleanup);
@@ -300,6 +300,56 @@ describe("row actions (ADR 0028)", () => {
     expect((await screen.findByTestId("hooked-menu")).getAttribute("data-count")).toBe("1");
     expect(errors.mock.calls.some((c) => String(c[0]).includes("order of Hooks") || String(c[0]).includes("Rendered more hooks"))).toBe(false);
     errors.mockRestore();
+  });
+
+  it("guards the row's press: a touch that moved 10pt sideways, or any touch while the row is swiped, never presses it; a tap still does", () => {
+    const seen: Record<string, any>[] = [];
+    function Swipeable(props: Record<string, any>) {
+      seen.push(props);
+      return <div data-testid={props.testID}>{props.children}</div>;
+    }
+    const onPress = vi.fn();
+    render(
+      <GenesisModulesProvider modules={{ swipeable: Swipeable as never }}>
+        <NativeSwipeRow actions={make()} testID="s">
+          <NativeListItem title="Ada" onPress={onPress} testID="li" />
+        </NativeSwipeRow>
+      </GenesisModulesProvider>,
+    );
+    // React Native's responder system, as it runs a touch: the guard's capture is asked first on the
+    // start and on each move; only a touch it doesn't take reaches the row, whose release presses it.
+    const guard = () => (seen.at(-1)!.children as { props: Record<string, (e: unknown) => boolean> }).props;
+    const touch = (path: number[]) => {
+      const at = (x: number) => ({ nativeEvent: { pageX: x, pageY: 100 } });
+      if (guard().onStartShouldSetResponderCapture!(at(path[0]!))) return;
+      for (const x of path.slice(1)) if (guard().onMoveShouldSetResponderCapture!(at(x))) return;
+      fireEvent.click(screen.getByTestId("li"));
+    };
+    touch([200, 160]); // a pan 40pt sideways
+    expect(onPress).not.toHaveBeenCalled();
+    touch([200, 202]); // a tap that wobbled 2pt
+    expect(onPress).toHaveBeenCalledTimes(1);
+    // While the row is swiped (dragging, or open), a tap is taken from it, then presses it again once it's home.
+    act(() => seen.at(-1)!.onSwipeableOpenStartDrag());
+    touch([50, 50]);
+    expect(onPress).toHaveBeenCalledTimes(1);
+    act(() => seen.at(-1)!.onSwipeableClose());
+    touch([50, 50]);
+    expect(onPress).toHaveBeenCalledTimes(2);
+  });
+
+  it("tells a swipe from a tap: sideways past the slop, and more sideways than down", () => {
+    const g = createSwipePressGuard();
+    const at = (x: number, y: number) => ({ nativeEvent: { pageX: x, pageY: y } });
+    g.touchStart(at(0, 0));
+    g.touchMove(at(SWIPE_PRESS_SLOP - 1, 0));
+    expect(g.blocks()).toBe(false);
+    g.touchMove(at(SWIPE_PRESS_SLOP, 2));
+    expect(g.blocks()).toBe(true);
+    // A new touch starts afresh; a scroll (mostly down) isn't a swipe.
+    g.touchStart(at(0, 0));
+    g.touchMove(at(12, 40));
+    expect(g.blocks()).toBe(false);
   });
 
   it("keeps the actions unseen until a drag starts, so they never show in an inset row's margins", () => {

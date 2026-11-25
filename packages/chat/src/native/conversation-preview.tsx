@@ -6,7 +6,7 @@
  * Messages' peek does (`ChatConversationPreview`). Reading the peek marks nothing read.
  */
 import { useMemo, type ReactNode } from "react";
-import { ScrollView, View, type DimensionValue } from "react-native";
+import { ScrollView, StyleSheet, View, type DimensionValue } from "react-native";
 import { NativeText } from "@marktiderman/genesis-ui-native/components";
 import { useChat, useConversation } from "../react/index";
 import { attachmentPreview } from "./attachment-cards";
@@ -90,7 +90,14 @@ export function ChatConversationPreview({ conversationId, title, testID }: ChatC
   const positions = useMemo(() => runPositions(messages), [messages]);
   const first = messages[0] ? timeSeparatorLabel(messages[0].createdAt, undefined, undefined, copy) : null;
   return (
-    <View testID={testID} accessible accessibilityLabel={title} style={{ flex: 1, borderRadius: 30, overflow: "hidden", backgroundColor: c.roles.page }}>
+    // A card, as Messages' peek: the grouped card color with a hairline edge in dark mode, so it
+    // reads over the softened screen in both schemes.
+    <View
+      testID={testID}
+      accessible
+      accessibilityLabel={title}
+      style={{ flex: 1, borderRadius: 22, overflow: "hidden", backgroundColor: c.roles.card, borderWidth: c.scheme === "dark" ? StyleSheet.hairlineWidth : 0, borderColor: c.separator }}
+    >
       <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: "flex-end", padding: 12, paddingBottom: 16 }} scrollEnabled={false}>
         {first ? (
           <NativeText style={{ textAlign: "center", fontSize: 11, lineHeight: 13, color: c.secondaryLabel, marginBottom: 8 }}>
