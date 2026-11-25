@@ -86,6 +86,10 @@ export function createSwipePressGuard(now: () => number = () => Date.now()) {
       open = false;
       dragAt = null;
     },
+    /** No swipe pending: a press can run at once. */
+    idle() {
+      return !open && dragAt === null;
+    },
     blocks() {
       if (open) return true;
       if (dragAt === null) return false;
@@ -107,8 +111,10 @@ const nextFrame = (run: () => void) => (typeof requestAnimationFrame === "functi
 
 /**
  * The row with its press guarded: the first element with an `onPress` (the row, or the row inside a
- * menu wrapper) gets it wrapped. A press the guard blocks does nothing but `onBlocked`; one it lets
- * through runs a frame later, unless a drag has started by then.
+ * menu wrapper, up to `PRESS_SEARCH_DEPTH` levels down) gets it wrapped. A press the guard blocks
+ * does nothing but `onBlocked`. With no swipe pending the press runs at once, as it always did; while
+ * a drag is still reported (it can come just after the release) it runs a frame later, unless the
+ * drag turned out to be this touch's.
  */
 function withPressGuard(children: ReactNode, guard: ReturnType<typeof createSwipePressGuard>, onBlocked: () => void, depth = 0): ReactNode {
   if (!isValidElement(children) || depth > PRESS_SEARCH_DEPTH) return children;
@@ -118,6 +124,7 @@ function withPressGuard(children: ReactNode, guard: ReturnType<typeof createSwip
     return cloneElement(child, {
       onPress: (...args: unknown[]) => {
         if (guard.blocks()) return onBlocked();
+        if (guard.idle()) return onPress(...args);
         nextFrame(() => {
           if (guard.blocks()) return;
           onPress(...args);
@@ -129,6 +136,18 @@ function withPressGuard(children: ReactNode, guard: ReturnType<typeof createSwip
   if (!isValidElement(inner)) return children;
   const guarded = withPressGuard(inner, guard, onBlocked, depth + 1);
   return guarded === inner ? children : cloneElement(child, { children: guarded });
+}
+
+let warnedUnguarded = false;
+
+/** In development, once: a swiped row whose press the guard couldn't find, so a swipe may also press it. */
+function warnUnguarded(testID: string) {
+  if (warnedUnguarded || typeof __DEV__ === "undefined" || !__DEV__) return;
+  warnedUnguarded = true;
+  // genesis-allow-console: a development-only hint about a swiped row the press guard can't reach, not an error to report
+  console.warn(
+    `[genesis-ui-native] NativeSwipeRow "${testID}": no onPress within ${PRESS_SEARCH_DEPTH + 1} levels of the row, so a swipe can also press it. Give the row element (NativeSwipeRow's child, or the element a menu wrapper holds) the row's onPress.`,
+  );
 }
 
 /** How far past a side's open actions a full swipe must go, in points. */
@@ -311,10 +330,13 @@ export function NativeSwipeRow({
   const [open, setOpen] = useState(false);
   // A touch's start, without taking it (no responder): the guard tells a press that became a drag.
   const touchStart = { onTouchStart: () => guard.touchStart() } as Record<string, unknown>;
-  // A tap on a swiped-open row closes it instead of pressing it.
-  const content = withPressGuard(accessibilityActions ? withAccessibilityActions(children, actions) : children, guard, () => swipe.current?.close?.());
+  const row = accessibilityActions ? withAccessibilityActions(children, actions) : children;
   const { leading, trailing, fullLeading, fullTrailing } = splitSwipeActions(actions, maxPerSide);
-  if (!Swipeable || leading.length + trailing.length === 0) return <>{content}</>;
+  // Nothing to swipe (no actions on a side, or no gesture-handler): the row as it is, unguarded.
+  if (!Swipeable || leading.length + trailing.length === 0) return <>{row}</>;
+  // A tap on a swiped-open row closes it instead of pressing it.
+  const content = withPressGuard(row, guard, () => swipe.current?.close?.());
+  if (content === row && isValidElement(row)) warnUnguarded(testID);
   warnUnconfirmedFull([...leading, ...trailing]);
 
   // The action first (an alert it asks shows over the row), then the row closes behind it.

@@ -134,6 +134,25 @@ describe("the reply arrow", () => {
     act(() => (seen.at(-1)!.onSwipeableClose as () => void)());
     expect(opacity()).toBe(0);
   });
+
+  it("hides again when a drag is cancelled and the row only starts back (no close reported yet)", () => {
+    const seen: Record<string, unknown>[] = [];
+    function Swipeable(props: Record<string, unknown> & { children?: ReactNode }) {
+      seen.push(props);
+      return createElement(View, { testID: props.testID as string }, (props.renderLeftActions as () => ReactNode)(), props.children as ReactNode);
+    }
+    const [row] = rowsOf([message(1, ME)]);
+    render(
+      <GenesisModulesProvider modules={{ swipeable: Swipeable as never }}>
+        <MessageBubble row={row!} me={ME} urls={{}} group={false} reducedMotion onReply={vi.fn()} testID="s" />
+      </GenesisModulesProvider>,
+    );
+    const opacity = () => (JSON.parse(screen.getByTestId("s-reply-hint").dataset.style!) as { opacity: number }).opacity;
+    act(() => (seen.at(-1)!.onSwipeableOpenStartDrag as () => void)());
+    expect(opacity()).toBe(1);
+    act(() => (seen.at(-1)!.onSwipeableWillClose as () => void)());
+    expect(opacity()).toBe(0);
+  });
 });
 
 describe("the send animation", () => {

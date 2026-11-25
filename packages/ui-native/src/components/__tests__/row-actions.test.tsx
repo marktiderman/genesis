@@ -322,10 +322,9 @@ describe("row actions (ADR 0028)", () => {
     // The touch's start, as React Native reports it to the row's wrapper (it takes nothing).
     const touch = () => (seen.at(-1)!.children as { props: { onTouchStart: () => void } }).props.onTouchStart();
     const frame = () => act(async () => void (await new Promise((r) => setTimeout(r, 30))));
-    // A tap presses the row, a frame later.
+    // A tap presses the row at once, as it always did.
     touch();
     fireEvent.click(row());
-    await frame();
     expect(onPress).toHaveBeenCalledTimes(1);
     // A pan: the touch becomes a drag; its release doesn't press.
     touch();
@@ -333,26 +332,29 @@ describe("row actions (ADR 0028)", () => {
     fireEvent.click(row());
     await frame();
     expect(onPress).toHaveBeenCalledTimes(1);
-    // A release gesture-handler reports as a drag only just after: still no press.
+    // An earlier touch's drag gesture-handler hasn't reported the end of, then a new tap: the tap
+    // isn't that drag's, so it presses, a frame later (in case its own drag is reported late).
     act(() => seen.at(-1)!.onSwipeableClose());
+    act(() => seen.at(-1)!.onSwipeableOpenStartDrag());
+    await act(async () => void (await new Promise((r) => setTimeout(r, 5))));
     touch();
     fireEvent.click(row());
-    act(() => seen.at(-1)!.onSwipeableOpenStartDrag());
-    await frame();
     expect(onPress).toHaveBeenCalledTimes(1);
+    await frame();
+    expect(onPress).toHaveBeenCalledTimes(2);
+    act(() => seen.at(-1)!.onSwipeableClose());
     // Open: a tap closes it rather than pressing.
     act(() => seen.at(-1)!.onSwipeableOpen());
     touch();
     fireEvent.click(row());
     await frame();
-    expect(onPress).toHaveBeenCalledTimes(1);
+    expect(onPress).toHaveBeenCalledTimes(2);
     expect(close).toHaveBeenCalled();
-    // Home again: a tap presses.
+    // Home again: a tap presses, at once.
     act(() => seen.at(-1)!.onSwipeableClose());
     touch();
     fireEvent.click(row());
-    await frame();
-    expect(onPress).toHaveBeenCalledTimes(2);
+    expect(onPress).toHaveBeenCalledTimes(3);
   });
 
   it("guards a row inside the system context menu too (the press sits a level down)", async () => {
@@ -375,6 +377,37 @@ describe("row actions (ADR 0028)", () => {
     fireEvent.click(screen.getByTestId("li"));
     await act(async () => void (await new Promise((r) => setTimeout(r, 30))));
     expect(onPress).not.toHaveBeenCalled();
+  });
+
+  it("leaves a row with nothing to swipe untouched: no actions on a side, or no gesture-handler", () => {
+    const onPress = vi.fn();
+    const child = <NativeListItem title="Ada" onPress={onPress} testID="li" />;
+    render(
+      <NativeSwipeRow actions={make()} testID="s">
+        {child}
+      </NativeSwipeRow>,
+    );
+    fireEvent.click(screen.getByTestId("li"));
+    expect(onPress).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId("s-touch")).toBeNull();
+  });
+
+  it("warns once in development when the row's press is out of its reach", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    (globalThis as { __DEV__?: boolean }).__DEV__ = true;
+    function Swipeable(props: Record<string, any>) {
+      return <div data-testid={props.testID}>{props.children}</div>;
+    }
+    render(
+      <GenesisModulesProvider modules={{ swipeable: Swipeable as never }}>
+        <NativeSwipeRow actions={make()} testID="s">
+          <i />
+        </NativeSwipeRow>
+      </GenesisModulesProvider>,
+    );
+    expect(warn.mock.calls.some(([m]) => String(m).includes("no onPress"))).toBe(true);
+    delete (globalThis as { __DEV__?: boolean }).__DEV__;
+    warn.mockRestore();
   });
 
   it("never takes the touch: nothing in the row's tree sets a responder-capture handler, so the swipe always gets its gesture", () => {
