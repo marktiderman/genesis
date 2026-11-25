@@ -1,5 +1,5 @@
 # Opens the showcase on a clean install: no sign-in, straight to the Standards tab. Not a flow of its own.
-appId: com.streamlineddigital.genesis.showcase.dev
+appId: com.streamlineddigital.genesis.dev
 ---
 - launchApp:
     clearState: true

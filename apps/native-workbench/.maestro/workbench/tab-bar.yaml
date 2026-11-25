@@ -1,5 +1,5 @@
 # Standards: tabBar="hidden" hides the tab bar on one screen; going back shows it again.
-appId: com.streamlineddigital.genesis.showcase.dev
+appId: com.streamlineddigital.genesis.dev
 tags:
   - workbench
   - standards

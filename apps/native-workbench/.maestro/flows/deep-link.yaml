@@ -1,5 +1,5 @@
 # Smoke: the development variant answers to its own scheme. A link to a section opens its tab.
-appId: com.streamlineddigital.genesis.showcase.dev
+appId: com.streamlineddigital.genesis.dev
 tags:
   - smoke
 ---
@@ -9,11 +9,12 @@ tags:
     visible:
       id: "workbench-standards"
     timeout: 20000
-- openLink: "genesis-showcase-dev://components"
-# iOS asks before an app opens its own link from outside.
+- openLink: "genesis-dev://components"
+# iOS asks before an app opens its own link from outside ("Open in …?"). The alert is the
+# system's, outside the app's hierarchy, so Maestro taps its Open button by position.
+- waitForAnimationToEnd
 - tapOn:
-    text: "Open"
-    optional: true
+    point: "68%,55%"
 - extendedWaitUntil:
     visible:
       id: "workbench-components"

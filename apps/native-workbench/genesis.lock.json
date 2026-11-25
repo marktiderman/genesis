@@ -1,10 +1,10 @@
 {
   "version": 1,
   "substitutions": {
-    "com.example.genesisstarter": "com.streamlineddigital.genesis.showcase",
+    "com.example.genesisstarter": "com.streamlineddigital.genesis",
     "genesis-rn-starter": "native-workbench",
-    "genesis-starter": "genesis-showcase",
-    "Genesis Starter": "Genesis Showcase",
+    "genesis-starter": "genesis",
+    "Genesis Starter": "Genesis",
     "REPLACE_WITH_APP_FOLDER": "apps/native-workbench/src"
   },
   "pin": {

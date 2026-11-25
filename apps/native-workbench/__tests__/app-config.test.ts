@@ -29,10 +29,10 @@ afterEach(() => {
 
 describe("app.config.ts per APP_VARIANT", () => {
   it.each([
-    ["development", "genesis-showcase-dev", "com.streamlineddigital.genesis.showcase.dev", "Genesis Showcase (Dev)"],
-    ["preview", "genesis-showcase-preview", "com.streamlineddigital.genesis.showcase.preview", "Genesis Showcase (Preview)"],
-    ["production", "genesis-showcase", "com.streamlineddigital.genesis.showcase", "Genesis Showcase"],
-    [undefined, "genesis-showcase", "com.streamlineddigital.genesis.showcase", "Genesis Showcase"],
+    ["development", "genesis-dev", "com.streamlineddigital.genesis.dev", "Genesis (Dev)"],
+    ["preview", "genesis-preview", "com.streamlineddigital.genesis.preview", "Genesis (Preview)"],
+    ["production", "genesis", "com.streamlineddigital.genesis", "Genesis"],
+    [undefined, "genesis", "com.streamlineddigital.genesis", "Genesis"],
   ])("%s registers scheme %s", (variant, scheme, bundleId, name) => {
     const config = configFor(variant);
     expect(config.scheme).toBe(scheme);
@@ -66,8 +66,8 @@ describe("chat's video messages", () => {
 
 describe("iOS rich push (in the build whichever way the chat switch is)", () => {
   it.each([
-    ["development", "com.streamlineddigital.genesis.showcase.dev.NotificationService"],
-    ["production", "com.streamlineddigital.genesis.showcase.NotificationService"],
+    ["development", "com.streamlineddigital.genesis.dev.NotificationService"],
+    ["production", "com.streamlineddigital.genesis.NotificationService"],
   ])("%s: Communication Notifications on the app, and the extension for EAS with the variant's id", (variant, extensionId) => {
     const config = configFor(variant);
     expect(config.ios?.entitlements?.["com.apple.developer.usernotifications.communication"]).toBe(true);
