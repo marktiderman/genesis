@@ -1,5 +1,5 @@
 # Components: the buttons, switches, segmented control, chips, sliders and steppers. Opens the screen from its tab and keeps a screenshot of it, before and after a scroll.
-appId: dev.genesis.workbench.dev
+appId: com.streamlineddigital.genesis.showcase.dev
 tags:
   - workbench
   - components

@@ -1,6 +1,6 @@
 # Standards: the native header. Large title, the system search field and a native header button;
 # the title collapses as the list scrolls; the drill-down has a standard title and back.
-appId: dev.genesis.workbench.dev
+appId: com.streamlineddigital.genesis.showcase.dev
 tags:
   - workbench
   - standards

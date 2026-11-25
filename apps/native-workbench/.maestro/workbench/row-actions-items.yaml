@@ -1,5 +1,5 @@
 # Standards: NativeListItem actions (fill and round) and NativeRowActions with a peek.
-appId: dev.genesis.workbench.dev
+appId: com.streamlineddigital.genesis.showcase.dev
 tags:
   - workbench
   - standards

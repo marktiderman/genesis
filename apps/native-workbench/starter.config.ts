@@ -6,10 +6,10 @@ import { defineStarter } from "./src/lib/define-starter";
 
 export default defineStarter({
   app: {
-    name: "Genesis Workbench",
-    slug: "native-workbench",
-    scheme: "genesis-workbench",
-    bundleId: "dev.genesis.workbench",
+    name: "Genesis Showcase",
+    slug: "genesis-showcase",
+    scheme: "genesis-showcase",
+    bundleId: "com.streamlineddigital.genesis.showcase",
     // PLACEHOLDER: your EAS project id (a UUID), printed by `eas init`. Empty means no EAS project:
     // the app runs, builds carry no update URL and `eas update` can't reach them.
     easProjectId: "",
