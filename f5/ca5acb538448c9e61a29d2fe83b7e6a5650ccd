@@ -1,0 +1,27 @@
+apps/native-workbench/.maestro/workbench/chat-details.yaml
+  s_42efe440240299::t_837525a5dab81b 1-26
+apps/native-workbench/.maestro/workbench/chat-inbox.yaml
+  s_42efe440240299::t_eaa6a958c076d6 1-33
+apps/native-workbench/.maestro/workbench/messages-look.yaml
+  s_42efe440240299::t_d549e5bcd66fae 1-40
+apps/native-workbench/src/workbench/registry.ts
+  s_42efe440240299::t_9e11996c24d316 14,50-52
+apps/native-workbench/src/workbench/screens/messages.tsx
+  s_42efe440240299::t_1f48c4fa9ad866 3-6,8-30,287-522
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f5ca5acb538448c9e61a29d2fe83b7e6a5650ccd",
+  "prompts": {},
+  "sessions": {
+    "s_42efe440240299": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f544dd57-0b31-4773-b89e-4661a182129e",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
