@@ -1,0 +1,27 @@
+.changeset/chat-messages-parity.md
+  s_42efe440240299::t_2ead96c81f22fb 17
+.changeset/chat-swipe-guard-review.md
+  s_42efe440240299::t_1798a722c1b3e8 1-16
+packages/chat/src/native/__tests__/messages-look.test.tsx
+  s_42efe440240299::t_9ae268947ae46b 149-163
+packages/chat/src/native/conversation-preview.tsx
+  s_42efe440240299::t_47f7c6cccc7321 39-41,43
+packages/chat/src/native/message-bubble.tsx
+  s_42efe440240299::t_8061ed13716d20 385-386
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "bffbb841ae76e56db53d9371f5977b6d90876593",
+  "prompts": {},
+  "sessions": {
+    "s_42efe440240299": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f544dd57-0b31-4773-b89e-4661a182129e",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
