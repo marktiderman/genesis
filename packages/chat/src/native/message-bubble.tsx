@@ -382,6 +382,8 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
           style={{ maxWidth: "75%", transform: [{ translateX: x }] }}
           {...(canSwipe && !Swipeable ? responder.panHandlers : {})}
         >
+          {/* The tail first, behind the bubble, so its piece never covers the words at the corner. */}
+          {tail ? <BubbleTail mine={mine} color={bubbleColor} backdrop={props.backdrop ?? (chat.roles.pageSolid as string)} opacity={sending ? 0.6 : moderation === "hidden-mine" ? 0.7 : 1} testID={`${testID}-tail`} /> : null}
           <Pressable
             testID={`${testID}-bubble`}
             accessible
@@ -447,7 +449,6 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
             {moderation ? <ModerationMarker note={moderation} mine={mine} testID={`${testID}-moderation`} /> : null}
             {preview ? <ChatLinkPreviewCard preview={preview} mine={mine} images={props.linkPreviewImages} testID={`${testID}-preview`} /> : null}
           </Pressable>
-          {tail ? <BubbleTail mine={mine} color={bubbleColor} backdrop={props.backdrop ?? (chat.roles.pageSolid as string)} opacity={sending ? 0.6 : moderation === "hidden-mine" ? 0.7 : 1} testID={`${testID}-tail`} /> : null}
           {reactions.length ? (
             // Tapbacks on the bubble's top corner, away from the sender's side, as Messages puts them.
             <View pointerEvents="box-none" style={{ position: "absolute", top: -TAPBACK_RISE, ...(mine ? { start: -12 } : { end: -12 }), flexDirection: "row", flexWrap: "wrap", gap: 2 }}>

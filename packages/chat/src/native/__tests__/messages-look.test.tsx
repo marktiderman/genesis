@@ -146,6 +146,21 @@ describe("times", () => {
 });
 
 describe("a bubble's tail", () => {
+  it("is drawn behind the bubble, so it never covers the words at the bubble's bottom corner", () => {
+    render(
+      <ChatNativeProvider>
+        <ChatBubbleShape mine={false} position="single" testID="b">
+          <span data-testid="words">It did</span>
+        </ChatBubbleShape>
+      </ChatNativeProvider>,
+    );
+    const tail = screen.getByTestId("b-tail");
+    const body = screen.getByTestId("b-body");
+    // Earlier siblings draw first: the tail comes before the bubble that holds the words.
+    expect(tail.compareDocumentPosition(body) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(body.contains(screen.getByTestId("words"))).toBe(true);
+  });
+
   it("is cut from what's behind the bubble: the page by default, the peek's card inside it", () => {
     const { rerender } = render(
       <ChatNativeProvider>
