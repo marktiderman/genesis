@@ -463,7 +463,18 @@ describe("chat", () => {
     expect(read("supabase/tests/database/genesis_chat_unread_and_delete_for_me.test.sql")).toBe(chatSql("tests/0007_genesis_chat_unread_and_delete_for_me.test.sql"));
     // After 0006, and after every migration the starter shipped before it (`supabase db push`).
     expect(order.indexOf(unread[0]!)).toBeGreaterThan(order.findIndex((f) => f.endsWith("_genesis_chat_read_receipts.sql")));
-    expect(order.indexOf(unread[0]!)).toBe(order.length - 1);
+    expect(order.indexOf(unread[0]!)).toBeGreaterThan(order.findIndex((f) => f.endsWith("_genesis_settings_pattern.sql")));
+  });
+
+  it.runIf(chat && database)("carries chat's 0008 migration and its pgTAP test unchanged, after 0007", () => {
+    const order = filesUnder("supabase/migrations").sort();
+    const cleared = order.filter((f) => f.endsWith("_genesis_chat_cleared_history.sql"));
+    expect(cleared).toHaveLength(1);
+    expect(read(cleared[0]!)).toBe(chatSql("0008_genesis_chat_cleared_history.sql"));
+    expect(read("supabase/tests/database/genesis_chat_cleared_history.test.sql")).toBe(chatSql("tests/0008_genesis_chat_cleared_history.test.sql"));
+    // After 0007, and after every migration the starter shipped before it (`supabase db push`).
+    expect(order.indexOf(cleared[0]!)).toBeGreaterThan(order.findIndex((f) => f.endsWith("_genesis_chat_unread_and_delete_for_me.sql")));
+    expect(order.indexOf(cleared[0]!)).toBe(order.length - 1);
   });
 
   it.runIf(chat && database)("carries chat's 0003 and 0004 migrations and their pgTAP tests unchanged, with a single-tenant hook before 0004", () => {

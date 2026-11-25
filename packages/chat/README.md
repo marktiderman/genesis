@@ -570,6 +570,15 @@ not on `members`, which everyone in the conversation reads. Both send the person
 before 0007.
 Apply 0007 after 0006 (`genesis migrate`), and copy its pgTAP test beside the others.
 
+Migration 0008 closes three ways back into history deleted for me: a message deleted unread no
+longer sets the member's read time (`last_read_at`) or sends a `read` hint when their read place
+later moves past it (0006's receipts; the sender's status line still reads the read place itself), a push is
+never sent for a message in it (a late push from the outbox), and a file in a message in it can't be
+fetched through the uploader's fallback, the uploader's own included: that fallback (their own recent
+upload) now ends once the file is in a message, and from then on everyone, the uploader too, reads
+it through a message they can read, as before.
+Apply 0008 after 0007, with its pgTAP test.
+
 ## Access
 
 Members read a conversation; who posts follows its kind and settings (`{"who_posts": "admins"}`
