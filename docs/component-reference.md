@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 902 components · 5314 other exports · 4524 standalone types across 230 entry points in 33 packages.
+**Totals:** 912 components · 5361 other exports · 4560 standalone types across 230 entry points in 33 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -313,7 +313,7 @@ Chat for Genesis apps, in the app's own Supabase: conversations of kinds the app
 
 **Barrel:** [`packages/chat/src/index.ts`](../packages/chat/src/index.ts)
 
-### Other exports (65)
+### Other exports (66)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -331,6 +331,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`conversationInbox`](../packages/chat/src/core/inbox.ts) | function | — | A list of conversations as a Genesis view's inbox (`<ResourceView type="inbox">`): a plain block an app passes to `defineView` over its conversations (rows shaped like genesis_chat's `inbox` function: `title`, `other_user_id`, `last_mess... |
 | [`conversationTopic`](../packages/chat/src/core/client.ts) | const | — | _(no summary)_ |
 | [`createChatClient`](../packages/chat/src/core/client.ts) | function | — | _(no summary)_ |
+| [`createMemoryChatClient`](../packages/chat/src/web/memory-client.ts) | function | — | _(no summary)_ |
 | [`createOutbox`](../packages/chat/src/core/outbox.ts) | function | — | _(no summary)_ |
 | [`currentActivity`](../packages/chat/src/core/thread.ts) | function | — | Who is doing what now: activity older than six seconds has stopped. |
 | [`dayLabel`](../packages/chat/src/core/thread.ts) | function | — | "Today", "Yesterday", "Monday", or "12 Mar 2026". |
@@ -385,7 +386,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`waveformPeaks`](../packages/chat/src/core/media.ts) | function | — | Peaks for a waveform: `count` values 0–100 from raw samples (-1…1), the loudest in each bucket, scaled so the loudest bucket is 100. Quiet recordings still show a shape; silence shows a flat line. |
 | [`WEEKDAYS`](../packages/chat/src/core/availability.ts) | const | — | _(no summary)_ |
 
-### Types (54)
+### Types (57)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -422,6 +423,9 @@ export type { HostedUploadOptions };
 export type { HostedUploadRecord };
 export type { HostedUploadStart };
 export type { LocalFile };
+export type { MemoryChatClient };
+export type { MemoryChatOptions };
+export type { MemoryConversationSeed };
 export type { MessagePage };
 export type { Outbox };
 export type { OutboxOptions };
@@ -579,7 +583,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`toLocalInput`](../packages/chat/src/web/schedule.tsx) | function | — | `YYYY-MM-DDTHH:mm` in local time, for a datetime-local input. |
 | [`uploadVideo`](../packages/chat/src/web/video.tsx) | function | — | Uploads a recording through the app's `videoUpload` (a Mux direct upload: PUT the bytes to the URL it returns) and gives back the attachment to send, pending until Mux's webhook marks it ready. The composer no longer uses it: it sends `v... |
 | [`useChatDock`](../packages/chat/src/web/dock.tsx) | function | — | The dock: open a conversation or a panel in it from anywhere under `ChatDockProvider`. |
-| [`useConfirmDialog`](../packages/chat/src/web/inbox.tsx) | function | — | A `ChatConfirm` drawn as genesis-ui's AlertDialog: the confirm to pass, and the dialog to render. |
+| [`useConfirmDialog`](../packages/chat/src/web/inbox.tsx) | function | — | A `ChatConfirm` drawn as genesis-ui's AlertDialog: the confirm to pass, and the dialog to render. When the dialog closes, focus returns to the control that asked. |
 | [`useOptionalChatDock`](../packages/chat/src/web/dock.tsx) | function | — | The dock when there is one, else null: for a button that opens in the dock when the app has one, and navigates when it doesn't. |
 | [`useVideoRecorder`](../packages/chat/src/web/video.tsx) | function | — | _(no summary)_ |
 | [`useVoiceRecorder`](../packages/chat/src/web/use-voice-recorder.ts) | function | — | _(no summary)_ |
@@ -634,7 +638,7 @@ export type { VoiceRecording };
 
 **Barrel:** [`packages/chat/src/native/index.ts`](../packages/chat/src/native/index.ts)
 
-### Components (31)
+### Components (41)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
@@ -644,13 +648,22 @@ export type { VoiceRecording };
 | [`ChatAvailabilityScreen`](../packages/chat/src/native/availability.tsx) | `ChatAvailabilityScreenProps` | — | Your availability, as a Settings sub-page: an away message and, optionally, until when; working hours per weekday (one range a day here; extra ranges saved elsewhere are kept for the days you don't turn off); the time zone they're read i... |
 | [`ChatAwayLine`](../packages/chat/src/native/availability.tsx) | `ChatAwayLineProps` | — | The away line, as a quiet strip under the header; nothing when `text` is null. |
 | [`ChatBroadcastSheet`](../packages/chat/src/native/broadcast-sheet.tsx) | `ChatBroadcastSheetProps` | — | _(no summary)_ |
+| [`ChatBubbleShape`](../packages/chat/src/native/conversation-preview.tsx) | `ChatBubbleShapeProps` | — | The bubble, drawn alone (the long-press preview, the inbox's peek). |
 | [`ChatComposer`](../packages/chat/src/native/composer.tsx) | `ChatComposerProps` | — | _(no summary)_ |
+| [`ChatContextOverlay`](../packages/chat/src/native/messages-look.tsx) | `ChatContextOverlayProps` | — | The long-press layer: the screen softens, the pressed thing lifts where it was, `above` sits over it and the glass menu opens under it, moving the preview when there isn't room. A choice runs once the layer has closed (iOS presents nothi... |
+| [`ChatConversationPreview`](../packages/chat/src/native/conversation-preview.tsx) | `ChatConversationPreviewProps` | — | A conversation's latest messages, on a card: the inbox row's long-press peek. |
+| [`ChatDetailsScreen`](../packages/chat/src/native/details-screen.tsx) | `ChatDetailsScreenProps` | — | _(no summary)_ |
 | [`ChatEmojiPicker`](../packages/chat/src/native/emoji-picker.tsx) | `ChatEmojiPickerProps` | — | _(no summary)_ |
 | [`ChatEmojiPickerSheet`](../packages/chat/src/native/emoji-picker.tsx) | `ChatEmojiPickerSheetProps` | — | The picker in a sheet, with a title and Done. |
+| [`ChatFace`](../packages/chat/src/native/messages-look.tsx) | `ChatFaceProps` | — | A contact's circle as Messages draws it: their picture, else white initials on the grey gradient, else a person. |
+| [`ChatGlassCircle`](../packages/chat/src/native/messages-look.tsx) | `ChatGlassCircleProps` | — | A round glass button (the composer's +, the details' actions, the search field's Cancel). |
+| [`ChatGlassMenu`](../packages/chat/src/native/messages-look.tsx) | `ChatGlassMenuProps` | — | _(no summary)_ |
+| [`ChatGlassPanel`](../packages/chat/src/native/messages-look.tsx) | `ChatGlassPanelProps` | — | A floating panel: Liquid Glass where it can be drawn, else Messages' solid panel, with a shadow either way. |
 | [`ChatIconButton`](../packages/chat/src/native/icon-button.tsx) | `ChatIconButtonProps` | — | _(no summary)_ |
 | [`ChatInboxScreen`](../packages/chat/src/native/inbox-screen.tsx) | `ChatInboxScreenProps` | — | _(no summary)_ |
 | [`ChatLinkPreviewCard`](../packages/chat/src/native/link-preview.tsx) | `ChatLinkPreviewCardProps` | — | _(no summary)_ |
 | [`ChatMediaViewer`](../packages/chat/src/native/photo-viewer.tsx) | `ChatMediaViewerProps` | — | One picture in the full-screen viewer (`ChatPhotoViewer` pages through several). |
+| [`ChatMessageMenu`](../packages/chat/src/native/message-menu.tsx) | `ChatMessageMenuProps` | — | _(no summary)_ |
 | [`ChatNativeProvider`](../packages/chat/src/native/context.tsx) | `ChatNativeProviderProps` | — | Inside `ChatProvider` (from `/react`). Optional: without it there are no native extras and people are "Someone". |
 | [`ChatPhotoViewer`](../packages/chat/src/native/photo-viewer.tsx) | `ChatPhotoViewerProps` | — | Chat's photos full screen: genesis-ui-native's `NativeLightbox` (pinch and double-tap zoom, pull down to close, an adjustable pager), with chat's words and its Save and Share buttons when the app passes `mediaLibrary` and `sharing` to `C... |
 | [`ChatScheduledBar`](../packages/chat/src/native/schedule-sheet.tsx) | `ChatScheduledBarProps` | — | "2 scheduled messages" over the composer when there are any, opening their list. |
@@ -658,6 +671,7 @@ export type { VoiceRecording };
 | [`ChatScheduleSheet`](../packages/chat/src/native/schedule-sheet.tsx) | `ChatScheduleSheetProps` | — | _(no summary)_ |
 | [`ChatSearchScreen`](../packages/chat/src/native/search-screen.tsx) | `ChatSearchScreenProps` | — | _(no summary)_ |
 | [`ChatStartSheet`](../packages/chat/src/native/start-sheet.tsx) | `ChatStartSheetProps` | — | _(no summary)_ |
+| [`ChatSymbol`](../packages/chat/src/native/messages-look.tsx) | `ChatSymbolProps` | — | An SF Symbol on iOS, Genesis's icon elsewhere. Decorative: label what it sits in. |
 | [`ChatThreadScreen`](../packages/chat/src/native/thread-screen.tsx) | `ChatThreadScreenProps` | — | _(no summary)_ |
 | [`ChatThreadTitle`](../packages/chat/src/native/thread-title.tsx) | `ChatThreadTitleProps` | — | _(no summary)_ |
 | [`ChatTopicBar`](../packages/chat/src/native/topics.tsx) | `ChatTopicBarProps` | — | _(no summary)_ |
@@ -670,7 +684,7 @@ export type { VoiceRecording };
 | [`VoiceNotePlayer`](../packages/chat/src/native/voice-player.tsx) | `VoiceNotePlayerProps` | — | _(no summary)_ |
 | [`VoiceTranscript`](../packages/chat/src/native/media.tsx) | `VoiceTranscriptProps` | — | A voice note's transcript under the player: "Transcribing…" while it is made, then the text, folded to three lines with "Show more" when it is longer. The bubble reads the whole transcript to VoiceOver, so the toggle is for sight only. |
 
-### Other exports (178)
+### Other exports (212)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -678,6 +692,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | --- | --- | --- | --- |
 | [`activePlaybackId`](../packages/chat/src/native/voice-player.tsx) | function | — | The playing voice note's id, for tests. |
 | [`alertConfirm`](../packages/chat/src/native/inbox-screen.tsx) | function | — | Asks with the system alert: Cancel, then the destructive action. |
+| [`applyInboxFilter`](../packages/chat/src/native/inbox-screen.tsx) | function | — | The conversations a filter shows, in its order. |
 | [`AT_BOTTOM_POINTS`](../packages/chat/src/native/thread-screen.tsx) | const | — | Points from the bottom that still count as "at the bottom" (FlatList, which follows by hand). |
 | [`attachmentKindOf`](../packages/chat/src/native/attachment-cards.tsx) | function | — | The app's registered kind for this attachment kind (own keys only, never `constructor` and the like). |
 | [`attachmentPaths`](../packages/chat/src/native/media.tsx) | function | — | The paths a set of messages needs signed links for. |
@@ -689,7 +704,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`base64Utf8`](../packages/chat/src/native/tus.ts) | function | — | Base64 of a UTF-8 string, for TUS's Upload-Metadata (no `btoa`, which isn't on every Hermes build). |
 | [`broadcastOutcome`](../packages/chat/src/native/broadcast-sheet.tsx) | function | — | What a broadcast's toast says: all reached, one, or some of them. |
 | [`broadcastRows`](../packages/chat/src/native/broadcast-sheet.tsx) | function | — | Rows to pick from: the filter's, named as the inbox names them, in name order, matching the query. |
-| [`bubbleCorners`](../packages/chat/src/native/message-bubble.tsx) | function | — | A bubble's corners: round, except where it meets the next or the one before in its run, on the sender's side (the trailing side for yours). The last and the only one also get a tail. |
+| [`bubbleCorners`](../packages/chat/src/native/message-bubble.tsx) | function | — | A bubble's corners: round, except where it meets the next or the one before in its run, on the sender's side (the trailing side for yours). The last and the only one also get a tail. `joined: false` keeps every corner round, as Messages ... |
 | [`bubblePosition`](../packages/chat/src/native/message-bubble.tsx) | function | — | _(no summary)_ |
 | [`buildThreadRows`](../packages/chat/src/native/rows.ts) | function | — | Oldest first. |
 | [`BUILT_IN_KINDS`](../packages/chat/src/native/attachment-cards.tsx) | const | — | The kinds the package draws itself; every other kind is the app's. |
@@ -701,17 +716,35 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`CardError`](../packages/chat/src/native/attachment-cards.tsx) | function | — | The line under a card whose action failed. |
 | [`cardTitle`](../packages/chat/src/react/previews.ts) | function | — | A card's title (the kind's, else the file's name, else the kind); an app kind that throws reads as its name. |
 | [`CHAT_MARK_READ_ACTION`](../packages/chat/src/native/push.ts) | const | — | The same id as genesis-notifications' `MESSAGE_ACTIONS` (device ids take no "-" or ":"). |
+| [`CHAT_METRICS`](../packages/chat/src/native/messages-look.tsx) | const | — | Messages' sizes on an iPhone, in points. |
 | [`CHAT_PUSH_CATEGORY`](../packages/chat/src/native/push.ts) | const | — | _(no summary)_ |
 | [`CHAT_REPLY_ACTION`](../packages/chat/src/native/push.ts) | const | — | _(no summary)_ |
+| [`CHAT_TYPE`](../packages/chat/src/native/messages-look.tsx) | const | — | Messages' type: SF Pro, through the system font. |
+| [`ChatAccentIcon`](../packages/chat/src/native/messages-look.tsx) | function | — | A round colored icon, as the + list draws one. |
 | [`ChatAutoRetry`](../packages/chat/src/native/auto-retry.ts) | function | — | `useChatAutoRetry` as a component, for a provider tree. |
+| [`ChatBubbleTail`](../packages/chat/src/native/conversation-preview.tsx) | function | — | The tail: a piece of the bubble's color at its bottom corner, its inner curve cut by the page. |
+| [`chatClock`](../packages/chat/src/native/messages-time.ts) | function | — | "9:41 AM", in the phone's locale. |
+| [`chatColors`](../packages/chat/src/native/messages-look.tsx) | function | — | Chat's colors for this scheme: the design system's chat roles (iOS system colors on iOS), and the theme's text roles. |
+| [`ChatConversationMenu`](../packages/chat/src/native/inbox-screen.tsx) | function | — | A conversation's long press, as Messages shows it (InboxPage's `rowMenu`, the inbox's default): the row's peek (`preview`, the conversation's latest messages) lifted over a softened screen, and the row's actions in a glass menu under it.... |
+| [`ChatDetailsActions`](../packages/chat/src/native/details-screen.tsx) | function | — | The round glass buttons: Search, Pin or Unpin, Scheduled. |
+| [`ChatDetailsDanger`](../packages/chat/src/native/details-screen.tsx) | function | — | Archive Conversation in red, or Move to Inbox once archived. |
+| [`ChatDetailsHero`](../packages/chat/src/native/details-screen.tsx) | function | — | The large face, the name and what's under it. |
+| [`ChatDetailsMembers`](../packages/chat/src/native/details-screen.tsx) | function | — | A group's members (up to 50), with Admin beside an owner or admin. |
+| [`ChatDetailsSettings`](../packages/chat/src/native/details-screen.tsx) | function | — | Hide Alerts, as a switch. |
+| [`ChatGlassList`](../packages/chat/src/native/messages-look.tsx) | function | — | The glass list rising from a corner (the composer's +): rows with round colored icons. |
+| [`ChatInboxRowContent`](../packages/chat/src/native/inbox-screen.tsx) | const | — | The default row (InboxPage's `row` slot, `variant="plain"`): the unread dot, the face, the name and time with a chevron, two lines of the last message, a hairline inset to the text. It spreads `actionProps`, so the screen reader reaches ... |
 | [`chatNativeCopy`](../packages/chat/src/native/copy.ts) | const | — | _(no summary)_ |
 | [`chatNotificationActions`](../packages/chat/src/native/push.ts) | function | — | The actions on a message's notification: Reply (a text field) and Mark read, neither opening the app. |
 | [`chatOrganiseCopy`](../packages/chat/src/native/organise-copy.ts) | const | — | _(no summary)_ |
 | [`chatPath`](../packages/chat/src/native/push.ts) | function | — | The path a message's push opens. |
+| [`ChatPinnedFaces`](../packages/chat/src/native/inbox-screen.tsx) | function | — | Pinned conversations: large faces, three to a line, the name under each, a blue dot when unread. |
+| [`ChatPlusList`](../packages/chat/src/native/composer.tsx) | function | — | The + list: rows with a round colored icon, in a glass list rising from the + button. |
 | [`chatPushCategory`](../packages/chat/src/native/push.ts) | function | — | The category for createPush's `categories` (genesis-native's NotificationCategory). |
 | [`chatPushCopy`](../packages/chat/src/native/push.ts) | const | — | _(no summary)_ |
 | [`chatPushPayload`](../packages/chat/src/native/push.ts) | function | — | The category, thread, `mutableContent` and `data` of a message's push, for the server that sends it: |
+| [`ChatSearchField`](../packages/chat/src/native/inbox-screen.tsx) | function | — | Messages' search field: a glass capsule at the bottom, a magnifying glass and "Search"; Cancel (a glass circle) clears it. |
 | [`ChatStartButton`](../packages/chat/src/native/start-sheet.tsx) | function | — | A 44pt compose button for the inbox's header (`headerRight`). |
+| [`ChatTap`](../packages/chat/src/native/messages-look.tsx) | function | — | A Pressable whose look follows the press (`look(pressed)`), kept in state so it works where a function `style` is dropped. |
 | [`chatThreadMatch`](../packages/chat/src/native/push.ts) | function | — | For the push block's `suppress` / `useSuppressNotifications`: this conversation's pushes, while its thread is open. |
 | [`chatThreadStackOptions`](../packages/chat/src/native/stack-options.ts) | function | — | The thread's header options with an opaque bar in `background` (the thread's own background). |
 | [`checkTopicName`](../packages/chat/src/native/topics.tsx) | function | — | Checks a topic's name: its key, or why it can't be saved. Renaming keeps the key (messages carry it), so only a new topic can clash with another's key. |
@@ -730,6 +763,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`cycleVideoRate`](../packages/chat/src/native/video-player.tsx) | function | — | Moves the playing video with this id to its next speed. |
 | [`cycleVoiceNoteRate`](../packages/chat/src/native/voice-player.tsx) | function | — | Moves the voice note with this id to its next speed; false when none is on screen with playback. |
 | [`dateToClock`](../packages/chat/src/native/availability.tsx) | function | — | _(no summary)_ |
+| [`defaultInboxFilters`](../packages/chat/src/native/inbox-screen.tsx) | function | — | The inbox's own filters: All Messages, Unread and Groups. |
 | [`defaultScheduleAt`](../packages/chat/src/native/schedule-sheet.tsx) | function | — | An hour from now, on the next five minutes: where the custom picker starts. |
 | [`defaultWeek`](../packages/chat/src/native/availability.tsx) | function | — | Monday to Friday, 9 to 5: where a first setup starts. |
 | [`deviceTimeZone`](../packages/chat/src/native/availability.tsx) | function | — | _(no summary)_ |
@@ -755,14 +789,18 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`haptic`](../packages/chat/src/native/modules.ts) | function | — | Plays a haptic when the app gave expo-haptics; never throws. |
 | [`hoursFromWeek`](../packages/chat/src/native/availability.tsx) | function | — | The hours to save: each day that's on, its range first, then any extra ranges saved elsewhere. |
 | [`idleRecorder`](../packages/chat/src/native/recorder-machine.ts) | const | — | _(no summary)_ |
-| [`inboxRow`](../packages/chat/src/native/inbox-screen.tsx) | function | — | An inbox row from a conversation. Exported for apps that build their own list. |
+| [`inboxHeaderItems`](../packages/chat/src/native/inbox-screen.tsx) | function | — | The header's filter menu and Compose, as react-native-screens' native header items. |
+| [`inboxRow`](../packages/chat/src/native/inbox-screen.tsx) | function | — | An inbox row from a conversation, on genesis-ui-native's `InboxItem`. Exported for apps that build their own list. |
 | [`initials`](../packages/chat/src/native/context.tsx) | function | — | "SA" for "Sam Altman", "S" for "sam". |
 | [`initialVideoRecorder`](../packages/chat/src/native/video-recorder-state.ts) | const | — | _(no summary)_ |
 | [`insertAtSelection`](../packages/chat/src/native/emoji.ts) | function | — | Puts `insert` in place of the selected text (or at the cursor), and where the cursor goes after it. |
 | [`invertedRows`](../packages/chat/src/native/rows.ts) | function | — | Newest first, for an inverted list (its first row sits at the bottom). The thread screen no longer uses it: VoiceOver reads an inverted list's rows newest first, each day's heading after its messages. |
+| [`isGroupConversation`](../packages/chat/src/native/inbox-screen.tsx) | function | — | A group: a conversation of more than two people, or a kind that isn't direct with a title. |
 | [`isLocalUri`](../packages/chat/src/native/photo-viewer.tsx) | function | — | A file on the phone (a photo still sending), not a link. |
 | [`isOnline`](../packages/chat/src/native/auto-retry.ts) | function | — | Whether a NetInfo state is online: unknown counts as online, so only a real "offline" waits. |
 | [`isOpenableHref`](../packages/chat/src/native/attachment-cards.tsx) | function | — | A link a card may open by itself: https only. A kind's href is often built from what another person sent, so any other scheme (tel:, sms:, another app's links) goes through the app's own `onOpenAttachment` or the kind's `onPress` instead. |
+| [`isSelfConversation`](../packages/chat/src/native/inbox-screen.tsx) | function | — | The conversation with yourself: direct, and you its only member. It shows your own face. |
+| [`isSelfMembers`](../packages/chat/src/native/details-screen.tsx) | function | — | The conversation with yourself: direct, and you its only member who posts. |
 | [`isVideoPlaying`](../packages/chat/src/native/video-player.tsx) | function | — | Whether the video with this id is playing. |
 | [`lastSentReceipt`](../packages/chat/src/native/receipts.ts) | function | — | The status of the last message you sent, and the row it goes under; null when there is none to show. |
 | [`linkHost`](../packages/chat/src/native/link-preview.tsx) | function | — | The site a link is on, without `www.`. |
@@ -770,6 +808,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`liveBars`](../packages/chat/src/native/recorder-machine.ts) | function | — | The last `count` levels as bar heights 0–1, for the live waveform while recording. |
 | [`loadDraft`](../packages/chat/src/native/composer-state.ts) | function | — | _(no summary)_ |
 | [`loadRecentEmoji`](../packages/chat/src/native/emoji.ts) | function | — | _(no summary)_ |
+| [`matchesInboxSearch`](../packages/chat/src/native/inbox-screen.tsx) | function | — | Whether a conversation matches what's typed in the search field: its title, the other person's name or its last message. |
 | [`MAX_ZOOM`](../packages/chat/src/native/photo-viewer.tsx) | const | — | _(no summary)_ |
 | [`memoryDraftStorage`](../packages/chat/src/native/composer-state.ts) | function | — | _(no summary)_ |
 | [`messageActionsFor`](../packages/chat/src/native/actions.ts) | function | — | _(no summary)_ |
@@ -786,6 +825,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`panLimit`](../packages/chat/src/native/photo-viewer.tsx) | const | — | _(no summary)_ |
 | [`pauseChatPlayback`](../packages/chat/src/native/voice-player.tsx) | function | — | Pauses the voice note or video playing, if any; with `ids` (or a test of an id), only when it is one of them (a screen's own attachments). For a screen losing focus: a tab switch keeps it mounted, so its player would play on. Returns whe... |
 | [`pinchScale`](../packages/chat/src/native/photo-viewer.tsx) | const | — | _(no summary)_ |
+| [`pinnedConversations`](../packages/chat/src/native/inbox-screen.tsx) | function | — | The pinned faces above the rows: at most eight, in the inbox's order. |
 | [`previewToShow`](../packages/chat/src/native/link-preview.tsx) | function | — | The preview a bubble shows: the first one the server fetched for a link in its text, https only. |
 | [`PUSH_REPLY_WAIT_MS`](../packages/chat/src/native/push.ts) | const | — | How long a reply queued in the live outbox is waited for before it counts as queued, not sent. |
 | [`pushRecentEmoji`](../packages/chat/src/native/emoji.ts) | function | — | `emoji` first, once, the oldest dropped past `max`. |
@@ -805,6 +845,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`resolveChatCopy`](../packages/chat/src/native/copy.ts) | function | — | _(no summary)_ |
 | [`rowIndexOf`](../packages/chat/src/native/use-jump.ts) | function | — | The row a message is drawn in, or -1. |
 | [`rowKey`](../packages/chat/src/native/rows.ts) | function | — | _(no summary)_ |
+| [`runPositions`](../packages/chat/src/native/conversation-preview.tsx) | function | — | Where each of a list of messages sits in its run of one sender's (no more than an hour apart). |
 | [`sameTimeDays`](../packages/chat/src/native/availability.tsx) | function | — | A day that's on with the same start and end (the database refuses it). |
 | [`saveRecentEmoji`](../packages/chat/src/native/emoji.ts) | function | — | _(no summary)_ |
 | [`scheduleInputFrom`](../packages/chat/src/native/schedule-sheet.tsx) | function | — | What the composer holds, as a message to schedule, or why it can't be: nothing to send, or files (a native file is a URI, and `useScheduled` uploads bytes only). |
@@ -816,9 +857,13 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`snippetText`](../packages/chat/src/native/search-screen.tsx) | function | — | The snippet without its marks, for a screen reader. |
 | [`splitCardAttachments`](../packages/chat/src/native/attachment-cards.tsx) | function | — | A message's attachments split into the app's cards and the rest (photos, voice, video, files). A card is a registered kind; with `slot` (the app draws its kinds) also any kind the package doesn't draw itself, as on the web. |
 | [`startsTimeReveal`](../packages/chat/src/native/thread-times.tsx) | function | — | A horizontal move counts as the reveal once it is this far left and mostly sideways. |
+| [`startsTimeSeparator`](../packages/chat/src/native/messages-time.ts) | function | — | Whether a separator goes before the message at `at`, after the one at `before` (null: the first). |
+| [`TAPBACKS`](../packages/chat/src/native/message-menu.tsx) | const | — | Messages' six tapbacks. |
 | [`threadListMode`](../packages/chat/src/native/thread-screen.tsx) | function | — | How the thread's list is set up, oldest first and not inverted. FlashList: its chat mode (opens at the bottom, follows new rows while within a fifth of a screen of it, keeps the first visible row in place when earlier ones load at the to... |
 | [`TIME_REVEAL_WIDTH`](../packages/chat/src/native/thread-times.tsx) | const | — | How far the bubbles slide to show the times, in points. |
+| [`TIME_SEPARATOR_GAP_MS`](../packages/chat/src/native/messages-time.ts) | const | — | A new separator once an hour or more has passed since the message before. |
 | [`timeRevealFor`](../packages/chat/src/native/thread-times.tsx) | function | — | How far the thread is pulled for a drag of `dx` (negative is left). |
+| [`timeSeparatorLabel`](../packages/chat/src/native/messages-time.ts) | function | — | The day (drawn bold) and the time beside it, for a separator in the thread. |
 | [`timeZones`](../packages/chat/src/native/availability.tsx) | function | — | Every IANA zone the engine knows (Hermes has `Intl.supportedValuesOf`), else a short list. |
 | [`toggleVideo`](../packages/chat/src/native/video-player.tsx) | function | — | Plays or pauses the video with this id; false when none with it is on screen. |
 | [`toggleVideoMute`](../packages/chat/src/native/video-player.tsx) | function | — | Mutes or unmutes the video with this id while it plays. |
@@ -832,9 +877,12 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useAwayLine`](../packages/chat/src/native/availability.tsx) | function | — | `awayLineFor` over the conversation's members, live (`useAvailability`), re-read each minute. |
 | [`useCardRuns`](../packages/chat/src/native/attachment-cards.tsx) | function | — | Runs the app's actions for a message's cards (tick a task, answer a check-in) and keeps each card's state by attachment id: `pending` until the action settles, then `error` (the copy's `cardActionFailed`) if it threw or rejected. Only a ... |
 | [`useChatAutoRetry`](../packages/chat/src/native/auto-retry.ts) | function | — | _(no summary)_ |
+| [`useChatColors`](../packages/chat/src/native/messages-look.tsx) | function | — | `chatColors` for the app's light or dark scheme. |
 | [`useChatComposer`](../packages/chat/src/native/use-composer.ts) | function | — | `userId` is the signed-in person's (`useChat().userId`): drafts are kept per person. |
+| [`useChatFeel`](../packages/chat/src/native/messages-look.tsx) | function | — | Messages' haptics, through Genesis's: a light tap for a choice or tapback, medium when a menu opens, a soft one on send. |
+| [`useChatMotion`](../packages/chat/src/native/messages-look.tsx) | function | — | Springs and fades from Genesis's motion tokens. Under Reduce Motion `reduced` is true and durations are 0. |
 | [`useChatNative`](../packages/chat/src/native/context.tsx) | function | — | _(no summary)_ |
-| [`useChatThreadStackOptions`](../packages/chat/src/native/stack-options.ts) | function | — | `chatThreadStackOptions` in the theme's grouped background, the color `ChatThreadScreen` draws. |
+| [`useChatThreadStackOptions`](../packages/chat/src/native/stack-options.ts) | function | — | `chatThreadStackOptions` on the chat role `pageSolid`: the page as a plain string for the scheme, since the native header takes no PlatformColor for its background. It follows a scheme change. |
 | [`useJumpToMessage`](../packages/chat/src/native/use-jump.ts) | function | — | _(no summary)_ |
 | [`useOnline`](../packages/chat/src/native/thread-screen.tsx) | function | — | Whether the phone is online, from the app's NetInfo (`modules.netInfo`); null without it or until it says. |
 | [`usePlayingVideo`](../packages/chat/src/native/video-player.tsx) | function | — | Which of these videos is playing, or null (re-renders only when that answer changes). |
@@ -855,7 +903,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`withDay`](../packages/chat/src/native/schedule-sheet.tsx) | function | — | `base` on the day of `day` (its time kept). |
 | [`withTime`](../packages/chat/src/native/schedule-sheet.tsx) | function | — | `base` at the time of `time` (its day kept). |
 
-### Types (105)
+### Types (119)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -876,8 +924,17 @@ export type { ChatAttachmentSlot };
 export type { ChatAttachmentSlotProps };
 export type { ChatAutoRetryOptions };
 export type { ChatCardContext };
+export type { ChatColors };
 export type { ChatComposerHandle };
+export type { ChatComposerSlotMap };
 export type { ChatConnectionState };
+export type { ChatDetailsContext };
+export type { ChatDetailsSlotMap };
+export type { ChatInboxFilter };
+export type { ChatInboxMenuItem };
+export type { ChatInboxRowData };
+export type { ChatInboxSlotMap };
+export type { ChatMenuItem };
 export type { ChatNativeContextValue };
 export type { ChatNativeCopy };
 export type { ChatNativeCopyOverrides };
@@ -885,6 +942,7 @@ export type { ChatNativeModules };
 export type { ChatOrganiseCopy };
 export type { ChatPerson };
 export type { ChatPhoto };
+export type { ChatPlusItem };
 export type { ChatPushCopy };
 export type { ChatPushData };
 export type { ChatPushOutboxDeps };
@@ -893,9 +951,11 @@ export type { ChatPushPayload };
 export type { ChatPushPayloadInput };
 export type { ChatPushResponseLike };
 export type { ChatReceiptsMode };
+export type { ChatRect };
 export type { ChatStartPerson };
 export type { ChatThreadAccessoryContext };
 export type { ChatThreadScreenSlots };
+export type { ChatThreadSlotPropsMap };
 export type { ChatThreadStackOptionsProps };
 export type { ChatThreadTitleAvatar };
 export type { ChatVideoState };
@@ -918,6 +978,7 @@ export type { HapticsLike };
 export type { ImagePickerLike };
 export type { JumpTarget };
 export type { KeyboardAvoidingLike };
+export type { KeyboardStickyLike };
 export type { MediaLibraryLike };
 export type { MessageActionContext };
 export type { MessageActionId };
@@ -946,6 +1007,7 @@ export type { ReplyTarget };
 export type { SharingLike };
 export type { StartVideoInput };
 export type { ThreadRow };
+export type { TimeSeparatorWords };
 export type { TopicMenuAction };
 export type { TusSendInfo };
 export type { TusTransport };
@@ -2863,7 +2925,7 @@ DTCG design tokens, brand schema, theme generators. Brand-agnostic; consumer bra
 | --- | --- | --- | --- |
 | [`GenesisThemeProvider`](../packages/design-system/src/theme/index.ts) | `GenesisThemeProviderProps` | — | _(no summary)_ |
 
-### Other exports (127)
+### Other exports (130)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -2882,6 +2944,8 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`brandExtraVariables`](../packages/design-system/src/factories/brand-roles.ts) | function | Beta | The opt-in brand variables, per mode, for what has no Genesis role: each is set only when the brand sets its field, so a brand without them gets an empty map. |
 | [`brandGradientCss`](../packages/design-system/src/factories/brand-roles.ts) | function | — | `gradients.primary` as CSS (`linear-gradient(135deg, #a, #b)`), or undefined. |
 | [`brandRoleVariables`](../packages/design-system/src/factories/brand-roles.ts) | function | Beta | The theme role variables for `brand`, per mode, as `{ "--primary": "243 75% 59%", … }` maps: the same names and format as `themes/genesis.css`. |
+| [`CHAT_ACCENTS`](../packages/design-system/src/tokens/chat-roles.ts) | const | Beta | The + list's round icons, colored as Messages colors them. @stability Beta |
+| [`CHAT_ROLES`](../packages/design-system/src/tokens/chat-roles.ts) | const | Beta | _(no summary)_ |
 | [`checklistBrand`](../packages/design-system/src/app-styles/starters.ts) | const | — | Checklist: A warm white page, a confident red, and a warm sidebar whose open list sits on a red tint. |
 | [`checklistStyle`](../packages/design-system/src/app-styles/starters.ts) | const | — | Checklist layout: designed with the checklist brand, at home with any. |
 | [`clampBounds`](../packages/design-system/src/schema/brand.ts) | function | — | A clamp's min and max, in rem; undefined for a plain length. |
@@ -2961,6 +3025,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`renderAppStylesCss`](../packages/design-system/src/app-styles/render.ts) | function | — | Brands' and styles' CSS in one stylesheet: what `dist/themes/starter.css` holds for the starters. |
 | [`repositoryBrand`](../packages/design-system/src/app-styles/starters.ts) | const | — | Repository: A white page on a cool grey canvas, green for actions, blue for links, the system font and monospace. |
 | [`repositoryStyle`](../packages/design-system/src/app-styles/starters.ts) | const | — | Repository layout: designed with the repository brand, at home with any. |
+| [`resolveChatRoles`](../packages/design-system/src/tokens/chat-roles.ts) | function | Beta | Every chat role and + list accent for one platform and scheme. @stability Beta |
 | [`resolveChoices`](../packages/design-system/src/design-systems/define.ts) | function | — | The design system's choices for a brand: the brand's, else the design system's defaults. |
 | [`resolveDensity`](../packages/design-system/src/tokens/density.ts) | function | Beta | A density in the one vocabulary: `compact`, `comfortable` and `spacious` as they are, sites' older `normal` and `generous` as `comfortable` and `spacious`, and anything else as `undefined`. |
 | [`resolveDensity`](../packages/design-system/src/tokens/density.ts) | function | Beta | A density in the one vocabulary: `compact`, `comfortable` and `spacious` as they are, sites' older `normal` and `generous` as `comfortable` and `spacious`, and anything else as `undefined`. |
@@ -2997,7 +3062,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`validateDesignSystem`](../packages/design-system/src/design-systems/define.ts) | function | — | Every problem with a design system input; empty when it is sound. |
 | [`validateDesignSystemChoice`](../packages/design-system/src/design-systems/define.ts) | function | — | Every problem with a brand's design system choice; empty when it is sound. |
 
-### Types (82)
+### Types (86)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -3023,6 +3088,9 @@ export type { BrandRoleVariablesOptions };
 export type { BrandValidationOptions };
 export type { BrandValidationResult };
 export type { CanonicalBrand };
+export type { ChatAccent };
+export type { ChatRole };
+export type { ChatRoleColors };
 export type { ColorRoles };
 export type { ColorScale };
 export type { ComponentTokenInfo };
@@ -3061,6 +3129,7 @@ export type { Palette };
 export type { PaletteInput };
 export type { PlatformOverridable };
 export type { RampStep };
+export type { ResolveChatRolesOptions };
 export type { ResolveMotionOptions };
 export type { ResolveThemeRolesOptions };
 export type { ResolvedAppearance };
@@ -3092,13 +3161,15 @@ export type { UseThemeReturn };
 
 **Barrel:** [`packages/design-system/src/tokens/index.ts`](../packages/design-system/src/tokens/index.ts)
 
-### Other exports (21)
+### Other exports (24)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
 | [`borderRadius`](../packages/design-system/src/tokens/spacing.ts) | const | — | Tailwind `borderRadius` for the v3 and NativeWind presets: {@link RADIUS_SCALE} as `calc()`s. |
+| [`CHAT_ACCENTS`](../packages/design-system/src/tokens/chat-roles.ts) | const | Beta | The + list's round icons, colored as Messages colors them. @stability Beta |
+| [`CHAT_ROLES`](../packages/design-system/src/tokens/chat-roles.ts) | const | Beta | _(no summary)_ |
 | [`cubicBezierCss`](../packages/design-system/src/tokens/motion.ts) | function | — | `[0.22, 1, 0.36, 1]` → `cubic-bezier(0.22, 1, 0.36, 1)`. |
 | [`fontFamily`](../packages/design-system/src/tokens/typography.ts) | const | — | Shared typography tokens for all Genesis projects. |
 | [`fontSize`](../packages/design-system/src/tokens/typography.ts) | const | — | _(no summary)_ |
@@ -3112,6 +3183,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`nativeThemeDark`](../packages/design-system/src/tokens/native-themes.ts) | const | — | _(no summary)_ |
 | [`nativeThemeLight`](../packages/design-system/src/tokens/native-themes.ts) | const | — | Native theme tokens — generated by Style Dictionary from DTCG themes (tokens/dtcg/themes/{light,dark}.json). Do not edit by hand. Run: pnpm build:tokens |
 | [`neutral`](../packages/design-system/src/tokens/colors.ts) | const | — | Shared semantic colors used across all Genesis projects. Brand-specific primary colors belong in presets, not here. |
+| [`resolveChatRoles`](../packages/design-system/src/tokens/chat-roles.ts) | function | Beta | Every chat role and + list accent for one platform and scheme. @stability Beta |
 | [`resolveMotion`](../packages/design-system/src/tokens/motion.ts) | function | — | The motion tokens for a level. Levels `calm`, `lively` and `bold` share durations, easings and springs (they differ in how far web reveals travel, which the design system's CSS carries); `none`, or `reducedMotion`, makes everything instant. |
 | [`resolveThemeRoles`](../packages/design-system/src/tokens/roles.ts) | function | Beta | Every role's color for one platform and scheme. |
 | [`semantic`](../packages/design-system/src/tokens/colors.ts) | const | — | _(no summary)_ |
@@ -3120,18 +3192,22 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`THEME_ROLES`](../packages/design-system/src/tokens/roles.ts) | const | Beta | _(no summary)_ |
 | [`themeToCss`](../packages/design-system/src/tokens/themes.ts) | function | — | Convert a theme variable map to a CSS string block. |
 
-### Types (11)
+### Types (15)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
 export type { Bezier };
+export type { ChatAccent };
+export type { ChatRole };
+export type { ChatRoleColors };
 export type { MotionDurations };
 export type { MotionEasings };
 export type { MotionLevel };
 export type { MotionSpring };
 export type { MotionSprings };
 export type { MotionTokens };
+export type { ResolveChatRolesOptions };
 export type { ResolveMotionOptions };
 export type { ResolveThemeRolesOptions };
 export type { ThemeConfig };
@@ -6750,7 +6826,7 @@ export type { WizardStep };
 | --- | --- | --- | --- |
 | [`GenesisThemeProvider`](../packages/design-system/src/theme/index.ts) | `GenesisThemeProviderProps` | — | _(no summary)_ |
 
-### Other exports (127)
+### Other exports (130)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -6769,6 +6845,8 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`brandExtraVariables`](../packages/design-system/src/factories/brand-roles.ts) | function | Beta | The opt-in brand variables, per mode, for what has no Genesis role: each is set only when the brand sets its field, so a brand without them gets an empty map. |
 | [`brandGradientCss`](../packages/design-system/src/factories/brand-roles.ts) | function | — | `gradients.primary` as CSS (`linear-gradient(135deg, #a, #b)`), or undefined. |
 | [`brandRoleVariables`](../packages/design-system/src/factories/brand-roles.ts) | function | Beta | The theme role variables for `brand`, per mode, as `{ "--primary": "243 75% 59%", … }` maps: the same names and format as `themes/genesis.css`. |
+| [`CHAT_ACCENTS`](../packages/design-system/src/tokens/chat-roles.ts) | const | Beta | The + list's round icons, colored as Messages colors them. @stability Beta |
+| [`CHAT_ROLES`](../packages/design-system/src/tokens/chat-roles.ts) | const | Beta | _(no summary)_ |
 | [`checklistBrand`](../packages/design-system/src/app-styles/starters.ts) | const | — | Checklist: A warm white page, a confident red, and a warm sidebar whose open list sits on a red tint. |
 | [`checklistStyle`](../packages/design-system/src/app-styles/starters.ts) | const | — | Checklist layout: designed with the checklist brand, at home with any. |
 | [`clampBounds`](../packages/design-system/src/schema/brand.ts) | function | — | A clamp's min and max, in rem; undefined for a plain length. |
@@ -6848,6 +6926,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`renderAppStylesCss`](../packages/design-system/src/app-styles/render.ts) | function | — | Brands' and styles' CSS in one stylesheet: what `dist/themes/starter.css` holds for the starters. |
 | [`repositoryBrand`](../packages/design-system/src/app-styles/starters.ts) | const | — | Repository: A white page on a cool grey canvas, green for actions, blue for links, the system font and monospace. |
 | [`repositoryStyle`](../packages/design-system/src/app-styles/starters.ts) | const | — | Repository layout: designed with the repository brand, at home with any. |
+| [`resolveChatRoles`](../packages/design-system/src/tokens/chat-roles.ts) | function | Beta | Every chat role and + list accent for one platform and scheme. @stability Beta |
 | [`resolveChoices`](../packages/design-system/src/design-systems/define.ts) | function | — | The design system's choices for a brand: the brand's, else the design system's defaults. |
 | [`resolveDensity`](../packages/design-system/src/tokens/density.ts) | function | Beta | A density in the one vocabulary: `compact`, `comfortable` and `spacious` as they are, sites' older `normal` and `generous` as `comfortable` and `spacious`, and anything else as `undefined`. |
 | [`resolveDensity`](../packages/design-system/src/tokens/density.ts) | function | Beta | A density in the one vocabulary: `compact`, `comfortable` and `spacious` as they are, sites' older `normal` and `generous` as `comfortable` and `spacious`, and anything else as `undefined`. |
@@ -6884,7 +6963,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`validateDesignSystem`](../packages/design-system/src/design-systems/define.ts) | function | — | Every problem with a design system input; empty when it is sound. |
 | [`validateDesignSystemChoice`](../packages/design-system/src/design-systems/define.ts) | function | — | Every problem with a brand's design system choice; empty when it is sound. |
 
-### Types (82)
+### Types (86)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -6910,6 +6989,9 @@ export type { BrandRoleVariablesOptions };
 export type { BrandValidationOptions };
 export type { BrandValidationResult };
 export type { CanonicalBrand };
+export type { ChatAccent };
+export type { ChatRole };
+export type { ChatRoleColors };
 export type { ColorRoles };
 export type { ColorScale };
 export type { ComponentTokenInfo };
@@ -6948,6 +7030,7 @@ export type { Palette };
 export type { PaletteInput };
 export type { PlatformOverridable };
 export type { RampStep };
+export type { ResolveChatRolesOptions };
 export type { ResolveMotionOptions };
 export type { ResolveThemeRolesOptions };
 export type { ResolvedAppearance };
@@ -6979,13 +7062,15 @@ export type { UseThemeReturn };
 
 **Barrel:** [`packages/genesis/src/design-system-tokens.ts`](../packages/genesis/src/design-system-tokens.ts)
 
-### Other exports (21)
+### Other exports (24)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
 | [`borderRadius`](../packages/design-system/src/tokens/spacing.ts) | const | — | Tailwind `borderRadius` for the v3 and NativeWind presets: {@link RADIUS_SCALE} as `calc()`s. |
+| [`CHAT_ACCENTS`](../packages/design-system/src/tokens/chat-roles.ts) | const | Beta | The + list's round icons, colored as Messages colors them. @stability Beta |
+| [`CHAT_ROLES`](../packages/design-system/src/tokens/chat-roles.ts) | const | Beta | _(no summary)_ |
 | [`cubicBezierCss`](../packages/design-system/src/tokens/motion.ts) | function | — | `[0.22, 1, 0.36, 1]` → `cubic-bezier(0.22, 1, 0.36, 1)`. |
 | [`fontFamily`](../packages/design-system/src/tokens/typography.ts) | const | — | Shared typography tokens for all Genesis projects. |
 | [`fontSize`](../packages/design-system/src/tokens/typography.ts) | const | — | _(no summary)_ |
@@ -6999,6 +7084,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`nativeThemeDark`](../packages/design-system/src/tokens/native-themes.ts) | const | — | _(no summary)_ |
 | [`nativeThemeLight`](../packages/design-system/src/tokens/native-themes.ts) | const | — | Native theme tokens — generated by Style Dictionary from DTCG themes (tokens/dtcg/themes/{light,dark}.json). Do not edit by hand. Run: pnpm build:tokens |
 | [`neutral`](../packages/design-system/src/tokens/colors.ts) | const | — | Shared semantic colors used across all Genesis projects. Brand-specific primary colors belong in presets, not here. |
+| [`resolveChatRoles`](../packages/design-system/src/tokens/chat-roles.ts) | function | Beta | Every chat role and + list accent for one platform and scheme. @stability Beta |
 | [`resolveMotion`](../packages/design-system/src/tokens/motion.ts) | function | — | The motion tokens for a level. Levels `calm`, `lively` and `bold` share durations, easings and springs (they differ in how far web reveals travel, which the design system's CSS carries); `none`, or `reducedMotion`, makes everything instant. |
 | [`resolveThemeRoles`](../packages/design-system/src/tokens/roles.ts) | function | Beta | Every role's color for one platform and scheme. |
 | [`semantic`](../packages/design-system/src/tokens/colors.ts) | const | — | _(no summary)_ |
@@ -7007,18 +7093,22 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`THEME_ROLES`](../packages/design-system/src/tokens/roles.ts) | const | Beta | _(no summary)_ |
 | [`themeToCss`](../packages/design-system/src/tokens/themes.ts) | function | — | Convert a theme variable map to a CSS string block. |
 
-### Types (11)
+### Types (15)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
 export type { Bezier };
+export type { ChatAccent };
+export type { ChatRole };
+export type { ChatRoleColors };
 export type { MotionDurations };
 export type { MotionEasings };
 export type { MotionLevel };
 export type { MotionSpring };
 export type { MotionSprings };
 export type { MotionTokens };
+export type { ResolveChatRolesOptions };
 export type { ResolveMotionOptions };
 export type { ResolveThemeRolesOptions };
 export type { ThemeConfig };
@@ -7434,7 +7524,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useThreadJump`](../packages/core/src/conversation/use-thread-jump.ts) | function | — | _(no summary)_ |
 | [`useToast`](../packages/ui-native/src/components/toast.tsx) | function | — | _(no summary)_ |
 
-### Types (117)
+### Types (118)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -7531,6 +7621,7 @@ export type { NotificationsPageSlotMap };
 export type { PlaceExit };
 export type { PressFeedback };
 export type { PressFeedbackOptions };
+export type { RowActionsMenuProps };
 export type { SafeAreaEdge };
 export type { ScreenHeaderProps };
 export type { ScreenSearchOptions };
@@ -14715,7 +14806,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useThreadJump`](../packages/core/src/conversation/use-thread-jump.ts) | function | — | _(no summary)_ |
 | [`useToast`](../packages/ui-native/src/components/toast.tsx) | function | — | _(no summary)_ |
 
-### Types (117)
+### Types (118)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -14812,6 +14903,7 @@ export type { NotificationsPageSlotMap };
 export type { PlaceExit };
 export type { PressFeedback };
 export type { PressFeedbackOptions };
+export type { RowActionsMenuProps };
 export type { SafeAreaEdge };
 export type { ScreenHeaderProps };
 export type { ScreenSearchOptions };
@@ -15018,7 +15110,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useReduceTransparency`](../packages/ui-native/src/components/glass-surface.tsx) | function | — | True while the user has Reduce Transparency on (iOS), `null` until the first answer. Always false elsewhere, and on a runtime that can't say. |
 | [`useToast`](../packages/ui-native/src/components/toast.tsx) | function | — | _(no summary)_ |
 
-### Types (73)
+### Types (74)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -15092,6 +15184,7 @@ export type { NativeThreadListHandle };
 export type { NativeToastOptions };
 export type { NativeToastVariant };
 export type { NativeWhatsNewNote };
+export type { RowActionsMenuProps };
 export type { SpaceToken };
 export type { SpacingPrefix };
 export type { TextPreset };

@@ -107,10 +107,13 @@ interface PendingConfirm {
   answer: (ok: boolean) => void;
 }
 
-/** A `ChatConfirm` drawn as genesis-ui's AlertDialog: the confirm to pass, and the dialog to render. */
 /**
- * `fallbackFocus`: where focus goes when the dialog closes and the control that asked is gone (a
- * confirmed delete removed its row). By default focus returns to the control that asked.
+ * A `ChatConfirm` drawn as genesis-ui's AlertDialog: the confirm to pass, and the dialog to render.
+ * When the dialog closes, focus returns to the control that asked.
+ *
+ * @param cancelLabel The Cancel button's label.
+ * @param fallbackFocus Where focus goes instead when the control that asked is gone (a confirmed
+ *   delete removed its row).
  */
 export function useConfirmDialog(cancelLabel = "Cancel", fallbackFocus?: () => HTMLElement | null | undefined): { confirm: ChatConfirm; dialog: ReactElement } {
   const [pending, setPending] = useState<PendingConfirm | null>(null);

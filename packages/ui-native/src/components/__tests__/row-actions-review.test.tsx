@@ -209,12 +209,14 @@ describe("row actions: second review", () => {
         </NativeSwipeRow>
       </GenesisModulesProvider>
     );
+    // Only the full-swipe hint (a row with no press of its own also gets the press guard's hint, once).
+    const fullSwipe = () => warn.mock.calls.filter(([m]) => String(m).includes("full swipe"));
     const view = render(row(false, "review-delete"));
     view.rerender(row(false, "review-delete"));
-    expect(warn).toHaveBeenCalledTimes(1);
-    expect(String(warn.mock.calls[0]![0])).toContain("review-delete");
+    expect(fullSwipe()).toHaveLength(1);
+    expect(String(fullSwipe()[0]![0])).toContain("review-delete");
     render(row(true, "review-delete-confirmed"));
-    expect(warn).toHaveBeenCalledTimes(1);
+    expect(fullSwipe()).toHaveLength(1);
   });
 
   it("runs the action before closing the row, so a confirm it asks shows over the open row", () => {

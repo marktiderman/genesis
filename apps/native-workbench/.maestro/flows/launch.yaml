@@ -1,0 +1,20 @@
+# Smoke: a fresh install launches, runs every boot step and leaves the splash, with no fatal screen.
+#
+#   maestro test .maestro/flows/launch.yaml
+appId: com.streamlineddigital.genesis.dev
+tags:
+  - smoke
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    notVisible:
+      id: "genesis-boot"
+    timeout: 20000
+- assertNotVisible:
+    id: "genesis-fatal"
+- assertNotVisible:
+    id: "genesis-fatal-plain"
+# No sign-in: the showcase opens on its first section.
+- assertVisible:
+    id: "workbench-standards"

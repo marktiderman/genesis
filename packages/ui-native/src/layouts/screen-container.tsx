@@ -72,7 +72,12 @@ export interface ScreenContainerProps {
   themeMode?: "light" | "dark" | "system";
   /** Override root container className. */
   className?: string;
-  /** Override inner content container className (the ScrollView's contentContainerClassName when scroll=true). */
+  /**
+   * Override inner content container className (the ScrollView's contentContainerClassName when
+   * scroll=true). Without `scroll`, a list under a large title should leave this to layout only: a
+   * background or border keeps the body a native view of its own, and iOS then can't collapse the
+   * title as the list scrolls (put the background on the list instead).
+   */
   contentClassName?: string;
   /**
    * `keyboardShouldPersistTaps` for the inner ScrollView. Default `"handled"`.
@@ -333,12 +338,12 @@ export function ScreenContainer({
       {children}
     </ScrollView>
   ) : (
-    <View
-      testID={testID ? `${testID}-body` : undefined}
-      className={cn("flex-1", contentClassName)}
-    >
-      {children}
-    </View>
+    // No testID here: a View with one isn't flattened, and an extra native view between the
+    // safe area and a list stops iOS collapsing the large title as the list scrolls (react-native-
+    // screens looks for the scroll view down the first-subview chain). Flattened, the list is
+    // the screen's first scroll view, as it is without ScreenContainer. Proven in the native
+    // workbench (Standards → Row actions on a list).
+    <View className={cn("flex-1", contentClassName)}>{children}</View>
   );
 
   return (

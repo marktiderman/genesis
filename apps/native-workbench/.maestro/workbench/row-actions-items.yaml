@@ -1,0 +1,30 @@
+# Standards: NativeListItem actions (fill and round) and NativeRowActions with a peek.
+appId: com.streamlineddigital.genesis.dev
+tags:
+  - workbench
+  - standards
+---
+- runFlow: ../subflows/open-workbench.yaml
+- tapOn:
+    id: "workbench-open-row-actions-items"
+- extendedWaitUntil:
+    visible:
+      id: "workbench-row-actions-items-round"
+    timeout: 15000
+- longPressOn:
+    id: "workbench-row-actions-items-round"
+- extendedWaitUntil:
+    visible: "Hide Alerts"
+    timeout: 5000
+- takeScreenshot: row-actions-items-menu
+- tapOn: "Hide Alerts"
+- extendedWaitUntil:
+    visible: "Ran alerts"
+    timeout: 5000
+- longPressOn:
+    id: "workbench-row-actions-items-peek-row"
+- extendedWaitUntil:
+    visible:
+      id: "workbench-row-actions-items-peek"
+    timeout: 5000
+- takeScreenshot: row-actions-items-peek

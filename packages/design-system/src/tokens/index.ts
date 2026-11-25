@@ -8,6 +8,7 @@ export {
   type ThemeConfig,
 } from "./themes";
 export { THEME_ROLES, resolveThemeRoles, type ResolveThemeRolesOptions, type ThemeRole } from "./roles";
+export { CHAT_ACCENTS, CHAT_ROLES, resolveChatRoles, type ChatAccent, type ChatRole, type ChatRoleColors, type ResolveChatRolesOptions } from "./chat-roles";
 export {
   MOTION_DURATIONS,
   MOTION_EASINGS,

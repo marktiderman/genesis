@@ -58,6 +58,7 @@ describe("templates", () => {
     ["fingerprint.config.js", "expo/fingerprint.config.js"],
     [".fingerprintignore", "expo/.fingerprintignore"],
     [".maestro/config.yaml", "maestro/config.yaml"],
+    [".maestro/prove-ios.mjs", "maestro/prove-ios.mjs"],
     ...readdirSync(join(root, ".maestro/flows")).map((f): [string, string] => [`.maestro/flows/${f}`, `maestro/flows/${f}`]),
     ...readdirSync(join(root, ".maestro/subflows")).map((f): [string, string] => [`.maestro/subflows/${f}`, `maestro/subflows/${f}`]),
   ];

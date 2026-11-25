@@ -1,12 +1,13 @@
 # Genesis: agent notes
 
-Genesis is a pnpm monorepo of `@marktiderman/genesis-*` packages (`packages/`) and two apps: the
-web reference app (`apps/sample`) and the Expo starter new native apps are made from
-(`apps/genesis-rn-starter`).
+Genesis is a pnpm monorepo of `@marktiderman/genesis-*` packages (`packages/`) and three apps: the
+web reference app (`apps/sample`), the Expo starter new native apps are made from
+(`apps/genesis-rn-starter`), and the native workbench made from it (`apps/native-workbench`).
 
 - Build before you test or typecheck: `pnpm build:packages`, then `pnpm test` and `pnpm typecheck`.
   `pnpm lint:genesis` runs the repo's own rules.
 - Every package change needs a changeset (`pnpm changeset`). Releases follow `docs/RELEASING.md`.
+- A PR that adds or changes a component, layout or screen a package exports for React Native adds or updates its screen and flow in `apps/native-workbench`, runs `pnpm --filter native-workbench workbench:prove`, and pastes the run's `summary.md` result into the PR body (`apps/native-workbench/README.md`). `pnpm check:workbench-coverage` fails on a native component with neither a screen nor a `notYet` line.
 - `docs/component-reference.md` and `apps/sample/app/data/primitives.json` (with `story-ids.json`
   beside it) are generated, and the version PR refreshes them (`pnpm version:packages`). A feature
   PR doesn't regenerate or commit them; on a merge conflict in either, take main's version
@@ -187,7 +188,7 @@ base), so a PR can't change its own gate, and a gate change takes effect only on
 <!-- genesis-features:start -->
 ## Features
 
-Every feature is in `features.ts`: 193 features (25 planned, 107 building, 23 beta, 27 live, 1 deprecated, 10 retired).
+Every feature is in `features.ts`: 194 features (25 planned, 108 building, 23 beta, 27 live, 1 deprecated, 10 retired).
 
 - Before adding UI, routes or flags, run `pnpm features find <term>` to see whether a feature already covers it.
 - New work starts as an entry in `features.ts`; then run `pnpm features build`. `pnpm features check` runs in CI.

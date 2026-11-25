@@ -26,14 +26,17 @@ describe("ScreenContainer", () => {
     expect(screen.getByTestId("screen-scroll")).toBeTruthy();
   });
 
-  it("uses static body container when scroll=false", () => {
+  it("uses a static body when scroll=false, with no testID of its own so it flattens", () => {
     render(
       <ScreenContainer testID="screen">
-        <span>Hello</span>
+        <span data-testid="child">Hello</span>
       </ScreenContainer>,
     );
     expect(screen.queryByTestId("screen-scroll")).toBeNull();
-    expect(screen.getByTestId("screen-body")).toBeTruthy();
+    expect(screen.getByTestId("child")).toBeTruthy();
+    // A testID would keep the wrapper as a native view, and a list under it would no longer
+    // collapse the large title on iOS.
+    expect(screen.queryByTestId("screen-body")).toBeNull();
   });
 
   it("has no pull to refresh unless onRefresh is passed", () => {

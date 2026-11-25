@@ -369,6 +369,31 @@ export function checkProfileEnvironment(easJson, profile, environment, platforms
 }
 
 /**
+ * Whether a platform's store details are filled in: no value in eas.json `submit.<profile>.<platform>`
+ * is still a template placeholder (`REPLACE` + `_WITH_…`). The run leaves that platform out until
+ * they are (a build would fail at submit, and the next push would find it and ship only updates, so
+ * the store would never get one): no runtime job, build, submit or update for it, so nothing runs on
+ * EAS for a platform not set up yet. Every other platform goes on. No submit block at all is the app's choice (EAS can submit from what the
+ * project holds). Returns the placeholder keys left, empty when ready.
+ */
+export function submitPlaceholders(easJson, profile, platform) {
+  // The effective profile, as eas-json resolves `extends`: the base's platform fields under the
+  // profile's own, so a placeholder inherited from a base counts unless the profile replaces it.
+  const profiles = easJson?.submit ?? {};
+  const chain = [];
+  for (let name = profile; name !== undefined && profiles[name]; name = profiles[name].extends) {
+    if (chain.includes(name)) throw new Error(`eas.json submit profiles extend each other in a loop at "${name}".`);
+    chain.push(name);
+  }
+  const parts = chain.reverse().map((name) => profiles[name]?.[platform]).filter((p) => p && typeof p === "object");
+  if (!parts.length) return [];
+  const submit = Object.assign({}, ...parts);
+  // Written in two parts, so this script itself never reads as an unfilled template.
+  const placeholder = "REPLACE" + "_WITH_";
+  return Object.entries(submit).filter(([, v]) => typeof v === "string" && v.startsWith(placeholder)).map(([k]) => k);
+}
+
+/**
  * The latest update group on a branch, from eas-cli 26's `eas update:list --branch <b> --platform
  * <p> --limit 1 --json`: `{ name, id, currentPage: [{ group, platforms, runtimeVersion, … }] }`,
  * newest first. Its entries carry no commit (`latestCommit` reads it with `eas update:view`). ""
@@ -765,6 +790,15 @@ async function main(command, args, env) {
     const [file, profile, environment, list] = args;
     if (!file || !profile || !environment) throw new Error("environment needs <eas.json> <profile> <environment> [platforms].");
     checkProfileEnvironment(readJson(file), profile, environment, parsePlatforms(list ?? PLATFORMS.join(",")));
+  } else if (command === "store-ready") {
+    // Prints true or false for one platform; never fails the run. The lane reads it inside $(…): if
+    // this throws (a broken eas.json, an `extends` loop), it prints nothing, so the platform's output
+    // isn't "true" and the platform is left out. It fails closed.
+    const [file, profile, platform] = args;
+    if (!file || !profile || !PLATFORMS.includes(platform)) throw new Error("store-ready needs <eas.json> <profile> <platform>.");
+    const left = submitPlaceholders(readJson(file), profile, platform);
+    if (left.length) console.error(`::warning::eas.json submit.${profile}.${platform} still has template placeholders (${left.join(", ")}): this run leaves ${platform} out until they're filled in; the other platform goes on (docs/NATIVE-RELEASE.md, "One-time setup").`);
+    console.log(left.length ? "false" : "true");
   } else if (command === "latest-commit" || command === "published-group") {
     const [channel, platform, commit] = args;
     if (!channel || !PLATFORMS.includes(platform) || (command === "published-group" && !/^[0-9a-f]{40}$/i.test(commit ?? ""))) throw new Error(`${command} needs <channel> <platform>${command === "published-group" ? " <commit>" : ""}.`);

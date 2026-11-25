@@ -324,6 +324,7 @@ export { NativeSwipeRow } from "./swipe-row";
 export type { NativeSwipeRowProps } from "./swipe-row";
 export { NativeRowActions } from "./row-actions";
 export type { NativeRowActionsProps } from "./row-actions";
+export type { RowActionsMenuProps } from "./use-row-actions";
 export { NativeContextMenu } from "./context-menu";
 export type { NativeContextMenuProps, NativeContextMenuAction } from "./context-menu";
 

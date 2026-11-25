@@ -1,0 +1,25 @@
+# Messages: InboxPage: sample threads with unread, pinned and muted marks. Opens the screen from its tab and keeps a screenshot of it, before and after a scroll.
+appId: com.streamlineddigital.genesis.dev
+tags:
+  - workbench
+  - messages
+---
+- runFlow: ../subflows/open-workbench.yaml
+- tapOn: "Messages"
+- extendedWaitUntil:
+    visible:
+      id: "workbench-open-inbox"
+    timeout: 10000
+- tapOn:
+    id: "workbench-open-inbox"
+- extendedWaitUntil:
+    visible:
+      id: "workbench-inbox"
+    timeout: 15000
+- waitForAnimationToEnd
+- takeScreenshot: inbox
+- swipe:
+    direction: UP
+    duration: 800
+- waitForAnimationToEnd
+- takeScreenshot: inbox-scrolled

@@ -24,7 +24,7 @@ export type RowActionSide = "leading" | "trailing";
  * | `info`    | systemBlue    | mark read or unread, details           |
  * | `neutral` | systemGray    | more, mute                             |
  *
- * When an app matches an Apple app's look exactly where no meaning fits (Messages' purple Hide
+ * When an app matches a system app's look exactly where no meaning fits (Messages' indigo Hide
  * Alerts, its orange Pin), it names the color with `accent` instead.
  */
 export type RowActionTone = "tint" | "danger" | "success" | "warning" | "info" | "neutral";
@@ -34,12 +34,12 @@ export const ROW_ACTION_TONES: readonly RowActionTone[] = Object.freeze(["tint",
 
 /**
  * A system color by name, for an action that must match a system app's look rather than say what
- * it means (Messages: Unread blue, Pin orange, Hide Alerts purple, Delete red). Wins over `tone`.
+ * it means (Messages: Unread blue, Pin orange, Hide Alerts indigo, Delete red). Wins over `tone`.
  */
-export type RowActionAccent = "blue" | "green" | "orange" | "purple" | "yellow" | "gray" | "red";
+export type RowActionAccent = "blue" | "green" | "orange" | "purple" | "indigo" | "yellow" | "gray" | "red";
 
 /** Every {@link RowActionAccent}, for validating input. */
-export const ROW_ACTION_ACCENTS: readonly RowActionAccent[] = Object.freeze(["blue", "green", "orange", "purple", "yellow", "gray", "red"]);
+export const ROW_ACTION_ACCENTS: readonly RowActionAccent[] = Object.freeze(["blue", "green", "orange", "purple", "indigo", "yellow", "gray", "red"]);
 
 /** Where an action sits behind a row's swipe: its side, and whether a full swipe runs it. */
 export interface RowActionSwipe {

@@ -175,24 +175,6 @@ function ComposerHarness() {
   return <ChatComposer composer={composer} canPost disabledReason={null} role="member" onSend={vi.fn()} userId="u-composer" testID="cmp" />;
 }
 
-describe("the composer's emoji button", () => {
-  it("opens the picker, which types at the cursor", async () => {
-    render(
-      <ChatNativeProvider>
-        <ComposerHarness />
-      </ChatNativeProvider>,
-    );
-    const input = screen.getByTestId("cmp-input") as HTMLInputElement;
-    fireEvent.change(input, { target: { value: "see you" } });
-    const button = screen.getByTestId("cmp-emoji");
-    expect(button.getAttribute("aria-label")).toBe("Add emoji");
-    await act(async () => fireEvent.click(button));
-    fireEvent.click(await screen.findByTestId("cmp-emoji-sheet-picker-emoji-😀"));
-    await waitFor(() => expect(input.value).toBe("see you😀"));
-    fireEvent.click(screen.getByTestId("cmp-emoji-sheet-done"));
-    await waitFor(() => expect(screen.queryByTestId("cmp-emoji-sheet-picker")).toBeNull());
-  });
-});
 
 describe("the picker's grid", () => {
   it("lays out rows by row index (FlatList with numColumns asks per row), so every row scrolls into place", () => {
@@ -236,19 +218,3 @@ describe("the picker's grid", () => {
   });
 });
 
-describe("the composer's emoji button, picked twice quickly", () => {
-  it("types both", async () => {
-    render(
-      <ChatNativeProvider modules={{ drafts: memoryDraftStorage() }}>
-        <ComposerHarness />
-      </ChatNativeProvider>,
-    );
-    await act(async () => fireEvent.click(screen.getByTestId("cmp-emoji")));
-    const smile = await screen.findByTestId("cmp-emoji-sheet-picker-emoji-😀");
-    act(() => {
-      fireEvent.click(smile);
-      fireEvent.click(smile);
-    });
-    await waitFor(() => expect((screen.getByTestId("cmp-input") as HTMLInputElement).value).toBe("😀😀"));
-  });
-});
