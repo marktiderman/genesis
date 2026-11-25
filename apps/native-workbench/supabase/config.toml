@@ -36,7 +36,7 @@ enable_confirmations = true
 # Sign in with Apple: the bundle id (and its .dev / .preview variants) as client ids.
 [auth.external.apple]
 enabled = true
-client_id = "dev.genesis.workbench,dev.genesis.workbench.dev,dev.genesis.workbench.preview"
+client_id = "com.streamlineddigital.genesis,com.streamlineddigital.genesis.dev,com.streamlineddigital.genesis.preview"
 secret = ""
 
 # Keeps Apple's refresh token at sign-in and revokes it when the account is deleted. It checks

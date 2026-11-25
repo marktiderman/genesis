@@ -1,6 +1,6 @@
 # Standards: a view's row actions. Long press opens the system menu with every action (Add Note,
 # which has no swipe, too); picking one runs it. Swipes are checked with real gestures (Argent).
-appId: dev.genesis.workbench.dev
+appId: com.streamlineddigital.genesis.dev
 tags:
   - workbench
   - standards

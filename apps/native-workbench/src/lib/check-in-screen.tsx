@@ -11,7 +11,7 @@ import { checkInDrafts, checkInForm, checkInHaptics, checkInHostOptions, checkIn
 /**
  * The check-in example (`features.checkIn`): one question per screen, the title in the native
  * header, a draft per signed-in user and the offline outbox. Open it with a link to fill in the
- * location: `genesis-workbench://check-in?location=hilltop`. The Home tab shows it at `/check-in`; a check-in
+ * location: `genesis://check-in?location=hilltop`. The Home tab shows it at `/check-in`; a check-in
  * card in a conversation opens it in the Messages stack (`/messages/check-in`), so Back returns
  * to the conversation. `backTitle` names the screen under it (left out, iOS uses that screen's title).
  */

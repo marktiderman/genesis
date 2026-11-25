@@ -1,4 +1,4 @@
-# Genesis Workbench
+# Genesis (the native showcase and workbench)
 
 The Genesis native showcase: a real Genesis app that shows off every native feature, and where
 each one is built, checked on a simulator and proven. It opens straight into the features, with
@@ -31,7 +31,7 @@ pnpm --filter native-workbench prove:ios                       # the smoke flows
 ```
 
 It builds the development variant for the Simulator (cached by its sources and the packages'
-sources), installs it on its own simulator ("Genesis Workbench Proof") and runs the flows; no
+sources), installs it on its own simulator ("Genesis Proof") and runs the flows; no
 stack, no login (`--no-stack`). The evidence is `.e2e/artifacts/<run>/`: `summary.md`, each flow's
 screenshots and Maestro's logs. Link it in the pull request.
 
@@ -57,18 +57,23 @@ Genesis `main` that changes this app (`apps/native-workbench/**`) or the package
 builds and submits to TestFlight, otherwise it publishes an update to the builds already out. Docs,
 Markdown, `.maestro/` and CI files never start it. Nobody builds or submits by hand.
 
-The one-time setup, in order (only the maintainer can do these; none needs code):
+The app is "Genesis", bundle id `com.streamlineddigital.genesis` (the
+development variant adds `.dev`, the preview `.preview`), slug `genesis`, Apple team
+97HZA3D7W4. The EAS project is `@streamlined-digital/genesis` (`starter.config.ts` `app.easProjectId`), linked to GitHub `marktiderman/genesis` with base directory `/apps/native-workbench`.
 
-1. **Confirm the name and bundle id** (proposed: "Genesis Showcase", `com.streamlineddigital.genesis.showcase`).
-   An agent then sets them in `starter.config.ts`.
-2. **Create the EAS project** under `streamlined-digital` (`eas init` in this folder, or an agent
-   with the go-ahead), and put its id in `starter.config.ts` `app.easProjectId`.
-3. **Create the App Store Connect app record** for that bundle id (App Store Connect → Apps → +):
-   Apple's API can't. Put its Apple ID (the number) in `eas.json` `submit.production.ios.ascAppId`.
-4. **iOS credentials**: `eas credentials -p ios` (production profile) once, which uses the team's
-   App Store Connect API key EAS already holds to make the distribution profile.
-5. **Link GitHub on expo.dev** (project settings → GitHub), base directory `apps/native-workbench`.
-6. **Add `EXPO_TOKEN`** (an Expo robot token) to the EAS environment `production`, and say where a
+The one-time setup, in order. Each is an account action and the maintainer's; no agent runs them:
+
+1. **Create the App Store Connect app record** (App Store Connect → Apps → + → New App): platform
+   iOS, name "Genesis" (if the name is taken on the App Store, "Genesis by Streamlined"), primary language English (U.S.), bundle id
+   `com.streamlineddigital.genesis` (register it first under Certificates, Identifiers &
+   Profiles → Identifiers if it isn't listed), SKU `genesis`, full access. Apple's API can't
+   create the record. Put its Apple ID (the number under App Information) in `eas.json`
+   `submit.production.ios.ascAppId`.
+2. **iOS credentials**: `eas credentials -p ios`, production profile, once, signed in with the
+   team's Apple account. It makes the distribution certificate and profile for the new bundle id;
+   after that, EAS builds and submits with the App Store Connect key it holds.
+3. **Add `EXPO_TOKEN`** (an Expo robot token) to the EAS environment `production`, and say where a
    failed release goes (`release.failureEmails` here, or `RELEASE_FAILURE_WEBHOOK`).
+4. **TestFlight testers**: in App Store Connect → TestFlight, add an internal group with the testers.
 
 The next merge to `main` that changes the app then builds and submits the first TestFlight build.

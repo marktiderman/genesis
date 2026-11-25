@@ -155,7 +155,8 @@ function DetailPageScreen() {
   const [paid, setPaid] = useState(false);
 
   return (
-    <ScreenContainer header={header} testID="workbench-detail-page">
+    // A record's detail page hides the tab bar (tabBar="hidden"); the settings page keeps it.
+    <ScreenContainer header={header} tabBar="hidden" testID="workbench-detail-page">
       <DetailPage
         breadcrumb="Invoices · Acme Ltd"
         title="Invoice #1042"

@@ -1,7 +1,7 @@
 # Smoke: a fresh install launches, runs every boot step and leaves the splash, with no fatal screen.
 #
 #   maestro test .maestro/flows/launch.yaml
-appId: dev.genesis.workbench.dev
+appId: com.streamlineddigital.genesis.dev
 tags:
   - smoke
 ---

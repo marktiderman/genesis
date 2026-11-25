@@ -36,7 +36,7 @@ function HeaderDrilldown() {
   const header = useMemo(() => ({ headerTitle: "Drill-down", large: false }), []);
   return (
     <ScreenContainer header={header} scroll testID="workbench-header-drilldown">
-      <NativeText style={{ padding: 20 }}>A standard title, and the stack&apos;s own back button and edge swipe.</NativeText>
+      <NativeText style={{ padding: 20 }}>A standard title, and the stack’s own back button and edge swipe.</NativeText>
     </ScreenContainer>
   );
 }

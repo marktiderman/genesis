@@ -1,5 +1,5 @@
 # Messages: InboxPage: sample threads with unread, pinned and muted marks. Opens the screen from its tab and keeps a screenshot of it, before and after a scroll.
-appId: dev.genesis.workbench.dev
+appId: com.streamlineddigital.genesis.dev
 tags:
   - workbench
   - messages
