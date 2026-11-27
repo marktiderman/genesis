@@ -69,6 +69,23 @@ describe("PreviewScreen", () => {
     await expect(updates.channels.requested()).resolves.toBeNull();
     expect(fake.setUpdateRequestHeadersOverride).toHaveBeenLastCalledWith(null);
   });
+
+  it("says a preview may still be publishing, and the next try loads it once it is", async () => {
+    const fake = fakeUpdates({ next: { id: "x" } });
+    const updates = createUpdates({ platform: "ios", application, policyTimeoutMs: 50, updates: fake, storage: memoryStorage(), channels: { enabled: true } });
+    mount(updates, <PreviewScreen channel="pr-7" onDone={vi.fn()} />);
+    await act(settle);
+    fake.checkForUpdateAsync.mockResolvedValueOnce({ isAvailable: false, isRollBackToEmbedded: false, reason: "noUpdateAvailableOnServer" } as never);
+    fireEvent.click(screen.getByTestId("genesis-preview-primary"));
+    await act(settle);
+    expect(screen.getByText("pr-7 isn't on this phone yet")).toBeTruthy();
+    expect(screen.getByText(/may still be publishing/)).toBeTruthy();
+    expect(screen.getByTestId("genesis-preview-leave")).toBeTruthy();
+    fake.checkForUpdateAsync.mockResolvedValueOnce({ isAvailable: true, isRollBackToEmbedded: false } as never);
+    fireEvent.click(screen.getByTestId("genesis-preview-primary"));
+    await act(settle);
+    expect(screen.getByText("Preview ready")).toBeTruthy();
+  });
 });
 
 describe("a deleted preview channel", () => {

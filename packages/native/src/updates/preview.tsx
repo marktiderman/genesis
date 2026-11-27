@@ -120,6 +120,7 @@ export function PreviewScreen({ channel, onDone, testID = "genesis-preview" }: P
     }
   };
   const already = state.requested === valid;
+  const leaveNothing = () => void channels.reset().then(onDone, onDone);
 
   const body = (() => {
     switch (phase.kind) {
@@ -140,14 +141,19 @@ export function PreviewScreen({ channel, onDone, testID = "genesis-preview" }: P
       case "latest":
         return { title: "Nothing newer to load", body: "No update was picked for this phone, so it keeps the one it runs now.", primary: { label: "Done", onPress: onDone } };
       case "nothing":
-        return {
-          title: "Nothing to open yet",
-          body:
-            phase.reason === "failed"
-              ? "This preview crashed on this phone before, so it won't load again. Ask for a new version of it."
-              : "This preview has nothing for this version of the app: it may need a new build from the store or TestFlight, or it isn't published yet.",
-          primary: { label: "Back to the app", onPress: () => void channels.reset().then(onDone, onDone) },
-        };
+        // "none" is often only a preview still publishing (a push shows up a few minutes later),
+        // so it says so and offers another try first; only a crash here before is final.
+        return phase.reason === "failed"
+          ? {
+              title: "This preview crashed here before",
+              body: "It won't load again on this phone. Ask for a new version of it.",
+              primary: { label: "Back to the app", onPress: leaveNothing },
+            }
+          : {
+              title: `${valid} isn't on this phone yet`,
+              body: "If it was just pushed, it may still be publishing: try again in a minute or two. If it still won't load, it changed native code and needs a new build from the store or TestFlight.",
+              primary: { label: "Try again", onPress: () => void load() },
+            };
       case "gone":
         return { title: "This preview is closed", body: "Its pull request was closed or merged. You're on the regular app.", primary: { label: "Done", onPress: onDone } };
       case "unavailable":
@@ -170,6 +176,11 @@ export function PreviewScreen({ channel, onDone, testID = "genesis-preview" }: P
       {body.primary ? (
         <NativeButton testID={`${testID}-primary`} onPress={body.primary.onPress}>
           {body.primary.label}
+        </NativeButton>
+      ) : null}
+      {phase.kind === "nothing" && phase.reason === "none" ? (
+        <NativeButton testID={`${testID}-leave`} variant="ghost" onPress={leaveNothing}>
+          Back to the app
         </NativeButton>
       ) : null}
       {phase.kind === "confirm" || phase.kind === "error" ? (
