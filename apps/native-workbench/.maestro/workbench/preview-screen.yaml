@@ -1,0 +1,35 @@
+# Preview link: PreviewScreen when the preview isn't on the phone yet (a stand-in for expo-updates, no real channel). Not published yet says so and offers Try again, which then loads it; Crashed before says it won't load again.
+appId: com.streamlineddigital.genesis.dev
+tags:
+  - workbench
+  - standards
+---
+- runFlow: ../subflows/open-workbench.yaml
+- tapOn:
+    id: "workbench-open-preview-screen"
+- extendedWaitUntil:
+    visible:
+      id: "workbench-preview-screen"
+    timeout: 15000
+- tapOn:
+    id: "genesis-preview-primary"
+- extendedWaitUntil:
+    visible: "pr-7 isn't on this phone yet"
+    timeout: 10000
+- assertVisible:
+    id: "genesis-preview-leave"
+- takeScreenshot: preview-screen-not-yet
+- tapOn:
+    id: "genesis-preview-primary"
+- extendedWaitUntil:
+    visible: "Preview ready"
+    timeout: 10000
+- takeScreenshot: preview-screen-ready
+- tapOn:
+    id: "workbench-preview-screen-failed"
+- tapOn:
+    id: "genesis-preview-primary"
+- extendedWaitUntil:
+    visible: "This preview crashed here before"
+    timeout: 10000
+- takeScreenshot: preview-screen-crashed
