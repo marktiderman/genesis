@@ -99,7 +99,8 @@ export function PreviewScreen({ channel, onDone, testID = "genesis-preview" }: P
 
   const load = async () => {
     const target = attempt;
-    followedBefore.current = state.requested === valid;
+    // Only the attempt's first load reads it: a retry finds the channel this attempt already picked.
+    if (phase.kind === "confirm") followedBefore.current = state.requested === valid;
     setPhase({ kind: "working" }, target);
     try {
       setPhase(await channels.prepare(valid), target);

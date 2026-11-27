@@ -86,6 +86,25 @@ describe("PreviewScreen", () => {
     await act(settle);
     expect(screen.getByText("Preview ready")).toBeTruthy();
   });
+
+  it("backs out on Not now after a retry fails, when the phone didn't follow the preview before", async () => {
+    const fake = fakeUpdates({ next: { id: "x" } });
+    const updates = createUpdates({ platform: "ios", application, policyTimeoutMs: 50, updates: fake, storage: memoryStorage(), channels: { enabled: true } });
+    const done = vi.fn();
+    mount(updates, <PreviewScreen channel="pr-8" onDone={done} />);
+    await act(settle);
+    fake.checkForUpdateAsync.mockResolvedValueOnce({ isAvailable: false, isRollBackToEmbedded: false, reason: "noUpdateAvailableOnServer" } as never);
+    fireEvent.click(screen.getByTestId("genesis-preview-primary"));
+    await act(settle);
+    fake.checkForUpdateAsync.mockRejectedValueOnce(new Error("network down"));
+    fireEvent.click(screen.getByTestId("genesis-preview-primary"));
+    await act(settle);
+    expect(screen.getByText("Couldn't open the preview")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("genesis-preview-cancel"));
+    await act(settle);
+    expect(done).toHaveBeenCalled();
+    await expect(updates.channels.requested()).resolves.toBeNull();
+  });
 });
 
 describe("a deleted preview channel", () => {
