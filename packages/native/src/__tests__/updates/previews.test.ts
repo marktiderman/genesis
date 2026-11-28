@@ -103,6 +103,16 @@ describe("channel switching, hardened", () => {
     await expect(switcher.prepare("pr-8")).resolves.toEqual({ kind: "nothing", reason: "none" });
   });
 
+  it("keeps another preview's running update as that preview's, so it never reads as the picked one's newest", async () => {
+    // pr-a's update still runs after a switch to pr-b that never landed.
+    const storage = memoryStorage({ "genesis:updates:channel": "pr-b", "genesis:updates:channel:preview-update": JSON.stringify({ channels: { "pr-a": ["a-update"] } }) });
+    const on = fakeUpdates({ updateId: "a-update" });
+    on.checkForUpdateAsync.mockResolvedValue({ isAvailable: false, isRollBackToEmbedded: false, reason: "noUpdateAvailableOnServer" } as never);
+    const switcher = createChannelSwitcher({ updates: on, enabled: true, guard: createReloadGuard(), storage });
+    await expect(switcher.state()).resolves.toMatchObject({ requested: "pr-b", running: "pr-a" });
+    await expect(switcher.prepare("pr-b")).resolves.toEqual({ kind: "nothing", reason: "none" });
+  });
+
   it("says why there's nothing to load", async () => {
     const none = fakeUpdates();
     none.checkForUpdateAsync.mockResolvedValueOnce({ isAvailable: false, isRollBackToEmbedded: false, reason: "noUpdateAvailableOnServer" } as never);

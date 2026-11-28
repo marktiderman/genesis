@@ -278,7 +278,10 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
       // newer one the update checker fetched) unless it is the embedded update or one already seen
       // running without a preview: expo-updates rolled back from a crashed preview, or the download
       // never finished. Only the preview's are recorded.
-      if (!updates?.isEmbeddedLaunch && !release.includes(running) && !unsavedRelease.has(running) && !(record[requested] ?? []).includes(running)) {
+      // An update another preview downloaded stays that preview's (pr-a still runs after a switch
+      // to pr-b that never landed): recording it as pr-b's would read as pr-b's newest.
+      const owner = channelOf(record, running) ?? unsaved.get(running) ?? null;
+      if (!updates?.isEmbeddedLaunch && !release.includes(running) && !unsavedRelease.has(running) && !owner) {
         // Not saved: kept with the others and retried before any restart.
         if (!(await write(previewKey, JSON.stringify({ channels: withPreviewUpdate(record, requested, running) })))) unsaved.set(running, requested);
       }
