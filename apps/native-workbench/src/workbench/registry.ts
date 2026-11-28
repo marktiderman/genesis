@@ -13,6 +13,7 @@ import { headerDrilldown, headerLarge } from "./screens/header";
 import { layoutsDetailPage, layoutsSettingsPage } from "./screens/layouts";
 import { messagesBubbles, messagesChatDetails, messagesChatInbox, messagesInbox, messagesLook } from "./screens/messages";
 import { placeExit } from "./screens/place-exit";
+import { previewScreen } from "./screens/preview-screen";
 import { rowActionsItems, rowActionsList } from "./screens/row-actions";
 import { tabBarHidden } from "./screens/tab-bar";
 
@@ -40,6 +41,7 @@ export const workbenchScreens: readonly WorkbenchScreen[] = [
   headerDrilldown,
   tabBarHidden,
   placeExit,
+  previewScreen,
   componentsControls,
   componentsFeedback,
   componentsCards,

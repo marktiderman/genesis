@@ -90,6 +90,29 @@ describe("channel switching, hardened", () => {
     expect(updates.reloadAsync).toHaveBeenCalledTimes(1);
   });
 
+  it("reads the server's \"nothing\" as up to date when the phone already runs that preview's newest", async () => {
+    // A phone following pr-9 and running its update (recorded at launch) asks again: the server says
+    // nothing, because it already has the newest. That's "nothing newer", not "nothing to open".
+    const storage = memoryStorage({ "genesis:updates:channel": "pr-9" });
+    const on = fakeUpdates({ updateId: "pr-9-update" });
+    on.checkForUpdateAsync.mockResolvedValue({ isAvailable: false, isRollBackToEmbedded: false, reason: "noUpdateAvailableOnServer" } as never);
+    const switcher = createChannelSwitcher({ updates: on, enabled: true, guard: createReloadGuard(), storage });
+    await expect(switcher.prepare("pr-9")).resolves.toEqual({ kind: "latest", running: true });
+    await expect(switcher.state()).resolves.toMatchObject({ running: "pr-9" });
+    // The same answer for another preview is still nothing to open: this phone runs pr-9's code.
+    await expect(switcher.prepare("pr-8")).resolves.toEqual({ kind: "nothing", reason: "none" });
+  });
+
+  it("keeps another preview's running update as that preview's, so it never reads as the picked one's newest", async () => {
+    // pr-a's update still runs after a switch to pr-b that never landed.
+    const storage = memoryStorage({ "genesis:updates:channel": "pr-b", "genesis:updates:channel:preview-update": JSON.stringify({ channels: { "pr-a": ["a-update"] } }) });
+    const on = fakeUpdates({ updateId: "a-update" });
+    on.checkForUpdateAsync.mockResolvedValue({ isAvailable: false, isRollBackToEmbedded: false, reason: "noUpdateAvailableOnServer" } as never);
+    const switcher = createChannelSwitcher({ updates: on, enabled: true, guard: createReloadGuard(), storage });
+    await expect(switcher.state()).resolves.toMatchObject({ requested: "pr-b", running: "pr-a" });
+    await expect(switcher.prepare("pr-b")).resolves.toEqual({ kind: "nothing", reason: "none" });
+  });
+
   it("says why there's nothing to load", async () => {
     const none = fakeUpdates();
     none.checkForUpdateAsync.mockResolvedValueOnce({ isAvailable: false, isRollBackToEmbedded: false, reason: "noUpdateAvailableOnServer" } as never);
