@@ -16,8 +16,8 @@
     "test": "genesis build-stamp && vitest run && jest",
     "test:components": "genesis build-stamp && jest",
     "e2e": "maestro test .maestro/flows",
-    "prove:ios": "node .maestro/prove-ios.mjs --no-stack",
-    "workbench:prove": "node .maestro/prove-ios.mjs --no-stack --flows workbench"
+    "prove:ios": "genesis build-stamp && node .maestro/prove-ios.mjs --no-stack",
+    "workbench:prove": "genesis build-stamp && node .maestro/prove-ios.mjs --no-stack --flows workbench"
   },
   "dependencies": {
     "@expo/metro-runtime": "~58.0.17",

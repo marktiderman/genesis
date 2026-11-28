@@ -21,7 +21,10 @@ tags:
 # The phone's own build, runtime and running code, beside the answer.
 - assertVisible:
     id: "genesis-preview-details"
-- assertVisible: "Installed build"
+# The details are one accessible group: iOS reads them as one label, so match its start.
+- assertVisible:
+    id: "genesis-preview-details"
+    text: "Installed build: .*"
 - takeScreenshot: preview-screen-not-yet
 - tapOn:
     id: "genesis-preview-primary"

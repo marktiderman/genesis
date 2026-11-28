@@ -79,7 +79,7 @@ function Preview() {
     setRun((n) => n + 1);
   };
   return (
-    <ScreenContainer header={header} testID="workbench-preview-screen">
+    <ScreenContainer header={header} scroll testID="workbench-preview-screen">
       <View style={{ flexDirection: "row", gap: 8, padding: 12 }}>
         <NativeButton testID="workbench-preview-screen-none" variant={scenario === "none" ? "default" : "outline"} onPress={() => restart("none")}>
           Not published yet
