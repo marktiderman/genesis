@@ -46,7 +46,8 @@ export type ChannelCheck =
   /** An update from the channel is downloaded: `restart` loads it. */
   | { kind: "downloaded" }
   /** Nothing newer on the channel than what this phone runs (or expo-updates' selection policy keeps what it runs). */
-  | { kind: "latest" }
+  /** `running`: this phone already runs the channel's newest update it can load (the server had nothing newer). */
+  | { kind: "latest"; running?: boolean }
   /**
    * Nothing on the channel this build can load. `reason`: `"none"` (nothing published for this
    * platform and runtime version: the pull request changed native code, or nothing was published
@@ -69,6 +70,12 @@ export interface ChannelState {
    * keeps the previous manifest filters). `null` otherwise. Leaving again (`reset`) is the way out.
    */
   lingering?: string | null;
+  /**
+   * The preview whose update runs now (from this phone's record of what each preview downloaded),
+   * or `null` when the build's own code runs (its embedded code, or a release update). It holds
+   * until the next launch.
+   */
+  running?: string | null;
 }
 
 export interface ChannelSwitcher {
@@ -289,7 +296,8 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
       await write(buildKey, build);
     }
     // A pick published while storage was being read is newer: keep it.
-    if (!cache) cache = { requested, build, lingering };
+    const runs = running && !updates?.isEmbeddedLaunch ? (unsaved.get(running) ?? channelOf(parsePreviewRecord(await read(previewKey)), running)) : null;
+    if (!cache) cache = { requested, build, lingering, running: runs };
     return cache;
   };
   const load = (): Promise<ChannelState> => (cache ? Promise.resolve(cache) : (loading ??= init()));
@@ -451,7 +459,7 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
       if (reason === "updatePreviouslyFailed") return { kind: "nothing", reason: "failed" };
       // The server also answers "nothing" to a phone that already runs the channel's newest update:
       // that phone is up to date, not missing the preview.
-      if (reason === "noUpdateAvailableOnServer" && (await runsPreviewOf((await load()).requested))) return { kind: "latest" };
+      if (reason === "noUpdateAvailableOnServer" && (await runsPreviewOf((await load()).requested))) return { kind: "latest", running: true };
       if (reason === "noUpdateAvailableOnServer" || reason === "rollbackNoEmbeddedConfiguration") return { kind: "nothing", reason: "none" };
       // No reason, or a selection-policy rejection: nothing newer this phone would load.
       return { kind: "latest" };

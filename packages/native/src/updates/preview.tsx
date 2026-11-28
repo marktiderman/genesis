@@ -142,8 +142,8 @@ export function PreviewScreen({ channel, onDone, testID = "genesis-preview" }: P
       case "restarting":
         return { title: "Restarting…", body: "" };
       case "latest":
-        return already
-          ? { title: `You have the newest ${valid}`, body: "This phone already runs this preview's newest version.", primary: { label: "Done", onPress: onDone } }
+        return phase.running
+          ? { title: `You have the newest ${valid}`, body: "This phone already runs the newest version of this preview for its build (below).", primary: { label: "Done", onPress: onDone } }
           : { title: "Nothing newer to load", body: "No update was picked for this phone, so it keeps the one it runs now.", primary: { label: "Done", onPress: onDone } };
       case "nothing":
         // "none" is often only a preview still publishing (a push shows up a few minutes later),
@@ -183,7 +183,7 @@ export function PreviewScreen({ channel, onDone, testID = "genesis-preview" }: P
           {body.primary.label}
         </NativeButton>
       ) : null}
-      {phase.kind !== "working" && phase.kind !== "restarting" ? <PreviewPhoneDetails signature={signature} testID={`${testID}-details`} /> : null}
+      {phase.kind !== "working" && phase.kind !== "restarting" ? <PreviewPhoneDetails signature={signature} state={state} testID={`${testID}-details`} /> : null}
       {phase.kind === "nothing" && phase.reason === "none" ? (
         <NativeButton testID={`${testID}-leave`} variant="ghost" onPress={leaveNothing}>
           Back to the app
@@ -207,28 +207,33 @@ export function PreviewScreen({ channel, onDone, testID = "genesis-preview" }: P
  * published for, and whose code runs now. A preview link that finds nothing is told apart from one
  * that waits on a new build by comparing these with the preview's own build.
  */
-export function previewPhoneLines(sig: VersionSignature): { label: string; value: string }[] {
+export function previewPhoneLines(sig: VersionSignature, state: { build?: string | null; running?: string | null } = {}): { label: string; value: string }[] {
   const app = sig.version ? `${sig.version}${sig.build ? ` (${sig.build})` : ""}` : (sig.build ?? "unknown");
   const runs =
     sig.launch === "off"
       ? "Updates are off in this build"
       : sig.launch === "embedded"
         ? "The build's own code"
-        : `Update ${sig.updateId ? sig.updateId.slice(0, 8) : "unknown"}${sig.requestedChannel ? ` from ${sig.requestedChannel}` : ""}`;
+        : state.running
+          ? `Update ${sig.updateId ? sig.updateId.slice(0, 8) : "unknown"} from ${state.running}`
+          : `The build's own update${sig.updateId ? ` (${sig.updateId.slice(0, 8)})` : ""}`;
+  // Under a picked preview `Updates.channel` names the preview, so the build's own is the remembered one.
+  const buildChannel = state.build !== undefined ? state.build : sig.requestedChannel ? null : sig.channel;
   return [
-    { label: "Installed build", value: `${app} · ${sig.platform}${sig.channel ? ` · ${sig.channel}` : ""}` },
+    { label: "Installed build", value: `${app} · ${sig.platform}${buildChannel ? ` · ${buildChannel}` : ""}` },
     { label: "Runtime", value: sig.runtimeVersion ? sig.runtimeVersion.slice(0, 7) : "none" },
     { label: "Running", value: sig.emergency ? `${runs} (recovered after a failed launch)` : runs },
   ];
 }
 
-function PreviewPhoneDetails({ signature, testID }: { signature: VersionSignature; testID: string }) {
+function PreviewPhoneDetails({ signature, state, testID }: { signature: VersionSignature; state: ChannelState; testID: string }) {
+  const lines = previewPhoneLines(signature, state);
   return (
-    <View testID={testID} accessible accessibilityLabel={previewPhoneLines(signature).map((l) => `${l.label}: ${l.value}`).join(". ")} className="rounded-lg bg-muted" style={{ padding: 12, gap: 4 }}>
+    <View testID={testID} accessible accessibilityLabel={lines.map((l) => `${l.label}: ${l.value}`).join(". ")} className="rounded-lg bg-muted" style={{ padding: 12, gap: 4 }}>
       <NativeText preset="caption" style={{ fontWeight: "600" }}>
         This phone
       </NativeText>
-      {previewPhoneLines(signature).map((l) => (
+      {lines.map((l) => (
         <View key={l.label} style={{ flexDirection: "row", gap: 8 }}>
           <NativeText preset="caption" style={{ opacity: 0.7, width: 110 }}>
             {l.label}

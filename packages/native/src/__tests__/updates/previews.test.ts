@@ -97,7 +97,8 @@ describe("channel switching, hardened", () => {
     const on = fakeUpdates({ updateId: "pr-9-update" });
     on.checkForUpdateAsync.mockResolvedValue({ isAvailable: false, isRollBackToEmbedded: false, reason: "noUpdateAvailableOnServer" } as never);
     const switcher = createChannelSwitcher({ updates: on, enabled: true, guard: createReloadGuard(), storage });
-    await expect(switcher.prepare("pr-9")).resolves.toEqual({ kind: "latest" });
+    await expect(switcher.prepare("pr-9")).resolves.toEqual({ kind: "latest", running: true });
+    await expect(switcher.state()).resolves.toMatchObject({ running: "pr-9" });
     // The same answer for another preview is still nothing to open: this phone runs pr-9's code.
     await expect(switcher.prepare("pr-8")).resolves.toEqual({ kind: "nothing", reason: "none" });
   });

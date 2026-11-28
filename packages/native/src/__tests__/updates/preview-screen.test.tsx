@@ -5,7 +5,7 @@ import { genesisBrand } from "@marktiderman/genesis-design-system";
 import { createMockProvider } from "@marktiderman/genesis-core/provider";
 import { GenesisNativeApp } from "../../app";
 import type { ErrorUtilsLike } from "../../errors";
-import { PreviewScreen, createUpdates } from "../../updates";
+import { PreviewScreen, createUpdates, previewPhoneLines } from "../../updates";
 import { fakeSupabase, settle } from "../fakes";
 import { fakeUpdates, memoryStorage } from "./fakes";
 
@@ -307,12 +307,51 @@ describe("PreviewScreen's phone details", () => {
     const updates = createUpdates({ platform: "ios", application, policyTimeoutMs: 50, updates: fake, storage, channels: { enabled: true } });
     mount(updates, <PreviewScreen channel="pr-3" onDone={vi.fn()} />);
     await act(settle);
-    expect(screen.getByText("1.2.0 (12) · ios · production")).toBeTruthy();
+    // The build's own channel isn't known on a launch with a preview picked (and none remembered).
+    expect(screen.getByText("1.2.0 (12) · ios")).toBeTruthy();
     expect(screen.getByText("7c750d9")).toBeTruthy();
     expect(screen.getByText("Update abcdef12 from pr-3")).toBeTruthy();
     fake.checkForUpdateAsync.mockResolvedValueOnce({ isAvailable: false, isRollBackToEmbedded: false, reason: "noUpdateAvailableOnServer" } as never);
     fireEvent.click(screen.getByTestId("genesis-preview-primary"));
     await act(settle);
     expect(screen.getByText("You have the newest pr-3")).toBeTruthy();
+  });
+
+  it("says nothing newer, not the newest preview, when the phone doesn't run that preview", async () => {
+    // A fresh phone on the build's own code opens pr-7; the check keeps what it runs.
+    const fake = fakeUpdates({ updateId: "release-1" });
+    const updates = createUpdates({ platform: "ios", application, policyTimeoutMs: 50, updates: fake, storage: memoryStorage(), channels: { enabled: true } });
+    mount(updates, <PreviewScreen channel="pr-7" onDone={vi.fn()} />);
+    await act(settle);
+    expect(screen.getByText("1.2.0 (12) · ios · production")).toBeTruthy();
+    expect(screen.getByText("The build's own update (release-)")).toBeTruthy();
+    fake.checkForUpdateAsync.mockResolvedValueOnce({ isAvailable: false, isRollBackToEmbedded: false } as never);
+    fireEvent.click(screen.getByTestId("genesis-preview-primary"));
+    await act(settle);
+    expect(screen.getByText("Nothing newer to load")).toBeTruthy();
+    expect(screen.queryByText("You have the newest pr-7")).toBeNull();
+  });
+});
+
+describe("previewPhoneLines", () => {
+  const sig = { version: "1.2.0", build: "12", platform: "ios", channel: "pr-7", requestedChannel: "pr-7", runtimeVersion: "7c750d9daf53", updateId: "abcdef1234", launch: "update" as const, emergency: false, short: "", text: "" };
+  const value = (lines: { label: string; value: string }[], label: string) => lines.find((l) => l.label === label)?.value;
+  it("names the build's own channel, not a picked preview's, and where the running update came from", () => {
+    const lines = previewPhoneLines(sig, { build: "production", running: "pr-7" });
+    expect(value(lines, "Installed build")).toBe("1.2.0 (12) · ios · production");
+    expect(value(lines, "Runtime")).toBe("7c750d9");
+    expect(value(lines, "Running")).toBe("Update abcdef12 from pr-7");
+    // pr-7 is picked but a release update runs: it says so, not "from pr-7".
+    expect(value(previewPhoneLines(sig, { build: "production", running: null }), "Running")).toBe("The build's own update (abcdef12)");
+    // With no state, a picked preview's channel is never shown as the build's.
+    expect(value(previewPhoneLines(sig), "Installed build")).toBe("1.2.0 (12) · ios");
+  });
+  it("reads embedded, off, a recovered launch and missing values", () => {
+    expect(value(previewPhoneLines({ ...sig, launch: "embedded" }), "Running")).toBe("The build's own code");
+    expect(value(previewPhoneLines({ ...sig, launch: "off" }), "Running")).toBe("Updates are off in this build");
+    expect(value(previewPhoneLines({ ...sig, launch: "embedded", emergency: true }), "Running")).toBe("The build's own code (recovered after a failed launch)");
+    const bare = previewPhoneLines({ ...sig, version: null, build: null, runtimeVersion: null, channel: null, requestedChannel: null });
+    expect(value(bare, "Installed build")).toBe("unknown · ios");
+    expect(value(bare, "Runtime")).toBe("none");
   });
 });
