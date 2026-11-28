@@ -418,6 +418,13 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
     for (const id of [...unsavedRelease]) await recordRelease(id);
     return unsaved.size === 0 && unsavedRelease.size === 0;
   };
+  /** True when the code running now is an update this phone downloaded from `channel`. */
+  const runsPreviewOf = async (channel: string | null): Promise<boolean> => {
+    const running = updates?.updateId ?? null;
+    if (!channel || !running || updates?.isEmbeddedLaunch) return false;
+    if (unsaved.get(running) === channel) return true;
+    return (parsePreviewRecord(await read(previewKey))[channel] ?? []).includes(running);
+  };
   /** Check and fetch what the current header names. */
   const fetch = async (): Promise<ChannelCheck> => {
     const u = updates as UpdatesModuleLike;
@@ -442,6 +449,9 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
       }
       const reason = (check as { reason?: string }).reason;
       if (reason === "updatePreviouslyFailed") return { kind: "nothing", reason: "failed" };
+      // The server also answers "nothing" to a phone that already runs the channel's newest update:
+      // that phone is up to date, not missing the preview.
+      if (reason === "noUpdateAvailableOnServer" && (await runsPreviewOf((await load()).requested))) return { kind: "latest" };
       if (reason === "noUpdateAvailableOnServer" || reason === "rollbackNoEmbeddedConfiguration") return { kind: "nothing", reason: "none" };
       // No reason, or a selection-policy rejection: nothing newer this phone would load.
       return { kind: "latest" };

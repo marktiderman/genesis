@@ -12,7 +12,8 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Pressable, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { NativeButton, NativeEmptyState, NativeText } from "@marktiderman/genesis-ui-native/components";
-import { useUpdates } from "./block";
+import { useUpdates, useVersionSignature } from "./block";
+import type { VersionSignature } from "./signature";
 import { isChannelName, type ChannelCheck, type ChannelState, type ChannelSwitcher } from "./channels";
 
 const EMPTY: ChannelState = { requested: null, build: null, lingering: null };
@@ -75,6 +76,7 @@ export interface PreviewScreenProps {
 export function PreviewScreen({ channel, onDone, testID = "genesis-preview" }: PreviewScreenProps) {
   const { channels } = useUpdates();
   const state = useChannelStateOf(channels);
+  const signature = useVersionSignature();
   const valid = isChannelName(channel ?? "") ? (channel as string) : null;
   // Each channel the screen is given is a new attempt: a new link (even back to an earlier one)
   // starts at confirm, and a late answer from an earlier attempt is dropped.
@@ -140,7 +142,9 @@ export function PreviewScreen({ channel, onDone, testID = "genesis-preview" }: P
       case "restarting":
         return { title: "Restarting…", body: "" };
       case "latest":
-        return { title: "Nothing newer to load", body: "No update was picked for this phone, so it keeps the one it runs now.", primary: { label: "Done", onPress: onDone } };
+        return already
+          ? { title: `You have the newest ${valid}`, body: "This phone already runs this preview's newest version.", primary: { label: "Done", onPress: onDone } }
+          : { title: "Nothing newer to load", body: "No update was picked for this phone, so it keeps the one it runs now.", primary: { label: "Done", onPress: onDone } };
       case "nothing":
         // "none" is often only a preview still publishing (a push shows up a few minutes later),
         // so it says so and offers another try first; only a crash here before is final.
@@ -152,7 +156,7 @@ export function PreviewScreen({ channel, onDone, testID = "genesis-preview" }: P
             }
           : {
               title: `${valid} isn't on this phone yet`,
-              body: "If it was just pushed, it may still be publishing: try again in a minute or two. If it still won't load, it changed native code and needs a new build from the store or TestFlight.",
+              body: `${valid} has nothing published for this phone's build (below). If it was just pushed, it may still be publishing: try again in a minute or two. If it still won't load, it was published for another build: install the build it names, from the store or TestFlight.`,
               primary: { label: "Try again", onPress: () => void load() },
             };
       case "gone":
@@ -179,6 +183,7 @@ export function PreviewScreen({ channel, onDone, testID = "genesis-preview" }: P
           {body.primary.label}
         </NativeButton>
       ) : null}
+      {phase.kind !== "working" && phase.kind !== "restarting" ? <PreviewPhoneDetails signature={signature} testID={`${testID}-details`} /> : null}
       {phase.kind === "nothing" && phase.reason === "none" ? (
         <NativeButton testID={`${testID}-leave`} variant="ghost" onPress={leaveNothing}>
           Back to the app
@@ -193,6 +198,46 @@ export function PreviewScreen({ channel, onDone, testID = "genesis-preview" }: P
           Not now
         </NativeButton>
       ) : null}
+    </View>
+  );
+}
+
+/**
+ * What this phone has installed and runs, as lines: the build, the runtime a preview must be
+ * published for, and whose code runs now. A preview link that finds nothing is told apart from one
+ * that waits on a new build by comparing these with the preview's own build.
+ */
+export function previewPhoneLines(sig: VersionSignature): { label: string; value: string }[] {
+  const app = sig.version ? `${sig.version}${sig.build ? ` (${sig.build})` : ""}` : (sig.build ?? "unknown");
+  const runs =
+    sig.launch === "off"
+      ? "Updates are off in this build"
+      : sig.launch === "embedded"
+        ? "The build's own code"
+        : `Update ${sig.updateId ? sig.updateId.slice(0, 8) : "unknown"}${sig.requestedChannel ? ` from ${sig.requestedChannel}` : ""}`;
+  return [
+    { label: "Installed build", value: `${app} · ${sig.platform}${sig.channel ? ` · ${sig.channel}` : ""}` },
+    { label: "Runtime", value: sig.runtimeVersion ? sig.runtimeVersion.slice(0, 7) : "none" },
+    { label: "Running", value: sig.emergency ? `${runs} (recovered after a failed launch)` : runs },
+  ];
+}
+
+function PreviewPhoneDetails({ signature, testID }: { signature: VersionSignature; testID: string }) {
+  return (
+    <View testID={testID} accessible accessibilityLabel={previewPhoneLines(signature).map((l) => `${l.label}: ${l.value}`).join(". ")} className="rounded-lg bg-muted" style={{ padding: 12, gap: 4 }}>
+      <NativeText preset="caption" style={{ fontWeight: "600" }}>
+        This phone
+      </NativeText>
+      {previewPhoneLines(signature).map((l) => (
+        <View key={l.label} style={{ flexDirection: "row", gap: 8 }}>
+          <NativeText preset="caption" style={{ opacity: 0.7, width: 110 }}>
+            {l.label}
+          </NativeText>
+          <NativeText preset="caption" style={{ flex: 1 }} selectable>
+            {l.value}
+          </NativeText>
+        </View>
+      ))}
     </View>
   );
 }

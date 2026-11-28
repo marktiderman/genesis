@@ -298,3 +298,21 @@ describe("the checker's downloads and the preview record", () => {
     expect(fake.reloadAsync).not.toHaveBeenCalled();
   });
 });
+
+describe("PreviewScreen's phone details", () => {
+  it("shows the installed build, its runtime and what runs, and says up to date when the phone already runs the newest", async () => {
+    // The phone follows pr-3 and runs its update; the server has nothing newer for it.
+    const fake = fakeUpdates({ updateId: "abcdef12-3456", runtimeVersion: "7c750d9daf53588dab66a503b3ddaa8faaf57a22" });
+    const storage = memoryStorage({ "genesis:updates:channel": "pr-3" });
+    const updates = createUpdates({ platform: "ios", application, policyTimeoutMs: 50, updates: fake, storage, channels: { enabled: true } });
+    mount(updates, <PreviewScreen channel="pr-3" onDone={vi.fn()} />);
+    await act(settle);
+    expect(screen.getByText("1.2.0 (12) · ios · production")).toBeTruthy();
+    expect(screen.getByText("7c750d9")).toBeTruthy();
+    expect(screen.getByText("Update abcdef12 from pr-3")).toBeTruthy();
+    fake.checkForUpdateAsync.mockResolvedValueOnce({ isAvailable: false, isRollBackToEmbedded: false, reason: "noUpdateAvailableOnServer" } as never);
+    fireEvent.click(screen.getByTestId("genesis-preview-primary"));
+    await act(settle);
+    expect(screen.getByText("You have the newest pr-3")).toBeTruthy();
+  });
+});

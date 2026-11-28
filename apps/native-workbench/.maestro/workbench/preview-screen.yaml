@@ -1,4 +1,4 @@
-# Preview link: PreviewScreen when the preview isn't on the phone yet (a stand-in for expo-updates, no real channel). Not published yet says so and offers Try again, which then loads it; Crashed before says it won't load again.
+# Preview link: PreviewScreen when the preview isn't on the phone yet (a stand-in for expo-updates, no real channel). Not published yet says so and offers Try again, which then loads it; Crashed before says it won't load again. Each answer shows this phone's installed build, runtime and running code.
 appId: com.streamlineddigital.genesis.dev
 tags:
   - workbench
@@ -18,6 +18,10 @@ tags:
     timeout: 10000
 - assertVisible:
     id: "genesis-preview-leave"
+# The phone's own build, runtime and running code, beside the answer.
+- assertVisible:
+    id: "genesis-preview-details"
+- assertVisible: "Installed build"
 - takeScreenshot: preview-screen-not-yet
 - tapOn:
     id: "genesis-preview-primary"
